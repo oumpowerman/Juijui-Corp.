@@ -83,7 +83,7 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
 
             // Load the SDK only when needed
             // @ts-ignore
-            const { GoogleGenAI, Type } = await import("https://esm.sh/@google/genai@0.2.1");
+            const { GoogleGenAI, Type } = await import("https://esm.sh/@google/genai@0.21.0");
 
             const ai = new GoogleGenAI({ apiKey });
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, ChevronRight, ChevronLeft, ChevronDown, Sparkles, LogOut, Briefcase, Wrench, ShieldCheck, Edit } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, ChevronRight, ChevronLeft, ChevronDown, Sparkles, LogOut, Briefcase, Wrench, ShieldCheck, Edit, Plus } from 'lucide-react';
 import { User, ViewMode } from '../types';
 
 interface MenuItem {
@@ -102,10 +102,11 @@ interface SidebarProps {
     onNavigate: (view: ViewMode) => void;
     onLogout: () => void | Promise<void>;
     onEditProfile: () => void;
+    onAddTask: () => void; // Added Prop
     unreadChatCount: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile, unreadChatCount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile, onAddTask, unreadChatCount }) => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<string[]>(['WORKSPACE']);
     const isAdmin = currentUser.role === 'ADMIN';
@@ -155,7 +156,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
             )}
             </div>
 
-            <nav className="flex-1 py-6 px-3 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+            <div className={`p-4 ${isSidebarCollapsed ? 'px-2' : ''}`}>
+                <button 
+                    onClick={onAddTask}
+                    className={`
+                        w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                        bg-gradient-to-r from-indigo-600 to-indigo-500 
+                        text-white font-bold shadow-lg shadow-indigo-900/40
+                        hover:shadow-indigo-500/30 hover:-translate-y-0.5
+                        active:scale-95 transition-all duration-200
+                        ${isSidebarCollapsed ? 'px-0' : 'px-4'}
+                    `}
+                    title="สร้างงานใหม่"
+                >
+                    <Plus className="w-5 h-5 stroke-[3px]" />
+                    {!isSidebarCollapsed && <span className="tracking-wide">สร้างงานใหม่</span>}
+                </button>
+            </div>
+
+            <nav className="flex-1 py-2 px-3 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
             {MENU_GROUPS.map((group) => {
                 if (group.adminOnly && !isAdmin) return null;
                 

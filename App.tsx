@@ -311,6 +311,7 @@ const MainApp = () => {
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         onEditProfile={() => setIsProfileModalOpen(true)}
+        onAddTask={() => handleAddTask()} // Passed correctly now
         unreadChatCount={unreadCount}
       />
 
@@ -412,4 +413,3 @@ const MainApp = () => {
 };
 
 export default MainApp;
-    

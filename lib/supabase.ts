@@ -1,44 +1,42 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Helper to safely access environment variables in different environments (Vite, CRA, Standard Node)
-const getEnvVar = (key: string) => {
-  try {
-    // Check for Vite's import.meta.env
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-      // @ts-ignore
-      return import.meta.env[key];
-    }
-  } catch (e) {
-    // Ignore errors accessing import.meta
-  }
+// Robust Env Var Access for Vite/CRA
+// This prevents "Cannot read properties of undefined" by checking existence first
+const getEnv = (key: string): string => {
+    let val: string | undefined = '';
 
-  try {
-    // Check for standard process.env
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key];
-    }
-  } catch (e) {
-    // Ignore errors
-  }
+    // 1. Try Vite's import.meta.env (Static Replacement)
+    try {
+        // @ts-ignore: Check if import.meta exists
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            // @ts-ignore: Access property safely
+            if (key === 'VITE_SUPABASE_URL') val = import.meta.env.VITE_SUPABASE_URL;
+            // @ts-ignore
+            if (key === 'VITE_SUPABASE_ANON_KEY') val = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        }
+    } catch (e) { /* ignore */ }
 
-  return undefined;
+    if (val) return val;
+
+    // 2. Try process.env (Standard Node/CRA Fallback)
+    try {
+        if (typeof process !== 'undefined' && process.env) {
+            val = process.env[key];
+        }
+    } catch (e) { /* ignore */ }
+
+    return val || '';
 };
 
-// Initialize the Supabase client
-// We provide fallback values to prevent "supabaseUrl is required" error if env variables are not set.
-// This prevents the white screen crash, although functionality will fail if keys are missing.
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    '⚠️ Missing Supabase environment variables! Please check .env file for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
-  );
+    console.warn("⚠️ Supabase credentials missing. Please check your .env file.");
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-key'
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder-key'
 );

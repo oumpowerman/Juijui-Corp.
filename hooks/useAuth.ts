@@ -17,19 +17,22 @@ export const useAuth = (sessionUser: any) => {
 
             if (error) throw error;
 
+            // Mapping ข้อมูลจาก DB ลงใน Interface User ของเรา
             const mappedUser: User = {
                 id: data.id,
                 email: data.email,
                 name: data.full_name || 'No Name',
-                role: data.role,
+                role: data.role, // สิทธิ์ระบบ: ADMIN, MEMBER
                 avatarUrl: data.avatar_url,
-                position: data.position || 'Member',
-                phoneNumber: data.phone_number,
+                position: data.position || 'Member', // ตำแหน่งงานในบริษัท
+                phoneNumber: data.phone_number, // เบอร์โทร
+                bio: data.bio || '', // ADDED: Mapped bio field
+                feeling: data.feeling || '', // ADDED: Mapped feeling field
                 isApproved: data.is_approved,
-                isActive: data.is_active !== false, // Default to true if undefined
+                isActive: data.is_active !== false,
                 xp: data.xp || 0,
                 level: data.level || 1,
-                availablePoints: data.available_points || 0 // NEW
+                availablePoints: data.available_points || 0
             };
             
             setCurrentUserProfile(mappedUser);
@@ -45,35 +48,35 @@ export const useAuth = (sessionUser: any) => {
         
         try {
             const payload: any = {};
-            if (updates.name) payload.full_name = updates.name;
-            if (updates.position) payload.position = updates.position;
-            if (updates.phoneNumber) payload.phone_number = updates.phoneNumber;
             
-            // Handle File Upload if provided
+            // Check undefined to allow empty strings (clearing data)
+            if (updates.name !== undefined) payload.full_name = updates.name;
+            if (updates.position !== undefined) payload.position = updates.position;
+            if (updates.bio !== undefined) payload.bio = updates.bio; 
+            if (updates.feeling !== undefined) payload.feeling = updates.feeling; 
+            
+            // Map camelCase (Frontend) to snake_case (Database) correctly
+            if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
+            
+            // Handle File Upload
             if (avatarFile) {
+                // Sanitize filename to avoid issues with special characters
                 const fileExt = avatarFile.name.split('.').pop();
                 const fileName = `${currentUserProfile.id}-${Date.now()}.${fileExt}`;
-                const filePath = `${fileName}`;
 
-                // 1. Upload to Supabase Storage
                 const { error: uploadError } = await supabase.storage
                     .from('avatars')
-                    .upload(filePath, avatarFile, { upsert: true });
+                    .upload(fileName, avatarFile, { upsert: true });
 
                 if (uploadError) throw uploadError;
 
-                // 2. Get Public URL
                 const { data: urlData } = supabase.storage
                     .from('avatars')
-                    .getPublicUrl(filePath);
+                    .getPublicUrl(fileName);
 
                 payload.avatar_url = urlData.publicUrl;
-            } else if (updates.avatarUrl !== undefined) {
-                // Fallback for URL string update (if needed)
-                payload.avatar_url = updates.avatarUrl;
             }
 
-            // 3. Update Profile Data in DB
             const { error } = await supabase
                 .from('profiles')
                 .update(payload)
@@ -81,7 +84,7 @@ export const useAuth = (sessionUser: any) => {
 
             if (error) throw error;
 
-            // Update local state
+            // Update Local State immediately
             setCurrentUserProfile(prev => prev ? ({ 
                 ...prev, 
                 ...updates, 

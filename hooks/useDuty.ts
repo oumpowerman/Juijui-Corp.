@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Duty, User, DutyConfig } from '../types';
 import { useToast } from '../context/ToastContext';
-import { addDays, isWeekend, isSameDay, getDay, isBefore } from 'date-fns';
+import { addDays, isWeekend, getDay, isBefore, format } from 'date-fns';
 
 const DEFAULT_CONFIGS: DutyConfig[] = [
     { dayOfWeek: 1, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, // Mon
@@ -35,7 +35,7 @@ export const useDuty = () => {
                     id: d.id,
                     title: d.title,
                     assigneeId: d.assignee_id,
-                    date: new Date(d.date),
+                    date: new Date(d.date), // Local date parsing works if string is YYYY-MM-DD
                     isDone: d.is_done
                 })));
             }
@@ -104,10 +104,13 @@ export const useDuty = () => {
 
     const addDuty = async (title: string, assigneeId: string, date: Date) => {
         try {
+            // Fix: Use local date string instead of UTC to prevent off-by-one error
+            const dateStr = format(date, 'yyyy-MM-dd');
+            
             const { error } = await supabase.from('duties').insert({
                 title,
                 assignee_id: assigneeId,
-                date: date.toISOString().split('T')[0],
+                date: dateStr,
                 is_done: false
             });
             if (error) throw error;
@@ -143,7 +146,7 @@ export const useDuty = () => {
     };
 
     const cleanupOldDuties = async () => {
-        const cutoffDate = addDays(new Date(), -(HISTORY_LOOKBACK_DAYS * 2)).toISOString().split('T')[0];
+        const cutoffDate = format(addDays(new Date(), -(HISTORY_LOOKBACK_DAYS * 2)), 'yyyy-MM-dd');
         try {
             const { error } = await supabase
                 .from('duties')
@@ -156,86 +159,132 @@ export const useDuty = () => {
         }
     };
 
-    const generateRandomDuties = async (weekStart: Date, activeUsers: User[]) => {
+    // --- REVISED RANDOMIZER LOGIC (Queue/Rotation System) ---
+    // Updated to accept 'mode' and conditional 'weeksToGenerate'
+    const generateRandomDuties = async (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
         if (activeUsers.length === 0) {
             showToast('ไม่พบสมาชิกที่ Active เลยครับ', 'error');
             return [];
         }
 
-        const workingDays: Date[] = [];
-        for (let i = 0; i < 7; i++) {
-            const currentDay = addDays(weekStart, i);
-            if (!isWeekend(currentDay)) {
-                workingDays.push(currentDay);
+        // 1. Prepare User Queue
+        // Fisher-Yates Shuffle
+        const shuffle = (array: User[]) => {
+            let currentIndex = array.length, randomIndex;
+            const newArray = [...array];
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [newArray[currentIndex], newArray[randomIndex]] = [newArray[randomIndex], newArray[currentIndex]];
             }
-        }
+            return newArray;
+        };
 
-        if (workingDays.length === 0) return [];
-
-        // 1. Build Priority Queue
-        const lastDutyMap = new Map<string, number>();
-        activeUsers.forEach(u => lastDutyMap.set(u.id, 0));
-
-        const lookbackDate = addDays(new Date(), -HISTORY_LOOKBACK_DAYS);
-        duties.forEach(d => {
-            if (lastDutyMap.has(d.assigneeId) && !isBefore(new Date(d.date), lookbackDate)) {
-                const dTime = new Date(d.date).getTime();
-                const currentLast = lastDutyMap.get(d.assigneeId) || 0;
-                if (dTime > currentLast) {
-                    lastDutyMap.set(d.assigneeId, dTime);
-                }
-            }
-        });
-
-        let userDeck = [...activeUsers].sort((a, b) => {
-            const timeA = lastDutyMap.get(a.id) || 0;
-            const timeB = lastDutyMap.get(b.id) || 0;
-            if (timeA === timeB) return Math.random() - 0.5;
-            return timeA - timeB;
-        });
-
-        const drawUsers = (count: number): User[] => {
+        // Initial Queue
+        let userQueue = shuffle(activeUsers); 
+        
+        // Tracking for ROTATION mode
+        const assignedUserIds = new Set<string>();
+        
+        // Helper to get next N users (refilling queue if needed)
+        const getNextUsers = (count: number): User[] => {
             const selected: User[] = [];
-            for (let k = 0; k < count; k++) {
-                if (userDeck.length === 0) {
-                    userDeck = [...activeUsers].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < count; i++) {
+                if (userQueue.length === 0) {
+                    // Refill and Reshuffle when empty to ensure rotation continues fairly
+                    userQueue = shuffle(activeUsers);
+                    
+                    // Optional: Try to avoid repeating the last user immediately if possible
+                    if (activeUsers.length > 1 && userQueue[0].id === selected[selected.length - 1]?.id) {
+                         userQueue.push(userQueue.shift()!); // Move front to back
+                    }
                 }
-                selected.push(userDeck.shift()!);
+                const user = userQueue.shift()!;
+                selected.push(user);
+                assignedUserIds.add(user.id);
             }
             return selected;
         };
 
+        // 2. Generate Days (Skip Weekends)
         const newDutiesPayload: any[] = [];
-        workingDays.forEach(day => {
-            const dayNum = getDay(day);
-            const config = configs.find(c => c.dayOfWeek === dayNum) || { 
-                dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] 
-            };
+        let currentGenDate = new Date(startDate);
+        let daysGenerated = 0;
+        
+        // Loop Condition Variable
+        const targetDaysForDuration = weeksToGenerate * 5; // Used only if DURATION mode
 
-            const peopleNeeded = config.requiredPeople;
-            const assignedUsers = drawUsers(peopleNeeded);
+        // Loop until requirement met
+        while (true) {
+            // STOP CONDITIONS
+            if (mode === 'DURATION') {
+                if (daysGenerated >= targetDaysForDuration) break;
+            } else if (mode === 'ROTATION') {
+                // Stop when everyone has been assigned at least once
+                // AND we finish the current day's requirement (implicit in logic)
+                if (assignedUserIds.size >= activeUsers.length) break;
+                // Safety break to prevent infinite loops if config is weird
+                if (daysGenerated > activeUsers.length * 5) break; 
+            }
 
-            assignedUsers.forEach((user, idx) => {
-                const title = config.taskTitles[idx] || config.taskTitles[0] || 'เวรประจำวัน';
-                newDutiesPayload.push({
-                    title,
-                    assignee_id: user.id,
-                    date: day.toISOString().split('T')[0],
-                    is_done: false
+            // Skip weekends
+            if (!isWeekend(currentGenDate)) {
+                const dayNum = getDay(currentGenDate);
+                const config = configs.find(c => c.dayOfWeek === dayNum) || { 
+                    dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] 
+                };
+
+                const peopleNeeded = config.requiredPeople;
+                const assignedUsers = getNextUsers(peopleNeeded);
+
+                assignedUsers.forEach((user, idx) => {
+                    // Enhanced Title Logic
+                    let title = config.taskTitles[idx];
+                    if (!title || title.trim() === '') {
+                        title = config.taskTitles[0] || 'เวรประจำวัน';
+                        if (peopleNeeded > 1) title += ` (${idx + 1})`;
+                    }
+                    
+                    newDutiesPayload.push({
+                        title,
+                        assignee_id: user.id,
+                        date: format(currentGenDate, 'yyyy-MM-dd'),
+                        is_done: false
+                    });
                 });
-            });
-        });
+                
+                daysGenerated++;
+            }
+            // Move to next day
+            currentGenDate = addDays(currentGenDate, 1);
+        }
 
         try {
-            // Clear current week first
-            const dayStrings = workingDays.map(d => d.toISOString().split('T')[0]);
-            await supabase.from('duties').delete().in('date', dayStrings);
+            // 3. Clear Existing Duties in the Generated Range
+            // Determine range for deletion
+            const endGenDate = addDays(currentGenDate, -1); // Last generated day
             
-            // Insert new
+            const startStr = format(startDate, 'yyyy-MM-dd');
+            const endStr = format(endGenDate, 'yyyy-MM-dd');
+
+            // Delete overlapping
+            const { error: deleteError } = await supabase.from('duties')
+                .delete()
+                .gte('date', startStr)
+                .lte('date', endStr);
+            
+            if (deleteError) throw deleteError;
+            
+            // 4. Insert New
             const { data, error } = await supabase.from('duties').insert(newDutiesPayload).select();
             if (error) throw error;
             
-            showToast('สุ่มและบันทึกตารางเวรใหม่เรียบร้อย 🎉', 'success');
+            if (mode === 'ROTATION') {
+                showToast(`จัดเวรให้ครบทุกคนแล้ว! (รวม ${daysGenerated} วันทำการ) 🎉`, 'success');
+            } else {
+                showToast(`จัดเวร ${weeksToGenerate} สัปดาห์เรียบร้อย 🎉`, 'success');
+            }
+            
             return data.map((d: any) => ({
                 id: d.id,
                 title: d.title,
@@ -244,7 +293,7 @@ export const useDuty = () => {
                 isDone: d.is_done
             }));
         } catch (err: any) {
-            showToast('สุ่มล้มเหลว: ' + err.message, 'error');
+            showToast('จัดเวรล้มเหลว: ' + err.message, 'error');
             return [];
         }
     };

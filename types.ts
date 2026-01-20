@@ -1,90 +1,195 @@
 
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'CHAT' | 'TEAM' | 'WEEKLY' | 'GOALS' | 'DUTY' | 'QUALITY_GATE' | 'STOCK' | 'CHECKLIST' | 'WIKI' | 'CHANNELS' | 'MASTER_DATA';
+
 export type Role = 'ADMIN' | 'MEMBER';
 
 export enum Status {
-  // Generic / Simple Task
   TODO = 'TODO',
   DOING = 'DOING',
   BLOCKED = 'BLOCKED',
-
-  // 01-02: Planning Phase
   IDEA = 'IDEA',
   SCRIPT = 'SCRIPT',
-  
-  // 03-04: Production Phase
   SHOOTING = 'SHOOTING',
   EDIT_CLIP = 'EDIT_CLIP',
-  
-  // 05: Feedback Loop 1
   FEEDBACK = 'FEEDBACK',
-  
-  // 06: Revision 1
   EDIT_DRAFT_1 = 'EDIT_DRAFT_1',
-  
-  // 07: Feedback Loop 2
   FEEDBACK_1 = 'FEEDBACK_1',
-  
-  // 08: Revision 2
   EDIT_DRAFT_2 = 'EDIT_DRAFT_2',
-  
-  // 09-10: Final Phase
   APPROVE = 'APPROVE',
-  DONE = 'DONE',
+  DONE = 'DONE'
 }
 
 export enum Priority {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',
-  URGENT = 'URGENT',
+  URGENT = 'URGENT'
 }
 
-export type Platform = 'YOUTUBE' | 'TIKTOK' | 'FACEBOOK' | 'INSTAGRAM' | 'OTHER';
-export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'; // New Difficulty Type
+export type Platform = 'YOUTUBE' | 'FACEBOOK' | 'TIKTOK' | 'INSTAGRAM' | 'OTHER' | 'ALL';
 
-// Updated: Channel now represents a Brand which can have multiple platforms
-export interface Channel {
-  id: string;
-  name: string;
-  description?: string; // New field for channel concept/details
-  color: string;
-  platforms: Platform[]; 
-}
+export type ContentPillar = 'COMEDY' | 'STREET' | 'DEEP_TALK' | 'BEHIND' | 'FAN_INTERACTION' | 'EDUCATION' | 'ENTERTAINMENT' | 'LIFESTYLE' | 'PROMO' | 'OTHER' | 'REALTIME';
+
+export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | 'REELS' | 'STORY' | 'POST_H' | 'OTHER';
+
+export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'OTHER' | 'LINK';
+
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
+
+export type TaskType = 'CONTENT' | 'TASK';
+
+export type FilterType = 'STATUS' | 'FORMAT' | 'CHANNEL' | 'PILLAR' | 'CATEGORY';
+
+export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: Role;
-  avatarUrl: string;
-  position: string;
-  phoneNumber?: string; // New field
+  avatarUrl?: string;
+  position?: string;
+  phoneNumber?: string; // เบอร์โทร
+  bio?: string;         // คำแนะนำตัว
+  feeling?: string;     // สถานะ/ความรู้สึก
   isApproved: boolean;
-  isActive: boolean; // NEW: Controls active/inactive status
-  xp: number; // NEW: Experience Points (Lifetime)
-  level: number; // NEW: User Level
-  availablePoints: number; // NEW: Spendable Points for Rewards
+  isActive: boolean;
+  xp: number;
+  level: number;
+  availablePoints: number;
 }
 
-// --- NEW: Goals System ---
-export interface Goal {
+export interface TaskAsset {
+  id: string;
+  name: string;
+  url: string;
+  type: 'LINK' | 'FILE';
+  category: AssetCategory;
+  createdAt: Date;
+}
+
+export interface TaskPerformance {
+  views: number;
+  likes: number;
+  shares: number;
+  comments: number;
+  revenue: number;
+  reflection: string;
+}
+
+export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE';
+
+export interface ReviewSession {
+  id: string;
+  taskId: string;
+  round: number;
+  scheduledAt: Date;
+  reviewerId?: string;
+  status: ReviewStatus;
+  feedback?: string;
+  isCompleted: boolean;
+  task?: Task;
+}
+
+export interface TaskLog {
+  id: string;
+  taskId: string;
+  userId: string;
+  action: string;
+  details: string;
+  reason?: string;
+  createdAt: Date;
+  user?: { name: string; avatarUrl?: string };
+}
+
+export interface Task {
+  id: string;
+  type: TaskType;
+  title: string;
+  description: string;
+  status: Status | string;
+  priority: Priority;
+  tags: string[];
+  startDate: Date;
+  endDate: Date;
+  
+  channelId?: string;
+  targetPlatforms?: Platform[];
+  pillar?: ContentPillar | string;
+  contentFormat?: ContentFormat | string;
+  category?: string;
+  remark?: string;
+  
+  // Assignee Logic
+  assigneeType?: AssigneeType;
+  assigneeIds: string[];
+  targetPosition?: string; 
+  
+  // Specific Details
+  caution?: string; 
+  importance?: string; 
+  publishedLinks?: Record<string, string>; // CHANGED: Key=Platform, Value=URL
+
+  ideaOwnerIds?: string[];
+  editorIds?: string[];
+  
+  isUnscheduled?: boolean;
+  assets?: TaskAsset[];
+  reviews?: ReviewSession[];
+  logs?: TaskLog[];
+  
+  difficulty?: Difficulty;
+  estimatedHours?: number;
+  performance?: TaskPerformance;
+}
+
+export interface Channel {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  platforms: Platform[];
+  platform?: Platform;
+}
+
+export interface MasterOption {
+  id: string;
+  type: 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'POSITION' | 'RESPONSIBILITY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'TASK_STATUS';
+  key: string;
+  label: string;
+  color?: string;
+  sortOrder: number;
+  isActive: boolean;
+  isDefault?: boolean;
+  parentKey?: string;
+}
+
+export interface ChipConfig {
     id: string;
-    title: string; // e.g. "ผู้ติดตามครบ 100k"
-    platform: Platform | 'ALL';
-    currentValue: number;
-    targetValue: number;
-    deadline: Date;
-    channelId?: string; // Optional: Link to specific channel
-    isArchived: boolean;
+    label: string;
+    type: FilterType;
+    value: string;
+    colorTheme: string;
+    scope?: 'CONTENT' | 'TASK';
 }
 
-// --- NEW: Rewards System ---
+export interface DashboardConfig {
+    id: string;
+    key: string;
+    label: string;
+    icon?: string;
+    colorTheme: string;
+    statusKeys: string[];
+    filterType?: 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY';
+    sortOrder: number;
+}
+
 export interface Reward {
     id: string;
     title: string;
-    description: string;
+    description?: string;
     cost: number;
-    icon?: string; // Emoji or Icon name
+    icon?: string;
     isActive: boolean;
 }
 
@@ -93,127 +198,8 @@ export interface Redemption {
     userId: string;
     rewardId: string;
     redeemedAt: Date;
-    rewardSnapshot?: Reward; // For history display
-}
-
-// --- NEW: System Notification Type ---
-export interface AppNotification {
-    id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO';
-    title: string;
-    message: string;
-    taskId?: string; // If related to a task
-    date: Date;
-    isRead: boolean;
-}
-
-export type TaskType = 'CONTENT' | 'TASK';
-
-// Updated Pillars based on user request
-export type ContentPillar = 'COMEDY' | 'STREET' | 'DEEP_TALK' | 'BEHIND' | 'FAN_INTERACTION' | 'EDUCATION' | 'ENTERTAINMENT' | 'LIFESTYLE' | 'PROMO' | 'OTHER';
-
-// New: Content Formats based on user request
-export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | 'REELS' | 'STORY' | 'POST_H' | 'OTHER';
-
-// New: Asset Category
-export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'OTHER';
-
-// New: Task Asset Structure
-export interface TaskAsset {
-    id: string;
-    name: string;
-    url: string;
-    type: 'LINK' | 'FILE';
-    category: AssetCategory;
-    uploadedBy?: string;
-    createdAt: Date;
-}
-
-// --- NEW: Review Session (Quality Gate) ---
-export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE';
-
-export interface ReviewSession {
-    id: string;
-    taskId: string;
-    round: number; // 1, 2, 3
-    scheduledAt: Date; // Booked Time
-    reviewerId: string; // CEO/Head
-    status: ReviewStatus;
-    feedback?: string;
-    isCompleted: boolean;
-    task?: Task; // Relation
-}
-
-// --- NEW: Task Log (Audit Trail) ---
-export type LogAction = 'CREATED' | 'UPDATED' | 'STATUS_CHANGE' | 'DELAYED' | 'REVIEW_BOOKED';
-
-export interface TaskLog {
-    id: string;
-    taskId: string;
-    userId: string;
-    action: LogAction;
-    details: string;
-    reason?: string;
-    createdAt: Date;
-    user?: { name: string, avatarUrl: string };
-}
-
-// --- NEW: Performance Metrics (Feedback Loop) ---
-export interface TaskPerformance {
-    views: number;
-    likes: number;
-    shares: number;
-    comments: number;
-    revenue: number;
-    reflection: string; // Analysis of why it worked/failed
-}
-
-// --- NEW: Wiki Article (Knowledge Base) ---
-export interface WikiArticle {
-    id: string;
-    title: string;
-    category: 'ONBOARDING' | 'RULES' | 'TOOLS' | 'GENERAL';
-    content: string; // Markdown or HTML string
-    targetRoles: string[]; // ['ALL'], ['EDITOR'], ['CREATIVE'], etc.
-    lastUpdated: Date;
-    authorId?: string;
-    isPinned: boolean;
-}
-
-// --- NEW: Duty (Roster System) ---
-export interface Duty {
-    id: string;
-    title: string; // e.g. "ทิ้งขยะ", "สั่งข้าว", "เช็คสต็อก"
-    assigneeId: string;
-    date: Date;
-    isDone: boolean;
-}
-
-// --- NEW: Duty Config (Master Data) ---
-export interface DutyConfig {
-    dayOfWeek: number; // 1=Mon, 5=Fri
-    requiredPeople: number;
-    taskTitles: string[]; // List of specific tasks e.g. ['Sweep', 'Mop']
-}
-
-export interface MasterOption {
-    id: string;
-    type: 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS';
-    key: string;
-    label: string;
-    color: string;
-    sortOrder: number;
-    isActive: boolean;
-    isDefault?: boolean; // NEW: Flag for default selection
-}
-
-// Notification Settings Type
-export interface NotificationPreferences {
-    newAssignments: boolean;
-    upcomingDeadlines: boolean;
-    taskCompletions: boolean;
-    systemUpdates: boolean;
-    emailAlerts: boolean;
+    rewardSnapshot?: Reward;
+    user?: { name: string; avatarUrl?: string };
 }
 
 export interface ChecklistItem {
@@ -226,40 +212,64 @@ export interface ChecklistItem {
 export interface ChecklistCategory {
     id: string;
     title: string;
-    iconName: string; // 'camera', 'mic', 'light', 'box'
+    iconName: string;
     color: string;
 }
 
 export interface ChecklistPreset {
     id: string;
     name: string;
-    items: ChecklistItem[];
+    items: { text: string; categoryId: string }[];
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    description?: string;
+    categoryId: string;
+    imageUrl?: string | null;
+}
+
+export interface NotificationPreferences {
+    newAssignments: boolean;
+    upcomingDeadlines: boolean;
+    taskCompletions: boolean;
+    systemUpdates: boolean;
+    emailAlerts: boolean;
+}
+
+export interface AppNotification {
+    id: string;
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO';
+    title: string;
+    message: string;
+    taskId?: string;
+    date: Date;
+    isRead: boolean;
+}
+
+export interface Goal {
+    id: string;
+    title: string;
+    platform: Platform | 'ALL';
+    currentValue: number;
+    targetValue: number;
+    deadline: Date;
+    channelId?: string;
+    isArchived: boolean;
 }
 
 export interface WeeklyQuest {
     id: string;
     title: string;
     weekStartDate: Date;
-    channelId?: string; 
+    channelId?: string;
     targetCount: number;
-    
-    // Type of Quest
-    questType: 'AUTO' | 'MANUAL'; // NEW: Hybrid System
-    manualProgress?: number;      // NEW: For Manual tracking
-
-    // Enhanced Tracking Criteria (For AUTO):
     targetPlatform?: Platform | 'ALL';
-    targetFormat?: string; 
+    targetFormat?: string;
     targetStatus?: string;
-}
-
-export interface TaskComment {
-    id: string;
-    taskId: string;
-    userId: string;
-    content: string;
-    createdAt: Date;
-    user?: User; // Joined info
+    questType: 'AUTO' | 'MANUAL';
+    manualProgress?: number;
 }
 
 export interface ChatMessage {
@@ -268,57 +278,39 @@ export interface ChatMessage {
     userId: string;
     createdAt: Date;
     isBot: boolean;
-    messageType?: string;
+    messageType?: 'TEXT' | 'TASK_CREATED' | 'IMAGE' | 'FILE';
     user?: User;
 }
 
-// --- CALENDAR SMART FILTER TYPES ---
-export type FilterType = 'CHANNEL' | 'FORMAT' | 'STATUS' | 'PILLAR';
-
-export interface ChipConfig {
+export interface TaskComment {
     id: string;
-    label: string;
-    type: FilterType;
-    value: string;
-    colorTheme: string;
+    taskId: string;
+    userId: string;
+    content: string;
+    createdAt: Date;
+    user?: User;
 }
 
-export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'BOARD' | 'TEAM' | 'CHECKLIST' | 'CHANNELS' | 'STOCK' | 'WEEKLY' | 'CHAT' | 'MASTER_DATA' | 'QUALITY_GATE' | 'WIKI' | 'DUTY' | 'GOALS';
+export interface WikiArticle {
+    id: string;
+    title: string;
+    category: string;
+    content: string;
+    targetRoles: string[];
+    lastUpdated: Date;
+    isPinned: boolean;
+}
 
-export interface Task {
-  id: string;
-  type: TaskType;
-  title: string;
-  description: string;
-  status: Status;
-  priority: Priority;
-  tags: string[];
-  
-  // Dates
-  startDate: Date;
-  endDate: Date;
-  isUnscheduled?: boolean; // For "Stock" ideas
+export interface Duty {
+    id: string;
+    title: string;
+    assigneeId: string;
+    date: Date;
+    isDone: boolean;
+}
 
-  // Content Specific
-  pillar?: ContentPillar;
-  contentFormat?: ContentFormat;
-  category?: string; // Free text or select
-  channelId?: string;
-  targetPlatforms?: Platform[];
-  remark?: string; // Short note shown in calendar
-
-  // Gamification Fields
-  difficulty?: Difficulty; // NEW: Easy, Medium, Hard
-  estimatedHours?: number; // NEW: Man-hours
-
-  // People
-  assigneeIds: string[]; // Workers
-  ideaOwnerIds?: string[]; // Owners
-  editorIds?: string[]; // Editors
-
-  // New Features
-  assets?: TaskAsset[];
-  reviews?: ReviewSession[];
-  logs?: TaskLog[];
-  performance?: TaskPerformance; // NEW: Feedback Loop Data
+export interface DutyConfig {
+    dayOfWeek: number;
+    requiredPeople: number;
+    taskTitles: string[];
 }

@@ -34,9 +34,9 @@ export const useTaskManager = (sessionUser: any) => {
 
   // 6. Checklist Hook
   const { 
-    checklistCategories, checklistPresets, activeChecklistItems, loadChecklistData,
+    checklistPresets, activeChecklistItems, loadChecklistData,
     handleToggleChecklist, handleAddChecklistItem, handleDeleteChecklistItem, handleResetChecklist,
-    handleLoadPreset, handleAddPreset, handleDeletePreset, handleAddCategory, handleDeleteCategory
+    handleLoadPreset, handleAddPreset, handleDeletePreset
   } = useChecklist();
 
   // 7. Weekly Quests Hook (New)
@@ -48,24 +48,30 @@ export const useTaskManager = (sessionUser: any) => {
   // --- Initialize Logic (Orchestrator) ---
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true);
+      // Only set loading if we don't have profile yet to prevent flicker on refocus
+      if (!currentUserProfile) setIsLoading(true);
+      
       const profile = await fetchProfile();
       
       if (profile && profile.isApproved) {
+         // Use Promise.allSettled or just all to ensure fetching
+         // We check if data is empty to decide if we strictly need to fetch, 
+         // but normally simply fetching here is fine if we depend on ID.
          await Promise.all([
              fetchTasks(), 
              fetchChannels(), 
              fetchTeamMembers(),
              fetchQuests(),
-             fetchMasterOptions() // Fetch Master Data
+             fetchMasterOptions() 
          ]);
          loadChecklistData();
       }
       setIsLoading(false);
     };
 
-    if (sessionUser) init();
-  }, [sessionUser]);
+    if (sessionUser?.id) init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionUser?.id]); // CHANGED: Depend only on ID, not the entire object
 
   // Wrapper for handleSaveTask to match original signature expected by App.tsx
   const handleSaveTask = (task: any) => saveTaskInternal(task, editingTask);
@@ -77,10 +83,10 @@ export const useTaskManager = (sessionUser: any) => {
     allUsers,
     tasks,
     channels,
-    masterOptions, 
+    masterOptions,
+    fetchMasterOptions, // EXPORTED: For manual refresh in Dashboard
     
     // Checklist State
-    checklistCategories,
     checklistPresets,
     activeChecklistItems,
     
@@ -122,8 +128,6 @@ export const useTaskManager = (sessionUser: any) => {
     handleLoadPreset,
     handleAddPreset,     
     handleDeletePreset,  
-    handleAddCategory,
-    handleDeleteCategory,
     
     // Admin Actions
     approveMember,
@@ -139,3 +143,4 @@ export const useTaskManager = (sessionUser: any) => {
     updateProfile
   };
 };
+    

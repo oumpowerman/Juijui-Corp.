@@ -61,7 +61,6 @@ const MainApp = () => {
     tasks,
     channels,
     activeChecklistItems: checklistItems,
-    checklistCategories,
     checklistPresets,
     isModalOpen,
     editingTask,
@@ -69,6 +68,7 @@ const MainApp = () => {
     lockedTaskType, 
     notificationSettings,
     masterOptions, 
+    fetchMasterOptions,
     setIsModalOpen, 
     closeModal,
     handleAddTask,
@@ -88,8 +88,6 @@ const MainApp = () => {
     handleLoadPreset,
     handleAddPreset,
     handleDeletePreset,
-    handleAddCategory,
-    handleDeleteCategory,
     approveMember,
     removeMember,
     toggleUserStatus, 
@@ -178,9 +176,11 @@ const MainApp = () => {
             tasks={scheduledTasks} 
             channels={channels}
             users={allUsers}
+            masterOptions={masterOptions}
             onEditTask={handleEditTask} 
             onNavigateToCalendar={() => setCurrentView('CALENDAR')}
             onOpenSettings={() => setIsNotificationOpen(true)}
+            onRefreshMasterData={fetchMasterOptions}
           />
         );
       case 'CALENDAR':
@@ -213,6 +213,7 @@ const MainApp = () => {
             onRemoveMember={removeMember}
             onToggleStatus={toggleUserStatus} 
             onOpenSettings={() => setIsNotificationOpen(true)}
+            onAddTask={() => handleAddTask('TASK')}
           />
         );
       case 'CHAT': 
@@ -235,10 +236,8 @@ const MainApp = () => {
                 onLoadPreset={handleLoadPreset}
                 onAddPreset={handleAddPreset}
                 onDeletePreset={handleDeletePreset}
-                categories={checklistCategories}
-                onAddCategory={handleAddCategory}
-                onDeleteCategory={handleDeleteCategory}
                 onOpenSettings={() => setIsNotificationOpen(true)}
+                masterOptions={masterOptions}
             />
         );
       case 'CHANNELS':
@@ -312,6 +311,7 @@ const MainApp = () => {
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         onEditProfile={() => setIsProfileModalOpen(true)}
+        unreadChatCount={unreadCount}
       />
 
       {/* Main Content Area */}
@@ -358,6 +358,7 @@ const MainApp = () => {
             onAddTask={() => handleAddTask()}
             onLogout={handleLogout}
             onEditProfile={() => setIsProfileModalOpen(true)}
+            unreadChatCount={unreadCount}
         />
       </main>
 
@@ -411,3 +412,4 @@ const MainApp = () => {
 };
 
 export default MainApp;
+    

@@ -16,6 +16,10 @@ export const useTeam = () => {
         role: u.role,
         avatarUrl: u.avatar_url || '',
         position: u.position || 'Member',
+        // Map snake_case from DB to camelCase in App
+        phoneNumber: u.phone_number || '', 
+        bio: u.bio || '', 
+        feeling: u.feeling || '', 
         isApproved: u.is_approved,
         isActive: u.is_active !== false,
         xp: u.xp || 0,
@@ -25,16 +29,34 @@ export const useTeam = () => {
 
     const fetchTeamMembers = async () => {
         try {
-            const { data, error } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-            if (error) throw error;
+            // Explicitly selecting columns to ensure we get everything
+            // Note: If 'bio' or 'feeling' columns don't exist in DB, Supabase might throw error.
+            // Ensure SQL script is run to add these columns.
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, full_name, avatar_url, role, position, phone_number, bio, feeling, is_approved, is_active, xp, level, available_points')
+                .order('full_name', { ascending: true });
+                
+            if (error) {
+                console.error("Supabase Error fetching team:", error.message);
+                throw error;
+            }
             if (data) {
                 setAllUsers(data.map(mapProfileToUser));
             }
-        } catch (err) { console.error('Fetch team failed', err); }
+        } catch (err: any) { 
+            console.error('Fetch team failed', err);
+            // If error is about missing column, we might want to fallback or just log
+            if (err.message?.includes('column') && err.message?.includes('does not exist')) {
+                console.warn("Missing columns in profiles table. Please run the SQL migration script.");
+            }
+        }
     };
 
     // Setup Realtime Subscription for Profiles
     useEffect(() => {
+        fetchTeamMembers(); // Initial fetch
+
         const channel = supabase
             .channel('realtime-profiles')
             .on(
@@ -69,6 +91,10 @@ export const useTeam = () => {
         try {
             const { error } = await supabase.from('profiles').update({ is_approved: true }).eq('id', userId);
             if (error) throw error;
+            
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isApproved: true } : u));
+            
             showToast('อนุมัติสมาชิกเรียบร้อย! 🎉', 'success');
         } catch (err: any) {
             showToast('อนุมัติไม่สำเร็จ: ' + err.message, 'error');
@@ -80,6 +106,10 @@ export const useTeam = () => {
         try {
             const { error } = await supabase.from('profiles').delete().eq('id', userId);
             if (error) throw error;
+
+            // Update Local State Immediately
+            setAllUsers(prev => prev.filter(u => u.id !== userId));
+
             showToast('ลบสมาชิกออกจากทีมแล้ว', 'warning');
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
@@ -91,6 +121,10 @@ export const useTeam = () => {
             const newStatus = !currentStatus;
             const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', userId);
             if (error) throw error;
+
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: newStatus } : u));
+
             showToast(newStatus ? 'เปิดใช้งาน User แล้ว ✅' : 'พักงาน User ชั่วคราว 💤', 'info');
         } catch (err: any) {
             showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
@@ -108,6 +142,14 @@ export const useTeam = () => {
             const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
             if (error) throw error;
             
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { 
+                ...u, 
+                name: updates.name || u.name,
+                position: updates.position || u.position,
+                role: updates.role || u.role
+            } : u));
+
             showToast('อัปเดตข้อมูลสมาชิกสำเร็จ ✨', 'success');
             return true;
         } catch (err: any) {

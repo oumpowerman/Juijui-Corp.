@@ -33,17 +33,8 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             isCompleted: r.is_completed
         }));
 
-        // Map Logs
-        const logs: TaskLog[] = (data.task_logs || []).map((l: any) => ({
-            id: l.id,
-            taskId: l.content_id || l.task_id,
-            userId: l.user_id,
-            action: l.action,
-            details: l.details,
-            reason: l.reason,
-            createdAt: new Date(l.created_at),
-            user: l.profiles ? { name: l.profiles.full_name, avatarUrl: l.profiles.avatar_url } : undefined
-        }));
+        // OPTIMIZATION: Logs are no longer fetched here to improve performance
+        const logs: TaskLog[] = []; 
 
         return {
             id: data.id,
@@ -67,32 +58,34 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             editorIds: data.editor_ids || data.editorIds || [],
             assets: data.assets || [],
             reviews: reviews.sort((a, b) => a.round - b.round),
-            logs: logs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+            logs: logs, // Empty by default
             performance: data.performance || undefined,
             difficulty: data.difficulty || 'MEDIUM',
             estimatedHours: data.estimated_hours || 0,
+            
+            // New Mappings
+            assigneeType: data.assignee_type || 'TEAM',
+            targetPosition: data.target_position,
+            caution: data.caution,
+            importance: data.importance,
+            publishedLinks: data.published_links || {}, // Map JSONB to Object
         };
     };
 
     const fetchTasks = async () => {
         let newTasks: Task[] = [];
         
-        // 1. Fetch CONTENTS (Try/Catch isolated to prevent full crash)
+        // 1. Fetch CONTENTS (Removed task_logs join)
         try {
             const { data: contentsData, error: contentsError } = await supabase
                 .from('contents')
                 .select(`
                     *,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id),
-                    task_logs(
-                        id, user_id, action, details, reason, created_at, content_id,
-                        profiles(full_name, avatar_url)
-                    )
+                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
                 `);
             
             if (contentsError) {
-                console.warn("Contents fetch warning (DB Migration might be needed):", contentsError.message);
-                // Don't throw, just log. This allows tasks to still load.
+                console.warn("Contents fetch warning:", contentsError.message);
             } else if (contentsData) {
                 newTasks = [...newTasks, ...contentsData.map(d => mapSupabaseToTask(d, 'CONTENT'))];
             }
@@ -100,17 +93,11 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             console.error('Contents Fetch unexpected error:', err);
         }
 
-        // 2. Fetch TASKS (Legacy/Simple)
+        // 2. Fetch TASKS (Removed task_logs join)
         try {
             const { data: tasksData, error: tasksError } = await supabase
                 .from('tasks')
-                .select(`
-                    *,
-                    task_logs(
-                        id, user_id, action, details, reason, created_at, task_id,
-                        profiles(full_name, avatar_url)
-                    )
-                `);
+                .select(`*`);
 
             if (tasksError) {
                 console.warn("Tasks fetch warning:", tasksError.message);
@@ -121,7 +108,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             console.error('Tasks Fetch unexpected error:', err);
         }
 
-        // Update State
         setTasks(newTasks);
     };
 
@@ -132,7 +118,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_logs' }, () => fetchTasks())
+            // Removed task_logs listener to reduce noise, since we fetch logs on demand
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -155,7 +141,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
 
     const handleSaveTask = async (task: Task, editingTask: Task | null) => {
         try {
-            // Determine Table and Payload based on Type
             const isContent = task.type === 'CONTENT';
             const table = isContent ? 'contents' : 'tasks';
 
@@ -171,8 +156,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 assignee_ids: task.assigneeIds || [],
                 difficulty: task.difficulty || 'MEDIUM',
                 estimated_hours: task.estimatedHours || 0,
-                // Only tasks needs 'type' if using single table, but separate tables implicit type. 
-                // Legacy tasks table has 'type' column, we can set it to 'TASK' just in case.
+                
+                // New Fields
+                assignee_type: task.assigneeType,
+                target_position: task.targetPosition,
+                caution: task.caution,
+                importance: task.importance,
+
                 ...(isContent ? {} : { type: 'TASK' })
             };
 
@@ -189,6 +179,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 editor_ids: task.editorIds || [],
                 assets: task.assets || [],
                 performance: task.performance || null,
+                published_links: task.publishedLinks || null, // Updated to JSONB
             } : {};
 
             const dbPayload = { ...basePayload, ...contentPayload };
@@ -224,17 +215,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                      showToast('แก้ไขข้อมูลสำเร็จ', 'success');
                  }
             } else {
-                 // Insert
-                 // Need to include ID if we generated one in frontend? 
-                 // Yes, use task.id if provided, else let DB gen. But best to use what we have.
                  const insertPayload = { id: task.id, ...dbPayload };
                  const res = await supabase.from(table).insert(insertPayload);
                  error = res.error;
                  
                  if (!error) {
-                     // Add Log (Needs correct ID reference)
                      const logPayload: any = {
-                         user_id: undefined, // Add user ID if available in context
+                         user_id: undefined, 
                          action: 'CREATED',
                          details: `สร้างใหม่: ${task.title}`
                      };
@@ -259,7 +246,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
 
     const handleDelayTask = async (taskId: string, newDate: Date, reason: string, userId: string) => {
         try {
-            // Check if it's content or task
             const targetTask = tasks.find(t => t.id === taskId);
             if (!targetTask) return;
             const table = targetTask.type === 'CONTENT' ? 'contents' : 'tasks';
@@ -274,7 +260,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             
             if (taskError) throw taskError;
 
-            // Log
             const logPayload: any = {
                 user_id: userId,
                 action: 'DELAYED',

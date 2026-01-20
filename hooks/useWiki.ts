@@ -1,107 +1,111 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { WikiArticle } from '../types';
 import { useToast } from '../context/ToastContext';
 
-// Default Data for demo purposes
-const DEFAULT_WIKI: WikiArticle[] = [
-    {
-        id: '1',
-        title: 'ยินดีต้อนรับสู่ทีม Juijui! 🎉 (Onboarding 101)',
-        category: 'ONBOARDING',
-        targetRoles: ['ALL'],
-        content: `สวัสดีน้องๆ ฝึกงานและพนักงานใหม่ทุกคน!\n\nยินดีต้อนรับสู่ครอบครัวของเรา ที่นี่เราทำงานกันแบบ "Professional แต่เป็นกันเอง" สิ่งสำคัญที่สุดคือ:\n\n1. ความรับผิดชอบ: ส่งงานตรงเวลา ถ้าไม่ทันให้รีบบอก\n2. ความคิดสร้างสรรค์: เสนอไอเดียได้เต็มที่ ไม่ต้องกลัวผิด\n3. การสื่อสาร: สงสัยให้ถาม อย่าเก็บไว้คนเดียว\n\nขอให้สนุกกับการทำงานนะ!`,
-        lastUpdated: new Date(),
-        isPinned: true
-    },
-    {
-        id: '2',
-        title: 'Workflow การทำงานคอนเทนต์ 🎬',
-        category: 'RULES',
-        targetRoles: ['ALL'],
-        content: `ขั้นตอนการผลิตงานของเราเป็นแบบนี้:\n\n1. Idea & Script: เสนอไอเดียในระบบ Planner (สถานะ Idea) -> เขียนบท (Script)\n2. Pre-Prod: เตรียมของ จัดพร็อพ (ใช้เมนู Checklist)\n3. Production: ออกกองถ่ายทำ\n4. Post-Prod: ตัดต่อ (Edit Clip)\n5. Quality Gate: ส่งตรวจงานผ่านระบบ (กดปุ่ม "ส่งตรวจ")\n6. Revision: แก้ไขตาม Feedback\n7. Approve & Post: หัวหน้าอนุมัติ -> โพสต์จริง\n8. Done: เปลี่ยนสถานะเป็น Done`,
-        lastUpdated: new Date(),
-        isPinned: true
-    },
-    {
-        id: '3',
-        title: 'รหัส Wifi และ Server ส่วนกลาง 🔑',
-        category: 'GENERAL',
-        targetRoles: ['ALL'],
-        content: `Wifi Guest: Juijui_Guest (Pass: 12345678)\nWifi Team: Juijui_Team (Pass: TeamJuijui2024)\n\nNAS Server: 192.168.1.100\nUser: content_team\nPass: content_1234`,
-        lastUpdated: new Date(),
-        isPinned: false
-    },
-    {
-        id: '4',
-        title: 'มาตรฐานการตัดต่อ (Editing Style Guide) ✂️',
-        category: 'TOOLS',
-        targetRoles: ['EDITOR'],
-        content: `สำหรับ Editor ทุกคน:\n- Font หลัก: Kanit (Bold) สีขาว ขอบดำ\n- Sound Effect: ใช้จากโฟลเดอร์ Server/SFX_2024 เท่านั้น\n- เพลง: ต้องใช้เพลงถูกลิขสิทธิ์จาก Artlist\n- Export: H.264, Bitrate 15-20 Mbps`,
-        lastUpdated: new Date(),
-        isPinned: false
-    },
-    {
-        id: '5',
-        title: 'การเบิกงบอุปกรณ์ประกอบฉาก (Props) 💰',
-        category: 'RULES',
-        targetRoles: ['CREATIVE', 'PRODUCTION'],
-        content: `1. เขียนใบเบิกส่งเข้ากลุ่ม Line 'Accounting' ล่วงหน้า 3 วัน\n2. แนบลิงก์ของที่จะซื้อ หรือรูปภาพ\n3. หลังซื้อเสร็จ ต้องถ่ายรูปใบเสร็จ/สลิปโอนเงิน เก็บลงในโฟลเดอร์งานนั้นๆ ใน Server`,
-        lastUpdated: new Date(),
-        isPinned: false
-    }
-];
-
 export const useWiki = () => {
     const [articles, setArticles] = useState<WikiArticle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
 
-    // In a real app, this would fetch from Supabase
-    // For now, we simulate fetching and local storage
-    useEffect(() => {
-        const saved = localStorage.getItem('juijui_wiki_data');
-        if (saved) {
-            setArticles(JSON.parse(saved).map((a: any) => ({
-                ...a,
-                lastUpdated: new Date(a.lastUpdated)
-            })));
-        } else {
-            setArticles(DEFAULT_WIKI);
+    const fetchArticles = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('wiki_articles')
+                .select('*')
+                .order('is_pinned', { ascending: false })
+                .order('updated_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                setArticles(data.map((a: any) => ({
+                    id: a.id,
+                    title: a.title,
+                    category: a.category,
+                    content: a.content,
+                    targetRoles: a.target_roles || ['ALL'],
+                    lastUpdated: new Date(a.updated_at),
+                    isPinned: a.is_pinned
+                })));
+            }
+        } catch (err: any) {
+            console.error('Fetch wiki failed:', err);
+            // showToast('โหลดคู่มือไม่สำเร็จ', 'error');
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    // Realtime Subscription
+    useEffect(() => {
+        fetchArticles();
+
+        const channel = supabase
+            .channel('realtime-wiki')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wiki_articles' }, () => fetchArticles())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
-    const saveToLocal = (data: WikiArticle[]) => {
-        localStorage.setItem('juijui_wiki_data', JSON.stringify(data));
-        setArticles(data);
+    const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated'>) => {
+        try {
+            const payload = {
+                title: article.title,
+                content: article.content,
+                category: article.category,
+                target_roles: article.targetRoles,
+                is_pinned: article.isPinned
+            };
+
+            const { error } = await supabase.from('wiki_articles').insert(payload);
+            if (error) throw error;
+            
+            showToast('สร้างคู่มือใหม่เรียบร้อย 🎉', 'success');
+        } catch (err: any) {
+            console.error(err);
+            showToast('สร้างไม่สำเร็จ: ' + err.message, 'error');
+        }
     };
 
-    const addArticle = (article: Omit<WikiArticle, 'id' | 'lastUpdated'>) => {
-        const newArticle: WikiArticle = {
-            id: crypto.randomUUID(),
-            ...article,
-            lastUpdated: new Date()
-        };
-        const newData = [newArticle, ...articles];
-        saveToLocal(newData);
-        showToast('สร้างคู่มือใหม่เรียบร้อย', 'success');
+    const updateArticle = async (id: string, updates: Partial<WikiArticle>) => {
+        try {
+            const payload: any = {
+                updated_at: new Date().toISOString()
+            };
+            if (updates.title) payload.title = updates.title;
+            if (updates.content) payload.content = updates.content;
+            if (updates.category) payload.category = updates.category;
+            if (updates.targetRoles) payload.target_roles = updates.targetRoles;
+            if (updates.isPinned !== undefined) payload.is_pinned = updates.isPinned;
+
+            const { error } = await supabase.from('wiki_articles').update(payload).eq('id', id);
+            if (error) throw error;
+
+            showToast('อัปเดตคู่มือเรียบร้อย ✅', 'success');
+        } catch (err: any) {
+            showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
+        }
     };
 
-    const updateArticle = (id: string, updates: Partial<WikiArticle>) => {
-        const newData = articles.map(a => 
-            a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a
-        );
-        saveToLocal(newData);
-        showToast('อัปเดตคู่มือเรียบร้อย', 'success');
-    };
-
-    const deleteArticle = (id: string) => {
-        const newData = articles.filter(a => a.id !== id);
-        saveToLocal(newData);
-        showToast('ลบคู่มือแล้ว', 'info');
+    const deleteArticle = async (id: string) => {
+        try {
+            const { error } = await supabase.from('wiki_articles').delete().eq('id', id);
+            if (error) throw error;
+            showToast('ลบคู่มือแล้ว 🗑️', 'info');
+        } catch (err: any) {
+            showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+        }
     };
 
     return {
         articles,
+        isLoading,
         addArticle,
         updateArticle,
         deleteArticle

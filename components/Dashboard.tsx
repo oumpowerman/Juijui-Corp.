@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Task, Status, Priority, Channel, User } from '../types';
+import { Task, Status, Priority, Channel, User, MasterOption } from '../types';
 import { STATUS_COLORS, PRIORITY_COLORS, STATUS_LABELS, PRIORITY_LABELS, PLATFORM_ICONS } from '../constants';
 import { format, isAfter, isBefore, addDays, isSameMonth, isSameDay } from 'date-fns';
 import { Clock, CheckCircle2, AlertTriangle, ListTodo, ArrowRight, PartyPopper, Sparkles, CalendarDays, ChevronDown, Bell, User as UserIcon, Users, Coffee } from 'lucide-react';
@@ -17,6 +16,9 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
+  // Added missing props found during App.tsx integration
+  masterOptions?: MasterOption[];
+  onRefreshMasterData?: () => Promise<void>;
 }
 
 type TimeRangeOption = 'THIS_MONTH' | 'LAST_30' | 'LAST_90' | 'CUSTOM' | 'ALL';
@@ -86,15 +88,16 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   const totalTasks = filteredTasks.length;
 
   // --- STATUS GROUPING LOGIC (10 Steps -> 4 Groups) ---
+  // Fix: Added explicit casting to Status enum for task.status strings
   const isDoneGroup = (s: Status) => s === Status.APPROVE || s === Status.DONE;
   const isFeedbackGroup = (s: Status) => s === Status.FEEDBACK || s === Status.FEEDBACK_1;
   const isProductionGroup = (s: Status) => s === Status.SHOOTING || s === Status.EDIT_CLIP || s === Status.EDIT_DRAFT_1 || s === Status.EDIT_DRAFT_2 || s === Status.DOING || s === Status.BLOCKED;
   const isTodoGroup = (s: Status) => s === Status.IDEA || s === Status.SCRIPT || s === Status.TODO;
 
-  const doneTasksList = filteredTasks.filter(t => isDoneGroup(t.status));
-  const inProgressTasksList = filteredTasks.filter(t => isProductionGroup(t.status));
-  const feedbackTasksList = filteredTasks.filter(t => isFeedbackGroup(t.status));
-  const todoTasksList = filteredTasks.filter(t => isTodoGroup(t.status));
+  const doneTasksList = filteredTasks.filter(t => isDoneGroup(t.status as Status));
+  const inProgressTasksList = filteredTasks.filter(t => isProductionGroup(t.status as Status));
+  const feedbackTasksList = filteredTasks.filter(t => isFeedbackGroup(t.status as Status));
+  const todoTasksList = filteredTasks.filter(t => isTodoGroup(t.status as Status));
 
   const doneTasks = doneTasksList.length;
   const inProgressTasks = inProgressTasksList.length;
@@ -102,12 +105,12 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   const todoTasks = todoTasksList.length;
 
   const urgentTasks = filteredTasks
-    .filter(t => (t.priority === Priority.URGENT || t.priority === Priority.HIGH) && !isDoneGroup(t.status))
+    .filter(t => (t.priority === Priority.URGENT || t.priority === Priority.HIGH) && !isDoneGroup(t.status as Status))
     .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
     .slice(0, 3);
 
   const dueSoon = filteredTasks
-    .filter(t => isAfter(t.endDate, today) && isBefore(t.endDate, addDays(today, 3)) && !isDoneGroup(t.status))
+    .filter(t => isAfter(t.endDate, today) && isBefore(t.endDate, addDays(today, 3)) && !isDoneGroup(t.status as Status))
     .slice(0, 3);
 
   const chartData = [
@@ -153,6 +156,12 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   if (feedbackTasks > 0) {
       DASHBOARD_TIPS.unshift(`มี ${feedbackTasks} งานรอ Feedback อยู่ รีบเช็คหน่อยนะครับ!`);
   }
+
+  // Safety helper to avoid .split error on undefined labels
+  const getSafeStatusLabel = (status: any) => {
+    const label = STATUS_LABELS[status as Status] || String(status || 'Unknown');
+    return label;
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -348,15 +357,15 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                     >
                       <div className="flex-1 min-w-0 pr-4">
                         <div className="flex items-center space-x-2 mb-1.5">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${STATUS_COLORS[task.status]}`}>
-                            {STATUS_LABELS[task.status].split(' ')[0] + ' ' + STATUS_LABELS[task.status].split(' ')[1]}
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${STATUS_COLORS[task.status as Status] || 'bg-gray-100'}`}>
+                            {getSafeStatusLabel(task.status).split(' ')[0]} {getSafeStatusLabel(task.status).split(' ')[1] || ''}
                           </span>
                           <span className={`text-[10px] font-bold uppercase tracking-wider ${PRIORITY_COLORS[task.priority]}`}>
                             {PRIORITY_LABELS[task.priority]}
                           </span>
                            {/* Channel Icon */}
                            <div className="flex items-center space-x-1 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                                {getChannelIcon(task.channelId)}
+                                {getChannelIcon(task.channelId || '')}
                                 <span className="text-[10px] text-gray-500 font-medium">
                                     {channels.find(c => c.id === task.channelId)?.name}
                                 </span>
@@ -402,11 +411,13 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                ) : dueSoon.map(task => (
                  <div key={task.id} onClick={() => onEditTask(task)} className="border border-gray-100 rounded-xl p-4 hover:shadow-md cursor-pointer transition-all bg-white group hover:-translate-y-1">
                     <div className="flex justify-between items-start mb-2">
-                       <span className={`text-[10px] px-2 py-0.5 font-semibold rounded border ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status].split(' ')[0]}</span>
+                       <span className={`text-[10px] px-2 py-0.5 font-semibold rounded border ${STATUS_COLORS[task.status as Status] || 'bg-gray-100'}`}>
+                           {getSafeStatusLabel(task.status).split(' ')[0]}
+                       </span>
                        <span className="text-xs font-medium text-gray-400">{format(task.endDate, 'd MMM')}</span>
                     </div>
                     <div className="mb-2">
-                        {getChannelIcon(task.channelId)}
+                        {getChannelIcon(task.channelId || '')}
                     </div>
                     <p className="text-sm font-bold text-gray-700 line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors">{task.title}</p>
                  </div>

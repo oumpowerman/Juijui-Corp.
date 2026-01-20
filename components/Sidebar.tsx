@@ -100,7 +100,7 @@ interface SidebarProps {
     currentUser: User;
     currentView: ViewMode;
     onNavigate: (view: ViewMode) => void;
-    onLogout: () => void;
+    onLogout: () => void | Promise<void>;
     onEditProfile: () => void;
     unreadChatCount: number;
 }

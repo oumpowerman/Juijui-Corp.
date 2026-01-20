@@ -63,9 +63,10 @@ interface NavItemProps {
     currentView: ViewMode;
     onNavigate: (view: ViewMode) => void;
     collapsed?: boolean;
+    badgeCount?: number;
 }
   
-const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView, onNavigate, collapsed = false }) => {
+const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView, onNavigate, collapsed = false, badgeCount }) => {
     const isActive = currentView === view;
     return (
       <button
@@ -77,7 +78,14 @@ const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView,
             : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
         } ${collapsed ? 'justify-center px-2' : 'px-4'}`}
       >
-        <Icon className={`w-4 h-4 min-w-[16px] ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+        <div className="relative">
+            <Icon className={`w-4 h-4 min-w-[16px] ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+            {badgeCount && badgeCount > 0 ? (
+                <div className={`absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border-2 border-[#0f172a] ${collapsed ? 'right-[-8px]' : ''}`}>
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                </div>
+            ) : null}
+        </div>
         {!collapsed && (
           <span className="ml-3 font-medium hidden lg:block tracking-wide truncate">{label}</span>
         )}
@@ -94,9 +102,10 @@ interface SidebarProps {
     onNavigate: (view: ViewMode) => void;
     onLogout: () => void;
     onEditProfile: () => void;
+    unreadChatCount: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile, unreadChatCount }) => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [expandedGroups, setExpandedGroups] = useState<string[]>(['WORKSPACE']);
     const isAdmin = currentUser.role === 'ADMIN';
@@ -116,6 +125,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
             : [...prev, groupId]
         );
     };
+
+    const safeName = currentUser.name || 'Unknown';
 
     return (
         <aside 
@@ -179,6 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
                                     currentView={currentView}
                                     onNavigate={onNavigate}
                                     collapsed={isSidebarCollapsed}
+                                    badgeCount={item.view === 'CHAT' ? unreadChatCount : 0}
                                 />
                             ))}
                         </div>
@@ -194,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
                     title="แก้ไขข้อมูลส่วนตัว"
                 >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-400 flex items-center justify-center text-sm font-bold shadow-md border-2 border-slate-700 overflow-hidden relative shrink-0">
-                    {currentUser.avatarUrl ? <img src={currentUser.avatarUrl} className="w-full h-full object-cover" /> : currentUser.name.charAt(0).toUpperCase()}
+                    {currentUser.avatarUrl ? <img src={currentUser.avatarUrl} className="w-full h-full object-cover" /> : safeName.charAt(0).toUpperCase()}
                     
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/profile:opacity-100 transition-opacity">
                         <Edit className="w-4 h-4 text-white" />
@@ -204,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
                     {!isSidebarCollapsed && (
                         <div className="ml-3 overflow-hidden whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                            <p className="text-sm font-bold text-gray-200 truncate group-hover/profile:text-white transition-colors">{currentUser.name.split(' ')[0]}</p>
+                            <p className="text-sm font-bold text-gray-200 truncate group-hover/profile:text-white transition-colors">{safeName.split(' ')[0]}</p>
                             <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${isAdmin ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
                             {isAdmin ? 'CEO' : 'TEAM'}
                             </span>

@@ -11,6 +11,7 @@ interface MobileNavigationProps {
     onAddTask: () => void;
     onLogout: () => void;
     onEditProfile: () => void;
+    unreadChatCount: number;
 }
 
 interface NavItemProps {
@@ -19,16 +20,24 @@ interface NavItemProps {
     label: string;
     currentView: ViewMode;
     onNavigate: (view: ViewMode) => void;
+    badgeCount?: number;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView, onNavigate }) => {
+const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView, onNavigate, badgeCount }) => {
     const isActive = currentView === view;
     return (
       <button
         onClick={() => onNavigate(view)}
-        className={`flex flex-col items-center justify-center w-full py-1 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
+        className={`flex flex-col items-center justify-center w-full py-1 relative ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
       >
-        <Icon className={`w-6 h-6 ${isActive ? 'fill-indigo-100' : ''}`} />
+        <div className="relative">
+            <Icon className={`w-6 h-6 ${isActive ? 'fill-indigo-100' : ''}`} />
+            {badgeCount && badgeCount > 0 ? (
+                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-white">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                </div>
+            ) : null}
+        </div>
         <span className="text-[10px] mt-1 font-medium">{label}</span>
       </button>
     );
@@ -58,7 +67,7 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({ view, icon: Icon, l
      );
 };
 
-const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile }) => {
+const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const isAdmin = currentUser.role === 'ADMIN';
 
@@ -81,7 +90,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                         <Plus className="w-8 h-8 stroke-[3px]" />
                     </button>
                 </div>
-                <NavItem view="CHAT" icon={MessageCircle} label="แชท" currentView={currentView} onNavigate={onNavigate} />
+                <NavItem view="CHAT" icon={MessageCircle} label="แชท" currentView={currentView} onNavigate={onNavigate} badgeCount={unreadChatCount} />
                 <button
                     onClick={() => setIsMenuOpen(true)}
                     className={`flex flex-col items-center justify-center w-full py-1 ${isMenuOpen ? 'text-indigo-600' : 'text-slate-400'}`}
@@ -109,8 +118,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-6 pb-6">
-                        {/* Reuse Config from Sidebar Logic essentially via hardcode or shared const */}
-                        {/* To be safe and clean, I will manually layout the grid as it looks better than generic map */}
                         
                         {/* WORKSPACE */}
                         <div>

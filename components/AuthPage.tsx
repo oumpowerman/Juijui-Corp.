@@ -1,8 +1,10 @@
 
-import React, { useState, useRef } from 'react';
-import { Sparkles, ArrowRight, Lock, Mail, User, AlertCircle, Rocket, Heart, Camera, Briefcase, MessageSquareQuote, LogIn, UserPlus, Phone } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, ArrowRight, Lock, Mail, User, AlertCircle, Rocket, Camera, Briefcase, Quote, LogIn, UserPlus, Phone, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import SuccessModal from './SuccessModal';
+import ImageCropper from './ImageCropper';
+import heic2any from 'heic2any';
 
 interface AuthPageProps {
   onLoginSuccess: () => void;
@@ -16,14 +18,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   
-  // New Fields
-  const [position, setPosition] = useState('');
+  // Registration specific fields
+  const [position, setPosition] = useState(''); 
   const [phone, setPhone] = useState('');
   const [reason, setReason] = useState('');
+  
+  // Master Data State
+  const [positions, setPositions] = useState<{key: string, label: string}[]>([]);
   
   // File Upload State
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isConvertingImg, setIsConvertingImg] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null); // For Cropper
   
   // Status State
   const [isLoading, setIsLoading] = useState(false);
@@ -32,18 +39,31 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   // Success Modal State
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Trigger animation key
   const [animKey, setAnimKey] = useState(0);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchPositions = async () => {
+        const { data } = await supabase
+            .from('master_options')
+            .select('key, label')
+            .eq('type', 'POSITION')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        
+        if (data && data.length > 0) {
+            setPositions(data);
+        }
+    };
+    fetchPositions();
+  }, []);
 
   const toggleMode = (mode: 'LOGIN' | 'REGISTER') => {
       const targetIsLogin = mode === 'LOGIN';
       if (isLogin === targetIsLogin) return;
-
       setIsLogin(targetIsLogin);
       setErrorMsg(null);
-      setAnimKey(prev => prev + 1); // Trigger re-render for animation
+      setAnimKey(prev => prev + 1); 
   };
 
   const handleCloseSuccessModal = () => {
@@ -51,7 +71,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
       setIsLogin(true);
       setPassword(''); 
       setErrorMsg(null);
-      // Reset new fields
       setPosition('');
       setPhone('');
       setReason('');
@@ -59,13 +78,50 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
       setAvatarPreview(null);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          setAvatarFile(file);
-          const objectUrl = URL.createObjectURL(file);
-          setAvatarPreview(objectUrl);
+          let file = e.target.files[0];
+          
+          // HEIC Conversion Logic
+          if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+              setIsConvertingImg(true);
+              try {
+                  const convertedBlob = await heic2any({
+                      blob: file,
+                      toType: 'image/jpeg',
+                      quality: 0.8
+                  });
+                  
+                  const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                  file = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+              } catch (err) {
+                  console.error("HEIC Conversion error:", err);
+                  setErrorMsg("ไม่สามารถแปลงไฟล์รูปภาพได้ กรุณาลองใช้รูปอื่น");
+                  setIsConvertingImg(false);
+                  return;
+              } finally {
+                  setIsConvertingImg(false);
+              }
+          }
+
+          // Read file as Data URL for Cropper
+          const reader = new FileReader();
+          reader.onload = () => {
+              setCropImageSrc(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+          
+          // Reset input value to allow re-selecting same file
+          if (fileInputRef.current) fileInputRef.current.value = '';
       }
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+      const file = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+      setAvatarFile(file);
+      const objectUrl = URL.createObjectURL(croppedBlob);
+      setAvatarPreview(objectUrl);
+      setCropImageSrc(null); // Close cropper
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,13 +138,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
             if (error) throw error;
             onLoginSuccess(); 
         } else {
-            // Force Avatar Check
+            // 1. Validation
             if (!avatarFile) {
-                throw new Error('กรุณาอัปโหลดรูปโปรไฟล์ด้วยนะครับ 📸 (บังคับ)');
+                throw new Error('กรุณาอัปโหลดรูปโปรไฟล์ด้วยนะครับ 📸');
+            }
+            if (!name.trim() || !position.trim() || !phone.trim()) {
+                throw new Error('กรุณากรอกข้อมูลให้ครบทุกช่องที่มีเครื่องหมาย * นะครับ');
             }
 
-            // Register Logic - Fixed: Send metadata IN signUp options
-            const { error: authError } = await supabase.auth.signUp({
+            // 2. Register Auth User
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -96,16 +155,52 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                         full_name: name,
                         position: position,
                         phone_number: phone,
-                        reason: reason,
-                        // Note: Real file upload usually happens after getting user ID
-                        // For now, we assume user will update avatar later or we handle it via a separate flow
                     }
                 }
             });
             
             if (authError) throw authError;
+            if (!authData.user) throw new Error("สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 
-            setShowSuccessModal(true);
+            const userId = authData.user.id;
+
+            // 3. Upload Avatar to Storage
+            const fileExt = avatarFile.name.split('.').pop();
+            const fileName = `${userId}-${Date.now()}.${fileExt}`;
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, avatarFile);
+
+            if (uploadError) throw new Error('อัปโหลดรูปไม่สำเร็จ: ' + uploadError.message);
+
+            // 4. Get Public URL
+            const { data: urlData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            const publicUrl = urlData.publicUrl;
+
+            // 5. Update Profile Table
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ 
+                    full_name: name,
+                    avatar_url: publicUrl,
+                    position: position, 
+                    phone_number: phone,
+                    bio: reason, // ADDED: Save reason to bio field
+                    role: 'MEMBER' 
+                })
+                .eq('id', userId);
+
+            if (profileError) throw profileError;
+
+            // 6. Check if Auto-Login occurred
+            if (authData.session) {
+                onLoginSuccess();
+            } else {
+                setShowSuccessModal(true);
+            }
         }
     } catch (error: any) {
         setErrorMsg(error.message || 'อุ๊ย! มีข้อผิดพลาด ลองใหม่นะ');
@@ -117,7 +212,16 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen bg-[#f0f4f8] flex items-center justify-center p-4 font-sans relative overflow-hidden">
       
-      {/* Background Blobs (Decor) */}
+      {/* Image Cropper Modal */}
+      {cropImageSrc && (
+          <ImageCropper 
+              imageSrc={cropImageSrc}
+              onCropComplete={handleCropComplete}
+              onCancel={() => setCropImageSrc(null)}
+          />
+      )}
+
+      {/* Background Decor */}
       <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-br transition-all duration-1000 ${isLogin ? 'from-blue-50 to-white' : 'from-pink-50 to-white'}`}></div>
       <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-gradient-to-tr from-purple-200/40 to-blue-200/40 rounded-full blur-3xl animate-float"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-tr from-yellow-100/40 to-pink-200/40 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
@@ -134,10 +238,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                 ? 'bg-gradient-to-br from-[#4f46e5] to-[#818cf8]' 
                 : 'bg-gradient-to-br from-[#db2777] to-[#f472b6]'}
         `}>
-             {/* Dynamic Pattern */}
              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 4px 4px, white 2px, transparent 0)', backgroundSize: '40px 40px' }}></div>
              
-             <div className="relative z-10 text-center flex flex-col items-center animate-slide-up">
+             <div className="relative z-10 text-center flex flex-col items-center">
                 <div className="w-28 h-28 bg-white/20 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-md shadow-xl ring-2 ring-white/30 rotate-3 hover:rotate-6 transition-transform duration-500">
                     {isLogin ? <Sparkles className="w-14 h-14 text-white drop-shadow-md" /> : <Rocket className="w-14 h-14 text-white drop-shadow-md" />}
                 </div>
@@ -151,98 +254,78 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                         : "สมัครสมาชิกเพื่อเริ่มจัดการงาน และ Workload ทีมของคุณ"
                     }
                 </p>
-
-                {/* Decorative Elements */}
-                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-2xl"></div>
              </div>
         </div>
 
         {/* --- FORM SIDE --- */}
-        <div className="w-full md:w-7/12 p-8 md:p-12 flex flex-col relative overflow-y-auto scrollbar-hide">
+        <div className="w-full md:w-7/12 p-8 md:p-12 flex flex-col relative overflow-y-auto">
             
-            {/* --- 3D Switcher --- */}
             <div className="flex justify-center mb-8">
                  <div className="bg-slate-100/80 p-1.5 rounded-2xl flex items-center border border-slate-200/80 shadow-inner w-full max-w-[340px] relative">
                       <button 
                         type="button"
                         onClick={() => toggleMode('LOGIN')}
-                        className={`
-                            flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black tracking-wide transition-all duration-300 relative z-10
-                            ${isLogin 
-                                ? 'bg-white text-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.15)] translate-y-[-1px] scale-[1.02] ring-1 ring-indigo-50' 
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
-                            }
-                        `}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all duration-300 relative z-10 ${isLogin ? 'bg-white text-indigo-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                       >
-                         <LogIn className={`w-4 h-4 transition-transform duration-300 ${isLogin ? 'scale-110' : 'scale-100'}`} />
-                         เข้าสู่ระบบ
+                         <LogIn className="w-4 h-4" /> เข้าสู่ระบบ
                       </button>
-                      
                       <button 
                         type="button"
                         onClick={() => toggleMode('REGISTER')}
-                        className={`
-                            flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black tracking-wide transition-all duration-300 relative z-10
-                            ${!isLogin 
-                                ? 'bg-white text-pink-600 shadow-[0_4px_12px_rgba(219,39,119,0.15)] translate-y-[-1px] scale-[1.02] ring-1 ring-pink-50' 
-                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50'
-                            }
-                        `}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all duration-300 relative z-10 ${!isLogin ? 'bg-white text-pink-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                       >
-                         <UserPlus className={`w-4 h-4 transition-transform duration-300 ${!isLogin ? 'scale-110' : 'scale-100'}`} />
-                         สมัครสมาชิก
+                         <UserPlus className="w-4 h-4" /> สมัครสมาชิก
                       </button>
                  </div>
             </div>
 
             <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center" key={animKey}>
-                <div className="mb-8 animate-slide-up text-center md:text-left" style={{ animationDelay: '0.1s' }}>
-                    <h3 className="text-3xl font-black mb-2 flex items-center justify-center md:justify-start gap-2 text-slate-800">
-                        {isLogin ? (
-                           <>ยินดีต้อนรับกลับ! <span className="text-3xl animate-wave">👋</span></>
-                        ) : (
-                           <>สร้างบัญชีใหม่ <span className="text-3xl animate-bounce-slow">✨</span></>
-                        )}
+                <div className="mb-6 text-center md:text-left">
+                    <h3 className="text-3xl font-black mb-2 text-slate-800">
+                        {isLogin ? 'ยินดีต้อนรับกลับ! 👋' : 'สร้างบัญชีใหม่ ✨'}
                     </h3>
                     <p className="text-slate-500 font-medium">
-                        {isLogin ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการงานของคุณ' : 'กรอกข้อมูลสั้นๆ เพื่อเข้าร่วมทีม'}
+                        {isLogin ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการงาน' : 'กรอกข้อมูลตำแหน่งงานเพื่อเข้าร่วมทีม'}
                     </p>
                 </div>
 
-                {/* Alerts */}
                 {errorMsg && (
-                    <div className="mb-6 p-4 rounded-2xl bg-red-50 border-2 border-red-100 flex items-start gap-3 text-red-500 animate-slide-up shadow-sm">
+                    <div className="mb-6 p-4 rounded-2xl bg-red-50 border-2 border-red-100 flex items-start gap-3 text-red-500 shadow-sm">
                         <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                         <span className="font-bold text-sm">{errorMsg}</span>
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4 animate-slide-up flex-1" style={{ animationDelay: '0.2s' }}>
+                <form onSubmit={handleSubmit} className="space-y-4">
                     
-                    {/* --- Avatar Upload (Register Only) --- */}
                     {!isLogin && (
                         <div className="flex justify-center mb-6">
-                            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            <div className="relative group cursor-pointer" onClick={() => !isConvertingImg && fileInputRef.current?.click()}>
                                 <div className={`w-24 h-24 rounded-full border-4 ${avatarPreview ? 'border-pink-300' : 'border-slate-100'} bg-slate-50 flex items-center justify-center overflow-hidden transition-all group-hover:border-pink-400 group-hover:scale-105 shadow-sm`}>
-                                    {avatarPreview ? (
+                                    {isConvertingImg ? (
+                                        <div className="flex flex-col items-center justify-center text-slate-400">
+                                            <Loader2 className="w-8 h-8 animate-spin" />
+                                            <span className="text-[10px] mt-1">Processing..</span>
+                                        </div>
+                                    ) : avatarPreview ? (
                                         <img src={avatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="flex flex-col items-center text-slate-400">
                                             <Camera className="w-8 h-8 mb-1" />
-                                            <span className="text-[10px] font-bold text-red-400">ใส่รูป (บังคับ)</span>
+                                            <span className="text-[10px] font-bold text-red-400">รูปโปรไฟล์ *</span>
                                         </div>
                                     )}
                                 </div>
-                                <div className="absolute bottom-0 right-0 bg-pink-500 text-white p-2 rounded-full shadow-lg border-2 border-white hover:bg-pink-600 transition-colors">
+                                <div className="absolute bottom-0 right-0 bg-pink-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
                                     <Sparkles className="w-3 h-3" />
                                 </div>
                                 <input 
                                     type="file" 
                                     ref={fileInputRef} 
                                     className="hidden" 
-                                    accept="image/*"
-                                    onChange={handleFileChange}
+                                    accept="image/png, image/jpeg, image/jpg, image/heic" 
+                                    onChange={handleFileChange} 
+                                    disabled={isConvertingImg}
                                 />
                             </div>
                         </div>
@@ -250,129 +333,86 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
 
                     {!isLogin && (
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 ml-1 flex items-center gap-1 uppercase tracking-wider">
-                                    ชื่อเล่น <span className="text-red-500">*</span>
-                                </label>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ชื่อเล่น *</label>
                                 <div className="relative group">
                                     <User className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
-                                    <input 
-                                        type="text" 
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm"
-                                        placeholder="ชื่อของคุณ"
-                                        required={!isLogin}
-                                    />
+                                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm" placeholder="ชื่อเล่น" required={!isLogin} />
                                 </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 ml-1 flex items-center gap-1 uppercase tracking-wider">
-                                    ตำแหน่ง <span className="text-red-500">*</span>
-                                </label>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ตำแหน่งงาน *</label>
                                 <div className="relative group">
                                     <Briefcase className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
-                                    <input 
-                                        type="text" 
-                                        value={position}
-                                        onChange={(e) => setPosition(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm"
-                                        placeholder="เช่น Editor"
+                                    <select 
+                                        value={position} 
+                                        onChange={(e) => setPosition(e.target.value)} 
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm appearance-none cursor-pointer"
                                         required={!isLogin}
-                                    />
+                                    >
+                                        <option value="">เลือกตำแหน่ง...</option>
+
+                                        {positions.length > 0 ? (
+                                            positions.map(p => (
+                                                <option key={p.key} value={p.label}>
+                                                    {p.label}
+                                                </option>))) : (
+                                            <>
+                                                <option value="Editor">Editor</option>
+                                                <option value="Creative">Creative</option>
+                                            </>
+                                        )}
+
+                                    </select>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">อีเมล <span className="text-red-500">*</span></label>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมล *</label>
                         <div className="relative group">
                             <Mail className={`w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
-                            <input 
-                                type="email" 
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`}
-                                placeholder="name@example.com"
-                                required
-                            />
+                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`} placeholder="email@example.com" required />
                         </div>
                     </div>
 
                     {!isLogin && (
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1 uppercase">เบอร์โทรศัพท์ *</label>
                             <div className="relative group">
-                                <Phone className={`w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-pink-500`} />
-                                <input 
-                                    type="tel" 
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:border-pink-400`}
-                                    placeholder="081-234-5678"
-                                    required={!isLogin}
-                                />
+                                <Phone className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
+                                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700" placeholder="08x-xxx-xxxx" required={!isLogin} />
                             </div>
                         </div>
                     )}
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">รหัสผ่าน <span className="text-red-500">*</span></label>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">รหัสผ่าน *</label>
                         <div className="relative group">
                             <Lock className={`w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
-                            <input 
-                                type="password" 
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`}
-                                placeholder="••••••••"
-                                required
-                            />
+                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`} placeholder="••••••••" required />
                         </div>
                     </div>
 
-                    {/* --- Reason Field (Register Only) --- */}
                     {!isLogin && (
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">ข้อความถึง CEO อุ้มจุ๊ยจุ๊ย</label>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1 uppercase">แนะนำตัว / ฝากถึงทีมงาน</label>
                             <div className="relative group">
-                                <MessageSquareQuote className="w-5 h-5 text-slate-400 absolute left-4 top-4 group-focus-within:text-pink-500 transition-colors" />
-                                <textarea 
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    rows={2}
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent hover:bg-slate-100 focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-medium text-slate-700 text-sm resize-none"
-                                    placeholder="แนะนำตัวสั้นๆ..."
-                                    required={!isLogin}
-                                />
+                                <Quote className="w-5 h-5 text-slate-400 absolute left-4 top-4 group-focus-within:text-pink-500 transition-colors" />
+                                <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-medium text-slate-700 text-sm resize-none" placeholder="บอกเราหน่อยว่าทำไมอยากร่วมทีม..." />
                             </div>
                         </div>
                     )}
 
-                    <div className="pt-6">
+                    <div className="pt-4">
                         <button 
                             type="submit" 
-                            disabled={isLoading}
-                            className={`
-                                w-full py-3.5 rounded-xl font-black text-white text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-2
-                                ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}
-                                ${isLogin 
-                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200' 
-                                    : 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200'}
-                            `}
+                            disabled={isLoading || isConvertingImg}
+                            className={`w-full py-4 rounded-xl font-black text-white text-base shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isLoading || isConvertingImg ? 'opacity-70 cursor-not-allowed' : ''} ${isLogin ? 'bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200' : 'bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200'}`}
                         >
-                            {isLoading ? (
-                                <span className="flex items-center">
-                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></span>
-                                    กำลังดำเนินการ...
-                                </span>
-                            ) : (
-                                <>
-                                    {isLogin ? 'เข้าสู่ระบบ (Login)' : 'ส่งใบสมัคร (Register)'} 
-                                    <ArrowRight className="w-5 h-5" />
-                                </>
-                            )}
+                            {isLoading || isConvertingImg ? 'กำลังประมวลผล...' : isLogin ? 'เข้าสู่ระบบ (Login)' : 'ส่งใบสมัครสมาชิก'} 
+                            {(!isLoading && !isConvertingImg) && <ArrowRight className="w-5 h-5" />}
                         </button>
                     </div>
                 </form>
@@ -380,21 +420,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* --- SUCCESS MODAL COMPONENT --- */}
       <SuccessModal 
         isOpen={showSuccessModal}
         onClose={handleCloseSuccessModal}
-        title="ยินดีต้อนรับ! 🎉"
+        title="ส่งใบสมัครแล้ว! 🎉"
         description={
             <>
-                เย้! ส่งใบสมัครเรียบร้อยครับ <br/>
-                <span className="text-gray-500 text-sm">เดี๋ยวพี่ Admin จะรีบมาตรวจและอนุมัตินะคร้าบ</span><br/>
-                <span className="text-pink-500 font-bold text-lg mt-2 block">ล็อกอินรอไว้ได้เลย!</span> 
+                เย้! เราได้รับข้อมูลของคุณแล้ว <br/>
+                <span className="text-gray-500 text-sm">พี่ Admin จะรีบตรวจความถูกต้องและอนุมัติให้โดยไว</span><br/>
+                <span className="text-pink-500 font-bold text-lg mt-2 block">รอก่อนนะคร้าบ!</span> 
             </>
         }
-        buttonText="กลับไปหน้าเข้าสู่ระบบ"
+        buttonText="กลับไปหน้าล็อกอิน"
       />
-
     </div>
   );
 };

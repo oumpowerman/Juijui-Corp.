@@ -17,18 +17,29 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     // --- Filter State ---
     const [viewMode, setViewMode] = useState<'CONTENT' | 'TASK'>('CONTENT');
     const [filterChannelId, setFilterChannelId] = useState<string>('ALL');
-    const [activeChipId, setActiveChipId] = useState<string | 'ALL'>('ALL');
+    
+    // CHANGED: activeChipId (string) -> activeChipIds (string[]) to support multi-select
+    const [activeChipIds, setActiveChipIds] = useState<string[]>([]);
+    
+    // Improved Initialization Logic
     const [customChips, setCustomChips] = useState<ChipConfig[]>(() => {
         try {
             const saved = localStorage.getItem('juijui_smart_chips');
-            return saved ? JSON.parse(saved) : DEFAULT_CHIPS;
+            // If nothing saved, or saved is 'undefined'/'null' string, fallback immediately
+            if (!saved || saved === 'undefined' || saved === 'null') {
+                return DEFAULT_CHIPS;
+            }
+            const parsed = JSON.parse(saved);
+            // Verify structure
+            return Array.isArray(parsed) ? parsed : DEFAULT_CHIPS;
         } catch (e) {
+            console.error("Failed to load chips, resetting to default:", e);
             return DEFAULT_CHIPS;
         }
     });
 
     // --- Animation State ---
-    const [showFilters, setShowFilters] = useState(viewMode === 'CONTENT');
+    const [showFilters, setShowFilters] = useState(true);
 
     // --- Drag & Drop State ---
     const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
@@ -38,16 +49,16 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
 
     // Effects
     useEffect(() => {
-        if (viewMode === 'CONTENT') {
-            setShowFilters(true);
-        } else {
-            const timer = setTimeout(() => setShowFilters(false), 300);
-            return () => clearTimeout(timer);
-        }
+        // When view mode changes, clear active chips to avoid applying irrelevant filters
+        setActiveChipIds([]);
+        setShowFilters(true); // Always show filters bar if applicable
     }, [viewMode]);
 
     useEffect(() => {
-        localStorage.setItem('juijui_smart_chips', JSON.stringify(customChips));
+        // Only save if valid array
+        if(customChips && Array.isArray(customChips)) {
+            localStorage.setItem('juijui_smart_chips', JSON.stringify(customChips));
+        }
     }, [customChips]);
 
     // Navigation Handlers
@@ -59,7 +70,7 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     const getStartOfWeek = (d: Date) => {
         const date = new Date(d);
         const day = date.getDay();
-        const diff = date.getDate() - day;
+        const diff = date.getDate() - day; // Adjust if week starts on Monday
         date.setDate(diff);
         date.setHours(0,0,0,0);
         return date;
@@ -73,28 +84,29 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     const filterTasks = (tasksToFilter: Task[]) => {
         let filtered = tasksToFilter.filter(t => t.type === viewMode);
 
-        if (viewMode === 'CONTENT' && filterChannelId !== 'ALL') {
-            filtered = filtered.filter(t => t.channelId === filterChannelId);
-        }
+        // Multi-select OR Logic
+        // Check if any chips are active. The UI ensures only chips relevant to current viewMode are selectable.
+        if (activeChipIds.length > 0 && Array.isArray(customChips)) {
+            filtered = filtered.filter(t => {
+                // Check if task matches ANY of the active chips
+                return activeChipIds.some(chipId => {
+                    const chip = customChips.find(c => c.id === chipId);
+                    if (!chip) return false;
 
-        if (viewMode === 'CONTENT' && activeChipId !== 'ALL') {
-            const activeChip = customChips.find(c => c.id === activeChipId);
-            if (activeChip) {
-                switch (activeChip.type) {
-                    case 'CHANNEL':
-                        filtered = filtered.filter(t => t.channelId === activeChip.value);
-                        break;
-                    case 'FORMAT':
-                        filtered = filtered.filter(t => t.contentFormat === activeChip.value);
-                        break;
-                    case 'STATUS':
-                        filtered = filtered.filter(t => t.status === activeChip.value);
-                        break;
-                    case 'PILLAR':
-                        filtered = filtered.filter(t => t.pillar === activeChip.value);
-                        break;
-                }
-            }
+                    switch (chip.type) {
+                        case 'CHANNEL':
+                            return t.channelId === chip.value;
+                        case 'FORMAT':
+                            return t.contentFormat === chip.value;
+                        case 'STATUS':
+                            return t.status === chip.value;
+                        case 'PILLAR':
+                            return t.pillar === chip.value;
+                        default:
+                            return false;
+                    }
+                });
+            });
         }
         return filtered;
     };
@@ -105,16 +117,32 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
 
     // Chip Management
     const saveChip = (chip: ChipConfig) => {
-        if (customChips.find(c => c.id === chip.id)) {
-            setCustomChips(prev => prev.map(c => c.id === chip.id ? chip : c));
-        } else {
-            setCustomChips(prev => [...prev, chip]);
-        }
+        setCustomChips(prev => {
+            const current = Array.isArray(prev) ? prev : [];
+            if (current.find(c => c.id === chip.id)) {
+                return current.map(c => c.id === chip.id ? chip : c);
+            } else {
+                return [...current, chip];
+            }
+        });
     };
 
     const deleteChip = (id: string) => {
-        setCustomChips(prev => prev.filter(c => c.id !== id));
-        if (activeChipId === id) setActiveChipId('ALL');
+        setCustomChips(prev => (Array.isArray(prev) ? prev : []).filter(c => c.id !== id));
+        setActiveChipIds(prev => prev.filter(cId => cId !== id));
+    };
+
+    // Toggle Chip Selection
+    const toggleChip = (id: string) => {
+        if (id === 'ALL') {
+            setActiveChipIds([]); // Clear all
+        } else {
+            setActiveChipIds(prev => 
+                prev.includes(id) 
+                ? prev.filter(c => c !== id) // Remove if exists
+                : [...prev, id] // Add if not exists
+            );
+        }
     };
 
     // Drag & Drop
@@ -155,8 +183,8 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
         currentDate,
         viewMode,
         filterChannelId,
-        activeChipId,
-        customChips,
+        activeChipIds, // New Export
+        customChips: Array.isArray(customChips) ? customChips : [],
         isExpanded,
         showFilters,
         dragOverDate,
@@ -169,7 +197,7 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
         // Setters
         setViewMode,
         setFilterChannelId,
-        setActiveChipId,
+        toggleChip, // New Export
         setIsExpanded,
         setIsManageModalOpen,
 
@@ -184,6 +212,6 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
         handleDragStart,
         handleDragOver,
         handleDrop,
-        setDragOverDate // Exposed for onDragLeave if needed
+        setDragOverDate 
     };
 };

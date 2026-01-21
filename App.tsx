@@ -27,6 +27,7 @@ import MobileNavigation from './components/MobileNavigation';
 import { ViewMode, Status } from './types';
 import { useTaskManager } from './hooks/useTaskManager';
 import { useSystemNotifications } from './hooks/useSystemNotifications'; 
+import { useChatUnread } from './hooks/useChatUnread'; // NEW IMPORT
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 
@@ -98,7 +99,11 @@ const MainApp = () => {
     setEditingTask,
   } = useTaskManager(session?.user);
 
-  const { notifications: systemNotifications, unreadCount } = useSystemNotifications(tasks, currentUserProfile);
+  // System Notifications (Bell Icon)
+  const { notifications: systemNotifications, unreadCount: systemUnreadCount } = useSystemNotifications(tasks, currentUserProfile);
+  
+  // Chat Notifications (Sidebar Icon) - NEW
+  const { unreadCount: chatUnreadCount, markAsRead: markChatRead } = useChatUnread(currentUserProfile);
 
   const handleLogout = async () => {
     try {
@@ -113,6 +118,10 @@ const MainApp = () => {
 
   const handleNavigation = (view: ViewMode) => {
       setCurrentView(view);
+      // If navigating to CHAT, mark messages as read
+      if (view === 'CHAT') {
+          markChatRead();
+      }
   };
 
   // --- RENDERING GATES ---
@@ -178,7 +187,7 @@ const MainApp = () => {
             users={allUsers}
             masterOptions={masterOptions}
             onEditTask={handleEditTask} 
-            onNavigateToCalendar={() => setCurrentView('CALENDAR')}
+            onNavigateToCalendar={() => handleNavigation('CALENDAR')}
             onOpenSettings={() => setIsNotificationOpen(true)}
             onRefreshMasterData={fetchMasterOptions}
           />
@@ -311,8 +320,8 @@ const MainApp = () => {
         onNavigate={handleNavigation}
         onLogout={handleLogout}
         onEditProfile={() => setIsProfileModalOpen(true)}
-        onAddTask={() => handleAddTask()} // Passed correctly now
-        unreadChatCount={unreadCount}
+        onAddTask={() => handleAddTask()}
+        unreadChatCount={chatUnreadCount} // UPDATED: Use specific chat count
       />
 
       {/* Main Content Area */}
@@ -320,7 +329,6 @@ const MainApp = () => {
         {/* Mobile Header */}
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200/60 flex lg:hidden items-center justify-between px-4 sticky top-0 z-10 shrink-0 shadow-sm">
           <div className="flex items-center">
-            {/* Note: Menu trigger moved to bottom nav for consistency, just branding here */}
             <div className="mr-3 p-1 text-gray-600">
                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-indigo-200 shadow-sm">
                    <Sparkles className="text-white w-5 h-5" />
@@ -337,7 +345,7 @@ const MainApp = () => {
               className="relative p-2 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
             >
               <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
+              {systemUnreadCount > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
               )}
             </button>
@@ -359,7 +367,7 @@ const MainApp = () => {
             onAddTask={() => handleAddTask()}
             onLogout={handleLogout}
             onEditProfile={() => setIsProfileModalOpen(true)}
-            unreadChatCount={unreadCount}
+            unreadChatCount={chatUnreadCount} // UPDATED: Use specific chat count
         />
       </main>
 

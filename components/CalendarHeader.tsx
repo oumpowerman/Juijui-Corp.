@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Maximize2, Minimize2, ChevronLeft, ChevronRight, SlidersHorizontal, Bell, MonitorPlay, CheckSquare, Plus, Settings, Filter, CalendarDays, Kanban } from 'lucide-react';
-import { Channel, ChipConfig } from '../types';
+import { Channel, ChipConfig, TaskType } from '../types';
 import { COLOR_THEMES } from '../constants';
 
 const THAI_MONTHS = [
@@ -19,17 +19,18 @@ interface CalendarHeaderProps {
     showFilters: boolean;
     viewMode: 'CONTENT' | 'TASK';
     setViewMode: (mode: 'CONTENT' | 'TASK') => void;
-    activeChipId: string;
-    setActiveChipId: (id: string) => void;
+    
+    activeChipIds: string[];
+    toggleChip: (id: string) => void;
+    
     customChips: ChipConfig[];
     setIsManageModalOpen: (val: boolean) => void;
     onOpenSettings: () => void;
-    filterChannelId: string;
+    filterChannelId: string; // Keep props for interface stability even if unused
     setFilterChannelId: (id: string) => void;
     channels: Channel[];
-    onSelectDate: (date: Date) => void;
+    onSelectDate: (date: Date, type?: TaskType) => void;
     
-    // NEW: Display Mode
     displayMode: 'CALENDAR' | 'BOARD';
     setDisplayMode: (mode: 'CALENDAR' | 'BOARD') => void;
 }
@@ -40,120 +41,133 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     prevMonth, nextMonth, goToToday,
     showFilters,
     viewMode, setViewMode,
-    activeChipId, setActiveChipId, customChips,
+    activeChipIds = [],
+    toggleChip, 
+    customChips = [],
     setIsManageModalOpen,
     onOpenSettings,
     filterChannelId, setFilterChannelId, channels,
     onSelectDate,
     displayMode, setDisplayMode
 }) => {
+    const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
+    const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
+
+    const visibleChips = safeChips.filter(chip => {
+        const chipScope = chip?.scope || 'CONTENT';
+        return chipScope === viewMode;
+    });
+
     return (
-        <div className={`bg-white/90 backdrop-blur-2xl rounded-[2rem] shadow-sm border border-gray-100 p-4 relative z-10 overflow-visible transition-all duration-500 ${isExpanded ? '' : 'md:p-6 lg:p-8 shadow-2xl shadow-slate-200/60 ring-1 ring-slate-100'}`}>
+        <div className={`bg-white/90 backdrop-blur-2xl rounded-[2rem] shadow-sm border border-gray-100 p-4 relative z-10 overflow-visible transition-all duration-500 ${isExpanded ? '' : 'md:p-5 lg:p-6 shadow-2xl shadow-slate-200/60 ring-1 ring-slate-100'}`}>
             
-            {/* ========================================================================= */}
-            {/* --- DESKTOP HEADER (Flex Row Layout) --- */}
-            {/* ========================================================================= */}
-            <div className="hidden md:flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            {/* Desktop Header */}
+            <div className="hidden md:flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
                 
-                {/* Left: Navigation & Filters */}
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full xl:w-auto">
-                   <div className="flex items-center gap-3 w-full md:w-auto justify-between">
+                <div className="flex flex-col xl:flex-row items-start xl:items-center gap-2 w-full flex-1 min-w-0">
+                   
+                   <div className="flex items-center gap-3 justify-between shrink-0">
                        {!isExpanded && (
                            <button 
                              onClick={() => setIsExpanded(true)}
-                             className="p-2.5 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-xl transition-colors border border-gray-200 shrink-0"
+                             className="p-2.5 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-xl transition-colors border border-gray-200 shrink-0 shadow-sm"
                              title="ขยายเต็มจอ"
                            >
                                <Maximize2 className="w-5 h-5" />
                            </button>
                        )}
                        
-                       {/* Date Navigation (Only show in Calendar Mode) - Animated Collapse */}
                        <div className={`
                            overflow-hidden transition-all duration-500 ease-in-out flex-shrink-0
                            ${displayMode === 'CALENDAR' ? 'max-w-[200px] opacity-100 scale-100' : 'max-w-0 opacity-0 scale-95'}
                        `}>
-                           <div className="flex items-center justify-between bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-inner w-[180px]">
-                                <button onClick={prevMonth} className="p-2 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-indigo-600">
+                           <div className="flex items-center justify-between bg-slate-100/50 p-1 rounded-xl border border-slate-200/60 shadow-inner w-[160px] lg:w-[180px]">
+                                <button onClick={prevMonth} className="p-2 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-indigo-600 active:scale-90">
                                     <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <button onClick={goToToday} className="px-4 text-xs font-black text-slate-600 hover:text-indigo-600 uppercase whitespace-nowrap">
+                                <button onClick={goToToday} className="px-4 text-xs font-black text-slate-600 hover:text-indigo-600 uppercase whitespace-nowrap font-kanit tracking-wide">
                                     Today
                                 </button>
-                                <button onClick={nextMonth} className="p-2 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-indigo-600">
+                                <button onClick={nextMonth} className="p-2 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-indigo-600 active:scale-90">
                                     <ChevronRight className="w-5 h-5" />
                                 </button>
                            </div>
                        </div>
                    </div>
                    
-                   {/* Title & Chips inline */}
-                   <div className="text-left flex flex-row items-center gap-4 overflow-visible">
+                   <div className="text-left flex flex-row items-center gap-1 w-full min-w-0">
                       
-                      {/* Animated Title Switcher (Stacking Grid) */}
-                      <div className="relative h-10 min-w-[220px]">
-                          {/* Calendar Title */}
+                      <div className="relative h-10 w-auto min-w-[140px] shrink-0 mr-4">
                           <div className={`
-                              absolute top-0 left-0 w-full h-full flex items-center transition-all duration-500 ease-out
+                              absolute top-0 left-0 w-full h-full flex items-baseline transition-all duration-500 ease-out
                               ${displayMode === 'CALENDAR' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}
                           `}>
-                              <h2 className="text-2xl lg:text-3xl font-black text-slate-800 whitespace-nowrap flex items-center shrink-0">
-                                  {THAI_MONTHS[currentDate.getMonth()]} <span className="text-gray-400 text-lg ml-2 font-medium">{currentDate.getFullYear() + 543}</span>
+                              <h2 className="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap flex items-baseline shrink-0 font-kanit tracking-tight">
+                                  {THAI_MONTHS[currentDate.getMonth()]} 
+                                  <span className="text-gray-400 text-xl ml-2 font-medium hidden xl:inline font-kanit tracking-normal">{currentDate.getFullYear() + 543}</span>
+                                  <span className="text-gray-400 text-lg ml-2 font-medium xl:hidden font-kanit tracking-normal">'{String(currentDate.getFullYear() + 543).slice(-2)}</span>
                               </h2>
                           </div>
                           
-                          {/* Board Title */}
                           <div className={`
                               absolute top-0 left-0 w-full h-full flex items-center transition-all duration-500 ease-out
                               ${displayMode === 'BOARD' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}
                           `}>
-                              <h2 className="text-2xl lg:text-3xl font-black text-slate-800 whitespace-nowrap flex items-center shrink-0">
-                                  กระดานงาน (Kanban)
+                              <h2 className="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap flex items-center shrink-0 font-kanit tracking-tight">
+                                  กระดานงาน
                               </h2>
                           </div>
                       </div>
 
-                      {/* --- CUSTOM SMART FILTER CHIPS (ANIMATED COLLAPSE) --- */}
                       <div className={`
-                          overflow-hidden transition-all duration-500 ease-in-out origin-left
-                          ${showFilters && displayMode === 'CALENDAR' ? 'max-w-[600px] opacity-100' : 'max-w-0 opacity-0'}
+                          overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] origin-left min-w-0
+                          ${showFilters && displayMode === 'CALENDAR' ? 'flex-1 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4 pointer-events-none'}
                       `}>
-                          <div className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-hide">
+                          <div 
+                            key={viewMode} 
+                            className="flex items-center gap-2 overflow-x-auto py-2 px-3 scrollbar-hide mask-fade-right w-full"
+                          >
                               <button
-                                  onClick={() => setActiveChipId('ALL')}
+                                  onClick={() => toggleChip('ALL')}
                                   className={`
-                                      px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border shrink-0
-                                      ${activeChipId === 'ALL'
-                                          ? 'bg-gray-800 text-white border-gray-800 ring-2 ring-gray-300' 
+                                      chip-anim-enter font-kanit
+                                      px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap shadow-sm border shrink-0 relative z-10
+                                      ${safeActiveIds.length === 0
+                                          ? 'bg-gray-800 text-white border-gray-800 ring-2 ring-gray-300 scale-105' 
                                           : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-indigo-600'}
                                   `}
+                                  style={{ animationDelay: '0ms' }}
                               >
                                   ทั้งหมด
                               </button>
 
-                              {customChips.map(chip => {
+                              {visibleChips.map((chip, i) => {
                                   const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
-                                  const isActive = activeChipId === chip.id;
+                                  const isActive = safeActiveIds.includes(chip.id);
                                   return (
                                       <button
                                           key={chip.id}
-                                          onClick={() => setActiveChipId(chip.id)}
+                                          onClick={() => toggleChip(chip.id)}
+                                          style={{ animationDelay: `${(i + 1) * 60}ms`, animationFillMode: 'both' }}
                                           className={`
-                                              px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border shrink-0
+                                              chip-anim-enter font-kanit
+                                              px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap shadow-sm border shrink-0 flex items-center gap-1
                                               ${isActive 
-                                                  ? `${theme.activeBg} text-white border-transparent shadow-md ring-2 ring-offset-1 ${theme.ring}` 
+                                                  ? `${theme.activeBg} text-white border-transparent shadow-md ring-2 ring-offset-1 ${theme.ring} scale-105 relative z-10` 
                                                   : `bg-white ${theme.text} border-gray-200 hover:border-gray-300 hover:shadow-md hover:-translate-y-0.5`}
                                           `}
                                       >
                                           {chip.label}
+                                          {isActive && <CheckSquare className="w-3 h-3 text-white" />}
                                       </button>
                                   );
                               })}
                               
                               <button 
                                   onClick={() => setIsManageModalOpen(true)}
-                                  className="p-1.5 rounded-full transition-colors bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-200 shrink-0" 
+                                  className="chip-anim-enter p-1.5 rounded-full transition-colors bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-200 shrink-0" 
                                   title="จัดการตัวกรอง"
+                                  style={{ animationDelay: `${(visibleChips.length + 1) * 60}ms`, animationFillMode: 'both' }}
                               >
                                   <SlidersHorizontal className="w-4 h-4" />
                               </button>
@@ -162,13 +176,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                    </div>
                 </div>
 
-                {/* Right: View Toggle & Actions */}
-                <div className="flex items-center justify-end gap-3 w-full xl:w-auto">
+                <div className="flex items-center justify-end gap-2 lg:gap-3 shrink-0">
                    
-                   {/* Bell */}
                    <div className={`
-                       overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                       ${!isExpanded && viewMode === 'CONTENT'
+                       overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] shrink-0
+                       ${!isExpanded
                            ? 'max-w-[60px] opacity-100 translate-x-0 mr-0' 
                            : 'max-w-0 opacity-0 translate-x-4 mr-[-12px]'}
                    `}>
@@ -180,26 +192,6 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                        </button>
                    </div>
 
-                   {/* Channel Filter (Dropdown) - Collapsible */}
-                   <div className={`
-                       overflow-hidden transition-all duration-500 ease-in-out origin-right flex-1 md:flex-none
-                       ${showFilters && displayMode === 'CALENDAR' 
-                           ? 'max-w-[300px] opacity-100 translate-x-0' 
-                           : 'max-w-0 opacity-0 translate-x-8'}
-                   `}>
-                       <select 
-                           value={filterChannelId}
-                           onChange={(e) => setFilterChannelId(e.target.value)}
-                           className="w-full md:min-w-[200px] px-4 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-sm font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer hover:bg-indigo-100 transition-colors whitespace-nowrap"
-                       >
-                           <option value="ALL">📺 ทุกช่อง (All)</option>
-                           {channels.map(c => (
-                               <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                       </select>
-                   </div>
-
-                   {/* --- Display Mode Toggle (Calendar vs Board) --- */}
                    <div className="bg-gray-100/80 p-1 rounded-xl flex items-center border border-gray-200 shadow-inner shrink-0">
                         <button 
                             onClick={() => setDisplayMode('CALENDAR')}
@@ -217,77 +209,82 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         </button>
                    </div>
 
-                   {/* View Toggle (Content vs Task) - Animated Collapse */}
                    <div className={`
-                       overflow-hidden transition-all duration-500 ease-in-out
-                       ${displayMode === 'CALENDAR' ? 'max-w-[250px] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0'}
+                       overflow-hidden transition-all duration-500 ease-in-out shrink-0
+                       ${displayMode === 'CALENDAR' ? 'max-w-[260px] opacity-100' : 'max-w-0 opacity-0'}
                    `}>
-                       <div className="bg-gray-100/80 p-1 rounded-xl flex items-center border border-gray-200 shadow-inner w-full whitespace-nowrap">
+                       <div className="bg-gray-100/80 p-1 rounded-xl grid grid-cols-2 gap-0 relative isolate border border-gray-200 shadow-inner w-full min-w-[220px]">
+                          <div 
+                            className={`absolute top-1 bottom-1 rounded-lg bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] border border-gray-100 pill-slide-transition -z-10`}
+                            style={{
+                                left: viewMode === 'CONTENT' ? '4px' : '50%',
+                                width: 'calc(50% - 4px)'
+                            }}
+                          />
+
                           <button 
                             onClick={() => setViewMode('CONTENT')}
                             className={`
-                                relative z-10 px-4 py-2 rounded-lg text-sm font-black tracking-wide transition-all duration-300 flex items-center gap-2
+                                flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-500 font-kanit
                                 ${viewMode === 'CONTENT' 
-                                    ? 'bg-white text-indigo-600 shadow-[0_8px_20px_-6px_rgba(79,70,229,0.3)] translate-y-[-1px] scale-105 ring-1 ring-indigo-50' 
-                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
+                                    ? 'text-indigo-600 scale-105' 
+                                    : 'text-gray-400 hover:text-gray-600'
                                 }
                             `}
                           >
                              <MonitorPlay className={`w-4 h-4 transition-transform duration-300 ${viewMode === 'CONTENT' ? 'scale-110' : 'scale-100'}`} /> 
-                             CONTENT
+                             <span className="hidden xl:inline">CONTENT</span>
                           </button>
                           
                           <button 
                             onClick={() => setViewMode('TASK')}
                             className={`
-                                relative z-10 px-4 py-2 rounded-lg text-sm font-black tracking-wide transition-all duration-300 flex items-center gap-2
+                                flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold tracking-wide transition-colors duration-500 font-kanit
                                 ${viewMode === 'TASK' 
-                                    ? 'bg-white text-emerald-600 shadow-[0_8px_20px_-6px_rgba(16,185,129,0.3)] translate-y-[-1px] scale-105 ring-1 ring-emerald-50' 
-                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
+                                    ? 'text-emerald-600 scale-105' 
+                                    : 'text-gray-400 hover:text-gray-600'
                                 }
                             `}
                           >
                              <CheckSquare className={`w-4 h-4 transition-transform duration-300 ${viewMode === 'TASK' ? 'scale-110' : 'scale-100'}`} /> 
-                             TASK
+                             <span className="hidden xl:inline">TASK</span>
                           </button>
                        </div>
                    </div>
 
-                   {/* Add Button */}
                    <button 
-                        onClick={() => onSelectDate(new Date())}
-                        className="
-                            relative group flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl
-                            bg-gradient-to-r from-indigo-600 to-indigo-500 
+                        onClick={() => onSelectDate(new Date())} // viewMode handled by wrapper in CalendarView
+                        className={`
+                            relative group flex items-center justify-center gap-2 px-4 lg:px-6 py-3.5 rounded-2xl
                             text-white font-bold shrink-0
-                            shadow-xl shadow-indigo-200
-                            hover:shadow-2xl hover:shadow-indigo-300 hover:-translate-y-1 hover:scale-[1.02]
+                            shadow-xl hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.02]
                             active:scale-95 active:translate-y-0
                             transition-all duration-300
-                            border border-white/20
-                        "
+                            border border-white/20 font-kanit
+                            ${viewMode === 'CONTENT' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-indigo-200 hover:shadow-indigo-300' 
+                                : 'bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-emerald-200 hover:shadow-emerald-300'
+                            }
+                        `}
                    >
                         <Plus className="w-5 h-5 stroke-[3px]" />
-                        <span className="tracking-wide drop-shadow-sm hidden xl:inline">สร้างใหม่</span>
+                        <span className="tracking-wide drop-shadow-sm hidden 2xl:inline">สร้าง{viewMode === 'CONTENT' ? 'คลิป' : 'งาน'}</span>
                    </button>
                 </div>
             </div>
 
-            {/* ========================================================================= */}
-            {/* --- MOBILE HEADER (Stacked Layout) --- */}
-            {/* ========================================================================= */}
+            {/* Mobile Header */}
             <div className="md:hidden flex flex-col gap-3 pb-1">
-                {/* Row 1: Month & Nav */}
                 <div className="flex justify-between items-center">
                     <div className="relative h-10 w-full overflow-hidden">
-                        <div className={`absolute top-0 left-0 transition-all duration-500 ${displayMode === 'CALENDAR' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
-                            <h2 className="text-2xl font-black text-slate-800">
+                        <div className={`absolute top-0 left-0 transition-all duration-500 flex items-baseline gap-2 ${displayMode === 'CALENDAR' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+                            <h2 className="text-2xl font-black text-slate-800 font-kanit">
                                 {THAI_MONTHS[currentDate.getMonth()]}
                             </h2>
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">{currentDate.getFullYear() + 543}</p>
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest font-kanit">{currentDate.getFullYear() + 543}</p>
                         </div>
                         <div className={`absolute top-0 left-0 transition-all duration-500 ${displayMode === 'BOARD' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <h2 className="text-2xl font-black text-slate-800">
+                            <h2 className="text-2xl font-black text-slate-800 font-kanit">
                                 บอร์ดงาน
                             </h2>
                             <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest">Kanban View</p>
@@ -295,7 +292,6 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                        {/* Display Mode Toggle (Mobile) */}
                         <div className="bg-gray-100 p-1 rounded-lg flex border border-gray-200">
                             <button onClick={() => setDisplayMode('CALENDAR')} className={`p-1.5 rounded ${displayMode === 'CALENDAR' ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}>
                                 <CalendarDays className="w-4 h-4" />
@@ -318,18 +314,21 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </div>
                 </div>
 
-                {/* Row 2: View Switcher (Fixed Position) */}
                 <div className="flex gap-2">
-                    <div className={`flex-1 transition-all duration-500 overflow-hidden ${displayMode === 'CALENDAR' ? 'max-w-[200px] opacity-100' : 'max-w-0 opacity-0'}`}>
-                        <div className="bg-gray-100/80 p-1 rounded-xl flex items-center border border-gray-200 shadow-inner w-full">
+                    <div className={`flex-1 transition-all duration-500 overflow-hidden ${displayMode === 'CALENDAR' ? 'max-w-[240px] opacity-100' : 'max-w-0 opacity-0'}`}>
+                        <div className="bg-gray-100/80 p-1 rounded-xl grid grid-cols-2 gap-0 relative isolate border border-gray-200 shadow-inner w-full">
+                            <div 
+                                className={`absolute top-1 bottom-1 rounded-lg bg-white shadow-sm border border-gray-100 pill-slide-transition -z-10`}
+                                style={{
+                                    left: viewMode === 'CONTENT' ? '4px' : '50%',
+                                    width: 'calc(50% - 4px)'
+                                }}
+                            />
                             <button 
                                 onClick={() => setViewMode('CONTENT')}
                                 className={`
-                                    flex-1 relative z-10 py-2 rounded-lg text-xs font-black tracking-wide transition-all duration-300 flex items-center justify-center gap-1
-                                    ${viewMode === 'CONTENT' 
-                                        ? 'bg-white text-indigo-600 shadow-[0_2px_10px_-4px_rgba(79,70,229,0.3)] ring-1 ring-indigo-50' 
-                                        : 'text-gray-400'
-                                    }
+                                    flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-black tracking-wide transition-colors duration-500 font-kanit
+                                    ${viewMode === 'CONTENT' ? 'text-indigo-600' : 'text-gray-400'}
                                 `}
                             >
                                 <MonitorPlay className="w-3.5 h-3.5" /> CONTENT
@@ -337,11 +336,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                             <button 
                                 onClick={() => setViewMode('TASK')}
                                 className={`
-                                    flex-1 relative z-10 py-2 rounded-lg text-xs font-black tracking-wide transition-all duration-300 flex items-center justify-center gap-1
-                                    ${viewMode === 'TASK' 
-                                        ? 'bg-white text-emerald-600 shadow-[0_2px_10px_-4px_rgba(16,185,129,0.3)] ring-1 ring-emerald-50' 
-                                        : 'text-gray-400'
-                                    }
+                                    flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-black tracking-wide transition-colors duration-500 font-kanit
+                                    ${viewMode === 'TASK' ? 'text-emerald-600' : 'text-gray-400'}
                                 `}
                             >
                                 <CheckSquare className="w-3.5 h-3.5" /> TASK
@@ -351,65 +347,57 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     
                     <button 
                         onClick={() => onSelectDate(new Date())}
-                        className={`px-3 bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center ${displayMode === 'BOARD' ? 'w-full py-3' : 'flex-1'}`}
+                        className={`px-3 text-white rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center ${displayMode === 'BOARD' ? 'w-full py-3' : 'flex-1'}
+                        ${viewMode === 'CONTENT' 
+                            ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 shadow-indigo-200' 
+                            : 'bg-gradient-to-tr from-emerald-600 to-emerald-500 shadow-emerald-200'
+                        }`}
                     >
                         <Plus className="w-6 h-6 stroke-[3px]" />
-                        {displayMode === 'BOARD' && <span className="ml-2 font-bold text-sm">เพิ่มงานใหม่</span>}
+                        {displayMode === 'BOARD' && <span className="ml-2 font-bold text-sm font-kanit">เพิ่ม{viewMode === 'CONTENT' ? 'คลิป' : 'งาน'}ใหม่</span>}
                     </button>
                 </div>
 
-                {/* Row 3: Filter Chips (Expandable) - Only Calendar Mode */}
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${displayMode === 'CALENDAR' && viewMode === 'CONTENT' ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${displayMode === 'CALENDAR' && showFilters ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0'}`}>
                     <div className="flex flex-col gap-2 pt-1">
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        <div key={viewMode} className="flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
                             <button
-                                onClick={() => setActiveChipId('ALL')}
+                                onClick={() => toggleChip('ALL')}
                                 className={`
+                                    chip-anim-enter font-kanit
                                     px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border shrink-0
-                                    ${activeChipId === 'ALL'
-                                        ? 'bg-gray-800 text-white border-gray-800' 
+                                    ${safeActiveIds.length === 0
+                                        ? 'bg-gray-800 text-white border-gray-800 ring-2 ring-gray-300 scale-105' 
                                         : 'bg-white text-gray-500 border-gray-200'}
                                 `}
+                                style={{ animationDelay: '0ms' }}
                             >
                                 ทั้งหมด
                             </button>
-                            {customChips.map(chip => {
+                            {visibleChips.map((chip, i) => {
                                 const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
-                                const isActive = activeChipId === chip.id;
+                                const isActive = safeActiveIds.includes(chip.id);
                                 return (
                                     <button
                                         key={chip.id}
-                                        onClick={() => setActiveChipId(chip.id)}
+                                        onClick={() => toggleChip(chip.id)}
+                                        style={{ animationDelay: `${(i + 1) * 50}ms`, animationFillMode: 'both' }}
                                         className={`
-                                            px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border shrink-0
+                                            chip-anim-enter font-kanit
+                                            px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-sm border shrink-0 flex items-center gap-1
                                             ${isActive 
-                                                ? `${theme.activeBg} text-white border-transparent` 
+                                                ? `${theme.activeBg} text-white border-transparent scale-105` 
                                                 : `bg-white ${theme.text} border-gray-200`}
                                         `}
                                     >
                                         {chip.label}
+                                        {isActive && <CheckSquare className="w-3 h-3 text-white" />}
                                     </button>
                                 );
                             })}
-                            <button onClick={() => setIsManageModalOpen(true)} className="p-1.5 rounded-full bg-gray-50 border border-gray-200 text-gray-400 shrink-0">
+                            <button onClick={() => setIsManageModalOpen(true)} className="chip-anim-enter p-1.5 rounded-full bg-gray-50 border border-gray-200 text-gray-400 shrink-0" style={{ animationDelay: `${(visibleChips.length + 1) * 50}ms`, animationFillMode: 'both' }}>
                                 <Settings className="w-3.5 h-3.5" />
                             </button>
-                        </div>
-                        
-                        <div className="relative">
-                            <select 
-                                value={filterChannelId}
-                                onChange={(e) => setFilterChannelId(e.target.value)}
-                                className="w-full pl-3 pr-8 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-xs font-bold text-indigo-900 focus:outline-none appearance-none"
-                            >
-                                <option value="ALL">📺 ทุกช่อง (All Channels)</option>
-                                {channels.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none">
-                                <Filter className="w-3 h-3" />
-                            </div>
                         </div>
                     </div>
                 </div>

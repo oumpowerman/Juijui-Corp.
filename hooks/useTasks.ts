@@ -1,13 +1,27 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, TaskLog, ReviewSession, Status } from '../types';
 import { useToast } from '../context/ToastContext';
 import { DIFFICULTY_LABELS, isTaskCompleted } from '../constants';
+import { addMonths, endOfMonth, format } from 'date-fns';
 
 export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const { showToast } = useToast();
+    
+    // Helper to replace startOfMonth from date-fns
+    const getStartOfMonth = (date: Date) => {
+        return new Date(date.getFullYear(), date.getMonth(), 1);
+    };
+
+    // --- Date Windowing State ---
+    // Default: Load 3 months back and 3 months forward
+    const [dateRange, setDateRange] = useState<{ start: Date, end: Date }>({
+        start: addMonths(getStartOfMonth(new Date()), -3),
+        end: addMonths(endOfMonth(new Date()), 3)
+    });
+    const [isAllLoaded, setIsAllLoaded] = useState(false);
+    const [isFetching, setIsFetching] = useState(false);
 
     // Map Raw DB Data to Unified Task Type
     const mapSupabaseToTask = (data: any, type: 'CONTENT' | 'TASK'): Task => {
@@ -33,7 +47,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             isCompleted: r.is_completed
         }));
 
-        // OPTIMIZATION: Logs are no longer fetched here to improve performance
+        // Logs are fetched on demand in TaskHistory, keeping initial load light
         const logs: TaskLog[] = []; 
 
         return {
@@ -72,17 +86,34 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         };
     };
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
+        setIsFetching(true);
         let newTasks: Task[] = [];
         
-        // 1. Fetch CONTENTS (Removed task_logs join)
+        // Format dates for Supabase
+        const startStr = dateRange.start.toISOString();
+        const endStr = dateRange.end.toISOString();
+
+        // 1. Fetch CONTENTS
         try {
-            const { data: contentsData, error: contentsError } = await supabase
+            let query = supabase
                 .from('contents')
                 .select(`
                     *,
                     task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
                 `);
+            
+            if (!isAllLoaded) {
+                // Logic: (is_unscheduled = true) OR (end_date >= startRange AND start_date <= endRange)
+                // Note: Supabase OR syntax with AND is tricky. 
+                // We use a simplified approach: Fetch Unscheduled + Fetch In Range
+                
+                // Using .or() with PostgREST syntax for complex filter
+                // is_unscheduled.eq.true,and(end_date.gte.startStr,start_date.lte.endStr)
+                query = query.or(`is_unscheduled.eq.true,and(end_date.gte.${startStr},start_date.lte.${endStr})`);
+            }
+
+            const { data: contentsData, error: contentsError } = await query;
             
             if (contentsError) {
                 console.warn("Contents fetch warning:", contentsError.message);
@@ -93,11 +124,17 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             console.error('Contents Fetch unexpected error:', err);
         }
 
-        // 2. Fetch TASKS (Removed task_logs join)
+        // 2. Fetch TASKS
         try {
-            const { data: tasksData, error: tasksError } = await supabase
-                .from('tasks')
-                .select(`*`);
+            let query = supabase.from('tasks').select(`*`);
+
+            if (!isAllLoaded) {
+                // Same logic for Tasks (assuming tasks don't have is_unscheduled often, but logic holds)
+                // Using simplified date filter for tasks
+                query = query.gte('end_date', startStr).lte('start_date', endStr);
+            }
+
+            const { data: tasksData, error: tasksError } = await query;
 
             if (tasksError) {
                 console.warn("Tasks fetch warning:", tasksError.message);
@@ -109,21 +146,59 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         }
 
         setTasks(newTasks);
-    };
+        setIsFetching(false);
+    }, [dateRange, isAllLoaded]);
 
-    // Realtime Subscription (Subscribe to BOTH tables)
+    // Check if we need to load more data based on a target date
+    const checkAndExpandRange = useCallback((targetDate: Date) => {
+        if (isAllLoaded) return; // Already have everything
+
+        const target = new Date(targetDate);
+        let needsUpdate = false;
+        let newStart = dateRange.start;
+        let newEnd = dateRange.end;
+
+        // Add 1 month buffer when expanding
+        if (target < dateRange.start) {
+            newStart = addMonths(getStartOfMonth(target), -1);
+            needsUpdate = true;
+        }
+        if (target > dateRange.end) {
+            newEnd = addMonths(endOfMonth(target), 1);
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            console.log(`Expanding data range: ${format(newStart, 'yyyy-MM')} to ${format(newEnd, 'yyyy-MM')}`);
+            setDateRange({ start: newStart, end: newEnd });
+            // fetchTasks will be triggered by useEffect on dateRange change
+        }
+    }, [dateRange, isAllLoaded]);
+
+    const fetchAllTasks = useCallback(() => {
+        if (isAllLoaded) return;
+        console.log("Fetching ALL tasks...");
+        setIsAllLoaded(true); // This triggers useEffect to fetch without filters
+    }, [isAllLoaded]);
+
+    // Realtime Subscription
     useEffect(() => {
         const channel = supabase
             .channel('realtime-planner')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks())
-            // Removed task_logs listener to reduce noise, since we fetch logs on demand
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [fetchTasks]); // Depends on fetchTasks which depends on dateRange
 
+    // Initial Fetch & Range Change Fetch
+    useEffect(() => {
+        fetchTasks();
+    }, [fetchTasks]); // Trigger when fetchTasks (dateRange/isAllLoaded) changes
+
+    // ... (updateXP and handleSaveTask remain the same) ...
     const updateXP = async (userId: string, points: number) => {
         try {
             const { data: user, error: getError } = await supabase.from('profiles').select('xp, available_points').eq('id', userId).single();
@@ -144,7 +219,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             const isContent = task.type === 'CONTENT';
             const table = isContent ? 'contents' : 'tasks';
 
-            // Common Fields
             const basePayload = {
                 title: task.title,
                 description: task.description,
@@ -156,17 +230,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 assignee_ids: task.assigneeIds || [],
                 difficulty: task.difficulty || 'MEDIUM',
                 estimated_hours: task.estimatedHours || 0,
-                
-                // New Fields
                 assignee_type: task.assigneeType,
                 target_position: task.targetPosition,
                 caution: task.caution,
                 importance: task.importance,
-
                 ...(isContent ? {} : { type: 'TASK' })
             };
 
-            // Content Specific Payload
             const contentPayload = isContent ? {
                 pillar: task.pillar,
                 content_format: task.contentFormat || null,
@@ -179,13 +249,12 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 editor_ids: task.editorIds || [],
                 assets: task.assets || [],
                 performance: task.performance || null,
-                published_links: task.publishedLinks || null, // Updated to JSONB
+                published_links: task.publishedLinks || null,
             } : {};
 
             const dbPayload = { ...basePayload, ...contentPayload };
             const isUpdate = editingTask || tasks.some(t => t.id === task.id);
 
-            // --- Gamification Logic ---
             const isCompleted = isTaskCompleted(task.status);
             const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
             
@@ -204,7 +273,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 peopleToReward.forEach(uid => updateXP(uid, finalXP));
                 showToast(`🎉 งานเสร็จแล้ว! รับ +${finalXP} XP`, 'success');
             }
-            // ---------------------------
 
             let error;
             if (isUpdate) {
@@ -218,16 +286,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                  const insertPayload = { id: task.id, ...dbPayload };
                  const res = await supabase.from(table).insert(insertPayload);
                  error = res.error;
-                 
                  if (!error) {
                      const logPayload: any = {
-                         user_id: undefined, 
                          action: 'CREATED',
                          details: `สร้างใหม่: ${task.title}`
                      };
                      if (isContent) logPayload.content_id = task.id;
                      else logPayload.task_id = task.id;
-
                      await supabase.from('task_logs').insert(logPayload);
 
                      setTasks(prev => [...prev, task]);
@@ -305,6 +370,10 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         fetchTasks,
         handleSaveTask,
         handleDeleteTask,
-        handleDelayTask 
+        handleDelayTask,
+        // New exports for optimizing fetch
+        checkAndExpandRange,
+        fetchAllTasks,
+        isFetching
     };
 };

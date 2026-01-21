@@ -29,8 +29,8 @@ export const useTaskManager = (sessionUser: any) => {
   // 4. Channels Hook
   const { channels, fetchChannels, handleAddChannel, handleUpdateChannel, handleDeleteChannel } = useChannels();
 
-  // 5. Tasks Hook
-  const { tasks, fetchTasks, handleSaveTask: saveTaskInternal, handleDeleteTask, handleDelayTask } = useTasks(setIsModalOpen);
+  // 5. Tasks Hook (Now with Range Controls)
+  const { tasks, fetchTasks, handleSaveTask: saveTaskInternal, handleDeleteTask, handleDelayTask, checkAndExpandRange, fetchAllTasks, isFetching } = useTasks(setIsModalOpen);
 
   // 6. Checklist Hook
   const { 
@@ -54,11 +54,8 @@ export const useTaskManager = (sessionUser: any) => {
       const profile = await fetchProfile();
       
       if (profile && profile.isApproved) {
-         // Use Promise.allSettled or just all to ensure fetching
-         // We check if data is empty to decide if we strictly need to fetch, 
-         // but normally simply fetching here is fine if we depend on ID.
          await Promise.all([
-             fetchTasks(), 
+             fetchTasks(), // Use default range
              fetchChannels(), 
              fetchTeamMembers(),
              fetchQuests(),
@@ -71,20 +68,20 @@ export const useTaskManager = (sessionUser: any) => {
 
     if (sessionUser?.id) init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionUser?.id]); // CHANGED: Depend only on ID, not the entire object
+  }, [sessionUser?.id]); 
 
   // Wrapper for handleSaveTask to match original signature expected by App.tsx
   const handleSaveTask = (task: any) => saveTaskInternal(task, editingTask);
 
-  // Return the exact same structure as before to keep App.tsx happy
   return {
-    isLoading,
+    isLoading: isLoading || (tasks.length === 0 && isFetching), // Show load on initial empty
+    isTaskFetching: isFetching, // Expose fetch state
     currentUserProfile,
     allUsers,
     tasks,
     channels,
     masterOptions,
-    fetchMasterOptions, // EXPORTED: For manual refresh in Dashboard
+    fetchMasterOptions,
     
     // Checklist State
     checklistPresets,
@@ -109,7 +106,9 @@ export const useTaskManager = (sessionUser: any) => {
     // Task Actions
     handleSaveTask,
     handleDeleteTask,
-    handleDelayTask, 
+    handleDelayTask,
+    checkAndExpandRange, // NEW: For Calendar
+    fetchAllTasks,       // NEW: For Dashboard All Time
     
     // Channel Actions
     handleAddChannel,
@@ -132,7 +131,7 @@ export const useTaskManager = (sessionUser: any) => {
     // Admin Actions
     approveMember,
     removeMember,
-    toggleUserStatus, // NEW EXPORT
+    toggleUserStatus,
 
     // Quest Actions
     quests,
@@ -143,4 +142,3 @@ export const useTaskManager = (sessionUser: any) => {
     updateProfile
   };
 };
-    

@@ -1,30 +1,30 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, isSameMonth, isToday, eachDayOfInterval, isSameDay } from 'date-fns';
-import { Minimize2 } from 'lucide-react';
+import { Minimize2, Loader2 } from 'lucide-react'; // Added Loader2
 import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
-import { COLOR_THEMES } from '../constants'; // Import Color Themes
+import { COLOR_THEMES } from '../constants';
 import MentorTip from './MentorTip';
 import TaskCategoryModal from './TaskCategoryModal';
 import { useCalendar } from '../hooks/useCalendar';
 import CalendarHeader from './CalendarHeader';
 import SmartFilterModal from './SmartFilterModal';
-import BoardView from './BoardView'; // Import Board View
+import BoardView from './BoardView';
 
 interface CalendarViewProps {
   tasks: Task[];
   channels: Channel[];
   users: User[];
-  masterOptions?: MasterOption[]; // New Prop
+  masterOptions?: MasterOption[];
   onSelectTask: (task: Task) => void;
-  onSelectDate: (date: Date, type?: TaskType) => void; // UPDATED Interface
+  onSelectDate: (date: Date, type?: TaskType) => void;
   onMoveTask: (task: Task) => void; 
   onDelayTask?: (taskId: string, newDate: Date, reason: string) => void;
   onOpenSettings: () => void;
-  
-  // Board specific props
-  onAddTask: (status: Status, type?: TaskType) => void; // Updated signature
+  onAddTask: (status: Status, type?: TaskType) => void;
   onUpdateStatus: (task: Task, newStatus: Status) => void;
+  onRangeChange?: (targetDate: Date) => void; // New Prop
+  isFetching?: boolean; // New Prop
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
@@ -38,14 +38,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onDelayTask, 
     onOpenSettings,
     onAddTask,
-    onUpdateStatus
+    onUpdateStatus,
+    onRangeChange,
+    isFetching = false
 }) => {
-  // Use Custom Hook for Logic
   const {
       currentDate,
       viewMode, setViewMode,
       filterChannelId, setFilterChannelId,
-      activeChipIds, toggleChip, customChips, // UPDATED HOOK RETURNS
+      activeChipIds, toggleChip, customChips,
       isExpanded, setIsExpanded,
       showFilters,
       startDate, endDate,
@@ -64,6 +65,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const gridDays = eachDayOfInterval({ start: startDate, end: endDate });
   const weekDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
+  // Trigger Range Change when month changes
+  useEffect(() => {
+      if (onRangeChange) {
+          onRangeChange(currentDate);
+      }
+  }, [currentDate, onRangeChange]);
+
   const handleDayClick = (day: Date, dayTasks: Task[]) => {
       const relevantTasks = filterTasks(dayTasks);
       setSelectedDayDate(day);
@@ -75,14 +83,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       // Optional: Logic to clear highlight if leaving grid
   };
 
-  // Helper to determine task style based on active filters
   const getTaskStyle = (task: Task) => {
-      // Default styles based on ViewMode
       let styleClass = viewMode === 'CONTENT' 
           ? 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' 
           : 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100';
 
-      // If Filters are active, try to match the task to a filter to use its color
       if (activeChipIds.length > 0 && Array.isArray(customChips)) {
           const matchingChipId = activeChipIds.find(chipId => {
               const chip = customChips.find(c => c.id === chipId);
@@ -212,6 +217,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
          </button>
       )}
 
+      {isFetching && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] bg-white/90 backdrop-blur border border-indigo-100 shadow-xl px-4 py-2 rounded-full flex items-center gap-2 animate-in slide-in-from-top-4">
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+              <span className="text-xs font-bold text-indigo-800">กำลังโหลดข้อมูลเพิ่มเติม...</span>
+          </div>
+      )}
+
       {!isExpanded && <MentorTip variant="green" messages={CALENDAR_TIPS} />}
       
       <div className={`relative ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto' : ''}`}>
@@ -240,8 +252,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             filterChannelId={filterChannelId}
             setFilterChannelId={setFilterChannelId}
             channels={channels}
-            // CRITICAL FIX: Ensure `type` is never undefined. 
-            // We use the `type` passed from Header (if click create button) OR fallback to current `viewMode`
             onSelectDate={(date, type) => {
                 const targetType = type || viewMode; 
                 onSelectDate(date, targetType); 
@@ -283,7 +293,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         return (
                             <div 
                                 key={day.toString()} 
-                                // Clicking on a day cell uses current viewMode as type
                                 onClick={() => handleDayClick(day, dayTasks)}
                                 onDragOver={(e) => handleDragOver(e, day)}
                                 onDragLeave={handleDragLeave}
@@ -329,12 +338,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 className={`animate-slide-in-right ${isExpanded ? 'h-[90vh]' : ''}`}
             >
                 <BoardView 
-                    tasks={filterTasks(tasks)} // Pass ONLY tasks that match current ViewMode (Content or Task)
+                    tasks={filterTasks(tasks)} 
                     channels={channels}
                     users={users}
                     masterOptions={masterOptions}
                     onEditTask={onSelectTask}
-                    // Pass the viewMode explicitly.
                     onAddTask={(status) => onAddTask(status, viewMode)} 
                     onUpdateStatus={onUpdateStatus}
                     onOpenSettings={onOpenSettings}

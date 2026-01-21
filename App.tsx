@@ -25,8 +25,8 @@ import ProfileEditModal from './components/ProfileEditModal';
 import ChatAssistant from './components/ChatAssistant';
 import Sidebar from './components/Sidebar';
 import MobileNavigation from './components/MobileNavigation';
-import GlobalDialog from './components/GlobalDialog'; // Import Component
-import { GlobalDialogProvider } from './context/GlobalDialogContext'; // Import Provider
+import GlobalDialog from './components/GlobalDialog'; 
+import { GlobalDialogProvider } from './context/GlobalDialogContext'; 
 import { ViewMode, Status, TaskType } from './types';
 import { useTaskManager } from './hooks/useTaskManager';
 import { useSystemNotifications } from './hooks/useSystemNotifications'; 
@@ -100,12 +100,15 @@ const MainApp = () => {
     handleDeleteQuest,
     updateProfile,
     setEditingTask,
+    checkAndExpandRange, // NEW
+    fetchAllTasks,       // NEW
+    isTaskFetching,      // NEW
   } = useTaskManager(session?.user);
 
-  // System Notifications (Bell Icon)
+  // System Notifications
   const { notifications: systemNotifications, unreadCount: systemUnreadCount } = useSystemNotifications(tasks, currentUserProfile);
   
-  // Chat Notifications (Sidebar Icon) - NEW
+  // Chat Notifications
   const { unreadCount: chatUnreadCount, markAsRead: markChatRead } = useChatUnread(currentUserProfile);
 
   const handleLogout = async () => {
@@ -121,7 +124,6 @@ const MainApp = () => {
 
   const handleNavigation = (view: ViewMode) => {
       setCurrentView(view);
-      // If navigating to CHAT, mark messages as read
       if (view === 'CHAT') {
           markChatRead();
       }
@@ -150,17 +152,14 @@ const MainApp = () => {
      );
   }
 
-  // GATE 1: Check if user exists
   if (!currentUserProfile) {
        return <AuthPage onLoginSuccess={() => {}} />;
   }
 
-  // GATE 2: Check Approval (First time)
   if (!currentUserProfile.isApproved) {
       return <PendingApprovalScreen user={currentUserProfile} onLogout={handleLogout} />;
   }
 
-  // GATE 3: Check Active Status (Suspended/Inactive)
   if (!currentUserProfile.isActive) {
       return <InactiveScreen user={currentUserProfile} onLogout={handleLogout} />;
   }
@@ -173,10 +172,9 @@ const MainApp = () => {
       await handleSaveTask(updatedTask);
   };
 
-  // CRITICAL FIX: Add `type` parameter to support switching between CONTENT/TASK from Board view
   const handleBoardAddTask = (status: Status, type?: TaskType) => {
       setEditingTask({ status } as any); 
-      handleAddTask(type || 'CONTENT'); // Use passed type or default
+      handleAddTask(type || 'CONTENT'); 
   };
 
   // --- RENDER CONTENT ---
@@ -194,6 +192,8 @@ const MainApp = () => {
             onNavigateToCalendar={() => handleNavigation('CALENDAR')}
             onOpenSettings={() => setIsNotificationOpen(true)}
             onRefreshMasterData={fetchMasterOptions}
+            onFetchAllData={fetchAllTasks} // Pass this
+            isFetching={isTaskFetching}
           />
         );
       case 'CALENDAR':
@@ -212,6 +212,8 @@ const MainApp = () => {
             onOpenSettings={() => setIsNotificationOpen(true)}
             onAddTask={handleBoardAddTask}
             onUpdateStatus={handleBoardStatusUpdate}
+            onRangeChange={checkAndExpandRange} // Pass this
+            isFetching={isTaskFetching}
           />
         );
       case 'TEAM':
@@ -293,7 +295,7 @@ const MainApp = () => {
         return (
             <QualityGateView 
                 channels={channels}
-                users={allUsers} // Added Users prop to map assignee
+                users={allUsers} 
                 masterOptions={masterOptions}
                 onOpenTask={handleEditTask}
             />
@@ -310,7 +312,7 @@ const MainApp = () => {
         return (
             <GoalView channels={channels} />
         );
-      case 'KPI': // New Route
+      case 'KPI': 
         return (
             <KPIView users={allUsers} currentUser={currentUserProfile} />
         );
@@ -326,7 +328,6 @@ const MainApp = () => {
       <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
         <GlobalDialog /> 
         
-        {/* Desktop Sidebar */}
         <Sidebar 
           currentUser={currentUserProfile}
           currentView={currentView}
@@ -337,9 +338,7 @@ const MainApp = () => {
           unreadChatCount={chatUnreadCount} 
         />
 
-        {/* Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-full relative">
-          {/* Mobile Header */}
           <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200/60 flex lg:hidden items-center justify-between px-4 sticky top-0 z-10 shrink-0 shadow-sm">
             <div className="flex items-center">
               <div className="mr-3 p-1 text-gray-600">
@@ -365,14 +364,12 @@ const MainApp = () => {
             </div>
           </header>
 
-          {/* Content Body */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 pt-4 lg:pt-8 pb-24 lg:pb-8">
             <div className="w-full max-w-[1800px] mx-auto h-full">
                {renderContent()}
             </div>
           </div>
           
-          {/* Mobile Navigation */}
           <MobileNavigation 
               currentUser={currentUserProfile}
               currentView={currentView}
@@ -384,7 +381,6 @@ const MainApp = () => {
           />
         </main>
 
-        {/* --- POPUPS & MODALS --- */}
         <NotificationPopover 
             isOpen={isNotificationOpen}
             onClose={() => setIsNotificationOpen(false)}

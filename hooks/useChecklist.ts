@@ -243,13 +243,10 @@ export const useChecklist = () => {
     // UPDATED: Support clearFirst to replace items instead of append
     const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
         if (presetId === 'CLEAR') {
-            // PATCH: await confirm
-            // @ts-ignore
-            if(await window.confirm('ลบรายการทั้งหมดหน้าจอ?')) {
-                await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
-                showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
-                loadChecklistData();
-            }
+            // REMOVED window.confirm here to allow UI to handle it
+            await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
+            showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
+            loadChecklistData();
             return;
         }
 
@@ -338,4 +335,3 @@ export const useChecklist = () => {
         handleDeleteInventoryItem
     };
 };
-    

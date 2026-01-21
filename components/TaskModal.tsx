@@ -1,13 +1,13 @@
 
-import React, { useState } from 'react';
-import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, TrendingUp, Book } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles } from 'lucide-react';
 import { Task, Channel, TaskType, User, MasterOption } from '../types';
 import TaskComments from './TaskComments';
 import TaskAssets from './TaskAssets';
 import TaskHistory from './task/TaskHistory';
-import TaskWiki from './task/TaskWiki'; // Import Wiki
-import TaskForm from './task/TaskForm'; // Import New Form
-import { useTaskForm } from '../hooks/useTaskForm'; // Keep for logic if needed or pass props
+import TaskWiki from './task/TaskWiki';
+import ContentForm from './task/ContentForm';
+import GeneralTaskForm from './task/GeneralTaskForm';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -28,14 +28,27 @@ const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
   // Main View State
   const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI'>('DETAILS');
-  const [activeTab, setActiveTab] = useState<TaskType>(lockedType || (initialData?.type || 'CONTENT'));
+  
+  // Tab State (Content vs Task) - Synced with props
+  const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
 
-  // Calculate Asset Count for Badge
+  // Sync state when modal opens or props change
+  useEffect(() => {
+      if (isOpen) {
+          setViewMode('DETAILS');
+          if (initialData) {
+              setActiveTab(initialData.type);
+          } else if (lockedType) {
+              setActiveTab(lockedType);
+          } else {
+              setActiveTab('CONTENT');
+          }
+      }
+  }, [isOpen, initialData, lockedType]);
+
   const assetCount = initialData?.assets?.length || 0;
 
   if (!isOpen) return null;
-
-  const isTaskDone = initialData && (initialData.status === 'DONE' || initialData.status === 'APPROVE');
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200 font-kanit">
@@ -43,24 +56,28 @@ const TaskModal: React.FC<TaskModalProps> = ({
         
         {/* --- HEADER --- */}
         <div className="px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-20">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-1">
              <div className="flex items-center gap-2">
                 {viewMode !== 'DETAILS' && (
-                    <button onClick={() => setViewMode('DETAILS')} className="p-1 rounded-full hover:bg-gray-100 text-gray-500">
+                    <button onClick={() => setViewMode('DETAILS')} className="p-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                 )}
-                <h2 className="text-2xl font-black text-gray-800 tracking-tight flex items-center gap-2">
-                    {viewMode === 'HISTORY' ? '🕒 ไทม์แมชชีน' : 
-                     viewMode === 'COMMENTS' ? '💬 เม้าท์มอย' : 
-                     viewMode === 'ASSETS' ? '📂 คลังสมบัติ' : 
-                     viewMode === 'WIKI' ? '📚 คู่มือ (Wiki)' :
-                     (initialData ? '✏️ แก้ไขงาน' : '✨ สร้างงานใหม่')}
-                </h2>
+                <div className="flex flex-col">
+                    <h2 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
+                        {viewMode === 'HISTORY' ? '🕒 ไทม์แมชชีน (History)' : 
+                        viewMode === 'COMMENTS' ? '💬 ความคิดเห็น (Comments)' : 
+                        viewMode === 'ASSETS' ? '📂 ไฟล์แนบ (Assets)' : 
+                        viewMode === 'WIKI' ? '📚 คู่มือ (Wiki)' :
+                        (initialData ? '✏️ แก้ไขข้อมูล' : 
+                            (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์ใหม่' : '⚡ สร้างงานทั่วไป')
+                        )}
+                    </h2>
+                </div>
              </div>
              
-             <div className="flex items-center gap-1.5">
-                 {/* Wiki Button - Always visible or only on create/edit? Visible always is better */}
+             <div className="flex items-center gap-1">
+                 {/* Wiki Button */}
                  <button 
                     type="button" 
                     onClick={() => setViewMode(prev => prev === 'WIKI' ? 'DETAILS' : 'WIKI')} 
@@ -90,18 +107,16 @@ const TaskModal: React.FC<TaskModalProps> = ({
              </div>
           </div>
           
-          {/* TAB SWITCHER (Only in Details mode) */}
-          {!lockedType && viewMode === 'DETAILS' && (
-              <div className="flex bg-gray-100 p-1.5 rounded-2xl relative overflow-hidden shadow-inner border border-gray-200">
-                  <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white rounded-xl shadow-sm transition-all duration-300 ease-out ${activeTab === 'CONTENT' ? 'left-1.5' : 'left-[calc(50%+3px)]'}`}></div>
-                  <button type="button" onClick={() => setActiveTab('CONTENT')} className={`relative z-10 flex-1 flex items-center justify-center py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'CONTENT' ? 'text-indigo-600 scale-105' : 'text-gray-500 hover:text-gray-700'}`}>
-                      <Film className="w-4 h-4 mr-2" /> CONTENT (อาหาร)
-                  </button>
-                  <button type="button" onClick={() => setActiveTab('TASK')} className={`relative z-10 flex-1 flex items-center justify-center py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'TASK' ? 'text-emerald-600 scale-105' : 'text-gray-500 hover:text-gray-700'}`}>
-                      <CheckSquare className="w-4 h-4 mr-2" /> TASK (คนปรุง)
-                  </button>
-                  
-                  {/* Performance Button (If Done) - Optional, maybe better inside Content Form */}
+          {/* STATIC TYPE INDICATOR */}
+          {viewMode === 'DETAILS' && (
+              <div className="flex items-center gap-2 mt-2">
+                  <div className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center border ${activeTab === 'CONTENT' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+                      {activeTab === 'CONTENT' ? <Film className="w-3 h-3 mr-1.5" /> : <CheckSquare className="w-3 h-3 mr-1.5" />}
+                      {activeTab === 'CONTENT' ? 'CONTENT (รายการ/คลิป)' : 'TASK (งานทั่วไป)'}
+                  </div>
+                  {initialData && (
+                      <span className="text-xs text-gray-400 font-medium">#{initialData.id.slice(0,6)}</span>
+                  )}
               </div>
           )}
         </div>
@@ -118,7 +133,6 @@ const TaskModal: React.FC<TaskModalProps> = ({
                 <TaskAssets 
                     assets={initialData.assets || []} 
                     onAdd={(newAsset) => {
-                        // Optimistic update wrapper
                         const updatedAssets = [...(initialData.assets || []), newAsset];
                         onSave({ ...initialData, assets: updatedAssets });
                     }} 
@@ -131,21 +145,33 @@ const TaskModal: React.FC<TaskModalProps> = ({
         ) : viewMode === 'WIKI' ? (
             <TaskWiki className="flex-1" />
         ) : (
-            // Default: Form View
-            <TaskForm 
-                initialData={initialData}
-                selectedDate={selectedDate}
-                channels={channels}
-                users={users}
-                lockedType={lockedType}
-                masterOptions={masterOptions}
-                currentUser={currentUser}
-                onSave={(task) => { onSave(task); onClose(); }}
-                onDelete={onDelete}
-                onClose={onClose}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-            />
+            // Form Selection Logic
+            activeTab === 'CONTENT' ? (
+                <ContentForm 
+                    key={initialData ? `content-${initialData.id}` : 'new-content'}
+                    initialData={initialData}
+                    selectedDate={selectedDate}
+                    channels={channels}
+                    users={users}
+                    masterOptions={masterOptions}
+                    currentUser={currentUser} // Optional now
+                    onSave={(task) => { onSave(task); onClose(); }}
+                    onDelete={onDelete}
+                    onClose={onClose}
+                />
+            ) : (
+                <GeneralTaskForm 
+                    key={initialData ? `task-${initialData.id}` : 'new-task'}
+                    initialData={initialData}
+                    selectedDate={selectedDate}
+                    users={users}
+                    masterOptions={masterOptions}
+                    currentUser={currentUser} // Pass currentUser to GeneralTaskForm
+                    onSave={(task) => { onSave(task); onClose(); }}
+                    onDelete={onDelete}
+                    onClose={onClose}
+                />
+            )
         )}
       </div>
     </div>

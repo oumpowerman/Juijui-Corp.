@@ -223,7 +223,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
          )}
 
          <CalendarHeader 
-            currentDate={currentDate}
+            currentDate={currentDate || new Date()} 
             isExpanded={isExpanded}
             setIsExpanded={setIsExpanded}
             prevMonth={prevMonth}
@@ -240,9 +240,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             filterChannelId={filterChannelId}
             setFilterChannelId={setFilterChannelId}
             channels={channels}
-            // Pass viewMode as lockType to onSelectDate
-            onSelectDate={(date) => {
-                onSelectDate(date, viewMode); // Chain viewMode here
+            // CRITICAL FIX: Ensure `type` is never undefined. 
+            // We use the `type` passed from Header (if click create button) OR fallback to current `viewMode`
+            onSelectDate={(date, type) => {
+                const targetType = type || viewMode; 
+                onSelectDate(date, targetType); 
             }}
             displayMode={displayMode}
             setDisplayMode={setDisplayMode}
@@ -273,7 +275,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 `}>
                     {gridDays.map((day, dayIdx) => {
                         const dayTasks = getTasksForDay(day);
-                        const isCurrentMonth = isSameMonth(day, currentDate);
+                        const isCurrentMonth = isSameMonth(day, currentDate || new Date());
                         const isTodayDate = isToday(day);
                         
                         const isDragOver = dragOverDate && isSameDay(day, dragOverDate);
@@ -281,6 +283,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         return (
                             <div 
                                 key={day.toString()} 
+                                // Clicking on a day cell uses current viewMode as type
                                 onClick={() => handleDayClick(day, dayTasks)}
                                 onDragOver={(e) => handleDragOver(e, day)}
                                 onDragLeave={handleDragLeave}
@@ -326,12 +329,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 className={`animate-slide-in-right ${isExpanded ? 'h-[90vh]' : ''}`}
             >
                 <BoardView 
-                    tasks={tasks}
+                    tasks={filterTasks(tasks)} // Pass ONLY tasks that match current ViewMode (Content or Task)
                     channels={channels}
                     users={users}
                     masterOptions={masterOptions}
                     onEditTask={onSelectTask}
-                    // Pass the viewMode to ensure task creation from board respects the current view mode intent (though Board usually has its own add buttons per column)
+                    // Pass the viewMode explicitly.
                     onAddTask={(status) => onAddTask(status, viewMode)} 
                     onUpdateStatus={onUpdateStatus}
                     onOpenSettings={onOpenSettings}

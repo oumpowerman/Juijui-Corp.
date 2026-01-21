@@ -6,6 +6,7 @@ import MentorTip from './MentorTip';
 import { useChecklist } from '../hooks/useChecklist';
 import InventoryModal from './checklist/InventoryModal';
 import PresetModal from './checklist/PresetModal';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface ShootChecklistProps {
     items: ChecklistItem[]; // From Hook/Parent
@@ -30,6 +31,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
 }) => {
     // Inventory Hook Logic reused from useChecklist but we need to pass functions to Modal
     const { inventoryItems, handleAddInventoryItem, handleUpdateInventoryItem, handleDeleteInventoryItem } = useChecklist();
+    const { showConfirm } = useGlobalDialog();
 
     // Modals State
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
@@ -50,10 +52,13 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
     const progress = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
 
     // Smart Filter Chip Logic (Exclusive Load)
-    const handlePresetClick = (presetId: string) => {
+    const handlePresetClick = async (presetId: string) => {
         if (presetId === 'CLEAR') {
-            onLoadPreset('CLEAR');
-            setActivePresetId(null);
+            const confirmed = await showConfirm('ต้องการลบรายการทั้งหมดหน้าจอใช่หรือไม่?', 'ยืนยันการล้างกระเป๋า 🗑️');
+            if (confirmed) {
+                onLoadPreset('CLEAR');
+                setActivePresetId(null);
+            }
         } else {
             // Exclusive Load: Clear first then load
             setActivePresetId(presetId);
@@ -329,4 +334,3 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
 };
 
 export default ShootChecklist;
-    

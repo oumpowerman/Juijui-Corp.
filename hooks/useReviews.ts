@@ -12,13 +12,17 @@ export const useReviews = () => {
     const fetchReviews = async () => {
         setIsLoading(true);
         try {
-            // Join with Tasks to get Title
+            // Join with BOTH Tasks and Contents to handle both types
+            // Select specific fields to ensure we get caution, importance, etc.
             const { data, error } = await supabase
                 .from('task_reviews')
                 .select(`
                     *,
                     tasks (
-                        id, title, status, channel_id, start_date, end_date
+                        *
+                    ),
+                    contents (
+                        *
                     )
                 `)
                 .order('scheduled_at', { ascending: true });
@@ -26,25 +30,46 @@ export const useReviews = () => {
             if (error) throw error;
 
             if (data) {
-                const mappedReviews: ReviewSession[] = data.map((r: any) => ({
-                    id: r.id,
-                    taskId: r.task_id,
-                    round: r.round,
-                    scheduledAt: new Date(r.scheduled_at),
-                    reviewerId: r.reviewer_id,
-                    status: r.status,
-                    feedback: r.feedback,
-                    isCompleted: r.is_completed,
-                    task: r.tasks ? {
-                        id: r.tasks.id,
-                        title: r.tasks.title,
-                        status: r.tasks.status,
-                        channelId: r.tasks.channel_id,
-                        startDate: new Date(r.tasks.start_date),
-                        endDate: new Date(r.tasks.end_date),
-                        // ... basic task info needed for display
-                    } as any : undefined
-                }));
+                const mappedReviews: ReviewSession[] = data.map((r: any) => {
+                    // Determine which table holds the data
+                    const sourceData = r.tasks || r.contents;
+                    
+                    // Default fallback if data is missing (orphaned review)
+                    if (!sourceData) return null;
+
+                    return {
+                        id: r.id,
+                        taskId: r.task_id || r.content_id, // Support both IDs
+                        round: r.round,
+                        scheduledAt: new Date(r.scheduled_at),
+                        reviewerId: r.reviewer_id,
+                        status: r.status,
+                        feedback: r.feedback,
+                        isCompleted: r.is_completed,
+                        task: {
+                            id: sourceData.id,
+                            title: sourceData.title,
+                            description: sourceData.description,
+                            status: sourceData.status,
+                            channelId: sourceData.channel_id,
+                            startDate: new Date(sourceData.start_date),
+                            endDate: new Date(sourceData.end_date),
+                            // Map People
+                            assigneeIds: sourceData.assignee_ids || [],
+                            ideaOwnerIds: sourceData.idea_owner_ids || [],
+                            editorIds: sourceData.editor_ids || [],
+                            assigneeType: sourceData.assignee_type,
+                            type: r.contents ? 'CONTENT' : 'TASK', // Determine type by source
+                            assets: sourceData.assets || [],
+                            // Map Details
+                            caution: sourceData.caution,
+                            importance: sourceData.importance,
+                            difficulty: sourceData.difficulty || 'MEDIUM',
+                            estimatedHours: sourceData.estimated_hours || 0
+                        } as any
+                    };
+                }).filter(Boolean) as ReviewSession[]; // Filter out nulls
+
                 setReviews(mappedReviews);
             }
         } catch (err: any) {
@@ -62,7 +87,7 @@ export const useReviews = () => {
                 .update({ 
                     status, 
                     feedback,
-                    is_completed: status === 'PASSED' // Auto complete if passed? Or separate? Let's keep flexible.
+                    is_completed: status === 'PASSED' // Auto complete if passed
                 })
                 .eq('id', reviewId);
 

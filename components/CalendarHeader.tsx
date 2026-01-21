@@ -26,7 +26,7 @@ interface CalendarHeaderProps {
     customChips: ChipConfig[];
     setIsManageModalOpen: (val: boolean) => void;
     onOpenSettings: () => void;
-    filterChannelId: string; // Keep props for interface stability even if unused
+    filterChannelId: string;
     setFilterChannelId: (id: string) => void;
     channels: Channel[];
     onSelectDate: (date: Date, type?: TaskType) => void;
@@ -52,6 +52,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
     const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
+
+    // --- SAFETY CHECK: Ensure currentDate is valid ---
+    const safeDate = (currentDate instanceof Date && !isNaN(currentDate.getTime())) ? currentDate : new Date();
+    const monthIndex = safeDate.getMonth();
+    const thaiMonth = THAI_MONTHS[monthIndex] || THAI_MONTHS[0];
+    const year = safeDate.getFullYear() + 543;
+    const yearShort = String(year).slice(-2);
 
     const visibleChips = safeChips.filter(chip => {
         const chipScope = chip?.scope || 'CONTENT';
@@ -103,9 +110,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                               ${displayMode === 'CALENDAR' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}
                           `}>
                               <h2 className="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap flex items-baseline shrink-0 font-kanit tracking-tight">
-                                  {THAI_MONTHS[currentDate.getMonth()]} 
-                                  <span className="text-gray-400 text-xl ml-2 font-medium hidden xl:inline font-kanit tracking-normal">{currentDate.getFullYear() + 543}</span>
-                                  <span className="text-gray-400 text-lg ml-2 font-medium xl:hidden font-kanit tracking-normal">'{String(currentDate.getFullYear() + 543).slice(-2)}</span>
+                                  {thaiMonth} 
+                                  <span className="text-gray-400 text-xl ml-2 font-medium hidden xl:inline font-kanit tracking-normal">{year}</span>
+                                  <span className="text-gray-400 text-lg ml-2 font-medium xl:hidden font-kanit tracking-normal">'{yearShort}</span>
                               </h2>
                           </div>
                           
@@ -121,7 +128,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                       <div className={`
                           overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] origin-left min-w-0
-                          ${showFilters && displayMode === 'CALENDAR' ? 'flex-1 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4 pointer-events-none'}
+                          ${showFilters ? 'flex-1 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4 pointer-events-none'}
                       `}>
                           <div 
                             key={viewMode} 
@@ -209,10 +216,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         </button>
                    </div>
 
-                   <div className={`
-                       overflow-hidden transition-all duration-500 ease-in-out shrink-0
-                       ${displayMode === 'CALENDAR' ? 'max-w-[260px] opacity-100' : 'max-w-0 opacity-0'}
-                   `}>
+                   {/* FIX: Switcher always visible now */}
+                   <div className="overflow-hidden shrink-0 transition-all duration-300 max-w-[260px] opacity-100">
                        <div className="bg-gray-100/80 p-1 rounded-xl grid grid-cols-2 gap-0 relative isolate border border-gray-200 shadow-inner w-full min-w-[220px]">
                           <div 
                             className={`absolute top-1 bottom-1 rounded-lg bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] border border-gray-100 pill-slide-transition -z-10`}
@@ -253,7 +258,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                    </div>
 
                    <button 
-                        onClick={() => onSelectDate(new Date())} // viewMode handled by wrapper in CalendarView
+                        onClick={() => onSelectDate(new Date(), viewMode === 'CONTENT' ? 'CONTENT' : 'TASK')} // EXPLICITLY PASS LITERAL STRING
                         className={`
                             relative group flex items-center justify-center gap-2 px-4 lg:px-6 py-3.5 rounded-2xl
                             text-white font-bold shrink-0
@@ -279,9 +284,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     <div className="relative h-10 w-full overflow-hidden">
                         <div className={`absolute top-0 left-0 transition-all duration-500 flex items-baseline gap-2 ${displayMode === 'CALENDAR' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                             <h2 className="text-2xl font-black text-slate-800 font-kanit">
-                                {THAI_MONTHS[currentDate.getMonth()]}
+                                {thaiMonth}
                             </h2>
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest font-kanit">{currentDate.getFullYear() + 543}</p>
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest font-kanit">{year}</p>
                         </div>
                         <div className={`absolute top-0 left-0 transition-all duration-500 ${displayMode === 'BOARD' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                             <h2 className="text-2xl font-black text-slate-800 font-kanit">
@@ -315,7 +320,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 </div>
 
                 <div className="flex gap-2">
-                    <div className={`flex-1 transition-all duration-500 overflow-hidden ${displayMode === 'CALENDAR' ? 'max-w-[240px] opacity-100' : 'max-w-0 opacity-0'}`}>
+                    {/* FIX: Switcher always visible on mobile too */}
+                    <div className="flex-1 overflow-hidden transition-all duration-300 max-w-[240px] opacity-100">
                         <div className="bg-gray-100/80 p-1 rounded-xl grid grid-cols-2 gap-0 relative isolate border border-gray-200 shadow-inner w-full">
                             <div 
                                 className={`absolute top-1 bottom-1 rounded-lg bg-white shadow-sm border border-gray-100 pill-slide-transition -z-10`}
@@ -346,7 +352,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </div>
                     
                     <button 
-                        onClick={() => onSelectDate(new Date())}
+                        onClick={() => onSelectDate(new Date(), viewMode === 'CONTENT' ? 'CONTENT' : 'TASK')} // EXPLICITLY PASS LITERAL STRING
                         className={`px-3 text-white rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center ${displayMode === 'BOARD' ? 'w-full py-3' : 'flex-1'}
                         ${viewMode === 'CONTENT' 
                             ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 shadow-indigo-200' 
@@ -358,7 +364,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </button>
                 </div>
 
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${displayMode === 'CALENDAR' && showFilters ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showFilters ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0'}`}>
                     <div className="flex flex-col gap-2 pt-1">
                         <div key={viewMode} className="flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
                             <button

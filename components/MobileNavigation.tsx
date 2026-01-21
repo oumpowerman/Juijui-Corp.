@@ -1,15 +1,15 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, Plus, X, Settings2, Database, Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, Users, TrendingUp, Sparkles, Camera, LogOut } from 'lucide-react';
-import { User, ViewMode } from '../types';
+import { LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, Plus, X, Settings2, Database, Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, Users, TrendingUp, Sparkles, Camera, LogOut, CheckSquare, MonitorPlay } from 'lucide-react';
+import { User, ViewMode, TaskType } from '../types';
 import { MENU_GROUPS } from './Sidebar'; // Re-use config
 
 interface MobileNavigationProps {
     currentUser: User;
     currentView: ViewMode;
     onNavigate: (view: ViewMode) => void;
-    onAddTask: () => void;
-    onLogout: () => void;
+    onAddTask: (type?: TaskType) => void;
+    onLogout: () => void | Promise<void>;
     onEditProfile: () => void;
     unreadChatCount: number;
 }
@@ -69,27 +69,74 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({ view, icon: Icon, l
 
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [showAddMenu, setShowAddMenu] = useState(false);
     const isAdmin = currentUser.role === 'ADMIN';
 
     const handleNavigateAndClose = (view: ViewMode) => {
         onNavigate(view);
         setIsMenuOpen(false);
+        setShowAddMenu(false);
+    };
+
+    const handleAddTaskType = (type: TaskType) => {
+        onAddTask(type);
+        setShowAddMenu(false);
     };
 
     return (
         <>
+            {/* FAB Selection Menu Overlay */}
+            {showAddMenu && (
+                <div 
+                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden animate-in fade-in duration-200" 
+                    onClick={() => setShowAddMenu(false)}
+                >
+                    <div className="absolute bottom-[90px] left-0 right-0 flex justify-center items-end px-4 pointer-events-none">
+                        <div className="bg-white rounded-2xl shadow-xl p-2 flex flex-col gap-2 w-full max-w-xs pointer-events-auto border border-gray-100 animate-in slide-in-from-bottom-4 zoom-in-95">
+                            <button 
+                                onClick={() => handleAddTaskType('CONTENT')}
+                                className="flex items-center p-3 rounded-xl hover:bg-indigo-50 active:bg-indigo-100 transition-colors group"
+                            >
+                                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg mr-3 group-hover:bg-indigo-200">
+                                    <MonitorPlay className="w-5 h-5" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block text-sm font-bold text-gray-800">สร้าง Content</span>
+                                    <span className="text-xs text-gray-500">คลิป, โพสต์, รายการ</span>
+                                </div>
+                            </button>
+                            <button 
+                                onClick={() => handleAddTaskType('TASK')}
+                                className="flex items-center p-3 rounded-xl hover:bg-emerald-50 active:bg-emerald-100 transition-colors group"
+                            >
+                                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg mr-3 group-hover:bg-emerald-200">
+                                    <CheckSquare className="w-5 h-5" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block text-sm font-bold text-gray-800">สร้าง Task</span>
+                                    <span className="text-xs text-gray-500">งานทั่วไป, ธุระ, สิ่งที่ต้องทำ</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Bottom Bar */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-safe-area pt-2 flex justify-between items-center z-30 h-[80px] pb-5">
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-safe-area pt-2 flex justify-between items-center z-50 h-[80px] pb-5">
                 <NavItem view="DASHBOARD" icon={LayoutGrid} label="ภาพรวม" currentView={currentView} onNavigate={onNavigate} />
                 <NavItem view="CALENDAR" icon={CalendarIcon} label="ปฏิทิน" currentView={currentView} onNavigate={onNavigate} />
+                
+                {/* Center FAB */}
                 <div className="relative -top-5">
                     <button 
-                        onClick={onAddTask}
-                        className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-400/50 flex items-center justify-center active:scale-95 transition-transform border-4 border-[#f8fafc] ring-2 ring-indigo-100"
+                        onClick={() => setShowAddMenu(!showAddMenu)}
+                        className={`w-16 h-16 rounded-full text-white shadow-lg shadow-indigo-400/50 flex items-center justify-center active:scale-95 transition-transform border-4 border-[#f8fafc] ring-2 ring-indigo-100 ${showAddMenu ? 'bg-gray-800 rotate-45' : 'bg-gradient-to-tr from-indigo-600 to-purple-600'}`}
                     >
                         <Plus className="w-8 h-8 stroke-[3px]" />
                     </button>
                 </div>
+                
                 <NavItem view="CHAT" icon={MessageCircle} label="แชท" currentView={currentView} onNavigate={onNavigate} badgeCount={unreadChatCount} />
                 <button
                     onClick={() => setIsMenuOpen(true)}

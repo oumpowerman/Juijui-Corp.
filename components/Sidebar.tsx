@@ -146,36 +146,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate,
             </button>
 
             <div className={`h-20 flex items-center border-b border-slate-800/50 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-6'}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-                <Sparkles className="text-white w-6 h-6" />
-            </div>
-            {!isSidebarCollapsed && (
-                <div className="ml-3 overflow-hidden whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300">
-                    <h1 className="font-bold text-lg tracking-tight leading-none text-white">Juijui Planner</h1>
-                    <p className="text-[10px] text-indigo-400 font-medium tracking-wider mt-0.5">CREATOR EDITION</p>
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+                    <Sparkles className="text-white w-6 h-6" />
                 </div>
-            )}
+                {!isSidebarCollapsed && (
+                    <div className="ml-3 overflow-hidden whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300">
+                        <h1 className="font-bold text-lg tracking-tight leading-none text-white">Juijui Planner</h1>
+                        <p className="text-[10px] text-indigo-400 font-medium tracking-wider mt-0.5">CREATOR EDITION</p>
+                    </div>
+                )}
             </div>
 
-            <div className={`p-4 ${isSidebarCollapsed ? 'px-2' : ''}`}>
-                <button 
-                    onClick={onAddTask}
-                    className={`
-                        w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                        bg-gradient-to-r from-indigo-600 to-indigo-500 
-                        text-white font-bold shadow-lg shadow-indigo-900/40
-                        hover:shadow-indigo-500/30 hover:-translate-y-0.5
-                        active:scale-95 transition-all duration-200
-                        ${isSidebarCollapsed ? 'px-0' : 'px-4'}
-                    `}
-                    title="สร้างงานใหม่"
-                >
-                    <Plus className="w-5 h-5 stroke-[3px]" />
-                    {!isSidebarCollapsed && <span className="tracking-wide">สร้างงานใหม่</span>}
-                </button>
-            </div>
+            {/* Remove 'Create New Task' Button from Desktop Sidebar as requested */}
+            <div className="h-4"></div> 
 
-            <nav className="flex-1 py-2 px-3 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+            <nav className="flex-1 py-2 px-3 space-y-4 overflow-y-auto scrollbar-hide">
             {MENU_GROUPS.map((group) => {
                 if (group.adminOnly && !isAdmin) return null;
                 

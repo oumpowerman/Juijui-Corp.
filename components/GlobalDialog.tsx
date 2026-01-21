@@ -51,13 +51,13 @@ const GlobalDialog: React.FC = () => {
                     {type === 'confirm' ? (
                         <>
                             <button 
-                                onClick={() => { onCancel && onCancel(); closeDialog(); }}
+                                onClick={() => { if(onCancel) onCancel(); else closeDialog(); }}
                                 className="flex-1 py-3 text-gray-600 font-bold bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-sm"
                             >
                                 ยกเลิก
                             </button>
                             <button 
-                                onClick={() => { onConfirm && onConfirm(); closeDialog(); }}
+                                onClick={() => { if(onConfirm) onConfirm(); else closeDialog(); }}
                                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
                             >
                                 ตกลง
@@ -65,7 +65,7 @@ const GlobalDialog: React.FC = () => {
                         </>
                     ) : (
                         <button 
-                            onClick={() => { onConfirm && onConfirm(); closeDialog(); }}
+                            onClick={() => { if(onConfirm) onConfirm(); else closeDialog(); }}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
                         >
                             รับทราบ

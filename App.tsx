@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Loader2, Bell, Sparkles, Menu } from 'lucide-react';
 import CalendarView from './components/CalendarView';
@@ -14,7 +15,7 @@ import QualityGateView from './components/QualityGateView';
 import WikiView from './components/WikiView'; 
 import DutyView from './components/DutyView'; 
 import GoalView from './components/GoalView';
-import KPIView from './components/KPIView'; // New Import
+import KPIView from './components/KPIView'; 
 import AuthPage from './components/AuthPage';
 import PendingApprovalScreen from './components/PendingApprovalScreen';
 import InactiveScreen from './components/InactiveScreen'; 
@@ -24,7 +25,9 @@ import ProfileEditModal from './components/ProfileEditModal';
 import ChatAssistant from './components/ChatAssistant';
 import Sidebar from './components/Sidebar';
 import MobileNavigation from './components/MobileNavigation';
-import { ViewMode, Status } from './types';
+import GlobalDialog from './components/GlobalDialog'; // Import Component
+import { GlobalDialogProvider } from './context/GlobalDialogContext'; // Import Provider
+import { ViewMode, Status, TaskType } from './types';
 import { useTaskManager } from './hooks/useTaskManager';
 import { useSystemNotifications } from './hooks/useSystemNotifications'; 
 import { useChatUnread } from './hooks/useChatUnread'; 
@@ -170,9 +173,10 @@ const MainApp = () => {
       await handleSaveTask(updatedTask);
   };
 
-  const handleBoardAddTask = (status: Status) => {
+  // CRITICAL FIX: Add `type` parameter to support switching between CONTENT/TASK from Board view
+  const handleBoardAddTask = (status: Status, type?: TaskType) => {
       setEditingTask({ status } as any); 
-      handleAddTask('CONTENT');
+      handleAddTask(type || 'CONTENT'); // Use passed type or default
   };
 
   // --- RENDER CONTENT ---
@@ -289,6 +293,7 @@ const MainApp = () => {
         return (
             <QualityGateView 
                 channels={channels}
+                users={allUsers} // Added Users prop to map assignee
                 masterOptions={masterOptions}
                 onOpenTask={handleEditTask}
             />
@@ -317,111 +322,115 @@ const MainApp = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
-      {/* Desktop Sidebar */}
-      <Sidebar 
-        currentUser={currentUserProfile}
-        currentView={currentView}
-        onNavigate={handleNavigation}
-        onLogout={handleLogout}
-        onEditProfile={() => setIsProfileModalOpen(true)}
-        onAddTask={() => handleAddTask()}
-        unreadChatCount={chatUnreadCount} // UPDATED: Use specific chat count
-      />
+    <GlobalDialogProvider>
+      <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
+        <GlobalDialog /> 
+        
+        {/* Desktop Sidebar */}
+        <Sidebar 
+          currentUser={currentUserProfile}
+          currentView={currentView}
+          onNavigate={handleNavigation}
+          onLogout={handleLogout}
+          onEditProfile={() => setIsProfileModalOpen(true)}
+          onAddTask={() => handleAddTask()}
+          unreadChatCount={chatUnreadCount} 
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-full relative">
-        {/* Mobile Header */}
-        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200/60 flex lg:hidden items-center justify-between px-4 sticky top-0 z-10 shrink-0 shadow-sm">
-          <div className="flex items-center">
-            <div className="mr-3 p-1 text-gray-600">
-               <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-indigo-200 shadow-sm">
-                   <Sparkles className="text-white w-5 h-5" />
-               </div>
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-full relative">
+          {/* Mobile Header */}
+          <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-200/60 flex lg:hidden items-center justify-between px-4 sticky top-0 z-10 shrink-0 shadow-sm">
+            <div className="flex items-center">
+              <div className="mr-3 p-1 text-gray-600">
+                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-indigo-200 shadow-sm">
+                     <Sparkles className="text-white w-5 h-5" />
+                 </div>
+              </div>
+              <div>
+                   <h1 className="font-bold text-gray-800 leading-none">Juijui Planner</h1>
+              </div>
             </div>
-            <div>
-                 <h1 className="font-bold text-gray-800 leading-none">Juijui Planner</h1>
+            
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className="relative p-2 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
+              >
+                <Bell className="w-5 h-5" />
+                {systemUnreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                )}
+              </button>
+            </div>
+          </header>
+
+          {/* Content Body */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 pt-4 lg:pt-8 pb-24 lg:pb-8">
+            <div className="w-full max-w-[1800px] mx-auto h-full">
+               {renderContent()}
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
-            <button 
-              onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-              className="relative p-2 text-gray-400 hover:text-indigo-600 rounded-lg transition-all"
-            >
-              <Bell className="w-5 h-5" />
-              {systemUnreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-              )}
-            </button>
-          </div>
-        </header>
+          {/* Mobile Navigation */}
+          <MobileNavigation 
+              currentUser={currentUserProfile}
+              currentView={currentView}
+              onNavigate={handleNavigation}
+              onAddTask={(type) => handleAddTask(type)} 
+              onLogout={handleLogout}
+              onEditProfile={() => setIsProfileModalOpen(true)}
+              unreadChatCount={chatUnreadCount} 
+          />
+        </main>
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 pt-4 lg:pt-8 pb-24 lg:pb-8">
-          <div className="w-full max-w-[1800px] mx-auto h-full">
-             {renderContent()}
-          </div>
-        </div>
-        
-        {/* Mobile Navigation */}
-        <MobileNavigation 
-            currentUser={currentUserProfile}
-            currentView={currentView}
-            onNavigate={handleNavigation}
-            onAddTask={() => handleAddTask()}
-            onLogout={handleLogout}
-            onEditProfile={() => setIsProfileModalOpen(true)}
-            unreadChatCount={chatUnreadCount} // UPDATED: Use specific chat count
+        {/* --- POPUPS & MODALS --- */}
+        <NotificationPopover 
+            isOpen={isNotificationOpen}
+            onClose={() => setIsNotificationOpen(false)}
+            notifications={systemNotifications}
+            tasks={tasks}
+            onOpenTask={handleEditTask}
+            onOpenSettings={() => setIsSettingsOpen(true)}
         />
-      </main>
 
-      {/* --- POPUPS & MODALS --- */}
-      <NotificationPopover 
-          isOpen={isNotificationOpen}
-          onClose={() => setIsNotificationOpen(false)}
-          notifications={systemNotifications}
-          tasks={tasks}
-          onOpenTask={handleEditTask}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-      />
+        <TaskModal 
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onSave={handleSaveTask}
+          onDelete={handleDeleteTask}
+          initialData={editingTask}
+          selectedDate={selectedDate}
+          channels={channels}
+          users={allUsers}
+          lockedType={lockedTaskType} 
+          masterOptions={masterOptions} 
+          currentUser={currentUserProfile}
+        />
 
-      <TaskModal 
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        onSave={handleSaveTask}
-        onDelete={handleDeleteTask}
-        initialData={editingTask}
-        selectedDate={selectedDate}
-        channels={channels}
-        users={allUsers}
-        lockedType={lockedTaskType} 
-        masterOptions={masterOptions} 
-        currentUser={currentUserProfile}
-      />
+        <NotificationSettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          preferences={notificationSettings}
+          onUpdate={updateNotificationSettings}
+        />
 
-      <NotificationSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        preferences={notificationSettings}
-        onUpdate={updateNotificationSettings}
-      />
+        <ProfileEditModal 
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          user={currentUserProfile}
+          onSave={updateProfile}
+        />
 
-      <ProfileEditModal 
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        user={currentUserProfile}
-        onSave={updateProfile}
-      />
-
-      <ChatAssistant 
-         tasks={tasks}
-         channels={channels}
-         onAddChannel={handleAddChannel}
-         onDeleteChannel={handleDeleteChannel}
-         onAddTask={handleSaveTask}
-      />
-    </div>
+        <ChatAssistant 
+           tasks={tasks}
+           channels={channels}
+           onAddChannel={handleAddChannel}
+           onDeleteChannel={handleDeleteChannel}
+           onAddTask={handleSaveTask}
+        />
+      </div>
+    </GlobalDialogProvider>
   );
 };
 

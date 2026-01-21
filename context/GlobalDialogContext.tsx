@@ -39,7 +39,10 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 type: 'alert',
                 title: title || 'แจ้งเตือน',
                 message,
-                onConfirm: () => resolve(),
+                onConfirm: () => {
+                    resolve();
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
             });
         });
     }, []);
@@ -51,8 +54,14 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 type: 'confirm',
                 title: title || 'ยืนยันการทำรายการ?',
                 message,
-                onConfirm: () => resolve(true),
-                onCancel: () => resolve(false),
+                onConfirm: () => {
+                    resolve(true);
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
+                onCancel: () => {
+                    resolve(false);
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
             });
         });
     }, []);

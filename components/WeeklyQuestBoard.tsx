@@ -31,9 +31,6 @@ interface PendingQuestItem {
 const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, quests, masterOptions = [], onAddQuest, onDeleteQuest, onOpenSettings }) => {
     // We need updateManualProgress from the hook, but it's passed via parent props usually. 
     // To allow this component to be self-contained regarding updates, let's grab the hook here or assume parent passes it.
-    // However, props only show onAdd and onDelete. I will modify the component to use the hook for update logic if possible, 
-    // or just assume the parent might need to pass it. 
-    // Better approach: use the hook directly inside this component for the update action since it's specific.
     const { updateManualProgress } = useWeeklyQuests(); // Hook usage for local update
 
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -543,16 +540,16 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-100 animate-in zoom-in-95 duration-200">
                         {/* Detail Header */}
-                        <div className={`px-6 py-5 border-b border-gray-100 flex justify-between items-center ${viewingChannel?.color ? viewingChannel.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 text-') : 'bg-gray-50'}`}>
+                        <div className={`px-6 py-5 border-b border-gray-100 flex justify-between items-center ${viewingChannel?.color ? viewingChannel.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 ') : 'bg-gray-50'}`}>
                             <div>
-                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
                                     {viewingChannel?.name}
                                 </h2>
-                                <p className="text-xs opacity-70 font-medium mt-0.5">
+                                <p className="text-xs opacity-70 font-medium mt-0.5 text-gray-600">
                                     จัดการภารกิจ: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}
                                 </p>
                             </div>
-                            <button onClick={() => setViewingChannelId(null)} className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors">
+                            <button onClick={() => setViewingChannelId(null)} className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors text-gray-500">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>

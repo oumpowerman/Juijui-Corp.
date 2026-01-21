@@ -6,7 +6,7 @@ import { useRewards } from './useRewards';
 import { useDashboardConfig } from './useDashboardConfig';
 import { useMaintenance } from './useMaintenance';
 
-export type MasterTab = 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS' | 'INVENTORY' | 'POSITION' | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
+export type MasterTab = 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS' | 'TASK_STATUS' | 'INVENTORY' | 'POSITION' | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
 
 export const useMasterDataView = () => {
     // --- Hooks ---

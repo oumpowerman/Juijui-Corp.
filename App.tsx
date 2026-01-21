@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Loader2, Bell, Sparkles, Menu } from 'lucide-react';
 import CalendarView from './components/CalendarView';
@@ -15,6 +14,7 @@ import QualityGateView from './components/QualityGateView';
 import WikiView from './components/WikiView'; 
 import DutyView from './components/DutyView'; 
 import GoalView from './components/GoalView';
+import KPIView from './components/KPIView'; // New Import
 import AuthPage from './components/AuthPage';
 import PendingApprovalScreen from './components/PendingApprovalScreen';
 import InactiveScreen from './components/InactiveScreen'; 
@@ -27,7 +27,7 @@ import MobileNavigation from './components/MobileNavigation';
 import { ViewMode, Status } from './types';
 import { useTaskManager } from './hooks/useTaskManager';
 import { useSystemNotifications } from './hooks/useSystemNotifications'; 
-import { useChatUnread } from './hooks/useChatUnread'; // NEW IMPORT
+import { useChatUnread } from './hooks/useChatUnread'; 
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 
@@ -289,6 +289,7 @@ const MainApp = () => {
         return (
             <QualityGateView 
                 channels={channels}
+                masterOptions={masterOptions}
                 onOpenTask={handleEditTask}
             />
         );
@@ -303,6 +304,10 @@ const MainApp = () => {
       case 'GOALS': 
         return (
             <GoalView channels={channels} />
+        );
+      case 'KPI': // New Route
+        return (
+            <KPIView users={allUsers} currentUser={currentUserProfile} />
         );
       case 'MASTER_DATA':
           return <MasterDataManager />;

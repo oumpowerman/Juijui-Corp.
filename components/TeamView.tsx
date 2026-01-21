@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Task, Status, Channel, User, Role } from '../types';
 import { STATUS_COLORS, PLATFORM_ICONS } from '../constants';
 import { format, endOfWeek, eachDayOfInterval, isWithinInterval, isToday, addWeeks, isSameWeek, isBefore, isAfter } from 'date-fns';
-import { Battery, BatteryCharging, BatteryFull, BatteryWarning, Check, X, ShieldAlert, Crown, ChevronLeft, ChevronRight, Loader2, Gift, ShoppingBag, Wallet, Settings, History, Send, AlertCircle, Users, Zap, Briefcase as JobIcon, Sword, Shield, GraduationCap, Flame, Scissors, Lightbulb } from 'lucide-react';
+import { Battery, BatteryCharging, BatteryFull, BatteryWarning, Check, X, ShieldAlert, Crown, ChevronLeft, ChevronRight, Loader2, Gift, ShoppingBag, Wallet, Settings, History, Send, AlertCircle, Users, Zap, Briefcase as JobIcon, Sword, Shield, GraduationCap, Flame, Scissors, Lightbulb, User as UserIcon } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useRewards } from '../hooks/useRewards';
 import MemberManagementModal from './MemberManagementModal'; 
@@ -171,7 +171,8 @@ const TeamView: React.FC<TeamViewProps> = ({
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <MentorTip variant="blue" messages={[
           "เช็ค Load งานเบี้ยบ้ายรายทางของชาวแก๊งได้ที่นี่",
-          "ใครว่าง/ไม่ว่าง ดูที่สถานะแบตเตอรี่ได้เลย ถ้าสีแดงแสดงว่างานล้นมือแล้ว!"
+          "ใครว่าง/ไม่ว่าง ดูที่สถานะแบตเตอรี่ได้เลย ถ้าสีแดงแสดงว่างานล้นมือแล้ว!",
+          "งานที่เป็นสีเขียวคืองาน Team ที่ช่วยกันทำหลายคน"
       ]} />
       
       {/* --- PENDING APPROVAL ALERT --- */}
@@ -221,7 +222,9 @@ const TeamView: React.FC<TeamViewProps> = ({
             {/* Distribute Task Button */}
             {onAddTask && (
                 <button 
-                    onClick={() => onAddTask()} 
+                    onClick={() => {
+                        onAddTask(); 
+                    }} 
                     className="flex items-center px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:-translate-y-0.5 transition-all active:scale-95"
                 >
                     <Send className="w-4 h-4 mr-2" /> สั่งงานด่วน
@@ -373,7 +376,6 @@ const TeamView: React.FC<TeamViewProps> = ({
                         <p className="text-[9px] text-gray-400">ช่วยกันทำเด้อ</p>
                      </div>
                      {weekDays.map(day => {
-                        // ROBUST DATE OVERLAP CHECK
                         const dayTasks = teamPoolTasks.filter(t => isTaskOnDay(t, day));
                         return (
                             <div key={day.toString()} className="col-span-1 border-l border-indigo-100 p-1.5 relative flex flex-col gap-1">
@@ -400,7 +402,6 @@ const TeamView: React.FC<TeamViewProps> = ({
                         <p className="text-[9px] text-red-400">รีบหาคนทำด่วน!</p>
                      </div>
                      {weekDays.map(day => {
-                        // ROBUST DATE OVERLAP CHECK
                         const dayTasks = unassignedTasks.filter(t => isTaskOnDay(t, day));
                         return (
                             <div key={day.toString()} className="col-span-1 border-l border-red-100 p-1.5 relative flex flex-col gap-1">
@@ -466,21 +467,33 @@ const TeamView: React.FC<TeamViewProps> = ({
 
                         {/* Calendar Grid for this user */}
                         {weekDays.map(day => {
-                            // ROBUST DATE OVERLAP CHECK
                             const dayTasks = userTasks.filter(t => isTaskOnDay(t, day));
                             return (
                                 <div key={day.toString()} className={`col-span-1 border-l border-gray-100 p-1.5 relative flex flex-col gap-1 ${isToday(day) ? 'bg-indigo-50/20' : ''}`}>
-                                    {dayTasks.map(task => (
-                                        <div key={task.id} onClick={() => onEditTask(task)} className={`text-[10px] p-1.5 rounded-lg cursor-pointer border shadow-sm truncate hover:scale-105 transition-transform font-medium flex items-center bg-white ${STATUS_COLORS[task.status as Status]} group/task relative`}>
-                                            <JobIcon className="w-3 h-3 mr-1 opacity-50 shrink-0" />
-                                            <span className="truncate">{task.title}</span>
-                                            
-                                            {/* Hover Tooltip for Task Title */}
-                                            <div className="absolute bottom-full left-0 mb-1 hidden group-hover/task:block z-50 w-max max-w-[150px] bg-gray-800 text-white text-[10px] p-2 rounded shadow-lg whitespace-normal break-words pointer-events-none">
-                                                {task.title}
+                                    {dayTasks.map(task => {
+                                        // VISUAL DISTINCTION FOR TEAM TASKS
+                                        const isTeamTask = task.assigneeType === 'TEAM';
+                                        
+                                        const cardStyle = isTeamTask 
+                                            ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 text-emerald-900 shadow-sm ring-1 ring-emerald-100' // Team Style
+                                            : `bg-white ${STATUS_COLORS[task.status as Status]}`; // Solo Style (Standard)
+
+                                        return (
+                                            <div key={task.id} onClick={() => onEditTask(task)} className={`text-[10px] p-1.5 rounded-lg cursor-pointer border shadow-sm truncate hover:scale-105 transition-transform font-medium flex items-center group/task relative ${cardStyle}`}>
+                                                {isTeamTask ? (
+                                                    <Users className="w-3 h-3 mr-1 text-emerald-600 shrink-0" /> // Team Icon
+                                                ) : (
+                                                    <JobIcon className="w-3 h-3 mr-1 opacity-50 shrink-0" />
+                                                )}
+                                                <span className="truncate">{task.title}</span>
+                                                
+                                                {/* Hover Tooltip for Task Title */}
+                                                <div className="absolute bottom-full left-0 mb-1 hidden group-hover/task:block z-50 w-max max-w-[150px] bg-gray-800 text-white text-[10px] p-2 rounded shadow-lg whitespace-normal break-words pointer-events-none">
+                                                    {task.title}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             );
                         })}
@@ -530,7 +543,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                     </div>
                     <div>
                         <h3 className="font-bold text-red-700 text-sm">ยังไม่ระบุคน (Unassigned)</h3>
-                        <p className="text-[10px] text-red-500">งานลอยๆ ไม่มีเจ้าภาพ</p>
+                        <p className="text-xs text-red-500">งานลอยๆ ไม่มีเจ้าภาพ</p>
                     </div>
                 </div>
                 <div className="space-y-2">
@@ -574,19 +587,27 @@ const TeamView: React.FC<TeamViewProps> = ({
                     <div className="p-4">
                          {userTasks.length > 0 ? (
                              <div className="space-y-2">
-                                 {userTasks.map(task => (
-                                     <div key={task.id} onClick={() => onEditTask(task)} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 active:scale-[0.98] transition-transform">
-                                         <div className="flex items-center space-x-3 overflow-hidden">
-                                             <div className="flex-shrink-0 bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
-                                                <JobIcon className="w-4 h-4 text-gray-400" />
-                                             </div>
-                                             <div className="min-w-0">
-                                                 <p className="text-sm font-bold text-gray-700 truncate">{task.title}</p>
-                                                 <p className="text-[10px] text-gray-400 mt-0.5">📅 {format(new Date(task.endDate), 'dd MMM')} • {task.status}</p>
+                                 {userTasks.map(task => {
+                                     // Mobile Visual Distinction
+                                     const isTeamTask = task.assigneeType === 'TEAM';
+                                     const cardStyle = isTeamTask 
+                                        ? 'bg-emerald-50 border-emerald-100 ring-1 ring-emerald-50' 
+                                        : 'bg-gray-50 border-gray-100';
+
+                                     return (
+                                         <div key={task.id} onClick={() => onEditTask(task)} className={`flex items-center justify-between p-3 rounded-2xl border active:scale-[0.98] transition-transform ${cardStyle}`}>
+                                             <div className="flex items-center space-x-3 overflow-hidden">
+                                                 <div className={`flex-shrink-0 p-2 rounded-xl border shadow-sm ${isTeamTask ? 'bg-emerald-100 border-emerald-200 text-emerald-600' : 'bg-white border-gray-200 text-gray-400'}`}>
+                                                    {isTeamTask ? <Users className="w-4 h-4" /> : <JobIcon className="w-4 h-4" />}
+                                                 </div>
+                                                 <div className="min-w-0">
+                                                     <p className="text-sm font-bold text-gray-700 truncate">{task.title}</p>
+                                                     <p className="text-[10px] text-gray-400 mt-0.5">📅 {format(new Date(task.endDate), 'dd MMM')} • {task.status}</p>
+                                                 </div>
                                              </div>
                                          </div>
-                                     </div>
-                                 ))}
+                                     );
+                                 })}
                              </div>
                          ) : <div className="text-center py-6 opacity-40"><p className="text-2xl mb-1">🏝️</p><p className="text-xs">ว่างจัดๆ</p></div>}
                     </div>

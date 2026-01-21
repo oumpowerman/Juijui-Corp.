@@ -1,5 +1,5 @@
 
-export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'CHAT' | 'TEAM' | 'WEEKLY' | 'GOALS' | 'DUTY' | 'QUALITY_GATE' | 'STOCK' | 'CHECKLIST' | 'WIKI' | 'CHANNELS' | 'MASTER_DATA';
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'CHAT' | 'TEAM' | 'WEEKLY' | 'GOALS' | 'DUTY' | 'QUALITY_GATE' | 'STOCK' | 'CHECKLIST' | 'WIKI' | 'CHANNELS' | 'MASTER_DATA' | 'KPI';
 
 export type Role = 'ADMIN' | 'MEMBER';
 
@@ -154,7 +154,7 @@ export interface Channel {
 
 export interface MasterOption {
   id: string;
-  type: 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'POSITION' | 'RESPONSIBILITY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'TASK_STATUS';
+  type: 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'POSITION' | 'RESPONSIBILITY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'TASK_STATUS' | 'KPI_CRITERIA';
   key: string;
   label: string;
   color?: string;
@@ -313,4 +313,17 @@ export interface DutyConfig {
     dayOfWeek: number;
     requiredPeople: number;
     taskTitles: string[];
+}
+
+export interface KPIRecord {
+    id: string;
+    userId: string;
+    evaluatorId: string;
+    monthKey: string; // "YYYY-MM"
+    scores: Record<string, number>; // { "CRITERIA_KEY": 5 }
+    feedback: string;
+    status: 'DRAFT' | 'FINAL' | 'PAID';
+    totalScore: number;
+    maxScore: number;
+    updatedAt: Date;
 }

@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useReviews } from '../hooks/useReviews';
 import { format, isToday, isTomorrow, isPast, isFuture } from 'date-fns';
-import { CheckCircle2, AlertTriangle, Clock, Search, ChevronRight, FileSearch, X, MessageSquare, ThumbsUp, Wrench, Filter, ExternalLink, PlayCircle } from 'lucide-react';
-import { Channel, Task, ReviewSession, Status } from '../types';
+import { CheckCircle2, AlertTriangle, Clock, Search, FileSearch, ThumbsUp, Wrench, Filter, ExternalLink, PlayCircle } from 'lucide-react';
+import { Channel, Task, ReviewSession, MasterOption, Status } from '../types';
 import MentorTip from './MentorTip';
 import { supabase } from '../lib/supabase'; // Import supabase for direct task update
 
 interface QualityGateViewProps {
     channels: Channel[];
+    masterOptions: MasterOption[]; // ADDED: Receive Master Data
     onOpenTask: (task: Task) => void;
 }
 
@@ -18,6 +19,7 @@ interface ReviewCardProps {
     onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string) => void;
     onOpenTask: (task: Task) => void;
     getChannelName: (id?: string) => string;
+    getStatusInfo: (statusKey: string) => { label: string, color: string }; // Helper for Status
 }
 
 // Use React.FC to include standard props like 'key'
@@ -25,16 +27,20 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     review, 
     onAction, 
     onOpenTask, 
-    getChannelName 
+    getChannelName,
+    getStatusInfo
 }) => {
     // Helper to find the latest asset link
     const latestAsset = review.task?.assets && review.task.assets.length > 0 
         ? review.task.assets[review.task.assets.length - 1] 
         : null;
 
+    const taskStatus = review.task?.status || 'UNKNOWN';
+    const statusInfo = getStatusInfo(taskStatus);
+
     return (
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 items-start md:items-center group">
-            {/* Time & Status Badge */}
+            {/* Time & Review Status Badge */}
             <div className="flex flex-col items-center min-w-[80px] text-center">
                 <span className="text-lg font-black text-gray-700">{format(review.scheduledAt, 'HH:mm')}</span>
                 <span className="text-xs text-gray-400 font-medium">{format(review.scheduledAt, 'dd MMM')}</span>
@@ -43,15 +49,23 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     review.status === 'PASSED' ? 'bg-green-100 text-green-700 border-green-200' :
                     'bg-red-100 text-red-700 border-red-200'
                 }`}>
-                    {review.status}
+                    {review.status === 'PENDING' ? 'รอตรวจ' : review.status === 'PASSED' ? 'ผ่าน' : 'แก้'}
                 </span>
             </div>
 
             {/* Task Info */}
             <div className="flex-1 border-l border-gray-100 pl-4 md:pl-6 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold">Draft {review.round}</span>
-                    <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{getChannelName(review.task?.channelId)}</span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-100">
+                        Draft {review.round}
+                    </span>
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                        {getChannelName(review.task?.channelId)}
+                    </span>
+                    {/* LINKED MASTER DATA BADGE */}
+                    <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${statusInfo.color}`}>
+                        {statusInfo.label}
+                    </span>
                 </div>
                 <h4 
                     className="text-base font-bold text-gray-800 hover:text-indigo-600 cursor-pointer mb-1 truncate"
@@ -66,7 +80,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         href={latestAsset.url} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="inline-flex items-center text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg mt-1 transition-colors"
+                        className="inline-flex items-center text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg mt-1 transition-colors border border-blue-100"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <PlayCircle className="w-3 h-3 mr-1" />
@@ -74,13 +88,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
                 ) : (
-                    <span className="inline-flex items-center text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg mt-1">
+                    <span className="inline-flex items-center text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-lg mt-1 border border-gray-100">
                         ⚠️ ยังไม่แนบไฟล์
                     </span>
                 )}
 
                 {review.feedback && (
-                    <div className="text-xs text-red-500 bg-red-50 p-2 rounded-lg mt-2 inline-block max-w-full break-words">
+                    <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg mt-2 inline-block max-w-full break-words border border-red-100">
                         💬 <b>Feedback:</b> {review.feedback}
                     </div>
                 )}
@@ -92,13 +106,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     <>
                         <button 
                             onClick={() => onAction(review.id, 'PASS', review.taskId)}
-                            className="flex-1 md:flex-none px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold flex items-center justify-center transition-colors shadow-sm"
+                            className="flex-1 md:flex-none px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold flex items-center justify-center transition-colors shadow-sm active:scale-95"
                         >
                             <ThumbsUp className="w-3 h-3 mr-1.5" /> ผ่าน (Pass)
                         </button>
                         <button 
                             onClick={() => onAction(review.id, 'REVISE', review.taskId)}
-                            className="flex-1 md:flex-none px-4 py-2 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold flex items-center justify-center transition-colors"
+                            className="flex-1 md:flex-none px-4 py-2 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold flex items-center justify-center transition-colors active:scale-95"
                         >
                             <Wrench className="w-3 h-3 mr-1.5" /> แก้ (Revise)
                         </button>
@@ -115,7 +129,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     );
 };
 
-const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask }) => {
+const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, masterOptions, onOpenTask }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'REVISE' | 'PASSED'>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
@@ -134,14 +148,31 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
         upcoming: filteredReviews.filter(r => isFuture(r.scheduledAt) && !isTomorrow(r.scheduledAt) && !isToday(r.scheduledAt)),
     };
 
-    // Updated Handler: Syncs Task Status
+    // Helper: Get Status Data from Master Options
+    const getStatusInfo = (statusKey: string) => {
+        // Search in both STATUS (Content) and TASK_STATUS (Task)
+        const option = masterOptions.find(o => (o.type === 'STATUS' || o.type === 'TASK_STATUS') && o.key === statusKey);
+        if (option) {
+            return {
+                label: option.label,
+                color: option.color || 'bg-gray-100 text-gray-500'
+            };
+        }
+        // Fallback
+        return { label: statusKey, color: 'bg-gray-100 text-gray-500' };
+    };
+
+    // Handler: Syncs Task Status
     const handleQuickAction = async (reviewId: string, action: 'PASS' | 'REVISE', taskId: string) => {
         if (action === 'PASS') {
             if(confirm('ยืนยันให้ผ่าน (Approve) และเปลี่ยนสถานะงานเป็น DONE?')) {
                 // 1. Update Review
                 await updateReviewStatus(reviewId, 'PASSED');
-                // 2. Sync Task Status -> DONE (or APPROVE based on your flow)
+                
+                // 2. Sync Task Status -> DONE (Automatically moves card to Done column)
+                // We update both tables to be safe as ID is unique UUID
                 await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId);
+                await supabase.from('contents').update({ status: 'DONE' }).eq('id', taskId); 
                 
                 // Add Log
                 await supabase.from('task_logs').insert({
@@ -155,10 +186,10 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
             if (feedback) {
                 // 1. Update Review
                 await updateReviewStatus(reviewId, 'REVISE', feedback);
-                // 2. Sync Task Status -> EDIT_DRAFT_2 (or generic EDIT/DOING)
-                // Logic: If current is Draft 1, maybe move to Edit Draft 2? 
-                // For simplicity, let's move back to "EDIT_DRAFT_1" or "DOING" to signal work needed.
+                
+                // 2. Sync Task Status -> DOING (Automatically moves card back to Doing column)
                 await supabase.from('tasks').update({ status: 'DOING' }).eq('id', taskId);
+                await supabase.from('contents').update({ status: 'DOING' }).eq('id', taskId);
 
                 // Add Log
                 await supabase.from('task_logs').insert({
@@ -170,13 +201,14 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
         }
     };
 
-    const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name || 'Unknown Channel';
+    const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name || 'Unknown';
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <MentorTip variant="purple" messages={[
-                "Tip หัวหน้า: กด 'Pass' จะเปลี่ยนสถานะงานเป็น Done ให้เลย ไม่ต้องไปแก้ซ้ำซ้อน", 
-                "Tip: กด 'Revise' งานจะเด้งกลับไป Doing ให้ทีมงานแก้ต่อทันที"
+                "Tip หัวหน้า: กด 'Pass' จะเปลี่ยนสถานะงานเป็น Done ให้เลย", 
+                "Tip: กด 'Revise' งานจะเด้งกลับไป Doing ให้ทีมงานแก้ต่อทันที",
+                "Dropdown ด้านล่าง 'รอตรวจ/กำลังแก้' คือสถานะของคิวตรวจ ไม่ใช่สถานะงานนะ"
             ]} />
 
             {/* Header */}
@@ -235,6 +267,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
                                     onAction={handleQuickAction} 
                                     onOpenTask={onOpenTask} 
                                     getChannelName={getChannelName} 
+                                    getStatusInfo={getStatusInfo}
                                 />
                             ))}
                         </div>
@@ -259,6 +292,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
                                     onAction={handleQuickAction} 
                                     onOpenTask={onOpenTask} 
                                     getChannelName={getChannelName} 
+                                    getStatusInfo={getStatusInfo}
                                 />
                             ))}
                         </div>
@@ -278,6 +312,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
                                         onAction={handleQuickAction} 
                                         onOpenTask={onOpenTask} 
                                         getChannelName={getChannelName} 
+                                        getStatusInfo={getStatusInfo}
                                     />
                                 ))}
                                 {groupedReviews.tomorrow.length === 0 && <p className="text-sm text-gray-400 italic">ไม่มีคิวตรวจ</p>}
@@ -293,6 +328,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, onOpenTask 
                                         onAction={handleQuickAction} 
                                         onOpenTask={onOpenTask} 
                                         getChannelName={getChannelName} 
+                                        getStatusInfo={getStatusInfo}
                                     />
                                 ))}
                                 {groupedReviews.upcoming.length === 0 && <p className="text-sm text-gray-400 italic">ไม่มีคิวตรวจล่วงหน้า</p>}

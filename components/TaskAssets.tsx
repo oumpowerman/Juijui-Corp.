@@ -82,7 +82,7 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                                 value={category}
                                 onChange={e => setCategory(e.target.value as AssetCategory)}
                             >
-                                {Object.entries(ASSET_CATEGORIES).map(([key, val]) => (
+                                {Object.entries(ASSET_CATEGORIES).map(([key, val]: [string, any]) => (
                                     <option key={key} value={key}>{val.label}</option>
                                 ))}
                             </select>

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { MasterOption, Reward } from '../types';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Database, Power, Check, Activity, Download, HardDrive, AlertTriangle, Archive, Search, FileText, MessageSquare, FileJson, Filter, Gift, Package, User, Briefcase, ArrowRight, CornerDownRight, Shield, Award, LayoutTemplate } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Database, Power, Check, Activity, Download, HardDrive, AlertTriangle, Archive, Search, FileText, MessageSquare, FileJson, Filter, Gift, Package, User, Briefcase, ArrowRight, CornerDownRight, Shield, Award, LayoutTemplate, CheckSquare } from 'lucide-react';
 import MentorTip from './MentorTip';
 import DashboardConfigModal from './DashboardConfigModal'; // Import Modal
 import { format, addMonths } from 'date-fns';
@@ -65,15 +65,21 @@ const MasterDataManager: React.FC = () => {
         let typeOverride = undefined;
         
         if (activeTab === 'INVENTORY') {
-            typeOverride = selectedParentId && editingId && formData.parentKey ? 'INV_CAT_L2' : (selectedParentId && !editingId ? 'INV_CAT_L2' : 'INV_CAT_L1');
-            if (!editingId && selectedParentId) typeOverride = 'INV_CAT_L2';
-            if (editingId && formData.parentKey) typeOverride = 'INV_CAT_L2';
-            if (!typeOverride) typeOverride = 'INV_CAT_L1';
+            // FIX: Robust logic based on UI context
+            // If user has selected a parent (viewing sub-list), force L2 type
+            if (selectedParentId) {
+                typeOverride = 'INV_CAT_L2';
+            } else {
+                typeOverride = 'INV_CAT_L1';
+            }
         } 
         else if (activeTab === 'POSITION') {
-            if (!editingId && selectedParentId) typeOverride = 'RESPONSIBILITY';
-            if (editingId && formData.parentKey) typeOverride = 'RESPONSIBILITY';
-            if (!typeOverride) typeOverride = 'POSITION';
+            // FIX: Robust logic based on UI context
+            if (selectedParentId) {
+                typeOverride = 'RESPONSIBILITY';
+            } else {
+                typeOverride = 'POSITION';
+            }
         }
 
         handleSubmit(e, typeOverride);
@@ -262,7 +268,8 @@ const MasterDataManager: React.FC = () => {
                 <button onClick={() => handleSwitchTab('PILLAR')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'PILLAR' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Layers className="w-4 h-4 mr-2" /> Pillars</button>
                 <button onClick={() => handleSwitchTab('FORMAT')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'FORMAT' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Type className="w-4 h-4 mr-2" /> Format</button>
                 <button onClick={() => handleSwitchTab('CATEGORY')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'CATEGORY' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Tag className="w-4 h-4 mr-2" /> Category</button>
-                <button onClick={() => handleSwitchTab('STATUS')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'STATUS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Activity className="w-4 h-4 mr-2" /> Status</button>
+                <button onClick={() => handleSwitchTab('STATUS')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'STATUS' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Activity className="w-4 h-4 mr-2" /> Content Status</button>
+                <button onClick={() => handleSwitchTab('TASK_STATUS')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'TASK_STATUS' ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><CheckSquare className="w-4 h-4 mr-2" /> Task Status</button>
                 <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
                 <button onClick={() => handleSwitchTab('INVENTORY')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'INVENTORY' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Package className="w-4 h-4 mr-2" /> Inventory</button>
                 <button onClick={() => handleSwitchTab('POSITION')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'POSITION' ? 'bg-teal-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Briefcase className="w-4 h-4 mr-2" /> Positions</button>
@@ -409,40 +416,68 @@ const MasterDataManager: React.FC = () => {
                             <button onClick={() => setIsEditing(false)} className="text-white/70 hover:text-white"><X className="w-4 h-4" /></button>
                         </div>
                         <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Label (ชื่อที่แสดง)</label>
-                                <input type="text" value={formData.label} onChange={e => setFormData({...formData, label: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 outline-none text-sm font-bold" required autoFocus />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Key (รหัสอ้างอิง - ENG)</label>
-                                <input type="text" value={formData.key} onChange={e => setFormData({...formData, key: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 outline-none text-sm font-mono uppercase bg-gray-50" required disabled={!!editingId} />
-                            </div>
-                            
-                            {/* Color Selection */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-2">Color Theme</label>
-                                <div className="grid grid-cols-5 gap-2">
-                                    {COLOR_PRESETS.map(c => (
-                                        <button key={c.name} type="button" onClick={() => setFormData({...formData, color: c.class})} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${c.class.split(' ')[0]} ${formData.color === c.class ? 'border-gray-600 ring-2 ring-gray-200' : 'border-transparent hover:scale-105'}`}>{formData.color === c.class && <Check className="w-4 h-4" />}</button>
-                                    ))}
-                                </div>
-                            </div>
+                            {activeTab === 'REWARDS' ? (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">ชื่อรางวัล (Title)</label>
+                                        <input type="text" value={rewardFormData.title || ''} onChange={e => setRewardFormData({...rewardFormData, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-purple-500 outline-none text-sm font-bold" required autoFocus />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">รายละเอียด (Description)</label>
+                                        <textarea rows={2} value={rewardFormData.description || ''} onChange={e => setRewardFormData({...rewardFormData, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-purple-500 outline-none text-sm resize-none" />
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">ใช้แต้มแลก (Cost)</label>
+                                            <input type="number" min={0} value={rewardFormData.cost || 0} onChange={e => setRewardFormData({...rewardFormData, cost: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg focus:border-purple-500 outline-none text-sm font-bold" />
+                                        </div>
+                                        <div className="w-24">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">ไอคอน</label>
+                                            <input type="text" value={rewardFormData.icon || ''} onChange={e => setRewardFormData({...rewardFormData, icon: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-purple-500 outline-none text-sm text-center" placeholder="🎁" />
+                                        </div>
+                                    </div>
+                                    <div className="pt-2">
+                                        <button type="button" onClick={() => setRewardFormData({...rewardFormData, isActive: !rewardFormData.isActive})} className={`w-full py-2 rounded-lg text-sm font-bold flex items-center justify-center border ${rewardFormData.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                            <Power className="w-3 h-3 mr-1" /> {rewardFormData.isActive ? 'เปิดให้แลก (Active)' : 'ปิดชั่วคราว (Inactive)'}
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Label (ชื่อที่แสดง)</label>
+                                        <input type="text" value={formData.label} onChange={e => setFormData({...formData, label: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 outline-none text-sm font-bold" required autoFocus />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Key (รหัสอ้างอิง - ENG)</label>
+                                        <input type="text" value={formData.key} onChange={e => setFormData({...formData, key: e.target.value})} className="w-full px-3 py-2 border rounded-lg focus:border-indigo-500 outline-none text-sm font-mono uppercase bg-gray-50" required disabled={!!editingId} />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">Color Theme</label>
+                                        <div className="grid grid-cols-5 gap-2">
+                                            {COLOR_PRESETS.map(c => (
+                                                <button key={c.name} type="button" onClick={() => setFormData({...formData, color: c.class})} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${c.class.split(' ')[0]} ${formData.color === c.class ? 'border-gray-600 ring-2 ring-gray-200' : 'border-transparent hover:scale-105'}`}>{formData.color === c.class && <Check className="w-4 h-4" />}</button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            <div className="flex gap-3">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Sort Order</label>
-                                    <input type="number" value={formData.sortOrder} onChange={e => setFormData({...formData, sortOrder: Number(e.target.value)})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                                </div>
-                                <div className="flex-1 flex items-end">
-                                    <button type="button" onClick={() => setFormData({...formData, isActive: !formData.isActive})} className={`w-full py-2 rounded-lg text-sm font-bold flex items-center justify-center border ${formData.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                        <Power className="w-3 h-3 mr-1" /> {formData.isActive ? 'Active' : 'Inactive'}
-                                    </button>
-                                </div>
-                            </div>
+                                    <div className="flex gap-3">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Sort Order</label>
+                                            <input type="number" value={formData.sortOrder} onChange={e => setFormData({...formData, sortOrder: Number(e.target.value)})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                                        </div>
+                                        <div className="flex-1 flex items-end">
+                                            <button type="button" onClick={() => setFormData({...formData, isActive: !formData.isActive})} className={`w-full py-2 rounded-lg text-sm font-bold flex items-center justify-center border ${formData.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                                <Power className="w-3 h-3 mr-1" /> {formData.isActive ? 'Active' : 'Inactive'}
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            {/* Hidden Parent Key (auto-managed) */}
-                            {formData.parentKey && (
-                                <div className="text-[10px] text-gray-400 text-center">Linked to Parent: {formData.parentKey}</div>
+                                    {formData.parentKey && (
+                                        <div className="text-[10px] text-gray-400 text-center">Linked to Parent: {formData.parentKey}</div>
+                                    )}
+                                </>
                             )}
 
                             <button type="submit" disabled={isSubmitting} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex justify-center items-center mt-2">
@@ -463,10 +498,6 @@ const MasterDataManager: React.FC = () => {
                     onSave={handleSaveDashboardConfig}
                 />
             )}
-
-            {/* BACKUP & CLEANUP MODALS (Reusing existing components/logic via hook state) */}
-            {/* ... Add Maintenance Modals here reusing isBackupModalOpen etc ... */}
-            {/* Simplified for brevity as logic is in hook */}
         </div>
     );
 };

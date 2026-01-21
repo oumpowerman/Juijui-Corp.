@@ -4,31 +4,83 @@ import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
 import { useToast } from '../context/ToastContext';
 
+// Default Data for seeding
+const DEFAULT_OPTIONS = [
+    // --- CONTENT STATUS (เดิม) ---
+    { type: 'STATUS', key: 'TODO', label: 'To Do 📝', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
+    { type: 'STATUS', key: 'IDEA', label: 'Idea / Draft 💡', color: 'bg-yellow-50 text-yellow-600', sort_order: 2 },
+    { type: 'STATUS', key: 'SCRIPT', label: 'Scripting ✍️', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
+    { type: 'STATUS', key: 'SHOOTING', label: 'Shooting 🎥', color: 'bg-purple-50 text-purple-600', sort_order: 4 },
+    { type: 'STATUS', key: 'EDIT_CLIP', label: 'Editing ✂️', color: 'bg-indigo-50 text-indigo-600', sort_order: 5 },
+    { type: 'STATUS', key: 'FEEDBACK', label: 'Review / Feedback 👀', color: 'bg-pink-50 text-pink-600', sort_order: 6 },
+    { type: 'STATUS', key: 'APPROVE', label: 'Approved 👍', color: 'bg-emerald-50 text-emerald-600', sort_order: 7 },
+    { type: 'STATUS', key: 'DONE', label: 'Done ✅', color: 'bg-green-100 text-green-700', sort_order: 8 },
+
+    // --- TASK STATUS (ใหม่! สำหรับงานทั่วไป) ---
+    { type: 'TASK_STATUS', key: 'TODO', label: 'To Do (รอทำ) 📥', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
+    { type: 'TASK_STATUS', key: 'DOING', label: 'Doing (กำลังทำ) 🔨', color: 'bg-blue-50 text-blue-600', sort_order: 2 },
+    { type: 'TASK_STATUS', key: 'WAITING', label: 'Waiting (รอของ/คน) ✋', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
+    { type: 'TASK_STATUS', key: 'DONE', label: 'Done (เสร็จแล้ว) ✅', color: 'bg-green-100 text-green-700', sort_order: 4 },
+
+    // --- FORMAT ---
+    { type: 'FORMAT', key: 'SHORT_FORM', label: 'Short Form (สั้น)', color: 'bg-rose-100 text-rose-700', sort_order: 1 },
+    { type: 'FORMAT', key: 'LONG_FORM', label: 'Long Form (ยาว)', color: 'bg-indigo-100 text-indigo-700', sort_order: 2 },
+    { type: 'FORMAT', key: 'REELS', label: 'Reels / TikTok', color: 'bg-zinc-100 text-zinc-700', sort_order: 3 },
+    { type: 'FORMAT', key: 'PICTURE', label: 'Photo / Album', color: 'bg-teal-100 text-teal-700', sort_order: 4 },
+    { type: 'FORMAT', key: 'STORY', label: 'Story', color: 'bg-amber-100 text-amber-700', sort_order: 5 },
+
+    // --- PILLAR ---
+    { type: 'PILLAR', key: 'ENTERTAINMENT', label: 'Entertainment 🎬', color: 'bg-purple-100 text-purple-700', sort_order: 1 },
+    { type: 'PILLAR', key: 'EDUCATION', label: 'Education 📚', color: 'bg-blue-100 text-blue-700', sort_order: 2 },
+    { type: 'PILLAR', key: 'LIFESTYLE', label: 'Lifestyle 🌱', color: 'bg-green-100 text-green-700', sort_order: 3 },
+    { type: 'PILLAR', key: 'PROMO', label: 'Promotion 📢', color: 'bg-orange-100 text-orange-700', sort_order: 4 },
+    { type: 'PILLAR', key: 'REALTIME', label: 'Realtime / News ⚡', color: 'bg-red-100 text-red-700', sort_order: 5 },
+
+    // --- CATEGORY ---
+    { type: 'CATEGORY', key: 'VLOG', label: 'Vlog', color: 'bg-gray-100 text-gray-700', sort_order: 1 },
+    { type: 'CATEGORY', key: 'REVIEW', label: 'Review', color: 'bg-gray-100 text-gray-700', sort_order: 2 },
+    { type: 'CATEGORY', key: 'HOW_TO', label: 'How-to', color: 'bg-gray-100 text-gray-700', sort_order: 3 },
+    { type: 'CATEGORY', key: 'INTERVIEW', label: 'Interview', color: 'bg-gray-100 text-gray-700', sort_order: 4 },
+    
+    // --- POSITION (For Users) ---
+    { type: 'POSITION', key: 'CREATIVE', label: 'Creative', color: 'bg-yellow-100 text-yellow-700', sort_order: 1 },
+    { type: 'POSITION', key: 'EDITOR', label: 'Editor', color: 'bg-blue-100 text-blue-700', sort_order: 2 },
+    { type: 'POSITION', key: 'PRODUCTION', label: 'Production', color: 'bg-green-100 text-green-700', sort_order: 3 },
+    { type: 'POSITION', key: 'ADMIN', label: 'Admin / Co-ord', color: 'bg-purple-100 text-purple-700', sort_order: 4 },
+];
+
 export const useMasterData = () => {
     const [options, setOptions] = useState<MasterOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
 
     const fetchOptions = async () => {
-        setIsLoading(true);
+        // Only set loading on initial fetch or empty state
+        if (options.length === 0) setIsLoading(true);
+        
         try {
             const { data, error } = await supabase
                 .from('master_options')
                 .select('*')
                 .order('sort_order', { ascending: true });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error fetching master_options:', error);
+                throw error;
+            }
 
             if (data) {
                 setOptions(data.map((item: any) => ({
                     id: item.id,
-                    type: item.type,
-                    key: item.key,
+                    // Normalize type: Uppercase and Trim whitespace to prevent matching errors
+                    type: (item.type || '').trim().toUpperCase(),
+                    key: (item.key || '').trim(),
                     label: item.label,
                     color: item.color,
                     sortOrder: item.sort_order,
                     isActive: item.is_active,
-                    isDefault: item.is_default // Map DB column
+                    isDefault: item.is_default,
+                    parentKey: item.parent_key // Ensure this is mapped from snake_case
                 })));
             }
         } catch (err: any) {
@@ -47,7 +99,8 @@ export const useMasterData = () => {
                 color: option.color,
                 sort_order: option.sortOrder,
                 is_active: option.isActive,
-                is_default: option.isDefault // Map to snake_case
+                is_default: option.isDefault,
+                parent_key: option.parentKey || null // IMPORTANT: Send null if empty to keep DB clean
             };
 
             const { data, error } = await supabase.from('master_options').insert(payload).select().single();
@@ -55,13 +108,14 @@ export const useMasterData = () => {
 
             const newOption: MasterOption = {
                 id: data.id,
-                type: data.type,
+                type: (data.type || '').trim().toUpperCase(),
                 key: data.key,
                 label: data.label,
                 color: data.color,
                 sortOrder: data.sort_order,
                 isActive: data.is_active,
-                isDefault: data.is_default
+                isDefault: data.is_default,
+                parentKey: data.parent_key
             };
 
             setOptions(prev => [...prev, newOption]);
@@ -83,7 +137,8 @@ export const useMasterData = () => {
                 color: option.color,
                 sort_order: option.sortOrder,
                 is_active: option.isActive,
-                is_default: option.isDefault
+                is_default: option.isDefault,
+                parent_key: option.parentKey || null // IMPORTANT: Update with null if cleared
             };
 
             const { error } = await supabase.from('master_options').update(payload).eq('id', option.id);
@@ -116,8 +171,71 @@ export const useMasterData = () => {
         }
     };
 
+    const seedDefaults = async () => {
+        try {
+            setIsLoading(true);
+            showToast('กำลังตรวจสอบฐานข้อมูล... กรุณารอสักครู่', 'info');
+            
+            const { data: existingData, error: fetchError } = await supabase
+                .from('master_options')
+                .select('type, key');
+
+            if (fetchError) throw fetchError;
+
+            const existingSet = new Set(
+                existingData?.map((i: any) => `${i.type.trim().toUpperCase()}_${i.key.trim()}`) || []
+            );
+
+            let insertedCount = 0;
+            
+            for (const opt of DEFAULT_OPTIONS) {
+                const compositeKey = `${opt.type}_${opt.key}`;
+
+                if (!existingSet.has(compositeKey)) {
+                    const { error: insertError } = await supabase
+                        .from('master_options')
+                        .insert(opt);
+
+                    if (!insertError) {
+                        insertedCount++;
+                    } else {
+                        console.error(`Failed to insert ${compositeKey}:`, insertError);
+                    }
+                }
+            }
+
+            if (insertedCount > 0) {
+                showToast(`สร้างข้อมูลเพิ่มสำเร็จ ${insertedCount} รายการ 🎉`, 'success');
+                await fetchOptions(); 
+            } else {
+                showToast('ข้อมูลครบถ้วนอยู่แล้วครับ (ตรวจสอบจาก DB แล้ว)', 'success');
+            }
+
+        } catch (err: any) {
+            console.error(err);
+            showToast('สร้างข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchOptions();
+
+        const channel = supabase
+            .channel('realtime-master-options-v2')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'master_options' },
+                () => {
+                    fetchOptions();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     return {
@@ -126,6 +244,7 @@ export const useMasterData = () => {
         fetchMasterOptions: fetchOptions,
         addMasterOption: handleAddOption,
         updateMasterOption: handleUpdateOption,
-        deleteMasterOption: handleDeleteOption
+        deleteMasterOption: handleDeleteOption,
+        seedDefaults
     };
 };

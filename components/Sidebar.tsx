@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, ChevronRight, ChevronLeft, ChevronDown, Sparkles, LogOut, Briefcase, Wrench, ShieldCheck, Edit, Plus } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, ChevronRight, ChevronLeft, ChevronDown, Sparkles, LogOut, Briefcase, Wrench, ShieldCheck, Edit, Plus, BarChart3 } from 'lucide-react';
 import { User, ViewMode } from '../types';
 
 interface MenuItem {
@@ -39,6 +39,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     items: [
       { view: 'DUTY', label: 'ตารางเวร (Duty)', icon: Coffee },
       { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน (QC)', icon: ScanEye },
+      { view: 'KPI', label: 'ประเมินผล (KPI)', icon: BarChart3 }, // Added KPI
       { view: 'STOCK', label: 'คลังคลิป (Stock)', icon: Film },
       { view: 'CHECKLIST', label: 'จัดเป๋า (Checklist)', icon: ClipboardList },
       { view: 'WIKI', label: 'คู่มือ (Wiki)', icon: BookOpen },
@@ -108,7 +109,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile, onAddTask, unreadChatCount }) => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [expandedGroups, setExpandedGroups] = useState<string[]>(['WORKSPACE']);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(['WORKSPACE', 'TOOLS']); // Expand Tools by default to show KPI
     const isAdmin = currentUser.role === 'ADMIN';
 
     // Auto expand group when navigating

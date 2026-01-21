@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { Task, Status, Priority, Channel, User, MasterOption } from '../types';
+
+import React, { useState, useMemo } from 'react';
+import { Task, Status, Priority, Channel, User, MasterOption, DashboardConfig } from '../types';
 import { STATUS_COLORS, PRIORITY_COLORS, STATUS_LABELS, PRIORITY_LABELS, PLATFORM_ICONS } from '../constants';
 import { format, isAfter, isBefore, addDays, isSameMonth, isSameDay } from 'date-fns';
-import { Clock, CheckCircle2, AlertTriangle, ListTodo, ArrowRight, PartyPopper, Sparkles, CalendarDays, ChevronDown, Bell, User as UserIcon, Users, Coffee } from 'lucide-react';
+import { Clock, CheckCircle2, AlertTriangle, ListTodo, ArrowRight, PartyPopper, Sparkles, CalendarDays, ChevronDown, Bell, User as UserIcon, Users, Coffee, Film, MessageCircle, LayoutTemplate } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import TaskCategoryModal from './TaskCategoryModal';
 import MentorTip from './MentorTip';
 import { useDuty } from '../hooks/useDuty'; // Import Duty Hook
+import { useDashboardConfig } from '../hooks/useDashboardConfig'; // NEW Hook
 
 interface DashboardProps {
   tasks: Task[];
@@ -16,13 +18,99 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
-  // Added missing props found during App.tsx integration
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
 }
 
 type TimeRangeOption = 'THIS_MONTH' | 'LAST_30' | 'LAST_90' | 'CUSTOM' | 'ALL';
 type ViewScope = 'ALL' | 'ME';
+
+// Helper for Icon Mapping
+const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+        case 'list-todo': return ListTodo;
+        case 'film': return Film;
+        case 'message-circle': return MessageCircle;
+        case 'check-circle-2': return CheckCircle2;
+        default: return LayoutTemplate;
+    }
+};
+
+// Helper for Theme Mapping (Tailwind classes)
+const getThemeClasses = (themeName: string) => {
+    switch (themeName) {
+        case 'amber': 
+            return { 
+                bg: 'bg-gradient-to-br from-white to-amber-50', 
+                border: 'border-amber-100', 
+                shadow: 'shadow-amber-200/30', 
+                text: 'text-amber-700', 
+                textLight: 'text-amber-500', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-amber-500' 
+            };
+        case 'blue': 
+            return { 
+                bg: 'bg-gradient-to-br from-white to-blue-50', 
+                border: 'border-blue-200', 
+                shadow: 'shadow-blue-200/30', 
+                text: 'text-blue-600', 
+                textLight: 'text-blue-500', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-blue-500' 
+            };
+        case 'pink': 
+            return { 
+                bg: 'bg-gradient-to-br from-white to-pink-50', 
+                border: 'border-pink-200', 
+                shadow: 'shadow-pink-200/30', 
+                text: 'text-pink-500', 
+                textLight: 'text-pink-400', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-pink-500' 
+            };
+        case 'emerald': 
+            return { 
+                bg: 'bg-gradient-to-br from-white to-emerald-50', 
+                border: 'border-emerald-200', 
+                shadow: 'shadow-emerald-200/30', 
+                text: 'text-emerald-600', 
+                textLight: 'text-emerald-500', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-emerald-600' 
+            };
+        case 'purple':
+            return {
+                bg: 'bg-gradient-to-br from-white to-purple-50', 
+                border: 'border-purple-200', 
+                shadow: 'shadow-purple-200/30', 
+                text: 'text-purple-600', 
+                textLight: 'text-purple-500', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-purple-600'
+            };
+        default: // Fallback (slate)
+            return { 
+                bg: 'bg-gradient-to-br from-white to-slate-50', 
+                border: 'border-slate-200', 
+                shadow: 'shadow-slate-200/30', 
+                text: 'text-slate-600', 
+                textLight: 'text-slate-500', 
+                iconBg: 'bg-white', 
+                iconColor: 'text-slate-500' 
+            };
+    }
+};
+
+// Chart Color Map
+const CHART_COLORS: Record<string, string> = {
+    'amber': '#f59e0b',
+    'blue': '#3b82f6',
+    'pink': '#ec4899',
+    'emerald': '#10b981',
+    'purple': '#a855f7',
+    'slate': '#64748b'
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUser, onEditTask, onNavigateToCalendar, onOpenSettings }) => {
   const today = new Date();
@@ -31,11 +119,12 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   const { duties } = useDuty();
   const todaysDuties = duties.filter(d => isSameDay(new Date(d.date), today));
 
+  // NEW: Integrate Dashboard Config
+  const { configs, isLoading: configLoading } = useDashboardConfig();
+
   // States for Filter
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('LAST_30');
   const [customDays, setCustomDays] = useState<number>(7);
-  
-  // Logic: Admins see ALL by default, Members see ME by default
   const [viewScope, setViewScope] = useState<ViewScope>(currentUser.role === 'ADMIN' ? 'ALL' : 'ME');
 
   // States for Modal
@@ -47,78 +136,87 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   // --- Filtering Logic ---
   const checkDateInRange = (date: Date) => {
       switch (timeRange) {
-          case 'THIS_MONTH':
-              return isSameMonth(date, today);
-          case 'LAST_30':
-              return isAfter(date, addDays(today, -30));
-          case 'LAST_90':
-              return isAfter(date, addDays(today, -90));
-          case 'CUSTOM':
-              return isAfter(date, addDays(today, -customDays));
-          case 'ALL':
-              return true;
-          default:
-              return true;
+          case 'THIS_MONTH': return isSameMonth(date, today);
+          case 'LAST_30': return isAfter(date, addDays(today, -30));
+          case 'LAST_90': return isAfter(date, addDays(today, -90));
+          case 'CUSTOM': return isAfter(date, addDays(today, -customDays));
+          case 'ALL': return true;
+          default: return true;
       }
   };
 
-  const filteredTasks = tasks.filter(t => {
-    // 1. Scope Filter (Me vs All)
-    if (viewScope === 'ME') {
-        const isAssignee = t.assigneeIds?.includes(currentUser.id);
-        const isOwner = t.ideaOwnerIds?.includes(currentUser.id);
-        const isEditor = t.editorIds?.includes(currentUser.id);
-        if (!isAssignee && !isOwner && !isEditor) return false;
-    }
+  const filteredTasks = useMemo(() => {
+      return tasks.filter(t => {
+        // 1. Scope Filter (Me vs All)
+        if (viewScope === 'ME') {
+            const isAssignee = t.assigneeIds?.includes(currentUser.id);
+            const isOwner = t.ideaOwnerIds?.includes(currentUser.id);
+            const isEditor = t.editorIds?.includes(currentUser.id);
+            if (!isAssignee && !isOwner && !isEditor) return false;
+        }
 
-    // 2. Time Range Filter (Apply to Completed items strictly, Pending items loosely)
-    if (timeRange === 'ALL') return true;
+        // 2. Time Range Filter
+        if (timeRange === 'ALL') return true;
+        const isInRange = checkDateInRange(t.endDate);
+        if (t.status === Status.DONE || t.status === Status.APPROVE) {
+            return isInRange;
+        } else {
+            return isInRange || isBefore(t.endDate, today); // Show if in range OR overdue
+        }
+      });
+  }, [tasks, viewScope, timeRange, customDays, currentUser.id]); // Optimization
 
-    const isInRange = checkDateInRange(t.endDate);
-    
-    // For Completed tasks, strictly follow date range
-    if (t.status === Status.DONE || t.status === Status.APPROVE) {
-        return isInRange;
-    } else {
-        // For Pending tasks, show if in range OR overdue (before today)
-        return isInRange || isBefore(t.endDate, today);
-    }
-  });
+  // --- DYNAMIC CARD GENERATION ---
+  const cardStats = useMemo(() => {
+      return configs.map(config => {
+          // Filter tasks based on config rules
+          const matchingTasks = filteredTasks.filter(t => {
+              if (config.filterType === 'STATUS') {
+                  // Fallback for empty keys or null status
+                  return (config.statusKeys || []).includes(t.status || '');
+              } 
+              else if (config.filterType === 'FORMAT') {
+                  return (config.statusKeys || []).includes(t.contentFormat || '');
+              }
+              else if (config.filterType === 'PILLAR') {
+                  return (config.statusKeys || []).includes(t.pillar || '');
+              }
+              else if (config.filterType === 'CATEGORY') {
+                  return (config.statusKeys || []).includes(t.category || '');
+              }
+              return false;
+          });
 
-  const totalTasks = filteredTasks.length;
+          return {
+              ...config,
+              tasks: matchingTasks,
+              count: matchingTasks.length
+          };
+      });
+  }, [configs, filteredTasks]);
 
-  // --- STATUS GROUPING LOGIC (10 Steps -> 4 Groups) ---
-  // Fix: Added explicit casting to Status enum for task.status strings
-  const isDoneGroup = (s: Status) => s === Status.APPROVE || s === Status.DONE;
-  const isFeedbackGroup = (s: Status) => s === Status.FEEDBACK || s === Status.FEEDBACK_1;
-  const isProductionGroup = (s: Status) => s === Status.SHOOTING || s === Status.EDIT_CLIP || s === Status.EDIT_DRAFT_1 || s === Status.EDIT_DRAFT_2 || s === Status.DOING || s === Status.BLOCKED;
-  const isTodoGroup = (s: Status) => s === Status.IDEA || s === Status.SCRIPT || s === Status.TODO;
-
-  const doneTasksList = filteredTasks.filter(t => isDoneGroup(t.status as Status));
-  const inProgressTasksList = filteredTasks.filter(t => isProductionGroup(t.status as Status));
-  const feedbackTasksList = filteredTasks.filter(t => isFeedbackGroup(t.status as Status));
-  const todoTasksList = filteredTasks.filter(t => isTodoGroup(t.status as Status));
-
-  const doneTasks = doneTasksList.length;
-  const inProgressTasks = inProgressTasksList.length;
-  const feedbackTasks = feedbackTasksList.length;
-  const todoTasks = todoTasksList.length;
+  const totalFilteredTasks = filteredTasks.length;
+  // Calculate "Done" count for progress (Assuming the last card or specific config is 'Done')
+  // For simplicity, let's assume if status is DONE/APPROVE it counts towards progress regardless of cards
+  const doneTasksCount = filteredTasks.filter(t => t.status === 'DONE' || t.status === 'APPROVE').length;
 
   const urgentTasks = filteredTasks
-    .filter(t => (t.priority === Priority.URGENT || t.priority === Priority.HIGH) && !isDoneGroup(t.status as Status))
+    .filter(t => (t.priority === Priority.URGENT || t.priority === Priority.HIGH) && !(t.status === Status.DONE || t.status === Status.APPROVE))
     .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
     .slice(0, 3);
 
   const dueSoon = filteredTasks
-    .filter(t => isAfter(t.endDate, today) && isBefore(t.endDate, addDays(today, 3)) && !isDoneGroup(t.status as Status))
+    .filter(t => isAfter(t.endDate, today) && isBefore(t.endDate, addDays(today, 3)) && !(t.status === Status.DONE || t.status === Status.APPROVE))
     .slice(0, 3);
 
-  const chartData = [
-    { name: 'Concept & Script 💡', value: todoTasks, color: '#f59e0b' }, // Yellow/Orange
-    { name: 'Production 🎥', value: inProgressTasks, color: '#3b82f6' }, // Blue
-    { name: 'Feedback 💬', value: feedbackTasks, color: '#ec4899' }, // Pink
-    { name: 'Ready ✅', value: doneTasks, color: '#10b981' }, // Green
-  ];
+  // --- DYNAMIC CHART DATA ---
+  const chartData = useMemo(() => {
+      return cardStats.map(stat => ({
+          name: stat.label,
+          value: stat.count,
+          color: CHART_COLORS[stat.colorTheme || 'blue'] || '#3b82f6'
+      })).filter(d => d.value > 0);
+  }, [cardStats]);
 
   const getChannelIcon = (channelId: string) => {
     const channel = channels.find(c => c.id === channelId);
@@ -145,7 +243,6 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
       }
   };
 
-  // Mentor Tips Logic
   const DASHBOARD_TIPS = [
       "ช่วง Script คือหัวใจสำคัญ วางโครงเรื่องให้แน่น จะถ่ายง่ายขึ้นเยอะ!",
       "งานใน Production เยอะ แสดงว่าทีมกำลังลุยเต็มที่ สู้ๆ!",
@@ -153,11 +250,6 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
       "พักสายตาทุก 45 นาทีด้วยนะ งานเดิน สุขภาพต้องดีด้วย"
   ];
 
-  if (feedbackTasks > 0) {
-      DASHBOARD_TIPS.unshift(`มี ${feedbackTasks} งานรอ Feedback อยู่ รีบเช็คหน่อยนะครับ!`);
-  }
-
-  // Safety helper to avoid .split error on undefined labels
   const getSafeStatusLabel = (status: any) => {
     const label = STATUS_LABELS[status as Status] || String(status || 'Unknown');
     return label;
@@ -166,10 +258,8 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       
-      {/* Header Section: Welcome + Mentor Tip (Side-by-Side) */}
+      {/* Header Section */}
       <div className="flex flex-col xl:flex-row gap-6 items-stretch mb-8">
-        
-        {/* Left: Welcome & Filters */}
         <div className="flex-1 flex flex-col justify-center space-y-4">
             <div className="flex justify-between items-start">
                 <div>
@@ -180,7 +270,6 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                         ภาพรวม <span className="font-bold text-indigo-600">{viewScope === 'ALL' ? 'ทั้งทีม' : 'งานของคุณ'}</span> ในช่วง: <span className="font-bold text-gray-700">{getTimeRangeLabel()}</span>
                     </p>
                 </div>
-                 {/* Notification Button (Desktop) */}
                 <button 
                   onClick={onOpenSettings}
                   className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
@@ -192,34 +281,19 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
 
             {/* Controls Row */}
             <div className="flex flex-wrap items-center gap-3">
-                
-                {/* View Scope Toggle (Me vs All) */}
                 <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
-                    <button
-                        onClick={() => setViewScope('ALL')}
-                        className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewScope === 'ALL' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                    >
-                        <Users className="w-4 h-4 mr-2" />
-                        ทีม (All)
+                    <button onClick={() => setViewScope('ALL')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewScope === 'ALL' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        <Users className="w-4 h-4 mr-2" /> ทีม (All)
                     </button>
-                    <button
-                        onClick={() => setViewScope('ME')}
-                        className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewScope === 'ME' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                    >
-                        <UserIcon className="w-4 h-4 mr-2" />
-                        ของฉัน (Me)
+                    <button onClick={() => setViewScope('ME')} className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewScope === 'ME' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+                        <UserIcon className="w-4 h-4 mr-2" /> ของฉัน (Me)
                     </button>
                 </div>
 
-                {/* Time Range Filter Dropdown */}
                 <div className="relative group z-20 w-fit">
                     <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-200">
                         <div className="relative">
-                            <select
-                                value={timeRange}
-                                onChange={(e) => setTimeRange(e.target.value as TimeRangeOption)}
-                                className="appearance-none bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-2 pl-4 pr-10 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-sm border-transparent focus:border-indigo-500"
-                            >
+                            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as TimeRangeOption)} className="appearance-none bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-2 pl-4 pr-10 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors text-sm border-transparent focus:border-indigo-500">
                                 <option value="THIS_MONTH">📅 เดือนนี้</option>
                                 <option value="LAST_30">🗓️ 30 วันล่าสุด</option>
                                 <option value="LAST_90">📊 90 วันล่าสุด</option>
@@ -228,20 +302,10 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                         </div>
-
                         {timeRange === 'CUSTOM' && (
                         <div className="flex items-center animate-in fade-in slide-in-from-left-2 duration-300 bg-gray-50 rounded-lg px-2 border border-gray-200">
-                            <span className="text-xs text-gray-500 font-medium whitespace-nowrap mr-2">ย้อนหลัง</span>
-                            <input 
-                                type="number"
-                                value={customDays}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if(val > 0) setCustomDays(val);
-                                }}
-                                className="w-14 py-1.5 bg-transparent text-center font-bold text-indigo-600 outline-none border-b-2 border-indigo-200 focus:border-indigo-500 transition-colors"
-                            />
-                            <span className="text-xs text-gray-500 font-medium whitespace-nowrap ml-2">วัน</span>
+                            <input type="number" value={customDays} onChange={(e) => { const val = parseInt(e.target.value); if(val > 0) setCustomDays(val); }} className="w-14 py-1.5 bg-transparent text-center font-bold text-indigo-600 outline-none border-b-2 border-indigo-200 focus:border-indigo-500 transition-colors" />
+                            <span className="text-xs text-gray-500 font-medium whitespace-nowrap ml-2 mr-1">วัน</span>
                         </div>
                         )}
                     </div>
@@ -249,84 +313,49 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
             </div>
         </div>
 
-        {/* Right: Mentor Tip Banner */}
         <div className="flex-1 xl:max-w-2xl h-full flex items-center">
-             <MentorTip 
-                variant={feedbackTasks > 0 ? 'pink' : 'blue'}
-                messages={DASHBOARD_TIPS}
-                className="h-full"
-            />
+             <MentorTip variant="blue" messages={DASHBOARD_TIPS} className="h-full" />
         </div>
-
       </div>
 
-      {/* Stats Grid - REDESIGNED FOR 4 MAIN GROUPS */}
+      {/* --- DYNAMIC STATS GRID --- */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-        {/* Card 1: Todo (Idea/Script) */}
-        <div 
-          onClick={() => handleCardClick(`วางแผน & เขียนบท 💡 (${getTimeRangeLabel()})`, todoTasksList, 'slate')}
-          className="bg-gradient-to-br from-white to-amber-50 p-5 md:p-6 rounded-3xl shadow-lg shadow-amber-200/30 border border-amber-100 flex flex-col md:flex-row items-center justify-between md:space-x-4 space-y-3 md:space-y-0 text-center md:text-left hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-300/30 transition-all cursor-pointer group active:scale-95 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-12 bg-amber-200/20 blur-2xl rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-110 pointer-events-none"></div>
-          
-          <div className="relative z-10 flex-1 order-2 md:order-1 w-full">
-            <p className="text-xs md:text-sm text-amber-600 font-bold uppercase tracking-wider mb-1 opacity-80 group-hover:opacity-100 transition-opacity">Idea & Script</p>
-            <p className="text-3xl md:text-5xl font-black text-amber-700 tracking-tight leading-none">{todoTasks}</p>
-          </div>
-          <div className="relative z-10 p-3 bg-white text-amber-500 rounded-2xl shadow-sm border border-amber-100 group-hover:scale-110 transition-transform duration-300 order-1 md:order-2">
-            <ListTodo className="w-6 h-6 md:w-8 md:h-8" />
-          </div>
-        </div>
-        
-        {/* Card 2: Production (Shooting/Edit) */}
-        <div 
-           onClick={() => handleCardClick(`กำลังผลิต 🎥 (${getTimeRangeLabel()})`, inProgressTasksList, 'blue')}
-           className="bg-gradient-to-br from-white to-blue-50 p-5 md:p-6 rounded-3xl shadow-lg shadow-blue-200/30 border border-blue-200 flex flex-col md:flex-row items-center justify-between md:space-x-4 space-y-3 md:space-y-0 text-center md:text-left hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-300/50 transition-all cursor-pointer group active:scale-95 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-12 bg-blue-200/20 blur-2xl rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-110 pointer-events-none"></div>
-
-          <div className="relative z-10 flex-1 order-2 md:order-1 w-full">
-            <p className="text-xs md:text-sm text-blue-500 font-bold uppercase tracking-wider mb-1 opacity-80 group-hover:opacity-100 transition-opacity">Production</p>
-            <p className="text-3xl md:text-5xl font-black text-blue-600 tracking-tight leading-none">{inProgressTasks}</p>
-          </div>
-          <div className="relative z-10 p-3 bg-white text-blue-500 rounded-2xl shadow-sm border border-blue-100 group-hover:scale-110 transition-transform duration-300 order-1 md:order-2">
-            <Clock className="w-6 h-6 md:w-8 md:h-8" />
-          </div>
-        </div>
-
-        {/* Card 3: Feedback (Review) */}
-        <div 
-           onClick={() => handleCardClick(`รอ Feedback 💬 (${getTimeRangeLabel()})`, feedbackTasksList, 'red')}
-           className="bg-gradient-to-br from-white to-pink-50 p-5 md:p-6 rounded-3xl shadow-lg shadow-pink-200/30 border border-pink-200 flex flex-col md:flex-row items-center justify-between md:space-x-4 space-y-3 md:space-y-0 text-center md:text-left hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-300/50 transition-all cursor-pointer group active:scale-95 relative overflow-hidden"
-        >
-           <div className="absolute top-0 right-0 p-12 bg-pink-200/20 blur-2xl rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-110 pointer-events-none"></div>
-
-          <div className="relative z-10 flex-1 order-2 md:order-1 w-full">
-            <p className="text-xs md:text-sm text-pink-500 font-bold uppercase tracking-wider mb-1 opacity-80 group-hover:opacity-100 transition-opacity">Feedback</p>
-            <p className="text-3xl md:text-5xl font-black text-pink-500 tracking-tight leading-none">{feedbackTasks}</p>
-          </div>
-          <div className="relative z-10 p-3 bg-white text-pink-500 rounded-2xl shadow-sm border border-pink-100 group-hover:scale-110 transition-transform duration-300 order-1 md:order-2">
-            <AlertTriangle className="w-6 h-6 md:w-8 md:h-8" />
-          </div>
-        </div>
-
-        {/* Card 4: Done (Approve/Done) */}
-        <div 
-           onClick={() => handleCardClick(`พร้อมลง/เสร็จแล้ว ✅ (${getTimeRangeLabel()})`, doneTasksList, 'green')}
-           className="bg-gradient-to-br from-white to-emerald-50 p-5 md:p-6 rounded-3xl shadow-lg shadow-emerald-200/30 border border-emerald-200 flex flex-col md:flex-row items-center justify-between md:space-x-4 space-y-3 md:space-y-0 text-center md:text-left hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-300/50 transition-all cursor-pointer group active:scale-95 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 p-12 bg-emerald-200/20 blur-2xl rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-110 pointer-events-none"></div>
-          
-          <div className="relative z-10 flex-1 order-2 md:order-1 w-full">
-            <p className="text-xs md:text-sm text-emerald-600 font-bold uppercase tracking-wider mb-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                Ready / Done
-            </p>
-            <p className="text-3xl md:text-5xl font-black text-emerald-600 tracking-tight leading-none">{doneTasks}</p>
-          </div>
-          <div className="relative z-10 p-3 bg-white text-emerald-600 rounded-2xl shadow-sm border border-emerald-100 group-hover:scale-110 transition-transform duration-300 order-1 md:order-2">
-            <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8" />
-          </div>
-        </div>
+        {configLoading ? (
+             // Skeleton Loader
+             Array.from({ length: 4 }).map((_, i) => (
+                 <div key={i} className="bg-white p-6 rounded-3xl border border-gray-100 h-32 animate-pulse">
+                     <div className="h-4 bg-gray-100 rounded w-1/2 mb-4"></div>
+                     <div className="h-10 bg-gray-100 rounded w-1/4"></div>
+                 </div>
+             ))
+        ) : (
+            cardStats.map((stat) => {
+                const theme = getThemeClasses(stat.colorTheme || 'slate');
+                const Icon = getIconComponent(stat.icon || 'circle');
+                
+                return (
+                    <div 
+                        key={stat.id}
+                        onClick={() => handleCardClick(`${stat.label} (${getTimeRangeLabel()})`, stat.tasks, stat.colorTheme || 'slate')}
+                        className={`${theme.bg} p-5 md:p-6 rounded-3xl shadow-lg ${theme.shadow} border ${theme.border} flex flex-col md:flex-row items-center justify-between md:space-x-4 space-y-3 md:space-y-0 text-center md:text-left hover:-translate-y-1 hover:shadow-xl transition-all cursor-pointer group active:scale-95 relative overflow-hidden`}
+                    >
+                        <div className={`absolute top-0 right-0 p-12 bg-opacity-20 blur-2xl rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-110 pointer-events-none ${theme.text.replace('text-', 'bg-')}`}></div>
+                        
+                        <div className="relative z-10 flex-1 order-2 md:order-1 w-full">
+                            <p className={`text-xs md:text-sm font-bold uppercase tracking-wider mb-1 opacity-80 group-hover:opacity-100 transition-opacity ${theme.textLight}`}>
+                                {stat.label}
+                            </p>
+                            <p className={`text-3xl md:text-5xl font-black tracking-tight leading-none ${theme.text}`}>
+                                {stat.count}
+                            </p>
+                        </div>
+                        <div className={`relative z-10 p-3 rounded-2xl shadow-sm border group-hover:scale-110 transition-transform duration-300 order-1 md:order-2 ${theme.iconBg} ${theme.iconColor} ${theme.border}`}>
+                            <Icon className="w-6 h-6 md:w-8 md:h-8" />
+                        </div>
+                    </div>
+                );
+            })
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -345,16 +374,12 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
               {urgentTasks.length === 0 ? (
                 <div className="p-12 text-center flex flex-col items-center justify-center">
                     <PartyPopper className="w-12 h-12 text-yellow-400 mb-3 animate-bounce" />
-                    <p className="text-gray-400 font-medium">จุ๊ยมากกก! {viewScope === 'ME' ? 'คุณไม่มีงานด่วน' : 'ไม่มีงานด่วน'} เลยวันนี้ 😎</p>
+                    <p className="text-gray-400 font-medium">จุ๊ยมากกก! ไม่มีงานด่วนเลยวันนี้ 😎</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">
                   {urgentTasks.map(task => (
-                    <div 
-                      key={task.id} 
-                      onClick={() => onEditTask(task)}
-                      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between group"
-                    >
+                    <div key={task.id} onClick={() => onEditTask(task)} className="p-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between group">
                       <div className="flex-1 min-w-0 pr-4">
                         <div className="flex items-center space-x-2 mb-1.5">
                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${STATUS_COLORS[task.status as Status] || 'bg-gray-100'}`}>
@@ -363,26 +388,14 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                           <span className={`text-[10px] font-bold uppercase tracking-wider ${PRIORITY_COLORS[task.priority]}`}>
                             {PRIORITY_LABELS[task.priority]}
                           </span>
-                           {/* Channel Icon */}
                            <div className="flex items-center space-x-1 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
                                 {getChannelIcon(task.channelId || '')}
-                                <span className="text-[10px] text-gray-500 font-medium">
-                                    {channels.find(c => c.id === task.channelId)?.name}
-                                </span>
+                                <span className="text-[10px] text-gray-500 font-medium">{channels.find(c => c.id === task.channelId)?.name}</span>
                            </div>
                         </div>
                         <h4 className="text-base font-semibold text-gray-800 truncate">{task.title}</h4>
-                        <p className="text-sm text-gray-400 truncate mt-0.5">{task.description}</p>
                       </div>
                       <div className="flex items-center space-x-4">
-                         <div className="flex -space-x-2 overflow-hidden">
-                            {task.assigneeIds.map(id => {
-                                const user = users.find(u => u.id === id);
-                                return user ? (
-                                    <img key={id} src={user.avatarUrl} className="inline-block h-8 w-8 rounded-full ring-2 ring-white" alt={user.name} title={user.name}/>
-                                ) : null;
-                            })}
-                         </div>
                          <div className="text-right min-w-[60px]">
                            <p className="text-[10px] text-gray-400 uppercase">Deadline</p>
                            <p className="text-sm font-bold text-gray-700">{format(task.endDate, 'd MMM')}</p>
@@ -416,9 +429,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                        </span>
                        <span className="text-xs font-medium text-gray-400">{format(task.endDate, 'd MMM')}</span>
                     </div>
-                    <div className="mb-2">
-                        {getChannelIcon(task.channelId || '')}
-                    </div>
+                    <div className="mb-2">{getChannelIcon(task.channelId || '')}</div>
                     <p className="text-sm font-bold text-gray-700 line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors">{task.title}</p>
                  </div>
                ))}
@@ -450,20 +461,17 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
                        <Cell key={`cell-${index}`} fill={entry.color} />
                      ))}
                    </Pie>
-                   <Tooltip 
-                      contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} 
-                      itemStyle={{ color: '#1e293b' }}
-                   />
+                   <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} itemStyle={{ color: '#1e293b' }} />
                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
                  </PieChart>
                </ResponsiveContainer>
              </div>
              <div className="mt-4 text-center">
                 <p className="text-4xl font-black text-gray-800">
-                    {totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0}
+                    {totalFilteredTasks > 0 ? Math.round((doneTasksCount / totalFilteredTasks) * 100) : 0}
                     <span className="text-lg text-gray-400 font-medium ml-1">%</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-1">ความคืบหน้า {getTimeRangeLabel()}</p>
+                <p className="text-xs text-gray-400 mt-1">ความคืบหน้า (All Done)</p>
              </div>
           </div>
 
@@ -474,30 +482,18 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
               </h3>
               <div className="space-y-2">
                   {todaysDuties.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                          วันนี้ไม่มีเวรครับ
-                      </p>
+                      <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">วันนี้ไม่มีเวรครับ</p>
                   ) : (
                       todaysDuties.map(duty => {
                           const assignee = users.find(u => u.id === duty.assigneeId);
                           return (
                               <div key={duty.id} className={`flex items-center p-3 rounded-xl border transition-all ${duty.isDone ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 hover:border-indigo-200'}`}>
                                   <div className="mr-3">
-                                      {assignee?.avatarUrl ? (
-                                          <img src={assignee.avatarUrl} className="w-8 h-8 rounded-full" alt={assignee.name} />
-                                      ) : (
-                                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                                              {assignee?.name?.charAt(0) || '?'}
-                                          </div>
-                                      )}
+                                      {assignee?.avatarUrl ? <img src={assignee.avatarUrl} className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">{assignee?.name?.charAt(0) || '?'}</div>}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                      <p className={`text-sm font-bold truncate ${duty.isDone ? 'text-green-700 line-through' : 'text-gray-800'}`}>
-                                          {duty.title}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                          รับผิดชอบโดย {assignee?.name || 'Unknown'}
-                                      </p>
+                                      <p className={`text-sm font-bold truncate ${duty.isDone ? 'text-green-700 line-through' : 'text-gray-800'}`}>{duty.title}</p>
+                                      <p className="text-xs text-gray-500">รับผิดชอบโดย {assignee?.name || 'Unknown'}</p>
                                   </div>
                                   {duty.isDone && <CheckCircle2 className="w-5 h-5 text-green-500" />}
                               </div>
@@ -509,7 +505,6 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, channels, users, currentUs
         </div>
       </div>
 
-      {/* Detail Modal */}
       <TaskCategoryModal 
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

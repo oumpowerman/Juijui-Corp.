@@ -1,16 +1,18 @@
 
 import React, { useState } from 'react';
-import { MasterOption, Reward } from '../types';
+import { MasterOption, Reward, DashboardConfig } from '../types';
 import { useMasterData } from './useMasterData';
 import { useRewards } from './useRewards';
+import { useDashboardConfig } from './useDashboardConfig';
 import { useMaintenance } from './useMaintenance';
 
-export type MasterTab = 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS' | 'INVENTORY' | 'POSITION' | 'REWARDS' | 'MAINTENANCE';
+export type MasterTab = 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS' | 'INVENTORY' | 'POSITION' | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
 
 export const useMasterDataView = () => {
     // --- Hooks ---
     const { masterOptions, isLoading: masterLoading, addMasterOption, updateMasterOption, deleteMasterOption } = useMasterData();
     const { rewards, isLoading: rewardsLoading, addReward, updateReward, deleteReward } = useRewards(null);
+    const { configs: dashboardConfigs, isLoading: dashboardLoading, updateConfig: updateDashboardConfig } = useDashboardConfig();
     const maintenance = useMaintenance();
 
     // --- Local State ---
@@ -31,6 +33,11 @@ export const useMasterDataView = () => {
     });
     
     const [rewardFormData, setRewardFormData] = useState<Partial<Reward>>({ title: '', description: '', cost: 100, icon: '🎁', isActive: true });
+    
+    // Dashboard Config Editing State
+    const [editingDashboardConfig, setEditingDashboardConfig] = useState<DashboardConfig | null>(null);
+    const [isDashboardModalOpen, setIsDashboardModalOpen] = useState(false);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Maintenance Config
@@ -126,6 +133,18 @@ export const useMasterDataView = () => {
         setIsEditing(true);
     };
 
+    // Dashboard Config Handlers
+    const handleEditDashboardConfig = (config: DashboardConfig) => {
+        setEditingDashboardConfig(config);
+        setIsDashboardModalOpen(true);
+    };
+
+    const handleSaveDashboardConfig = async (id: string, updates: Partial<DashboardConfig>) => {
+        await updateDashboardConfig(id, updates);
+        setIsDashboardModalOpen(false);
+        setEditingDashboardConfig(null);
+    };
+
     const handlePrepareBackupUI = async () => {
         const data = await maintenance.prepareBackup();
         if (data) setIsBackupModalOpen(true);
@@ -150,6 +169,7 @@ export const useMasterDataView = () => {
         masterOptions, masterLoading, 
         addMasterOption, updateMasterOption, deleteMasterOption, 
         rewards, rewardsLoading, deleteReward,
+        dashboardConfigs, dashboardLoading,
         filteredOptions,
         
         // Maintenance Hook Access
@@ -162,6 +182,11 @@ export const useMasterDataView = () => {
         formData, setFormData,
         rewardFormData, setRewardFormData,
         isSubmitting,
+        
+        // Dashboard UI State
+        editingDashboardConfig, 
+        isDashboardModalOpen, 
+        setIsDashboardModalOpen,
 
         // Maintenance Local State
         cleanupMonths, setCleanupMonths,
@@ -178,6 +203,8 @@ export const useMasterDataView = () => {
         handleSubmit,
         handleCreateReward,
         handleEditReward,
+        handleEditDashboardConfig,
+        handleSaveDashboardConfig,
         handlePrepareBackupUI,
         handleOpenCleanupModal,
         toggleCleanupStatus

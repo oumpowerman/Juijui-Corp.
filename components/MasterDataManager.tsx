@@ -2,8 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { MasterOption, Reward } from '../types';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Database, Power, Check, Activity, Download, HardDrive, AlertTriangle, Archive, Search, FileText, MessageSquare, FileJson, Filter, Gift, Package, User, Briefcase, ArrowRight, CornerDownRight, Shield, Award } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Database, Power, Check, Activity, Download, HardDrive, AlertTriangle, Archive, Search, FileText, MessageSquare, FileJson, Filter, Gift, Package, User, Briefcase, ArrowRight, CornerDownRight, Shield, Award, LayoutTemplate } from 'lucide-react';
 import MentorTip from './MentorTip';
+import DashboardConfigModal from './DashboardConfigModal'; // Import Modal
 import { format, addMonths } from 'date-fns';
 import { STATUS_LABELS } from '../constants';
 
@@ -11,6 +12,7 @@ const MasterDataManager: React.FC = () => {
     const { 
         masterOptions, masterLoading, deleteMasterOption, 
         rewards, rewardsLoading, deleteReward,
+        dashboardConfigs, dashboardLoading,
         activeTab, setActiveTab,
         isEditing, setIsEditing, editingId, setEditingId,
         formData, setFormData,
@@ -18,6 +20,8 @@ const MasterDataManager: React.FC = () => {
         isSubmitting,
         handleEdit, handleCreate, handleSubmit,
         handleCreateReward, handleEditReward,
+        handleEditDashboardConfig, handleSaveDashboardConfig, // Dashboard Handlers
+        editingDashboardConfig, isDashboardModalOpen, setIsDashboardModalOpen, // Dashboard State
         handlePrepareBackupUI, handleOpenCleanupModal,
         maintenance,
         cleanupMonths, setCleanupMonths,
@@ -46,12 +50,6 @@ const MasterDataManager: React.FC = () => {
         { name: 'Purple', class: 'bg-purple-50 text-purple-700 border-purple-200' },
         { name: 'Pink', class: 'bg-pink-50 text-pink-700 border-pink-200' },
     ];
-
-    // Status options for Cleanup
-    const statusOptions = masterOptions.filter(o => o.type === 'STATUS');
-    const availableStatusKeys = statusOptions.length > 0 
-        ? statusOptions.map(o => ({ key: o.key, label: o.label })) 
-        : Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }));
 
     const cutoffDateDisplay = format(addMonths(new Date(), -cleanupMonths), 'd MMMM yyyy');
 
@@ -184,7 +182,6 @@ const MasterDataManager: React.FC = () => {
 
                 {positions.map(pos => {
                     const tasks = responsibilities.filter(r => r.parentKey === pos.key);
-                    // Handle bg color extraction more safely
                     const bgClass = pos.color?.includes('bg-') ? pos.color.split(' ').find(c => c.startsWith('bg-')) : 'bg-gray-100';
                     const textClass = pos.color?.includes('text-') ? pos.color.split(' ').find(c => c.startsWith('text-')) : 'text-gray-800';
 
@@ -260,6 +257,8 @@ const MasterDataManager: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-2 bg-white p-1.5 rounded-2xl border border-gray-200 w-fit shadow-sm overflow-x-auto">
+                <button onClick={() => handleSwitchTab('DASHBOARD')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'DASHBOARD' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><LayoutTemplate className="w-4 h-4 mr-2" /> Dashboard</button>
+                <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
                 <button onClick={() => handleSwitchTab('PILLAR')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'PILLAR' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Layers className="w-4 h-4 mr-2" /> Pillars</button>
                 <button onClick={() => handleSwitchTab('FORMAT')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'FORMAT' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Type className="w-4 h-4 mr-2" /> Format</button>
                 <button onClick={() => handleSwitchTab('CATEGORY')} className={`flex items-center px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'CATEGORY' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}><Tag className="w-4 h-4 mr-2" /> Category</button>
@@ -274,7 +273,47 @@ const MasterDataManager: React.FC = () => {
 
             {/* CONTENT AREA */}
             <div className="min-h-[400px]">
-                {activeTab === 'REWARDS' ? (
+                {activeTab === 'DASHBOARD' ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4">
+                        <div className="bg-blue-50 border-blue-100 rounded-2xl p-6 border text-blue-800">
+                            <h3 className="font-bold text-lg mb-2">ปรับแต่งหน้า Dashboard</h3>
+                            <p className="text-sm text-blue-600">
+                                คุณสามารถเลือกได้ว่าการ์ดแต่ละใบในหน้าหลักจะแสดงข้อมูลอะไรบ้าง <br/>
+                                เช่น การ์ดแรกนับงานที่เป็น "Idea", การ์ดสองนับงาน "Production" เป็นต้น
+                            </p>
+                        </div>
+                        {dashboardLoading ? (
+                            <div className="col-span-full flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
+                        ) : (
+                            dashboardConfigs.map((config) => (
+                                <div key={config.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-100 text-gray-500`}>
+                                            <LayoutTemplate className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-gray-800 text-lg">{config.label}</h4>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold">
+                                                    Filter: {config.filterType || 'STATUS'}
+                                                </span>
+                                                <span className="text-xs text-gray-400">
+                                                    {config.statusKeys?.length || 0} เงื่อนไข
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleEditDashboardConfig(config)}
+                                        className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-xl transition-colors"
+                                    >
+                                        <Edit2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                ) : activeTab === 'REWARDS' ? (
                     /* REWARDS UI (Existing) */
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
                         {/* List */}
@@ -414,8 +453,17 @@ const MasterDataManager: React.FC = () => {
                 </div>
             )}
 
-            {/* REWARDS EDIT OVERLAY (Keep separate if needed, currently embedded in main logic) */}
-            
+            {/* DASHBOARD CONFIG EDIT MODAL */}
+            {isDashboardModalOpen && (
+                <DashboardConfigModal 
+                    isOpen={isDashboardModalOpen}
+                    onClose={() => setIsDashboardModalOpen(false)}
+                    config={editingDashboardConfig}
+                    masterOptions={masterOptions}
+                    onSave={handleSaveDashboardConfig}
+                />
+            )}
+
             {/* BACKUP & CLEANUP MODALS (Reusing existing components/logic via hook state) */}
             {/* ... Add Maintenance Modals here reusing isBackupModalOpen etc ... */}
             {/* Simplified for brevity as logic is in hook */}

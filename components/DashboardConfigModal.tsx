@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DashboardConfig, MasterOption } from '../types';
+import { DashboardConfig, MasterOption, FilterType } from '../types';
 import { X, Check, Save, CheckSquare, Square, AlertCircle, Filter, ChevronDown } from 'lucide-react';
 import { STATUS_LABELS } from '../constants';
 
@@ -20,7 +20,7 @@ const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
     onSave 
 }) => {
     const [label, setLabel] = useState('');
-    const [selectedType, setSelectedType] = useState<'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY'>('STATUS');
+    const [selectedType, setSelectedType] = useState<FilterType>('STATUS');
     const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
     useEffect(() => {
@@ -102,7 +102,7 @@ const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
                             <select 
                                 value={selectedType}
                                 onChange={(e) => {
-                                    setSelectedType(e.target.value as any);
+                                    setSelectedType(e.target.value as FilterType);
                                     setSelectedKeys([]); // Reset selection when type changes
                                 }}
                                 className="w-full pl-3 pr-8 py-2.5 bg-white border border-indigo-200 rounded-lg text-sm font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"

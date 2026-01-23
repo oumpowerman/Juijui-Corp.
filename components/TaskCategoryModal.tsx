@@ -25,7 +25,8 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
     if (!channel) return null;
     const platform = channel.platforms?.[0] || 'OTHER';
     const Icon = PLATFORM_ICONS[platform];
-    return <Icon className={`w-3 h-3 ${channel.color.split(' ')[1]}`} />;
+    const colorClass = (channel.color || 'bg-gray-100').split(' ')[1] || 'text-gray-500';
+    return <Icon className={`w-3 h-3 ${colorClass}`} />;
   };
 
   // Map color theme to actual tailwind classes

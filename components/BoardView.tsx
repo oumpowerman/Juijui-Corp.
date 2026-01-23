@@ -116,7 +116,7 @@ const BoardView: React.FC<BoardViewProps> = ({
 
                 {channels.map(channel => {
                     const isActive = selectedChannelId === channel.id;
-                    const colorClass = channel.color.split(' ')[0] || 'bg-indigo-100'; // Fallback
+                    const colorClass = (channel.color || 'bg-indigo-100').split(' ')[0] || 'bg-indigo-100'; // Fallback
 
                     return (
                         <button
@@ -129,7 +129,7 @@ const BoardView: React.FC<BoardViewProps> = ({
                                     : `bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:-translate-y-0.5`}
                             `}
                         >
-                            <span className={`w-2 h-2 rounded-full mr-1.5 ${channel.color.split(' ')[0]}`}></span>
+                            <span className={`w-2 h-2 rounded-full mr-1.5 ${colorClass}`}></span>
                             {channel.name}
                             {isActive && <Check className="w-3 h-3 ml-1.5 text-indigo-600" />}
                         </button>
@@ -148,39 +148,38 @@ const BoardView: React.FC<BoardViewProps> = ({
                         // Filter Tasks
                         const columnTasks = tasks.filter(t => {
                             const matchStatus = t.status === statusKey;
-                            const matchType = t.type === 'CONTENT';
                             const matchChannel = selectedChannelId === 'ALL' || t.channelId === selectedChannelId;
-                            return matchStatus && matchType && matchChannel;
+                            return matchStatus && matchChannel;
                         });
 
                         return (
                             <div 
                                 key={option.id}
-                                className="w-72 flex flex-col bg-gray-50/50 rounded-xl border border-gray-200/60 max-h-full"
+                                className="w-80 flex flex-col bg-gray-50/50 rounded-xl border border-gray-200/60 max-h-full"
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, statusKey)}
                             >
-                                {/* Column Header */}
-                                <div className="p-3 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl border-b border-gray-100 sticky top-0 z-10">
+                                {/* Column Header (Increased Font Size) */}
+                                <div className="p-4 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl border-b border-gray-100 sticky top-0 z-10">
                                     <div className="flex items-center gap-2 max-w-[80%]">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border truncate ${statusColor}`}>
+                                        <span className={`px-3 py-1 rounded-lg text-base font-bold border truncate ${statusColor}`}>
                                             {statusLabel}
                                         </span>
-                                        <span className="text-xs text-gray-400 font-medium">
+                                        <span className="text-sm text-gray-400 font-bold bg-white px-2 py-0.5 rounded-md border border-gray-100">
                                             {columnTasks.length}
                                         </span>
                                     </div>
                                     <div className="flex gap-1">
-                                        <button onClick={() => onAddTask(statusKey as Status)} className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 transition-colors">
-                                            <Plus className="w-4 h-4" />
+                                        <button onClick={() => onAddTask(statusKey as Status)} className="p-1.5 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 transition-colors">
+                                            <Plus className="w-5 h-5" />
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Task List */}
-                                <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-200">
+                                <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200">
                                     {columnTasks.length === 0 && (
-                                        <div className="h-20 flex items-center justify-center text-xs text-gray-300 italic">
+                                        <div className="h-20 flex items-center justify-center text-sm text-gray-300 italic font-medium">
                                             ว่าง
                                         </div>
                                     )}
@@ -188,7 +187,8 @@ const BoardView: React.FC<BoardViewProps> = ({
                                     {columnTasks.map(task => {
                                         const channel = getChannelInfo(task.channelId);
                                         const avatar = getAssigneeAvatar(task.assigneeIds.length > 0 ? task.assigneeIds : task.ideaOwnerIds);
-                                        
+                                        const channelColorClass = (channel?.color || '').split(' ')[0] || 'bg-gray-100';
+
                                         return (
                                             <div
                                                 key={task.id}
@@ -196,41 +196,41 @@ const BoardView: React.FC<BoardViewProps> = ({
                                                 onDragStart={(e) => handleDragStart(e, task.id)}
                                                 onClick={() => onEditTask(task)}
                                                 className={`
-                                                    bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group relative animate-in zoom-in-95 duration-200
+                                                    bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group relative animate-in zoom-in-95 duration-200
                                                     ${draggedTaskId === task.id ? 'opacity-50 border-dashed border-indigo-400' : ''}
                                                 `}
                                             >
-                                                {/* Cover/Tag Line */}
-                                                <div className="flex items-center gap-1 mb-2">
+                                                {/* Cover/Tag Line (Increased Font Size) */}
+                                                <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                                                     {channel && (
-                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold truncate max-w-[100px] ${channel.color}`}>
+                                                        <span className={`text-xs px-2 py-1 rounded border font-bold truncate max-w-[120px] ${channel.color}`}>
                                                             {channel.name}
                                                         </span>
                                                     )}
                                                     {task.contentFormat && (
-                                                        <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 font-medium">
+                                                        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded border border-purple-100 font-bold">
                                                             {task.contentFormat}
                                                         </span>
                                                     )}
                                                 </div>
 
-                                                {/* Title */}
-                                                <h4 className="text-sm font-bold text-gray-800 leading-tight mb-2 group-hover:text-indigo-600 transition-colors">
+                                                {/* Title (Increased Font Size) */}
+                                                <h4 className="text-lg font-bold text-gray-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors">
                                                     {task.title}
                                                 </h4>
 
                                                 {/* Footer Info */}
-                                                <div className="flex justify-between items-end mt-2 pt-2 border-t border-gray-50">
-                                                    <div className="flex items-center text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
-                                                        <Calendar className="w-3 h-3 mr-1" />
+                                                <div className="flex justify-between items-end pt-2 border-t border-gray-50">
+                                                    <div className="flex items-center text-xs font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
+                                                        <Calendar className="w-3.5 h-3.5 mr-1.5" />
                                                         {task.isUnscheduled ? 'No Date' : format(task.endDate, 'd MMM')}
                                                     </div>
                                                     
                                                     {avatar ? (
-                                                        <img src={avatar} className="w-5 h-5 rounded-full object-cover border border-gray-100" />
+                                                        <img src={avatar} className="w-6 h-6 rounded-full object-cover border border-gray-100" />
                                                     ) : (
-                                                        <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-300">
-                                                            <UserIcon className="w-3 h-3" />
+                                                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-300">
+                                                            <UserIcon className="w-3.5 h-3.5" />
                                                         </div>
                                                     )}
                                                 </div>
@@ -239,7 +239,7 @@ const BoardView: React.FC<BoardViewProps> = ({
                                     })}
                                     
                                     {/* Drop Zone Indicator */}
-                                    <div className="h-10 border-2 border-dashed border-transparent transition-colors rounded-lg flex items-center justify-center text-xs text-transparent hover:border-indigo-200 hover:text-indigo-300">
+                                    <div className="h-12 border-2 border-dashed border-transparent transition-colors rounded-xl flex items-center justify-center text-sm font-bold text-transparent hover:border-indigo-200 hover:text-indigo-300">
                                         Drop here
                                     </div>
                                 </div>

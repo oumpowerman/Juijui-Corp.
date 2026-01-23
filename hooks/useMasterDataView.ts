@@ -6,7 +6,19 @@ import { useRewards } from './useRewards';
 import { useDashboardConfig } from './useDashboardConfig';
 import { useMaintenance } from './useMaintenance';
 
-export type MasterTab = 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'STATUS' | 'TASK_STATUS' | 'INVENTORY' | 'POSITION' | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
+export type MasterTab = 
+    // Workflow
+    | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION'
+    // Content
+    | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY'
+    // Inventory
+    | 'INVENTORY' | 'ITEM_CONDITION'
+    // HR & Team
+    | 'POSITION' | 'LEAVE_TYPE' 
+    // QC
+    | 'REJECTION_REASON'
+    // System
+    | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
 
 export const useMasterDataView = () => {
     // --- Hooks ---
@@ -16,7 +28,7 @@ export const useMasterDataView = () => {
     const maintenance = useMaintenance();
 
     // --- Local State ---
-    const [activeTab, setActiveTab] = useState<MasterTab>('PILLAR');
+    const [activeTab, setActiveTab] = useState<MasterTab>('STATUS');
     
     // Form States
     const [isEditing, setIsEditing] = useState(false);
@@ -146,7 +158,13 @@ export const useMasterDataView = () => {
     };
 
     const handlePrepareBackupUI = async () => {
-        const data = await maintenance.prepareBackup();
+        // Pass default backup options when triggered from UI without specific options
+        const data = await maintenance.prepareBackup({
+            tasks: true,
+            contents: true,
+            chats: true,
+            profiles: true
+        });
         if (data) setIsBackupModalOpen(true);
     };
 

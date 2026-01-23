@@ -180,7 +180,6 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: _legacyTasks, channe
   };
 
   // --- CSV Import Logic (Keep same as before) ---
-  // ... (Previous CSV logic remains mostly same, just ensuring it triggers refresh)
   const handleDownloadTemplate = () => {
         // Simple CSV template logic
         const exampleFormat = formatOptions.length > 0 ? formatOptions[0].key : "Short Form";
@@ -284,7 +283,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: _legacyTasks, channe
                 const title = colMap.title > -1 ? cols[colMap.title]?.trim() : '';
                 if (!title) continue; 
                 
-                let status = findMasterKey('STATUS', (colMap.status > -1 ? cols[colMap.status] : '').toUpperCase()) || Status.TODO;
+                let status = findMasterKey('STATUS', (colMap.status > -1 ? cols[colMap.status] : '').toUpperCase()) || 'TODO';
                 let channelId = null;
                 const channelName = colMap.channel > -1 ? cols[colMap.channel]?.trim() : '';
                 if (channelName) {

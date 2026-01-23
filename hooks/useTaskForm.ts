@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, TaskType, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType } from '../types';
@@ -21,7 +20,7 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [status, setStatus] = useState<string>(''); 
-    const [priority, setPriority] = useState<Priority>(Priority.MEDIUM);
+    const [priority, setPriority] = useState<Priority>('MEDIUM');
     const [tags, setTags] = useState<string[]>([]);
     
     // Content Specific
@@ -42,7 +41,7 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
     const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
     const [estimatedHours, setEstimatedHours] = useState<number>(0);
 
-    // NEW FIELDS (This was missing)
+    // NEW FIELDS (Added for TaskForm compatibility)
     const [assigneeType, setAssigneeType] = useState<AssigneeType>('TEAM');
     const [targetPosition, setTargetPosition] = useState('');
     const [caution, setCaution] = useState('');
@@ -110,7 +109,7 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             const defaultDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
             setStartDate(defaultDate);
             setEndDate(defaultDate);
-            setPriority(Priority.MEDIUM);
+            setPriority('MEDIUM');
             setTags([]);
             setChannelId(''); 
             setTargetPlatforms(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);

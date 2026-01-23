@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Priority, Status, Platform, ContentPillar, ContentFormat, AssetCategory, ChipConfig, Difficulty } from './types';
+import { Priority, Status, Platform, ContentPillar, ContentFormat, AssetCategory, ChipConfig, Difficulty, WorkStatus } from './types';
 import { Youtube, Facebook, Instagram, Video, Globe, FileText, Image, Film, Receipt, Link as LinkIcon, LucideIcon } from 'lucide-react';
 
 export const PLATFORM_ICONS: Record<Platform, any> = {
@@ -55,50 +54,52 @@ export const ASSET_CATEGORIES: Record<AssetCategory, { label: string, icon: Luci
 
 // Updated Colors for 10-step workflow
 export const STATUS_COLORS: Record<Status, string> = {
-  [Status.TODO]: 'bg-gray-100 text-gray-600 border-gray-200',
-  [Status.DOING]: 'bg-blue-100 text-blue-600 border-blue-200',
-  [Status.BLOCKED]: 'bg-red-100 text-red-600 border-red-200',
-  [Status.IDEA]: 'bg-gray-100 text-gray-600 border-gray-200',
-  [Status.SCRIPT]: 'bg-yellow-50 text-yellow-600 border-yellow-200',
-  [Status.SHOOTING]: 'bg-orange-50 text-orange-600 border-orange-200',
-  [Status.EDIT_CLIP]: 'bg-blue-50 text-blue-600 border-blue-200',
-  [Status.FEEDBACK]: 'bg-pink-50 text-pink-600 border-pink-200',
-  [Status.EDIT_DRAFT_1]: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-  [Status.FEEDBACK_1]: 'bg-purple-50 text-purple-600 border-purple-200',
-  [Status.EDIT_DRAFT_2]: 'bg-cyan-50 text-cyan-600 border-cyan-200',
-  [Status.APPROVE]: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  [Status.DONE]: 'bg-green-100 text-green-700 border-green-300 ring-1 ring-green-300',
+  'TODO': 'bg-gray-100 text-gray-600 border-gray-200',
+  'DOING': 'bg-blue-100 text-blue-600 border-blue-200',
+  'BLOCKED': 'bg-red-100 text-red-600 border-red-200',
+  'IDEA': 'bg-gray-100 text-gray-600 border-gray-200',
+  'SCRIPT': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  'SHOOTING': 'bg-orange-50 text-orange-600 border-orange-200',
+  'EDIT_CLIP': 'bg-blue-50 text-blue-600 border-blue-200',
+  'FEEDBACK': 'bg-pink-50 text-pink-600 border-pink-200',
+  'EDIT_DRAFT_1': 'bg-indigo-50 text-indigo-600 border-indigo-200',
+  'FEEDBACK_1': 'bg-purple-50 text-purple-600 border-purple-200',
+  'EDIT_DRAFT_2': 'bg-cyan-50 text-cyan-600 border-cyan-200',
+  'APPROVE': 'bg-emerald-50 text-emerald-600 border-emerald-200',
+  'DONE': 'bg-green-100 text-green-700 border-green-300 ring-1 ring-green-300',
+  'WAITING': 'bg-orange-50 text-orange-600 border-orange-200'
 };
 
 // Updated Labels for 10-step workflow
 export const STATUS_LABELS: Record<Status, string> = {
-  [Status.TODO]: 'To Do 📝',
-  [Status.DOING]: 'Doing 🔨',
-  [Status.BLOCKED]: 'Blocked 🚫',
-  [Status.IDEA]: '01 Idea/Draft 💡',
-  [Status.SCRIPT]: '02 Script ✍️',
-  [Status.SHOOTING]: '03 Shooting 🎥',
-  [Status.EDIT_CLIP]: '04 Edit Clip ✂️',
-  [Status.FEEDBACK]: '05 Feedback 💬',
-  [Status.EDIT_DRAFT_1]: '06 Edit Draft1 🛠️',
-  [Status.FEEDBACK_1]: '07 Feedback 1 🗣️',
-  [Status.EDIT_DRAFT_2]: '08 Edit Draft 2 🔧',
-  [Status.APPROVE]: '09 Approve 👍',
-  [Status.DONE]: '10 Done ✅',
+  'TODO': 'To Do 📝',
+  'DOING': 'Doing 🔨',
+  'BLOCKED': 'Blocked 🚫',
+  'IDEA': '01 Idea/Draft 💡',
+  'SCRIPT': '02 Script ✍️',
+  'SHOOTING': '03 Shooting 🎥',
+  'EDIT_CLIP': '04 Edit Clip ✂️',
+  'FEEDBACK': '05 Feedback 💬',
+  'EDIT_DRAFT_1': '06 Edit Draft1 🛠️',
+  'FEEDBACK_1': '07 Feedback 1 🗣️',
+  'EDIT_DRAFT_2': '08 Edit Draft 2 🔧',
+  'APPROVE': '09 Approve 👍',
+  'DONE': '10 Done ✅',
+  'WAITING': 'Waiting ✋'
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {
-  [Priority.LOW]: 'text-slate-400',
-  [Priority.MEDIUM]: 'text-blue-500',
-  [Priority.HIGH]: 'text-orange-500',
-  [Priority.URGENT]: 'text-red-500 font-bold',
+  'LOW': 'text-slate-400',
+  'MEDIUM': 'text-blue-500',
+  'HIGH': 'text-orange-500',
+  'URGENT': 'text-red-500 font-bold',
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
-  [Priority.LOW]: 'จุ๊ยๆ ชิวๆ 🍹',
-  [Priority.MEDIUM]: 'งานทั่วไป 🙂',
-  [Priority.HIGH]: 'เริ่มเดือด ⚡️',
-  [Priority.URGENT]: 'ไฟลุกท่วม 🔥',
+  'LOW': 'จุ๊ยๆ ชิวๆ 🍹',
+  'MEDIUM': 'งานทั่วไป 🙂',
+  'HIGH': 'เริ่มเดือด ⚡️',
+  'URGENT': 'ไฟลุกท่วม 🔥',
 };
 
 // --- Calendar Smart Filter Constants ---
@@ -128,4 +129,11 @@ export const isTaskCompleted = (status: string): boolean => {
     const COMPLETION_KEYWORDS = ['DONE', 'APPROVE', 'PASSED', 'COMPLETE', 'SUCCESS', 'PUBLISH', 'POSTED', 'FINISH', 'CLOSED'];
     return COMPLETION_KEYWORDS.some(k => s.includes(k));
 };
-    
+
+export const WORK_STATUS_CONFIG: Record<WorkStatus, { label: string, icon: string, color: string }> = {
+    ONLINE: { label: 'Online (พร้อมลุย)', icon: '🟢', color: 'bg-green-100 text-green-700' },
+    BUSY: { label: 'Busy (ยุ่งมาก)', icon: '🔴', color: 'bg-red-100 text-red-700' },
+    SICK: { label: 'Sick (ลาป่วย)', icon: '🤢', color: 'bg-orange-100 text-orange-700' },
+    VACATION: { label: 'Vacation (ลาพักร้อน)', icon: '🏖️', color: 'bg-blue-100 text-blue-700' },
+    MEETING: { label: 'Meeting (ติดประชุม)', icon: '📅', color: 'bg-purple-100 text-purple-700' }
+};

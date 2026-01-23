@@ -1,48 +1,56 @@
 
-import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, ChevronRight, ChevronLeft, ChevronDown, Sparkles, LogOut, Briefcase, Wrench, ShieldCheck, Edit, Plus, BarChart3 } from 'lucide-react';
-import { User, ViewMode } from '../types';
+import React, { useState } from 'react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard } from 'lucide-react';
+import { User, ViewMode, MenuGroup } from '../types';
 
-interface MenuItem {
-  view: ViewMode;
-  label: string;
-  icon: any;
+interface SidebarProps {
+  currentUser: User;
+  currentView: ViewMode;
+  onNavigate: (view: ViewMode) => void;
+  onLogout: () => void;
+  onEditProfile: () => void;
+  onAddTask: () => void;
+  unreadChatCount: number;
+  isCollapsed: boolean;
+  onToggleCollapse: (val: boolean) => void;
 }
 
-interface MenuGroup {
-  id: string;
-  title: string;
-  icon: any;
-  items: MenuItem[];
-  adminOnly?: boolean;
-}
-
-// Menu Configuration
+// Menu Groups Definition
 export const MENU_GROUPS: MenuGroup[] = [
   {
     id: 'WORKSPACE',
     title: 'Workspace',
     icon: Briefcase,
     items: [
-      { view: 'DASHBOARD', label: 'ภาพรวม (Overview)', icon: LayoutGrid },
+      { view: 'DASHBOARD', label: 'ภาพรวม', icon: LayoutGrid },
       { view: 'CALENDAR', label: 'ปฏิทิน & บอร์ด', icon: CalendarIcon }, 
-      { view: 'CHAT', label: 'ห้องแชท (Chat)', icon: MessageCircle },
-      { view: 'TEAM', label: 'ทีมงาน (Team)', icon: Users },
-      { view: 'WEEKLY', label: 'ภารกิจ (Quests)', icon: Target },
-      { view: 'GOALS', label: 'เป้าหมาย (Goals)', icon: TrendingUp }, 
+      { view: 'CHAT', label: 'ห้องแชท', icon: MessageCircle },
+      { view: 'TEAM', label: 'ทีมงาน', icon: Users },
+      { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
+      { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp }, 
     ]
   },
   {
-    id: 'TOOLS',
-    title: 'Tools',
-    icon: Wrench,
+    id: 'PRODUCTION',
+    title: 'Production',
+    icon: Clapperboard,
     items: [
-      { view: 'DUTY', label: 'ตารางเวร (Duty)', icon: Coffee },
-      { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน (QC)', icon: ScanEye },
-      { view: 'KPI', label: 'ประเมินผล (KPI)', icon: BarChart3 }, // Added KPI
-      { view: 'STOCK', label: 'คลังคลิป (Stock)', icon: Film },
-      { view: 'CHECKLIST', label: 'จัดเป๋า (Checklist)', icon: ClipboardList },
-      { view: 'WIKI', label: 'คู่มือ (Wiki)', icon: BookOpen },
+      { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
+      { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation },
+      { view: 'STOCK', label: 'คลังคลิป', icon: Film },
+      { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
+    ]
+  },
+  {
+    id: 'OFFICE',
+    title: 'Office',
+    icon: Building2,
+    items: [
+      { view: 'DUTY', label: 'ตารางเวร', icon: Coffee },
+      { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
+      { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
+      { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone },
+      { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
     ]
   },
   {
@@ -57,188 +65,175 @@ export const MENU_GROUPS: MenuGroup[] = [
   }
 ];
 
-interface NavItemProps {
-    view: ViewMode;
-    icon: any;
-    label: string;
-    currentView: ViewMode;
-    onNavigate: (view: ViewMode) => void;
-    collapsed?: boolean;
-    badgeCount?: number;
-}
-  
-const NavItem: React.FC<NavItemProps> = ({ view, icon: Icon, label, currentView, onNavigate, collapsed = false, badgeCount }) => {
-    const isActive = currentView === view;
-    return (
-      <button
-        onClick={() => onNavigate(view)}
-        title={collapsed ? label : undefined}
-        className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 group relative mb-1 text-sm ${
-          isActive
-            ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/20' 
-            : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-        } ${collapsed ? 'justify-center px-2' : 'px-4'}`}
-      >
-        <div className="relative">
-            <Icon className={`w-4 h-4 min-w-[16px] ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-            {badgeCount && badgeCount > 0 ? (
-                <div className={`absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border-2 border-[#0f172a] ${collapsed ? 'right-[-8px]' : ''}`}>
-                    {badgeCount > 99 ? '99+' : badgeCount}
-                </div>
-            ) : null}
+const Sidebar: React.FC<SidebarProps> = ({ 
+  currentUser, 
+  currentView, 
+  onNavigate, 
+  onLogout, 
+  onEditProfile, 
+  unreadChatCount,
+  isCollapsed,
+  onToggleCollapse
+}) => {
+  const isAdmin = currentUser.role === 'ADMIN';
+
+  // State for Accordion
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+      'WORKSPACE': true,
+      'PRODUCTION': true,
+      'OFFICE': false,
+      'ADMIN': false
+  });
+
+  const toggleGroup = (groupId: string) => {
+      // Allow toggle even if collapsed, but UI handles visual
+      setExpandedGroups(prev => ({
+          ...prev,
+          [groupId]: !prev[groupId]
+      }));
+  };
+
+  const handleMenuItemClick = (view: ViewMode) => {
+      onNavigate(view);
+      // Optional: Auto-collapse on click if desired, but user asked for hover behavior
+  };
+
+  return (
+    <aside 
+      onMouseEnter={() => onToggleCollapse(false)}
+      onMouseLeave={() => onToggleCollapse(true)}
+      className={`
+        hidden lg:flex flex-col h-full bg-white border-r border-gray-200 shadow-xl shrink-0 z-50 sidebar-transition relative
+        ${isCollapsed ? 'w-[88px] sidebar-collapsed' : 'w-[280px] sidebar-expanded'}
+      `}
+    >
+      {/* 1. Brand Logo Area */}
+      <div className={`flex items-center bg-gradient-to-r from-white to-slate-50/50 overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
+        <div className={`
+          bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0 sidebar-icon
+          ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
+        `}>
+          <Sparkles className="w-7 h-7 stroke-[2.5px]" />
         </div>
-        {!collapsed && (
-          <span className="ml-3 font-medium hidden lg:block tracking-wide truncate">{label}</span>
-        )}
-        {isActive && (
-          <div className={`absolute left-0 w-1 h-5 bg-white rounded-r-full hidden lg:block ${collapsed ? 'h-2 w-1 left-0.5 rounded-full' : '-ml-3'}`} />
-        )}
-      </button>
-    );
-};
+        <div className="sidebar-item-text">
+          <h1 className="text-xl font-black text-gray-900 tracking-tight leading-none">Juijui</h1>
+          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase">Planner</p>
+        </div>
+      </div>
 
-interface SidebarProps {
-    currentUser: User;
-    currentView: ViewMode;
-    onNavigate: (view: ViewMode) => void;
-    onLogout: () => void | Promise<void>;
-    onEditProfile: () => void;
-    onAddTask: () => void; // Added Prop
-    unreadChatCount: number;
-}
+      {/* 2. Menu Area */}
+      <div className="flex-1 overflow-y-auto sidebar-scroll py-4 scrollbar-hide">
+        {MENU_GROUPS.map((group) => {
+          if (group.adminOnly && !isAdmin) return null;
+          
+          const isExpanded = expandedGroups[group.id];
+          const GroupIcon = group.icon;
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser, currentView, onNavigate, onLogout, onEditProfile, onAddTask, unreadChatCount }) => {
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [expandedGroups, setExpandedGroups] = useState<string[]>(['WORKSPACE', 'TOOLS']); // Expand Tools by default to show KPI
-    const isAdmin = currentUser.role === 'ADMIN';
-
-    // Auto expand group when navigating
-    useEffect(() => {
-        const parentGroup = MENU_GROUPS.find(g => g.items.some(i => i.view === currentView));
-        if (parentGroup && !expandedGroups.includes(parentGroup.id)) {
-            setExpandedGroups(prev => [...prev, parentGroup.id]);
-        }
-    }, [currentView]);
-
-    const toggleGroup = (groupId: string) => {
-        setExpandedGroups(prev => 
-            prev.includes(groupId) 
-            ? prev.filter(id => id !== groupId) 
-            : [...prev, groupId]
-        );
-    };
-
-    const safeName = currentUser.name || 'Unknown';
-
-    return (
-        <aside 
-            className={`
-                hidden lg:flex bg-[#0f172a] text-white flex-col transition-all duration-300 ease-in-out shadow-xl z-20 relative
-                ${isSidebarCollapsed ? 'w-24' : 'w-72'}
-            `}
-        >
-            <button
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="absolute -right-3 top-20 bg-white text-indigo-600 p-1.5 rounded-full shadow-lg border border-gray-100 z-30 hover:bg-indigo-50 hover:text-indigo-800 transition-all hover:scale-110 active:scale-95"
-                title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            >
-                {isSidebarCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
-            </button>
-
-            <div className={`h-20 flex items-center border-b border-slate-800/50 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-6'}`}>
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-                    <Sparkles className="text-white w-6 h-6" />
-                </div>
-                {!isSidebarCollapsed && (
-                    <div className="ml-3 overflow-hidden whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300">
-                        <h1 className="font-bold text-lg tracking-tight leading-none text-white">Juijui Planner</h1>
-                        <p className="text-[10px] text-indigo-400 font-medium tracking-wider mt-0.5">CREATOR EDITION</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Remove 'Create New Task' Button from Desktop Sidebar as requested */}
-            <div className="h-4"></div> 
-
-            <nav className="flex-1 py-2 px-3 space-y-4 overflow-y-auto scrollbar-hide">
-            {MENU_GROUPS.map((group) => {
-                if (group.adminOnly && !isAdmin) return null;
-                
-                const isExpanded = expandedGroups.includes(group.id);
-                
-                return (
-                    <div key={group.id} className="border-b border-slate-800/50 pb-2 last:border-0">
-                        <button 
-                            onClick={() => toggleGroup(group.id)}
-                            className={`w-full flex items-center py-2 text-slate-500 hover:text-slate-300 transition-colors ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-3'}`}
-                            title={isSidebarCollapsed ? group.title : undefined}
-                        >
-                            <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-                                {isSidebarCollapsed ? (
-                                    <group.icon className="w-4 h-4 text-slate-600" /> 
-                                ) : (
-                                    <span className="text-xs font-bold uppercase tracking-wider">{group.title}</span>
-                                )}
-                            </div>
-                            {!isSidebarCollapsed && (
-                                isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
-                            )}
-                        </button>
-                        
-                        <div className={`space-y-1 mt-1 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            {group.items.map(item => (
-                                <NavItem 
-                                    key={item.view} 
-                                    view={item.view} 
-                                    icon={item.icon} 
-                                    label={item.label} 
-                                    currentView={currentView}
-                                    onNavigate={onNavigate}
-                                    collapsed={isSidebarCollapsed}
-                                    badgeCount={item.view === 'CHAT' ? unreadChatCount : 0}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                );
-            })}
-            </nav>
-
-            <div className={`border-t border-slate-800 bg-[#0f172a] shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'p-2' : 'p-4 flex justify-between items-center'}`}>
-                <div 
-                    onClick={onEditProfile}
-                    className={`flex items-center rounded-xl hover:bg-slate-800 transition-colors cursor-pointer group/profile relative ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-start p-2 flex-1 mr-2'}`}
-                    title="แก้ไขข้อมูลส่วนตัว"
+          return (
+            <div key={group.id} className="mb-6">
+              {/* Group Header */}
+              {!isCollapsed ? (
+                <button 
+                  onClick={() => toggleGroup(group.id)}
+                  className="w-full flex items-center justify-between px-6 py-2 text-slate-400 hover:text-indigo-600 transition-all group/header"
                 >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-orange-400 flex items-center justify-center text-sm font-bold shadow-md border-2 border-slate-700 overflow-hidden relative shrink-0">
-                    {currentUser.avatarUrl ? <img src={currentUser.avatarUrl} className="w-full h-full object-cover" /> : safeName.charAt(0).toUpperCase()}
-                    
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/profile:opacity-100 transition-opacity">
-                        <Edit className="w-4 h-4 text-white" />
+                    <div className="flex items-center gap-3">
+                        <GroupIcon className="w-4 h-4 opacity-70" />
+                        <h3 className="text-[11px] font-black uppercase tracking-[0.15em] sidebar-item-text">
+                          {group.title}
+                        </h3>
                     </div>
+                    <div className="sidebar-item-text">
+                        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                     </div>
-                    
-                    {!isSidebarCollapsed && (
-                        <div className="ml-3 overflow-hidden whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                            <p className="text-sm font-bold text-gray-200 truncate group-hover/profile:text-white transition-colors">{safeName.split(' ')[0]}</p>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${isAdmin ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
-                            {isAdmin ? 'CEO' : 'TEAM'}
-                            </span>
-                        </div>
-                        <p className="text-xs text-indigo-400 truncate">แก้ไขโปรไฟล์</p>
-                        </div>
-                    )}
+                </button>
+              ) : (
+                <div className="w-full flex justify-center py-2 text-slate-200">
+                   {/* Divider or Mini Icon when collapsed */}
+                   <div className="w-10 h-px bg-slate-100"></div>
                 </div>
+              )}
 
-                {!isSidebarCollapsed && (
-                    <button onClick={onLogout} className="p-2 text-slate-500 hover:text-red-400 transition-colors" title="ออกจากระบบ">
-                        <LogOut className="w-5 h-5" />
-                    </button>
-                )}
+              {/* Group Items */}
+              <div className={`overflow-hidden transition-all duration-500 ${isCollapsed || isExpanded ? 'max-h-[600px]' : 'max-h-0'}`}>
+                  <div className={`space-y-1.5 mt-2 ${isCollapsed ? 'px-3' : 'px-4'}`}>
+                    {group.items.map((item) => {
+                      const isActive = currentView === item.view;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.view}
+                          onClick={() => handleMenuItemClick(item.view)}
+                          className={`
+                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-hidden
+                            ${isCollapsed ? 'justify-center py-3.5' : 'px-4 py-3'}
+                            ${isActive 
+                              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-700'}
+                          `}
+                        >
+                          <Icon className={`sidebar-icon shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5 mr-3.5'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
+                          
+                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight`}>
+                             {item.label}
+                          </span>
+                          
+                          {item.view === 'CHAT' && unreadChatCount > 0 && (
+                            <div className={`
+                              font-black rounded-full animate-pulse flex items-center justify-center shrink-0
+                              ${isCollapsed ? 'absolute top-2 right-2 w-4 h-4 text-[7px]' : 'px-2 py-0.5 text-[9px] ml-2'}
+                              ${isActive ? 'bg-white text-indigo-600' : 'bg-red-500 text-white'}
+                            `}>
+                              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+              </div>
             </div>
-        </aside>
-    );
+          );
+        })}
+      </div>
+
+      {/* 3. User Footer */}
+      <div className={`border-t border-gray-100 bg-slate-50/50 p-4 transition-all`}>
+        <div 
+          className={`flex items-center rounded-[1.25rem] hover:bg-white transition-all cursor-pointer group border border-transparent hover:border-slate-200 hover:shadow-lg ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2.5'}`} 
+          onClick={onEditProfile}
+        >
+          <div className="relative shrink-0 sidebar-icon">
+            <img src={currentUser.avatarUrl} alt="User" className={`${isCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-full object-cover border-2 border-white shadow-sm`} />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+          </div>
+          
+          <div className="sidebar-item-text flex-1 min-w-0">
+            <p className="text-sm font-black text-slate-800 truncate">{currentUser.name}</p>
+            <p className="text-[10px] font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
+          </div>
+          
+          {!isCollapsed && (
+            <div className="sidebar-item-text">
+                <Edit className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-500" />
+            </div>
+          )}
+        </div>
+        
+        <button 
+          onClick={onLogout}
+          className={`
+            w-full flex items-center justify-center gap-2 font-black transition-all uppercase tracking-[0.2em]
+            ${isCollapsed ? 'mt-4 py-3 text-red-300 hover:text-red-500' : 'mt-4 py-3 text-[10px] text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl'}
+          `}
+          title={isCollapsed ? 'ลงชื่อออก' : ''}
+        >
+          <LogOut className={`${isCollapsed ? 'w-6 h-6' : 'w-3.5 h-3.5'}`} /> 
+          <span className="sidebar-item-text">ลงชื่อออก</span>
+        </button>
+      </div>
+    </aside>
+  );
 };
 
 export default Sidebar;

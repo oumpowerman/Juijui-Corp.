@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ChatMessage, User, Task, Status, Priority } from '../types';
 import { useToast } from '../context/ToastContext';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const PAGE_SIZE = 20;
 
@@ -11,9 +12,9 @@ const getGeminiApiKey = () => {
         return process.env.API_KEY;
     }
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
         // @ts-ignore
-        return import.meta.env.VITE_API_KEY;
+        return import.meta.env.VITE_GEMINI_API_KEY;
     }
     return '';
 };
@@ -50,7 +51,9 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
             isActive: true,
             xp: data.profiles.xp || 0,
             level: data.profiles.level || 1,
-            availablePoints: data.profiles.available_points || 0
+            availablePoints: data.profiles.available_points || 0,
+            hp: data.profiles.hp || 100,
+            maxHp: data.profiles.max_hp || 100
         } : undefined
     });
 
@@ -62,7 +65,7 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
             // Fetch latest messages first (descending), then reverse them for display
             const { data, error } = await supabase
                 .from('team_messages')
-                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points)`)
+                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp)`)
                 .order('created_at', { ascending: false }) // Get newest first
                 .range(offset, offset + PAGE_SIZE - 1);
 
@@ -121,38 +124,45 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
                 return;
             }
 
-            // FIX: Use full URL to bypass local resolution error
-            // @ts-ignore
-            const { GoogleGenAI, Type } = await import("https://esm.sh/@google/genai@0.1.1");
-            const ai = new GoogleGenAI({ apiKey });
+            // Initialization for @google/generative-ai (Legacy/Stable SDK)
+            const genAI = new GoogleGenerativeAI(apiKey);
 
-            const createTaskTool = {
-                name: 'createTask',
+            const createTaskFunctionDeclaration = {
+                name: "createTask",
+                description: "Create a new task in the project management system.",
                 parameters: {
-                    type: Type.OBJECT,
-                    description: 'Create a new task in the project management system.',
+                    type: "OBJECT", // Use string literal for compatibility
                     properties: {
-                        title: { type: Type.STRING, description: 'The title of the task.' },
-                        assignee_name: { type: Type.STRING, description: 'The name of the person to assign the task to.' },
+                        title: { type: "STRING", description: "The title of the task." },
+                        assignee_name: { type: "STRING", description: "The name of the person to assign the task to." },
                     },
-                    required: ['title'],
+                    required: ["title"],
                 },
             };
 
+            const modelName = "gemini-1.5-flash"; // Use 1.5 Flash which is stable
             const teamNames = allUsers.map(u => u.name).join(', ');
+            
             const systemInstruction = `You are 'Juijui Bot', a helpful AI for a creator team. Members: ${teamNames}. Help with chat or call createTask tool if asked.`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: userMessage,
-                config: {
-                    systemInstruction: systemInstruction,
-                    tools: [{ functionDeclarations: [createTaskTool] }],
-                }
+            
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                // @ts-ignore
+                systemInstruction: systemInstruction,
+                tools: [{
+                    // @ts-ignore
+                    functionDeclarations: [createTaskFunctionDeclaration]
+                }],
             });
-
-            if (response.functionCalls && response.functionCalls.length > 0) {
-                for (const call of response.functionCalls) {
+            
+            const result = await model.generateContent(userMessage);
+            const response = result.response;
+            
+            // Check for Function Calls (Legacy SDK Style)
+            const functionCalls = response.functionCalls();
+            
+            if (functionCalls && functionCalls.length > 0) {
+                for (const call of functionCalls) {
                     if (call.name === 'createTask') {
                         const args = call.args as any;
                         let assigneeIds: string[] = [];
@@ -168,8 +178,8 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
                             description: 'Created via AI Chat',
                             startDate: new Date(),
                             endDate: new Date(),
-                            status: Status.TODO,
-                            priority: Priority.MEDIUM,
+                            status: 'TODO',
+                            priority: 'MEDIUM',
                             tags: ['AI-Generated'],
                             assigneeIds: assigneeIds
                         } as Task);
@@ -181,12 +191,15 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
                         });
                     }
                 }
-            } else if (response.text) {
-                await supabase.from('team_messages').insert({
-                    content: response.text,
-                    is_bot: true,
-                    message_type: 'TEXT'
-                });
+            } else {
+                const text = response.text();
+                if (text) {
+                    await supabase.from('team_messages').insert({
+                        content: text,
+                        is_bot: true,
+                        message_type: 'TEXT'
+                    });
+                }
             }
         } catch (err) {
             console.error("AI Error:", err);
@@ -270,7 +283,6 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
                 if (data) {
                     const newMessage = mapMessage(data);
                     setMessages(prev => {
-                        // Avoid duplicates if realtime triggers before initial fetch completes
                         if (prev.some(m => m.id === newMessage.id)) return prev;
                         return [...prev, newMessage];
                     });

@@ -1,8 +1,11 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { format, addMonths } from 'date-fns';
+import { BackupOptions, StorageStats } from '../types';
+
+const STORAGE_LIMIT = 1073741824; // 1 GB in Bytes
 
 export const useMaintenance = () => {
     const { showToast } = useToast();
@@ -12,22 +15,38 @@ export const useMaintenance = () => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<{chatCount: number, taskCount: number} | null>(null);
     const [isCleaning, setIsCleaning] = useState(false);
+    
+    // Storage States
+    const [storageStats, setStorageStats] = useState<StorageStats>({ usedBytes: 0, fileCount: 0, limitBytes: STORAGE_LIMIT });
+    const [isCalculatingStorage, setIsCalculatingStorage] = useState(false);
 
-    const prepareBackup = async () => {
+    const prepareBackup = async (options: BackupOptions) => {
         setIsExporting(true);
         try {
-            const { data: tasks } = await supabase.from('tasks').select('*');
-            const { data: contents } = await supabase.from('contents').select('*');
-            const { data: chats } = await supabase.from('team_messages').select('*');
-            const { data: profiles } = await supabase.from('profiles').select('*');
-
-            const dataToBackup = {
+            const dataToBackup: any = {
                 exportedAt: new Date().toISOString(),
-                tasks: tasks || [],
-                contents: contents || [],
-                chats: chats || [],
-                profiles: profiles || []
+                meta: {
+                    version: '1.0',
+                    included: Object.keys(options).filter(k => options[k as keyof BackupOptions])
+                }
             };
+
+            const promises = [];
+
+            if (options.tasks) {
+                promises.push(supabase.from('tasks').select('*').then(res => dataToBackup.tasks = res.data || []));
+            }
+            if (options.contents) {
+                promises.push(supabase.from('contents').select('*').then(res => dataToBackup.contents = res.data || []));
+            }
+            if (options.chats) {
+                promises.push(supabase.from('team_messages').select('*').then(res => dataToBackup.chats = res.data || []));
+            }
+            if (options.profiles) {
+                promises.push(supabase.from('profiles').select('*').then(res => dataToBackup.profiles = res.data || []));
+            }
+
+            await Promise.all(promises);
             
             setBackupData(dataToBackup);
             return dataToBackup;
@@ -93,12 +112,50 @@ export const useMaintenance = () => {
             await supabase.from('contents').delete().lt('end_date', cutoffDate).in('status', targetStatuses);
             showToast(`ล้างข้อมูลสำเร็จ!`, 'success');
             setAnalysisResult(null);
+            
+            // Re-calculate storage after cleanup (approx)
+            // fetchStorageStats(); // Optional
             return true;
         } catch (err: any) {
             showToast('ล้างข้อมูลล้มเหลว', 'error');
             return false;
         } finally {
             setIsCleaning(false);
+        }
+    };
+
+    // Calculate approximate storage usage
+    // Note: Supabase doesn't provide a direct API for bucket size via client sdk efficiently for thousands of files.
+    // This function samples or lists files to sum up size. It might be slow for huge buckets.
+    const fetchStorageStats = async () => {
+        setIsCalculatingStorage(true);
+        try {
+            let totalBytes = 0;
+            let totalFiles = 0;
+
+            // Check 'chat-files'
+            const { data: chatFiles } = await supabase.storage.from('chat-files').list('', { limit: 1000 });
+            if (chatFiles) {
+                totalFiles += chatFiles.length;
+                totalBytes += chatFiles.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
+            }
+
+            // Check 'avatars'
+            const { data: avatars } = await supabase.storage.from('avatars').list('', { limit: 1000 });
+            if (avatars) {
+                totalFiles += avatars.length;
+                totalBytes += avatars.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
+            }
+
+            setStorageStats({
+                usedBytes: totalBytes,
+                fileCount: totalFiles,
+                limitBytes: STORAGE_LIMIT
+            });
+        } catch (err) {
+            console.error("Storage check failed", err);
+        } finally {
+            setIsCalculatingStorage(false);
         }
     };
 
@@ -110,6 +167,7 @@ export const useMaintenance = () => {
         isExporting, hasBackedUp, backupData, setBackupData,
         isAnalyzing, analysisResult, setAnalysisResult,
         isCleaning,
-        prepareBackup, downloadBackupFile, analyzeOldData, performCleanup, resetAnalysis
+        storageStats, isCalculatingStorage,
+        prepareBackup, downloadBackupFile, analyzeOldData, performCleanup, resetAnalysis, fetchStorageStats
     };
 };

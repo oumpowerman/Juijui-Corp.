@@ -36,6 +36,26 @@ export const useWeeklyQuests = () => {
         }
     };
 
+    // Realtime Subscription
+    useEffect(() => {
+        fetchQuests();
+
+        const channel = supabase
+            .channel('realtime-weekly-quests')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'weekly_quests' },
+                () => {
+                    fetchQuests();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     const handleAddQuest = async (quest: Omit<WeeklyQuest, 'id'>) => {
         try {
             const newId = crypto.randomUUID();
@@ -55,7 +75,8 @@ export const useWeeklyQuests = () => {
             const { error } = await supabase.from('weekly_quests').insert(payload);
             if (error) throw error;
 
-            setQuests(prev => [{ ...quest, id: newId }, ...prev]);
+            // Optimistic update isn't strictly necessary with realtime, but good for instant feedback
+            // setQuests(prev => [{ ...quest, id: newId }, ...prev]); 
             showToast('สร้าง Quest ใหม่แล้ว! 🎯', 'success');
         } catch (err: any) {
             console.error(err);
@@ -67,7 +88,7 @@ export const useWeeklyQuests = () => {
         try {
             const { error } = await supabase.from('weekly_quests').delete().eq('id', id);
             if (error) throw error;
-            setQuests(prev => prev.filter(q => q.id !== id));
+            // setQuests(prev => prev.filter(q => q.id !== id));
             showToast('ลบ Quest เรียบร้อย', 'info');
         } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');
@@ -77,7 +98,7 @@ export const useWeeklyQuests = () => {
     // New: Update manual progress
     const updateManualProgress = async (id: string, newProgress: number) => {
         try {
-            // Optimistic Update
+            // Optimistic Update for instant UI feel
             setQuests(prev => prev.map(q => q.id === id ? { ...q, manualProgress: newProgress } : q));
 
             const { error } = await supabase
@@ -87,7 +108,7 @@ export const useWeeklyQuests = () => {
 
             if (error) throw error;
         } catch (err) {
-            // Rollback if needed (implied by next fetch or simple user retry)
+            // Rollback is handled by next fetch if error occurs
             console.error('Update progress failed', err);
         }
     };

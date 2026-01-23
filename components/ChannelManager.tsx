@@ -313,6 +313,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
         
         {channels.map((channel) => {
             const taskCount = tasks.filter(t => t.channelId === channel.id).length;
+            const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
             
             return (
                 <div 
@@ -320,7 +321,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
                     onClick={() => { setEditingId(channel.id); setIsFormOpen(true); }}
                     className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:border-indigo-200 hover:-translate-y-1 transition-all group overflow-hidden flex flex-col cursor-pointer"
                 >
-                    <div className={`h-2 w-full ${channel.color.split(' ')[0].replace('bg-', 'bg-')}`}></div>
+                    <div className={`h-2 w-full ${bgClass}`}></div>
                     
                     <div className="p-5 flex-1 flex flex-col">
                         <div className="flex justify-between items-start mb-2">

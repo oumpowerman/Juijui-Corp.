@@ -28,12 +28,14 @@ export const useWiki = () => {
                     content: a.content,
                     targetRoles: a.target_roles || ['ALL'],
                     lastUpdated: new Date(a.updated_at),
-                    isPinned: a.is_pinned
+                    isPinned: a.is_pinned,
+                    coverImage: a.cover_image, // Mapped
+                    helpfulCount: a.helpful_count || 0 // Mapped
                 })));
             }
         } catch (err: any) {
             console.error('Fetch wiki failed:', err);
-            // showToast('โหลดคู่มือไม่สำเร็จ', 'error');
+            // Silent fail or low-intrusive toast if needed
         } finally {
             setIsLoading(false);
         }
@@ -53,14 +55,15 @@ export const useWiki = () => {
         };
     }, []);
 
-    const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated'>) => {
+    const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated' | 'helpfulCount'>) => {
         try {
             const payload = {
                 title: article.title,
                 content: article.content,
                 category: article.category,
                 target_roles: article.targetRoles,
-                is_pinned: article.isPinned
+                is_pinned: article.isPinned,
+                cover_image: article.coverImage
             };
 
             const { error } = await supabase.from('wiki_articles').insert(payload);
@@ -83,6 +86,8 @@ export const useWiki = () => {
             if (updates.category) payload.category = updates.category;
             if (updates.targetRoles) payload.target_roles = updates.targetRoles;
             if (updates.isPinned !== undefined) payload.is_pinned = updates.isPinned;
+            if (updates.coverImage !== undefined) payload.cover_image = updates.coverImage;
+            if (updates.helpfulCount !== undefined) payload.helpful_count = updates.helpfulCount;
 
             const { error } = await supabase.from('wiki_articles').update(payload).eq('id', id);
             if (error) throw error;
@@ -103,11 +108,27 @@ export const useWiki = () => {
         }
     };
 
+    const toggleHelpful = async (id: string) => {
+        // Simple client-side toggle simulation without complex user-tracking table for now
+        // In production, we should track WHO liked to prevent spam.
+        try {
+            const article = articles.find(a => a.id === id);
+            if (article) {
+                const newCount = (article.helpfulCount || 0) + 1;
+                await supabase.from('wiki_articles').update({ helpful_count: newCount }).eq('id', id);
+                showToast('ขอบคุณที่กดถูกใจครับ ❤️', 'success');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     return {
         articles,
         isLoading,
         addArticle,
         updateArticle,
-        deleteArticle
+        deleteArticle,
+        toggleHelpful
     };
 };

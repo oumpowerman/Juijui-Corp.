@@ -3,14 +3,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Duty, User, DutyConfig } from '../types';
 import { useToast } from '../context/ToastContext';
-import { addDays, isWeekend, getDay, isBefore, format } from 'date-fns';
+import { addDays, isWeekend, getDay, format } from 'date-fns';
+import { useGamification } from './useGamification'; // Import Engine
 
 const DEFAULT_CONFIGS: DutyConfig[] = [
-    { dayOfWeek: 1, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, // Mon
-    { dayOfWeek: 2, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, // Tue
-    { dayOfWeek: 3, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, // Wed
-    { dayOfWeek: 4, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, // Thu
-    { dayOfWeek: 5, requiredPeople: 2, taskTitles: ['เคลียร์ขยะ', 'ถูพื้น'] }, // Fri
+    { dayOfWeek: 1, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, 
+    { dayOfWeek: 2, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, 
+    { dayOfWeek: 3, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, 
+    { dayOfWeek: 4, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, 
+    { dayOfWeek: 5, requiredPeople: 2, taskTitles: ['เคลียร์ขยะ', 'ถูพื้น'] }, 
 ];
 
 const HISTORY_LOOKBACK_DAYS = 90;
@@ -20,6 +21,7 @@ export const useDuty = () => {
     const [configs, setConfigs] = useState<DutyConfig[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { processAction } = useGamification(); // Initialize Engine
 
     // Fetch Duties from DB
     const fetchDuties = async () => {
@@ -35,8 +37,9 @@ export const useDuty = () => {
                     id: d.id,
                     title: d.title,
                     assigneeId: d.assignee_id,
-                    date: new Date(d.date), // Local date parsing works if string is YYYY-MM-DD
-                    isDone: d.is_done
+                    date: new Date(d.date),
+                    isDone: d.is_done,
+                    proofImageUrl: d.proof_image_url
                 })));
             }
         } catch (err) {
@@ -104,7 +107,6 @@ export const useDuty = () => {
 
     const addDuty = async (title: string, assigneeId: string, date: Date) => {
         try {
-            // Fix: Use local date string instead of UTC to prevent off-by-one error
             const dateStr = format(date, 'yyyy-MM-dd');
             
             const { error } = await supabase.from('duties').insert({
@@ -145,6 +147,70 @@ export const useDuty = () => {
         }
     };
 
+    // --- New: Submit Proof Logic (With Auto-Chat & Gamification) ---
+    const submitProof = async (dutyId: string, file: File, userName: string) => {
+        try {
+            // 1. Upload Image
+            const fileExt = file.name.split('.').pop();
+            const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('chat-files') 
+                .upload(fileName, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: urlData } = supabase.storage
+                .from('chat-files')
+                .getPublicUrl(fileName);
+            
+            const imageUrl = urlData.publicUrl;
+
+            // 2. Update Duty Record
+            const { error: dbError } = await supabase
+                .from('duties')
+                .update({ 
+                    is_done: true,
+                    proof_image_url: imageUrl
+                })
+                .eq('id', dutyId);
+
+            if (dbError) throw dbError;
+
+            // 3. Auto-Post to Team Chat
+            const duty = duties.find(d => d.id === dutyId);
+            if (duty) {
+                const message = `📸 **${userName}** ส่งการบ้านเวร "${duty.title}" เรียบร้อย! \n(Proof: ${format(new Date(), 'HH:mm')})`;
+                await supabase.from('team_messages').insert({
+                    content: message,
+                    is_bot: true, 
+                    message_type: 'IMAGE', 
+                    user_id: null
+                });
+                
+                await supabase.from('team_messages').insert({
+                    content: imageUrl,
+                    is_bot: true,
+                    message_type: 'IMAGE',
+                    user_id: null
+                });
+
+                // 4. Trigger Gamification
+                // Need assignee ID. If it's the current user calling, we assume success.
+                if (duty.assigneeId) {
+                    processAction(duty.assigneeId, 'DUTY_COMPLETE', duty);
+                }
+            }
+
+            // showToast('ส่งการบ้านเรียบร้อย! แจ้งในแชทให้แล้วครับ', 'success'); // Toast handled by game engine
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            showToast('ส่งหลักฐานไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
+
     const cleanupOldDuties = async () => {
         const cutoffDate = format(addDays(new Date(), -(HISTORY_LOOKBACK_DAYS * 2)), 'yyyy-MM-dd');
         try {
@@ -160,15 +226,12 @@ export const useDuty = () => {
     };
 
     // --- REVISED RANDOMIZER LOGIC (Queue/Rotation System) ---
-    // Updated to accept 'mode' and conditional 'weeksToGenerate'
     const generateRandomDuties = async (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
         if (activeUsers.length === 0) {
             showToast('ไม่พบสมาชิกที่ Active เลยครับ', 'error');
             return [];
         }
 
-        // 1. Prepare User Queue
-        // Fisher-Yates Shuffle
         const shuffle = (array: User[]) => {
             let currentIndex = array.length, randomIndex;
             const newArray = [...array];
@@ -180,23 +243,16 @@ export const useDuty = () => {
             return newArray;
         };
 
-        // Initial Queue
         let userQueue = shuffle(activeUsers); 
-        
-        // Tracking for ROTATION mode
         const assignedUserIds = new Set<string>();
         
-        // Helper to get next N users (refilling queue if needed)
         const getNextUsers = (count: number): User[] => {
             const selected: User[] = [];
             for (let i = 0; i < count; i++) {
                 if (userQueue.length === 0) {
-                    // Refill and Reshuffle when empty to ensure rotation continues fairly
                     userQueue = shuffle(activeUsers);
-                    
-                    // Optional: Try to avoid repeating the last user immediately if possible
                     if (activeUsers.length > 1 && userQueue[0].id === selected[selected.length - 1]?.id) {
-                         userQueue.push(userQueue.shift()!); // Move front to back
+                         userQueue.push(userQueue.shift()!); 
                     }
                 }
                 const user = userQueue.shift()!;
@@ -206,28 +262,19 @@ export const useDuty = () => {
             return selected;
         };
 
-        // 2. Generate Days (Skip Weekends)
         const newDutiesPayload: any[] = [];
         let currentGenDate = new Date(startDate);
         let daysGenerated = 0;
-        
-        // Loop Condition Variable
-        const targetDaysForDuration = weeksToGenerate * 5; // Used only if DURATION mode
+        const targetDaysForDuration = weeksToGenerate * 5; 
 
-        // Loop until requirement met
         while (true) {
-            // STOP CONDITIONS
             if (mode === 'DURATION') {
                 if (daysGenerated >= targetDaysForDuration) break;
             } else if (mode === 'ROTATION') {
-                // Stop when everyone has been assigned at least once
-                // AND we finish the current day's requirement (implicit in logic)
                 if (assignedUserIds.size >= activeUsers.length) break;
-                // Safety break to prevent infinite loops if config is weird
                 if (daysGenerated > activeUsers.length * 5) break; 
             }
 
-            // Skip weekends
             if (!isWeekend(currentGenDate)) {
                 const dayNum = getDay(currentGenDate);
                 const config = configs.find(c => c.dayOfWeek === dayNum) || { 
@@ -238,7 +285,6 @@ export const useDuty = () => {
                 const assignedUsers = getNextUsers(peopleNeeded);
 
                 assignedUsers.forEach((user, idx) => {
-                    // Enhanced Title Logic
                     let title = config.taskTitles[idx];
                     if (!title || title.trim() === '') {
                         title = config.taskTitles[0] || 'เวรประจำวัน';
@@ -255,19 +301,14 @@ export const useDuty = () => {
                 
                 daysGenerated++;
             }
-            // Move to next day
             currentGenDate = addDays(currentGenDate, 1);
         }
 
         try {
-            // 3. Clear Existing Duties in the Generated Range
-            // Determine range for deletion
-            const endGenDate = addDays(currentGenDate, -1); // Last generated day
-            
+            const endGenDate = addDays(currentGenDate, -1); 
             const startStr = format(startDate, 'yyyy-MM-dd');
             const endStr = format(endGenDate, 'yyyy-MM-dd');
 
-            // Delete overlapping
             const { error: deleteError } = await supabase.from('duties')
                 .delete()
                 .gte('date', startStr)
@@ -275,7 +316,6 @@ export const useDuty = () => {
             
             if (deleteError) throw deleteError;
             
-            // 4. Insert New
             const { data, error } = await supabase.from('duties').insert(newDutiesPayload).select();
             if (error) throw error;
             
@@ -307,6 +347,7 @@ export const useDuty = () => {
         toggleDuty,
         deleteDuty,
         generateRandomDuties,
-        cleanupOldDuties
+        cleanupOldDuties,
+        submitProof
     };
 };

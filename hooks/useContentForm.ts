@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance } from '../types';
@@ -22,7 +21,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
     const [endDate, setEndDate] = useState('');
     const [isStock, setIsStock] = useState(false);
     const [status, setStatus] = useState<string>(''); 
-    const [priority, setPriority] = useState<Priority>(Priority.MEDIUM);
+    const [priority, setPriority] = useState<Priority>('MEDIUM');
     const [tags, setTags] = useState<string[]>([]);
     
     // Content Specifics
@@ -32,6 +31,10 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
     const [contentFormat, setContentFormat] = useState<string>('');
     const [category, setCategory] = useState('');
     const [publishedLinks, setPublishedLinks] = useState<Record<string, string>>({}); 
+
+    // Production Info
+    const [shootDate, setShootDate] = useState('');
+    const [shootLocation, setShootLocation] = useState('');
 
     // People
     const [ideaOwnerIds, setIdeaOwnerIds] = useState<string[]>([]);
@@ -70,6 +73,9 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setCategory(initialData.category || '');
             setPublishedLinks(initialData.publishedLinks || {});
 
+            setShootDate(initialData.shootDate ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
+            setShootLocation(initialData.shootLocation || '');
+
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
             setEditorIds(initialData.editorIds || []);
             setAssigneeIds(initialData.assigneeIds || []);
@@ -90,7 +96,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             const defaultStatus = statusOptions.find(o => o.isDefault)?.key || (statusOptions.length > 0 ? statusOptions[0].key : 'TODO');
             setStatus(defaultStatus);
             
-            setPriority(Priority.MEDIUM);
+            setPriority('MEDIUM');
             setTags([]);
             
             // Default Channel
@@ -103,6 +109,9 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             
             const defaultCat = categoryOptions.find(o => o.isDefault);
             setCategory(defaultCat ? defaultCat.key : '');
+
+            setShootDate('');
+            setShootLocation('');
             
             setIdeaOwnerIds([]);
             setEditorIds([]);
@@ -154,6 +163,10 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             category,
             publishedLinks,
 
+            // Production Info
+            shootDate: shootDate ? new Date(shootDate) : undefined,
+            shootLocation: shootLocation.trim() || undefined,
+
             // People
             ideaOwnerIds,
             editorIds,
@@ -204,6 +217,9 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
         contentFormat, setContentFormat,
         category, setCategory,
         publishedLinks, handleLinkChange,
+
+        shootDate, setShootDate,
+        shootLocation, setShootLocation,
 
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,

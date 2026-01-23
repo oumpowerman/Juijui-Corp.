@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, Trash2, Plus, Terminal, Sparkles, HelpCircle, Zap, Smile, Search } from 'lucide-react';
 import { Task, Channel, Platform, Status, Priority } from '../types';
@@ -137,8 +136,8 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
                     description: 'Created via Juijui AI Assistant',
                     startDate: new Date(),
                     endDate: new Date(),
-                    status: Status.TODO,
-                    priority: Priority.MEDIUM,
+                    status: 'TODO',
+                    priority: 'MEDIUM',
                     tags: ['AI-Generated'],
                     assigneeIds: []
                 } as Task);
@@ -163,10 +162,10 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
             regex: /(สรุป|summary|status|สถานะ|ภาพรวม|กี่งาน)/i,
             handler: () => {
                  const stats = {
-                     todo: tasks.filter(t => t.status === Status.TODO).length,
-                     doing: tasks.filter(t => t.status === Status.DOING).length,
-                     done: tasks.filter(t => t.status === Status.DONE).length,
-                     blocked: tasks.filter(t => t.status === Status.BLOCKED).length
+                     todo: tasks.filter(t => t.status === 'TODO').length,
+                     doing: tasks.filter(t => t.status === 'DOING').length,
+                     done: tasks.filter(t => t.status === 'DONE').length,
+                     blocked: tasks.filter(t => t.status === 'BLOCKED').length
                  };
                  return `📊 สรุปงานตอนนี้:\n- ดองไว้ (Todo): ${stats.todo}\n- ทำอยู่ (Doing): ${stats.doing}\n- ติดขัด (Blocked): ${stats.blocked}\n- เสร็จแล้ว (Done): ${stats.done}\n\nสู้ๆ นะครับทีมงาน! ✌️`;
             }

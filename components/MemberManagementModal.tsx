@@ -1,188 +1,150 @@
 
 import React, { useState } from 'react';
-import { X, Search, Shield, User as UserIcon, Power, MoreHorizontal, UserCheck, UserX, Crown, Edit2, Save, Check } from 'lucide-react';
 import { User, Role } from '../types';
+import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2 } from 'lucide-react';
 
 interface MemberManagementModalProps {
     isOpen: boolean;
     onClose: () => void;
     users: User[];
     currentUser: User;
-    onToggleStatus: (userId: string, currentStatus: boolean) => void;
-    onRemoveMember: (userId: string) => void;
+    onToggleStatus: (userId: string, currentStatus: boolean) => Promise<void>;
+    onRemoveMember: (userId: string) => Promise<void>;
     onUpdateMember: (userId: string, updates: { name?: string, position?: string, role?: Role }) => Promise<boolean>;
 }
 
 const MemberManagementModal: React.FC<MemberManagementModalProps> = ({ 
-    isOpen, onClose, users, currentUser, onToggleStatus, onRemoveMember, onUpdateMember
+    isOpen, onClose, users, currentUser, onToggleStatus, onRemoveMember, onUpdateMember 
 }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-    const [editingUserId, setEditingUserId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [editingUser, setEditingUser] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{ name: string, position: string, role: Role }>({ name: '', position: '', role: 'MEMBER' });
+    const [isSaving, setIsSaving] = useState(false);
 
     if (!isOpen) return null;
 
-    const handleStartEdit = (user: User) => {
-        setEditingUserId(user.id);
+    const filteredUsers = users.filter(u => 
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        u.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleEditClick = (user: User) => {
+        setEditingUser(user.id);
         setEditForm({ name: user.name, position: user.position, role: user.role });
     };
 
-    const handleCancelEdit = () => {
-        setEditingUserId(null);
+    const handleSave = async (userId: string) => {
+        setIsSaving(true);
+        await onUpdateMember(userId, editForm);
+        setIsSaving(false);
+        setEditingUser(null);
     };
-
-    const handleSaveEdit = async (userId: string) => {
-        const success = await onUpdateMember(userId, editForm);
-        if (success) {
-            setEditingUserId(null);
-        }
-    };
-
-    // Filter Logic
-    const displayedUsers = users.filter(u => {
-        if (!u.isApproved) return false; 
-        const matchSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            u.position.toLowerCase().includes(searchTerm.toLowerCase());
-        if (filter === 'ACTIVE' && !u.isActive) return false;
-        if (filter === 'INACTIVE' && u.isActive) return false;
-        return matchSearch;
-    }).sort((a, b) => {
-        if (a.isActive === b.isActive) return a.name.localeCompare(b.name);
-        return a.isActive ? -1 : 1;
-    });
-
-    const activeCount = users.filter(u => u.isApproved && u.isActive).length;
-    const inactiveCount = users.filter(u => u.isApproved && !u.isActive).length;
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-gray-100 scale-100 animate-in zoom-in-95 duration-200">
-                
-                {/* Header */}
-                <div className="px-6 py-5 border-b border-gray-100 bg-white flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                            <Shield className="w-5 h-5 mr-2 text-indigo-600" />
-                            จัดการสมาชิก (Member Management)
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">กำหนดสิทธิ์และข้อมูลสมาชิกในทีม</p>
+                        <h3 className="text-lg font-bold text-gray-800">จัดการสมาชิกทีม (Members)</h3>
+                        <p className="text-xs text-gray-500">จัดการบทบาทและสิทธิ์การเข้าใช้งาน</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Controls */}
-                <div className="p-4 bg-gray-50 border-b border-gray-100 flex flex-col md:flex-row gap-3">
-                    <div className="relative flex-1">
+                <div className="p-4 bg-white border-b border-gray-100">
+                    <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input 
                             type="text" 
-                            placeholder="ค้นหาชื่อ, ตำแหน่ง..." 
-                            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="ค้นหาสมาชิก..." 
+                            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm shrink-0">
-                        <button onClick={() => setFilter('ALL')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filter === 'ALL' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>ทั้งหมด</button>
-                        <button onClick={() => setFilter('ACTIVE')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filter === 'ACTIVE' ? 'bg-green-50 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>Active</button>
-                        <button onClick={() => setFilter('INACTIVE')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filter === 'INACTIVE' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>Inactive</button>
-                    </div>
                 </div>
 
-                {/* List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc]">
-                    {displayedUsers.map(user => {
-                        const isMe = user.id === currentUser.id;
-                        const isEditing = editingUserId === user.id;
-
-                        return (
-                            <div key={user.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${user.isActive ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-100 border-gray-200 opacity-75 grayscale-[0.5]'}`}>
-                                <div className="flex items-center gap-4 flex-1">
-                                    <div className="relative shrink-0">
-                                        {user.avatarUrl ? (
-                                            <img src={user.avatarUrl} className="w-12 h-12 rounded-full object-cover border border-gray-100" />
-                                        ) : (
-                                            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500"><UserIcon className="w-6 h-6" /></div>
-                                        )}
-                                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${user.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                                    </div>
-                                    
-                                    <div className="flex-1 min-w-0 pr-4">
-                                        {isEditing ? (
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-left-2">
-                                                <input 
-                                                    className="w-full px-2 py-1 text-sm font-bold border rounded bg-white focus:ring-1 focus:ring-indigo-500 outline-none" 
-                                                    value={editForm.name} 
-                                                    onChange={e => setEditForm({...editForm, name: e.target.value})} 
-                                                />
-                                                <div className="flex gap-2">
-                                                    <input 
-                                                        className="flex-1 px-2 py-1 text-xs border rounded bg-white outline-none" 
-                                                        value={editForm.position} 
-                                                        onChange={e => setEditForm({...editForm, position: e.target.value})} 
-                                                    />
-                                                    <select 
-                                                        className="px-2 py-1 text-xs border rounded bg-white outline-none font-bold text-indigo-600"
-                                                        value={editForm.role}
-                                                        onChange={e => setEditForm({...editForm, role: e.target.value as Role})}
-                                                    >
-                                                        <option value="MEMBER">Member</option>
-                                                        <option value="ADMIN">Admin</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-bold text-gray-800 truncate">{user.name}</h4>
-                                                    {user.role === 'ADMIN' && (
-                                                        <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center shrink-0">
-                                                            <Crown className="w-3 h-3 mr-1" /> Admin
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-500 truncate">{user.position} • {user.email}</p>
-                                                {!user.isActive && <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded mt-1 inline-block">Inactive</span>}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {isEditing ? (
-                                        <>
-                                            <button onClick={handleCancelEdit} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
-                                            <button onClick={() => handleSaveEdit(user.id)} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"><Check className="w-4 h-4" /></button>
-                                        </>
-                                    ) : isMe ? (
-                                        <span className="text-xs text-gray-400 italic pr-2">ตัวคุณเอง</span>
-                                    ) : (
-                                        <>
-                                            <button onClick={() => handleStartEdit(user)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                            <button 
-                                                onClick={() => onToggleStatus(user.id, user.isActive)}
-                                                className={`p-2 rounded-lg transition-all border ${user.isActive ? 'bg-white text-gray-400 border-gray-200 hover:text-red-500 hover:border-red-100 hover:bg-red-50' : 'bg-green-600 text-white border-green-600 hover:bg-green-700'}`}
-                                                title={user.isActive ? 'สั่งพักงาน' : 'เปิดใช้งาน'}
-                                            >
-                                                <Power className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => onRemoveMember(user.id)} className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="ลบออกจากทีม"><UserX className="w-4 h-4" /></button>
-                                        </>
-                                    )}
-                                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-3 bg-gray-50">
+                    {filteredUsers.map(user => (
+                        <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 transition-all hover:border-indigo-200">
+                            <div className="relative shrink-0">
+                                <img src={user.avatarUrl} className={`w-12 h-12 rounded-full object-cover border-2 ${user.isActive ? 'border-green-400' : 'border-gray-300 grayscale'}`} alt={user.name} />
+                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${user.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                             </div>
-                        );
-                    })}
-                </div>
-                
-                <div className="p-4 bg-gray-50 border-t border-gray-100 text-center">
-                    <p className="text-[10px] text-gray-400">
-                        Admin สามารถเปลี่ยน Role สมาชิกคนอื่นให้เป็น Admin ได้ เพื่อช่วยกันจัดการระบบ
-                    </p>
+
+                            <div className="flex-1 w-full">
+                                {editingUser === user.id ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2">
+                                        <input 
+                                            value={editForm.name} 
+                                            onChange={e => setEditForm({...editForm, name: e.target.value})}
+                                            className="px-3 py-2 border rounded-lg text-sm"
+                                            placeholder="ชื่อ"
+                                        />
+                                        <input 
+                                            value={editForm.position} 
+                                            onChange={e => setEditForm({...editForm, position: e.target.value})}
+                                            className="px-3 py-2 border rounded-lg text-sm"
+                                            placeholder="ตำแหน่ง"
+                                        />
+                                        <select 
+                                            value={editForm.role}
+                                            onChange={e => setEditForm({...editForm, role: e.target.value as Role})}
+                                            className="px-3 py-2 border rounded-lg text-sm"
+                                        >
+                                            <option value="MEMBER">Member</option>
+                                            <option value="ADMIN">Admin</option>
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <h4 className={`font-bold ${user.isActive ? 'text-gray-800' : 'text-gray-400'}`}>{user.name}</h4>
+                                            {user.role === 'ADMIN' && <span className="bg-yellow-100 text-yellow-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-yellow-200">ADMIN</span>}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                            <span className="flex items-center"><Briefcase className="w-3 h-3 mr-1"/> {user.position}</span>
+                                            <span className="flex items-center"><Phone className="w-3 h-3 mr-1"/> {user.phoneNumber || '-'}</span>
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 mt-1">{user.email}</div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 border-gray-100 pt-3 md:pt-0 mt-2 md:mt-0">
+                                {editingUser === user.id ? (
+                                    <>
+                                        <button onClick={() => setEditingUser(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg text-xs">ยกเลิก</button>
+                                        <button onClick={() => handleSave(user.id)} disabled={isSaving} className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 flex items-center">
+                                            {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 mr-1" /> บันทึก</>}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button onClick={() => handleEditClick(user)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="แก้ไข">
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => onToggleStatus(user.id, user.isActive)} 
+                                            className={`p-2 rounded-lg transition-colors ${user.isActive ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                                            title={user.isActive ? 'Suspend User' : 'Activate User'}
+                                        >
+                                            <Power className="w-4 h-4" />
+                                        </button>
+
+                                        {currentUser.id !== user.id && (
+                                            <button onClick={() => onRemoveMember(user.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="ลบสมาชิก">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

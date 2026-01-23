@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3 } from 'lucide-react';
+import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3, MonitorPlay, CheckSquare } from 'lucide-react';
 import { ChipConfig, FilterType, Channel, MasterOption } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -30,7 +30,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
             label: '',
             type: 'FORMAT',
             value: '',
-            colorTheme: 'indigo'
+            colorTheme: 'indigo',
+            scope: 'CONTENT' // Default
         });
     };
 
@@ -70,6 +71,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                         {chips.map(chip => {
                             const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
                             const isEditingThis = editingChip?.id === chip.id;
+                            const scope = chip.scope || 'CONTENT';
+                            
                             return (
                                 <div 
                                     key={chip.id} 
@@ -82,7 +85,12 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     <div className="flex items-center gap-3">
                                         <div className={`w-3 h-3 rounded-full ${theme.activeBg}`}></div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-700">{chip.label}</p>
+                                            <p className="text-sm font-bold text-gray-700 flex items-center gap-1">
+                                                {chip.label}
+                                                <span className={`text-[9px] px-1.5 rounded-full border ${scope === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                    {scope}
+                                                </span>
+                                            </p>
                                             <p className="text-[10px] text-gray-400">{chip.type} : {chip.value}</p>
                                         </div>
                                     </div>
@@ -128,22 +136,43 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     />
                                 </div>
 
+                                {/* Scope Selection */}
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">2. ใช้สำหรับ (Scope)</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingChip({...editingChip, scope: 'CONTENT'})}
+                                            className={`flex-1 py-2 rounded-lg text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.scope === 'CONTENT' || !editingChip.scope ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-1 ring-indigo-200' : 'bg-white border-gray-200 text-gray-500'}`}
+                                        >
+                                            <MonitorPlay className="w-4 h-4" /> Content
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingChip({...editingChip, scope: 'TASK'})}
+                                            className={`flex-1 py-2 rounded-lg text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.scope === 'TASK' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 ring-1 ring-emerald-200' : 'bg-white border-gray-200 text-gray-500'}`}
+                                        >
+                                            <CheckSquare className="w-4 h-4" /> Task
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">2. กรองโดย (Filter By)</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">3. กรองโดย (Filter By)</label>
                                         <select 
                                             className="w-full px-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm cursor-pointer"
                                             value={editingChip.type}
                                             onChange={e => setEditingChip({...editingChip, type: e.target.value as FilterType, value: ''})}
                                         >
+                                            <option value="STATUS">Status (สถานะ)</option>
                                             <option value="FORMAT">Format (รูปแบบ)</option>
                                             <option value="CHANNEL">Channel (ช่อง)</option>
-                                            <option value="STATUS">Status (สถานะ)</option>
                                             <option value="PILLAR">Pillar (แกนเนื้อหา)</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">3. ค่าที่ต้องการ (Value)</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">4. ค่าที่ต้องการ (Value)</label>
                                         <select 
                                             className="w-full px-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm cursor-pointer"
                                             value={editingChip.value}
@@ -178,7 +207,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center"><Palette className="w-4 h-4 mr-2"/> 4. ธีมสี (Color Theme)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center"><Palette className="w-4 h-4 mr-2"/> 5. ธีมสี (Color Theme)</label>
                                     <div className="flex flex-wrap gap-3">
                                         {COLOR_THEMES.map(theme => (
                                             <button

@@ -1,7 +1,10 @@
+
 import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './App'; 
 import { ToastProvider } from './context/ToastContext';
+import { GlobalDialogProvider } from './context/GlobalDialogContext';
+import GlobalDialog from './components/GlobalDialog';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -98,7 +101,10 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <App />
+        <GlobalDialogProvider>
+          <App />
+          <GlobalDialog />
+        </GlobalDialogProvider>
       </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>

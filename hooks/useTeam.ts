@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, Role } from '../types';
+import { User, Role, WorkStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 
 export const useTeam = () => {
@@ -24,7 +24,13 @@ export const useTeam = () => {
         isActive: u.is_active !== false,
         xp: u.xp || 0,
         level: u.level || 1,
-        availablePoints: u.available_points || 0
+        availablePoints: u.available_points || 0,
+        hp: u.hp || 100,
+        maxHp: u.max_hp || 100,
+        // --- NEW STATUS FIELDS ---
+        workStatus: (u.work_status as WorkStatus) || 'ONLINE',
+        leaveStartDate: u.leave_start_date ? new Date(u.leave_start_date) : null,
+        leaveEndDate: u.leave_end_date ? new Date(u.leave_end_date) : null,
     });
 
     const fetchTeamMembers = async () => {
@@ -34,7 +40,7 @@ export const useTeam = () => {
             // Ensure SQL script is run to add these columns.
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, email, full_name, avatar_url, role, position, phone_number, bio, feeling, is_approved, is_active, xp, level, available_points')
+                .select('id, email, full_name, avatar_url, role, position, phone_number, bio, feeling, is_approved, is_active, xp, level, available_points, hp, max_hp, work_status, leave_start_date, leave_end_date')
                 .order('full_name', { ascending: true });
                 
             if (error) {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType } from '../types';
@@ -96,7 +95,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             title,
             description,
             status: status as Status, 
-            priority: Priority.MEDIUM, // Task always medium or calculated
+            priority: 'MEDIUM', // Task always medium or calculated
             tags: [],
             
             // Dates

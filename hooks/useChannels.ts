@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Channel } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -27,20 +27,37 @@ export const useChannels = () => {
         } catch (err) { console.error('Fetch channels failed', err); }
     };
 
+    // Realtime Subscription
+    useEffect(() => {
+        fetchChannels();
+
+        const channel = supabase
+            .channel('realtime-channels')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'channels' },
+                () => {
+                    fetchChannels();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     const handleAddChannel = async (channel: Channel): Promise<boolean> => {
         try {
-            // FIX: Use crypto.randomUUID() for proper UUID generation
             const finalId = channel.id || crypto.randomUUID();
             
-            // Explicitly map payload to ensure 'platforms' is an array
-            // FIX: Also map 'platform' (singular) to satisfy legacy DB constraints
             const payload = {
                 id: finalId,
                 name: channel.name,
-                description: channel.description || '', // Ensure string
+                description: channel.description || '', 
                 color: channel.color,
-                platforms: channel.platforms, // New schema (Array)
-                platform: channel.platforms[0] || 'OTHER' // Legacy schema support (String)
+                platforms: channel.platforms, 
+                platform: channel.platforms[0] || 'OTHER' 
             };
 
             const { error } = await supabase.from('channels').insert(payload);
@@ -50,7 +67,7 @@ export const useChannels = () => {
                 throw error;
             }
             
-            setChannels(prev => [...prev, { ...channel, id: finalId }]);
+            // setChannels(prev => [...prev, { ...channel, id: finalId }]);
             showToast('เพิ่มแบรนด์ใหม่สำเร็จ 🎉', 'success');
             return true;
         } catch (dbError: any) {
@@ -67,13 +84,13 @@ export const useChannels = () => {
                 description: updatedChannel.description || '',
                 color: updatedChannel.color,
                 platforms: updatedChannel.platforms,
-                platform: updatedChannel.platforms[0] || 'OTHER' // Legacy schema support
+                platform: updatedChannel.platforms[0] || 'OTHER' 
             };
 
             const { error } = await supabase.from('channels').update(payload).eq('id', updatedChannel.id);
             
             if (error) throw error;
-            setChannels(prev => prev.map(c => c.id === updatedChannel.id ? updatedChannel : c));
+            // setChannels(prev => prev.map(c => c.id === updatedChannel.id ? updatedChannel : c));
             showToast('อัปเดตข้อมูลสำเร็จ ✨', 'success');
             return true;
         } catch (dbError: any) {
@@ -87,7 +104,7 @@ export const useChannels = () => {
         try {
             const { error } = await supabase.from('channels').delete().eq('id', channelId);
             if (error) throw error;
-            setChannels(prev => prev.filter(c => c.id !== channelId));
+            // setChannels(prev => prev.filter(c => c.id !== channelId));
             showToast('ลบแบรนด์สำเร็จ 🗑️', 'warning');
             return true;
         } catch (dbError) {

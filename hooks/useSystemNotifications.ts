@@ -56,7 +56,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
             }
 
             // 3. REVIEW CHECK (For Status = FEEDBACK)
-            if (task.status === Status.FEEDBACK) {
+            if (task.status === 'FEEDBACK') {
                 // Show to Idea Owner (who might need to review) or Admin
                 const isReviewer = task.ideaOwnerIds?.includes(currentUser.id) || currentUser.role === 'ADMIN';
                 if (isReviewer) {

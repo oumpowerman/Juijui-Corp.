@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { User } from '../types';
+import { User, WorkStatus } from '../types';
 
 export const useAuth = (sessionUser: any) => {
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
@@ -32,7 +32,14 @@ export const useAuth = (sessionUser: any) => {
                 isActive: data.is_active !== false,
                 xp: data.xp || 0,
                 level: data.level || 1,
-                availablePoints: data.available_points || 0
+                availablePoints: data.available_points || 0,
+                hp: data.hp || 100,
+                maxHp: data.max_hp || 100,
+                
+                // --- NEW STATUS FIELDS ---
+                workStatus: (data.work_status as WorkStatus) || 'ONLINE',
+                leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
+                leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
             };
             
             setCurrentUserProfile(mappedUser);
@@ -58,6 +65,11 @@ export const useAuth = (sessionUser: any) => {
             // Map camelCase (Frontend) to snake_case (Database) correctly
             if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
             
+            // --- NEW STATUS UPDATES ---
+            if (updates.workStatus !== undefined) payload.work_status = updates.workStatus;
+            if (updates.leaveStartDate !== undefined) payload.leave_start_date = updates.leaveStartDate ? updates.leaveStartDate.toISOString() : null;
+            if (updates.leaveEndDate !== undefined) payload.leave_end_date = updates.leaveEndDate ? updates.leaveEndDate.toISOString() : null;
+
             // Handle File Upload
             if (avatarFile) {
                 // Sanitize filename to avoid issues with special characters

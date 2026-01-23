@@ -1,13 +1,16 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, TaskLog, ReviewSession, Status } from '../types';
 import { useToast } from '../context/ToastContext';
-import { DIFFICULTY_LABELS, isTaskCompleted } from '../constants';
+import { isTaskCompleted } from '../constants';
 import { addMonths, endOfMonth, format } from 'date-fns';
+import { useGamification } from './useGamification'; // Import Engine
 
 export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const { showToast } = useToast();
+    const { processAction } = useGamification(); // Initialize Engine
     
     // Helper to replace startOfMonth from date-fns
     const getStartOfMonth = (date: Date) => {
@@ -83,6 +86,10 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             caution: data.caution,
             importance: data.importance,
             publishedLinks: data.published_links || {}, // Map JSONB to Object
+
+            // Production Info
+            shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
+            shootLocation: data.shoot_location || undefined,
         };
     };
 
@@ -104,12 +111,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 `);
             
             if (!isAllLoaded) {
-                // Logic: (is_unscheduled = true) OR (end_date >= startRange AND start_date <= endRange)
-                // Note: Supabase OR syntax with AND is tricky. 
-                // We use a simplified approach: Fetch Unscheduled + Fetch In Range
-                
-                // Using .or() with PostgREST syntax for complex filter
-                // is_unscheduled.eq.true,and(end_date.gte.startStr,start_date.lte.endStr)
                 query = query.or(`is_unscheduled.eq.true,and(end_date.gte.${startStr},start_date.lte.${endStr})`);
             }
 
@@ -129,16 +130,12 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             let query = supabase.from('tasks').select(`*`);
 
             if (!isAllLoaded) {
-                // Same logic for Tasks (assuming tasks don't have is_unscheduled often, but logic holds)
-                // Using simplified date filter for tasks
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }
 
             const { data: tasksData, error: tasksError } = await query;
 
-            if (tasksError) {
-                console.warn("Tasks fetch warning:", tasksError.message);
-            } else if (tasksData) {
+            if (tasksData) {
                 newTasks = [...newTasks, ...tasksData.map(d => mapSupabaseToTask(d, 'TASK'))];
             }
         } catch (err) {
@@ -149,16 +146,14 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         setIsFetching(false);
     }, [dateRange, isAllLoaded]);
 
-    // Check if we need to load more data based on a target date
     const checkAndExpandRange = useCallback((targetDate: Date) => {
-        if (isAllLoaded) return; // Already have everything
+        if (isAllLoaded) return; 
 
         const target = new Date(targetDate);
         let needsUpdate = false;
         let newStart = dateRange.start;
         let newEnd = dateRange.end;
 
-        // Add 1 month buffer when expanding
         if (target < dateRange.start) {
             newStart = addMonths(getStartOfMonth(target), -1);
             needsUpdate = true;
@@ -171,14 +166,12 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         if (needsUpdate) {
             console.log(`Expanding data range: ${format(newStart, 'yyyy-MM')} to ${format(newEnd, 'yyyy-MM')}`);
             setDateRange({ start: newStart, end: newEnd });
-            // fetchTasks will be triggered by useEffect on dateRange change
         }
     }, [dateRange, isAllLoaded]);
 
     const fetchAllTasks = useCallback(() => {
         if (isAllLoaded) return;
-        console.log("Fetching ALL tasks...");
-        setIsAllLoaded(true); // This triggers useEffect to fetch without filters
+        setIsAllLoaded(true);
     }, [isAllLoaded]);
 
     // Realtime Subscription
@@ -191,29 +184,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [fetchTasks]); // Depends on fetchTasks which depends on dateRange
+    }, [fetchTasks]);
 
-    // Initial Fetch & Range Change Fetch
     useEffect(() => {
         fetchTasks();
-    }, [fetchTasks]); // Trigger when fetchTasks (dateRange/isAllLoaded) changes
+    }, [fetchTasks]);
 
-    // ... (updateXP and handleSaveTask remain the same) ...
-    const updateXP = async (userId: string, points: number) => {
-        try {
-            const { data: user, error: getError } = await supabase.from('profiles').select('xp, available_points').eq('id', userId).single();
-            if(getError) throw getError;
-
-            let newXP = (user.xp || 0) + points;
-            let newPoints = (user.available_points || 0) + points;
-            let newLevel = Math.floor(newXP / 1000) + 1;
-
-            await supabase.from('profiles').update({ xp: newXP, level: newLevel, available_points: newPoints }).eq('id', userId);
-        } catch (err) {
-            console.error('XP Update Failed:', err);
-        }
-    };
-
+    // --- REFACTORED: Using Game Engine ---
     const handleSaveTask = async (task: Task, editingTask: Task | null) => {
         try {
             const isContent = task.type === 'CONTENT';
@@ -250,6 +227,8 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 assets: task.assets || [],
                 performance: task.performance || null,
                 published_links: task.publishedLinks || null,
+                shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
+                shoot_location: task.shootLocation || null,
             } : {};
 
             const dbPayload = { ...basePayload, ...contentPayload };
@@ -258,20 +237,19 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             const isCompleted = isTaskCompleted(task.status);
             const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
             
+            // --- GAMIFICATION TRIGGER ---
             if (isCompleted && !wasCompleted) {
-                const baseXP = DIFFICULTY_LABELS[task.difficulty || 'MEDIUM'].xp;
-                const hourlyBonus = Math.floor((task.estimatedHours || 0) * 20);
-                const isLate = new Date() > new Date(task.endDate);
-                const penalty = isLate ? 50 : 0;
-                const finalXP = Math.max(10, (baseXP + hourlyBonus) - penalty);
-
+                // Collect ALL involved users
                 const peopleToReward = new Set([
                     ...(task.assigneeIds || []),
                     ...(task.ideaOwnerIds || []),
                     ...(task.editorIds || [])
                 ]);
-                peopleToReward.forEach(uid => updateXP(uid, finalXP));
-                showToast(`🎉 งานเสร็จแล้ว! รับ +${finalXP} XP`, 'success');
+                
+                // Distribute Rewards
+                peopleToReward.forEach(uid => {
+                    processAction(uid, 'TASK_COMPLETE', task);
+                });
             }
 
             let error;
@@ -342,6 +320,10 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 endDate: newDate 
             } : t));
 
+            // --- GAMIFICATION PENALTY ---
+            // processAction(userId, 'TASK_LATE', targetTask); // Optional: Instant penalty on delay? 
+            // Or penalty happens only when submitting late. Let's keep delay log for now.
+
             showToast('บันทึกการเลื่อนงานแล้ว ⏳', 'warning');
         } catch (err: any) {
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
@@ -371,7 +353,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,
-        // New exports for optimizing fetch
         checkAndExpandRange,
         fetchAllTasks,
         isFetching

@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, User, Briefcase, Phone, Loader2, Camera, UploadCloud, Trash2, Quote, Smile, Sparkles, MessageCircle } from 'lucide-react';
-import { User as UserType } from '../types';
+import { X, Save, User, Briefcase, Phone, Loader2, Camera, UploadCloud, Trash2, Quote, Smile, Sparkles, MessageCircle, CalendarClock, Palmtree } from 'lucide-react';
+import { User as UserType, WorkStatus } from '../types';
+import { WORK_STATUS_CONFIG } from '../constants';
 import { supabase } from '../lib/supabase';
 import heic2any from 'heic2any';
 import ImageCropper from './ImageCropper';
+import { format } from 'date-fns';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -31,8 +32,13 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
   const [position, setPosition] = useState(user.position);
   const [phone, setPhone] = useState(user.phoneNumber || '');
   const [bio, setBio] = useState(user.bio || ''); 
-  const [feeling, setFeeling] = useState(user.feeling || ''); // ADDED
+  const [feeling, setFeeling] = useState(user.feeling || ''); 
   
+  // Status & Leave State
+  const [workStatus, setWorkStatus] = useState<WorkStatus>(user.workStatus || 'ONLINE');
+  const [leaveStart, setLeaveStart] = useState(user.leaveStartDate ? format(user.leaveStartDate, 'yyyy-MM-dd') : '');
+  const [leaveEnd, setLeaveEnd] = useState(user.leaveEndDate ? format(user.leaveEndDate, 'yyyy-MM-dd') : '');
+
   // Image State
   const [previewUrl, setPreviewUrl] = useState(user.avatarUrl || '');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -54,7 +60,10 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
       setPosition(user.position);
       setPhone(user.phoneNumber || '');
       setBio(user.bio || ''); 
-      setFeeling(user.feeling || ''); // Set feeling
+      setFeeling(user.feeling || ''); 
+      setWorkStatus(user.workStatus || 'ONLINE');
+      setLeaveStart(user.leaveStartDate ? format(user.leaveStartDate, 'yyyy-MM-dd') : '');
+      setLeaveEnd(user.leaveEndDate ? format(user.leaveEndDate, 'yyyy-MM-dd') : '');
       setPreviewUrl(user.avatarUrl || '');
       setSelectedFile(null);
       setCropImageSrc(null);
@@ -129,13 +138,20 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
     e.preventDefault();
     setIsSubmitting(true);
     
-    // ส่งข้อมูลที่แก้ไข พร้อมไฟล์รูปภาพ (ถ้ามีการเลือกใหม่)
+    // Prepare Leave Dates (Nullable)
+    const startDate = leaveStart ? new Date(leaveStart) : null;
+    const endDate = leaveEnd ? new Date(leaveEnd) : null;
+
+    // Send data
     const success = await onSave({
         name: name.trim(),
         position: position.trim(),
         phoneNumber: phone.trim(),
         bio: bio,
-        feeling: feeling // Send feeling
+        feeling: feeling,
+        workStatus: workStatus,
+        leaveStartDate: startDate,
+        leaveEndDate: endDate
     }, selectedFile || undefined);
 
     setIsSubmitting(false);
@@ -145,6 +161,19 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
   const randomFeeling = () => {
       const random = FUNNY_FEELINGS[Math.floor(Math.random() * FUNNY_FEELINGS.length)];
       setFeeling(random);
+  };
+
+  const handleStatusChange = (status: WorkStatus) => {
+      setWorkStatus(status);
+      if (status === 'ONLINE') {
+          // Clear leave dates if setting to Online
+          setLeaveStart('');
+          setLeaveEnd('');
+      } else if ((status === 'SICK' || status === 'VACATION') && !leaveStart) {
+          // Auto-fill today if setting to Sick/Vacation
+          setLeaveStart(format(new Date(), 'yyyy-MM-dd'));
+          setLeaveEnd(format(new Date(), 'yyyy-MM-dd'));
+      }
   };
 
   if (!isOpen) return null;
@@ -171,7 +200,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
           </div>
       )}
 
-      <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 scale-100 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+      <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 scale-100 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
         
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 backdrop-blur-sm sticky top-0 z-10">
           <h3 className="text-lg font-black text-gray-800 tracking-tight">แก้ไขโปรไฟล์ ✏️</h3>
@@ -183,100 +212,120 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
         <div className="overflow-y-auto flex-1 p-6 space-y-8 scrollbar-thin scrollbar-thumb-gray-200">
             <form id="profile-form" onSubmit={handleSubmit} className="space-y-6">
                 
-                {/* อัปโหลดรูปภาพ */}
-                <div className="flex flex-col items-center">
-                    <div className="relative group">
-                        <div 
-                            className="w-32 h-32 rounded-full bg-gray-100 border-[6px] border-white shadow-xl overflow-hidden cursor-pointer relative ring-2 ring-gray-100"
-                            onClick={() => !isConvertingImg && fileInputRef.current?.click()}
-                        >
-                            {isConvertingImg ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                    <Loader2 className="w-8 h-8 animate-spin" />
-                                    <span className="text-[10px] mt-1">Processing..</span>
+                <div className="flex gap-6 items-start">
+                    {/* อัปโหลดรูปภาพ */}
+                    <div className="flex flex-col items-center shrink-0">
+                        <div className="relative group">
+                            <div 
+                                className="w-24 h-24 rounded-full bg-gray-100 border-[4px] border-white shadow-lg overflow-hidden cursor-pointer relative ring-2 ring-gray-100"
+                                onClick={() => !isConvertingImg && fileInputRef.current?.click()}
+                            >
+                                {isConvertingImg ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                    </div>
+                                ) : previewUrl ? (
+                                    <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                        <Camera className="w-6 h-6 mb-1" />
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Camera className="w-6 h-6 text-white drop-shadow-md" />
                                 </div>
-                            ) : previewUrl ? (
-                                <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                    <Camera className="w-8 h-8 mb-1" />
-                                    <span className="text-[10px] font-bold">ใส่รูป</span>
-                                </div>
-                            )}
-                            
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Camera className="w-8 h-8 text-white drop-shadow-md" />
+                            </div>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                className="hidden" 
+                                accept="image/png, image/jpeg, image/jpg, image/heic"
+                                onChange={handleFileSelect}
+                                disabled={isConvertingImg}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Status & Feeling Section */}
+                    <div className="flex-1 space-y-4">
+                        {/* Work Status Toggle */}
+                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">สถานะการทำงาน</label>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(WORK_STATUS_CONFIG).map(([key, config]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => handleStatusChange(key as WorkStatus)}
+                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${workStatus === key ? `${config.color} ring-2 ring-offset-1 ring-gray-200` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        <span>{config.icon}</span> {config.label.split('(')[0]}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
-                        {previewUrl && !isConvertingImg && (
-                            <button 
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setShowFullImage(true); }}
-                                className="absolute 0 bottom-1 right-1 p-2 bg-white text-gray-600 rounded-full shadow-md border border-gray-100 hover:text-indigo-600 transition-all hover:scale-110 active:scale-95"
-                            >
-                                <User className="w-3.5 h-3.5" />
-                            </button>
+                        {/* Leave Date Range (Conditional) */}
+                        {(workStatus === 'SICK' || workStatus === 'VACATION') && (
+                            <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold text-orange-700 uppercase mb-2 flex items-center">
+                                    <Palmtree className="w-3 h-3 mr-1" /> ระบุวันลา (Leave Period)
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="date" 
+                                        value={leaveStart} 
+                                        onChange={e => setLeaveStart(e.target.value)}
+                                        className="w-full p-2 rounded-lg border border-orange-200 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                    />
+                                    <span className="text-gray-400">-</span>
+                                    <input 
+                                        type="date" 
+                                        value={leaveEnd} 
+                                        onChange={e => setLeaveEnd(e.target.value)}
+                                        className="w-full p-2 rounded-lg border border-orange-200 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                    />
+                                </div>
+                            </div>
                         )}
+
+                        {/* Feeling Input */}
+                        <div className="relative group">
+                            <input 
+                                type="text" 
+                                value={feeling}
+                                onChange={e => setFeeling(e.target.value)}
+                                className="w-full pl-10 pr-12 py-3 bg-white border-2 border-indigo-50 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300 placeholder:font-normal"
+                                placeholder="สเตตัสวันนี้..."
+                            />
+                            <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-200" />
+                            <button type="button" onClick={randomFeeling} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-pink-400 hover:bg-pink-50 rounded-lg transition-colors" title="สุ่มคำคม">
+                                <Sparkles className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
-                    
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/png, image/jpeg, image/jpg, image/heic"
-                        onChange={handleFileSelect}
-                        disabled={isConvertingImg}
-                    />
-                    <p className="text-[10px] text-gray-400 mt-3 font-medium uppercase tracking-wider bg-gray-100 px-3 py-1 rounded-full">แตะรูปเพื่อเปลี่ยน</p>
                 </div>
 
-                {/* ฟิลด์ข้อมูล */}
-                <div className="space-y-5">
-                    
-                    {/* Status / Feeling Input (ENHANCED UI) */}
-                    <div className="relative group animate-in slide-in-from-bottom-2 fade-in duration-500 delay-100">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-300 rounded-2xl opacity-70 blur-sm group-hover:opacity-100 transition duration-500"></div>
-                        <div className="relative bg-white p-4 rounded-2xl">
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="block text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center">
-                                    <MessageCircle className="w-4 h-4 mr-1.5 text-pink-500 fill-pink-500" /> สถานะวันนี้ (Status)
-                                </label>
-                                <button type="button" onClick={randomFeeling} className="text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-600 px-2 py-1 rounded-lg hover:bg-indigo-100 transition-colors flex items-center font-bold active:scale-95">
-                                    <Sparkles className="w-3 h-3 mr-1" /> สุ่มคำคม
-                                </button>
-                            </div>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    value={feeling}
-                                    onChange={e => setFeeling(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:bg-white focus:ring-2 focus:ring-pink-200 placeholder:text-gray-300 transition-all text-center"
-                                    placeholder="เช่น ปวดหลัง, หิวข้าว, ร่างทอง..."
-                                />
-                                <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 w-4 h-4 bg-white transform rotate-45 border-b border-r border-gray-100"></div>
-                            </div>
+                {/* General Info */}
+                <div className="space-y-4 px-1">
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">ชื่อเล่น / ชื่อที่ใช้ในทีม</label>
+                        <div className="relative group">
+                            <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                            <input 
+                                type="text" 
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-bold text-gray-800 transition-all shadow-sm"
+                                placeholder="ชื่อเล่น"
+                                required
+                            />
                         </div>
                     </div>
 
-                    <div className="space-y-4 px-2">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">ชื่อเล่น / ชื่อที่ใช้ในทีม</label>
-                            <div className="relative group">
-                                <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                                <input 
-                                    type="text" 
-                                    value={name}
-                                    onChange={e => setName(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-bold text-gray-800 transition-all shadow-sm"
-                                    placeholder="ชื่อเล่น"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">ตำแหน่งงาน (Position)</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">ตำแหน่งงาน</label>
                             <div className="relative group">
                                 <Briefcase className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                                 <select 
@@ -285,7 +334,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                                     className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-transparent focus:bg-white focus:border-indigo-500 rounded-2xl outline-none text-sm font-bold text-gray-800 transition-all shadow-sm appearance-none cursor-pointer"
                                     required
                                 >
-                                    <option value="">เลือกตำแหน่ง...</option>
+                                    <option value="">เลือก...</option>
                                     {positions.map(p => (
                                         <option key={p.key} value={p.label}>{p.label}</option>
                                     ))}
@@ -295,7 +344,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">เบอร์โทรศัพท์ (Phone)</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">เบอร์โทรศัพท์</label>
                             <div className="relative group">
                                 <Phone className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                                 <input 
@@ -309,9 +358,9 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                         </div>
                     </div>
 
-                    {/* Bio Input (ENHANCED UI - Sticky Note Style) */}
-                    <div className="relative mt-6 group">
-                        <div className="absolute inset-0 bg-yellow-100 rounded-2xl transform rotate-2 translate-y-1 transition-transform group-hover:rotate-3"></div>
+                    {/* Bio Input */}
+                    <div className="relative mt-2 group">
+                        <div className="absolute inset-0 bg-yellow-100 rounded-2xl transform rotate-1 translate-y-1 transition-transform group-hover:rotate-2"></div>
                         <div className="relative bg-white border-2 border-yellow-100 p-1 rounded-2xl shadow-sm group-focus-within:border-yellow-300 transition-colors">
                             <div className="bg-yellow-50/50 rounded-xl p-4">
                                 <label className="block text-xs font-black text-yellow-600 uppercase tracking-wider ml-1 mb-2 flex items-center">

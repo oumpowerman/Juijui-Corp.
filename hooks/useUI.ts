@@ -54,10 +54,10 @@ export const useUI = () => {
         setIsModalOpen(true); 
     };
 
-    const handleSelectDate = (d: Date) => { 
+    const handleSelectDate = (d: Date, type?: TaskType) => { 
         setEditingTask(null); 
         setSelectedDate(d); 
-        setLockedTaskType(null);
+        setLockedTaskType(type || null); // Pass Type to Lock
         setIsModalOpen(true); 
     };
 

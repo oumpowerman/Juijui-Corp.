@@ -125,11 +125,11 @@ function App() {
   }
   
   if (!currentUserProfile.isApproved) {
-    return <PendingApprovalScreen user={currentUserProfile} onLogout={() => supabase.auth.signOut()} />;
+    return <PendingApprovalScreen user={currentUserProfile} onLogout={async () => { await supabase.auth.signOut(); }} />;
   }
 
   if (!currentUserProfile.isActive) {
-    return <InactiveScreen user={currentUserProfile} onLogout={() => supabase.auth.signOut()} />;
+    return <InactiveScreen user={currentUserProfile} onLogout={async () => { await supabase.auth.signOut(); }} />;
   }
 
   // --- RENDER CONTENT SWITCHER ---
@@ -315,7 +315,7 @@ function App() {
         currentUser={currentUserProfile}
         currentView={currentView}
         onNavigate={setCurrentView}
-        onLogout={() => supabase.auth.signOut()}
+        onLogout={async () => { await supabase.auth.signOut(); }}
         onEditProfile={() => setIsProfileModalOpen(true)}
         onAddTask={handleAddTask}
         chatUnreadCount={chatUnread}

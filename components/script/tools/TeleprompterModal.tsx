@@ -26,7 +26,7 @@ const TeleprompterModal: React.FC<TeleprompterModalProps> = ({ content, onClose 
     }, [isScrolling, scrollSpeed]);
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-[60] bg-black text-white flex flex-col animate-in fade-in duration-300 rounded-[2rem] overflow-hidden">
             {/* Controls */}
             <div className="flex items-center justify-between p-4 bg-gray-900 border-b border-gray-800 shrink-0 z-50">
                 <div className="flex items-center gap-4">
@@ -68,7 +68,7 @@ const TeleprompterModal: React.FC<TeleprompterModalProps> = ({ content, onClose 
             {/* Scrolling Text */}
             <div 
                 ref={prompterRef}
-                className="flex-1 overflow-y-auto px-8 md:px-[20%] py-20 scrollbar-hide text-center relative"
+                className="flex-1 overflow-y-auto px-8 md:px-[15%] py-20 scrollbar-hide text-center relative"
                 style={{ scrollBehavior: 'auto' }}
             >
                 <div style={{ fontSize: `${prompterFontSize}px`, lineHeight: 1.6, whiteSpace: 'pre-wrap' }} className="font-medium text-gray-100 leading-relaxed max-w-5xl mx-auto">

@@ -185,6 +185,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             <ScriptEditor 
                 script={activeScript} 
                 users={users}
+                currentUser={currentUser} // Pass currentUser for lock logic
                 onClose={() => setActiveScript(null)} 
                 onSave={updateScript} 
                 onGenerateAI={generateScriptWithAI}

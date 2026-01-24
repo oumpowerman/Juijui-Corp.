@@ -20,6 +20,7 @@ export const useScripts = (currentUser: User) => {
                     *,
                     author:profiles!scripts_author_id_fkey(full_name, avatar_url),
                     idea_owner:profiles!scripts_idea_owner_id_fkey(full_name, avatar_url),
+                    locker:profiles!scripts_locked_by_fkey(full_name, avatar_url),
                     contents (title)
                 `)
                 .order('is_in_shoot_queue', { ascending: false }) // Show queued items first
@@ -50,7 +51,12 @@ export const useScripts = (currentUser: User) => {
                     channelId: s.channel_id,
                     category: s.category,
                     tags: s.tags || [],
-                    objective: s.objective
+                    objective: s.objective,
+                    
+                    // Lock System
+                    lockedBy: s.locked_by,
+                    lockedAt: s.locked_at ? new Date(s.locked_at) : undefined,
+                    locker: s.locker ? { name: s.locker.full_name, avatarUrl: s.locker.avatar_url } : undefined
                 })));
             }
         } catch (err: any) {

@@ -303,6 +303,7 @@ export interface Duty {
     date: Date;
     isDone: boolean;
     proofImageUrl?: string;
+    isPenalized?: boolean;
 }
 
 export interface DutyConfig {
@@ -424,6 +425,11 @@ export interface Script {
     category?: string;
     tags?: string[];
     objective?: string;
+    
+    // Lock System
+    lockedBy?: string; // User ID
+    lockedAt?: Date;
+    locker?: { name: string; avatarUrl: string }; // Populated if locked
 }
 
 export interface MeetingAgendaItem {

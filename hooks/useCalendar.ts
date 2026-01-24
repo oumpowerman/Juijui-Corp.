@@ -90,7 +90,7 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     }, [viewMode, activeChipIds, customChips]);
 
     const getTasksForDay = useCallback((day: Date) => {
-        return tasks.filter(task => isSameDay(day, task.endDate));
+        return tasks.filter(task => isSameDay(day, task.endDate) && !task.isUnscheduled);
     }, [tasks]);
 
     const saveChip = (chip: ChipConfig) => {

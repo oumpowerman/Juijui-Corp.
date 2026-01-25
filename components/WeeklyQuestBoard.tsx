@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Target, ChevronLeft, ChevronRight, Plus, Bell } from 'lucide-react';
+import { Target, ChevronLeft, ChevronRight, Plus, Bell, Info } from 'lucide-react';
 import { endOfWeek, addWeeks, format, isWithinInterval, addDays, areIntervalsOverlapping } from 'date-fns';
 import { Task, Channel, WeeklyQuest, MasterOption } from '../types';
 import MentorTip from './MentorTip';
@@ -10,6 +10,8 @@ import { useWeeklyQuests } from '../hooks/useWeeklyQuests';
 import QuestCard from './weekly-quest/QuestCard';
 import CreateQuestModal from './weekly-quest/CreateQuestModal';
 import QuestDetailModal from './weekly-quest/QuestDetailModal';
+import InfoModal from './ui/InfoModal';
+import QuestGuide from './weekly-quest/QuestGuide';
 
 interface WeeklyQuestBoardProps {
     tasks: Task[];
@@ -27,6 +29,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [viewingChannelId, setViewingChannelId] = useState<string | null>(null); 
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
     // Manual startOfWeek (Monday start)
     const getStartOfWeek = (date: Date) => {
@@ -51,7 +54,8 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
             const qStart = new Date(q.weekStartDate);
             qStart.setHours(0, 0, 0, 0);
             
-            const qEnd = addDays(qStart, 6); // Default duration 7 days
+            // Use custom endDate if available, else default to +6 days (1 week)
+            const qEnd = q.endDate ? new Date(q.endDate) : addDays(qStart, 6);
             qEnd.setHours(23, 59, 59, 999);
             
             // Check overlap: (StartA <= EndB) and (EndA >= StartB)
@@ -92,7 +96,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
             <MentorTip 
                 variant="purple" 
                 messages={[
-                    "ใหม่! ระบบ Quest ยืดหยุ่น: สร้างเควสเริ่มวันไหนก็ได้ ระบบจะคำนวณวันจบให้อัตโนมัติ (7 วัน)",
+                    "ใหม่! ระบบ Quest ยืดหยุ่น: สร้างเควสเริ่มวันไหนก็ได้ กำหนดวันจบเองได้ ไม่ต้องล็อค 7 วัน",
                     "เควสที่ระยะเวลาคาบเกี่ยว (Overlap) กับสัปดาห์นี้ จะโผล่ขึ้นมาให้เห็นเอง",
                     "การนับยอดงาน (Auto) จะนับตามช่วงเวลาจริงของเควสนั้นๆ ไม่ใช่ตามปฏิทิน"
                 ]} 
@@ -100,13 +104,22 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
 
             {/* Header & Nav */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                        ภารกิจประจำสัปดาห์ 🎯 (Weekly Quests)
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        วางแผนเป้าหมายรายช่อง ติดตามความคืบหน้าแบบ Hybrid
-                    </p>
+                <div className="flex items-start gap-2">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+                            ภารกิจประจำสัปดาห์ 🎯 (Weekly Quests)
+                        </h1>
+                        <p className="text-gray-500 mt-1">
+                            วางแผนเป้าหมายรายช่อง ติดตามความคืบหน้าแบบ Hybrid
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors mt-1"
+                        title="ดูคู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -191,6 +204,15 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                 weekEnd={weekEnd}
                 onUpdateManualProgress={updateManualProgress}
             />
+
+            {/* INFO GUIDE MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือระบบภารกิจ (Quest Guide)"
+            >
+                <QuestGuide />
+            </InfoModal>
         </div>
     );
 };

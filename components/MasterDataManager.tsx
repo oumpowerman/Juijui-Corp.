@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import { MasterOption, Reward } from '../types';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText, Calendar, CalendarDays, Smile } from 'lucide-react';
 import MentorTip from './MentorTip';
 import DashboardConfigModal from './DashboardConfigModal';
 import MaintenancePanel from './admin/maintenance/MaintenancePanel';
 import GeneralMasterList from './admin/GeneralMasterList';
+import AnnualHolidayManager from './admin/AnnualHolidayManager';
+import { useGreetings } from '../hooks/useGreetings';
 
 // Configuration for Tabs & Info
 const MASTER_META: Record<string, { label: string, icon: any, desc: string, group: string }> = {
@@ -15,6 +17,8 @@ const MASTER_META: Record<string, { label: string, icon: any, desc: string, grou
     TASK_STATUS: { label: 'Task Status', icon: CheckSquare, desc: 'สถานะของงานทั่วไป (เช่น To Do, Doing, Done)', group: 'WORKFLOW' },
     PROJECT_TYPE: { label: 'Project Type', icon: Flag, desc: 'ประเภทของโปรเจกต์ (เช่น Internal, Sponsor, Collab) ใช้แยกกลุ่มรายได้', group: 'WORKFLOW' },
     TAG_PRESET: { label: 'Tag Presets', icon: Tag, desc: 'ป้ายกำกับด่วน (เช่น #Urgent, #Rerun) ให้ทีมกดเลือกได้เลยไม่ต้องพิมพ์', group: 'WORKFLOW' },
+    EVENT_TYPE: { label: 'Calendar Events', icon: Calendar, desc: 'ประเภทของ Highlight วันที่ในปฏิทิน (เช่น วันหยุด, วันออกกอง)', group: 'WORKFLOW' },
+    YEARLY: { label: 'Yearly Holidays', icon: CalendarDays, desc: 'วันหยุดประจำปี (กำหนดครั้งเดียว แสดงทุกปี)', group: 'WORKFLOW' },
     
     // --- CONTENT ---
     FORMAT: { label: 'Formats', icon: Type, desc: 'รูปแบบของงาน (เช่น Short Form, Long Form, Post)', group: 'CONTENT' },
@@ -34,6 +38,7 @@ const MASTER_META: Record<string, { label: string, icon: any, desc: string, grou
 
     // --- SYSTEM ---
     REWARDS: { label: 'Rewards', icon: Gift, desc: 'ของรางวัลในร้านค้าสวัสดิการ (ใช้แลกแต้ม JP)', group: 'SYSTEM' },
+    GREETINGS: { label: 'Greetings', icon: Smile, desc: 'คำอวยพร/ข้อความต้อนรับที่จะสุ่มแสดงเมื่อเปิดแอป', group: 'SYSTEM' },
     DASHBOARD: { label: 'Dashboard', icon: Monitor, desc: 'ตั้งค่าการ์ดสรุปงานในหน้า Admin Dashboard', group: 'SYSTEM' },
     MAINTENANCE: { label: 'Maintenance', icon: HardDrive, desc: 'ดูแลรักษาระบบ (Backup, Cleanup)', group: 'SYSTEM' },
 };
@@ -54,6 +59,10 @@ const MasterDataManager: React.FC = () => {
         editingDashboardConfig, isDashboardModalOpen, setIsDashboardModalOpen,
         filteredOptions
     } = useMasterDataView();
+
+    // Hook for Greetings (Used only when tab is active really)
+    const { greetings, isLoading: greetingLoading, addGreeting, deleteGreeting, toggleGreeting } = useGreetings();
+    const [newGreetingText, setNewGreetingText] = useState('');
 
     const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
@@ -85,6 +94,12 @@ const MasterDataManager: React.FC = () => {
             typeOverride = selectedParentId ? 'RESPONSIBILITY' : 'POSITION';
         }
         handleSubmit(e, typeOverride);
+    };
+
+    const handleAddGreeting = async () => {
+        if (!newGreetingText.trim()) return;
+        await addGreeting(newGreetingText);
+        setNewGreetingText('');
     };
 
     // --- TAB RENDERERS ---
@@ -193,7 +208,7 @@ const MasterDataManager: React.FC = () => {
                     {/* GROUP: WORKFLOW */}
                     <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Production & Workflow</div>
-                        {['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET'].map(key => renderTabButton(key))}
+                        {['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET', 'EVENT_TYPE', 'YEARLY'].map(key => renderTabButton(key))}
                     </div>
 
                     {/* GROUP: CONTENT */}
@@ -211,7 +226,7 @@ const MasterDataManager: React.FC = () => {
                      {/* GROUP: SYSTEM */}
                      <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">System Config</div>
-                         {['REWARDS', 'DASHBOARD', 'MAINTENANCE'].map(key => renderTabButton(key))}
+                         {['REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE'].map(key => renderTabButton(key))}
                     </div>
                 </div>
 
@@ -236,10 +251,58 @@ const MasterDataManager: React.FC = () => {
                     <div className="min-h-[400px]">
                         {activeTab === 'MAINTENANCE' ? (
                             <MaintenancePanel />
+                        ) : activeTab === 'YEARLY' ? (
+                            <AnnualHolidayManager masterOptions={masterOptions} />
                         ) : activeTab === 'INVENTORY' ? (
                             renderInventorySection()
                         ) : activeTab === 'POSITION' ? (
                             renderPositionSection()
+                        ) : activeTab === 'GREETINGS' ? (
+                            <div className="animate-in slide-in-from-bottom-2 space-y-6">
+                                {/* Create Box */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                                    <h3 className="font-bold text-gray-700 mb-4 flex items-center"><Smile className="w-5 h-5 mr-2 text-indigo-600"/> เพิ่มข้อความต้อนรับใหม่</h3>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                            placeholder="ใส่คำอวยพรหรือกำลังใจที่นี่..."
+                                            value={newGreetingText}
+                                            onChange={e => setNewGreetingText(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleAddGreeting()}
+                                        />
+                                        <button onClick={handleAddGreeting} disabled={!newGreetingText.trim()} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                                            เพิ่ม
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* List */}
+                                <div className="space-y-3">
+                                    {greetingLoading ? <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500"/></div> : (
+                                        greetings.map(g => (
+                                            <div key={g.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-center shadow-sm">
+                                                <span className={`text-sm font-medium ${g.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}`}>"{g.text}"</span>
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => toggleGreeting(g.id, g.isActive)} 
+                                                        className={`p-2 rounded-lg transition-colors ${g.isActive ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}
+                                                    >
+                                                        <Power className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => deleteGreeting(g.id)} 
+                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                    {!greetingLoading && greetings.length === 0 && <div className="text-center py-10 text-gray-400">ยังไม่มีคำอวยพร</div>}
+                                </div>
+                            </div>
                         ) : activeTab === 'REWARDS' ? (
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
                                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

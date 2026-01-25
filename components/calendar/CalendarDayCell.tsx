@@ -1,6 +1,6 @@
 
 import React, { memo } from 'react';
-import { format, isSameMonth, isToday, isSameDay } from 'date-fns';
+import { format, isSameMonth, isToday, isSameDay, isSameWeek } from 'date-fns';
 import { Task, ChipConfig, CalendarHighlight, MasterOption } from '../../types';
 import CalendarTaskPill from './CalendarTaskPill';
 
@@ -49,6 +49,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     const isCurrentMonth = isSameMonth(day, currentDate);
     const isTodayDate = isToday(day);
     const isDragOver = dragOverDate && isSameDay(day, dragOverDate);
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6; // Sunday or Saturday
 
     const maxVisible = isExpanded ? 8 : 3;
     const count = tasks.length;
@@ -70,6 +71,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     }
 
     // Dynamic classes based on state
+    // Added: Weekend Grey Background logic
     const bgClass = isDragOver 
         ? 'bg-indigo-100 ring-inset ring-2 ring-indigo-400 scale-[0.98] rounded-lg z-10 shadow-lg' 
         : highlightStyle 
@@ -78,7 +80,27 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                 ? 'bg-indigo-50/20 shadow-inner' // Today
                 : !isCurrentMonth 
                     ? 'bg-gray-50/80 text-gray-300' // Out of Month
-                    : 'bg-white hover:bg-indigo-50/10'; // Default
+                    : isWeekend
+                        ? 'bg-slate-50/60 hover:bg-white' // Weekend (Greyish)
+                        : 'bg-white hover:bg-indigo-50/10'; // Default (Weekday)
+
+    // Dynamic Text Coloring (Time-Travel Theme)
+    const now = new Date();
+    let dayTextClass = '';
+    
+    if (isTodayDate) {
+        dayTextClass = 'text-white bg-indigo-600 shadow-md shadow-indigo-200';
+    } else if (isSameWeek(day, now)) {
+        // Active Week: Bright Green
+        dayTextClass = 'text-emerald-500 font-black drop-shadow-sm'; 
+    } else if (day < now) {
+        // Past Weeks: Greyish
+        // Note: isSameWeek catches the current week, so day < now covers strictly past weeks here
+        dayTextClass = 'text-slate-400 font-medium'; 
+    } else {
+        // Future Weeks: Pastel Pink/Red
+        dayTextClass = 'text-rose-400 font-bold'; 
+    }
 
     return (
         <div 
@@ -95,13 +117,13 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
         >
             <div className={`flex justify-center md:justify-between items-start mb-1 pointer-events-none relative z-10 ${isExpanded ? 'justify-between w-full' : ''}`}>
                 <span className={`
-                    font-bold flex items-center justify-center transition-all
+                    flex items-center justify-center transition-all
                     ${isExpanded 
                         ? 'text-lg w-8 h-8 rounded-xl' 
                         : 'text-[10px] md:text-sm w-5 h-5 md:w-6 md:h-6 rounded-full md:rounded-lg'
                     }
-                    ${isTodayDate ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : ''} 
-                    ${!isCurrentMonth ? 'opacity-50' : ''}
+                    ${!isCurrentMonth ? 'opacity-40' : ''}
+                    ${dayTextClass}
                 `}>
                     {format(day, 'd')}
                 </span>

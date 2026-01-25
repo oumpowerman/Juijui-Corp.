@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { Task, Status, Channel, User, Role } from '../types';
 import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useRewards } from '../hooks/useRewards';
 import MemberManagementModal from './MemberManagementModal'; 
@@ -128,6 +129,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   };
 
   const activeMembers = useMemo(() => users.filter(u => u.isApproved && u.isActive), [users]);
+  const pendingMembers = useMemo(() => users.filter(u => !u.isApproved), [users]);
 
   // Map Tasks to Users ONCE to avoid O(N*M) in render
   const userTaskMap = useMemo(() => {
@@ -155,6 +157,7 @@ const TeamView: React.FC<TeamViewProps> = ({
       {/* Header */}
       <TeamHeader 
           onAddTask={onAddTask}
+          onManageClick={() => setIsManageModalOpen(true)}
           currentUser={currentUser}
           isShopOpen={isShopOpen}
           toggleShop={() => setIsShopOpen(!isShopOpen)}
@@ -180,6 +183,49 @@ const TeamView: React.FC<TeamViewProps> = ({
                   onClose={() => setIsHistoryOpen(false)} 
                   isAdmin={isAdmin}
               />
+          </div>
+      )}
+
+      {/* Pending Approvals */}
+      {isAdmin && pendingMembers.length > 0 && (
+          <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 animate-in slide-in-from-top-2">
+              <h3 className="font-bold text-orange-800 mb-3 flex items-center text-sm">
+                  <span className="bg-orange-200 text-orange-800 px-2 py-0.5 rounded-lg mr-2 text-xs">Waiting</span>
+                  รออนุมัติเข้าทีม ({pendingMembers.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {pendingMembers.map(member => (
+                      <div key={member.id} className="bg-white p-3 rounded-xl shadow-sm border border-orange-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                              {member.avatarUrl ? (
+                                  <img src={member.avatarUrl} className="w-10 h-10 rounded-full object-cover bg-gray-200" />
+                              ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">{member.name.charAt(0)}</div>
+                              )}
+                              <div>
+                                  <p className="font-bold text-sm text-gray-800">{member.name}</p>
+                                  <p className="text-xs text-gray-500">{member.position || 'No Position'}</p>
+                              </div>
+                          </div>
+                          <div className="flex gap-1">
+                              <button 
+                                  onClick={() => handleAction('APPROVE', member.id)} 
+                                  className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                  title="อนุมัติ"
+                              >
+                                  <Check className="w-4 h-4" />
+                              </button>
+                              <button 
+                                  onClick={() => handleAction('REMOVE', member.id)} 
+                                  className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                  title="ปฏิเสธ"
+                              >
+                                  <X className="w-4 h-4" />
+                              </button>
+                          </div>
+                      </div>
+                  ))}
+              </div>
           </div>
       )}
 

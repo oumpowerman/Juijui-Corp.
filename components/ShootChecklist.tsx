@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { Camera, Mic, Box, Plus, Trash2, Lightbulb, Layout, CheckCircle2, Archive, RotateCcw, PackageOpen, PlusCircle, Compass } from 'lucide-react';
+import { Camera, Mic, Box, Plus, Trash2, Lightbulb, Layout, CheckCircle2, Archive, RotateCcw, PackageOpen, PlusCircle, Compass, Info } from 'lucide-react';
 import { ChecklistItem, ChecklistPreset, MasterOption } from '../types';
 import MentorTip from './MentorTip';
 import { useChecklist } from '../hooks/useChecklist';
 import InventoryModal from './checklist/InventoryModal';
 import PresetModal from './checklist/PresetModal';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import InfoModal from './ui/InfoModal'; // Import InfoModal
+import ChecklistGuide from './checklist/ChecklistGuide'; // Import Guide
 
 interface ShootChecklistProps {
     items: ChecklistItem[]; // From Hook/Parent
@@ -36,6 +38,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
     // Modals State
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
     
     // UI State
     const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -117,11 +120,20 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
             {/* Header & Controls */}
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-                            จัดเป๋าออกกอง 🎒 <span className="text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">Realtime</span>
-                        </h1>
-                        <p className="text-gray-500 mt-1">Realtime Checklist & Inventory System</p>
+                    <div className="flex items-start gap-3">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                                จัดเป๋าออกกอง 🎒 <span className="text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">Realtime</span>
+                            </h1>
+                            <p className="text-gray-500 mt-1">Realtime Checklist & Inventory System</p>
+                        </div>
+                        <button 
+                            onClick={() => setIsInfoOpen(true)}
+                            className="p-1.5 bg-white text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-full transition-colors shadow-sm border border-gray-100 mt-1"
+                            title="คู่มือการใช้งาน"
+                        >
+                            <Info className="w-5 h-5" />
+                        </button>
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto items-stretch">
@@ -329,6 +341,15 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                 onAddPreset={onAddPreset}
                 onDeletePreset={onDeletePreset}
             />
+
+             {/* INFO GUIDE MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือจัดเป๋าออกกอง (Shoot Checklist)"
+            >
+                <ChecklistGuide />
+            </InfoModal>
         </div>
     );
 };

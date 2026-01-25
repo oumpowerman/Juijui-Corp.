@@ -1,9 +1,10 @@
 
 import React from 'react';
 import { User, DashboardConfig } from '../../../types';
-import { Palette, Bell, Users, User as UserIcon, ChevronDown } from 'lucide-react';
+import { Palette, Bell, Users, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
 import MentorTip from '../../MentorTip';
 import { TimeRangeOption, ViewScope } from '../../../hooks/useDashboardStats';
+import { useGreetings } from '../../../hooks/useGreetings';
 
 interface DashboardHeaderProps {
     currentUser: User;
@@ -30,6 +31,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     onOpenSettings,
     getTimeRangeLabel
 }) => {
+    const { randomGreeting } = useGreetings();
     
     const DASHBOARD_TIPS = [
         "สัปดาห์นี้มาในธีม: " + currentThemeName,
@@ -46,14 +48,24 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         <h1 className="text-3xl font-bold text-gray-800 tracking-tight flex items-center">
                             ยินดีต้อนรับ, {currentUser.name.split(' ')[0]}! <span className="text-4xl ml-2">🚀</span>
                         </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100 flex items-center">
-                                <Palette className="w-3 h-3 mr-1" /> Theme: {currentThemeName}
-                            </span>
-                            <p className="text-gray-500 text-sm">
-                                ภาพรวมในช่วง: <span className="font-bold text-gray-700">{getTimeRangeLabel()}</span>
+                        
+                        {/* Dynamic Greeting */}
+                        {randomGreeting ? (
+                            <p className="text-sm font-medium text-gray-500 mt-1 flex items-center animate-in fade-in slide-in-from-left-4 duration-700 italic">
+                                <Sparkles className="w-3 h-3 mr-1.5 text-yellow-500" />
+                                "{randomGreeting}"
                             </p>
-                        </div>
+                        ) : (
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-100 flex items-center">
+                                    <Palette className="w-3 h-3 mr-1" /> Theme: {currentThemeName}
+                                </span>
+                            </div>
+                        )}
+                        
+                         <p className="text-gray-400 text-xs mt-2">
+                             ภาพรวมในช่วง: <span className="font-bold text-gray-600">{getTimeRangeLabel()}</span>
+                        </p>
                     </div>
                     <button 
                         onClick={onOpenSettings}

@@ -4,8 +4,9 @@ import { WikiArticle, User } from '../types';
 import { useWiki } from '../hooks/useWiki';
 import { Book, Search, Plus, Edit3, Trash2, Pin, FileText, ChevronRight, X, Save, Clock, Info, Briefcase, Users, Check, Layout, List, Image as ImageIcon, Heart, Share2, AlignLeft, Hash } from 'lucide-react';
 import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
 import MentorTip from './MentorTip';
+import InfoModal from './ui/InfoModal'; // Import InfoModal
+import WikiGuide from './wiki/WikiGuide'; // Import WikiGuide
 
 interface WikiViewProps {
     currentUser: User;
@@ -28,8 +29,6 @@ const JOB_ROLES = [
 ];
 
 // --- UTILS: Custom Lightweight Markdown Renderer ---
-// Note: In a real production app, use 'react-markdown' or 'rehype'.
-// This is a custom lightweight parser to avoid new dependencies while delivering the feature.
 const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
     const renderLine = (line: string, index: number) => {
         // Headers
@@ -59,7 +58,6 @@ const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
         if (line === '---') return <hr key={index} className="my-6 border-gray-200" />;
 
         // Paragraph (with simple bold/italic parsing)
-        // Note: This is very basic. Real MD requires AST.
         const parsedText = line.split(/(\*\*.*?\*\*)/g).map((part, i) => 
             part.startsWith('**') && part.endsWith('**') ? <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong> : part
         );
@@ -117,6 +115,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewingArticle, setViewingArticle] = useState<WikiArticle | null>(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
     // Form State
     const [editForm, setEditForm] = useState<Partial<WikiArticle>>({});
@@ -202,14 +201,23 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
 
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-800 flex items-center tracking-tight">
-                        <Book className="w-8 h-8 mr-3 text-indigo-600" />
-                        Wiki Library
-                    </h1>
-                    <p className="text-gray-500 mt-1 font-medium">
-                        คลังความรู้ คู่มือ และมาตรฐานการทำงาน
-                    </p>
+                <div className="flex items-center gap-3">
+                    <div>
+                        <h1 className="text-3xl font-black text-gray-800 flex items-center tracking-tight">
+                            <Book className="w-8 h-8 mr-3 text-indigo-600" />
+                            Wiki Library
+                        </h1>
+                        <p className="text-gray-500 mt-1 font-medium">
+                            คลังความรู้ คู่มือ และมาตรฐานการทำงาน
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="p-1.5 bg-white text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors shadow-sm border border-gray-100 self-start mt-1"
+                        title="คู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
                 </div>
                 {isAdmin && (
                     <button 
@@ -340,7 +348,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                                     <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-xs text-gray-400 mt-auto">
                                         <div className="flex items-center">
                                             <Clock className="w-3.5 h-3.5 mr-1.5" />
-                                            {format(article.lastUpdated, 'd MMM yy', { locale: th })}
+                                            {format(article.lastUpdated, 'd MMM yy')}
                                         </div>
                                         {article.helpfulCount !== undefined && article.helpfulCount > 0 && (
                                             <div className="flex items-center text-pink-400 font-bold bg-pink-50 px-2 py-0.5 rounded-full">
@@ -423,7 +431,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                                     <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center">
                                         <button 
                                             onClick={() => toggleHelpful(viewingArticle.id)}
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 hover:bg-pink-50 text-gray-600 hover:text-pink-500 transition-colors font-bold border border-gray-200 hover:border-pink-200 group"
+                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-50 hover:bg-pink-50 text-gray-600 hover:text-pink-50 transition-colors font-bold border border-gray-200 hover:border-pink-200 group"
                                         >
                                             <Heart className="w-5 h-5 group-hover:fill-pink-500 transition-colors" /> 
                                             เป็นประโยชน์ ({viewingArticle.helpfulCount || 0})
@@ -532,6 +540,15 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                     </div>
                 </div>
             )}
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือ Wiki Library"
+            >
+                <WikiGuide />
+            </InfoModal>
         </div>
     );
 };

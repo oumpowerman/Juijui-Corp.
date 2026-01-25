@@ -17,11 +17,11 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
     const getMatchingTasks = (quest: WeeklyQuest) => {
         if (quest.questType === 'MANUAL') return [];
         
-        // Dynamic Range based on Quest Start
+        // Dynamic Range
         const qStart = new Date(quest.weekStartDate);
         qStart.setHours(0, 0, 0, 0);
         
-        const qEnd = addDays(qStart, 6); // 7 Days duration
+        const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
         qEnd.setHours(23, 59, 59, 999);
 
         return allTasks.filter(t => {
@@ -131,7 +131,7 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                     
                     // Display Date Range if unusual
                     const qStart = new Date(quest.weekStartDate);
-                    const qEnd = addDays(qStart, 6);
+                    const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
                     const dateLabel = `${format(qStart, 'd/M')} - ${format(qEnd, 'd/M')}`;
 
                     return (

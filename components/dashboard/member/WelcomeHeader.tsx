@@ -2,15 +2,17 @@
 import React, { useState } from 'react';
 import { User, WorkStatus } from '../../../types';
 import { WORK_STATUS_CONFIG } from '../../../constants';
-import { Trophy, Star, Wallet, ChevronDown, Bell, Heart, ShoppingBag, BookOpen } from 'lucide-react';
+import { Trophy, Star, Wallet, ChevronDown, Bell, Heart, ShoppingBag, BookOpen, Edit2, Sparkles, MessageCircle } from 'lucide-react';
 import UserStatusBadge from '../../UserStatusBadge';
 import GameRulesModal from '../../gamification/GameRulesModal';
+import { useGreetings } from '../../../hooks/useGreetings';
 
 interface WelcomeHeaderProps {
     user: User;
     onUpdateStatus: (status: WorkStatus) => void;
     onOpenShop: () => void;
     onOpenNotifications: () => void;
+    onEditProfile: () => void;
     unreadNotifications: number;
 }
 
@@ -19,9 +21,11 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     onUpdateStatus, 
     onOpenShop,
     onOpenNotifications,
+    onEditProfile,
     unreadNotifications
 }) => {
     const [isRulesOpen, setIsRulesOpen] = useState(false);
+    const { randomGreeting } = useGreetings();
 
     // Calculate Level Progress
     const nextLevelXP = user.level * 1000;
@@ -36,32 +40,103 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
 
     return (
         <>
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 relative overflow-hidden">
-                {/* Background Decor */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50 pointer-events-none" />
+            {/* Custom Animation Styles */}
+            <style>{`
+                @keyframes float-gentle {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-6px) rotate(2deg); }
+                }
+                .animate-float-gentle {
+                    animation: float-gentle 3.5s ease-in-out infinite;
+                }
+                .pop-shadow {
+                    box-shadow: 4px 4px 0px 0px rgba(99, 102, 241, 0.2);
+                }
+                .pop-shadow:hover {
+                    transform: translate(-2px, -2px);
+                    box-shadow: 6px 6px 0px 0px rgba(99, 102, 241, 0.3);
+                }
+            `}</style>
+
+            {/* Main Container */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 relative overflow-visible">
+                
+                {/* Background Decor Mask */}
+                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50" />
+                </div>
 
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     
                     {/* 1. User Profile & Status */}
-                    <div className="flex items-center gap-5">
-                        <div className="relative">
-                            <div className={`w-20 h-20 rounded-full p-1 shadow-lg transition-all ${isHpLow ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-tr from-indigo-500 to-purple-500'}`}>
+                    <div className="flex items-start gap-5">
+                        {/* Avatar */}
+                        <div className="relative group cursor-pointer shrink-0 pt-2" onClick={onEditProfile} title="คลิกเพื่อแก้ไขโปรไฟล์">
+                            <div className={`w-20 h-20 rounded-full p-1 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ${isHpLow ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-tr from-indigo-500 to-purple-500'}`}>
                                 <img src={user.avatarUrl} className="w-full h-full rounded-full object-cover border-4 border-white" alt={user.name} />
                             </div>
-                            <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md">
+                            
+                            {/* VISIBLE Edit Button (Top Right) */}
+                            <div className="absolute -top-1 -right-1 bg-white text-gray-400 hover:text-indigo-600 p-1.5 rounded-full border border-gray-200 shadow-sm z-20 transition-colors mt-2">
+                                <Edit2 className="w-3 h-3" />
+                            </div>
+
+                            {/* Level Badge (Bottom Right) */}
+                            <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md z-10 pointer-events-none">
                                 <div className="bg-yellow-400 text-white text-xs font-black px-2 py-0.5 rounded-full border-2 border-white flex items-center shadow-sm">
                                     Lv.{user.level}
                                 </div>
                             </div>
                         </div>
                         
-                        <div>
-                            <h1 className="text-2xl font-black text-gray-800 tracking-tight">
+                        <div className="flex flex-col relative">
+                            {/* Greeting Bubble (New Design: 3D Pop & Animated) */}
+                            <div className="relative -ml-2 mb-2 z-20 animate-float-gentle hidden sm:block origin-bottom-left">
+                                <div className="
+                                    bg-gradient-to-br from-white via-indigo-50/50 to-purple-50/50
+                                    border-2 border-indigo-200
+                                    px-5 py-3 
+                                    rounded-2xl rounded-tl-none
+                                    pop-shadow
+                                    flex items-center gap-3
+                                    w-fit min-w-[200px]
+                                    transition-all duration-300
+                                    cursor-default
+                                ">
+                                    <div className="bg-white p-1.5 rounded-full shadow-sm border border-indigo-100">
+                                        <span className="text-xl leading-none">✨</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5 leading-none">TODAY'S VIBE</p>
+                                        <p className="text-sm font-bold text-slate-700 leading-tight">
+                                            "{randomGreeting || 'ขอให้เป็นวันที่ดีนะ!'}"
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {/* Triangle Tail (Custom CSS Triangle) */}
+                                <div className="absolute top-[0px] -left-[9px] w-0 h-0 
+                                    border-t-[14px] border-t-indigo-200 
+                                    border-l-[14px] border-l-transparent">
+                                </div>
+                                <div className="absolute top-[2px] -left-[5px] w-0 h-0 
+                                    border-t-[11px] border-t-white 
+                                    border-l-[11px] border-l-transparent">
+                                </div>
+                            </div>
+
+                            {/* Name & Mobile Greeting */}
+                            <h1 className="text-2xl font-black text-gray-800 tracking-tight mt-1">
                                 สวัสดี, {user.name.split(' ')[0]}! 👋
                             </h1>
                             
+                            {/* Mobile Only Greeting Text */}
+                            <p className="text-xs font-medium text-indigo-500 sm:hidden mt-1 italic">
+                                "{randomGreeting || 'Have a nice day!'}"
+                            </p>
+                            
                             {/* Status Selector Dropdown */}
-                            <div className="relative group mt-1 inline-block">
+                            <div className="relative group mt-2 inline-block w-fit">
                                 <button className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${currentStatusConfig.color} bg-opacity-10 hover:bg-opacity-20`}>
                                     {currentStatusConfig.icon} {currentStatusConfig.label} <ChevronDown className="w-3 h-3 opacity-50" />
                                 </button>
@@ -85,7 +160,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                     </div>
 
                     {/* 2. Stats & Gamification */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
                         {/* Status Bars */}
                         <div className="flex-1 bg-gray-50 rounded-2xl p-3 border border-gray-100 flex flex-col justify-center min-w-[200px] gap-2 relative group cursor-help" onClick={() => setIsRulesOpen(true)}>
                              {/* Hint Label */}

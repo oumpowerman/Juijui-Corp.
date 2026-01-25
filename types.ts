@@ -145,7 +145,7 @@ export interface Task {
 
 export interface MasterOption {
     id: string;
-    type: string; // 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'POSITION' | 'RESPONSIBILITY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'EVENT_TYPE' etc
+    type: string; 
     key: string;
     label: string;
     color: string;
@@ -217,6 +217,7 @@ export interface WeeklyQuest {
     id: string;
     title: string;
     weekStartDate: Date;
+    endDate?: Date; // Added for flexible duration
     channelId?: string;
     targetCount: number;
     targetPlatform?: Platform | 'ALL';
@@ -429,6 +430,15 @@ export interface CalendarHighlight {
     note?: string;
 }
 
+export interface AnnualHoliday {
+    id: string;
+    name: string;
+    day: number;
+    month: number;
+    typeKey: string;
+    isActive: boolean;
+}
+
 export interface TaskComment {
     id: string;
     taskId: string;
@@ -436,4 +446,11 @@ export interface TaskComment {
     content: string;
     createdAt: Date;
     user?: User;
+}
+
+export interface Greeting {
+    id: string;
+    text: string;
+    category?: string;
+    isActive: boolean;
 }

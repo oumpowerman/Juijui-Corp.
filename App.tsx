@@ -148,6 +148,7 @@ function App() {
                   onEditTask={handleEditTask}
                   onNavigateToCalendar={() => setCurrentView('CALENDAR')}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                  onEditProfile={() => setIsProfileModalOpen(true)}
                   masterOptions={masterOptions}
                   onFetchAllData={fetchAllTasks}
                   isFetching={isTaskFetching}

@@ -3,13 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { User, MeetingLog, Task, MeetingCategory } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, Info, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Import New Components
 import MeetingListSidebar from './meeting/MeetingListSidebar';
 import MeetingDetail from './meeting/MeetingDetail';
 import MeetingActionModule from './meeting/MeetingActionModule';
+import InfoModal from './ui/InfoModal'; // Import InfoModal
+import MeetingGuide from './meeting/MeetingGuide'; // Import Guide
 
 interface MeetingViewProps {
     users: User[];
@@ -28,6 +30,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<MeetingTab>('NOTES');
     const [isSaving, setIsSaving] = useState(false);
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
     // Selected Meeting State (Controlled)
     const [title, setTitle] = useState('');
@@ -143,34 +146,51 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-500 overflow-hidden">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center">
-                        <FileText className="w-8 h-8 mr-3 text-indigo-600" />
-                        Meeting Room
-                    </h1>
-                    <p className="text-gray-500 text-sm font-medium mt-1">จดบันทึก ติดตามงาน และจัดการโปรเจกต์แบบครบวงจร</p>
+        <div className="flex flex-col h-[calc(100vh-80px)] animate-in fade-in duration-500 overflow-hidden pb-4 md:pb-6">
+            <div className="flex justify-between items-center mb-6 shrink-0 px-2 md:px-0">
+                <div className="flex items-center gap-3">
+                    <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-gray-100 text-indigo-600">
+                        <FileText className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center">
+                            Meeting Room
+                        </h1>
+                        <p className="text-gray-500 text-sm font-medium mt-1">จดบันทึก ติดตามงาน และเปลี่ยนการคุยเป็น Action!</p>
+                    </div>
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="p-1.5 bg-white text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors shadow-sm border border-gray-100 ml-2 self-start mt-1"
+                        title="คู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
                 </div>
                 <button 
                     onClick={handleCreate}
-                    className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95"
+                    className="flex items-center px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 group"
                 >
-                    <Plus className="w-5 h-5 mr-2 stroke-[3px]" /> เริ่มการประชุม
+                    <Plus className="w-5 h-5 mr-2 stroke-[3px] group-hover:rotate-90 transition-transform" /> 
+                    <span>เริ่มการประชุม</span>
                 </button>
             </div>
 
-            <div className="flex-1 flex gap-6 overflow-hidden bg-white rounded-[2.5rem] shadow-sm border border-gray-200">
-                <MeetingListSidebar 
-                    meetings={filteredMeetings}
-                    selectedId={selectedId}
-                    onSelect={setSelectedId}
-                    onDelete={deleteMeeting}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                />
+            <div className="flex-1 flex gap-6 overflow-hidden bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/60 ring-1 ring-gray-200/50 p-1.5">
+                
+                {/* Sidebar Container */}
+                <div className="hidden lg:flex flex-col bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden h-full">
+                     <MeetingListSidebar 
+                        meetings={filteredMeetings}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        onDelete={deleteMeeting}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                    />
+                </div>
 
-                <div className="flex-1 flex flex-col overflow-hidden relative">
+                {/* Detail Container */}
+                <div className="flex-1 flex flex-col overflow-hidden relative bg-white rounded-[2rem] border border-gray-100 shadow-lg shadow-gray-100/50">
                     {selectedMeeting ? (
                         <MeetingDetail 
                             meeting={selectedMeeting}
@@ -193,16 +213,30 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
                             />
                         </MeetingDetail>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-300 bg-gray-50/50 p-12 text-center">
-                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100">
-                                <FileText className="w-12 h-12 text-gray-200" />
+                        <div className="flex-1 flex flex-col items-center justify-center text-gray-300 bg-gray-50/30 p-12 text-center relative overflow-hidden">
+                            <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-50"></div>
+                            <div className="relative z-10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                <div className="w-28 h-28 bg-white rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-indigo-100 border border-white rotate-3">
+                                    <Sparkles className="w-14 h-14 text-indigo-300" />
+                                </div>
+                                <h3 className="font-black text-3xl text-gray-700 mb-3 tracking-tight">พร้อมเริ่มประชุมรึยัง?</h3>
+                                <p className="max-w-xs mx-auto text-gray-400 leading-relaxed font-medium">
+                                    เลือกหัวข้อการประชุมจากทางซ้าย <br/>หรือกดปุ่ม <span className="text-indigo-500 font-bold">"เริ่มการประชุม"</span> เพื่อเริ่มเรื่องใหม่
+                                </p>
                             </div>
-                            <h3 className="font-black text-2xl text-gray-400 mb-2">เลือกห้องประชุม</h3>
-                            <p className="max-w-xs mx-auto text-sm">เลือกบันทึกการประชุมจากรายการทางซ้าย หรือกดปุ่มเริ่มการประชุมใหม่ด้านบน</p>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือ Meeting Room"
+            >
+                <MeetingGuide />
+            </InfoModal>
         </div>
     );
 };

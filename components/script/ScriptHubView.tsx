@@ -9,6 +9,8 @@ import ScriptFilterBar from './hub/ScriptFilterBar';
 import ScriptList from './hub/ScriptList';
 import CreateScriptModal from './hub/CreateScriptModal';
 import ScriptEditor from './ScriptEditor';
+import InfoModal from '../ui/InfoModal'; // Import
+import ScriptGuide from './hub/ScriptGuide'; // Import
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
 
 // --- Sub-components ---
@@ -84,7 +86,7 @@ interface ScriptHubViewProps {
 const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => {
     // Hooks
     const { 
-        scripts, totalCount, isLoading, 
+        scripts, totalCount, stats, isLoading, 
         fetchScripts, getScriptById,
         createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI 
     } = useScripts(currentUser);
@@ -98,6 +100,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [layoutMode, setLayoutMode] = useState<'GRID' | 'LIST'>('LIST'); 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
     // Pagination & Filters
     const [page, setPage] = useState(1);
@@ -187,14 +190,17 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 
             <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
                 
-                {/* 1. Header */}
-                <ScriptHubHeader onCreateClick={() => setIsCreateModalOpen(true)} />
+                {/* 1. Header with Info Button */}
+                <ScriptHubHeader 
+                    onCreateClick={() => setIsCreateModalOpen(true)} 
+                    onInfoClick={() => setIsInfoOpen(true)} 
+                />
 
-                {/* 2. Dashboard Stats Grid (Acts as Main Filters) */}
+                {/* 2. Dashboard Stats Grid (NOW USING REAL STATS) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard 
                         label="ถ่ายวันนี้ (Queue)" 
-                        count={viewTab === 'QUEUE' ? totalCount : 0} // Approximate or need separate stats query
+                        count={stats.queue} 
                         icon={Clapperboard} 
                         color="orange" 
                         isActive={viewTab === 'QUEUE'}
@@ -202,7 +208,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="คลังบท (Library)" 
-                        count={viewTab === 'LIBRARY' && filterStatus === 'ALL' ? totalCount : 0} 
+                        count={stats.library} 
                         icon={FileText} 
                         color="indigo" 
                         isActive={viewTab === 'LIBRARY' && filterStatus === 'ALL'}
@@ -210,7 +216,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="แบบร่าง (Drafts)" 
-                        count={viewTab === 'LIBRARY' && filterStatus === 'DRAFT' ? totalCount : 0} 
+                        count={stats.drafts} 
                         icon={Edit3} 
                         color="pink" 
                         isActive={viewTab === 'LIBRARY' && filterStatus === 'DRAFT'}
@@ -218,7 +224,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="เสร็จแล้ว (History)" 
-                        count={viewTab === 'HISTORY' ? totalCount : 0} 
+                        count={stats.history} 
                         icon={CheckCircle2} 
                         color="emerald" 
                         isActive={viewTab === 'HISTORY'}
@@ -311,6 +317,15 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 channels={channels}
                 masterOptions={masterOptions}
             />
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือ Script Hub"
+            >
+                <ScriptGuide />
+            </InfoModal>
         </div>
     );
 };

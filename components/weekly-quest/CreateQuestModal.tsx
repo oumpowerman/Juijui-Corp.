@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar } from 'lucide-react';
+import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight } from 'lucide-react';
 import { Channel, MasterOption, WeeklyQuest, Platform } from '../../types';
 import { CONTENT_FORMATS } from '../../constants';
-import { format } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
 
 interface CreateQuestModalProps {
     isOpen: boolean;
@@ -30,8 +30,9 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     const [customChannelName, setCustomChannelName] = useState('');
     const [isCustomChannel, setIsCustomChannel] = useState(false);
     
-    // New: Custom Start Date
+    // Custom Dates
     const [customStartDate, setCustomStartDate] = useState(format(weekStart, 'yyyy-MM-dd'));
+    const [customEndDate, setCustomEndDate] = useState(format(addDays(weekStart, 6), 'yyyy-MM-dd'));
 
     // Master Data
     const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
@@ -43,6 +44,15 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     ]);
 
     const selectedChannelObj = channels.find(c => c.id === selectedChannelId);
+
+    const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newStart = new Date(e.target.value);
+        setCustomStartDate(e.target.value);
+        // Automatically adjust end date to be +6 days (1 week) by default
+        if (!isNaN(newStart.getTime())) {
+            setCustomEndDate(format(addDays(newStart, 6), 'yyyy-MM-dd'));
+        }
+    };
 
     const handleAddDefaultItems = () => {
         setQuestItems([
@@ -59,15 +69,22 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
             alert("กรุณาเลือกช่อง (Channel) หรือพิมพ์ชื่อใหม่ครับ");
             return;
         }
+        
+        if (new Date(customStartDate) > new Date(customEndDate)) {
+             alert("วันจบต้องมาหลังวันเริ่มนะครับ");
+             return;
+        }
 
         const effectiveStartDate = new Date(customStartDate);
+        const effectiveEndDate = new Date(customEndDate);
 
         questItems.forEach(item => {
             if(!item.title) return;
             const finalTitle = isCustomChannel ? `[${customChannelName}] ${item.title}` : item.title;
             onAddQuest({
                 title: finalTitle,
-                weekStartDate: effectiveStartDate, // Use the picker date
+                weekStartDate: effectiveStartDate,
+                endDate: effectiveEndDate, // Save flexible end date
                 targetCount: item.targetCount,
                 channelId: isCustomChannel ? undefined : selectedChannelId,
                 targetPlatform: item.questType === 'AUTO' ? item.platform : undefined,
@@ -85,6 +102,9 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
         setCustomChannelName('');
         setIsCustomChannel(false);
     };
+    
+    // Calculate Duration
+    const durationDays = differenceInDays(new Date(customEndDate), new Date(customStartDate)) + 1;
 
     if (!isOpen) return null;
 
@@ -97,7 +117,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                             <Target className="w-6 h-6 text-yellow-300" /> 
                             สร้างภารกิจใหม่ (Create Plan)
                         </h3>
-                        <p className="text-indigo-100 text-sm mt-1">กำหนดเงื่อนไขให้ชัดเจน หรือสร้างแบบ Manual เพื่อนับยอดเอง</p>
+                        <p className="text-indigo-100 text-sm mt-1">กำหนดเงื่อนไขและระยะเวลาได้อย่างอิสระ</p>
                     </div>
                     <button onClick={onClose} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors text-white">
                         <X className="w-5 h-5" />
@@ -140,16 +160,29 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                             </div>
 
                             {/* Date Selection */}
-                            <div className="w-full md:w-1/3 space-y-3">
-                                <label className="text-sm font-bold text-gray-700 flex items-center">เริ่มวันที่ (Start Date)</label>
-                                <div className="relative">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input 
-                                        type="date" 
-                                        className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl font-bold text-gray-700 focus:border-indigo-500 outline-none"
-                                        value={customStartDate}
-                                        onChange={e => setCustomStartDate(e.target.value)}
-                                    />
+                            <div className="w-full md:w-5/12 space-y-3">
+                                <label className="text-sm font-bold text-gray-700 flex items-center">ช่วงเวลา (Period)</label>
+                                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="date" 
+                                            className="w-full pl-2 pr-2 py-2 bg-white rounded-lg font-bold text-gray-700 focus:ring-2 focus:ring-indigo-100 outline-none text-xs"
+                                            value={customStartDate}
+                                            onChange={handleStartDateChange}
+                                        />
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="date" 
+                                            className="w-full pl-2 pr-2 py-2 bg-white rounded-lg font-bold text-gray-700 focus:ring-2 focus:ring-indigo-100 outline-none text-xs"
+                                            value={customEndDate}
+                                            onChange={e => setCustomEndDate(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="text-right text-[10px] text-gray-400 font-bold px-1">
+                                    รวมระยะเวลา: {durationDays} วัน
                                 </div>
                             </div>
                         </div>

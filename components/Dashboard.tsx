@@ -12,6 +12,7 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
+  onEditProfile: () => void; // New Prop
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
   onFetchAllData?: () => void;

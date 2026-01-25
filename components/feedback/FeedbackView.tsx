@@ -6,8 +6,10 @@ import FeedbackCard from './FeedbackCard';
 import FeedbackForm from './FeedbackForm';
 import FeedbackStats from './FeedbackStats';
 import MentorTip from '../MentorTip';
-import { Inbox, ShieldCheck } from 'lucide-react';
+import { Inbox, ShieldCheck, Info } from 'lucide-react';
 import Skeleton from '../ui/Skeleton';
+import InfoModal from '../ui/InfoModal'; // Import InfoModal
+import FeedbackGuide from './FeedbackGuide'; // Import FeedbackGuide
 
 interface FeedbackViewProps {
     currentUser: User;
@@ -16,6 +18,7 @@ interface FeedbackViewProps {
 const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
     const { feedbacks, isLoading, submitFeedback, toggleVote, updateStatus, deleteFeedback } = useFeedback(currentUser);
     const [tab, setTab] = useState<'BOARD' | 'ADMIN'>('BOARD');
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
     const isAdmin = currentUser.role === 'ADMIN';
 
     // Filter Logic
@@ -31,13 +34,22 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
             ]} />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                        เสียงจากทีม 📣 (Voice of Team)
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        เสนอแนะ, แจ้งปัญหา, หรือชื่นชมเพื่อนร่วมงาน
-                    </p>
+                <div className="flex items-center gap-3">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+                            เสียงจากทีม 📣 (Voice of Team)
+                        </h1>
+                        <p className="text-gray-500 mt-1">
+                            เสนอแนะ, แจ้งปัญหา, หรือชื่นชมเพื่อนร่วมงาน
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="p-1.5 bg-white text-pink-400 hover:text-pink-600 hover:bg-pink-50 rounded-full transition-colors shadow-sm border border-gray-100 self-start mt-1"
+                        title="คู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {isAdmin && (
@@ -124,6 +136,15 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                     </div>
                 </div>
             </div>
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือ Voice of Team"
+            >
+                <FeedbackGuide />
+            </InfoModal>
         </div>
     );
 };

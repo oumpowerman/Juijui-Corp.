@@ -1,12 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Task, Channel, MasterOption, WorkStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
 import WelcomeHeader from './member/WelcomeHeader';
 import FocusZone from './member/FocusZone';
 import MyWorkBoard from './member/MyWorkBoard';
+import MyDutyWidget from './member/MyDutyWidget'; // Import Widget
 import WeeklyQuestBoard from '../WeeklyQuestBoard'; 
 import ItemShopModal from '../gamification/ItemShopModal';
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
+import { useDuty } from '../../hooks/useDuty'; // Import Hook
 import { useToast } from '../../context/ToastContext';
 
 interface MemberDashboardProps {
@@ -17,6 +20,7 @@ interface MemberDashboardProps {
     masterOptions: MasterOption[];
     onEditTask: (task: Task) => void;
     onOpenSettings: () => void;
+    onEditProfile: () => void; // New Prop
     onRefreshMasterData?: () => Promise<void>;
 }
 
@@ -27,7 +31,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     users, 
     masterOptions, 
     onEditTask, 
-    onOpenSettings 
+    onOpenSettings,
+    onEditProfile 
 }) => {
     // Local State for fast UI updates
     const [localUser, setLocalUser] = useState<User>(currentUser);
@@ -36,6 +41,9 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     
     // Weekly Quests Hook (Reused)
     const { quests, handleAddQuest, handleDeleteQuest } = useWeeklyQuests();
+
+    // Duty Hook (To check for daily duties on dashboard)
+    const { duties } = useDuty();
 
     // Sync local user with prop updates (Realtime updates flow down here)
     useEffect(() => {
@@ -82,23 +90,30 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 onUpdateStatus={handleUpdateStatus}
                 onOpenShop={() => setIsShopOpen(true)}
                 onOpenNotifications={onOpenSettings}
+                onEditProfile={onEditProfile}
                 unreadNotifications={unreadNotifications}
             />
 
-            {/* 2. Focus Zone (Urgent / Revise) */}
+            {/* 2. My Duty Warning (High Priority) */}
+            <MyDutyWidget 
+                duties={duties} 
+                currentUser={currentUser} 
+            />
+
+            {/* 3. Focus Zone (Urgent / Revise) */}
             <FocusZone 
                 tasks={myTasks} 
                 onOpenTask={onEditTask} 
             />
 
-            {/* 3. My Work Board (Kanban) */}
+            {/* 4. My Work Board (Kanban) */}
             <MyWorkBoard 
                 tasks={myTasks} 
                 masterOptions={masterOptions}
                 onOpenTask={onEditTask}
             />
 
-            {/* 4. Weekly Quests */}
+            {/* 5. Weekly Quests */}
             <div className="pt-4 border-t border-gray-100">
                 <WeeklyQuestBoard 
                     tasks={myTasks}
@@ -111,7 +126,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 />
             </div>
 
-            {/* 5. Item Shop Modal */}
+            {/* 6. Item Shop Modal */}
             <ItemShopModal 
                 isOpen={isShopOpen}
                 onClose={() => setIsShopOpen(false)}

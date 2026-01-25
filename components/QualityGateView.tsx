@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { useReviews } from '../hooks/useReviews';
 import { useQualityActions } from '../hooks/useQualityActions';
 import { isToday, isTomorrow, isPast, isFuture } from 'date-fns';
-import { Clock, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Clock, Search, Filter, AlertTriangle, Info } from 'lucide-react';
 import { Channel, Task, MasterOption, User } from '../types';
 import MentorTip from './MentorTip';
 import ReviewCard from './quality-gate/ReviewCard';
 import ReviewActionModal from './quality-gate/ReviewActionModal';
 import QualityStatsWidget from './quality-gate/QualityStatsWidget';
+import InfoModal from './ui/InfoModal'; // Import
+import QualityGuide from './quality-gate/QualityGuide'; // Import
 
 interface QualityGateViewProps {
     channels: Channel[];
@@ -25,6 +27,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'REVISE' | 'PASSED'>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'PASS' | 'REVISE' | null, reviewId: string, taskId: string, task?: Task }>({
@@ -100,13 +103,22 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                        ห้องตรวจงาน 🔍 (Quality Gate)
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        จัดการคิวตรวจ Draft และอนุมัติงานแบบ Real-time
-                    </p>
+                <div className="flex items-start gap-2">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+                            ห้องตรวจงาน 🔍 (Quality Gate)
+                        </h1>
+                        <p className="text-gray-500 mt-1">
+                            จัดการคิวตรวจ Draft และอนุมัติงานแบบ Real-time
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors mt-1"
+                        title="ดูคู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
 
@@ -256,6 +268,15 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 actionType={modalConfig.type}
                 onConfirm={onConfirmModal}
             />
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือห้องตรวจงาน (Quality Gate)"
+            >
+                <QualityGuide />
+            </InfoModal>
         </div>
     );
 };

@@ -1,10 +1,11 @@
 
 import React, { memo } from 'react';
-import { Send, ShoppingBag, Wallet } from 'lucide-react';
+import { Send, ShoppingBag, Wallet, Settings } from 'lucide-react';
 import { User } from '../../types';
 
 interface TeamHeaderProps {
     onAddTask?: (type?: any) => void;
+    onManageClick?: () => void;
     currentUser: User | null;
     isShopOpen: boolean;
     toggleShop: () => void;
@@ -12,10 +13,13 @@ interface TeamHeaderProps {
 
 const TeamHeader: React.FC<TeamHeaderProps> = ({ 
     onAddTask, 
+    onManageClick,
     currentUser, 
     isShopOpen, 
     toggleShop 
 }) => {
+    const isAdmin = currentUser?.role === 'ADMIN';
+
     return (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
@@ -27,6 +31,17 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
             </div>
             
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                {/* Admin Manage Button */}
+                {isAdmin && onManageClick && (
+                    <button 
+                        onClick={onManageClick}
+                        className="p-3 bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-200 rounded-2xl shadow-sm transition-all"
+                        title="จัดการสมาชิก"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+                )}
+
                 {/* Distribute Task Button */}
                 {onAddTask && (
                     <button 

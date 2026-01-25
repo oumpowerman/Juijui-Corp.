@@ -22,6 +22,7 @@ export const useWeeklyQuests = () => {
                     id: q.id,
                     title: q.title,
                     weekStartDate: new Date(q.week_start_date),
+                    endDate: q.end_date ? new Date(q.end_date) : undefined, // Map end_date
                     channelId: q.channel_id,
                     targetCount: q.target_count,
                     targetPlatform: q.target_platform,
@@ -63,6 +64,7 @@ export const useWeeklyQuests = () => {
                 id: newId,
                 title: quest.title,
                 week_start_date: quest.weekStartDate.toISOString(),
+                end_date: quest.endDate ? quest.endDate.toISOString() : null, // Save end_date
                 channel_id: quest.channelId || null,
                 target_count: quest.targetCount,
                 target_platform: quest.targetPlatform || null,
@@ -75,8 +77,6 @@ export const useWeeklyQuests = () => {
             const { error } = await supabase.from('weekly_quests').insert(payload);
             if (error) throw error;
 
-            // Optimistic update isn't strictly necessary with realtime, but good for instant feedback
-            // setQuests(prev => [{ ...quest, id: newId }, ...prev]); 
             showToast('สร้าง Quest ใหม่แล้ว! 🎯', 'success');
         } catch (err: any) {
             console.error(err);
@@ -88,7 +88,6 @@ export const useWeeklyQuests = () => {
         try {
             const { error } = await supabase.from('weekly_quests').delete().eq('id', id);
             if (error) throw error;
-            // setQuests(prev => prev.filter(q => q.id !== id));
             showToast('ลบ Quest เรียบร้อย', 'info');
         } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');

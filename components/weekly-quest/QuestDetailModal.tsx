@@ -30,7 +30,7 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
         const qStart = new Date(quest.weekStartDate);
         qStart.setHours(0, 0, 0, 0);
         
-        const qEnd = addDays(qStart, 6); 
+        const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
         qEnd.setHours(23, 59, 59, 999);
 
         return allTasks.filter(t => {
@@ -97,7 +97,7 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
 
                             // Date Info
                             const qStart = new Date(quest.weekStartDate);
-                            const qEnd = addDays(qStart, 6);
+                            const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
                             const dateLabel = `${format(qStart, 'd MMM')} - ${format(qEnd, 'd MMM')}`;
 
                             return (

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, Plus, X, Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, Database } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, Database } from 'lucide-react';
 import { User, ViewMode, TaskType } from '../types';
 
 interface MobileNavigationProps {
@@ -43,14 +43,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
 
     return (
         <>
-            {/* FAB (Floating Action Button) - Slightly adjusted for 5-item nav */}
-            <button
-                onClick={() => onAddTask()}
-                className="fixed bottom-24 left-1/2 -translate-x-1/2 w-14 h-14 bg-indigo-600 rounded-full shadow-2xl shadow-indigo-400 flex items-center justify-center text-white z-50 active:scale-95 transition-transform lg:hidden border-4 border-white"
-            >
-                <Plus className="w-8 h-8 stroke-[4px]" />
-            </button>
-
             {/* Bottom Bar (5-item layout) */}
             <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-2 py-2 flex justify-around items-center z-50 lg:hidden pb-safe-area h-[75px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                 {mainNavItems.map((item) => {

@@ -8,7 +8,7 @@ import { useMaintenance } from './useMaintenance';
 
 export type MasterTab = 
     // Workflow
-    | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION'
+    | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION' | 'EVENT_TYPE' | 'YEARLY'
     // Content
     | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY'
     // Inventory
@@ -18,7 +18,7 @@ export type MasterTab =
     // QC
     | 'REJECTION_REASON'
     // System
-    | 'REWARDS' | 'DASHBOARD' | 'MAINTENANCE';
+    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE';
 
 export const useMasterDataView = () => {
     // --- Hooks ---
@@ -112,7 +112,7 @@ export const useMasterDataView = () => {
                     label: formData.label, 
                     color: formData.color, 
                     sortOrder: formData.sortOrder, 
-                    isActive: formData.isActive,
+                    isActive: formData.isActive, 
                     parentKey: formData.parentKey || undefined
                 };
                 

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { CalendarHighlight } from '../types';
 import { useToast } from '../context/ToastContext';
-import { startOfMonth, endOfMonth, format, addDays } from 'date-fns';
+import { endOfMonth, format, addDays } from 'date-fns';
 
 export const useCalendarHighlights = (currentDate: Date) => {
     const [highlights, setHighlights] = useState<CalendarHighlight[]>([]);
@@ -11,26 +11,78 @@ export const useCalendarHighlights = (currentDate: Date) => {
 
     const fetchHighlights = useCallback(async () => {
         // Fetch a bit wider range to ensure smooth transition (prev/next month days)
-        const start = format(addDays(startOfMonth(currentDate), -7), 'yyyy-MM-dd');
+        const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        const start = format(addDays(startOfCurrentMonth, -7), 'yyyy-MM-dd');
         const end = format(addDays(endOfMonth(currentDate), 14), 'yyyy-MM-dd');
 
         try {
-            const { data, error } = await supabase
+            // 1. Fetch Specific Overrides
+            const { data: specificData, error: specificError } = await supabase
                 .from('calendar_highlights')
                 .select('*')
                 .gte('date', start)
                 .lte('date', end);
 
-            if (error) throw error;
+            if (specificError) throw specificError;
 
-            if (data) {
-                setHighlights(data.map((h: any) => ({
-                    id: h.id,
-                    date: new Date(h.date),
-                    typeKey: h.type_key,
-                    note: h.note
-                })));
+            // 2. Fetch Annual Holidays (All)
+            const { data: annualData, error: annualError } = await supabase
+                .from('annual_holidays')
+                .select('*')
+                .eq('is_active', true);
+            
+            if (annualError) throw annualError;
+
+            // 3. Merge Logic
+            const combined: CalendarHighlight[] = [];
+            const specificMap = new Map<string, boolean>();
+
+            // Add Specific first
+            if (specificData) {
+                specificData.forEach((h: any) => {
+                    combined.push({
+                        id: h.id,
+                        date: new Date(h.date),
+                        typeKey: h.type_key,
+                        note: h.note
+                    });
+                    specificMap.set(h.date, true); // Key as 'YYYY-MM-DD'
+                });
             }
+
+            // Add Annuals (Expand to current view year)
+            if (annualData) {
+                const startObj = new Date(start);
+                const endObj = new Date(end);
+                // Determine relevant years (start year and end year)
+                const years = new Set([startObj.getFullYear(), endObj.getFullYear()]);
+
+                annualData.forEach((rule: any) => {
+                    years.forEach(year => {
+                        // Create date for this year
+                        const d = new Date(year, rule.month - 1, rule.day);
+                        // Fix JS Date overflow (e.g. Feb 30 -> Mar 2) if data is bad, but assume valid
+                        
+                        // Check if valid date for this month (e.g. leap year check for Feb 29)
+                        if (d.getMonth() !== rule.month - 1) return; // Invalid date skipped
+
+                        const dStr = format(d, 'yyyy-MM-dd');
+
+                        // Only add if within view range AND NOT overridden by specific highlight
+                        if (d >= startObj && d <= endObj && !specificMap.has(dStr)) {
+                            combined.push({
+                                id: `annual-${rule.id}-${year}`,
+                                date: d,
+                                typeKey: rule.type_key,
+                                note: rule.name
+                            });
+                        }
+                    });
+                });
+            }
+
+            setHighlights(combined);
+
         } catch (err) {
             console.error('Fetch highlights error:', err);
         }
@@ -41,37 +93,9 @@ export const useCalendarHighlights = (currentDate: Date) => {
         fetchHighlights();
 
         const channel = supabase
-            .channel('realtime-calendar-highlights')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_highlights' }, (payload: any) => {
-                // handle DELETE
-                if (payload.eventType === 'DELETE') {
-                    setHighlights(prev => prev.filter(h => h.id !== payload.old.id));
-                } 
-                // handle INSERT
-                else if (payload.eventType === 'INSERT') {
-                    const newHighlight: CalendarHighlight = {
-                        id: payload.new.id,
-                        date: new Date(payload.new.date),
-                        typeKey: payload.new.type_key,
-                        note: payload.new.note
-                    };
-                    setHighlights(prev => [...prev, newHighlight]);
-                }
-                // handle UPDATE
-                else if (payload.eventType === 'UPDATE') {
-                    setHighlights(prev => prev.map(h => {
-                        if (h.id === payload.new.id) {
-                            return {
-                                id: payload.new.id,
-                                date: new Date(payload.new.date),
-                                typeKey: payload.new.type_key,
-                                note: payload.new.note
-                            };
-                        }
-                        return h;
-                    }));
-                }
-            })
+            .channel('realtime-calendar-highlights-v2')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_highlights' }, () => fetchHighlights())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_holidays' }, () => fetchHighlights())
             .subscribe();
 
         return () => {
@@ -83,6 +107,7 @@ export const useCalendarHighlights = (currentDate: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         try {
             // Upsert based on unique constraint (date)
+            // This overrides any annual holiday because we check 'calendar_highlights' first
             const { error } = await supabase
                 .from('calendar_highlights')
                 .upsert({
@@ -108,6 +133,8 @@ export const useCalendarHighlights = (currentDate: Date) => {
 
             if (error) throw error;
             showToast('ลบไฮไลท์แล้ว', 'info');
+            // Note: If an annual holiday exists on this day, it will reappear after refresh/realtime update
+            // because we removed the specific override. This is expected behavior.
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
         }

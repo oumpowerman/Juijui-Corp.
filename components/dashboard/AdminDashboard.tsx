@@ -19,6 +19,7 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
+  onEditProfile: () => void; // Added for interface consistency with Dashboard.tsx
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
   onFetchAllData?: () => void; // New prop for manual fetching ALL data

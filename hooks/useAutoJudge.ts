@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Status } from '../types';
 import { useGamification } from './useGamification';
-import { addDays, format, isBefore, startOfDay } from 'date-fns';
+import { addDays, format, isBefore } from 'date-fns';
 import { isTaskCompleted } from '../constants';
 
 export const useAutoJudge = (currentUser: User | null) => {
@@ -14,8 +14,6 @@ export const useAutoJudge = (currentUser: User | null) => {
         if (!currentUser || hasRun.current) return;
         
         // --- 1. Prevent running multiple times per session ---
-        // Also check localStorage to prevent running on refresh multiple times a day if needed,
-        // but since we check for 'is_penalized' in DB, it is safe to run on every mount (idempotent).
         hasRun.current = true;
 
         try {
@@ -33,14 +31,55 @@ export const useAutoJudge = (currentUser: User | null) => {
 
             if (!dutyError && missedDuties && missedDuties.length > 0) {
                 for (const duty of missedDuties) {
-                    // 1. Execute Punishment
-                    await processAction(currentUser.id, 'DUTY_MISSED', duty);
                     
-                    // 2. Mark as Penalized
-                    await supabase
-                        .from('duties')
-                        .update({ is_penalized: true })
-                        .eq('id', duty.id);
+                    // 1. Check for 'Duty Shield' (SKIP_DUTY) in Inventory
+                    const { data: shields } = await supabase
+                        .from('user_inventory')
+                        .select(`
+                            id, 
+                            item_id,
+                            shop_items!inner ( effect_type )
+                        `)
+                        .eq('user_id', currentUser.id)
+                        .eq('is_used', false)
+                        .eq('shop_items.effect_type', 'SKIP_DUTY')
+                        .limit(1);
+
+                    const activeShield = shields && shields.length > 0 ? shields[0] : null;
+
+                    if (activeShield) {
+                        // --- SHIELD ACTIVATED ---
+                        // 1. Consume Shield
+                        await supabase
+                            .from('user_inventory')
+                            .update({ is_used: true, used_at: new Date().toISOString() })
+                            .eq('id', activeShield.id);
+                        
+                        // 2. Log Protection
+                        await supabase.from('game_logs').insert({
+                            user_id: currentUser.id,
+                            action_type: 'ITEM_USE', // Or specialized type
+                            description: '🛡️ Duty Shield Activated: รอดพ้นโทษจากการลืมทำเวร!',
+                            related_id: duty.id
+                        });
+
+                        // 3. Mark Duty as penalized (processed) so we don't check again
+                        await supabase
+                            .from('duties')
+                            .update({ is_penalized: true })
+                            .eq('id', duty.id);
+
+                    } else {
+                        // --- NO SHIELD: PUNISH ---
+                        // 1. Execute Punishment
+                        await processAction(currentUser.id, 'DUTY_MISSED', duty);
+                        
+                        // 2. Mark as Penalized
+                        await supabase
+                            .from('duties')
+                            .update({ is_penalized: true })
+                            .eq('id', duty.id);
+                    }
                 }
             }
 

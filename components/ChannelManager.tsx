@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, X, Check, LayoutTemplate, Youtube, Facebook, Instagram, Video, Globe, Palette, Loader2, Bell } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Edit2, X, Check, LayoutTemplate, Youtube, Facebook, Instagram, Video, Globe, Palette, Loader2, Bell, Image as ImageIcon, Camera } from 'lucide-react';
 import { Channel, Platform, Task } from '../types';
 import { PLATFORM_ICONS } from '../constants';
 import MentorTip from './MentorTip';
@@ -8,8 +8,8 @@ import MentorTip from './MentorTip';
 interface ChannelManagerProps {
   tasks: Task[];
   channels: Channel[];
-  onAdd: (channel: Channel) => Promise<boolean>;
-  onEdit: (channel: Channel) => Promise<boolean>;
+  onAdd: (channel: Channel, file?: File) => Promise<boolean>;
+  onEdit: (channel: Channel, file?: File) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
   onOpenSettings: () => void;
 }
@@ -45,6 +45,11 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
   const [description, setDescription] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['YOUTUBE']);
   const [color, setColor] = useState(BRAND_COLORS[0].class);
+  
+  // Image State
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingId) {
@@ -54,6 +59,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
         setDescription(channelToEdit.description || '');
         setSelectedPlatforms(channelToEdit.platforms || []);
         setColor(channelToEdit.color);
+        setLogoPreview(channelToEdit.logoUrl || null);
+        setLogoFile(null); // Reset file input
         setIsFormOpen(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -65,6 +72,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
     setDescription('');
     setSelectedPlatforms(['YOUTUBE']);
     setColor(BRAND_COLORS[0].class);
+    setLogoFile(null);
+    setLogoPreview(null);
     setEditingId(null);
   };
 
@@ -78,6 +87,14 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
           prev.includes(p) ? prev.filter(i => i !== p) : [...prev, p]
       );
   }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          setLogoFile(file);
+          setLogoPreview(URL.createObjectURL(file));
+      }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,14 +118,15 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
           name: name.trim(),
           description: description.trim(),
           color,
-          platforms: selectedPlatforms
+          platforms: selectedPlatforms,
+          logoUrl: logoPreview || undefined // Pass current preview/url logic handled in hook
       };
 
       let success = false;
       if (editingId) {
-        success = await onEdit(payload);
+        success = await onEdit(payload, logoFile || undefined);
       } else {
-        success = await onAdd(payload);
+        success = await onAdd(payload, logoFile || undefined);
       }
 
       if (success) {
@@ -123,7 +141,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <MentorTip variant="orange" messages={["คลิกที่การ์ดรายการเพื่อแก้ไขข้อมูลได้เลย ไม่ต้องเล็งปุ่มเล็กๆ!", "สีของรายการจะไปโชว์ในปฏิทิน เลือกสีให้ต่างกันจะดูง่ายขึ้น"]} />
+      <MentorTip variant="orange" messages={["อัปโหลด Logo ช่องได้แล้วนะ! จะช่วยให้ดูเป็นทางการขึ้นเยอะเลย", "คลิกที่การ์ดรายการเพื่อแก้ไขข้อมูลได้เลย"]} />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
@@ -176,57 +194,86 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                        <label className="block text-sm font-bold text-gray-700 mb-1">
-                            1. ชื่อรายการ / แบรนด์ (Name) <span className="text-red-500">*</span>
-                        </label>
+                <div className="flex flex-col md:flex-row gap-8">
+                    {/* Logo Uploader */}
+                    <div className="flex flex-col items-center gap-3 shrink-0">
+                        <label className="text-sm font-bold text-gray-700">Logo</label>
+                        <div 
+                            className="relative w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all overflow-hidden group"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            {logoPreview ? (
+                                <img src={logoPreview} alt="Logo Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-indigo-400" />
+                            )}
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
                         <input 
-                            type="text" 
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            placeholder="เช่น Juijui Vlog, ข่าวเช้า, เกมมิ่ง..." 
-                            className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:ring-0 outline-none font-bold text-gray-800 transition-all text-lg placeholder:font-normal placeholder:text-gray-300 disabled:opacity-70 disabled:bg-gray-50"
-                            autoFocus
-                            disabled={isSubmitting}
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleFileChange} 
+                            className="hidden" 
+                            accept="image/png, image/jpeg, image/jpg"
                         />
-                        
-                        <label className="block text-sm font-bold text-gray-700 mt-4 mb-1">
-                            รายละเอียด / คอนเซปต์ (Description)
-                        </label>
-                        <textarea 
-                            value={description}
-                            onChange={e => setDescription(e.target.value)}
-                            placeholder="เช่น รายการพาเที่ยว เน้นกิน สบายๆ..." 
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-indigo-500 outline-none text-gray-700 transition-all resize-none h-24 text-sm disabled:opacity-70"
-                            disabled={isSubmitting}
-                        />
+                        {logoPreview && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setLogoFile(null); setLogoPreview(null); if(fileInputRef.current) fileInputRef.current.value=''; }} className="text-xs text-red-500 hover:underline">ลบรูป</button>
+                        )}
                     </div>
 
-                    <div className="space-y-4">
-                         <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center">
-                            <Palette className="w-4 h-4 mr-2 text-indigo-500" />
-                            2. สีประจำรายการ (Brand Color)
-                         </label>
-                         <p className="text-xs text-gray-400 mb-3">สีนี้จะไปแสดงในปฏิทินงาน เพื่อให้แยกรายการได้ง่าย</p>
-                         <div className="grid grid-cols-5 gap-3">
-                            {BRAND_COLORS.map((c) => (
-                                <button
-                                    key={c.id}
-                                    type="button"
-                                    onClick={() => setColor(c.class)}
-                                    disabled={isSubmitting}
-                                    className={`
-                                        h-10 rounded-lg border-2 transition-all relative flex items-center justify-center
-                                        ${c.class.split(' ')[0]} 
-                                        ${c.class.split(' ')[2]}
-                                        ${color === c.class ? 'ring-2 ring-offset-2 ' + c.class.split(' ')[3] : 'border-transparent hover:scale-105 opacity-70 hover:opacity-100'}
-                                        ${isSubmitting ? 'cursor-not-allowed opacity-50' : ''}
-                                    `}
-                                >
-                                    {color === c.class && <Check className="w-5 h-5" />}
-                                </button>
-                            ))}
+                    <div className="flex-1 space-y-6">
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                1. ชื่อรายการ / แบรนด์ (Name) <span className="text-red-500">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                placeholder="เช่น Juijui Vlog, ข่าวเช้า, เกมมิ่ง..." 
+                                className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:ring-0 outline-none font-bold text-gray-800 transition-all text-lg placeholder:font-normal placeholder:text-gray-300 disabled:opacity-70 disabled:bg-gray-50"
+                                autoFocus
+                                disabled={isSubmitting}
+                            />
+                            
+                            <label className="block text-sm font-bold text-gray-700 mt-4 mb-1">
+                                รายละเอียด / คอนเซปต์ (Description)
+                            </label>
+                            <textarea 
+                                value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                placeholder="เช่น รายการพาเที่ยว เน้นกิน สบายๆ..." 
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-indigo-500 outline-none text-gray-700 transition-all resize-none h-24 text-sm disabled:opacity-70"
+                                disabled={isSubmitting}
+                            />
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center">
+                                <Palette className="w-4 h-4 mr-2 text-indigo-500" />
+                                2. สีประจำรายการ (Brand Color)
+                            </label>
+                            <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
+                                {BRAND_COLORS.map((c) => (
+                                    <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => setColor(c.class)}
+                                        disabled={isSubmitting}
+                                        className={`
+                                            h-10 rounded-lg border-2 transition-all relative flex items-center justify-center
+                                            ${c.class.split(' ')[0]} 
+                                            ${c.class.split(' ')[2]}
+                                            ${color === c.class ? 'ring-2 ring-offset-2 ' + c.class.split(' ')[3] : 'border-transparent hover:scale-105 opacity-70 hover:opacity-100'}
+                                            ${isSubmitting ? 'cursor-not-allowed opacity-50' : ''}
+                                        `}
+                                    >
+                                        {color === c.class && <Check className="w-5 h-5" />}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -319,11 +366,27 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
                 <div 
                     key={channel.id} 
                     onClick={() => { setEditingId(channel.id); setIsFormOpen(true); }}
-                    className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:border-indigo-200 hover:-translate-y-1 transition-all group overflow-hidden flex flex-col cursor-pointer"
+                    className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg hover:border-indigo-200 hover:-translate-y-1 transition-all group overflow-hidden flex flex-col cursor-pointer relative"
                 >
-                    <div className={`h-2 w-full ${bgClass}`}></div>
+                    {/* Color Bar / Banner */}
+                    <div className={`h-24 w-full ${bgClass} relative`}>
+                        <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-transparent"></div>
+                    </div>
                     
-                    <div className="p-5 flex-1 flex flex-col">
+                    {/* Logo Overlay */}
+                    <div className="absolute top-12 left-5">
+                         <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
+                             {channel.logoUrl ? (
+                                 <img src={channel.logoUrl} className="w-full h-full object-cover" alt="logo" />
+                             ) : (
+                                 <div className={`w-full h-full flex items-center justify-center font-black text-2xl uppercase ${channel.color.split(' ')[1]}`}>
+                                     {channel.name.substring(0, 2)}
+                                 </div>
+                             )}
+                         </div>
+                    </div>
+
+                    <div className="p-5 pt-10 flex-1 flex flex-col">
                         <div className="flex justify-between items-start mb-2">
                             <h3 className="font-bold text-xl text-gray-800 line-clamp-1" title={channel.name}>
                                 {channel.name}

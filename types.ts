@@ -87,6 +87,7 @@ export interface Channel {
     description?: string;
     color: string;
     platforms: Platform[];
+    logoUrl?: string;
 }
 
 export interface TaskAsset {

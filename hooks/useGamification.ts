@@ -183,37 +183,89 @@ export const useGamification = (currentUser?: any) => {
         setIsLoading(true);
 
         try {
-            // 1. Apply Effect
+            // 1. Apply Effect Logic
+            
             if (item.effectType === 'HEAL_HP') {
+                // --- HEAL POTION ---
                 const { data: user } = await supabase.from('profiles').select('hp, max_hp').eq('id', currentUser.id).single();
                 if (user) {
                     const newHp = Math.min(user.max_hp, user.hp + item.effectValue);
                     await supabase.from('profiles').update({ hp: newHp }).eq('id', currentUser.id);
+                    
+                    // Consume
+                    await supabase.from('user_inventory').update({ is_used: true, used_at: new Date().toISOString() }).eq('id', inventoryId);
+                    
+                    // Log
+                    await supabase.from('game_logs').insert({
+                        user_id: currentUser.id,
+                        action_type: 'ITEM_USE',
+                        description: `ใช้ไอเทม: ${item.name} (HP +${item.effectValue})`
+                    });
+
                     showToast(`ฟื้นฟูพลัง! HP +${item.effectValue} ❤️`, 'success');
                 }
             } 
             else if (item.effectType === 'SKIP_DUTY') {
-                 // Future: Flag duty as skipped
-                 showToast('ใช้บัตรกันเวรแล้ว! (Effect Placeholder)', 'info');
+                 // --- DUTY SHIELD (PASSIVE) ---
+                 // Not meant to be clicked manually. Alert user.
+                 showToast('ℹ️ ไอเทมนี้เป็นแบบ Passive (พกไว้กันเหนียว) จะทำงานอัตโนมัติเมื่อลืมทำเวรครับ ไม่ต้องกดใช้', 'info');
+                 setIsLoading(false);
+                 return; // Exit without consuming
+            }
+            else if (item.effectType === 'REMOVE_LATE') {
+                 // --- TIME WARP ---
+                 // 1. Find the latest penalty transaction (Negative HP)
+                 const { data: lastPenalty } = await supabase
+                    .from('game_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .lt('hp_change', 0) // Look for damage
+                    .in('action_type', ['TASK_LATE', 'DUTY_MISSED']) // Valid penalty types
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                 if (!lastPenalty) {
+                     showToast('ไม่พบประวัติการโดนหักคะแนนล่าสุด (คุณยังเป็นเด็กดีอยู่!)', 'warning');
+                     setIsLoading(false);
+                     return;
+                 }
+
+                 // 2. Refund
+                 const refundHP = Math.abs(lastPenalty.hp_change);
+                 const refundCoin = Math.abs(lastPenalty.jp_change || 0);
+
+                 // 3. Update User Profile
+                 const { data: user } = await supabase.from('profiles').select('hp, max_hp, available_points').eq('id', currentUser.id).single();
+                 
+                 if (user) {
+                     const newHp = Math.min(user.max_hp, user.hp + refundHP);
+                     const newPoints = user.available_points + refundCoin;
+                     await supabase.from('profiles').update({ hp: newHp, available_points: newPoints }).eq('id', currentUser.id);
+                 }
+
+                 // 4. Consume Item
+                 await supabase.from('user_inventory').update({ is_used: true, used_at: new Date().toISOString() }).eq('id', inventoryId);
+
+                 // 5. Log Action
+                 await supabase.from('game_logs').insert({
+                    user_id: currentUser.id,
+                    action_type: 'TIME_WARP_REFUND',
+                    hp_change: refundHP,
+                    jp_change: refundCoin,
+                    description: `⏰ Time Warp: ย้อนเวลาล้างโทษ "${lastPenalty.description}"`,
+                    related_id: lastPenalty.id
+                 });
+
+                 showToast(`ย้อนเวลาสำเร็จ! คืนค่า ${refundHP} HP และ ${refundCoin} Coins แล้ว ✨`, 'success');
             }
             else {
                  showToast('ไอเทมนี้ยังไม่มีผลในระบบ Beta', 'warning');
+                 setIsLoading(false);
+                 return;
             }
 
-            // 2. Mark as Used
-            await supabase
-                .from('user_inventory')
-                .update({ is_used: true, used_at: new Date().toISOString() })
-                .eq('id', inventoryId);
-
-            // 3. Log
-             await supabase.from('game_logs').insert({
-                user_id: currentUser.id,
-                action_type: 'ITEM_USE',
-                description: `ใช้ไอเทม: ${item.name}`
-            });
-
-            // Refresh
+            // Refresh Inventory after consumption
             fetchUserInventory();
 
         } catch (err: any) {

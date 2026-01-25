@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Filter, ChevronDown, LayoutGrid, List } from 'lucide-react';
 import { Channel, User } from '../../../types';
 
@@ -29,6 +29,27 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
     filterChannel, setFilterChannel,
     users, channels
 }) => {
+    // Local state for debouncing search input
+    const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    // Sync local state if parent prop changes externally (e.g. clear filters)
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
+
+    // Debounce effect
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                setSearchQuery(localSearch);
+            }
+        }, 400); // 400ms delay
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [localSearch, setSearchQuery, searchQuery]);
+
     return (
         <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-2 rounded-2xl border border-gray-100 shadow-sm sticky top-2 z-20">
             
@@ -38,8 +59,8 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
                     type="text" 
                     placeholder="ค้นหาสคริปต์ (ชื่อ, แท็ก)..." 
                     className="w-full pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-100 focus:bg-white outline-none transition-all text-sm font-bold"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    value={localSearch}
+                    onChange={e => setLocalSearch(e.target.value)}
                 />
             </div>
 

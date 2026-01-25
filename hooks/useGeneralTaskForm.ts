@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType } from '../types';
@@ -21,7 +22,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     const [endDate, setEndDate] = useState('');
     
     // Task Specifics
-    const [assigneeType, setAssigneeType] = useState<AssigneeType>('TEAM');
+    const [assigneeType, setAssigneeType] = useState<AssigneeType>('INDIVIDUAL'); // Changed Default to INDIVIDUAL
     const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
     const [targetPosition, setTargetPosition] = useState('');
     const [caution, setCaution] = useState('');
@@ -44,7 +45,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setStartDate(initialData.startDate ? format(initialData.startDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
             setEndDate(initialData.endDate ? format(initialData.endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
             
-            setAssigneeType(initialData.assigneeType || 'TEAM');
+            setAssigneeType(initialData.assigneeType || 'INDIVIDUAL');
             setAssigneeIds(initialData.assigneeIds || []);
             setTargetPosition(initialData.targetPosition || '');
             setCaution(initialData.caution || '');
@@ -64,7 +65,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setStartDate(defaultDate);
             setEndDate(defaultDate);
             
-            setAssigneeType('TEAM');
+            setAssigneeType('INDIVIDUAL'); // Ensure Default is Solo
             setAssigneeIds([]);
             setTargetPosition('');
             setCaution('');

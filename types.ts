@@ -244,11 +244,10 @@ export interface Goal {
     deadline: Date;
     channelId?: string;
     isArchived: boolean;
-    // Updated fields
     rewardXp: number;
     rewardCoin: number;
-    owners: string[]; // Guardian User IDs
-    boosts: string[]; // Booster User IDs
+    owners: string[]; 
+    boosts: string[];
 }
 
 export interface Reward {
@@ -341,7 +340,7 @@ export interface KPIRecord {
     id: string;
     userId: string;
     evaluatorId: string;
-    monthKey: string; // YYYY-MM
+    monthKey: string; 
     scores: Record<string, number>;
     feedback: string;
     status: 'DRAFT' | 'FINAL' | 'PAID';
@@ -402,10 +401,10 @@ export interface TaskComment {
     user?: User;
 }
 
-export interface Script {
+// Optimized Types for ScriptHub
+export interface ScriptSummary {
     id: string;
     title: string;
-    content: string;
     status: ScriptStatus;
     version: number;
     authorId: string;
@@ -418,24 +417,25 @@ export interface Script {
     linkedTaskTitle?: string;
     estimatedDuration: number;
     scriptType: ScriptType;
-    characters: string[];
     isInShootQueue: boolean;
-    // New Fields
     channelId?: string;
     category?: string;
     tags?: string[];
     objective?: string;
-    
-    // Lock System
-    lockedBy?: string; // User ID
+    lockedBy?: string; 
     lockedAt?: Date;
-    locker?: { name: string; avatarUrl: string }; // Populated if locked
+    locker?: { name: string; avatarUrl: string };
+}
+
+export interface Script extends ScriptSummary {
+    content: string;
+    characters: string[];
 }
 
 export interface MeetingAgendaItem {
     id: string;
     topic: string;
-    duration?: number; // minutes
+    duration?: number;
     isCompleted: boolean;
 }
 

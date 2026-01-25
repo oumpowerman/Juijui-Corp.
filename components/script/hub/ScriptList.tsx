@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { Script, Channel, MasterOption } from '../../../types';
+import { ScriptSummary, Channel, MasterOption } from '../../../types';
 import { FileText, Trash2, Video, User as UserIcon, Users, PlayCircle, CheckCircle2, ListPlus, XCircle, Clock, Lightbulb, Tag, History, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ScriptListProps {
-    scripts: Script[];
+    scripts: ScriptSummary[];
     layoutMode: 'GRID' | 'LIST';
     viewTab: 'QUEUE' | 'LIBRARY' | 'HISTORY';
     isLoading: boolean;
@@ -13,10 +13,10 @@ interface ScriptListProps {
     masterOptions: MasterOption[];
     
     // Actions
-    onOpen: (script: Script) => void;
+    onOpen: (script: ScriptSummary) => void;
     onToggleQueue: (id: string, current: boolean) => void;
     onDelete: (id: string) => void;
-    onRestore: (id: string) => void; // Update status to draft
+    onRestore: (id: string) => void; 
     onDone: (id: string) => void;
 }
 
@@ -24,13 +24,6 @@ const ScriptList: React.FC<ScriptListProps> = ({
     scripts, layoutMode, viewTab, isLoading, channels, masterOptions,
     onOpen, onToggleQueue, onDelete, onRestore, onDone 
 }) => {
-
-    const formatDuration = (seconds: number) => {
-        if (!seconds) return '';
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return m > 0 ? `${m}m ${s}s` : `${s}s`;
-    };
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name;
     const getCategoryLabel = (key?: string) => masterOptions.find(o => o.type === 'SCRIPT_CATEGORY' && o.key === key)?.label;
@@ -56,16 +49,16 @@ const ScriptList: React.FC<ScriptListProps> = ({
         );
     }
 
-    // --- LIST VIEW ---
+    // --- LIST VIEW (Standard Mapping) ---
     if (layoutMode === 'LIST') {
         return (
-            <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm">
-                {scripts.map(script => (
+            <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm flex flex-col">
+                {scripts.map((script) => (
                     <div 
                         key={script.id}
                         onClick={() => onOpen(script)}
                         className={`
-                            flex items-center gap-4 p-4 border-b border-gray-100 hover:bg-indigo-50/50 transition-colors cursor-pointer group
+                            flex items-center gap-4 p-4 border-b border-gray-100 hover:bg-indigo-50/50 transition-colors cursor-pointer group last:border-b-0
                             ${viewTab === 'HISTORY' ? 'opacity-70 grayscale hover:grayscale-0 hover:opacity-100' : ''}
                         `}
                     >
@@ -132,7 +125,7 @@ const ScriptList: React.FC<ScriptListProps> = ({
         );
     }
 
-    // --- GRID VIEW ---
+    // --- GRID VIEW (Standard Map) ---
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {scripts.map(script => (

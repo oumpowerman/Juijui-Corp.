@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Task, TaskLog, ReviewSession } from '../types';
+import { Task } from '../types';
 
 interface UseContentStockProps {
     page: number;
@@ -23,103 +22,97 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Map Raw DB Data to Task Type (Simplified for Content List)
-    const mapSupabaseToTask = (data: any): Task => {
-        return {
-            id: data.id,
-            title: data.title,
-            description: data.description || '',
-            type: 'CONTENT',
-            status: data.status,
-            priority: data.priority,
-            tags: data.tags || [],
-            pillar: data.pillar,
-            contentFormat: data.content_format,
-            category: data.category,
-            remark: data.remark,
-            startDate: new Date(data.start_date),
-            endDate: new Date(data.end_date),
-            channelId: data.channel_id,
-            targetPlatforms: data.target_platform || [],
-            isUnscheduled: data.is_unscheduled,
-            assigneeIds: data.assignee_ids || [],
-            ideaOwnerIds: data.idea_owner_ids || [],
-            editorIds: data.editor_ids || [],
-            assets: data.assets || [],
-            difficulty: data.difficulty || 'MEDIUM',
-            estimatedHours: data.estimated_hours || 0,
-            // Minimal mapping for list view
-            assigneeType: 'TEAM', 
-            reviews: [],
-            logs: []
-        };
-    };
+    const mapSupabaseToTask = (data: any): Task => ({
+        id: data.id,
+        type: 'CONTENT',
+        title: data.title,
+        description: data.description || '',
+        status: data.status,
+        priority: data.priority,
+        startDate: new Date(data.start_date),
+        endDate: new Date(data.end_date),
+        channelId: data.channel_id,
+        tags: data.tags || [],
+        
+        targetPlatforms: data.target_platform || [],
+        pillar: data.pillar,
+        contentFormat: data.content_format,
+        category: data.category,
+        isUnscheduled: data.is_unscheduled,
+        
+        assigneeIds: data.assignee_ids || [],
+        ideaOwnerIds: data.idea_owner_ids || [],
+        editorIds: data.editor_ids || [],
+        
+        remark: data.remark,
+        assets: data.assets || [],
+        
+        // Additional fields to satisfy Task interface
+        assigneeType: data.assignee_type || 'TEAM',
+        difficulty: data.difficulty || 'MEDIUM',
+        estimatedHours: data.estimated_hours || 0,
+        caution: data.caution,
+        importance: data.importance,
+        publishedLinks: data.published_links || {},
+        shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
+        shootLocation: data.shoot_location,
+        
+        // Empty arrays for list view optimization
+        reviews: [],
+        logs: []
+    });
 
     const fetchContents = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Start building the query
             let query = supabase
                 .from('contents')
                 .select('*', { count: 'exact' });
 
-            // 1. Apply Filters
+            // 1. Search
+            if (searchQuery) {
+                query = query.or(`title.ilike.%${searchQuery}%,remark.ilike.%${searchQuery}%`);
+            }
+
+            // 2. Filters
+            if (filters.channelId !== 'ALL') {
+                query = query.eq('channel_id', filters.channelId);
+            }
+            if (filters.format !== 'ALL') {
+                query = query.eq('content_format', filters.format);
+            }
+            if (filters.pillar !== 'ALL') {
+                query = query.eq('pillar', filters.pillar);
+            }
+            if (filters.category !== 'ALL') {
+                query = query.eq('category', filters.category);
+            }
+            if (filters.statuses.length > 0) {
+                query = query.in('status', filters.statuses);
+            }
             if (filters.showStockOnly) {
                 query = query.eq('is_unscheduled', true);
             }
 
-            if (filters.channelId !== 'ALL') {
-                query = query.eq('channel_id', filters.channelId);
-            }
-
-            if (filters.format !== 'ALL') {
-                query = query.eq('content_format', filters.format);
-            }
-
-            if (filters.pillar !== 'ALL') {
-                query = query.eq('pillar', filters.pillar);
-            }
-
-            if (filters.category !== 'ALL') {
-                // Fuzzy search for category since it might be key or label in legacy data
-                // For better performance, exact match on key is preferred if data is clean
-                query = query.eq('category', filters.category);
-            }
-
-            if (filters.statuses.length > 0) {
-                query = query.in('status', filters.statuses);
-            }
-
-            // 2. Apply Search
-            if (searchQuery) {
-                // Search across multiple columns
-                query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,remark.ilike.%${searchQuery}%`);
-            }
-
-            // 3. Apply Sorting
+            // 3. Sort
             if (sortConfig) {
-                // Map frontend sort keys to DB columns
-                let dbColumn = 'created_at';
-                switch (sortConfig.key) {
-                    case 'title': dbColumn = 'title'; break;
-                    case 'status': dbColumn = 'status'; break;
-                    case 'date': dbColumn = 'end_date'; break;
-                    case 'remark': dbColumn = 'remark'; break;
-                    default: dbColumn = 'end_date'; // Default to date
-                }
-                
-                query = query.order(dbColumn, { ascending: sortConfig.direction === 'asc' });
+                const sortKeyMap: Record<string, string> = {
+                    'title': 'title',
+                    'status': 'status',
+                    'date': 'end_date',
+                    'remark': 'remark'
+                };
+                const dbKey = sortKeyMap[sortConfig.key] || 'created_at';
+                query = query.order(dbKey, { ascending: sortConfig.direction === 'asc' });
             } else {
-                // Default sort
-                query = query.order('end_date', { ascending: false });
+                query = query.order('created_at', { ascending: false });
             }
 
-            // 4. Apply Pagination
+            // 4. Pagination
             const from = (page - 1) * pageSize;
             const to = from + pageSize - 1;
             query = query.range(from, to);
 
-            // Execute
             const { data, error, count } = await query;
 
             if (error) throw error;
@@ -129,27 +122,33 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 setTotalCount(count || 0);
             }
         } catch (err) {
-            console.error('Error fetching contents:', err);
+            console.error('Fetch content stock failed:', err);
         } finally {
             setIsLoading(false);
         }
     }, [page, pageSize, searchQuery, filters, sortConfig]);
 
-    // Initial Fetch & Refetch on deps change
     useEffect(() => {
         fetchContents();
     }, [fetchContents]);
 
-    // Realtime Subscription
+    // Realtime Subscription (Hybrid Logic)
     useEffect(() => {
         const channel = supabase
             .channel('realtime-content-stock')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'contents' },
-                () => {
-                    // Debounce/Throttle could be added here for high traffic
-                    fetchContents();
+                (payload) => {
+                    if (payload.eventType === 'UPDATE') {
+                        // Optimistic update: Update only the specific item in the list directly
+                        setContents(prev => prev.map(item => 
+                            item.id === payload.new.id ? mapSupabaseToTask(payload.new) : item
+                        ));
+                    } else {
+                        // For INSERT or DELETE, refetch to maintain pagination/sort integrity
+                        fetchContents();
+                    }
                 }
             )
             .subscribe();
@@ -159,10 +158,5 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         };
     }, [fetchContents]);
 
-    return {
-        contents,
-        totalCount,
-        isLoading,
-        refresh: fetchContents
-    };
+    return { contents, totalCount, isLoading, fetchContents };
 };

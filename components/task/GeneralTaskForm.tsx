@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Task, User, MasterOption, Difficulty } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
 import { DIFFICULTY_LABELS } from '../../constants';
-import { Users, Swords, Check, Activity, AlertTriangle, Info, Star, Calendar, Trash2, Send, Loader2 } from 'lucide-react';
+import { Users, Swords, Check, Activity, AlertTriangle, Info, Star, Calendar, Trash2, Send, Loader2, List, X, Briefcase } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Import
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface GeneralTaskFormProps {
     initialData?: Task | null;
@@ -23,8 +23,9 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
     initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose 
 }) => {
     const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog(); // Use Dialog
+    const { showConfirm } = useGlobalDialog();
     const [isSendingQC, setIsSendingQC] = useState(false);
+    const [isResPickerOpen, setIsResPickerOpen] = useState(false);
 
     const {
         title, setTitle,
@@ -56,17 +57,42 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
     const hourlyBonus = Math.floor((estimatedHours || 0) * 20);
     const totalProjectedXP = baseXP + hourlyBonus;
 
+    // Auto-fill Target Position when Solo user is selected
+    useEffect(() => {
+        if (assigneeType === 'INDIVIDUAL' && assigneeIds.length === 1) {
+            const user = users.find(u => u.id === assigneeIds[0]);
+            if (user && user.position) {
+                setTargetPosition(user.position);
+            }
+        } else if (assigneeType === 'INDIVIDUAL' && assigneeIds.length === 0) {
+            setTargetPosition('');
+        }
+    }, [assigneeIds, assigneeType, users]);
+
+    // Get suggested responsibilities based on selected user's position
+    const getSuggestedResponsibilities = () => {
+        if (assigneeIds.length !== 1) return [];
+        const user = users.find(u => u.id === assigneeIds[0]);
+        if (!user || !user.position) return [];
+
+        // 1. Find Position Option to get Key
+        const positionOpt = masterOptions.find(o => o.type === 'POSITION' && o.label === user.position);
+        if (!positionOpt) return [];
+
+        // 2. Filter Responsibilities by Parent Key
+        return masterOptions.filter(o => o.type === 'RESPONSIBILITY' && o.parentKey === positionOpt.key);
+    };
+
+    const suggestedTasks = getSuggestedResponsibilities();
+
     const handleSendToQC = async () => {
         if (!initialData?.id) {
             alert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ');
             return;
         }
-
-        // Calculate Next Round
         const currentRoundCount = initialData.reviews?.length || 0;
         const nextRound = currentRoundCount + 1;
         
-        // Replace window.confirm with GlobalDialog
         const confirmed = await showConfirm(
             `งานจะถูกส่งเข้าห้องตรวจ และเปลี่ยนสถานะเป็น "Feedback"`,
             `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}" ?`
@@ -76,19 +102,16 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
 
         setIsSendingQC(true);
         try {
-            // 1. Create Review Session (Using task_id for General Tasks)
             const { error: reviewError } = await supabase.from('task_reviews').insert({
-                task_id: initialData.id, // Use task_id for General tasks
+                task_id: initialData.id,
                 content_id: null,
                 round: nextRound,
                 scheduled_at: new Date().toISOString(),
                 status: 'PENDING',
                 reviewer_id: null
             });
-
             if (reviewError) throw reviewError;
 
-            // 2. Log Activity
             await supabase.from('task_logs').insert({
                 task_id: initialData.id,
                 action: 'SENT_TO_QC',
@@ -96,10 +119,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 user_id: currentUser?.id
             });
 
-            // 3. Update Status to FEEDBACK
             setStatus('FEEDBACK');
-            
-            // Direct DB Update to ensure sync
             await supabase.from('tasks').update({ status: 'FEEDBACK' }).eq('id', initialData.id);
             
             showToast(`ส่ง Draft ${nextRound} เรียบร้อย! 🚀`, 'success');
@@ -128,6 +148,17 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
 
                     {/* Toggles */}
                     <div className="flex gap-4 mb-6 relative z-10">
+                         <button
+                            type="button"
+                            onClick={() => { setAssigneeType('INDIVIDUAL'); setAssigneeIds([]); }}
+                            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/30'}`}
+                        >
+                            <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-200 text-indigo-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
+                                <Users className="w-6 h-6" />
+                            </div>
+                            <span className="text-base font-black">Solo (ฉายเดี่ยว) 🦸</span>
+                        </button>
+                        
                         <button
                             type="button"
                             onClick={() => { setAssigneeType('TEAM'); setAssigneeIds([]); }}
@@ -137,17 +168,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                                 <Users className="w-6 h-6" />
                             </div>
                             <span className="text-base font-black">Team (ช่วยกัน) 🤝</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => { setAssigneeType('INDIVIDUAL'); setAssigneeIds([]); }}
-                            className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/30'}`}
-                        >
-                            <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-200 text-indigo-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
-                                <Users className="w-6 h-6" />
-                            </div>
-                            <span className="text-base font-black">Solo (ฉายเดี่ยว) 🦸</span>
                         </button>
                     </div>
 
@@ -186,7 +206,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                                 <Swords className="w-5 h-5" />
                             </div>
                             <div className="flex-1">
-                                <label className="block text-xs font-bold text-indigo-400 mb-1 uppercase">Role in this mission</label>
+                                <label className="block text-xs font-bold text-indigo-400 mb-1 uppercase">Role in this mission (Auto-filled)</label>
                                 <input 
                                     type="text" 
                                     value={targetPosition} 
@@ -202,14 +222,58 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 {/* 2. Title */}
                 <div className="group relative">
                     <label className="block text-sm font-bold text-gray-500 mb-2 ml-1 uppercase tracking-wider">Task Title <span className="text-red-500">*</span></label>
-                    <input 
-                        type="text" 
-                        value={title} 
-                        onChange={(e) => setTitle(e.target.value)} 
-                        className="w-full px-5 py-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-2 border-indigo-100 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none text-xl font-bold text-indigo-900 transition-all hover:shadow-md placeholder:text-indigo-300/70" 
-                        placeholder="ชื่องาน (เอาให้ปัง)..." 
-                    />
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={title} 
+                            onChange={(e) => setTitle(e.target.value)} 
+                            className="flex-1 px-5 py-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-2 border-indigo-100 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none text-xl font-bold text-indigo-900 transition-all hover:shadow-md placeholder:text-indigo-300/70" 
+                            placeholder="ชื่องาน (เอาให้ปัง)..." 
+                        />
+                        {assigneeType === 'INDIVIDUAL' && (
+                            <button
+                                type="button"
+                                onClick={() => setIsResPickerOpen(true)}
+                                className={`bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-2xl w-14 flex items-center justify-center transition-colors border-2 border-indigo-200 ${suggestedTasks.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title={suggestedTasks.length > 0 ? "เลือกจากหน้าที่รับผิดชอบ" : "ไม่มีข้อมูลหน้าที่สำหรับตำแหน่งนี้"}
+                                disabled={suggestedTasks.length === 0}
+                            >
+                                <List className="w-6 h-6" />
+                            </button>
+                        )}
+                    </div>
                 </div>
+
+                {/* Responsibility Picker Modal */}
+                {isResPickerOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                        <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl p-4 animate-in zoom-in-95">
+                            <div className="flex justify-between items-center mb-4 pb-2 border-b">
+                                <h3 className="font-bold text-gray-800 flex items-center"><Briefcase className="w-4 h-4 mr-2"/> เลือกงานจากหน้าที่</h3>
+                                <button onClick={() => setIsResPickerOpen(false)} className="p-1 hover:bg-gray-100 rounded-full"><X className="w-5 h-5 text-gray-500"/></button>
+                            </div>
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                {suggestedTasks.length > 0 ? (
+                                    suggestedTasks.map(taskOpt => (
+                                        <button
+                                            key={taskOpt.id}
+                                            type="button"
+                                            onClick={() => { setTitle(taskOpt.label); setIsResPickerOpen(false); }}
+                                            className="w-full text-left p-3 rounded-xl border border-gray-100 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all text-sm font-bold text-gray-700"
+                                        >
+                                            {taskOpt.label}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-6 text-gray-400">
+                                        <p>ไม่พบข้อมูลหน้าที่รับผิดชอบ</p>
+                                        <p className="text-xs mt-1">กรุณาตั้งค่า Master Data</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* 3. Description & Status */}
                 <div className="space-y-4">
@@ -282,7 +346,12 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                         <div className="relative group">
                             <div className="absolute inset-0 bg-gray-50 rounded-xl border-2 border-gray-200 group-hover:border-indigo-200 transition-colors pointer-events-none"></div>
                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none group-hover:text-indigo-400 transition-colors" />
-                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-transparent relative z-10 outline-none text-sm font-bold text-gray-600 uppercase tracking-wide cursor-pointer" />
+                            <input 
+                                type="date" 
+                                value={startDate} 
+                                onChange={(e) => setStartDate(e.target.value)} 
+                                className="w-full pl-10 pr-4 py-3 bg-transparent relative z-10 outline-none text-sm font-bold text-gray-600 uppercase tracking-wide cursor-pointer" 
+                            />
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -290,14 +359,19 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                         <div className="relative group">
                             <div className="absolute inset-0 bg-red-50 rounded-xl border-2 border-red-100 group-hover:border-red-300 transition-colors pointer-events-none"></div>
                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-red-400 pointer-events-none group-hover:text-red-500 transition-colors" />
-                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-transparent relative z-10 outline-none text-sm font-bold text-red-600 uppercase tracking-wide cursor-pointer" />
+                            <input 
+                                type="date" 
+                                value={endDate} 
+                                onChange={(e) => setEndDate(e.target.value)} 
+                                className="w-full pl-10 pr-4 py-3 bg-transparent relative z-10 outline-none text-sm font-bold text-red-600 uppercase tracking-wide cursor-pointer" 
+                            />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100 bg-white sticky bottom-0 pb-safe-area">
+            {/* Footer - Moved out of scrolling area in a way, or just appended at the bottom without sticky */}
+            <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100">
                 <div className="flex items-center gap-2">
                     {initialData && onDelete && (
                         <button type="button" onClick={async () => { if(await window.confirm('แน่ใจนะว่าจะลบงานนี้?')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">

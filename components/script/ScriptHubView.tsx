@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { User, Script, MasterOption } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { User, Script, MasterOption, ScriptSummary } from '../../types';
 import { useScripts } from '../../hooks/useScripts';
 import { useChannels } from '../../hooks/useChannels';
 import { useMasterData } from '../../hooks/useMasterData';
@@ -9,9 +9,9 @@ import ScriptFilterBar from './hub/ScriptFilterBar';
 import ScriptList from './hub/ScriptList';
 import CreateScriptModal from './hub/CreateScriptModal';
 import ScriptEditor from './ScriptEditor';
-import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight } from 'lucide-react';
+import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
 
-// --- Sub-components (Moved outside to fix Key prop TS error and improve performance) ---
+// --- Sub-components ---
 
 interface StatCardProps {
     label: string;
@@ -70,11 +70,7 @@ const CategoryPill: React.FC<CategoryPillProps> = ({ cat, count, isActive, onCli
         `}
     >
         <span>{cat.label}</span>
-        {count !== undefined && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {count}
-            </span>
-        )}
+        {/* Count disabled for categorized pill in server-side mode to simplify initial query */}
     </button>
 );
 
@@ -87,7 +83,12 @@ interface ScriptHubViewProps {
 
 const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => {
     // Hooks
-    const { scripts, isLoading, createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI } = useScripts(currentUser);
+    const { 
+        scripts, totalCount, isLoading, 
+        fetchScripts, getScriptById,
+        createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI 
+    } = useScripts(currentUser);
+    
     const { channels } = useChannels();
     const { masterOptions } = useMasterData();
 
@@ -96,87 +97,67 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [viewTab, setViewTab] = useState<'QUEUE' | 'LIBRARY' | 'HISTORY'>('QUEUE');
     const [layoutMode, setLayoutMode] = useState<'GRID' | 'LIST'>('LIST'); 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isFetchingDetail, setIsFetchingDetail] = useState(false);
 
-    // Filters
+    // Pagination & Filters
+    const [page, setPage] = useState(1);
+    const pageSize = 20;
     const [searchQuery, setSearchQuery] = useState('');
     const [filterOwner, setFilterOwner] = useState<string>('ALL');
-    const [filterStatus, setFilterStatus] = useState<string>('ALL'); // For detailed filter
+    const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
-    // --- Statistics & Derived Data ---
-    const stats = useMemo(() => {
-        return {
-            queue: scripts.filter(s => s.isInShootQueue).length,
-            library: scripts.filter(s => !s.isInShootQueue && s.status !== 'DONE').length,
-            draft: scripts.filter(s => s.status === 'DRAFT').length,
-            done: scripts.filter(s => s.status === 'DONE').length,
-            total: scripts.length
-        };
-    }, [scripts]);
+    const totalPages = Math.ceil(totalCount / pageSize);
 
-    const categoryCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        const categories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY');
-        categories.forEach(c => counts[c.key] = 0); // Init
-        
-        scripts.forEach(s => {
-            // Count based on current viewTab logic to be consistent? 
-            // Or count ALL active scripts? Let's count ALL active (not Done) for utility.
-            if (s.status !== 'DONE' && s.category && counts[s.category] !== undefined) {
-                counts[s.category]++;
-            }
+    // Effect: Fetch scripts when filters or page change
+    useEffect(() => {
+        fetchScripts({
+            page,
+            pageSize,
+            searchQuery,
+            viewTab,
+            filterOwner,
+            filterChannel,
+            filterCategory,
+            filterStatus
         });
-        return counts;
-    }, [scripts, masterOptions]);
+    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, fetchScripts]);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setPage(1);
+    }, [searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus]);
 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
-    // --- Filtering Logic ---
-    const { filteredScripts } = useMemo(() => {
-        let result = scripts;
-
-        // 1. Tab Filter
-        if (viewTab === 'QUEUE') {
-            result = result.filter(s => s.isInShootQueue);
-        } else if (viewTab === 'HISTORY') {
-            result = result.filter(s => s.status === 'DONE');
-        } else {
-            // LIBRARY: All active scripts NOT in queue
-            result = result.filter(s => !s.isInShootQueue && s.status !== 'DONE');
-        }
-
-        // 2. Specific Filter (e.g. clicking "Drafts" card sets filterStatus to DRAFT)
-        if (filterStatus !== 'ALL') {
-            result = result.filter(s => s.status === filterStatus);
-        }
-
-        // 3. Category Filter (Clicking Category Card)
-        if (filterCategory !== 'ALL') {
-            result = result.filter(s => s.category === filterCategory);
-        }
-
-        // 4. Common Filters
-        if (searchQuery) {
-            const lowerQ = searchQuery.toLowerCase();
-            result = result.filter(s => 
-                s.title.toLowerCase().includes(lowerQ) || 
-                s.tags?.some(t => t.toLowerCase().includes(lowerQ))
-            );
-        }
-        if (filterOwner !== 'ALL') {
-            result = result.filter(s => s.ideaOwnerId === filterOwner || s.authorId === filterOwner);
-        }
-        if (filterChannel !== 'ALL') {
-            result = result.filter(s => s.channelId === filterChannel);
-        }
-
-        return { filteredScripts: result };
-    }, [scripts, viewTab, searchQuery, filterOwner, filterStatus, filterChannel, filterCategory]);
-
-
     const handleCreateSubmit = async (data: any) => {
-        await createScript(data);
+        const id = await createScript(data);
+        if (id) {
+            // Optional: Immediately open the new script
+            const fullScript = await getScriptById(id);
+            if (fullScript) setActiveScript(fullScript);
+        }
+        // Refetch list to show new item
+        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus });
+    };
+
+    const handleOpenScript = async (summary: ScriptSummary) => {
+        setIsFetchingDetail(true);
+        const fullScript = await getScriptById(summary.id);
+        setIsFetchingDetail(false);
+        
+        if (fullScript) {
+            setActiveScript(fullScript);
+        } else {
+            alert("ไม่สามารถโหลดข้อมูลสคริปต์ได้");
+        }
+    };
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setPage(newPage);
+        }
     };
 
     // If Editor is open, show full screen editor
@@ -185,8 +166,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             <ScriptEditor 
                 script={activeScript} 
                 users={users}
-                currentUser={currentUser} // Pass currentUser for lock logic
-                onClose={() => setActiveScript(null)} 
+                currentUser={currentUser}
+                onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus }); }} 
                 onSave={updateScript} 
                 onGenerateAI={generateScriptWithAI}
             />
@@ -194,17 +175,26 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] pb-24">
+        <div className="min-h-screen bg-[#f8fafc] pb-24 relative">
+            {isFetchingDetail && (
+                <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
+                    <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                        <span className="text-sm font-bold text-gray-700">กำลังโหลดเนื้อหา...</span>
+                    </div>
+                </div>
+            )}
+
             <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
                 
                 {/* 1. Header */}
                 <ScriptHubHeader onCreateClick={() => setIsCreateModalOpen(true)} />
 
-                {/* 2. Dashboard Stats Grid */}
+                {/* 2. Dashboard Stats Grid (Acts as Main Filters) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard 
                         label="ถ่ายวันนี้ (Queue)" 
-                        count={stats.queue} 
+                        count={viewTab === 'QUEUE' ? totalCount : 0} // Approximate or need separate stats query
                         icon={Clapperboard} 
                         color="orange" 
                         isActive={viewTab === 'QUEUE'}
@@ -212,7 +202,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="คลังบท (Library)" 
-                        count={stats.library} 
+                        count={viewTab === 'LIBRARY' && filterStatus === 'ALL' ? totalCount : 0} 
                         icon={FileText} 
                         color="indigo" 
                         isActive={viewTab === 'LIBRARY' && filterStatus === 'ALL'}
@@ -220,7 +210,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="แบบร่าง (Drafts)" 
-                        count={stats.draft} 
+                        count={viewTab === 'LIBRARY' && filterStatus === 'DRAFT' ? totalCount : 0} 
                         icon={Edit3} 
                         color="pink" 
                         isActive={viewTab === 'LIBRARY' && filterStatus === 'DRAFT'}
@@ -228,7 +218,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                     <StatCard 
                         label="เสร็จแล้ว (History)" 
-                        count={stats.done} 
+                        count={viewTab === 'HISTORY' ? totalCount : 0} 
                         icon={CheckCircle2} 
                         color="emerald" 
                         isActive={viewTab === 'HISTORY'}
@@ -236,7 +226,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
                 </div>
 
-                {/* 3. Category Deck (Horizontal Scroll) */}
+                {/* 3. Category Deck */}
                 <div className="space-y-3">
                     <div className="flex items-center gap-2 text-gray-500 text-xs font-bold uppercase tracking-wider px-1">
                         <Layers className="w-4 h-4" /> เลือกดูตามประเภท (Categories)
@@ -251,7 +241,6 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                             <CategoryPill 
                                 key={cat.key} 
                                 cat={cat} 
-                                count={categoryCounts[cat.key] || 0}
                                 isActive={filterCategory === cat.key} 
                                 onClick={() => setFilterCategory(cat.key)} 
                             />
@@ -266,20 +255,17 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                         filterOwner={filterOwner} setFilterOwner={setFilterOwner}
                         filterChannel={filterChannel} setFilterChannel={setFilterChannel}
-                        // Note: Category and Status are primarily handled by dashboard cards now, 
-                        // but we still pass them if user wants to fine-tune via bar
                         users={users} channels={channels}
-                        // We removed the View Tabs from FilterBar to reduce clutter
                     />
 
                     <ScriptList 
-                        scripts={filteredScripts}
+                        scripts={scripts} // Now receiving ScriptSummary[]
                         layoutMode={layoutMode}
                         viewTab={viewTab}
                         isLoading={isLoading}
                         channels={channels}
                         masterOptions={masterOptions}
-                        onOpen={setActiveScript}
+                        onOpen={handleOpenScript}
                         onToggleQueue={toggleShootQueue}
                         onDelete={deleteScript}
                         onRestore={(id) => updateScript(id, { status: 'DRAFT' })}
@@ -287,6 +273,34 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                              if(confirm('ถ่ายเสร็จแล้ว? (ย้ายไปประวัติ)')) updateScript(id, { status: 'DONE', isInShootQueue: false });
                         }}
                     />
+
+                    {/* Pagination Controls */}
+                    {totalCount > 0 && (
+                        <div className="flex items-center justify-between pt-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="text-xs text-gray-500 font-medium">
+                                แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => handlePageChange(page - 1)} 
+                                    disabled={page === 1}
+                                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <span className="text-sm font-bold text-gray-700 px-2">
+                                    หน้า {page} / {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => handlePageChange(page + 1)} 
+                                    disabled={page === totalPages}
+                                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ChevronRight className="w-4 h-4 text-gray-600" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

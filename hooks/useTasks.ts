@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, TaskLog, ReviewSession, Status } from '../types';
@@ -190,104 +189,127 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         fetchTasks();
     }, [fetchTasks]);
 
-    // --- REFACTORED: Using Game Engine ---
+    // --- REFACTORED: Hybrid Optimistic/Loading Logic ---
     const handleSaveTask = async (task: Task, editingTask: Task | null) => {
-        try {
-            const isContent = task.type === 'CONTENT';
-            const table = isContent ? 'contents' : 'tasks';
+        const isContent = task.type === 'CONTENT';
+        const table = isContent ? 'contents' : 'tasks';
+        const isUpdate = !!editingTask || tasks.some(t => t.id === task.id);
 
-            const basePayload = {
-                title: task.title,
-                description: task.description,
-                status: task.status,
-                priority: task.priority,
-                tags: task.tags,
-                start_date: task.startDate.toISOString(),
-                end_date: task.endDate.toISOString(),
-                assignee_ids: task.assigneeIds || [],
-                difficulty: task.difficulty || 'MEDIUM',
-                estimated_hours: task.estimatedHours || 0,
-                assignee_type: task.assigneeType,
-                target_position: task.targetPosition,
-                caution: task.caution,
-                importance: task.importance,
-                ...(isContent ? {} : { type: 'TASK' })
-            };
+        const basePayload = {
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            priority: task.priority,
+            tags: task.tags,
+            start_date: task.startDate.toISOString(),
+            end_date: task.endDate.toISOString(),
+            assignee_ids: task.assigneeIds || [],
+            difficulty: task.difficulty || 'MEDIUM',
+            estimated_hours: task.estimatedHours || 0,
+            assignee_type: task.assigneeType,
+            target_position: task.targetPosition,
+            caution: task.caution,
+            importance: task.importance,
+            ...(isContent ? {} : { type: 'TASK' })
+        };
 
-            const contentPayload = isContent ? {
-                pillar: task.pillar,
-                content_format: task.contentFormat || null,
-                category: task.category || null,
-                remark: task.remark || null,
-                channel_id: task.channelId || null,
-                target_platform: task.targetPlatforms || null,
-                is_unscheduled: task.isUnscheduled || false,
-                idea_owner_ids: task.ideaOwnerIds || [],
-                editor_ids: task.editorIds || [],
-                assets: task.assets || [],
-                performance: task.performance || null,
-                published_links: task.publishedLinks || null,
-                shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
-                shoot_location: task.shootLocation || null,
-            } : {};
+        const contentPayload = isContent ? {
+            pillar: task.pillar,
+            content_format: task.contentFormat || null,
+            category: task.category || null,
+            remark: task.remark || null,
+            channel_id: task.channelId || null,
+            target_platform: task.targetPlatforms || null,
+            is_unscheduled: task.isUnscheduled || false,
+            idea_owner_ids: task.ideaOwnerIds || [],
+            editor_ids: task.editorIds || [],
+            assets: task.assets || [],
+            performance: task.performance || null,
+            published_links: task.publishedLinks || null,
+            shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
+            shoot_location: task.shootLocation || null,
+        } : {};
 
-            const dbPayload = { ...basePayload, ...contentPayload };
-            const isUpdate = editingTask || tasks.some(t => t.id === task.id);
+        const dbPayload = { ...basePayload, ...contentPayload };
 
-            const isCompleted = isTaskCompleted(task.status);
-            const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
+        // --- Flow 1: UPDATE (Optimistic - Update Immediate) ---
+        if (isUpdate) {
+            // 1. Snapshot previous state (in case of rollback)
+            const previousTasks = [...tasks];
             
-            // --- GAMIFICATION TRIGGER ---
-            if (isCompleted && !wasCompleted) {
-                // Collect ALL involved users
-                const peopleToReward = new Set([
-                    ...(task.assigneeIds || []),
-                    ...(task.ideaOwnerIds || []),
-                    ...(task.editorIds || [])
-                ]);
+            // 2. Update UI Immediately
+            setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
+            setIsModalOpen(false); // Close modal instantly
+
+            try {
+                // 3. Fire API
+                const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
+                if (error) throw error;
                 
-                // Distribute Rewards
-                peopleToReward.forEach(uid => {
-                    processAction(uid, 'TASK_COMPLETE', task);
-                });
+                showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
+                
+                // Gamification Check (Post-Success)
+                const isCompleted = isTaskCompleted(task.status);
+                const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
+                if (isCompleted && !wasCompleted) {
+                    const peopleToReward = new Set([
+                        ...(task.assigneeIds || []),
+                        ...(task.ideaOwnerIds || []),
+                        ...(task.editorIds || [])
+                    ]);
+                    peopleToReward.forEach(uid => processAction(uid, 'TASK_COMPLETE', task));
+                }
+
+            } catch (dbError: any) {
+                // 4. Rollback UI on Error
+                console.error(dbError);
+                setTasks(previousTasks);
+                showToast('บันทึกไม่สำเร็จ: ' + dbError.message, 'error');
             }
+        } 
+        
+        // --- Flow 2: CREATE (Loading - Wait for ID) ---
+        else {
+            try {
+                // 1. Fire API (Wait for ID)
+                const insertPayload = { id: task.id, ...dbPayload };
+                const { error } = await supabase.from(table).insert(insertPayload);
+                
+                if (error) throw error;
+                
+                // 2. Update UI After Success
+                setTasks(prev => [...prev, task]);
+                setIsModalOpen(false);
 
-            let error;
-            if (isUpdate) {
-                 const res = await supabase.from(table).update(dbPayload).eq('id', task.id);
-                 error = res.error;
-                 if (!error) {
-                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
-                     showToast('แก้ไขข้อมูลสำเร็จ', 'success');
-                 }
-            } else {
-                 const insertPayload = { id: task.id, ...dbPayload };
-                 const res = await supabase.from(table).insert(insertPayload);
-                 error = res.error;
-                 if (!error) {
-                     const logPayload: any = {
-                         action: 'CREATED',
-                         details: `สร้างใหม่: ${task.title}`
-                     };
-                     if (isContent) logPayload.content_id = task.id;
-                     else logPayload.task_id = task.id;
-                     await supabase.from('task_logs').insert(logPayload);
+                // Log Creation
+                const logPayload: any = {
+                     action: 'CREATED',
+                     details: `สร้างใหม่: ${task.title}`
+                };
+                if (isContent) logPayload.content_id = task.id;
+                else logPayload.task_id = task.id;
+                await supabase.from('task_logs').insert(logPayload);
 
-                     setTasks(prev => [...prev, task]);
-                     showToast('สร้างใหม่สำเร็จ', 'success');
-                 }
+                showToast('สร้างใหม่สำเร็จ', 'success');
+
+            } catch (dbError: any) {
+                 console.error(dbError);
+                 showToast('สร้างไม่สำเร็จ: ' + dbError.message, 'error');
             }
-
-            if (error) throw error;
-            setIsModalOpen(false);
-
-        } catch (dbError: any) {
-             console.error(dbError);
-             showToast('บันทึกไม่สำเร็จ: ' + dbError.message, 'error');
         }
     };
 
     const handleDelayTask = async (taskId: string, newDate: Date, reason: string, userId: string) => {
+        // Optimistic Update
+        const previousTasks = [...tasks];
+        
+        // Update UI
+        setTasks(prev => prev.map(t => t.id === taskId ? { 
+            ...t, 
+            startDate: newDate, 
+            endDate: newDate 
+        } : t));
+
         try {
             const targetTask = tasks.find(t => t.id === taskId);
             if (!targetTask) return;
@@ -303,6 +325,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             
             if (taskError) throw taskError;
 
+            // Log Logic
             const logPayload: any = {
                 user_id: userId,
                 action: 'DELAYED',
@@ -313,37 +336,35 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             else logPayload.task_id = taskId;
 
             await supabase.from('task_logs').insert(logPayload);
-
-            setTasks(prev => prev.map(t => t.id === taskId ? { 
-                ...t, 
-                startDate: newDate, 
-                endDate: newDate 
-            } : t));
-
-            // --- GAMIFICATION PENALTY ---
-            // processAction(userId, 'TASK_LATE', targetTask); // Optional: Instant penalty on delay? 
-            // Or penalty happens only when submitting late. Let's keep delay log for now.
-
             showToast('บันทึกการเลื่อนงานแล้ว ⏳', 'warning');
+
         } catch (err: any) {
+            // Revert
+            setTasks(previousTasks);
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
     };
 
     const handleDeleteTask = async (taskId: string) => {
+        const previousTasks = [...tasks];
+        
+        // Optimistic UI
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+        setIsModalOpen(false);
+        showToast('ลบเรียบร้อย', 'info');
+
         try {
-            const targetTask = tasks.find(t => t.id === taskId);
+            const targetTask = previousTasks.find(t => t.id === taskId); // Use snapshot to find type
             if (!targetTask) return;
             const table = targetTask.type === 'CONTENT' ? 'contents' : 'tasks';
 
             const { error } = await supabase.from(table).delete().eq('id', taskId);
             if (error) throw error;
             
-            setTasks(prev => prev.filter(t => t.id !== taskId));
-            showToast('ลบเรียบร้อย', 'info');
-            setIsModalOpen(false);
         } catch (dbError) {
-             showToast('ลบไม่สำเร็จ', 'error');
+             // Revert
+             setTasks(previousTasks);
+             showToast('ลบไม่สำเร็จ (กู้คืนข้อมูล)', 'error');
         }
     };
 

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag } from 'lucide-react';
 import { Channel, MasterOption, ScriptType } from '../../../types';
 
@@ -20,6 +20,20 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
     const [currentTag, setCurrentTag] = useState('');
     const [objective, setObjective] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setTitle('');
+            setChannelId('');
+            setCategory('');
+            setScriptType('MONOLOGUE');
+            setTags([]);
+            setCurrentTag('');
+            setObjective('');
+            setIsSubmitting(false);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 

@@ -1,7 +1,7 @@
 
 import React, { memo } from 'react';
 import { format, isSameMonth, isToday, isSameDay } from 'date-fns';
-import { Task, ChipConfig } from '../../types';
+import { Task, ChipConfig, CalendarHighlight, MasterOption } from '../../types';
 import CalendarTaskPill from './CalendarTaskPill';
 
 interface CalendarDayCellProps {
@@ -14,7 +14,12 @@ interface CalendarDayCellProps {
     activeChipIds: string[];
     customChips: ChipConfig[];
     
+    // Highlights
+    highlight?: CalendarHighlight;
+    masterOptions?: MasterOption[];
+    
     onDayClick: (day: Date, tasks: Task[]) => void;
+    onContextMenu: (day: Date) => void;
     onDragOver: (e: React.DragEvent, day: Date) => void;
     onDragLeave: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent, day: Date) => void;
@@ -31,7 +36,10 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     viewMode,
     activeChipIds,
     customChips,
+    highlight,
+    masterOptions,
     onDayClick,
+    onContextMenu,
     onDragOver,
     onDragLeave,
     onDrop,
@@ -48,18 +56,41 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     const containerSpacing = isExpanded ? 'space-y-1.5' : 'space-y-1';
     const containerPadding = isExpanded ? 'px-1.5' : 'px-1';
 
+    // Resolve Highlight Color
+    let highlightStyle = '';
+    let highlightLabel = '';
+    if (highlight && masterOptions) {
+        const typeOption = masterOptions.find(o => o.type === 'EVENT_TYPE' && o.key === highlight.typeKey);
+        if (typeOption) {
+            // Use background color from master data, ensure it's not too dark for text
+            const baseColor = typeOption.color || 'bg-gray-100 border-gray-200';
+            highlightStyle = baseColor.replace('text-', 'text-opacity-80 text-'); // Tweak text opacity
+            highlightLabel = typeOption.label;
+        }
+    }
+
+    // Dynamic classes based on state
+    const bgClass = isDragOver 
+        ? 'bg-indigo-100 ring-inset ring-2 ring-indigo-400 scale-[0.98] rounded-lg z-10 shadow-lg' 
+        : highlightStyle 
+            ? `${highlightStyle} bg-opacity-30 border-opacity-40` // Applied Highlight
+            : isTodayDate 
+                ? 'bg-indigo-50/20 shadow-inner' // Today
+                : !isCurrentMonth 
+                    ? 'bg-gray-50/80 text-gray-300' // Out of Month
+                    : 'bg-white hover:bg-indigo-50/10'; // Default
+
     return (
         <div 
             onClick={() => onDayClick(day, tasks)}
+            onContextMenu={(e) => { e.preventDefault(); onContextMenu(day); }}
             onDragOver={(e) => onDragOver(e, day)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, day)}
             className={`
                 relative flex flex-col group transition-all cursor-pointer select-none
                 ${isExpanded ? 'p-1.5 md:p-3' : 'p-1 md:p-2'}
-                ${!isCurrentMonth ? 'bg-gray-50/80 text-gray-300' : 'bg-white hover:bg-indigo-50/10'}
-                ${isTodayDate ? 'bg-indigo-50/20 shadow-inner' : ''}
-                ${isDragOver ? 'bg-indigo-100 ring-inset ring-2 ring-indigo-400 scale-[0.98] rounded-lg z-10 shadow-lg' : ''}
+                ${bgClass}
             `}
         >
             <div className={`flex justify-center md:justify-between items-start mb-1 pointer-events-none relative z-10 ${isExpanded ? 'justify-between w-full' : ''}`}>
@@ -80,10 +111,22 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                         {count}
                     </span>
                 )}
+
+                {/* Mobile Highlight Dot */}
+                {highlight && !isExpanded && (
+                    <div className={`md:hidden absolute top-0 right-0 w-2 h-2 rounded-full ${highlightStyle.split(' ')[0].replace('/30','')}`} />
+                )}
             </div>
+            
+            {/* Highlight Label (Desktop/Expanded) */}
+            {highlightLabel && (
+                <div className="hidden md:block text-[9px] font-bold opacity-60 truncate mb-1 px-1">
+                    {highlightLabel}
+                </div>
+            )}
 
             <div className="flex-1 flex flex-col justify-start overflow-hidden w-full">
-                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-2 w-full ${containerPadding} ${containerSpacing} h-full overflow-hidden`}>
+                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-1 w-full ${containerPadding} ${containerSpacing} h-full overflow-hidden`}>
                     {count > 0 && tasks.slice(0, maxVisible).map((task, index) => (
                         <CalendarTaskPill 
                             key={`${task.id}-${viewMode}`}

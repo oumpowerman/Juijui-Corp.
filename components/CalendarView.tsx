@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { Minimize2, Loader2 } from 'lucide-react';
 import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
 import MentorTip from './MentorTip';
@@ -10,6 +10,8 @@ import CalendarHeader from './CalendarHeader';
 import SmartFilterModal from './SmartFilterModal';
 import BoardView from './BoardView';
 import CalendarGrid from './calendar/CalendarGrid';
+import { useCalendarHighlights } from '../hooks/useCalendarHightlights';
+import DayHighlightModal from './calendar/DayHightlightModal';
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -57,6 +59,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       isManageModalOpen, setIsManageModalOpen
   } = useCalendar({ tasks, onMoveTask });
 
+  // --- Highlights Logic ---
+  const { highlights, setHighlight, removeHighlight } = useCalendarHighlights(currentDate);
+  const [highlightModalOpen, setHighlightModalOpen] = useState(false);
+  const [selectedHighlightDate, setSelectedHighlightDate] = useState<Date | null>(null);
+
   const [displayMode, setDisplayMode] = useState<'CALENDAR' | 'BOARD'>('CALENDAR');
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [selectedDayTasks, setSelectedDayTasks] = useState<Task[]>([]);
@@ -80,12 +87,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setIsListModalOpen(true);
   };
 
+  const handleDayContextMenu = (day: Date) => {
+      setSelectedHighlightDate(day);
+      setHighlightModalOpen(true);
+  };
+
   const handleDragLeave = (e: React.DragEvent) => {
       // Optional logic
   };
 
   const CALENDAR_TIPS = [
       "💡 Tip: กดปุ่มที่มุมขวาบนเพื่อสลับดูแบบ Board (Kanban) ได้นะ",
+      "คลิกขวาที่ช่องวันที่ เพื่อเปลี่ยนสีไฮไลท์วัน (เช่น วันออกกอง, วันหยุด) ได้เลย!",
       "การลงคอนเทนต์สม่ำเสมอสำคัญกว่ายอดวิวเปรี้ยงปร้างแค่คลิปเดียว",
       "วางแผนล่วงหน้า 1 สัปดาห์ ชีวิตจะดีขึ้นเยอะ!",
   ];
@@ -161,9 +174,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 viewMode={viewMode}
                 activeChipIds={activeChipIds}
                 customChips={customChips || []}
+                highlights={highlights}
+                masterOptions={masterOptions}
                 getTasksForDay={getTasksForDay}
-                filterTasks={filterTasks} // Fix: Pass the actual filter function, not the result
+                filterTasks={filterTasks}
                 onDayClick={handleDayClick}
+                onDayContextMenu={handleDayContextMenu}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -176,7 +192,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 className={`animate-slide-in-right ${isExpanded ? 'h-[90vh]' : ''}`}
             >
                 <BoardView 
-                    tasks={filteredTasksForView} // Pass already filtered tasks
+                    tasks={filteredTasksForView}
                     channels={channels}
                     users={users}
                     masterOptions={masterOptions}
@@ -189,6 +205,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         )}
       </div>
 
+      {/* Modals */}
       <TaskCategoryModal 
             isOpen={isListModalOpen}
             onClose={() => setIsListModalOpen(false)}
@@ -207,6 +224,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           masterOptions={masterOptions} 
           onSave={saveChip}
           onDelete={deleteChip}
+      />
+      
+      <DayHighlightModal 
+          isOpen={highlightModalOpen}
+          onClose={() => setHighlightModalOpen(false)}
+          date={selectedHighlightDate}
+          masterOptions={masterOptions}
+          currentHighlightType={highlights.find(h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate))?.typeKey}
+          onSave={(typeKey, note) => selectedHighlightDate && setHighlight(selectedHighlightDate, typeKey, note)}
+          onRemove={() => selectedHighlightDate && removeHighlight(selectedHighlightDate)}
       />
     </div>
   );

@@ -29,7 +29,8 @@ export const useTaskComments = (taskId: string | undefined, currentUser: User | 
             level: data.profiles.level || 1,
             availablePoints: data.profiles.available_points || 0,
             hp: data.profiles.hp || 100,
-            maxHp: data.profiles.max_hp || 100
+            maxHp: data.profiles.max_hp || 100,
+            workStatus: data.profiles.work_status || 'ONLINE'
         } : undefined
     });
 
@@ -41,7 +42,7 @@ export const useTaskComments = (taskId: string | undefined, currentUser: User | 
                 .from('task_comments')
                 .select(`
                     *,
-                    profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp)
+                    profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp, work_status)
                 `)
                 .eq('task_id', taskId)
                 .order('created_at', { ascending: true });
@@ -92,7 +93,7 @@ export const useTaskComments = (taskId: string | undefined, currentUser: User | 
                     // Fetch full data for the new comment (to get profile)
                     const { data } = await supabase
                         .from('task_comments')
-                        .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp)`)
+                        .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp, work_status)`)
                         .eq('id', newId)
                         .single();
 

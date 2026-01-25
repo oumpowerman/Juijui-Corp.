@@ -1,63 +1,27 @@
 
-import React from 'react';
-
+// Enums and Unions
 export type Role = 'ADMIN' | 'MEMBER';
-
-export type ViewMode = 
-  | 'DASHBOARD' 
-  | 'CALENDAR' 
-  | 'CHAT' 
-  | 'TEAM' 
-  | 'WEEKLY' 
-  | 'GOALS' 
-  | 'SCRIPT_HUB' 
-  | 'MEETINGS' 
-  | 'DUTY' 
-  | 'QUALITY_GATE' 
-  | 'KPI' 
-  | 'FEEDBACK' 
-  | 'STOCK' 
-  | 'CHECKLIST' 
-  | 'WIKI' 
-  | 'CHANNELS' 
-  | 'MASTER_DATA';
-
 export type TaskType = 'CONTENT' | 'TASK';
-
-export type Status = 
-  | 'TODO' | 'DOING' | 'BLOCKED' 
-  | 'IDEA' | 'SCRIPT' | 'SHOOTING' | 'EDIT_CLIP' | 'FEEDBACK' | 'EDIT_DRAFT_1' | 'FEEDBACK_1' | 'EDIT_DRAFT_2' | 'APPROVE' | 'DONE' | 'WAITING'
-  | string; 
-
+export type Status = 'TODO' | 'DOING' | 'DONE' | 'BLOCKED' | 'IDEA' | 'SCRIPT' | 'SHOOTING' | 'EDIT_CLIP' | 'FEEDBACK' | 'EDIT_DRAFT_1' | 'FEEDBACK_1' | 'EDIT_DRAFT_2' | 'APPROVE' | 'WAITING' | 'REVISE' | 'FINAL' | string;
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-
 export type Platform = 'YOUTUBE' | 'FACEBOOK' | 'TIKTOK' | 'INSTAGRAM' | 'OTHER' | 'ALL';
-
 export type ContentPillar = 'ENTERTAINMENT' | 'EDUCATION' | 'LIFESTYLE' | 'PROMO' | 'REALTIME' | 'COMEDY' | 'STREET' | 'DEEP_TALK' | 'BEHIND' | 'FAN_INTERACTION' | 'OTHER' | string;
-
 export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | 'REELS' | 'STORY' | 'POST_H' | 'OTHER' | string;
-
 export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'LINK' | 'OTHER';
-
-export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING';
-
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-
-export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
-
-export type FilterType = 'STATUS' | 'FORMAT' | 'CHANNEL' | 'PILLAR' | 'CATEGORY';
-
+export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING';
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'STOCK' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI';
 export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE';
-
-export type ScriptStatus = 'DRAFT' | 'REVIEW' | 'FINAL' | 'SHOOTING' | 'DONE';
+export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
 export type ScriptType = 'MONOLOGUE' | 'DIALOGUE';
-
+export type ScriptStatus = 'DRAFT' | 'REVIEW' | 'FINAL' | 'SHOOTING' | 'DONE';
 export type MeetingCategory = 'GENERAL' | 'PROJECT' | 'CRISIS' | 'CREATIVE' | 'HR';
-
+export type FilterType = 'STATUS' | 'FORMAT' | 'CHANNEL' | 'PILLAR' | 'CATEGORY';
 export type FeedbackType = 'IDEA' | 'ISSUE' | 'SHOUTOUT';
 export type FeedbackStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_MISSED' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE' | 'TIME_WARP_REFUND';
 
-// --- Interfaces ---
+// Interfaces
 
 export interface User {
     id: string;
@@ -76,7 +40,7 @@ export interface User {
     availablePoints: number;
     hp: number;
     maxHp: number;
-    workStatus?: WorkStatus;
+    workStatus: WorkStatus;
     leaveStartDate?: Date | null;
     leaveEndDate?: Date | null;
 }
@@ -88,15 +52,7 @@ export interface Channel {
     color: string;
     platforms: Platform[];
     logoUrl?: string;
-}
-
-export interface TaskAsset {
-    id: string;
-    name: string;
-    url: string;
-    type: 'FILE' | 'LINK' | 'IMAGE';
-    category: AssetCategory;
-    createdAt: Date;
+    platform?: Platform; // Legacy
 }
 
 export interface TaskPerformance {
@@ -108,12 +64,21 @@ export interface TaskPerformance {
     reflection: string;
 }
 
+export interface TaskAsset {
+    id: string;
+    name: string;
+    url: string;
+    type: 'LINK' | 'FILE';
+    category: AssetCategory;
+    createdAt: Date;
+}
+
 export interface ReviewSession {
     id: string;
     taskId: string;
     round: number;
     scheduledAt: Date;
-    reviewerId?: string;
+    reviewerId?: string | null;
     status: ReviewStatus;
     feedback?: string;
     isCompleted: boolean;
@@ -123,7 +88,7 @@ export interface ReviewSession {
 export interface TaskLog {
     id: string;
     taskId: string;
-    userId: string;
+    userId?: string;
     action: string;
     details: string;
     reason?: string;
@@ -136,45 +101,51 @@ export interface Task {
     type: TaskType;
     title: string;
     description: string;
-    remark?: string;
-    status: Status;
+    status: Status | string;
     priority: Priority;
+    tags: string[];
     startDate: Date;
     endDate: Date;
-    channelId?: string;
-    tags: string[];
     
+    // Content specific
+    channelId?: string;
     targetPlatforms?: Platform[];
-    pillar?: ContentPillar;
-    contentFormat?: ContentFormat;
+    pillar?: ContentPillar | string;
+    contentFormat?: ContentFormat | string;
     category?: string;
     isUnscheduled?: boolean;
     
+    // People
     assigneeIds: string[];
     ideaOwnerIds?: string[];
     editorIds?: string[];
     assigneeType?: AssigneeType;
-    targetPosition?: string;
-
-    caution?: string;
-    importance?: string;
-    publishedLinks?: Record<string, string>;
-
-    shootDate?: Date;
-    shootLocation?: string;
-
+    
+    // Details
+    remark?: string;
     assets?: TaskAsset[];
     reviews?: ReviewSession[];
     logs?: TaskLog[];
     
+    // Gamification & Meta
     difficulty?: Difficulty;
     estimatedHours?: number;
     performance?: TaskPerformance;
+    
+    // New fields
+    targetPosition?: string;
+    caution?: string;
+    importance?: string;
+    publishedLinks?: Record<string, string>;
+    
+    // Production
+    shootDate?: Date;
+    shootLocation?: string;
 }
 
 export interface MasterOption {
     id: string;
-    type: 'STATUS' | 'TASK_STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'POSITION' | 'RESPONSIBILITY' | 'KPI_CRITERIA' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION' | 'ITEM_CONDITION' | 'LEAVE_TYPE' | 'REJECTION_REASON' | 'SCRIPT_CATEGORY' | string;
+    type: string; // 'STATUS' | 'FORMAT' | 'PILLAR' | 'CATEGORY' | 'POSITION' | 'RESPONSIBILITY' | 'INV_CAT_L1' | 'INV_CAT_L2' | 'EVENT_TYPE' etc
     key: string;
     label: string;
     color: string;
@@ -182,24 +153,6 @@ export interface MasterOption {
     isActive: boolean;
     isDefault?: boolean;
     parentKey?: string;
-}
-
-export interface NotificationPreferences {
-    newAssignments: boolean;
-    upcomingDeadlines: boolean;
-    taskCompletions: boolean;
-    systemUpdates: boolean;
-    emailAlerts: boolean;
-}
-
-export interface ChatMessage {
-    id: string;
-    content: string;
-    userId: string | null;
-    createdAt: Date;
-    isBot: boolean;
-    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'TASK_CREATED';
-    user?: User;
 }
 
 export interface ChecklistItem {
@@ -223,17 +176,71 @@ export interface InventoryItem {
     imageUrl?: string;
 }
 
+export interface ChipConfig {
+    id: string;
+    label: string;
+    type: FilterType;
+    value: string;
+    colorTheme: string;
+    scope?: 'CONTENT' | 'TASK';
+}
+
+export interface NotificationPreferences {
+    newAssignments: boolean;
+    upcomingDeadlines: boolean;
+    taskCompletions: boolean;
+    systemUpdates: boolean;
+    emailAlerts: boolean;
+}
+
+export interface AppNotification {
+    id: string;
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO';
+    title: string;
+    message: string;
+    taskId?: string;
+    date: Date;
+    isRead: boolean;
+}
+
+export interface ChatMessage {
+    id: string;
+    content: string;
+    userId: string | null;
+    isBot: boolean;
+    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'TASK_CREATED';
+    createdAt: Date;
+    user?: User;
+}
+
 export interface WeeklyQuest {
     id: string;
     title: string;
     weekStartDate: Date;
     channelId?: string;
     targetCount: number;
-    targetPlatform?: string;
+    targetPlatform?: Platform | 'ALL';
     targetFormat?: string;
     targetStatus?: string;
     questType: 'AUTO' | 'MANUAL';
     manualProgress?: number;
+}
+
+export interface Reward {
+    id: string;
+    title: string;
+    description?: string;
+    cost: number;
+    icon?: string;
+    isActive: boolean;
+}
+
+export interface Redemption {
+    id: string;
+    userId: string;
+    rewardId: string;
+    redeemedAt: Date;
+    rewardSnapshot?: Reward;
 }
 
 export interface Goal {
@@ -247,53 +254,20 @@ export interface Goal {
     isArchived: boolean;
     rewardXp: number;
     rewardCoin: number;
-    owners: string[]; 
+    owners: string[];
     boosts: string[];
 }
 
-export interface Reward {
+export interface WikiArticle {
     id: string;
     title: string;
-    description?: string;
-    cost: number;
-    icon: string;
-    isActive: boolean;
-}
-
-export interface Redemption {
-    id: string;
-    userId: string;
-    rewardId: string;
-    redeemedAt: Date;
-    rewardSnapshot: any;
-}
-
-export interface ShopItem {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    icon: React.ReactNode | string; 
-    effectType: string;
-    effectValue: number;
-}
-
-export interface UserInventoryItem {
-    id: string;
-    userId: string;
-    itemId: string;
-    isUsed: boolean;
-    item?: ShopItem;
-}
-
-export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_MISSED' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE';
-
-export interface GameActionResult {
-    xp: number;
-    hp: number;
-    coins: number;
-    message?: string;
-    details?: string;
+    category: string;
+    content: string;
+    targetRoles?: string[];
+    lastUpdated: Date;
+    isPinned: boolean;
+    coverImage?: string;
+    helpfulCount?: number;
 }
 
 export interface Duty {
@@ -312,16 +286,63 @@ export interface DutyConfig {
     taskTitles: string[];
 }
 
-export interface WikiArticle {
+export interface ShopItem {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    icon: string;
+    effectType: string;
+    effectValue: number;
+}
+
+export interface UserInventoryItem {
+    id: string;
+    itemId: string;
+    userId: string;
+    isUsed: boolean;
+    item?: ShopItem;
+}
+
+export interface DashboardConfig {
+    id: string;
+    key: string;
+    label: string;
+    icon?: string;
+    colorTheme?: string;
+    statusKeys?: string[];
+    filterType?: FilterType;
+    sortOrder: number;
+}
+
+export interface ScriptSummary {
     id: string;
     title: string;
-    category: string;
+    status: ScriptStatus;
+    version: number;
+    authorId: string;
+    contentId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+    author?: { name: string; avatarUrl: string };
+    ideaOwnerId?: string;
+    ideaOwner?: { name: string; avatarUrl: string };
+    linkedTaskTitle?: string;
+    estimatedDuration: number;
+    scriptType: ScriptType;
+    isInShootQueue: boolean;
+    channelId?: string;
+    category?: string;
+    tags: string[];
+    objective?: string;
+    lockedBy?: string;
+    lockedAt?: Date;
+    locker?: { name: string; avatarUrl: string };
+}
+
+export interface Script extends ScriptSummary {
     content: string;
-    targetRoles: string[];
-    lastUpdated: Date;
-    isPinned: boolean;
-    coverImage?: string;
-    helpfulCount?: number;
+    characters?: string[];
 }
 
 export interface FeedbackItem {
@@ -341,43 +362,13 @@ export interface KPIRecord {
     id: string;
     userId: string;
     evaluatorId: string;
-    monthKey: string; 
+    monthKey: string;
     scores: Record<string, number>;
     feedback: string;
     status: 'DRAFT' | 'FINAL' | 'PAID';
     totalScore: number;
     maxScore: number;
     updatedAt: Date;
-}
-
-export interface AppNotification {
-    id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO';
-    title: string;
-    message: string;
-    taskId?: string;
-    date: Date;
-    isRead: boolean;
-}
-
-export interface ChipConfig {
-    id: string;
-    label: string;
-    type: FilterType;
-    value: string;
-    colorTheme: string;
-    scope?: 'CONTENT' | 'TASK';
-}
-
-export interface DashboardConfig {
-    id: string;
-    key: string;
-    label: string;
-    icon: string;
-    colorTheme: string;
-    statusKeys?: string[];
-    filterType?: FilterType;
-    sortOrder: number;
 }
 
 export interface BackupOptions {
@@ -393,44 +384,12 @@ export interface StorageStats {
     limitBytes: number;
 }
 
-export interface TaskComment {
-    id: string;
-    taskId: string;
-    userId: string;
-    content: string;
-    createdAt: Date;
-    user?: User;
-}
-
-// Optimized Types for ScriptHub
-export interface ScriptSummary {
-    id: string;
-    title: string;
-    status: ScriptStatus;
-    version: number;
-    authorId: string;
-    ideaOwnerId?: string;
-    contentId?: string;
-    createdAt: Date;
-    updatedAt: Date;
-    author?: { name: string; avatarUrl: string };
-    ideaOwner?: { name: string; avatarUrl: string };
-    linkedTaskTitle?: string;
-    estimatedDuration: number;
-    scriptType: ScriptType;
-    isInShootQueue: boolean;
-    channelId?: string;
-    category?: string;
-    tags?: string[];
-    objective?: string;
-    lockedBy?: string; 
-    lockedAt?: Date;
-    locker?: { name: string; avatarUrl: string };
-}
-
-export interface Script extends ScriptSummary {
-    content: string;
-    characters: string[];
+export interface GameActionResult {
+    xp: number;
+    hp: number;
+    coins: number;
+    message: string;
+    details?: string;
 }
 
 export interface MeetingAgendaItem {
@@ -461,4 +420,20 @@ export interface MenuGroup {
     icon: any; 
     items: { view: ViewMode; label: string; icon: any }[];
     adminOnly?: boolean;
+}
+
+export interface CalendarHighlight {
+    id: string;
+    date: Date;
+    typeKey: string;
+    note?: string;
+}
+
+export interface TaskComment {
+    id: string;
+    taskId: string;
+    userId: string;
+    content: string;
+    createdAt: Date;
+    user?: User;
 }

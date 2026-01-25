@@ -53,7 +53,8 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
             level: data.profiles.level || 1,
             availablePoints: data.profiles.available_points || 0,
             hp: data.profiles.hp || 100,
-            maxHp: data.profiles.max_hp || 100
+            maxHp: data.profiles.max_hp || 100,
+            workStatus: data.profiles.work_status || 'ONLINE'
         } : undefined
     });
 
@@ -65,7 +66,7 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
             // Fetch latest messages first (descending), then reverse them for display
             const { data, error } = await supabase
                 .from('team_messages')
-                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp)`)
+                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp, work_status)`)
                 .order('created_at', { ascending: false }) // Get newest first
                 .range(offset, offset + PAGE_SIZE - 1);
 

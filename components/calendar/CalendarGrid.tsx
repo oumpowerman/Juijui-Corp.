@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { eachDayOfInterval } from 'date-fns';
-import { Task, ChipConfig } from '../../types';
+import { eachDayOfInterval, isSameDay } from 'date-fns';
+import { Task, ChipConfig, CalendarHighlight, MasterOption } from '../../types';
 import CalendarDayCell from './CalendarDayCell';
 
 interface CalendarGridProps {
@@ -14,12 +14,17 @@ interface CalendarGridProps {
     activeChipIds: string[];
     customChips: ChipConfig[];
     
+    // New Props for Highlights
+    highlights: CalendarHighlight[];
+    masterOptions: MasterOption[];
+    
     // Functions passed down
     getTasksForDay: (day: Date) => Task[];
     filterTasks: (tasks: Task[]) => Task[];
     
     // Event Handlers
     onDayClick: (day: Date, tasks: Task[]) => void;
+    onDayContextMenu: (day: Date) => void;
     onDragOver: (e: React.DragEvent, day: Date) => void;
     onDragLeave: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent, day: Date) => void;
@@ -36,9 +41,12 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     viewMode,
     activeChipIds,
     customChips,
+    highlights,
+    masterOptions,
     getTasksForDay,
     filterTasks,
     onDayClick,
+    onDayContextMenu,
     onDragOver,
     onDragLeave,
     onDrop,
@@ -74,6 +82,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                 {gridDays.map((day) => {
                     const dayTasks = getTasksForDay(day);
                     const filteredDayTasks = filterTasks(dayTasks);
+                    const dayHighlight = highlights.find(h => isSameDay(h.date, day));
 
                     return (
                         <CalendarDayCell 
@@ -86,7 +95,10 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                             viewMode={viewMode}
                             activeChipIds={activeChipIds}
                             customChips={customChips}
+                            highlight={dayHighlight}
+                            masterOptions={masterOptions}
                             onDayClick={onDayClick}
+                            onContextMenu={onDayContextMenu}
                             onDragOver={onDragOver}
                             onDragLeave={onDragLeave}
                             onDrop={onDrop}

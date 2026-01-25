@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Target, Trophy, ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Layout, Sparkles, X, PlusCircle, ArrowRight, MoreHorizontal, ChevronDown, ChevronUp, Calendar, Bell, Filter, MousePointerClick, Database } from 'lucide-react';
 import { endOfWeek, addWeeks, format, isWithinInterval, isSameDay } from 'date-fns';
@@ -235,6 +236,9 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
         ? (viewingChannelId === 'MISC' ? groupedQuests.miscQuests : groupedQuests.groups[viewingChannelId] || [])
         : [];
 
+    // Helper for selected channel preview
+    const selectedChannelObj = channels.find(c => c.id === selectedChannelId);
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <MentorTip 
@@ -306,19 +310,33 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                                 <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-1000" style={{ width: `${overallPercent}%` }}></div>
                             </div>
 
-                            {/* Card Header */}
-                            <div className={`px-6 py-4 border-b border-gray-100 ${channel.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 ')}`}>
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">{channel.name}</h3>
-                                        <div className="flex gap-1 mt-1">
-                                            {channel.platforms.map(p => {
-                                                const Icon = PLATFORM_ICONS[p];
-                                                return <Icon key={p} className="w-3 h-3 text-gray-500" />
-                                            })}
-                                        </div>
+                            {/* Card Header with Logo */}
+                            <div className={`px-5 py-5 border-b border-gray-100 ${channel.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 ')}`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                         {/* Logo / Initials */}
+                                         <div className="shrink-0">
+                                             {channel.logoUrl ? (
+                                                 <img 
+                                                     src={channel.logoUrl} 
+                                                     alt={channel.name} 
+                                                     className="w-14 h-14 rounded-2xl object-cover border-4 border-white shadow-md bg-white"
+                                                 />
+                                             ) : (
+                                                 <div className="w-14 h-14 rounded-2xl bg-white border-4 border-white shadow-md flex items-center justify-center text-xl font-black uppercase text-gray-300">
+                                                     {channel.name.substring(0, 2)}
+                                                 </div>
+                                             )}
+                                         </div>
+                                         
+                                         {/* Name */}
+                                         <h3 className="font-black text-xl text-gray-800 tracking-tight leading-tight">{channel.name}</h3>
                                     </div>
-                                    <div className="text-right"><span className="text-2xl font-black text-gray-800">{overallPercent}%</span></div>
+                                    
+                                    {/* Percent */}
+                                    <div className="text-right">
+                                        <span className="text-3xl font-black text-gray-800 tracking-tighter">{overallPercent}%</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -359,9 +377,19 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                 {groupedQuests.miscQuests.length > 0 && (
                     <div onClick={() => setViewingChannelId('MISC')} className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
                          <div className="h-2 w-full bg-gray-100"><div className="h-full bg-gray-400" style={{ width: `${calculateChannelOverall(groupedQuests.miscQuests)}%` }}></div></div>
-                         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                            <h3 className="font-bold text-lg text-gray-600 flex items-center gap-2"><Layout className="w-5 h-5" /> ทั่วไป (Misc)</h3>
+                         
+                         <div className="px-5 py-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                             <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-white border-4 border-white shadow-md flex items-center justify-center text-gray-400">
+                                    <Layout className="w-8 h-8" />
+                                </div>
+                                <h3 className="font-black text-xl text-gray-600">ทั่วไป (Misc)</h3>
+                             </div>
+                             <div className="text-right">
+                                <span className="text-3xl font-black text-gray-600 tracking-tighter">{calculateChannelOverall(groupedQuests.miscQuests)}%</span>
+                             </div>
                          </div>
+
                          <div className="p-5 flex-1 space-y-3">
                             {groupedQuests.miscQuests.slice(0, 4).map(quest => {
                                 const progress = calculateProgress(quest);
@@ -404,12 +432,24 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                                 <div className="space-y-3">
                                     <label className="text-sm font-bold text-gray-700 flex items-center">1. ภารกิจนี้ของช่องไหน? (Select Channel)</label>
                                     {!isCustomChannel ? (
-                                        <div className="flex gap-2">
-                                            <select className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-700 outline-none focus:border-indigo-500 bg-white" value={selectedChannelId} onChange={e => setSelectedChannelId(e.target.value)}>
-                                                <option value="" disabled>-- เลือกช่อง (Brand) --</option>
-                                                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                            </select>
-                                            <button type="button" onClick={() => setIsCustomChannel(true)} className="px-3 py-2 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 text-xs font-bold whitespace-nowrap">หรือ พิมพ์ชื่อเอง</button>
+                                        <div className="flex items-center gap-3">
+                                            {/* Show Selected Logo */}
+                                            {selectedChannelId && (
+                                                <div className="w-12 h-12 shrink-0 rounded-xl border-2 border-gray-200 p-0.5 bg-white shadow-sm overflow-hidden">
+                                                     {selectedChannelObj?.logoUrl ? (
+                                                         <img src={selectedChannelObj.logoUrl} className="w-full h-full object-cover rounded-lg" />
+                                                     ) : (
+                                                         <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold">{selectedChannelObj?.name.substring(0,2)}</div>
+                                                     )}
+                                                </div>
+                                            )}
+                                            <div className="flex-1 flex gap-2">
+                                                <select className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-700 outline-none focus:border-indigo-500 bg-white" value={selectedChannelId} onChange={e => setSelectedChannelId(e.target.value)}>
+                                                    <option value="" disabled>-- เลือกช่อง (Brand) --</option>
+                                                    {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                                <button type="button" onClick={() => setIsCustomChannel(true)} className="px-3 py-2 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 text-xs font-bold whitespace-nowrap">หรือ พิมพ์ชื่อเอง</button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="flex gap-2 animate-in fade-in slide-in-from-right-4">

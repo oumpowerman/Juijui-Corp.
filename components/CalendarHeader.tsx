@@ -46,7 +46,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     customChips = [],
     setIsManageModalOpen,
     displayMode, setDisplayMode,
-    onSelectDate
+    onSelectDate,
+    channels
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
     const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
@@ -132,6 +133,15 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                               {visibleChips.map((chip) => {
                                   const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
                                   const isActive = safeActiveIds.includes(chip.id);
+                                  
+                                  let channelLogo = null;
+                                  if (chip.type === 'CHANNEL') {
+                                      const ch = channels.find(c => c.id === chip.value);
+                                      if (ch?.logoUrl) {
+                                          channelLogo = ch.logoUrl;
+                                      }
+                                  }
+
                                   return (
                                       <button
                                           key={chip.id}
@@ -143,7 +153,18 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                   : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:bg-${theme.id}-50 hover:-translate-y-0.5`}
                                           `}
                                       >
-                                          {chip.label}
+                                          {channelLogo ? (
+                                            // ถ้ามีรูป ให้โชว์รูปอย่างเดียว (ปรับขนาดให้ใหญ่ขึ้นนิดนึงจะได้เห็นชัด)
+                                            <img 
+                                            src={channelLogo} 
+                                            alt={chip.label} 
+                                            className="w-6 h-6 rounded-full object-cover border border-white/20 hover:scale-120 transition-transform" 
+                                            title={chip.label} // เอาเมาส์ชี้แล้วจะขึ้นชื่อ
+                                            />
+                                        ) : (
+                                            // ถ้าไม่มีรูป ให้โชว์ชื่อเหมือนเดิม
+                                            chip.label
+                                        )}
                                           {isActive && <Check className="w-3 h-3 text-white stroke-[3px]" />}
                                       </button>
                                   );

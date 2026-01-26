@@ -49,6 +49,7 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
     const monthStart = new Date(currentNavDate.getFullYear(), currentNavDate.getMonth(), 1);
     const monthEnd = endOfMonth(currentNavDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const startOffset = monthStart.getDay(); // Calculate start day offset (0 = Sunday)
     
     // Find days with meetings
     const meetingDays = useMemo(() => {
@@ -229,9 +230,13 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                         <button onClick={() => setCurrentNavDate(addMonths(currentNavDate, 1))} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400"><ChevronRight className="w-4 h-4"/></button>
                     </div>
                     <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                        {['S','M','T','W','T','F','S'].map(d => <span key={d} className="text-[9px] text-gray-400 font-bold uppercase">{d}</span>)}
+                        {['S','M','T','W','T','F','S'].map((d, i) => <span key={i} className="text-[9px] text-gray-400 font-bold uppercase">{d}</span>)}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
+                        {/* Add empty slots to align first day of month correctly */}
+                        {Array.from({ length: startOffset }).map((_, i) => (
+                            <div key={`empty-${i}`} />
+                        ))}
                         {daysInMonth.map(day => {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const hasMeeting = meetingDays.has(dateStr);

@@ -183,6 +183,7 @@ export interface ChipConfig {
     value: string;
     colorTheme: string;
     scope?: 'CONTENT' | 'TASK';
+    mode?: 'INCLUDE' | 'EXCLUDE'; // New field for Exclusion logic
 }
 
 export interface NotificationPreferences {
@@ -221,7 +222,7 @@ export interface WeeklyQuest {
     channelId?: string;
     targetCount: number;
     targetPlatform?: Platform | 'ALL';
-    targetFormat?: string;
+    targetFormat?: string[]; // CHANGED: Now supports array of formats
     targetStatus?: string;
     questType: 'AUTO' | 'MANUAL';
     manualProgress?: number;
@@ -381,6 +382,8 @@ export interface BackupOptions {
 
 export interface StorageStats {
     usedBytes: number;
+    fileBytes: number; // Size of files in storage buckets
+    dbBytes: number;   // Size of database tables/indexes
     fileCount: number;
     limitBytes: number;
 }
@@ -405,6 +408,7 @@ export interface MeetingLog {
     title: string;
     date: Date;
     content: string;
+    decisions?: string; // New: Separated Decisions Field
     category: MeetingCategory; 
     attendees: string[];
     tags: string[];

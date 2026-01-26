@@ -43,13 +43,20 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
              // 2. Criteria
             const matchChannel = quest.channelId ? t.channelId === quest.channelId : true;
             const matchStatus = quest.targetStatus ? t.status === quest.targetStatus : t.status === 'DONE';
+            
             let matchPlatform = true;
             if (quest.targetPlatform === 'ALL') {
                 matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
             } else if (quest.targetPlatform) {
                 matchPlatform = (t.targetPlatforms && t.targetPlatforms.includes(quest.targetPlatform as Platform)) || false;
             }
-            const matchFormat = quest.targetFormat ? t.contentFormat === quest.targetFormat : true;
+            
+            // Format check: Array inclusion
+            let matchFormat = true;
+            if (quest.targetFormat && quest.targetFormat.length > 0) {
+                 matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;
+            }
+            
             return matchStatus && matchChannel && matchPlatform && matchFormat;
         });
     };
@@ -99,6 +106,7 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                             const qStart = new Date(quest.weekStartDate);
                             const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
                             const dateLabel = `${format(qStart, 'd MMM')} - ${format(qEnd, 'd MMM')}`;
+                            const formatCount = quest.targetFormat ? quest.targetFormat.length : 0;
 
                             return (
                                 <div key={quest.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
@@ -121,7 +129,7 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                                                 <div className="flex gap-1 mt-1">
                                                      {quest.questType === 'AUTO' && (
                                                             <>
-                                                                {quest.targetFormat && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 font-medium">{quest.targetFormat}</span>}
+                                                                {formatCount > 0 && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 font-medium" title={quest.targetFormat?.join(', ')}>{formatCount === 1 ? quest.targetFormat![0] : `${formatCount} Formats`}</span>}
                                                                 {quest.targetPlatform === 'ALL' && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 font-medium">All Platforms</span>}
                                                             </>
                                                         )}

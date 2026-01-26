@@ -66,24 +66,45 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     const startDate = getStartOfWeek(monthStart);
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
-    // Memoize Filter Logic
+    // Helper: Check if task matches chip criteria
+    const checkMatch = (t: Task, chip: ChipConfig) => {
+        switch (chip.type) {
+            case 'CHANNEL': return t.channelId === chip.value;
+            case 'FORMAT': return t.contentFormat === chip.value;
+            case 'STATUS': return t.status === chip.value;
+            case 'PILLAR': return t.pillar === chip.value;
+            case 'CATEGORY': return t.category === chip.value;
+            default: return false;
+        }
+    };
+
+    // Memoize Filter Logic with Exclusion Support
     const filterTasks = useCallback((tasksToFilter: Task[]) => {
         let filtered = tasksToFilter.filter(t => t.type === viewMode);
 
         if (activeChipIds.length > 0 && Array.isArray(customChips)) {
-            filtered = filtered.filter(t => {
-                return activeChipIds.some(chipId => {
-                    const chip = customChips.find(c => c.id === chipId);
-                    if (!chip) return false;
+            // Get all active chip objects
+            const activeChips = customChips.filter(c => activeChipIds.includes(c.id));
+            
+            // Separate into Include and Exclude lists
+            const excludeChips = activeChips.filter(c => c.mode === 'EXCLUDE');
+            const includeChips = activeChips.filter(c => c.mode !== 'EXCLUDE'); // Default to INCLUDE if undefined
 
-                    switch (chip.type) {
-                        case 'CHANNEL': return t.channelId === chip.value;
-                        case 'FORMAT': return t.contentFormat === chip.value;
-                        case 'STATUS': return t.status === chip.value;
-                        case 'PILLAR': return t.pillar === chip.value;
-                        default: return false;
-                    }
-                });
+            filtered = filtered.filter(t => {
+                // 1. Exclusion Logic: If matches ANY exclude chip -> HIDE IT
+                if (excludeChips.length > 0) {
+                    const shouldExclude = excludeChips.some(chip => checkMatch(t, chip));
+                    if (shouldExclude) return false;
+                }
+
+                // 2. Inclusion Logic: If there are include chips, MUST match AT LEAST ONE
+                // If no include chips selected (only exclude selected), show everything remaining.
+                if (includeChips.length > 0) {
+                    const isIncluded = includeChips.some(chip => checkMatch(t, chip));
+                    if (!isIncluded) return false;
+                }
+
+                return true;
             });
         }
         return filtered;

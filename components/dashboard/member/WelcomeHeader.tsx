@@ -141,19 +141,21 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                                     {currentStatusConfig.icon} {currentStatusConfig.label} <ChevronDown className="w-3 h-3 opacity-50" />
                                 </button>
                                 
-                                {/* Dropdown Menu */}
-                                <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 p-2 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold px-2 py-1">เปลี่ยนสถานะ (Set Status)</p>
-                                    {Object.entries(WORK_STATUS_CONFIG).map(([key, config]) => (
-                                        <button
-                                            key={key}
-                                            onClick={() => onUpdateStatus(key as WorkStatus)}
-                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors ${user.workStatus === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
-                                        >
-                                            <span>{config.icon}</span>
-                                            {config.label.split('(')[0]}
-                                        </button>
-                                    ))}
+                                {/* Dropdown Menu with padding bridge fix */}
+                                <div className="absolute top-full left-0 pt-2 w-48 hidden group-hover:block z-50">
+                                    <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-2 animate-in fade-in slide-in-from-top-2">
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold px-2 py-1">เปลี่ยนสถานะ (Set Status)</p>
+                                        {Object.entries(WORK_STATUS_CONFIG).map(([key, config]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => onUpdateStatus(key as WorkStatus)}
+                                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors ${user.workStatus === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
+                                            >
+                                                <span>{config.icon}</span>
+                                                {config.label.split('(')[0]}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -9,9 +9,10 @@ interface QuestCardProps {
     quests: WeeklyQuest[];
     allTasks: Task[]; // Receive ALL tasks to filter by specific quest range
     onClick: () => void;
+    onUpdateManualProgress?: (id: string, val: number) => void;
 }
 
-const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClick }) => {
+const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClick, onUpdateManualProgress }) => {
     
     // --- Logic Reused for Visualization ---
     const getMatchingTasks = (quest: WeeklyQuest) => {
@@ -34,13 +35,19 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
             // 2. Check Criteria
             const matchChannel = quest.channelId ? t.channelId === quest.channelId : true;
             const matchStatus = quest.targetStatus ? t.status === quest.targetStatus : t.status === 'DONE';
+            
             let matchPlatform = true;
             if (quest.targetPlatform === 'ALL') {
                 matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
             } else if (quest.targetPlatform) {
                 matchPlatform = (t.targetPlatforms && t.targetPlatforms.includes(quest.targetPlatform as Platform)) || false;
             }
-            const matchFormat = quest.targetFormat ? t.contentFormat === quest.targetFormat : true;
+            
+            // Format check: Array inclusion
+            let matchFormat = true;
+            if (quest.targetFormat && quest.targetFormat.length > 0) {
+                 matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;
+            }
             
             return matchStatus && matchChannel && matchPlatform && matchFormat;
         });
@@ -133,6 +140,8 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                     const qStart = new Date(quest.weekStartDate);
                     const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
                     const dateLabel = `${format(qStart, 'd/M')} - ${format(qEnd, 'd/M')}`;
+                    
+                    const formatCount = quest.targetFormat ? quest.targetFormat.length : 0;
 
                     return (
                         <div key={quest.id} className="relative">
@@ -142,10 +151,30 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                                     <span className={`font-medium truncate ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{quest.title}</span>
                                     {/* Format Badge for Auto */}
                                     <div className="flex gap-1 shrink-0">
-                                        {quest.questType === 'AUTO' && quest.targetFormat && <span className="text-[8px] bg-purple-50 text-purple-600 px-1 rounded border border-purple-100">{quest.targetFormat}</span>}
+                                        {quest.questType === 'AUTO' && formatCount > 0 && (
+                                            <span className="text-[8px] bg-purple-50 text-purple-600 px-1 rounded border border-purple-100" title={quest.targetFormat?.join(', ')}>
+                                                {formatCount === 1 ? quest.targetFormat![0] : `${formatCount} Formats`}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right flex items-center gap-2">
+                                     {quest.questType === 'MANUAL' && onUpdateManualProgress && (
+                                         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200" onClick={e => e.stopPropagation()}>
+                                             <button 
+                                                 onClick={() => onUpdateManualProgress(quest.id, Math.max(0, (quest.manualProgress || 0) - 1))} 
+                                                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white rounded transition-colors"
+                                             >
+                                                 -
+                                             </button>
+                                             <button 
+                                                 onClick={() => onUpdateManualProgress(quest.id, (quest.manualProgress || 0) + 1)} 
+                                                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-white rounded transition-colors"
+                                             >
+                                                 +
+                                             </button>
+                                         </div>
+                                     )}
                                     <span className={`text-xs font-bold ${isCompleted ? 'text-emerald-600' : 'text-gray-400'}`}>{progress}/{quest.targetCount}</span>
                                 </div>
                             </div>

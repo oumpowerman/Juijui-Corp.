@@ -25,7 +25,8 @@ export const useReviews = () => {
                         *
                     )
                 `)
-                .order('scheduled_at', { ascending: true });
+                // SORT CHANGE: Ascending (Oldest first) to prioritize overdue tasks
+                .order('scheduled_at', { ascending: true }); 
 
             if (error) throw error;
 

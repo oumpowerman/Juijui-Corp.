@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
 import { InventoryItem, MasterOption } from '../../types';
 
@@ -17,8 +18,7 @@ interface InventoryModalProps {
 const InventoryModal: React.FC<InventoryModalProps> = ({ 
     isOpen, onClose, inventoryItems, onAdd, onAddItem, onUpdateItem, onDeleteItem, masterOptions 
 }) => {
-    if (!isOpen) return null;
-
+    
     // Filtered Master Options
     const mainCats = useMemo(() => masterOptions.filter(o => o.type === 'INV_CAT_L1').sort((a,b) => a.sortOrder - b.sortOrder), [masterOptions]);
     const subCats = useMemo(() => masterOptions.filter(o => o.type === 'INV_CAT_L2').sort((a,b) => a.sortOrder - b.sortOrder), [masterOptions]);
@@ -42,7 +42,59 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
     const [invImagePreview, setInvImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // Mobile Layout State
+    const [showMobileForm, setShowMobileForm] = useState(false);
+    
+    // Layout Calculation State
+    const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- Dynamic Layout Logic ---
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const updatePosition = () => {
+            const mainEl = document.querySelector('main');
+            // If main element exists and screen is wide enough (Desktop)
+            if (mainEl && window.innerWidth >= 1024) { 
+                const rect = mainEl.getBoundingClientRect();
+                setModalStyle({
+                    position: 'fixed',
+                    top: 0,
+                    left: `${rect.left}px`,
+                    width: `${rect.width}px`,
+                    height: '100%',
+                    zIndex: 40, // Below Sidebar (z-50) but above page content
+                    padding: '1rem' // Standard desktop padding
+                });
+            } else {
+                // Mobile / Tablet: Full screen overlay
+                setModalStyle({
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 100, // High z-index to cover mobile nav/header
+                    padding: 0 // No padding for full screen feel
+                });
+            }
+        };
+
+        // Initial update
+        updatePosition();
+
+        // Listen to window resize
+        window.addEventListener('resize', updatePosition);
+        
+        // Listen to main element size changes (e.g. sidebar collapse transition)
+        const mainEl = document.querySelector('main');
+        const observer = new ResizeObserver(updatePosition);
+        if (mainEl) observer.observe(mainEl);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            observer.disconnect();
+        };
+    }, [isOpen]);
 
     // --- Helpers ---
     const findParentL1 = (l2Key: string) => {
@@ -87,6 +139,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
     const handleOpenDetail = (item: InventoryItem) => {
         setViewingItem(item);
         setIsEditingMode(false);
+        // Pre-fill form data for potential editing
         setInvName(item.name);
         setInvDesc(item.description || '');
         setInvL2(item.categoryId);
@@ -125,22 +178,43 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
             }
         }
         setIsSubmitting(false);
+        if (success) setShowMobileForm(false); // Close drawer on success
     };
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white w-full h-full md:h-[90vh] md:max-w-[95vw] xl:max-w-[1600px] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 border border-gray-200">
+    const handleEditClick = () => {
+        setIsEditingMode(true);
+    };
+
+    if (!isOpen) return null;
+
+    // Use CreatePortal to render at body level for better Z-Index management vs Sidebar
+    return createPortal(
+        <div 
+            style={modalStyle} 
+            className="flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in transition-all duration-300 ease-out"
+        >
+            <div className="bg-white w-full h-full md:h-[90%] md:w-[95%] rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 border-none md:border border-gray-200 relative">
                 
-                {/* LEFT: Add Form */}
-                <div className="w-full md:w-[350px] lg:w-[400px] bg-gray-50/80 border-b md:border-b-0 md:border-r border-gray-200 p-6 flex flex-col overflow-y-auto shrink-0 backdrop-blur-sm">
+                {/* LEFT: Add Form (Responsive: Sidebar on Desktop, Overlay on Mobile) */}
+                <div className={`
+                    bg-gray-50/80 border-b md:border-b-0 md:border-r border-gray-200 p-6 flex-col overflow-y-auto shrink-0 backdrop-blur-sm transition-all duration-300
+                    md:flex md:w-[320px] lg:w-[350px] md:relative
+                    ${showMobileForm ? 'fixed inset-0 z-[110] w-full h-full flex bg-white' : 'hidden'}
+                `}>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-bold text-gray-800 flex items-center">
                             <Plus className="w-6 h-6 mr-2 text-indigo-600" /> เพิ่มของใหม่
                         </h3>
-                        <button onClick={onClose} className="md:hidden p-2 text-gray-400"><X className="w-5 h-5" /></button>
+                        {/* Mobile Close Form Button */}
+                        <button 
+                            onClick={() => setShowMobileForm(false)} 
+                            className="md:hidden p-2 text-gray-500 hover:bg-gray-200 rounded-full"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 pb-20 md:pb-0">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">1. ประเภทหลัก</label>
@@ -188,15 +262,16 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                     </div>
                 </div>
 
-                {/* RIGHT: List */}
-                <div className="flex-1 bg-white flex flex-col relative">
-                    {/* Header Controls */}
-                    <div className="px-6 py-4 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center bg-white gap-4 z-10">
-                        <div className="flex items-center gap-4">
-                            <h3 className="font-bold text-gray-800 text-lg whitespace-nowrap">
-                                📦 รายการในคลัง ({filteredItems.length})
+                {/* RIGHT: List (Main Content) */}
+                <div className="flex-1 bg-white flex flex-col relative min-w-0 h-full">
+                    {/* Header Controls (Sticky Top) */}
+                    <div className="px-4 md:px-6 py-4 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center bg-white gap-4 z-10 shrink-0">
+                        <div className="flex items-center gap-4 w-full xl:w-auto justify-between xl:justify-start">
+                            <h3 className="font-bold text-gray-800 text-lg whitespace-nowrap flex items-center">
+                                📦 คลังอุปกรณ์ <span className="ml-2 text-sm text-gray-500 font-normal">({filteredItems.length})</span>
                             </h3>
-                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                            
+                            <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
                                 <button 
                                     onClick={() => setViewType('GRID')}
                                     className={`p-1.5 rounded-md transition-all ${viewType === 'GRID' ? 'bg-white shadow text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
@@ -221,7 +296,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                 <input 
                                     type="text" 
                                     placeholder="ค้นหา..." 
-                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none w-full xl:w-48 transition-all focus:w-64"
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none xl:w-48 transition-all focus:w-64"
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)} 
                                 />
@@ -241,7 +316,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                     <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
                                 </div>
 
-                                <div className="relative">
+                                <div className="relative hidden sm:block">
                                     <select 
                                         className="appearance-none pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-sm font-medium bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none cursor-pointer max-w-[140px] truncate"
                                         value={filterL2}
@@ -255,11 +330,12 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                 </div>
                             </div>
 
-                            <button onClick={onClose} className="hidden md:block p-2 hover:bg-gray-100 rounded-full text-gray-400 ml-2"><X className="w-5 h-5" /></button>
+                            {/* Close Modal (Always visible on mobile here if user prefers, but we have FAB for adding) */}
+                            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 ml-auto xl:ml-2"><X className="w-5 h-5" /></button>
                         </div>
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50/30">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50/30 pb-24 overscroll-contain">
                         {viewType === 'GRID' ? (
                             // --- GRID VIEW ---
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 content-start">
@@ -318,7 +394,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                             {/* Action */}
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); onAdd(item.name, item.categoryId); }} 
-                                                className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold"
+                                                className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold shrink-0"
                                             >
                                                 <Plus className="w-4 h-4" /> <span className="hidden sm:inline">เลือก</span>
                                             </button>
@@ -336,55 +412,65 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                         )}
                     </div>
 
-                    {/* DETAIL POPUP */}
-                    {viewingItem && (
-                        <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-20 flex items-center justify-center p-4 animate-in fade-in">
-                            <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-full animate-in zoom-in-95">
-                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">{isEditingMode ? <Edit2 className="w-5 h-5 text-indigo-600"/> : <Info className="w-5 h-5 text-indigo-600"/>}{isEditingMode ? 'แก้ไขข้อมูล' : 'รายละเอียดอุปกรณ์'}</h3>
-                                    <button onClick={() => setViewingItem(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
-                                </div>
-                                <div className="p-6 overflow-y-auto flex-1">
-                                    {isEditingMode ? (
-                                        <div className="space-y-4">
-                                            <div className="flex justify-center mb-4">
-                                                <div className="w-32 h-32 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
-                                                    {invImagePreview ? <img src={invImagePreview} className="w-full h-full object-cover rounded-xl" /> : <ImageIcon className="w-8 h-8 text-gray-300" />}
-                                                </div>
-                                            </div>
-                                            <input type="text" className="w-full p-3 border rounded-xl font-bold" value={invName} onChange={e => setInvName(e.target.value)} placeholder="ชื่ออุปกรณ์" />
-                                            <textarea className="w-full p-3 border rounded-xl text-sm h-24 resize-none" value={invDesc} onChange={e => setInvDesc(e.target.value)} placeholder="รายละเอียด..." />
-                                            <select className="w-full p-3 border rounded-xl text-sm font-bold bg-white" value={invL2} onChange={e => setInvL2(e.target.value)}>{subCats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col md:flex-row gap-6">
-                                            <div className="w-full md:w-1/2 aspect-square bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden">{viewingItem.imageUrl ? <img src={viewingItem.imageUrl} className="w-full h-full object-cover" /> : <Box className="w-20 h-20 text-gray-200" />}</div>
-                                            <div className="flex-1 space-y-4">
-                                                <div><h2 className="text-2xl font-black text-gray-800 leading-tight">{viewingItem.name}</h2><span className="inline-block mt-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100">{subCats.find(s => s.key === viewingItem.categoryId)?.label || viewingItem.categoryId}</span></div>
-                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด (Details)</h4><p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{viewingItem.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p></div>
+                    {/* Mobile Floating Action Button */}
+                    <button 
+                        onClick={() => setShowMobileForm(true)}
+                        className="md:hidden absolute bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center z-50 hover:bg-indigo-700 active:scale-90 transition-all"
+                    >
+                        <Plus className="w-8 h-8" />
+                    </button>
+                </div>
+
+                {/* DETAIL POPUP */}
+                {viewingItem && (
+                    <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewingItem(null)}>
+                        <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-full animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">{isEditingMode ? <Edit2 className="w-5 h-5 text-indigo-600"/> : <Info className="w-5 h-5 text-indigo-600"/>}{isEditingMode ? 'แก้ไขข้อมูล' : 'รายละเอียดอุปกรณ์'}</h3>
+                                <button onClick={() => setViewingItem(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="p-6 overflow-y-auto flex-1">
+                                {isEditingMode ? (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-center mb-4">
+                                            <div className="w-32 h-32 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
+                                                {invImagePreview ? <img src={invImagePreview} className="w-full h-full object-cover rounded-xl" /> : <ImageIcon className="w-8 h-8 text-gray-300" />}
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                                    {isEditingMode ? (
-                                        <div className="flex gap-3 w-full"><button onClick={() => setIsEditingMode(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button><button onClick={handleSave} disabled={isSubmitting} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex justify-center">{isSubmitting ? 'บันทึก...' : 'บันทึกการแก้ไข'}</button></div>
-                                    ) : (
-                                        <>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setIsEditingMode(true)} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
-                                                <button onClick={async () => { if(await window.confirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
-                                            </div>
-                                            <button onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"><Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า</button>
-                                        </>
-                                    )}
-                                </div>
+                                        <input type="text" className="w-full p-3 border rounded-xl font-bold" value={invName} onChange={e => setInvName(e.target.value)} placeholder="ชื่ออุปกรณ์" />
+                                        <textarea className="w-full p-3 border rounded-xl text-sm h-24 resize-none" value={invDesc} onChange={e => setInvDesc(e.target.value)} placeholder="รายละเอียด..." />
+                                        <select className="w-full p-3 border rounded-xl text-sm font-bold bg-white" value={invL2} onChange={e => setInvL2(e.target.value)}>{subCats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col md:flex-row gap-6">
+                                        <div className="w-full md:w-1/2 aspect-square bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden">{viewingItem.imageUrl ? <img src={viewingItem.imageUrl} className="w-full h-full object-cover" /> : <Box className="w-20 h-20 text-gray-200" />}</div>
+                                        <div className="flex-1 space-y-4">
+                                            <div><h2 className="text-2xl font-black text-gray-800 leading-tight">{viewingItem.name}</h2><span className="inline-block mt-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100">{subCats.find(s => s.key === viewingItem.categoryId)?.label || viewingItem.categoryId}</span></div>
+                                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด (Details)</h4><p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{viewingItem.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                                {isEditingMode ? (
+                                    <div className="flex gap-3 w-full"><button onClick={() => setIsEditingMode(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button><button onClick={handleSave} disabled={isSubmitting} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex justify-center">{isSubmitting ? 'บันทึก...' : 'บันทึกการแก้ไข'}</button></div>
+                                ) : (
+                                    <>
+                                        <div className="flex gap-2">
+                                            <button onClick={handleEditClick} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
+                                            <button onClick={async () => { if(await window.confirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
+                                        </div>
+                                        <button onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"><Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า</button>
+                                    </>
+                                )}
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

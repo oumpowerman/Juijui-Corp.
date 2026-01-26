@@ -17,7 +17,13 @@ export const useMaintenance = () => {
     const [isCleaning, setIsCleaning] = useState(false);
     
     // Storage States
-    const [storageStats, setStorageStats] = useState<StorageStats>({ usedBytes: 0, fileCount: 0, limitBytes: STORAGE_LIMIT });
+    const [storageStats, setStorageStats] = useState<StorageStats>({ 
+        usedBytes: 0, 
+        fileBytes: 0,
+        dbBytes: 0,
+        fileCount: 0, 
+        limitBytes: STORAGE_LIMIT 
+    });
     const [isCalculatingStorage, setIsCalculatingStorage] = useState(false);
 
     const prepareBackup = async (options: BackupOptions) => {
@@ -125,30 +131,39 @@ export const useMaintenance = () => {
     };
 
     // Calculate approximate storage usage
-    // Note: Supabase doesn't provide a direct API for bucket size via client sdk efficiently for thousands of files.
-    // This function samples or lists files to sum up size. It might be slow for huge buckets.
     const fetchStorageStats = async () => {
         setIsCalculatingStorage(true);
         try {
-            let totalBytes = 0;
+            let fileTotalBytes = 0;
             let totalFiles = 0;
 
-            // Check 'chat-files'
+            // 1. Check 'chat-files' Bucket Size
             const { data: chatFiles } = await supabase.storage.from('chat-files').list('', { limit: 1000 });
             if (chatFiles) {
                 totalFiles += chatFiles.length;
-                totalBytes += chatFiles.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
+                fileTotalBytes += chatFiles.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
             }
 
-            // Check 'avatars'
+            // 2. Check 'avatars' Bucket Size
             const { data: avatars } = await supabase.storage.from('avatars').list('', { limit: 1000 });
             if (avatars) {
                 totalFiles += avatars.length;
-                totalBytes += avatars.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
+                fileTotalBytes += avatars.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
+            }
+
+            // 3. Check DB Size (via RPC)
+            const { data: dbSizeBytes, error: dbError } = await supabase.rpc('get_db_size');
+            let dbTotalBytes = 0;
+            if (!dbError && dbSizeBytes) {
+                dbTotalBytes = Number(dbSizeBytes);
+            } else {
+                console.warn("DB Size RPC check failed (Function might not exist yet):", dbError?.message);
             }
 
             setStorageStats({
-                usedBytes: totalBytes,
+                usedBytes: fileTotalBytes + dbTotalBytes,
+                fileBytes: fileTotalBytes,
+                dbBytes: dbTotalBytes,
                 fileCount: totalFiles,
                 limitBytes: STORAGE_LIMIT
             });

@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Script, ScriptStatus, ScriptType, User } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
+import { Editor } from '@tiptap/react';
 
 interface ScriptContextType {
     // Data State
@@ -21,8 +23,8 @@ interface ScriptContextType {
     // UI State
     isSaving: boolean;
     lastSaved: Date;
-    textAreaRef: React.RefObject<HTMLTextAreaElement>;
-    
+    setEditorInstance: (editor: Editor | null) => void; // New: Editor Control
+
     // Lock System State
     lockStatus: 'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE';
     lockerUser: { name: string; avatarUrl: string } | null;
@@ -44,7 +46,7 @@ interface ScriptContextType {
     handleGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<void>;
     handleInsertCharacter: (charName: string) => void;
     
-    // External Props (readonly in context)
+    // External Props
     users: any[];
     onClose: () => void;
 }
@@ -60,7 +62,7 @@ export const useScriptContext = () => {
 interface ScriptProviderProps {
     script: Script;
     users: any[];
-    currentUser: User; // NEW PROP: Essential for locking logic
+    currentUser: User; 
     onClose: () => void;
     onSave: (id: string, updates: Partial<Script>) => Promise<void>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
@@ -84,6 +86,9 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
     const [lockerUser, setLockerUser] = useState<{ name: string; avatarUrl: string } | null>(null);
 
+    // Editor Instance for Direct Manipulation
+    const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+
     // Save State
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date>(new Date());
@@ -95,14 +100,12 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     
     // Logic State
     const [isGenerating, setIsGenerating] = useState(false);
-    const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const estimatedSeconds = Math.ceil(content.length / 12); 
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
 
     // --- LOCK SYSTEM LOGIC ---
-
     const acquireLock = async () => {
         try {
             const { error } = await supabase
@@ -123,7 +126,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
     const refreshLock = async () => {
         if (lockStatus !== 'LOCKED_BY_ME') return;
-        // Just update timestamp to show "I am alive"
         await supabase
             .from('scripts')
             .update({ locked_at: new Date().toISOString() })
@@ -131,7 +133,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     };
 
     const releaseLock = async () => {
-        // Only release if I hold the lock
         if (lockStatus === 'LOCKED_BY_ME') {
              await supabase
                 .from('scripts')
@@ -150,7 +151,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     // 1. Initial Lock Check on Mount
     useEffect(() => {
         const checkLock = async () => {
-            // Re-fetch latest status to be sure
             const { data } = await supabase
                 .from('scripts')
                 .select('locked_by, locked_at')
@@ -159,12 +159,10 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
             if (data) {
                 if (data.locked_by && data.locked_by !== currentUser.id) {
-                    // Locked by someone else
                     setLockStatus('LOCKED_BY_OTHER');
                     const locker = users.find(u => u.id === data.locked_by);
                     setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
                 } else {
-                    // Free or locked by me (crashed previously?) -> Acquire it
                     await acquireLock();
                 }
             }
@@ -172,32 +170,25 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
         checkLock();
 
-        // 2. Realtime Listener for Lock Changes
         const channel = supabase.channel(`script-lock-${script.id}`)
             .on(
                 'postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` },
                 (payload) => {
                     const newLockedBy = payload.new.locked_by;
-                    
                     if (newLockedBy === currentUser.id) {
                         setLockStatus('LOCKED_BY_ME');
                         setLockerUser(currentUser);
                     } else if (newLockedBy === null) {
-                        setLockStatus('FREE'); // Logic: If someone leaves, should I auto-grab? Maybe ask user. 
-                        // For now, if free, we can try to auto-acquire if we are viewing? 
-                        // Better: If free, switch to Write Mode automatically if we were waiting.
+                        setLockStatus('FREE');
                         if (lockStatus === 'LOCKED_BY_OTHER') {
-                            acquireLock(); // Auto grab if it becomes free
+                            acquireLock();
                             showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
                         }
                     } else {
-                        // Locked by someone else
                         setLockStatus('LOCKED_BY_OTHER');
                         const locker = users.find(u => u.id === newLockedBy);
                         setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
-                        
-                        // Alert if I was kicked
                         if (lockStatus === 'LOCKED_BY_ME') {
                              alert(`คุณถูกแย่งสิทธิ์การแก้ไขโดย ${locker?.name || 'คนอื่น'}! ระบบจะเปลี่ยนเป็น Read-Only Mode`);
                         }
@@ -214,8 +205,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     // 3. Heartbeat Effect
     useEffect(() => {
         if (lockStatus === 'LOCKED_BY_ME') {
-            refreshLock(); // Initial ping
-            heartbeatRef.current = setInterval(refreshLock, 60000); // Ping every 1 min
+            refreshLock();
+            heartbeatRef.current = setInterval(refreshLock, 60000);
         } else {
             if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         }
@@ -231,9 +222,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         onClose();
     };
 
-    // --- END LOCK SYSTEM LOGIC ---
-
-    // Autosave Logic (Only if not ReadOnly)
+    // Autosave Logic
     useEffect(() => {
         if (isReadOnly) return; 
 
@@ -253,8 +242,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     }, [content, title, status, scriptType, characters, ideaOwnerId, isReadOnly]);
 
     const handleSave = async (silent = false) => {
-        if (isReadOnly) return; // Prevent saving if locked
-        
+        if (isReadOnly) return;
         setIsSaving(true);
         await onSave(script.id, { 
             title, 
@@ -271,7 +259,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
     const handleGenerateAIWrapper = async (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => {
         if (isReadOnly) return;
-
         if (!prompt && type !== 'OUTLINE' && !title) {
              alert("กรุณาใส่หัวข้อ หรือสิ่งที่ต้องการให้ AI ช่วย");
              return;
@@ -279,25 +266,27 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         setIsGenerating(true);
         const result = await onGenerateAI(prompt || title, type);
         if (result) {
-            setContent(prev => prev + "\n\n" + result);
+            setContent(prev => prev + "<br/><br/>" + result); // Use HTML break
             setIsAIOpen(false);
         }
         setIsGenerating(false);
     };
 
     const handleInsertCharacter = (charName: string) => {
-        if (isReadOnly || !textAreaRef.current) return;
-        
-        const start = textAreaRef.current.selectionStart;
-        const end = textAreaRef.current.selectionEnd;
-        const textToInsert = `\n\n${charName}: `;
-        const newContent = content.substring(0, start) + textToInsert + content.substring(end);
-        setContent(newContent);
-        setTimeout(() => {
-            textAreaRef.current?.focus();
-            const newPos = start + textToInsert.length;
-            textAreaRef.current?.setSelectionRange(newPos, newPos);
-        }, 0);
+        if (editorInstance && !isReadOnly) {
+            // God-Tier Flow:
+            // 1. Focus editor
+            // 2. Insert new paragraph with Bold Name and Colon
+            // 3. Ensure cursor is AFTER the space
+            editorInstance
+                .chain()
+                .focus()
+                .insertContent(`<p><strong>${charName}:</strong> </p>`)
+                .run();
+        } else {
+             // Fallback for when editor instance is not ready yet
+             setContent(prev => prev + `<p><strong>${charName}:</strong> </p>`);
+        }
     };
 
     return (
@@ -309,9 +298,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             characters, setCharacters,
             ideaOwnerId, setIdeaOwnerId,
             isSaving, lastSaved,
-            textAreaRef,
+            setEditorInstance,
             
-            // Lock State
             lockStatus,
             lockerUser,
             isReadOnly,

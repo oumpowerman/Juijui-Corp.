@@ -4,14 +4,14 @@ import { User, MeetingLog, Task, MeetingCategory } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
 import { FileText, Plus, Info, Sparkles } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 // Import New Components
 import MeetingListSidebar from './meeting/MeetingListSidebar';
 import MeetingDetail from './meeting/MeetingDetail';
 import MeetingActionModule from './meeting/MeetingActionModule';
-import InfoModal from './ui/InfoModal'; // Import InfoModal
-import MeetingGuide from './meeting/MeetingGuide'; // Import Guide
+import InfoModal from './ui/InfoModal';
+import MeetingGuide from './meeting/MeetingGuide';
 
 interface MeetingViewProps {
     users: User[];
@@ -30,7 +30,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<MeetingTab>('NOTES');
     const [isSaving, setIsSaving] = useState(false);
-    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
 
     // Selected Meeting State (Controlled)
     const [title, setTitle] = useState('');
@@ -38,6 +38,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
     const [category, setCategory] = useState<MeetingCategory>('GENERAL');
     const [projectTag, setProjectTag] = useState('');
     const [content, setContent] = useState('');
+    const [decisions, setDecisions] = useState(''); // New Decisions State
     const [attendees, setAttendees] = useState<string[]>([]);
 
     // Filter Logic
@@ -54,22 +55,28 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
             setTitle(selectedMeeting.title);
             setDate(selectedMeeting.date);
             setContent(selectedMeeting.content);
+            setDecisions(selectedMeeting.decisions || ''); // Sync Decisions
             setCategory(selectedMeeting.category || 'GENERAL');
             setAttendees(selectedMeeting.attendees);
             setProjectTag(selectedMeeting.tags?.[0] || ''); 
         }
     }, [selectedMeeting]);
 
-    // Auto-save debounce for content
+    // Auto-save debounce for content & decisions
     useEffect(() => {
         if (!selectedId) return;
         const timer = setTimeout(() => {
-            if (selectedMeeting && content !== selectedMeeting.content) {
-                handleUpdate('content', content);
+            if (selectedMeeting) {
+                if (content !== selectedMeeting.content) {
+                    handleUpdate('content', content);
+                }
+                if (decisions !== (selectedMeeting.decisions || '')) {
+                    handleUpdate('decisions', decisions);
+                }
             }
         }, 2000);
         return () => clearTimeout(timer);
-    }, [content, selectedId]);
+    }, [content, decisions, selectedId]);
 
     const handleCreate = async () => {
         const id = await createMeeting('การประชุมครั้งใหม่...', new Date(), currentUser.id);
@@ -87,20 +94,28 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
         setIsSaving(false);
     };
 
-    // --- Task Integration Handlers ---
-    const handleAddTask = async (taskTitle: string, assigneeId: string, type: 'TASK' | 'CONTENT') => {
+    // --- Task Integration Handlers (Improved Context) ---
+    const handleAddTask = async (taskTitle: string, assigneeId: string, type: 'TASK' | 'CONTENT', targetDate?: Date) => {
         const tags = ['Meeting-Action'];
         if (projectTag) tags.push(projectTag);
+        
+        // Date Logic
+        const effectiveDate = targetDate || new Date();
+        const isFollowUp = targetDate && targetDate > addDays(new Date(), 2);
+        if (isFollowUp) tags.push('FollowUp');
+
+        // Context Injection: Add meeting info to description
+        const meetingContext = `📌 Origin: Meeting "${title}" (${format(date, 'd MMM yy')})\n-------------------`;
 
         const newTask: Task = {
             id: crypto.randomUUID(),
             type: type,
             title: taskTitle,
-            description: `[จากที่ประชุม: ${title}]\nหมวดหมู่: ${category}\nวันที่: ${format(new Date(), 'd MMM yyyy')}`,
+            description: `${meetingContext}\n\n[รายละเอียดเพิ่มเติม...]\nหมวดหมู่: ${category}`,
             status: 'TODO',
             priority: 'MEDIUM',
-            startDate: new Date(),
-            endDate: new Date(), 
+            startDate: new Date(), // Created today
+            endDate: effectiveDate, // Due date
             assigneeIds: assigneeId ? [assigneeId] : [],
             tags: tags,
             isUnscheduled: false,
@@ -114,9 +129,14 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
 
         await handleSaveTask(newTask, null);
         
-        // Append log to notes
+        // Append log to notes with better formatting
         const assigneeName = users.find(u => u.id === assigneeId)?.name || 'Unassigned';
-        const newContent = content + `\n- [ ] ⚡ Action: ${taskTitle} (@${assigneeName})`;
+        const dateLabel = targetDate ? format(targetDate, 'd MMM') : 'ASAP';
+        
+        // Update meeting notes content
+        const newLogLine = `- [ ] ⚡ **${taskTitle}** (@${assigneeName}) — Due: ${dateLabel}`;
+        const newContent = content ? `${content}\n${newLogLine}` : newLogLine;
+        
         setContent(newContent);
         handleUpdate('content', newContent);
     };
@@ -201,6 +221,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
                             projectTag={projectTag} setProjectTag={setProjectTag}
                             attendees={attendees} onToggleAttendee={handleToggleAttendee}
                             content={content} setContent={setContent}
+                            decisions={decisions} setDecisions={setDecisions} // Passed
                             activeTab={activeTab} setActiveTab={setActiveTab}
                             isSaving={isSaving} onBlurUpdate={handleUpdate}
                         >
@@ -208,6 +229,8 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
                                 users={users}
                                 tasks={tasks}
                                 projectTag={projectTag}
+                                meetingTitle={title} 
+                                meetingDate={date}
                                 onAddTask={handleAddTask}
                                 onUpdateTask={handleUpdateTask}
                             />

@@ -4,7 +4,7 @@ import { Target, ChevronLeft, ChevronRight, Plus, Bell, Info } from 'lucide-reac
 import { endOfWeek, addWeeks, format, isWithinInterval, addDays, areIntervalsOverlapping } from 'date-fns';
 import { Task, Channel, WeeklyQuest, MasterOption } from '../types';
 import MentorTip from './MentorTip';
-import { useWeeklyQuests } from '../hooks/useWeeklyQuests';
+// Removed useWeeklyQuests from here as we receive the handler via props
 
 // Import New Sub-components
 import QuestCard from './weekly-quest/QuestCard';
@@ -21,11 +21,14 @@ interface WeeklyQuestBoardProps {
     onAddQuest: (quest: Omit<WeeklyQuest, 'id'>) => void;
     onDeleteQuest: (id: string) => void;
     onOpenSettings: () => void;
+    onUpdateProgress?: (questId: string, val: number) => void; // Added Prop
 }
 
-const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, quests, masterOptions = [], onAddQuest, onDeleteQuest, onOpenSettings }) => {
-    const { updateManualProgress } = useWeeklyQuests();
-
+const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ 
+    tasks, channels, quests, masterOptions = [], 
+    onAddQuest, onDeleteQuest, onOpenSettings, onUpdateProgress 
+}) => {
+    
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [viewingChannelId, setViewingChannelId] = useState<string | null>(null); 
@@ -169,6 +172,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                             quests={channelQuests}
                             allTasks={tasks} // Pass ALL tasks to let card filter by quest date range
                             onClick={() => setViewingChannelId(channelId)}
+                            onUpdateManualProgress={onUpdateProgress} // Pass handler
                         />
                     );
                 })}
@@ -180,6 +184,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                         quests={groupedQuests.miscQuests}
                         allTasks={tasks}
                         onClick={() => setViewingChannelId('MISC')}
+                        onUpdateManualProgress={onUpdateProgress} // Pass handler
                     />
                 )}
             </div>
@@ -202,7 +207,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ tasks, channels, qu
                 allTasks={tasks}
                 weekStart={weekStart}
                 weekEnd={weekEnd}
-                onUpdateManualProgress={updateManualProgress}
+                onUpdateManualProgress={onUpdateProgress || (() => {})} // Provide fallback if undefined
             />
 
             {/* INFO GUIDE MODAL */}

@@ -95,7 +95,7 @@ function App() {
     
     approveMember, removeMember, toggleUserStatus,
 
-    quests, handleAddQuest, handleDeleteQuest,
+    quests, handleAddQuest, handleDeleteQuest, updateManualProgress,
 
     updateProfile
   } = useTaskManager(session?.user);
@@ -291,6 +291,7 @@ function App() {
                         onAddQuest={handleAddQuest}
                         onDeleteQuest={handleDeleteQuest}
                         onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                        onUpdateProgress={updateManualProgress}
                     />
                 );
             case 'GOALS':

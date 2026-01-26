@@ -303,6 +303,32 @@ export const useChecklist = () => {
             showToast('บันทึก Preset ไม่สำเร็จ', 'error');
         }
     };
+    
+    // NEW: Update Preset (Edit) with Optimistic UI
+    const handleUpdatePreset = async (id: string, name: string, items: { text: string; categoryId: string }[]) => {
+        try {
+             // Optimistic Update: Update state immediately so user sees change
+            setChecklistPresets(prev => prev.map(p => 
+                p.id === id ? { ...p, name, items } : p
+            ));
+
+            const { error } = await supabase.from('checklist_presets_db').update({
+                name,
+                items
+            }).eq('id', id);
+
+            if (error) throw error;
+            
+            // Re-fetch to confirm sync, but UI is already updated
+            loadChecklistData();
+            showToast('อัปเดต Preset เรียบร้อย ✅', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('อัปเดตไม่สำเร็จ', 'error');
+            // Rollback could be implemented here if needed by re-fetching
+            loadChecklistData(); 
+        }
+    };
   
     const handleDeletePreset = async (id: string) => {
         // PATCH: await confirm
@@ -328,6 +354,7 @@ export const useChecklist = () => {
         
         handleLoadPreset,
         handleAddPreset,
+        handleUpdatePreset,
         handleDeletePreset,
 
         handleAddInventoryItem,

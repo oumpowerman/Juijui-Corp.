@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMaintenance } from '../../../hooks/useMaintenance';
-import { Download, Search, Trash2, HardDrive, Database, Archive, CheckCircle, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Search, Trash2, HardDrive, Database, Archive, CheckCircle, AlertTriangle, Loader2, RefreshCw, File } from 'lucide-react';
 import { BackupOptions } from '../../../types';
 import { format, addMonths } from 'date-fns';
 
@@ -45,6 +45,8 @@ const MaintenancePanel: React.FC = () => {
     };
 
     const storagePercentage = (storageStats.usedBytes / storageStats.limitBytes) * 100;
+    const dbPercentage = (storageStats.dbBytes / storageStats.limitBytes) * 100;
+    const filePercentage = (storageStats.fileBytes / storageStats.limitBytes) * 100;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
@@ -68,13 +70,33 @@ const MaintenancePanel: React.FC = () => {
                     <span className="text-gray-400">{formatBytes(storageStats.limitBytes)} Total</span>
                 </div>
                 
-                <div className="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                {/* Stacked Progress Bar */}
+                <div className="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200 flex">
+                    {/* Database Part */}
                     <div 
-                        className={`h-full transition-all duration-1000 ${storagePercentage > 80 ? 'bg-red-500' : 'bg-gradient-to-r from-indigo-500 to-cyan-400'}`} 
-                        style={{ width: `${storagePercentage}%` }}
+                        className="h-full bg-blue-500 transition-all duration-1000" 
+                        style={{ width: `${dbPercentage}%` }}
+                        title={`Database: ${formatBytes(storageStats.dbBytes)}`}
+                    />
+                    {/* File Part */}
+                    <div 
+                        className="h-full bg-cyan-400 transition-all duration-1000" 
+                        style={{ width: `${filePercentage}%` }}
+                        title={`Files: ${formatBytes(storageStats.fileBytes)}`}
                     />
                 </div>
-                <p className="text-xs text-right mt-1 text-gray-400">{storagePercentage.toFixed(2)}% used</p>
+                
+                {/* Legend */}
+                <div className="flex items-center gap-4 mt-3 text-xs text-gray-500 font-medium">
+                     <div className="flex items-center gap-1.5">
+                         <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                         <span>Database: <b className="text-gray-700">{formatBytes(storageStats.dbBytes)}</b></span>
+                     </div>
+                     <div className="flex items-center gap-1.5">
+                         <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+                         <span>Files: <b className="text-gray-700">{formatBytes(storageStats.fileBytes)}</b></span>
+                     </div>
+                </div>
                 
                 {storagePercentage > 80 && (
                     <div className="mt-4 bg-red-50 p-3 rounded-xl flex items-center text-red-600 text-sm border border-red-100">

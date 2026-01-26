@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3, MonitorPlay, CheckSquare } from 'lucide-react';
+import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3, MonitorPlay, CheckSquare, Ban, CheckCircle2 } from 'lucide-react';
 import { ChipConfig, FilterType, Channel, MasterOption } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -9,7 +9,7 @@ interface SmartFilterModalProps {
     onClose: () => void;
     chips: ChipConfig[];
     channels: Channel[];
-    masterOptions?: MasterOption[]; // Added
+    masterOptions?: MasterOption[];
     onSave: (chip: ChipConfig) => void;
     onDelete: (id: string) => void;
 }
@@ -31,7 +31,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
             type: 'FORMAT',
             value: '',
             colorTheme: 'indigo',
-            scope: 'CONTENT' // Default
+            scope: 'CONTENT',
+            mode: 'INCLUDE'
         });
     };
 
@@ -72,6 +73,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                             const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
                             const isEditingThis = editingChip?.id === chip.id;
                             const scope = chip.scope || 'CONTENT';
+                            const isExclude = chip.mode === 'EXCLUDE';
                             
                             return (
                                 <div 
@@ -83,15 +85,17 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     `}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${theme.activeBg}`}></div>
+                                        <div className={`w-3 h-3 rounded-full flex items-center justify-center ${isExclude ? 'bg-red-100' : theme.activeBg}`}>
+                                            {isExclude && <X className="w-2 h-2 text-red-600" />}
+                                        </div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-700 flex items-center gap-1">
+                                            <p className={`text-sm font-bold flex items-center gap-1 ${isExclude ? 'text-red-600 line-through' : 'text-gray-700'}`}>
                                                 {chip.label}
-                                                <span className={`text-[9px] px-1.5 rounded-full border ${scope === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                <span className={`text-[9px] px-1.5 rounded-full border no-underline ${scope === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                                                     {scope}
                                                 </span>
                                             </p>
-                                            <p className="text-[10px] text-gray-400">{chip.type} : {chip.value}</p>
+                                            <p className="text-[10px] text-gray-400 no-underline">{chip.type} : {chip.value}</p>
                                         </div>
                                     </div>
                                     <button 
@@ -115,8 +119,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                     {editingChip ? (
                         <div className="max-w-md mx-auto h-full flex flex-col justify-center animate-fade-in">
                             <div className="text-center mb-8">
-                                <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg ${COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-gray-200'}`}>
-                                    <Filter className="w-8 h-8 text-white" />
+                                <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg transition-colors ${editingChip.mode === 'EXCLUDE' ? 'bg-red-500' : (COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-gray-200')}`}>
+                                    {editingChip.mode === 'EXCLUDE' ? <Ban className="w-8 h-8 text-white" /> : <Filter className="w-8 h-8 text-white" />}
                                 </div>
                                 <h3 className="text-2xl font-bold text-gray-800">
                                     {chips.find(c => c.id === editingChip.id) ? 'แก้ไขปุ่มกรอง' : 'สร้างปุ่มกรองใหม่'}
@@ -124,37 +128,42 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                             </div>
 
                             <form onSubmit={handleSaveSubmit} className="space-y-5">
+                                {/* Mode Selector */}
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">1. โหมดการกรอง (Mode)</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingChip({...editingChip, mode: 'INCLUDE'})}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.mode === 'INCLUDE' || !editingChip.mode ? 'bg-green-50 border-green-200 text-green-700 ring-1 ring-green-200' : 'bg-white border-gray-200 text-gray-500 opacity-60'}`}
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" /> แสดงเฉพาะ (Include)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingChip({...editingChip, mode: 'EXCLUDE'})}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.mode === 'EXCLUDE' ? 'bg-red-50 border-red-200 text-red-700 ring-1 ring-red-200' : 'bg-white border-gray-200 text-gray-500 opacity-60'}`}
+                                        >
+                                            <Ban className="w-4 h-4" /> ไม่แสดง (Exclude)
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-2 text-center">
+                                        {editingChip.mode === 'EXCLUDE' 
+                                            ? '* เลือกโหมดนี้เพื่อ "ซ่อน" งานที่ไม่ต้องการออกจากปฏิทิน' 
+                                            : '* เลือกโหมดนี้เพื่อ "แสดงเฉพาะ" งานที่ตรงเงื่อนไข'}
+                                    </p>
+                                </div>
+
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">1. ชื่อปุ่ม (Label)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">2. ชื่อปุ่ม (Label)</label>
                                     <input 
                                         type="text" 
                                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-700 bg-gray-50 focus:bg-white transition-all"
-                                        placeholder="เช่น งานด่วน, Youtube Only..."
+                                        placeholder={editingChip.mode === 'EXCLUDE' ? "เช่น ไม่เอางานเสร็จ, ซ่อน Vlog..." : "เช่น งานด่วน, Youtube Only..."}
                                         value={editingChip.label}
                                         onChange={e => setEditingChip({...editingChip, label: e.target.value})}
                                         required
                                     />
-                                </div>
-
-                                {/* Scope Selection */}
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">2. ใช้สำหรับ (Scope)</label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditingChip({...editingChip, scope: 'CONTENT'})}
-                                            className={`flex-1 py-2 rounded-lg text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.scope === 'CONTENT' || !editingChip.scope ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-1 ring-indigo-200' : 'bg-white border-gray-200 text-gray-500'}`}
-                                        >
-                                            <MonitorPlay className="w-4 h-4" /> Content
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditingChip({...editingChip, scope: 'TASK'})}
-                                            className={`flex-1 py-2 rounded-lg text-sm font-bold border flex items-center justify-center gap-2 transition-all ${editingChip.scope === 'TASK' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 ring-1 ring-emerald-200' : 'bg-white border-gray-200 text-gray-500'}`}
-                                        >
-                                            <CheckSquare className="w-4 h-4" /> Task
-                                        </button>
-                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -206,19 +215,45 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center"><Palette className="w-4 h-4 mr-2"/> 5. ธีมสี (Color Theme)</label>
-                                    <div className="flex flex-wrap gap-3">
-                                        {COLOR_THEMES.map(theme => (
+                                {/* Extra Settings: Scope & Color */}
+                                <div className="grid grid-cols-2 gap-4 items-start">
+                                     {/* Scope Selection */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">5. Scope</label>
+                                        <div className="flex flex-col gap-2">
                                             <button
-                                                key={theme.id}
                                                 type="button"
-                                                onClick={() => setEditingChip({...editingChip, colorTheme: theme.id})}
-                                                className={`w-10 h-10 rounded-full border-2 transition-all ${theme.bg} ${editingChip.colorTheme === theme.id ? `ring-2 ring-offset-2 ${theme.ring} border-transparent scale-110` : 'border-transparent hover:scale-105'}`}
+                                                onClick={() => setEditingChip({...editingChip, scope: 'CONTENT'})}
+                                                className={`py-2 px-3 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${editingChip.scope === 'CONTENT' || !editingChip.scope ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-1 ring-indigo-200' : 'bg-white border-gray-200 text-gray-500'}`}
                                             >
-                                                {editingChip.colorTheme === theme.id && <Check className={`w-5 h-5 mx-auto ${theme.text}`} />}
+                                                <MonitorPlay className="w-3 h-3" /> Content
                                             </button>
-                                        ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingChip({...editingChip, scope: 'TASK'})}
+                                                className={`py-2 px-3 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${editingChip.scope === 'TASK' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 ring-1 ring-emerald-200' : 'bg-white border-gray-200 text-gray-500'}`}
+                                            >
+                                                <CheckSquare className="w-3 h-3" /> Task
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Color Theme (Disable if Exclude) */}
+                                    <div className={editingChip.mode === 'EXCLUDE' ? 'opacity-40 pointer-events-none grayscale' : ''}>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center"><Palette className="w-4 h-4 mr-2"/> 6. Theme</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {COLOR_THEMES.map(theme => (
+                                                <button
+                                                    key={theme.id}
+                                                    type="button"
+                                                    onClick={() => setEditingChip({...editingChip, colorTheme: theme.id})}
+                                                    className={`w-8 h-8 rounded-full border-2 transition-all ${theme.bg} ${editingChip.colorTheme === theme.id ? `ring-2 ring-offset-2 ${theme.ring} border-transparent scale-110` : 'border-transparent hover:scale-105'}`}
+                                                >
+                                                    {editingChip.colorTheme === theme.id && <Check className={`w-4 h-4 mx-auto ${theme.text}`} />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {editingChip.mode === 'EXCLUDE' && <p className="text-[9px] text-red-500 mt-1">* สีถูกล็อคสำหรับโหมดซ่อน</p>}
                                     </div>
                                 </div>
 

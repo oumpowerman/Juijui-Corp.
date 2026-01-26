@@ -1,0 +1,1 @@
+// This file is deprecated and can be deleted. Logic moved to RichTextEditor component using Tiptap.

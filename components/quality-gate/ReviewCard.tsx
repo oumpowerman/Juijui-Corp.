@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { ReviewSession, User, Task } from '../../types';
-import { format } from 'date-fns';
-import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink } from 'lucide-react';
+import { format, differenceInCalendarDays } from 'date-fns';
+import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock } from 'lucide-react';
 import { DIFFICULTY_LABELS } from '../../constants';
 
 interface ReviewCardProps {
@@ -11,7 +11,11 @@ interface ReviewCardProps {
     onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string, task: Task) => void;
     onOpenTask: (task: Task) => void;
     getChannelName: (id?: string) => string;
-    getStatusInfo: (statusKey: string) => { label: string, color: string }; 
+    getStatusInfo: (statusKey: string) => { label: string, color: string };
+    
+    // New Props for context styling
+    isOverdue?: boolean;
+    highlightRevise?: boolean;
 }
 
 const ReviewCard: React.FC<ReviewCardProps> = ({ 
@@ -20,8 +24,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     onAction, 
     onOpenTask, 
     getChannelName,
-    getStatusInfo
+    getStatusInfo,
+    isOverdue,
+    highlightRevise
 }) => {
+    const today = new Date();
     // Helper to find the latest asset link
     const latestAsset = review.task?.assets && review.task.assets.length > 0 
         ? review.task.assets[review.task.assets.length - 1] 
@@ -47,23 +54,37 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     const bonusXP = Math.floor(estHours * 20);
     const totalXP = baseXP + bonusXP;
 
+    // Overdue Calculation
+    const daysLate = differenceInCalendarDays(today, review.scheduledAt);
+
+    // Styling Logic
+    const borderClass = isOverdue ? 'border-red-200 bg-red-50/20' : highlightRevise ? 'border-orange-200 bg-orange-50/20' : 'border-gray-200 bg-white';
+    const statusColor = review.status === 'PENDING' ? 'bg-yellow-400' : review.status === 'REVISE' ? 'bg-red-500' : 'bg-green-500';
+
     return (
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-5 items-start group relative overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+        <div className={`p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-5 items-start group relative overflow-hidden ${borderClass}`}>
             
             {/* Status Strip on Left */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${review.status === 'PENDING' ? 'bg-yellow-400' : review.status === 'REVISE' ? 'bg-red-500' : 'bg-green-500'}`}></div>
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusColor}`}></div>
 
             {/* Time & Review Status Badge */}
             <div className="flex flex-col items-center min-w-[80px] text-center pt-1 pl-2">
                 <span className="text-2xl font-black text-gray-700 leading-none">{format(review.scheduledAt, 'HH:mm')}</span>
                 <span className="text-xs text-gray-400 font-bold uppercase tracking-wide">{format(review.scheduledAt, 'dd MMM')}</span>
-                <div className={`mt-3 px-2.5 py-1 text-[10px] font-black rounded-full border flex items-center justify-center gap-1 w-full ${
-                    review.status === 'PENDING' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                    review.status === 'PASSED' ? 'bg-green-50 text-green-700 border-green-200' :
-                    'bg-red-50 text-red-700 border-red-200'
-                }`}>
-                    {review.status === 'PENDING' ? 'รอตรวจ' : review.status === 'PASSED' ? 'ผ่าน' : 'แก้'}
-                </div>
+                
+                {isOverdue ? (
+                    <div className="mt-2 px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black w-full border border-red-200">
+                        +{daysLate} วัน
+                    </div>
+                ) : (
+                    <div className={`mt-3 px-2.5 py-1 text-[10px] font-black rounded-full border flex items-center justify-center gap-1 w-full ${
+                        review.status === 'PENDING' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                        review.status === 'PASSED' ? 'bg-green-50 text-green-700 border-green-200' :
+                        'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                        {review.status === 'PENDING' ? 'รอตรวจ' : review.status === 'PASSED' ? 'ผ่าน' : 'แก้'}
+                    </div>
+                )}
             </div>
 
             {/* Task Info */}
@@ -72,6 +93,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Header Line */}
                 <div>
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        {isOverdue && <span className="bg-red-500 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center"><AlertTriangle className="w-3 h-3 mr-1"/> OVERDUE</span>}
                         <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-100">
                             Draft {review.round}
                         </span>

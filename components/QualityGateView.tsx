@@ -1,16 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useReviews } from '../hooks/useReviews';
 import { useQualityActions } from '../hooks/useQualityActions';
-import { isToday, isTomorrow, isPast, isFuture } from 'date-fns';
-import { Clock, Search, Filter, AlertTriangle, Info } from 'lucide-react';
+import { isToday, isTomorrow, isPast, isFuture, differenceInCalendarDays, isSameDay } from 'date-fns';
+import { Clock, Search, Filter, AlertTriangle, Info, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Layers, Calendar } from 'lucide-react';
 import { Channel, Task, MasterOption, User } from '../types';
 import MentorTip from './MentorTip';
 import ReviewCard from './quality-gate/ReviewCard';
 import ReviewActionModal from './quality-gate/ReviewActionModal';
 import QualityStatsWidget from './quality-gate/QualityStatsWidget';
-import InfoModal from './ui/InfoModal'; // Import
-import QualityGuide from './quality-gate/QualityGuide'; // Import
+import InfoModal from './ui/InfoModal';
+import QualityGuide from './quality-gate/QualityGuide';
 
 interface QualityGateViewProps {
     channels: Channel[];
@@ -19,15 +19,25 @@ interface QualityGateViewProps {
     onOpenTask: (task: Task) => void;
 }
 
+type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING';
+
 const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
     const { handleConfirmAction } = useQualityActions();
     
-    // UI State
-    const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'REVISE' | 'PASSED'>('PENDING');
+    // --- UI State ---
+    const [filterDateType, setFilterDateType] = useState<'ALL_PENDING' | 'TODAY' | 'OVERDUE'>('ALL_PENDING');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
-    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
+    
+    // Accordion State
+    const [collapsedGroups, setCollapsedGroups] = useState<Record<GroupType, boolean>>({
+        'CRITICAL': false,
+        'REVISE': false,
+        'TODAY': false,
+        'UPCOMING': true // Upcoming collapsed by default to focus on now
+    });
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'PASS' | 'REVISE' | null, reviewId: string, taskId: string, task?: Task }>({
@@ -38,44 +48,82 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         task: undefined
     });
 
-    // --- Filtering Logic ---
-    const filteredReviews = reviews.filter(r => {
-        const matchesStatus = filterStatus === 'ALL' || r.status === filterStatus;
-        const taskTitle = r.task?.title || '';
-        const matchesSearch = taskTitle.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesChannel = filterChannel === 'ALL' || r.task?.channelId === filterChannel;
-        return matchesStatus && matchesSearch && matchesChannel;
-    });
+    // --- Core Logic: Filtering & Grouping ---
+    const today = new Date();
 
-    const groupedReviews = {
-        overdue: filteredReviews.filter(r => isPast(r.scheduledAt) && !isToday(r.scheduledAt) && r.status === 'PENDING'),
-        today: filteredReviews.filter(r => isToday(r.scheduledAt)),
-        tomorrow: filteredReviews.filter(r => isTomorrow(r.scheduledAt)),
-        upcoming: filteredReviews.filter(r => isFuture(r.scheduledAt) && !isTomorrow(r.scheduledAt) && !isToday(r.scheduledAt)),
+    const filteredReviews = useMemo(() => {
+        return reviews.filter(r => {
+            // 1. Channel Filter
+            if (filterChannel !== 'ALL' && r.task?.channelId !== filterChannel) return false;
+            
+            // 2. Search Filter
+            if (searchTerm) {
+                const searchLower = searchTerm.toLowerCase();
+                const matchTitle = r.task?.title.toLowerCase().includes(searchLower);
+                // const matchReviewer = ... (Optional)
+                if (!matchTitle) return false;
+            }
+
+            // 3. Main Scope Filter (Date/Status Strategy)
+            if (filterDateType === 'TODAY') {
+                return isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
+            }
+            if (filterDateType === 'OVERDUE') {
+                return isPast(r.scheduledAt) && !isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
+            }
+            
+            // Default: ALL PENDING (Active Workspace)
+            // Show Pending, Revise. Hide Passed (unless searching specifically, but usually Passed goes to history)
+            return r.status !== 'PASSED';
+        });
+    }, [reviews, filterChannel, searchTerm, filterDateType]);
+
+    // Grouping Logic
+    const groups = useMemo(() => {
+        const result = {
+            critical: [] as typeof reviews,
+            revise: [] as typeof reviews,
+            today: [] as typeof reviews,
+            upcoming: [] as typeof reviews
+        };
+
+        filteredReviews.forEach(r => {
+            const isOverdue = isPast(r.scheduledAt) && !isSameDay(r.scheduledAt, today);
+            
+            if (r.status === 'REVISE') {
+                result.revise.push(r);
+            } else if (r.status === 'PENDING') {
+                if (isOverdue) {
+                    result.critical.push(r);
+                } else if (isSameDay(r.scheduledAt, today)) {
+                    result.today.push(r);
+                } else {
+                    result.upcoming.push(r);
+                }
+            }
+            // 'PASSED' is currently filtered out by default logic above, or can be added to a 'History' group if needed
+        });
+
+        return result;
+    }, [filteredReviews]);
+
+    const toggleGroup = (group: GroupType) => {
+        setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     };
 
+    // --- Helpers ---
     const getStatusInfo = (statusKey: string) => {
         const option = masterOptions.find(o => (o.type === 'STATUS' || o.type === 'TASK_STATUS') && o.key === statusKey);
         if (option) {
-            return {
-                label: option.label,
-                color: option.color || 'bg-gray-100 text-gray-500'
-            };
+            return { label: option.label, color: option.color || 'bg-gray-100 text-gray-500' };
         }
         return { label: statusKey, color: 'bg-gray-100 text-gray-500' };
     };
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name || 'Unknown';
 
-    // --- Actions ---
     const handleActionClick = (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task) => {
-        setModalConfig({
-            isOpen: true,
-            type: action,
-            reviewId,
-            taskId,
-            task
-        });
+        setModalConfig({ isOpen: true, type: action, reviewId, taskId, task });
     };
 
     const onConfirmModal = async (feedback?: string) => {
@@ -87,176 +135,208 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             feedback,
             updateReviewStatus
         );
-
-        if (success) {
-            setModalConfig({ ...modalConfig, isOpen: false });
-        }
+        if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };
+
+    const totalActiveTasks = groups.critical.length + groups.revise.length + groups.today.length;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <MentorTip variant="purple" messages={[
-                "Tip หัวหน้า: กด 'Pass' จะเปลี่ยนสถานะเป็น Done และแจก XP ให้ลูกทีมทันที! 🎉", 
-                "Tip: กด 'Revise' งานจะเด้งกลับไป Doing พร้อมคอมเมนต์ เพื่อให้แก้ไขต่อ",
-                "อย่าลืมเช็คงานที่ 'เลยกำหนด (Overdue)' ก่อนเป็นอันดับแรกนะครับ"
+                "Tip: เริ่มเคลียร์จาก 'Critical' ก่อน เพราะคืองานที่เลยกำหนดแล้ว", 
+                "งาน 'Revise' คือน้องๆ แก้มาส่งใหม่ อย่าลืมเข้าไปดูนะ",
+                "กด 'Pass' เพื่ออนุมัติและแจก XP ให้ทีมงานทันที! 🎉"
             ]} />
 
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-3">
+                    <div className="p-3 bg-purple-100 text-purple-600 rounded-2xl shadow-sm">
+                        <Layers className="w-8 h-8" />
+                    </div>
                     <div>
                         <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                            ห้องตรวจงาน 🔍 (Quality Gate)
+                            ห้องตรวจงาน 🔍
                         </h1>
-                        <p className="text-gray-500 mt-1">
-                            จัดการคิวตรวจ Draft และอนุมัติงานแบบ Real-time
+                        <p className="text-gray-500 mt-1 font-medium">
+                            Quality Gate Control Center
                         </p>
                     </div>
-                    <button 
-                        onClick={() => setIsInfoOpen(true)}
-                        className="p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors mt-1"
-                        title="ดูคู่มือการใช้งาน"
-                    >
+                    <button onClick={() => setIsInfoOpen(true)} className="p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors mt-1">
                         <Info className="w-5 h-5" />
                     </button>
                 </div>
             </div>
 
-            {/* Stats Widget */}
+            {/* Stats */}
             <QualityStatsWidget reviews={reviews} />
 
-            {/* Filters Bar */}
-            <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col md:flex-row gap-2 shadow-sm">
+            {/* Main Control Bar */}
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row gap-3 sticky top-2 z-30">
+                {/* Search */}
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                         type="text" 
-                        placeholder="ค้นหางาน..." 
-                        className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-gray-50 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                        placeholder="ค้นหางาน, ชื่อคลิป..." 
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-sm font-bold text-gray-700"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 
-                <div className="relative">
-                    <select 
-                        className="appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-10 rounded-lg text-sm font-bold cursor-pointer focus:outline-none focus:border-indigo-500 min-w-[150px]"
-                        value={filterChannel}
-                        onChange={(e) => setFilterChannel(e.target.value)}
-                    >
-                        <option value="ALL">📺 ทุกช่องทาง</option>
-                        {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
+                    {/* View Filter */}
+                    <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
+                        <button onClick={() => setFilterDateType('ALL_PENDING')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterDateType === 'ALL_PENDING' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            งานรอตรวจ ({totalActiveTasks})
+                        </button>
+                        <button onClick={() => setFilterDateType('TODAY')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterDateType === 'TODAY' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            เฉพาะวันนี้
+                        </button>
+                        <button onClick={() => setFilterDateType('OVERDUE')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterDateType === 'OVERDUE' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            งานค้าง ({groups.critical.length})
+                        </button>
+                    </div>
 
-                <div className="relative">
-                    <select 
-                        className="appearance-none bg-indigo-50 border border-indigo-100 text-indigo-700 py-2.5 pl-4 pr-10 rounded-lg text-sm font-bold cursor-pointer focus:outline-none focus:border-indigo-500 min-w-[160px]"
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                    >
-                        <option value="PENDING">⏳ รอตรวจ (Pending)</option>
-                        <option value="REVISE">🛠️ กำลังแก้ (Revise)</option>
-                        <option value="PASSED">✅ ผ่านแล้ว (Passed)</option>
-                        <option value="ALL">📋 ทั้งหมด (All)</option>
-                    </select>
-                    <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400 pointer-events-none" />
+                    <div className="w-px h-8 bg-gray-200 mx-1"></div>
+
+                    {/* Channel Filter */}
+                    <div className="relative shrink-0">
+                        <select 
+                            className="appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-10 rounded-xl text-xs font-bold cursor-pointer hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                            value={filterChannel}
+                            onChange={(e) => setFilterChannel(e.target.value)}
+                        >
+                            <option value="ALL">📺 ทุกช่องทาง</option>
+                            {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    </div>
                 </div>
             </div>
 
-            {/* Content Grid */}
+            {/* Content Area */}
             {isLoading ? (
-                <div className="py-20 text-center text-gray-400">กำลังโหลดข้อมูล...</div>
+                <div className="py-20 text-center text-gray-400">กำลังโหลดรายการ...</div>
+            ) : filteredReviews.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
+                        <CheckCircle2 className="w-10 h-10 text-green-500" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-700">เคลียร์คิวหมดแล้ว! 🎉</h3>
+                    <p className="text-gray-400">ไม่มีงานค้างรอตรวจ พักผ่อนได้เลยครับ</p>
+                </div>
             ) : (
                 <div className="space-y-8">
                     
-                    {/* 1. Overdue (Warning) */}
-                    {groupedReviews.overdue.length > 0 && (
-                        <div className="space-y-3 animate-pulse-slow">
-                            <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider flex items-center">
-                                <AlertTriangle className="w-4 h-4 mr-2" /> เลยกำหนดตรวจ (Overdue)
-                            </h3>
-                            <div className="space-y-3">
-                                {groupedReviews.overdue.map(r => (
-                                    <ReviewCard 
-                                        key={r.id} 
-                                        review={r} 
-                                        users={users}
-                                        onAction={handleActionClick} 
-                                        onOpenTask={onOpenTask} 
-                                        getChannelName={getChannelName} 
-                                        getStatusInfo={getStatusInfo}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+                    {/* GROUP 1: CRITICAL / OVERDUE */}
+                    {groups.critical.length > 0 && (
+                        <section className="animate-in slide-in-from-left-4 duration-500">
+                            <button 
+                                onClick={() => toggleGroup('CRITICAL')}
+                                className="flex items-center justify-between w-full mb-4 group"
+                            >
+                                <h3 className="text-lg font-black text-red-600 flex items-center bg-red-50 px-4 py-2 rounded-xl border border-red-100 shadow-sm">
+                                    <AlertTriangle className="w-5 h-5 mr-2 animate-pulse" /> 
+                                    ด่วน / เลยกำหนด ({groups.critical.length})
+                                </h3>
+                                <div className="h-px bg-red-100 flex-1 mx-4 group-hover:bg-red-200 transition-colors"></div>
+                                {collapsedGroups['CRITICAL'] ? <ChevronRight className="text-red-300" /> : <ChevronDown className="text-red-300" />}
+                            </button>
+                            
+                            {!collapsedGroups['CRITICAL'] && (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {groups.critical.map(r => (
+                                        <ReviewCard 
+                                            key={r.id} review={r} users={users}
+                                            onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                            getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                            isOverdue={true} // Special flag for styling
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
                     )}
 
-                    {/* 2. Today */}
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider flex items-center bg-indigo-50 w-fit px-3 py-1 rounded-lg">
-                            <Clock className="w-4 h-4 mr-2" /> วันนี้ (Today)
-                        </h3>
-                        {groupedReviews.today.length === 0 ? (
-                            <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
-                                ไม่มีคิวตรวจงานวันนี้ จุ๊ยๆ เลย 🍹
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {groupedReviews.today.map(r => (
-                                    <ReviewCard 
-                                        key={r.id} 
-                                        review={r} 
-                                        users={users}
-                                        onAction={handleActionClick} 
-                                        onOpenTask={onOpenTask} 
-                                        getChannelName={getChannelName} 
-                                        getStatusInfo={getStatusInfo}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    {/* GROUP 2: REVISE ZONE */}
+                    {groups.revise.length > 0 && (
+                        <section className="animate-in slide-in-from-left-4 duration-500 delay-100">
+                            <button onClick={() => toggleGroup('REVISE')} className="flex items-center justify-between w-full mb-4 group">
+                                <h3 className="text-lg font-black text-orange-600 flex items-center bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 shadow-sm">
+                                    <LayoutList className="w-5 h-5 mr-2" /> 
+                                    กำลังแก้ไข (Revise) ({groups.revise.length})
+                                </h3>
+                                <div className="h-px bg-orange-100 flex-1 mx-4 group-hover:bg-orange-200 transition-colors"></div>
+                                {collapsedGroups['REVISE'] ? <ChevronRight className="text-orange-300" /> : <ChevronDown className="text-orange-300" />}
+                            </button>
 
-                    {/* 3. Tomorrow & Upcoming */}
-                    {(groupedReviews.tomorrow.length > 0 || groupedReviews.upcoming.length > 0) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">วันพรุ่งนี้ (Tomorrow)</h3>
-                                <div className="space-y-3">
-                                    {groupedReviews.tomorrow.map(r => (
+                            {!collapsedGroups['REVISE'] && (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {groups.revise.map(r => (
                                         <ReviewCard 
-                                            key={r.id} 
-                                            review={r} 
-                                            users={users}
-                                            onAction={handleActionClick} 
-                                            onOpenTask={onOpenTask} 
-                                            getChannelName={getChannelName} 
-                                            getStatusInfo={getStatusInfo}
+                                            key={r.id} review={r} users={users}
+                                            onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                            getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                            highlightRevise={true}
                                         />
                                     ))}
-                                    {groupedReviews.tomorrow.length === 0 && <p className="text-sm text-gray-400 italic">ไม่มีคิวตรวจ</p>}
                                 </div>
-                            </div>
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">เร็วๆ นี้ (Upcoming)</h3>
-                                <div className="space-y-3">
-                                    {groupedReviews.upcoming.map(r => (
+                            )}
+                        </section>
+                    )}
+
+                    {/* GROUP 3: TODAY'S QUEUE */}
+                    {groups.today.length > 0 && (
+                        <section className="animate-in slide-in-from-left-4 duration-500 delay-150">
+                            <button onClick={() => toggleGroup('TODAY')} className="flex items-center justify-between w-full mb-4 group">
+                                <h3 className="text-lg font-black text-indigo-700 flex items-center bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 shadow-sm">
+                                    <Clock className="w-5 h-5 mr-2" /> 
+                                    คิวตรวจวันนี้ ({groups.today.length})
+                                </h3>
+                                <div className="h-px bg-indigo-100 flex-1 mx-4 group-hover:bg-indigo-200 transition-colors"></div>
+                                {collapsedGroups['TODAY'] ? <ChevronRight className="text-indigo-300" /> : <ChevronDown className="text-indigo-300" />}
+                            </button>
+
+                            {!collapsedGroups['TODAY'] && (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {groups.today.map(r => (
                                         <ReviewCard 
-                                            key={r.id} 
-                                            review={r} 
-                                            users={users}
-                                            onAction={handleActionClick} 
-                                            onOpenTask={onOpenTask} 
-                                            getChannelName={getChannelName} 
-                                            getStatusInfo={getStatusInfo}
+                                            key={r.id} review={r} users={users}
+                                            onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                            getChannelName={getChannelName} getStatusInfo={getStatusInfo}
                                         />
                                     ))}
-                                    {groupedReviews.upcoming.length === 0 && <p className="text-sm text-gray-400 italic">ไม่มีคิวตรวจล่วงหน้า</p>}
                                 </div>
-                            </div>
-                        </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* GROUP 4: UPCOMING (Collapsed by default) */}
+                    {groups.upcoming.length > 0 && (
+                        <section className="animate-in slide-in-from-left-4 duration-500 delay-200">
+                            <button onClick={() => toggleGroup('UPCOMING')} className="flex items-center justify-between w-full mb-4 group opacity-70 hover:opacity-100 transition-opacity">
+                                <h3 className="text-md font-bold text-gray-500 flex items-center bg-gray-50 px-4 py-2 rounded-xl border border-gray-200">
+                                    <Calendar className="w-4 h-4 mr-2" /> 
+                                    คิวล่วงหน้า ({groups.upcoming.length})
+                                </h3>
+                                <div className="h-px bg-gray-200 flex-1 mx-4 border-dashed border-b border-gray-300"></div>
+                                {collapsedGroups['UPCOMING'] ? <ChevronRight className="text-gray-400" /> : <ChevronDown className="text-gray-400" />}
+                            </button>
+
+                            {!collapsedGroups['UPCOMING'] && (
+                                <div className="grid grid-cols-1 gap-4 opacity-80">
+                                    {groups.upcoming.map(r => (
+                                        <ReviewCard 
+                                            key={r.id} review={r} users={users}
+                                            onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                            getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
                     )}
                 </div>
             )}

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Sparkles, Ban } from 'lucide-react';
 import { Channel, ChipConfig, TaskType } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -133,6 +133,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                               {visibleChips.map((chip) => {
                                   const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
                                   const isActive = safeActiveIds.includes(chip.id);
+                                  const isExclude = chip.mode === 'EXCLUDE';
                                   
                                   let channelLogo = null;
                                   if (chip.type === 'CHANNEL') {
@@ -142,30 +143,36 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                       }
                                   }
 
+                                  // Override style for Exclusion Mode
+                                  const baseClasses = isExclude 
+                                    ? (isActive 
+                                        ? 'bg-red-500 text-white border-red-500 shadow-md shadow-red-200 ring-2 ring-offset-2 ring-red-100 scale-105' 
+                                        : 'bg-white text-red-500 border-red-100 hover:bg-red-50 hover:border-red-200')
+                                    : (isActive 
+                                        ? `${theme.activeBg} text-white border-transparent shadow-lg ${theme.ring.replace('ring-', 'shadow-')}/40 ring-2 ring-offset-2 ring-transparent scale-105` 
+                                        : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:bg-${theme.id}-50 hover:-translate-y-0.5`);
+
                                   return (
                                       <button
                                           key={chip.id}
                                           onClick={() => toggleChip(chip.id)}
                                           className={`
                                               px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap shadow-sm border shrink-0 flex items-center gap-1.5
-                                              ${isActive 
-                                                  ? `${theme.activeBg} text-white border-transparent shadow-lg ${theme.ring.replace('ring-', 'shadow-')}/40 ring-2 ring-offset-2 ring-transparent scale-105` 
-                                                  : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:bg-${theme.id}-50 hover:-translate-y-0.5`}
+                                              ${baseClasses}
                                           `}
                                       >
+                                          {isExclude && <Ban className="w-3 h-3 stroke-[3px]" />}
                                           {channelLogo ? (
-                                            // ถ้ามีรูป ให้โชว์รูปอย่างเดียว (ปรับขนาดให้ใหญ่ขึ้นนิดนึงจะได้เห็นชัด)
                                             <img 
                                             src={channelLogo} 
                                             alt={chip.label} 
                                             className="w-6 h-6 rounded-full object-cover border border-white/20 hover:scale-120 transition-transform" 
-                                            title={chip.label} // เอาเมาส์ชี้แล้วจะขึ้นชื่อ
+                                            title={chip.label} 
                                             />
                                         ) : (
-                                            // ถ้าไม่มีรูป ให้โชว์ชื่อเหมือนเดิม
                                             chip.label
                                         )}
-                                          {isActive && <Check className="w-3 h-3 text-white stroke-[3px]" />}
+                                          {!isExclude && isActive && <Check className="w-3 h-3 text-white stroke-[3px]" />}
                                       </button>
                                   );
                               })}

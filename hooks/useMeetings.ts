@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MeetingLog, MeetingCategory } from '../types';
 import { useToast } from '../context/ToastContext';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 export const useMeetings = () => {
     const [meetings, setMeetings] = useState<MeetingLog[]>([]);
@@ -16,6 +16,7 @@ export const useMeetings = () => {
         title: m.title,
         date: new Date(m.date),
         content: m.content || '',
+        decisions: m.decisions || '', // Map decisions
         category: (m.category as MeetingCategory) || 'GENERAL',
         attendees: m.attendees || [],
         tags: m.tags || [],
@@ -77,6 +78,7 @@ export const useMeetings = () => {
                 title,
                 date: dateStr, // Send as string "2023-10-26"
                 content: '',
+                decisions: '',
                 author_id: userId,
                 category: 'GENERAL',
                 attendees: [],
@@ -109,9 +111,18 @@ export const useMeetings = () => {
             };
             if (updates.title) payload.title = updates.title;
             if (updates.content) payload.content = updates.content;
+            if (updates.decisions) payload.decisions = updates.decisions; // Add logic
             
-            // Fix Date update as well
-            if (updates.date) payload.date = format(updates.date, 'yyyy-MM-dd');
+            // Fix Date update with validation
+            if (updates.date) {
+                const d = new Date(updates.date);
+                if (isValid(d)) {
+                    payload.date = format(d, 'yyyy-MM-dd');
+                } else {
+                    console.warn("Invalid date passed to updateMeeting", updates.date);
+                    // Do not update date if invalid
+                }
+            }
             
             if (updates.attendees) payload.attendees = updates.attendees;
             if (updates.tags) payload.tags = updates.tags;

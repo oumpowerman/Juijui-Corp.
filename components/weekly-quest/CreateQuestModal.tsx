@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight, CheckSquare, Square, ChevronDown } from 'lucide-react';
 import { Channel, MasterOption, WeeklyQuest, Platform } from '../../types';
 import { CONTENT_FORMATS } from '../../constants';
 import { format, addDays, differenceInDays } from 'date-fns';
@@ -20,10 +21,118 @@ interface PendingQuestItem {
     title: string;
     targetCount: number;
     platform?: Platform | 'ALL';
-    formatKey?: string; 
+    formatKeys?: string[]; // CHANGED: Multi-select
     statusKey?: string; 
     questType: 'AUTO' | 'MANUAL';
 }
+
+// --- SUB-COMPONENT: MultiSelect Dropdown (Portal Version) ---
+const FormatMultiSelect = ({ 
+    options, 
+    selectedKeys = [], 
+    onChange 
+}: { 
+    options: { key: string, label: string }[], 
+    selectedKeys: string[], 
+    onChange: (keys: string[]) => void 
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState<{ top: number, left: number, width: number } | null>(null);
+
+    const updatePosition = () => {
+        if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            // Calculate position relative to viewport
+            setPosition({
+                top: rect.bottom + 4, // Dropdown below input
+                left: rect.left,
+                width: rect.width
+            });
+        }
+    };
+
+    const toggleOpen = () => {
+        if (!isOpen) {
+            updatePosition();
+        }
+        setIsOpen(!isOpen);
+    };
+
+    // Recalculate position on scroll/resize instead of closing
+    useEffect(() => {
+        if (!isOpen) return;
+        
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        
+        return () => {
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [isOpen]);
+
+    const toggleSelection = (key: string) => {
+        if (selectedKeys.includes(key)) {
+            onChange(selectedKeys.filter(k => k !== key));
+        } else {
+            onChange([...selectedKeys, key]);
+        }
+    };
+
+    const displayText = selectedKeys.length === 0 
+        ? '(ทุกรูปแบบ)' 
+        : selectedKeys.length === 1 
+            ? options.find(o => o.key === selectedKeys[0])?.label || selectedKeys[0]
+            : `${selectedKeys.length} รูปแบบ`;
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <button 
+                type="button"
+                onClick={toggleOpen}
+                className={`w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold flex justify-between items-center bg-white ${isOpen ? 'ring-2 ring-indigo-100 border-indigo-300' : ''}`}
+            >
+                <span className={`truncate ${selectedKeys.length > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    {displayText}
+                </span>
+                <ChevronDown className="w-3 h-3 text-gray-400 ml-1 shrink-0" />
+            </button>
+            
+            {isOpen && position && createPortal(
+                <>
+                    <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)} />
+                    <div 
+                        className="fixed z-[9999] bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 max-h-[200px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+                        style={{
+                            top: position.top,
+                            left: position.left,
+                            width: position.width
+                        }}
+                    >
+                        {options.map(opt => {
+                            const isSelected = selectedKeys.includes(opt.key);
+                            return (
+                                <div 
+                                    key={opt.key}
+                                    onClick={() => toggleSelection(opt.key)}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs ${isSelected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-600'}`}
+                                >
+                                    {isSelected 
+                                        ? <CheckSquare className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> 
+                                        : <Square className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                                    }
+                                    <span className="truncate">{opt.label}</span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </>,
+                document.body
+            )}
+        </div>
+    );
+};
 
 const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, channels, masterOptions, weekStart, onAddQuest }) => {
     const [selectedChannelId, setSelectedChannelId] = useState<string>('');
@@ -37,10 +146,16 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     // Master Data
     const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
     const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive);
+    
+    // Convert constants to options array if MasterData is empty
+    const availableFormats = formatOptions.length > 0 
+        ? formatOptions.map(o => ({ key: o.key, label: o.label }))
+        : Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: v.split(' ')[0] }));
+
     const defaultStatusKey = statusOptions.length > 0 ? statusOptions[statusOptions.length - 1].key : 'DONE';
 
     const [questItems, setQuestItems] = useState<PendingQuestItem[]>([
-        { id: '1', title: 'ลง Story 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO' },
+        { id: '1', title: 'ลง Story 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
     ]);
 
     const selectedChannelObj = channels.find(c => c.id === selectedChannelId);
@@ -56,10 +171,10 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
 
     const handleAddDefaultItems = () => {
         setQuestItems([
-            { id: crypto.randomUUID(), title: 'ลง Story (IG) 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO' },
-            { id: crypto.randomUUID(), title: 'ลง Post (FB) 🖼️', targetCount: 3, platform: 'FACEBOOK', statusKey: defaultStatusKey, questType: 'AUTO' },
-            { id: crypto.randomUUID(), title: 'ลง Reels/Shorts 🎬', targetCount: 3, platform: 'ALL', formatKey: 'REELS', statusKey: defaultStatusKey, questType: 'AUTO' },
-            { id: crypto.randomUUID(), title: 'ทำความสะอาดสตู 🧹', targetCount: 1, questType: 'MANUAL' },
+            { id: crypto.randomUUID(), title: 'ลง Story (IG) 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
+            { id: crypto.randomUUID(), title: 'ลง Post (FB) 🖼️', targetCount: 3, platform: 'FACEBOOK', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
+            { id: crypto.randomUUID(), title: 'ลง Reels/Shorts 🎬', targetCount: 3, platform: 'ALL', formatKeys: ['REELS', 'SHORT_FORM'], statusKey: defaultStatusKey, questType: 'AUTO' },
+            { id: crypto.randomUUID(), title: 'ทำความสะอาดสตู 🧹', targetCount: 1, questType: 'MANUAL', formatKeys: [] },
         ]);
     };
 
@@ -81,6 +196,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
         questItems.forEach(item => {
             if(!item.title) return;
             const finalTitle = isCustomChannel ? `[${customChannelName}] ${item.title}` : item.title;
+            
             onAddQuest({
                 title: finalTitle,
                 weekStartDate: effectiveStartDate,
@@ -88,7 +204,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                 targetCount: item.targetCount,
                 channelId: isCustomChannel ? undefined : selectedChannelId,
                 targetPlatform: item.questType === 'AUTO' ? item.platform : undefined,
-                targetFormat: item.questType === 'AUTO' ? item.formatKey : undefined,
+                targetFormat: item.questType === 'AUTO' ? item.formatKeys : undefined, // Send Array
                 targetStatus: item.questType === 'AUTO' ? item.statusKey : undefined,
                 questType: item.questType,
                 manualProgress: 0
@@ -97,7 +213,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
 
         onClose();
         // Reset
-        setQuestItems([{ id: '1', title: 'ลง Story 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO' }]);
+        setQuestItems([{ id: '1', title: 'ลง Story 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] }]);
         setSelectedChannelId('');
         setCustomChannelName('');
         setIsCustomChannel(false);
@@ -194,19 +310,19 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                                 <button type="button" onClick={handleAddDefaultItems} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 flex items-center"><Sparkles className="w-3 h-3 mr-1" /> โหลดชุดมาตรฐาน</button>
                             </div>
                             
-                            <div className="bg-gray-50 rounded-2xl p-4 space-y-3 border border-gray-100">
+                            <div className="bg-gray-50 rounded-2xl p-4 space-y-3 border border-gray-100 overflow-visible">
                                 <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2 px-2">
                                     <div className="col-span-1">Type</div>
                                     <div className="col-span-3">ชื่องาน</div>
                                     <div className="col-span-2">Platform</div>
-                                    <div className="col-span-2">Format</div>
+                                    <div className="col-span-2">Format (Multi)</div>
                                     <div className="col-span-2">Status</div>
                                     <div className="col-span-1 text-center">เป้า</div>
                                     <div className="col-span-1"></div>
                                 </div>
 
                                 {questItems.map((item, index) => (
-                                    <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                                    <div key={item.id} className="grid grid-cols-12 gap-2 items-center relative">
                                         
                                         {/* Type Toggle */}
                                         <div className="col-span-1">
@@ -244,16 +360,13 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                                                     </select>
                                                 </div>
 
-                                                {/* Format */}
+                                                {/* Format (Multi Select) */}
                                                 <div className="col-span-2">
-                                                    <select className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold text-gray-600 focus:border-indigo-500 outline-none bg-white" value={item.formatKey || ''} onChange={e => setQuestItems(prev => prev.map(i => i.id === item.id ? { ...i, formatKey: e.target.value || undefined } : i))}>
-                                                        <option value="">(ไม่ระบุ)</option>
-                                                        {formatOptions.length > 0 ? (
-                                                            formatOptions.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)
-                                                        ) : (
-                                                            Object.entries(CONTENT_FORMATS).map(([k, v]) => <option key={k} value={k}>{v.split(' ')[0]}</option>)
-                                                        )}
-                                                    </select>
+                                                    <FormatMultiSelect 
+                                                        options={availableFormats}
+                                                        selectedKeys={item.formatKeys || []}
+                                                        onChange={(keys) => setQuestItems(prev => prev.map(i => i.id === item.id ? { ...i, formatKeys: keys } : i))}
+                                                    />
                                                 </div>
 
                                                 {/* Status */}
@@ -289,7 +402,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                                         </div>
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => setQuestItems(prev => [...prev, { id: crypto.randomUUID(), title: '', targetCount: 1, statusKey: defaultStatusKey, questType: 'AUTO' }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-white transition-all flex items-center justify-center text-sm font-bold"><PlusCircle className="w-4 h-4 mr-2" /> เพิ่มรายการ</button>
+                                <button type="button" onClick={() => setQuestItems(prev => [...prev, { id: crypto.randomUUID(), title: '', targetCount: 1, statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-white transition-all flex items-center justify-center text-sm font-bold"><PlusCircle className="w-4 h-4 mr-2" /> เพิ่มรายการ</button>
                             </div>
                         </div>
                     </form>

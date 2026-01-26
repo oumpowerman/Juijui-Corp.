@@ -22,11 +22,12 @@ export const useWeeklyQuests = () => {
                     id: q.id,
                     title: q.title,
                     weekStartDate: new Date(q.week_start_date),
-                    endDate: q.end_date ? new Date(q.end_date) : undefined, // Map end_date
+                    endDate: q.end_date ? new Date(q.end_date) : undefined,
                     channelId: q.channel_id,
                     targetCount: q.target_count,
                     targetPlatform: q.target_platform,
-                    targetFormat: q.target_format,
+                    // Handle format: DB returns array, ensure it's mapped correctly
+                    targetFormat: Array.isArray(q.target_format) ? q.target_format : (q.target_format ? [q.target_format] : []),
                     targetStatus: q.target_status,
                     questType: q.quest_type || 'AUTO',
                     manualProgress: q.manual_progress || 0
@@ -64,11 +65,12 @@ export const useWeeklyQuests = () => {
                 id: newId,
                 title: quest.title,
                 week_start_date: quest.weekStartDate.toISOString(),
-                end_date: quest.endDate ? quest.endDate.toISOString() : null, // Save end_date
+                end_date: quest.endDate ? quest.endDate.toISOString() : null,
                 channel_id: quest.channelId || null,
                 target_count: quest.targetCount,
                 target_platform: quest.targetPlatform || null,
-                target_format: quest.targetFormat || null,
+                // Send array to DB
+                target_format: (quest.targetFormat && quest.targetFormat.length > 0) ? quest.targetFormat : null,
                 target_status: quest.targetStatus || null,
                 quest_type: quest.questType,
                 manual_progress: quest.manualProgress || 0

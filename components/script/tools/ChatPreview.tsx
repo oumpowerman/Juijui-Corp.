@@ -6,19 +6,17 @@ interface ChatPreviewProps {
     content: string;
     isOpen: boolean;
     onClose: () => void;
-    characters: string[]; // To alternate sides
+    characters: string[]; 
 }
 
 const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, characters }) => {
     
-    // Improved Parser: Handles HTML stripping and line breaks more robustly
     const chatBubbles = useMemo(() => {
-        // 1. Convert HTML breaks/paragraphs to Newlines
         const cleanContent = content
-            .replace(/<\/p>/gi, '\n') // End of paragraph = new line
-            .replace(/<br\s*\/?>/gi, '\n') // BR = new line
-            .replace(/<[^>]+>/g, '') // Strip remaining tags
-            .replace(/&nbsp;/g, ' '); // Decode non-breaking space
+            .replace(/<\/p>/gi, '\n') 
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<[^>]+>/g, '') 
+            .replace(/&nbsp;/g, ' '); 
 
         const lines = cleanContent.split('\n');
         
@@ -30,28 +28,23 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
 
-            // Match "Name:" or "Name :"
             const match = trimmedLine.match(/^(.+?):\s*(.*)/);
             
             if (match) {
-                // New Speaker found, push previous bubble if exists
                 if (currentSpeaker && currentText) {
                     bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
                 }
                 currentSpeaker = match[1].trim();
                 currentText = match[2];
             } else {
-                // Continuation or Narrator
                 if (currentSpeaker) {
                     currentText += '\n' + trimmedLine;
                 } else {
-                    // No speaker yet, treat as Narrator
                     bubbles.push({ speaker: 'NARRATOR', text: trimmedLine });
                 }
             }
         });
         
-        // Push the last one
         if (currentSpeaker && currentText) {
             bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
         }
@@ -61,58 +54,72 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
     if (!isOpen) return null;
 
     return (
-        <div className="w-full md:w-1/2 bg-gray-100 border-l border-gray-200 flex flex-col h-full overflow-hidden absolute md:relative z-20 top-0 animate-in slide-in-from-right-10 duration-300 shadow-xl md:shadow-none">
-            <div className="p-4 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 shrink-0">
-                <h3 className="font-bold text-gray-700 flex items-center">
-                    <MessageCircle className="w-5 h-5 mr-2 text-indigo-600" /> Live Chat Preview
+        <div className="w-full md:w-1/2 bg-[#eef2f6] border-l border-white/50 flex flex-col h-full overflow-hidden absolute md:relative z-20 top-0 animate-in slide-in-from-right-10 duration-300 shadow-2xl md:shadow-none">
+            {/* Header */}
+            <div className="px-6 py-4 bg-white/80 backdrop-blur-md border-b border-gray-200 flex justify-between items-center shadow-sm z-10 shrink-0">
+                <h3 className="font-black text-gray-700 flex items-center tracking-tight">
+                    <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-xl mr-3">
+                        <MessageCircle className="w-5 h-5" />
+                    </span>
+                    Live Preview
                 </h3>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 md:hidden p-1 bg-gray-50 rounded-full">
+                <button onClick={onClose} className="text-gray-400 hover:text-red-500 md:hidden p-2 hover:bg-red-50 rounded-full transition-colors">
                     <X className="w-5 h-5"/>
                 </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5e7eb] scrollbar-thin scrollbar-thumb-gray-300">
+            {/* Chat Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
                 {chatBubbles.map((bubble, idx) => {
                     const isNarrator = bubble.speaker === 'NARRATOR';
-                    
-                    // Logic: Match speaker name to characters array to determine side
                     const charIndex = characters.findIndex(c => c.trim() === bubble.speaker.trim());
-                    // If found: 0=Left, 1=Right, 2=Left, ...
-                    // If not found: Default to Left (0)
                     const isRight = charIndex !== -1 && charIndex % 2 !== 0;
                     
                     if (isNarrator) {
                         return (
-                            <div key={idx} className="flex justify-center my-4 opacity-70">
-                                <span className="text-xs text-gray-600 italic bg-gray-200/80 px-3 py-1.5 rounded-full shadow-sm border border-gray-300">
+                            <div key={idx} className="flex justify-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
+                                <span className="text-xs font-bold text-gray-500 italic bg-gray-200/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-gray-200 shadow-sm">
                                     {bubble.text}
                                 </span>
                             </div>
                         )
                     }
 
+                    // Avatar Color Generation (Simple hash)
+                    const avatarColor = isRight ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-pink-500 to-orange-400';
+
                     return (
-                        <div key={idx} className={`flex flex-col ${isRight ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2 fade-in duration-300`}>
-                            <span className="text-[10px] text-gray-500 font-bold mb-1 ml-1 mr-1 uppercase tracking-wide opacity-80">{bubble.speaker}</span>
-                            <div className={`
-                                max-w-[80%] px-4 py-2.5 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed
-                                ${isRight 
-                                    ? 'bg-indigo-600 text-white rounded-tr-none' 
-                                    : 'bg-white text-gray-800 border border-gray-200 rounded-tl-none'}
-                            `}>
-                                {bubble.text}
+                        <div key={idx} className={`flex gap-3 ${isRight ? 'flex-row-reverse' : 'flex-row'} animate-in slide-in-from-bottom-2 fade-in duration-300`} style={{ animationDelay: `${idx * 50}ms` }}>
+                            {/* Avatar */}
+                            <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-white text-xs font-black shadow-md border-2 border-white shrink-0`}>
+                                {bubble.speaker.charAt(0)}
+                            </div>
+
+                            <div className={`flex flex-col ${isRight ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                                <span className="text-[10px] text-gray-400 font-bold mb-1 px-1 uppercase tracking-wide">{bubble.speaker}</span>
+                                <div className={`
+                                    px-4 py-3 text-sm shadow-sm whitespace-pre-wrap leading-relaxed
+                                    ${isRight 
+                                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none shadow-indigo-200' 
+                                        : 'bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-tl-none shadow-gray-200'}
+                                `}>
+                                    {bubble.text}
+                                </div>
                             </div>
                         </div>
                     );
                 })}
                 
                 {chatBubbles.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                        <MessageCircle className="w-12 h-12 mb-2 opacity-20" />
-                        <p className="text-sm font-medium">ยังไม่มีบทสนทนา</p>
-                        <p className="text-xs text-gray-400 mt-1">พิมพ์ในรูปแบบ "ชื่อ: ข้อความ" เพื่อเริ่มดูตัวอย่าง</p>
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
+                        <MessageCircle className="w-16 h-16 mb-4 text-gray-300" />
+                        <p className="text-sm font-bold">ยังไม่มีบทสนทนา</p>
+                        <p className="text-xs mt-1">พิมพ์ "ชื่อ: ข้อความ" เพื่อเริ่มคุยกันเลย!</p>
                     </div>
                 )}
+                
+                {/* Spacer */}
+                <div className="h-12"></div>
             </div>
         </div>
     );

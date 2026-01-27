@@ -5,7 +5,6 @@ import { ScriptProvider, useScriptContext } from './core/ScriptContext';
 import EditorShell from './layout/EditorShell';
 import EditorToolbar from './layout/EditorToolbar';
 import ScriptTextArea from './editor/ScriptTextArea';
-import CharacterBar from './editor/CharacterBar';
 
 // Tools
 import TeleprompterModal from './tools/TeleprompterModal';
@@ -37,7 +36,7 @@ const ScriptEditorContent: React.FC = () => {
             <EditorToolbar />
             
             <div className="flex-1 overflow-hidden flex relative bg-white">
-                <CharacterBar />
+                {/* CharacterBar moved inside ScriptTextArea to fix layout */}
                 <ScriptTextArea />
                 
                 {/* Tools Overlay */}

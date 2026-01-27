@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, TaskLog, ReviewSession, Status } from '../types';
@@ -89,6 +90,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             // Production Info
             shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
             shootLocation: data.shoot_location || undefined,
+            
+            // Trinity Phase 2
+            contentId: data.content_id,
+            
+            // Promote to Board
+            showOnBoard: data.show_on_board,
+            parentContentTitle: data.contents?.title
         };
     };
 
@@ -124,13 +132,20 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             console.error('Contents Fetch unexpected error:', err);
         }
 
-        // 2. Fetch TASKS
+        // 2. Fetch TASKS (Including promoted sub-tasks)
         try {
-            let query = supabase.from('tasks').select(`*`);
+            // Updated query: Join contents to get parent title
+            let query = supabase.from('tasks').select(`
+                *,
+                contents (title)
+            `);
 
             if (!isAllLoaded) {
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }
+
+            // Exclude pure sub-tasks unless they are promoted to board
+            query = query.or('content_id.is.null,show_on_board.eq.true');
 
             const { data: tasksData, error: tasksError } = await query;
 
@@ -144,6 +159,23 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         setTasks(newTasks);
         setIsFetching(false);
     }, [dateRange, isAllLoaded]);
+
+    // NEW: Fetch Sub-Tasks specifically for a content
+    const fetchSubTasks = async (contentId: string): Promise<Task[]> => {
+        try {
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('content_id', contentId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+            return data ? data.map(d => mapSupabaseToTask(d, 'TASK')) : [];
+        } catch (err) {
+            console.error('Fetch sub-tasks failed', err);
+            return [];
+        }
+    };
 
     const checkAndExpandRange = useCallback((targetDate: Date) => {
         if (isAllLoaded) return; 
@@ -210,7 +242,11 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             target_position: task.targetPosition,
             caution: task.caution,
             importance: task.importance,
-            ...(isContent ? {} : { type: 'TASK' })
+            ...(isContent ? {} : { 
+                type: 'TASK', 
+                content_id: task.contentId || null,
+                show_on_board: task.showOnBoard || false // Add show_on_board
+            }) 
         };
 
         const contentPayload = isContent ? {
@@ -237,9 +273,15 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             // 1. Snapshot previous state (in case of rollback)
             const previousTasks = [...tasks];
             
-            // 2. Update UI Immediately
-            setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
-            setIsModalOpen(false); // Close modal instantly
+            // 2. Update UI Immediately (Only if it's in the main list)
+            if (tasks.some(t => t.id === task.id)) {
+                setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
+            }
+            
+            // Don't close modal yet if it's sub-task from Logistics Tab, handled by caller
+            if (!task.contentId) {
+                setIsModalOpen(false); 
+            }
 
             try {
                 // 3. Fire API
@@ -277,9 +319,11 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 
                 if (error) throw error;
                 
-                // 2. Update UI After Success
-                setTasks(prev => [...prev, task]);
-                setIsModalOpen(false);
+                // 2. Update UI After Success (Only if not a sub-task)
+                if (!task.contentId) {
+                    setTasks(prev => [...prev, task]);
+                    setIsModalOpen(false);
+                }
 
                 // Log Creation
                 const logPayload: any = {
@@ -354,9 +398,13 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
         showToast('ลบเรียบร้อย', 'info');
 
         try {
-            const targetTask = previousTasks.find(t => t.id === taskId); // Use snapshot to find type
-            if (!targetTask) return;
-            const table = targetTask.type === 'CONTENT' ? 'contents' : 'tasks';
+            // Check if it's in local state to know type, otherwise query DB or assume based on ID lookups if possible
+            // Simpler: Try deleting from both or assume type passed? 
+            // For now, relying on local state is safer
+            const targetTask = previousTasks.find(t => t.id === taskId);
+            
+            // If not found in main list (maybe subtask?), try deleting from tasks table first
+            const table = targetTask?.type === 'CONTENT' ? 'contents' : 'tasks';
 
             const { error } = await supabase.from(table).delete().eq('id', taskId);
             if (error) throw error;
@@ -371,6 +419,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     return {
         tasks,
         fetchTasks,
+        fetchSubTasks, // Exported
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,

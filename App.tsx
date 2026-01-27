@@ -263,6 +263,7 @@ function App() {
                         users={allUsers} 
                         currentUser={currentUserProfile}
                         tasks={tasks} 
+                        masterOptions={masterOptions}
                     />
                 );
             case 'DUTY': 

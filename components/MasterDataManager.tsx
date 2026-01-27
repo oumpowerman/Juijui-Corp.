@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { MasterOption, Reward } from '../types';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText, Calendar, CalendarDays, Smile } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText, Calendar, CalendarDays, Smile, Presentation } from 'lucide-react';
 import MentorTip from './MentorTip';
 import DashboardConfigModal from './DashboardConfigModal';
 import MaintenancePanel from './admin/maintenance/MaintenancePanel';
@@ -26,6 +26,9 @@ const MASTER_META: Record<string, { label: string, icon: any, desc: string, grou
     CATEGORY: { label: 'Categories', icon: LayoutTemplate, desc: 'หมวดหมู่ย่อย (เช่น Vlog, Review, Interview)', group: 'CONTENT' },
     SCRIPT_CATEGORY: { label: 'Script Categories', icon: FileText, desc: 'หมวดหมู่สคริปต์ (เช่น Vlog, Storytelling, Review)', group: 'CONTENT' },
     SHOOT_LOCATION: { label: 'Locations', icon: MapPin, desc: 'สถานที่ถ่ายทำที่ใช้บ่อย (เช่น Studio A, Outdoor)', group: 'CONTENT' },
+    
+    // --- PRODUCTION ---
+    MEETING_CATEGORY: { label: 'Meeting Topics', icon: Presentation, desc: 'หัวข้อการประชุม (เช่น General, Crisis, Project Update)', group: 'CONTENT' },
 
     // --- INVENTORY ---
     INVENTORY: { label: 'Equipment Categories', icon: Package, desc: 'หมวดหมู่อุปกรณ์หลักและย่อย (ใช้ในหน้า Checklist)', group: 'INVENTORY' },
@@ -214,7 +217,7 @@ const MasterDataManager: React.FC = () => {
                     {/* GROUP: CONTENT */}
                     <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Content Metadata</div>
-                        {['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'SHOOT_LOCATION'].map(key => renderTabButton(key))}
+                        {['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'SHOOT_LOCATION', 'MEETING_CATEGORY'].map(key => renderTabButton(key))}
                     </div>
 
                     {/* GROUP: INVENTORY & HR */}

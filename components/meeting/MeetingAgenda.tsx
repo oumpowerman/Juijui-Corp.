@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ListChecks, ChevronRight, CheckCircle2, Circle, Plus, Settings2 } from 'lucide-react';
+import { ListChecks, CheckCircle2, Circle, Plus, ArrowRight } from 'lucide-react';
 import { MeetingAgendaItem } from '../../types';
 import AgendaModal from './AgendaModal';
 
@@ -18,79 +19,77 @@ const MeetingAgenda: React.FC<MeetingAgendaProps> = ({ agenda, onToggle, onDelet
 
     return (
         <>
-            <div className="w-full bg-white rounded-[2rem] border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[200px]">
+            <div className="w-full bg-white rounded-[2rem] border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[180px] group relative hover:border-indigo-200 transition-colors">
                 
-                {/* Header: Click to open full manager */}
+                {/* Widget Header */}
                 <div 
                     onClick={() => setIsModalOpen(true)}
-                    className="px-6 py-4 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group bg-gradient-to-r from-white to-gray-50/50"
+                    className="px-5 py-4 border-b border-gray-100 flex justify-between items-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition-colors"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100 group-hover:scale-110 transition-transform">
-                            <ListChecks className="w-5 h-5" />
+                    <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 shadow-sm">
+                            <ListChecks className="w-4 h-4" />
                         </div>
                         <div>
-                            <h3 className="font-black text-gray-800 text-sm tracking-tight group-hover:text-indigo-700 transition-colors">
-                                วาระการประชุม (Agenda)
+                            <h3 className="font-black text-gray-800 text-sm tracking-tight leading-none">
+                                Agenda
                             </h3>
                             <p className="text-[10px] text-gray-400 font-bold mt-0.5">
-                                สำเร็จ {completedCount}/{totalCount} หัวข้อ
+                                {totalCount > 0 ? `${completedCount}/${totalCount} Done` : 'No Topics'}
                             </p>
                         </div>
                     </div>
-                    <button className="p-1.5 rounded-full text-gray-300 hover:text-indigo-600 hover:bg-white transition-all">
-                        <Settings2 className="w-4 h-4" />
-                    </button>
+                    <div className="p-1.5 bg-white border border-gray-200 rounded-full text-gray-400 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
                 </div>
 
-                {/* Body: Interactive Checklist */}
-                <div className="p-4 bg-[#f8fafc] flex-1 overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-gray-200">
+                {/* Compact List */}
+                <div className="p-3 bg-white flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 min-h-[100px]">
                     {agenda.length === 0 ? (
                         <button 
                             onClick={() => setIsModalOpen(true)}
-                            className="w-full h-full min-h-[120px] flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl hover:border-indigo-300 hover:bg-indigo-50/30 hover:text-indigo-500 transition-all p-6 group"
+                            className="w-full h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/10 hover:text-indigo-500 transition-all p-4 gap-2"
                         >
-                            <div className="p-3 bg-white rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                                <Plus className="w-6 h-6 stroke-[3px]" />
-                            </div>
-                            <span className="text-xs font-bold">เพิ่มวาระการประชุม</span>
+                            <Plus className="w-5 h-5 opacity-50" />
+                            <span className="text-[10px] font-bold">เพิ่มวาระการประชุม</span>
                         </button>
                     ) : (
-                        <div className="flex flex-col gap-2.5">
+                        <div className="space-y-1">
                             {agenda.map(item => (
                                 <div 
                                     key={item.id}
                                     onClick={() => onToggle(item.id)}
                                     className={`
-                                        group flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none active:scale-[0.98]
+                                        flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer select-none transition-all group/item
                                         ${item.isCompleted 
-                                            ? 'bg-emerald-50/50 border-emerald-200 shadow-sm' 
-                                            : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'
+                                            ? 'bg-gray-50 text-gray-400' 
+                                            : 'bg-white hover:bg-indigo-50/30'
                                         }
                                     `}
                                 >
-                                    <div className={`mt-0.5 transition-all duration-300 ${item.isCompleted ? 'text-emerald-500 scale-110' : 'text-gray-300 group-hover:text-indigo-400'}`}>
+                                    <div className={`mt-0.5 shrink-0 transition-colors ${item.isCompleted ? 'text-green-500' : 'text-gray-300 group-hover/item:text-indigo-400'}`}>
                                         {item.isCompleted 
-                                            ? <CheckCircle2 className="w-5 h-5 fill-emerald-100" /> 
-                                            : <Circle className="w-5 h-5" />
+                                            ? <CheckCircle2 className="w-4 h-4" /> 
+                                            : <Circle className="w-4 h-4" />
                                         }
                                     </div>
-                                    <span className={`text-sm font-bold leading-snug transition-all ${item.isCompleted ? 'text-emerald-800 line-through decoration-emerald-300 decoration-2 opacity-60' : 'text-gray-700'}`}>
+                                    <span className={`text-xs font-bold leading-snug ${item.isCompleted ? 'line-through decoration-gray-300' : 'text-gray-700'}`}>
                                         {item.topic}
                                     </span>
                                 </div>
                             ))}
-                            
-                            {/* Add More Button */}
-                            <button 
-                                onClick={() => setIsModalOpen(true)}
-                                className="mt-2 w-full py-2.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-transparent hover:border-indigo-100 flex items-center justify-center gap-1.5"
-                            >
-                                <Plus className="w-3.5 h-3.5" /> จัดการ / เพิ่มวาระ
-                            </button>
                         </div>
                     )}
                 </div>
+                
+                {/* Quick Add Footer */}
+                <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full py-2 bg-gray-50 hover:bg-indigo-50 border-t border-gray-100 text-[10px] font-bold text-gray-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-1"
+                >
+                    <Plus className="w-3 h-3" /> จัดการวาระทั้งหมด
+                </button>
             </div>
 
             <AgendaModal 

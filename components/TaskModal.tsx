@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity } from 'lucide-react';
+import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck } from 'lucide-react';
 import { Task, Channel, TaskType, User, MasterOption } from '../types';
 import TaskComments from './TaskComments';
 import TaskAssets from './TaskAssets';
@@ -8,6 +8,7 @@ import TaskHistory from './task/TaskHistory';
 import TaskWiki from './task/TaskWiki';
 import ContentForm from './task/ContentForm';
 import GeneralTaskForm from './task/GeneralTaskForm';
+import LogisticsTab from './task/LogisticsTab';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
     isOpen, onClose, onSave, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser 
 }) => {
   // Main View State
-  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI'>('DETAILS');
+  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS'>('DETAILS');
   
   // Tab State (Content vs Task) - Synced with props
   const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
@@ -47,6 +48,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   }, [isOpen, initialData, lockedType]);
 
   const assetCount = initialData?.assets?.length || 0;
+  const isContent = initialData?.type === 'CONTENT' || activeTab === 'CONTENT';
 
   if (!isOpen) return null;
 
@@ -68,6 +70,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         viewMode === 'COMMENTS' ? '💬 ความคิดเห็น (Chat)' : 
                         viewMode === 'ASSETS' ? '📂 คลังไฟล์ (Assets)' : 
                         viewMode === 'WIKI' ? '📚 คู่มือ (Wiki)' :
+                        viewMode === 'LOGISTICS' ? '🚛 งานย่อย (Logistics)' :
                         (initialData ? '✏️ จัดการข้อมูล' : 
                             (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์' : '⚡ สร้างงานทั่วไป')
                         )}
@@ -90,35 +93,45 @@ const TaskModal: React.FC<TaskModalProps> = ({
 
         {/* --- MAIN TABS (For Edit Mode) --- */}
         {initialData && (
-            <div className="flex bg-gray-50/80 border-b border-gray-100 p-1.5 gap-1.5 shrink-0 px-8">
+            <div className="flex bg-gray-50/80 border-b border-gray-100 p-1.5 gap-1.5 shrink-0 px-8 overflow-x-auto scrollbar-hide">
                 <button 
                     onClick={() => setViewMode('DETAILS')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${viewMode === 'DETAILS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'DETAILS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
                 >
                     <Layout className="w-4 h-4" /> รายละเอียด
                 </button>
+                
+                {isContent && (
+                    <button 
+                        onClick={() => setViewMode('LOGISTICS')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'LOGISTICS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    >
+                        <Truck className="w-4 h-4" /> งานย่อย
+                    </button>
+                )}
+
                 <button 
                     onClick={() => setViewMode('COMMENTS')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${viewMode === 'COMMENTS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'COMMENTS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
                 >
                     <MessageSquare className="w-4 h-4" /> แชทคุยงาน
                 </button>
                 <button 
                     onClick={() => setViewMode('ASSETS')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative ${viewMode === 'ASSETS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative whitespace-nowrap px-3 ${viewMode === 'ASSETS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
                 >
                     <Paperclip className="w-4 h-4" /> ไฟล์แนบ
                     {assetCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] rounded-full flex items-center justify-center border-2 border-white">{assetCount}</span>}
                 </button>
                 <button 
                     onClick={() => setViewMode('HISTORY')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${viewMode === 'HISTORY' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'HISTORY' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
                 >
                     <History className="w-4 h-4" /> ประวัติ
                 </button>
                 <button 
                     onClick={() => setViewMode('WIKI')}
-                    className={`p-2 rounded-xl text-xs font-black transition-all flex items-center justify-center ${viewMode === 'WIKI' ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-white/50'}`}
+                    className={`p-2 rounded-xl text-xs font-black transition-all flex items-center justify-center whitespace-nowrap ${viewMode === 'WIKI' ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-white/50'}`}
                     title="คู่มือ"
                 >
                     <Book className="w-4 h-4" />
@@ -148,6 +161,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         }} 
                     />
                 </div>
+            ) : viewMode === 'LOGISTICS' && initialData ? (
+                 <LogisticsTab 
+                    parentContentId={initialData.id}
+                    users={users}
+                 />
             ) : viewMode === 'WIKI' ? (
                 <TaskWiki className="flex-1" />
             ) : (

@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X } from 'lucide-react';
+import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { ScriptStatus } from '../../../types';
 import { useScriptContext } from '../core/ScriptContext';
@@ -22,7 +23,7 @@ const TEMPLATES = [
 
 const EditorToolbar: React.FC = () => {
     const { 
-        title, setTitle, content, status, setStatus, 
+        title, setTitle, content, status, setStatus, changeStatus,
         scriptType, setScriptType,
         isSaving, lastSaved,
         onClose,
@@ -30,7 +31,8 @@ const EditorToolbar: React.FC = () => {
         isChatPreviewOpen, setIsChatPreviewOpen,
         setContent,
         users, ideaOwnerId,
-        isPublic, shareToken, handleToggleShare
+        isPublic, shareToken, handleToggleShare,
+        fontSize, setFontSize
     } = useScriptContext();
     
     const { showToast } = useToast();
@@ -49,6 +51,9 @@ const EditorToolbar: React.FC = () => {
     // Construct Magic Link
     const magicLink = shareToken ? `${window.location.origin}/s/${shareToken}` : '';
 
+    // Track if any dropdown is open to adjust z-index
+    const isAnyMenuOpen = showStatusMenu || showTemplates;
+
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -59,10 +64,9 @@ const EditorToolbar: React.FC = () => {
                     <title>${title} - Juijui Script</title>
                     <style>
                         @page { margin: 2cm; size: A4; }
-                        body { font-family: 'Sarabun', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; }
+                        body { font-family: 'Sarabun', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; font-size: 14pt; }
                         h1.script-title { text-align: center; font-size: 24px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
                         .meta { font-size: 12px; color: #666; margin-bottom: 30px; text-align: center; border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
-                        .content { font-size: 14pt; }
                         ul { list-style-type: disc; padding-left: 20px; }
                         ol { list-style-type: decimal; padding-left: 20px; }
                     </style>
@@ -95,12 +99,12 @@ const EditorToolbar: React.FC = () => {
 
     return (
         <>
-            {(showStatusMenu || showTemplates) && (
+            {isAnyMenuOpen && (
                 <div className="fixed inset-0 z-[40]" onClick={() => { setShowStatusMenu(false); setShowTemplates(false); }}></div>
             )}
 
             {/* Main Toolbar - Responsive Layout */}
-            <div className="bg-white/80 backdrop-blur-md border-b border-indigo-50 px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between shrink-0 z-20 shadow-sm gap-3 xl:gap-6 relative transition-all">
+            <div className={`bg-white/80 backdrop-blur-md border-b border-indigo-50 px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between shrink-0 shadow-sm gap-3 xl:gap-6 relative transition-all ${isAnyMenuOpen ? 'z-50' : 'z-20'}`}>
                 
                 {/* Top Line: Back & Title & Meta */}
                 <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
@@ -172,7 +176,12 @@ const EditorToolbar: React.FC = () => {
                                 {Object.entries(STATUS_CONFIG).map(([key, conf]) => (
                                     <button 
                                         key={key} 
-                                        onClick={() => { setStatus(key as ScriptStatus); setShowStatusMenu(false); }} 
+                                        type="button"
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            changeStatus(key as ScriptStatus); // Use changeStatus to save to DB
+                                            setShowStatusMenu(false); 
+                                        }} 
                                         className={`w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-between transition-colors mb-1 ${status === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
                                     >
                                         <span className="flex items-center gap-2"><span className="text-base">{conf.icon}</span> {conf.label}</span>
@@ -182,6 +191,29 @@ const EditorToolbar: React.FC = () => {
                             </div>
                         )}
                     </div>
+
+                    <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
+
+                    {/* Zoom Controls */}
+                    <div className="flex items-center bg-gray-100 p-1 rounded-lg shrink-0 h-9">
+                        <button 
+                            onClick={() => setFontSize(Math.max(12, fontSize - 2))} 
+                            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600 hover:shadow-sm transition-all"
+                            title="ลดขนาดตัวอักษร"
+                        >
+                            <ZoomOut className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-500 w-6 text-center">{fontSize}</span>
+                        <button 
+                            onClick={() => setFontSize(Math.min(48, fontSize + 2))} 
+                            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600 hover:shadow-sm transition-all"
+                            title="เพิ่มขนาดตัวอักษร"
+                        >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
 
                     {/* Mode Toggle */}
                     <div className="bg-gray-100 p-1 rounded-lg flex border border-gray-200 shrink-0 h-9 items-center">
@@ -229,7 +261,11 @@ const EditorToolbar: React.FC = () => {
                                 {TEMPLATES.map((tpl, i) => (
                                     <button 
                                         key={i} 
-                                        onClick={() => handleSelectTemplate(tpl.content)} 
+                                        type="button"
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            handleSelectTemplate(tpl.content); 
+                                        }} 
                                         className="w-full text-left px-3 py-2.5 text-xs font-bold text-gray-600 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors truncate mb-1"
                                     >
                                         {tpl.label}

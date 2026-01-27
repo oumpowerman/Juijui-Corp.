@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { Script, ScriptStatus, ScriptType, User } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
-import { Editor } from '@tiptap/react';
+import { Editor } from '@tiptap/core';
 
 interface ScriptContextType {
     // Data State
@@ -13,12 +13,17 @@ interface ScriptContextType {
     setTitle: (val: string) => void;
     status: ScriptStatus;
     setStatus: (val: ScriptStatus) => void;
+    changeStatus: (val: ScriptStatus) => Promise<void>; 
     scriptType: ScriptType;
     setScriptType: (val: ScriptType) => void;
     characters: string[];
     setCharacters: (val: string[]) => void;
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
+    
+    // View State
+    fontSize: number;
+    setFontSize: (val: number) => void;
     
     // Share State
     isPublic: boolean;
@@ -28,7 +33,7 @@ interface ScriptContextType {
     // UI State
     isSaving: boolean;
     lastSaved: Date;
-    setEditorInstance: (editor: Editor | null) => void; // New: Editor Control
+    setEditorInstance: (editor: Editor | null) => void; 
 
     // Lock System State
     lockStatus: 'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE';
@@ -87,6 +92,9 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
     
+    // View State (Zoom)
+    const [fontSize, setFontSize] = useState(16); // Default 16px
+
     // Share State
     const [isPublic, setIsPublic] = useState(script.isPublic || false);
     const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
@@ -239,7 +247,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             if (
                 content !== script.content || 
                 title !== script.title || 
-                status !== script.status || 
                 scriptType !== script.scriptType ||
                 ideaOwnerId !== script.ideaOwnerId ||
                 JSON.stringify(characters) !== JSON.stringify(script.characters)
@@ -264,6 +271,33 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         });
         setLastSaved(new Date());
         setIsSaving(false);
+    };
+
+    // NEW: Immediate Status Change (For Toolbar)
+    const changeStatus = async (newStatus: ScriptStatus) => {
+        if (isReadOnly) return;
+        
+        // 1. Optimistic Update
+        setStatus(newStatus);
+        
+        // 2. Trigger Save Immediately (Bypassing autosave)
+        setIsSaving(true);
+        try {
+            await onSave(script.id, { 
+                title, 
+                content, 
+                status: newStatus, 
+                estimatedDuration: estimatedSeconds,
+                scriptType,
+                characters,
+                ideaOwnerId
+            });
+            setLastSaved(new Date());
+        } catch (error) {
+            console.error("Failed to save status", error);
+        } finally {
+            setIsSaving(false);
+        }
     };
     
     // --- SHARE LOGIC ---
@@ -318,11 +352,15 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             content, setContent,
             title, setTitle,
             status, setStatus,
+            changeStatus, 
             scriptType, setScriptType,
             characters, setCharacters,
             ideaOwnerId, setIdeaOwnerId,
             isSaving, lastSaved,
             setEditorInstance,
+            
+            // View State
+            fontSize, setFontSize,
             
             // Share
             isPublic, shareToken, handleToggleShare,

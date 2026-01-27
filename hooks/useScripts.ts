@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Script, ScriptSummary, User, ScriptType } from '../types';
@@ -56,7 +55,9 @@ export const useScripts = (currentUser: User) => {
         objective: s.objective,
         lockedBy: s.locked_by,
         lockedAt: s.locked_at ? new Date(s.locked_at) : undefined,
-        locker: s.locker ? { name: s.locker.full_name, avatarUrl: s.locker.avatar_url } : undefined
+        locker: s.locker ? { name: s.locker.full_name, avatarUrl: s.locker.avatar_url } : undefined,
+        shareToken: s.share_token,
+        isPublic: s.is_public
     });
 
     // NEW: Fetch Counts for all Tabs
@@ -96,7 +97,7 @@ export const useScripts = (currentUser: User) => {
                 .select(`
                     id, title, status, version, author_id, content_id, created_at, updated_at, 
                     estimated_duration, script_type, is_in_shoot_queue, channel_id, category, tags, objective,
-                    idea_owner_id, locked_by, locked_at,
+                    idea_owner_id, locked_by, locked_at, share_token, is_public,
                     author:profiles!scripts_author_id_fkey(full_name, avatar_url),
                     idea_owner:profiles!scripts_idea_owner_id_fkey(full_name, avatar_url),
                     locker:profiles!scripts_locked_by_fkey(full_name, avatar_url),
@@ -198,6 +199,31 @@ export const useScripts = (currentUser: User) => {
             return null;
         }
     };
+    
+    // NEW: Get Script by Content ID (Linkage)
+    const getScriptByContentId = async (contentId: string): Promise<ScriptSummary | null> => {
+        try {
+            const { data, error } = await supabase
+                .from('scripts')
+                .select(`
+                    id, title, status, version, author_id, content_id, created_at, updated_at, 
+                    estimated_duration, script_type, is_in_shoot_queue, channel_id, category, tags, objective,
+                    idea_owner_id, locked_by, locked_at, share_token, is_public,
+                    author:profiles!scripts_author_id_fkey(full_name, avatar_url),
+                    idea_owner:profiles!scripts_idea_owner_id_fkey(full_name, avatar_url),
+                    locker:profiles!scripts_locked_by_fkey(full_name, avatar_url)
+                `)
+                .eq('content_id', contentId)
+                .maybeSingle(); // Use maybeSingle to prevent error if not found
+
+            if (error) throw error;
+            if (data) return mapScriptSummary(data);
+            return null;
+        } catch (err) {
+            // console.error("Error checking linked script:", err);
+            return null;
+        }
+    };
 
     // Create Script
     const createScript = async (scriptData: Partial<Script>) => {
@@ -245,13 +271,45 @@ export const useScripts = (currentUser: User) => {
             if (updates.characters) payload.characters = updates.characters;
             if (updates.ideaOwnerId) payload.idea_owner_id = updates.ideaOwnerId;
             if (updates.isInShootQueue !== undefined) payload.is_in_shoot_queue = updates.isInShootQueue;
+            if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
+            if (updates.shareToken !== undefined) payload.share_token = updates.shareToken;
 
-            const { error } = await supabase.from('scripts').update(payload).eq('id', id);
+            const { data, error } = await supabase
+                .from('scripts')
+                .update(payload)
+                .eq('id', id)
+                .select('content_id') // Fetch content_id for automation
+                .single();
+
             if (error) throw error;
 
             // Optimistic update for list view
             setScripts(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
             fetchStats(); // Update stats in background
+
+            // --- TRINITY PHASE 3: SYNC STATUS ---
+            // If Status changed to FINAL and there is a linked Content
+            if (updates.status === 'FINAL' && data?.content_id) {
+                 const confirmSync = await showConfirm(
+                    'บทเสร็จสมบูรณ์แล้ว! (FINAL)',
+                    'ต้องการอัปเดตสถานะงานหลักเป็น "ถ่ายทำ (SHOOTING)" เลยไหม?'
+                 );
+
+                 if (confirmSync) {
+                     const { error: syncError } = await supabase
+                        .from('contents')
+                        .update({ status: 'SHOOTING' })
+                        .eq('id', data.content_id);
+                    
+                    if (!syncError) {
+                        showToast('อัปเดตสถานะงานหลักเป็น SHOOTING แล้ว 🎬', 'success');
+                    } else {
+                        console.error("Sync status error", syncError);
+                        showToast('อัปเดตงานหลักไม่สำเร็จ', 'error');
+                    }
+                 }
+            }
+
         } catch (err) {
             console.error('Update script failed', err);
         }
@@ -321,6 +379,7 @@ export const useScripts = (currentUser: User) => {
         isLoading,
         fetchScripts,
         getScriptById,
+        getScriptByContentId, // New Export
         createScript,
         updateScript,
         deleteScript,

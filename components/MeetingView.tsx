@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, MeetingLog, Task, MeetingCategory } from '../types';
+import { User, MeetingLog, Task, MeetingCategory, MasterOption } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
 import { FileText, Plus, Info, Sparkles, StickyNote, X, Save, Coffee } from 'lucide-react';
@@ -17,11 +17,12 @@ interface MeetingViewProps {
     users: User[];
     currentUser: User;
     tasks: Task[]; 
+    masterOptions?: MasterOption[]; // Optional for now to support lazy load
 }
 
 type MeetingTab = 'NOTES' | 'ACTIONS' | 'DECISIONS';
 
-const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) => {
+const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, masterOptions = [] }) => {
     const { meetings, createMeeting, updateMeeting, deleteMeeting } = useMeetings();
     const { handleSaveTask } = useTasks(() => {}); 
     
@@ -61,7 +62,8 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
             setDate(selectedMeeting.date);
             setContent(selectedMeeting.content);
             setDecisions(selectedMeeting.decisions || ''); // Sync Decisions
-            setCategory(selectedMeeting.category || 'GENERAL');
+            // Force cast for flexibility if legacy data exists
+            setCategory((selectedMeeting.category as MeetingCategory) || 'GENERAL');
             setAttendees(selectedMeeting.attendees);
             setProjectTag(selectedMeeting.tags?.[0] || ''); 
         }
@@ -236,6 +238,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
                         onDelete={deleteMeeting}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}
+                        masterOptions={masterOptions} // PASS MASTER OPTIONS
                     />
                 </div>
 
@@ -254,6 +257,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks }) 
                             decisions={decisions} setDecisions={setDecisions} 
                             activeTab={activeTab} setActiveTab={setActiveTab}
                             isSaving={isSaving} onBlurUpdate={handleUpdate}
+                            masterOptions={masterOptions} // PASS MASTER OPTIONS
                         >
                             <MeetingActionModule 
                                 users={users}

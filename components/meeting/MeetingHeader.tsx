@@ -1,7 +1,8 @@
+
 import React from 'react';
-import { Calendar, Check, Hash, Copy, ClipboardCheck, Plus, Maximize2, Minimize2 } from 'lucide-react';
+import { Calendar, Check, Hash, Copy, ClipboardCheck, Plus, Maximize2, Minimize2, ChevronDown } from 'lucide-react';
 import { format, isValid } from 'date-fns';
-import { MeetingCategory, User } from '../../types';
+import { MeetingCategory, User, MasterOption } from '../../types';
 
 interface MeetingHeaderProps {
     title: string;
@@ -24,6 +25,7 @@ interface MeetingHeaderProps {
     onToggleAttendee: (id: string) => void;
 
     users: User[];
+    masterOptions: MasterOption[]; // New Prop
     
     isExpanded: boolean;
     onToggleExpand: () => void;
@@ -32,12 +34,10 @@ interface MeetingHeaderProps {
     onCopySummary: () => void;
 }
 
-const CATEGORY_OPTIONS: { id: MeetingCategory, label: string, color: string, icon: string }[] = [
-    { id: 'GENERAL', label: 'General Talk', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: '☕' },
-    { id: 'PROJECT', label: 'Project Update', color: 'bg-orange-50 text-orange-600 border-orange-200', icon: '⚡' },
-    { id: 'CRISIS', label: 'War Room (Urgent)', color: 'bg-red-50 text-red-600 border-red-200', icon: '🔥' },
-    { id: 'CREATIVE', label: 'Brainstorm', color: 'bg-purple-50 text-purple-600 border-purple-200', icon: '🧠' },
-    { id: 'HR', label: 'People & Team', color: 'bg-teal-50 text-teal-600 border-teal-200', icon: '🌱' },
+// Fallback if Master Data is empty (Safety Net)
+const DEFAULT_CATEGORIES: { key: string, label: string, color: string }[] = [
+    { key: 'GENERAL', label: 'General Talk', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+    { key: 'PROJECT', label: 'Project Update', color: 'bg-orange-50 text-orange-600 border-orange-200' },
 ];
 
 const MeetingHeader: React.FC<MeetingHeaderProps> = ({
@@ -46,20 +46,25 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
     category, setCategory, onBlurCategory,
     projectTag, setProjectTag, onBlurTag,
     attendees, onToggleAttendee,
-    users,
+    users, masterOptions,
     isExpanded, onToggleExpand,
     isCopied, onCopySummary
 }) => {
     
-    const theme = (() => {
-        switch(category) {
-            case 'CRISIS': return 'red';
-            case 'PROJECT': return 'orange';
-            case 'CREATIVE': return 'purple';
-            case 'HR': return 'teal';
-            default: return 'indigo';
-        }
-    })();
+    // 1. Resolve Categories from Master Data
+    const categoryOptions = masterOptions
+        .filter(o => o.type === 'MEETING_CATEGORY' && o.isActive)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    
+    // Use default if empty (First run)
+    const availableCategories = categoryOptions.length > 0 ? categoryOptions : DEFAULT_CATEGORIES;
+
+    // 2. Find Current Active Category Style
+    const currentCatOption = availableCategories.find(c => c.key === category) || availableCategories[0];
+    const colorClass = currentCatOption?.color || 'bg-gray-100 text-gray-600';
+    
+    // Extract theme color key for inputs (e.g. 'indigo' from 'bg-indigo-50')
+    const themeColorKey = colorClass.split(' ')[0].replace('bg-', '').replace('-50', '').replace('-100', '') || 'indigo';
 
     const dateValue = isValid(date) ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
@@ -69,13 +74,10 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
             <div className="flex justify-between items-start relative z-10">
                 <div className="flex-1 mr-4">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-3xl animate-bounce-slow`}>
-                                {CATEGORY_OPTIONS.find(c => c.id === category)?.icon}
-                            </span>
                             {/* FIX: Increased line-height (leading-[1.8]) and padding (py-3) to prevent Thai vowel clipping */}
                             <input 
                             type="text" 
-                            className={`text-2xl md:text-3xl font-hand font-bold flex-1 w-full outline-none bg-transparent border-b-2 border-transparent focus:border-${theme}-300 transition-colors placeholder:text-gray-300 text-gray-800 leading-[1.8] py-2`}
+                            className={`text-2xl md:text-3xl font-hand font-bold flex-1 w-full outline-none bg-transparent border-b-2 border-transparent focus:border-${themeColorKey}-300 transition-colors placeholder:text-gray-300 text-gray-800 leading-[1.8] py-2`}
                             placeholder="หัวข้อการประชุม..."
                             value={title}
                             onChange={e => setTitle(e.target.value)}
@@ -108,7 +110,7 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
             <div className="flex flex-wrap items-center gap-3 relative z-20">
                 {/* Date Picker (Pill Style) */}
                 <div className="flex items-center text-xs font-bold text-gray-600 bg-white px-3 py-1.5 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition-all group cursor-pointer">
-                    <Calendar className={`w-3.5 h-3.5 mr-2 text-${theme}-400`} />
+                    <Calendar className={`w-3.5 h-3.5 mr-2 text-${themeColorKey}-400`} />
                     <input 
                         type="date" 
                         className="bg-transparent outline-none font-bold text-gray-600 cursor-pointer group-hover:text-indigo-600 uppercase"
@@ -126,23 +128,27 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
                     />
                 </div>
 
-                {/* Category Dropdown (With Bridge Fix) */}
+                {/* Category Dropdown (Dynamic) */}
                 <div className="relative group">
-                    <button className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm border ${CATEGORY_OPTIONS.find(c => c.id === category)?.color}`}>
-                        {CATEGORY_OPTIONS.find(c => c.id === category)?.label}
+                    <button className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm border ${colorClass}`}>
+                        {currentCatOption?.label}
+                        <ChevronDown className="w-3 h-3 opacity-50" />
                     </button>
                     {/* FIX: Use pt-2 instead of mt-2 to create a hover bridge */}
                     <div className="absolute left-0 top-full pt-2 w-52 hidden group-hover:block z-[60]">
-                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-in fade-in zoom-in-95">
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-in fade-in zoom-in-95 max-h-60 overflow-y-auto">
                             <p className="text-[9px] text-gray-400 font-bold px-2 mb-1">เลือกประเภท</p>
-                            {CATEGORY_OPTIONS.map(opt => (
+                            {availableCategories.map(opt => (
                                 <button
-                                    key={opt.id}
-                                    onClick={() => { setCategory(opt.id); onBlurCategory(opt.id); }}
-                                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-gray-50 flex items-center justify-between transition-colors mb-1 ${category === opt.id ? 'text-gray-900 bg-gray-50' : 'text-gray-500'}`}
+                                    key={opt.key}
+                                    onClick={() => { setCategory(opt.key as MeetingCategory); onBlurCategory(opt.key as MeetingCategory); }}
+                                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-gray-50 flex items-center justify-between transition-colors mb-1 ${category === opt.key ? 'text-gray-900 bg-gray-50' : 'text-gray-500'}`}
                                 >
-                                    <span className="flex items-center gap-2"><span>{opt.icon}</span> {opt.label}</span>
-                                    {category === opt.id && <Check className="w-3 h-3 text-green-500" />}
+                                    <span className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${(opt.color || '').split(' ')[0]}`}></span> 
+                                        {opt.label}
+                                    </span>
+                                    {category === opt.key && <Check className="w-3 h-3 text-green-500" />}
                                 </button>
                             ))}
                         </div>
@@ -150,19 +156,18 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = ({
                 </div>
 
                 {/* Project Tag */}
-                {(category === 'PROJECT' || category === 'CREATIVE' || projectTag) && (
-                    <div className={`flex items-center text-xs px-3 py-1.5 rounded-xl border transition-all shadow-sm group focus-within:ring-2 focus-within:ring-${theme}-100 ${projectTag ? `bg-${theme}-50 border-${theme}-100 text-${theme}-700` : 'bg-white border-gray-200 text-gray-400'}`}>
-                        <Hash className={`w-3.5 h-3.5 mr-1 ${projectTag ? `text-${theme}-500` : 'text-gray-300'}`} />
-                        <input 
-                            type="text" 
-                            className={`bg-transparent outline-none font-bold w-24 focus:w-40 transition-all placeholder:text-gray-300 text-xs ${projectTag ? `text-${theme}-800` : 'text-gray-600'}`}
-                            placeholder="Project Tag..."
-                            value={projectTag}
-                            onChange={e => setProjectTag(e.target.value)}
-                            onBlur={() => onBlurTag(projectTag)}
-                        />
-                    </div>
-                )}
+                {/* Always show tag input if tag exists, otherwise show only for specific categories (can adjust logic) */}
+                <div className={`flex items-center text-xs px-3 py-1.5 rounded-xl border transition-all shadow-sm group focus-within:ring-2 focus-within:ring-${themeColorKey}-100 ${projectTag ? `bg-${themeColorKey}-50 border-${themeColorKey}-100 text-${themeColorKey}-700` : 'bg-white border-gray-200 text-gray-400'}`}>
+                    <Hash className={`w-3.5 h-3.5 mr-1 ${projectTag ? `text-${themeColorKey}-500` : 'text-gray-300'}`} />
+                    <input 
+                        type="text" 
+                        className={`bg-transparent outline-none font-bold w-24 focus:w-40 transition-all placeholder:text-gray-300 text-xs ${projectTag ? `text-${themeColorKey}-800` : 'text-gray-600'}`}
+                        placeholder="Project Tag..."
+                        value={projectTag}
+                        onChange={e => setProjectTag(e.target.value)}
+                        onBlur={() => onBlurTag(projectTag)}
+                    />
+                </div>
 
                 {/* Attendees (With Bridge Fix) */}
                 <div className="flex items-center gap-2 ml-auto">

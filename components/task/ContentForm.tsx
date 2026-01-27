@@ -1,11 +1,14 @@
 
-import React from 'react';
-import { Task, Channel, User, MasterOption, Platform } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Task, Channel, User, MasterOption, Platform, ScriptSummary, Script } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
+import { useScripts } from '../../hooks/useScripts';
 import { STATUS_COLORS, PLATFORM_ICONS } from '../../constants';
-import { Sparkles, CalendarDays, Archive, Layout, Layers, MonitorPlay, Check, Users, Activity, AlertTriangle, Trash2, Send, Loader2, MapPin, Video, Clapperboard } from 'lucide-react';
+import { Sparkles, CalendarDays, Archive, Layout, Layers, MonitorPlay, Check, Users, Activity, AlertTriangle, Trash2, Send, Loader2, MapPin, Video, Clapperboard, FileText, ArrowRight, ExternalLink, PlusCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import ScriptEditor from '../script/ScriptEditor'; // Import Script Editor
 
 interface ContentFormProps {
     initialData?: Task | null;
@@ -30,6 +33,15 @@ const ALL_PLATFORMS = [
 const ContentForm: React.FC<ContentFormProps> = ({ 
     initialData, selectedDate, channels, users, masterOptions, currentUser, onSave, onDelete, onClose 
 }) => {
+    const { showToast } = useToast();
+    const { showAlert, showConfirm } = useGlobalDialog(); // Use Global Dialog
+    
+    // Script Hook
+    const { createScript, getScriptByContentId, getScriptById, updateScript, generateScriptWithAI } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
+    const [linkedScript, setLinkedScript] = useState<ScriptSummary | null>(null);
+    const [scriptToEdit, setScriptToEdit] = useState<Script | null>(null); // State for Full Script Editor
+    const [isLoadingScript, setIsLoadingScript] = useState(false);
+
     const {
         title, setTitle,
         description, setDescription,
@@ -42,7 +54,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         targetPlatforms, 
         pillar, setPillar,
         contentFormat, setContentFormat,
-        // category, setCategory,
+        category, setCategory,
         publishedLinks, handleLinkChange,
         shootDate, setShootDate,
         shootLocation, setShootLocation,
@@ -62,6 +74,89 @@ const ContentForm: React.FC<ContentFormProps> = ({
     });
 
     const activeUsers = users.filter(u => u.isActive);
+
+    // --- SCRIPT LOGIC ---
+    useEffect(() => {
+        const checkScript = async () => {
+            if (initialData?.id) {
+                setIsLoadingScript(true);
+                const script = await getScriptByContentId(initialData.id);
+                setLinkedScript(script);
+                setIsLoadingScript(false);
+            }
+        };
+        checkScript();
+    }, [initialData?.id]);
+
+    const handleCreateScript = async () => {
+        if (!initialData?.id) {
+            await showAlert('กรุณาบันทึกงาน (Save) ก่อนสร้างสคริปต์ครับ', 'แจ้งเตือน');
+            return;
+        }
+        
+        const confirmed = await showConfirm('ต้องการสร้างสคริปต์ใหม่สำหรับงานนี้?', 'สร้างสคริปต์');
+        
+        if (confirmed) {
+            setIsLoadingScript(true);
+            const scriptId = await createScript({
+                title: title || 'Untitled Script',
+                contentId: initialData.id,
+                channelId: channelId || null,
+                category: category || null
+            });
+            if (scriptId) {
+                // Refresh link
+                const script = await getScriptByContentId(initialData.id);
+                setLinkedScript(script);
+                
+                // Optional: Open Editor Immediately
+                const fullData = await getScriptById(scriptId);
+                if (fullData) setScriptToEdit(fullData);
+            }
+            setIsLoadingScript(false);
+        }
+    };
+
+    const handleOpenScript = async () => {
+        if (!linkedScript) return;
+        setIsLoadingScript(true);
+        const fullData = await getScriptById(linkedScript.id);
+        setIsLoadingScript(false);
+        
+        if (fullData) {
+            setScriptToEdit(fullData);
+        } else {
+            await showAlert('ไม่สามารถโหลดข้อมูลสคริปต์ได้', 'เกิดข้อผิดพลาด');
+        }
+    };
+
+    const handleDeleteTask = async () => {
+        const confirmed = await showConfirm('แน่ใจนะว่าจะลบงานนี้? การกระทำนี้ไม่สามารถย้อนกลับได้', 'ยืนยันการลบ');
+        if (confirmed && initialData && onDelete) {
+            onDelete(initialData.id);
+            onClose();
+        }
+    };
+
+    // If Script Editor is Open, Render it on top (using Portal inside ScriptEditor component)
+    if (scriptToEdit && currentUser) {
+        return (
+            <ScriptEditor 
+                script={scriptToEdit}
+                users={users}
+                currentUser={currentUser}
+                onClose={() => {
+                    setScriptToEdit(null);
+                    // Refresh summary when closing editor
+                    if (initialData?.id) {
+                        getScriptByContentId(initialData.id).then(setLinkedScript);
+                    }
+                }}
+                onSave={updateScript}
+                onGenerateAI={generateScriptWithAI}
+            />
+        );
+    }
 
     return (
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
@@ -83,6 +178,53 @@ const ContentForm: React.FC<ContentFormProps> = ({
                         placeholder="เช่น Vlog พาแมวไปอาบน้ำ..." 
                     />
                 </div>
+
+                {/* --- Script Integration Section --- */}
+                {initialData?.id && (
+                    <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-100 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl shadow-sm border border-rose-200">
+                                <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-gray-800 text-sm flex items-center">
+                                    📜 บท/สคริปต์ (Script)
+                                    {linkedScript && (
+                                        <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase ${linkedScript.status === 'DONE' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-500 border-gray-200'}`}>
+                                            {linkedScript.status}
+                                        </span>
+                                    )}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                    {linkedScript ? `Last updated: ${new Date(linkedScript.updatedAt).toLocaleDateString()}` : 'ยังไม่มีบทสำหรับงานนี้'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            {isLoadingScript ? (
+                                <div className="p-2"><Loader2 className="w-5 h-5 animate-spin text-rose-500"/></div>
+                            ) : linkedScript ? (
+                                <button 
+                                    type="button"
+                                    onClick={handleOpenScript}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-rose-200 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-50 hover:border-rose-300 transition-all shadow-sm active:scale-95"
+                                >
+                                    เปิดอ่านบท <ExternalLink className="w-3 h-3" />
+                                </button>
+                            ) : (
+                                <button 
+                                    type="button"
+                                    onClick={handleCreateScript}
+                                    className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 hover:shadow-lg hover:shadow-rose-200 transition-all active:scale-95"
+                                >
+                                    <PlusCircle className="w-3.5 h-3.5" /> สร้างบทใหม่
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
 
                 {/* 2. Date & Stock */}
                 <div className={`p-5 rounded-[1.5rem] border-2 transition-all duration-300 relative overflow-hidden ${isStock ? 'bg-gray-50 border-gray-200' : 'bg-white border-indigo-100 shadow-sm'}`}>
@@ -327,7 +469,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
             <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100 bg-white sticky bottom-0 pb-safe-area">
                 <div className="flex items-center gap-2">
                     {initialData && onDelete && (
-                        <button type="button" onClick={async () => { if(await window.confirm('แน่ใจนะว่าจะลบงานนี้?')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
+                        <button type="button" onClick={handleDeleteTask} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
                         <Trash2 className="w-4 h-4 mr-2" /> ลบ
                         </button>
                     )}

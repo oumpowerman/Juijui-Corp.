@@ -13,6 +13,8 @@ export type MasterTab =
     | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY'
     // Inventory
     | 'INVENTORY' | 'ITEM_CONDITION'
+    // Production
+    | 'MEETING_CATEGORY'
     // HR & Team
     | 'POSITION' | 'LEAVE_TYPE' 
     // QC

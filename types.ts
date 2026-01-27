@@ -141,6 +141,13 @@ export interface Task {
     // Production
     shootDate?: Date;
     shootLocation?: string;
+
+    // Trinity Phase 2: Sub-tasks
+    contentId?: string; // If this task is a sub-task of a content
+    
+    // Board Promotion
+    showOnBoard?: boolean;
+    parentContentTitle?: string;
 }
 
 export interface MasterOption {

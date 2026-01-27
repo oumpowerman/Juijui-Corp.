@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { MeetingLog, MeetingCategory } from '../../types';
-import { Search, Trash2, Clock, Calendar as CalendarIcon, AlertTriangle, Zap, Coffee, Users, BrainCircuit, ChevronLeft, ChevronRight, Filter, User, MoreVertical } from 'lucide-react';
-import { format, isSameMonth, isSameDay, endOfMonth, eachDayOfInterval, isToday, addMonths, isFuture, isPast } from 'date-fns';
+import { MeetingLog, MeetingCategory, MasterOption } from '../../types';
+import { Search, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { format, endOfMonth, eachDayOfInterval, isToday, addMonths, isFuture, isSameDay, isSameMonth } from 'date-fns';
 
 interface MeetingListSidebarProps {
     meetings: MeetingLog[];
@@ -11,45 +11,30 @@ interface MeetingListSidebarProps {
     onDelete: (id: string) => void;
     searchQuery: string;
     setSearchQuery: (val: string) => void;
-    currentUser?: any; // To filter "My Meetings"
+    currentUser?: any; 
+    masterOptions: MasterOption[]; // New Prop
 }
-
-const CATEGORY_ICONS: Record<MeetingCategory, any> = {
-    GENERAL: Coffee,
-    PROJECT: Zap,
-    CRISIS: AlertTriangle,
-    CREATIVE: BrainCircuit,
-    HR: Users
-};
-
-const CATEGORY_STYLES: Record<MeetingCategory, { bg: string, text: string, border: string, shadow: string }> = {
-    GENERAL: { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', shadow: 'shadow-slate-100' },
-    PROJECT: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', shadow: 'shadow-orange-100' },
-    CRISIS: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', shadow: 'shadow-red-100' },
-    CREATIVE: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200', shadow: 'shadow-purple-100' },
-    HR: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200', shadow: 'shadow-teal-100' }
-};
 
 type ViewTab = 'UPCOMING' | 'HISTORY';
 
 const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
-    meetings, selectedId, onSelect, onDelete, searchQuery, setSearchQuery, currentUser
+    meetings, selectedId, onSelect, onDelete, searchQuery, setSearchQuery, currentUser, masterOptions
 }) => {
     // --- State ---
     const [viewTab, setViewTab] = useState<ViewTab>('UPCOMING');
     const [currentNavDate, setCurrentNavDate] = useState(new Date()); // For Calendar Navigation
     const [selectedDate, setSelectedDate] = useState<Date | null>(null); // Specific day filter
-    const [filterCategory, setFilterCategory] = useState<MeetingCategory | 'ALL'>('ALL');
+    const [filterCategory, setFilterCategory] = useState<string>('ALL'); // Changed type to string to match MasterOption key
     const [showCalendar, setShowCalendar] = useState(true);
 
     // --- Helpers ---
-    const getCategory = (m: MeetingLog): MeetingCategory => m.category || 'GENERAL';
+    const getCategoryKey = (m: MeetingLog): string => m.category || 'GENERAL';
 
     // --- Calendar Logic ---
     const monthStart = new Date(currentNavDate.getFullYear(), currentNavDate.getMonth(), 1);
     const monthEnd = endOfMonth(currentNavDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const startOffset = monthStart.getDay(); // Calculate start day offset (0 = Sunday)
+    const startOffset = monthStart.getDay(); 
     
     // Find days with meetings
     const meetingDays = useMemo(() => {
@@ -64,7 +49,7 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
             // 1. Search Query
             const matchSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase());
             // 2. Category
-            const matchCat = filterCategory === 'ALL' || getCategory(m) === filterCategory;
+            const matchCat = filterCategory === 'ALL' || getCategoryKey(m) === filterCategory;
             // 3. Date Selection (If calendar day selected)
             const matchDate = selectedDate ? isSameDay(m.date, selectedDate) : true;
             
@@ -72,7 +57,6 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
         });
 
         // 4. Tab Split (Upcoming vs History)
-        // Note: If a specific date is selected, we ignore the tab split to show everything on that day
         if (!selectedDate) {
             const today = new Date();
             today.setHours(0,0,0,0);
@@ -83,17 +67,16 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                     const mDate = new Date(m.date);
                     mDate.setHours(0,0,0,0);
                     return mDate >= today;
-                }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Ascending (Soonest first)
+                }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()); 
             } else {
                 // Past
                 filtered = filtered.filter(m => {
                     const mDate = new Date(m.date);
                     mDate.setHours(0,0,0,0);
                     return mDate < today;
-                }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Descending (Newest history first)
+                }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
             }
         } else {
-             // If date selected, sort by creation time or alphabetical
              filtered.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         }
 
@@ -102,11 +85,11 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
 
     // --- Grouping Logic (For History) ---
     const groupedMeetings = useMemo(() => {
-        if (selectedDate || viewTab === 'UPCOMING') return null; // No grouping for single day or upcoming
+        if (selectedDate || viewTab === 'UPCOMING') return null; 
         
         const groups: Record<string, MeetingLog[]> = {};
         filteredMeetings.forEach(m => {
-            const key = format(m.date, 'MMMM yyyy'); // e.g. "October 2023"
+            const key = format(m.date, 'MMMM yyyy'); 
             if (!groups[key]) groups[key] = [];
             groups[key].push(m);
         });
@@ -116,11 +99,20 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
 
     // --- Renderers ---
     const renderMeetingItem = (meeting: MeetingLog) => {
-        const cat = getCategory(meeting);
-        const Icon = CATEGORY_ICONS[cat];
-        const style = CATEGORY_STYLES[cat];
+        const catKey = getCategoryKey(meeting);
+        
+        // Find Dynamic Style from Master Options
+        const option = masterOptions.find(o => o.type === 'MEETING_CATEGORY' && o.key === catKey);
+        
+        // Fallback Style
+        const colorClass = option?.color || 'bg-slate-50 text-slate-600 border-slate-200';
+        const label = option?.label || catKey;
+        
         const isSelected = selectedId === meeting.id;
 
+        // Parse color for specific border ring logic if needed, or just use generic
+        // Simplify: Use colorClass directly as base
+        
         return (
             <div 
                 key={meeting.id} 
@@ -128,20 +120,19 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                 className={`
                     relative p-4 mb-3 rounded-2xl cursor-pointer transition-all duration-300 group border
                     ${isSelected 
-                        ? `bg-white border-${style.text.split('-')[1]}-400 shadow-lg scale-[1.02] z-10 ring-1 ring-${style.text.split('-')[1]}-100` 
+                        ? `bg-white border-indigo-400 shadow-lg scale-[1.02] z-10 ring-1 ring-indigo-100` 
                         : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'
                     }
                 `}
             >
                 {/* Left Accent Bar */}
-                <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${isSelected ? style.bg.replace('bg-', 'bg-') : 'bg-transparent'} ${style.text.replace('text-', 'bg-')}`}></div>
+                <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${colorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
 
                 <div className="pl-3">
                     {/* Header: Date & Category */}
                     <div className="flex justify-between items-center mb-2">
-                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1.5 ${style.bg} ${style.text} border ${style.border}`}>
-                            <Icon className="w-3 h-3" />
-                            {cat}
+                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1.5 border ${colorClass}`}>
+                            {label}
                         </div>
                         <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md flex items-center">
                             <Clock className="w-3 h-3 mr-1" />
@@ -159,8 +150,9 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                          <div className="flex items-center gap-2">
                             {/* Tags */}
                             {meeting.tags.length > 0 && (
-                                <span className="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                                    #{meeting.tags[0]}
+                                <span className="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium flex items-center">
+                                    <Hash className="w-2.5 h-2.5 mr-0.5" />
+                                    {meeting.tags[0]}
                                 </span>
                             )}
                             {/* Attendees */}
@@ -187,6 +179,11 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
         );
     };
 
+    // Filter Options for Chips
+    const categoryOptions = masterOptions
+        .filter(o => o.type === 'MEETING_CATEGORY' && o.isActive)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+
     return (
         <div className="w-80 bg-[#f8fafc] border-r border-gray-200 flex flex-col h-full shrink-0">
             
@@ -205,7 +202,6 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
 
                 {/* Main Tabs */}
                 <div className="bg-gray-100 p-1 rounded-xl flex font-bold text-xs relative">
-                     {/* Active Indicator Slider logic could go here for polish, but standard toggle is fine */}
                     <button 
                         onClick={() => { setViewTab('UPCOMING'); setSelectedDate(null); }}
                         className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -273,7 +269,7 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                 {showCalendar ? 'ซ่อนปฏิทิน' : 'แสดงปฏิทิน'}
             </button>
 
-            {/* 3. Category Filter Chips */}
+            {/* 3. Category Filter Chips (Dynamic) */}
             <div className="px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
                 <button 
                     onClick={() => setFilterCategory('ALL')}
@@ -281,18 +277,16 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
                 >
                     ทั้งหมด
                 </button>
-                {Object.keys(CATEGORY_STYLES).map(key => {
-                    const catKey = key as MeetingCategory;
-                    const style = CATEGORY_STYLES[catKey];
-                    const activeClass = `${style.bg} ${style.text} ${style.border} shadow-sm`;
+                {categoryOptions.map(opt => {
+                    const activeClass = `${opt.color} shadow-sm`;
                     
                     return (
                         <button
-                            key={key}
-                            onClick={() => setFilterCategory(catKey)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap border transition-all ${filterCategory === key ? activeClass : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}
+                            key={opt.key}
+                            onClick={() => setFilterCategory(opt.key)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap border transition-all ${filterCategory === opt.key ? activeClass : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}
                         >
-                            {key}
+                            {opt.label.split('(')[0]}
                         </button>
                     );
                 })}

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Task, Channel, User, Status, MasterOption } from '../types';
 import { STATUS_LABELS, STATUS_COLORS, PLATFORM_ICONS } from '../constants';
-import { Plus, MoreHorizontal, Calendar, User as UserIcon, Filter, Check, AlertCircle, ArrowRight } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, User as UserIcon, Filter, Check, AlertCircle, ArrowRight, CornerDownRight } from 'lucide-react';
 import { format } from 'date-fns';
 import MentorTip from './MentorTip';
 
@@ -200,6 +200,14 @@ const BoardView: React.FC<BoardViewProps> = ({
                                                     ${draggedTaskId === task.id ? 'opacity-50 border-dashed border-indigo-400' : ''}
                                                 `}
                                             >
+                                                {/* Parent Badge for Sub-tasks */}
+                                                {(task.contentId || task.showOnBoard) && (
+                                                     <div className="text-[10px] bg-gray-50 text-gray-500 px-2 py-1 rounded mb-2 inline-flex items-center w-full border border-gray-100">
+                                                        <CornerDownRight className="w-3 h-3 mr-1.5 text-gray-400" />
+                                                        <span className="truncate">{task.parentContentTitle || 'Sub-task'}</span>
+                                                    </div>
+                                                )}
+
                                                 {/* Cover/Tag Line (Increased Font Size) */}
                                                 <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                                                     {channel && (

@@ -40,7 +40,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const { showToast } = useToast();
     
     // Weekly Quests Hook (Reused)
-    const { quests, handleAddQuest, handleDeleteQuest, updateManualProgress } = useWeeklyQuests();
+    const { quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest } = useWeeklyQuests();
 
     // Duty Hook (To check for daily duties on dashboard)
     const { duties } = useDuty();
@@ -124,6 +124,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     onDeleteQuest={handleDeleteQuest}
                     onOpenSettings={onOpenSettings}
                     onUpdateProgress={updateManualProgress}
+                    onUpdateQuest={updateQuest}
                 />
             </div>
 

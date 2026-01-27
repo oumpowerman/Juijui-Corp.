@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 
@@ -24,16 +23,31 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
         let currentSpeaker = '';
         let currentText = '';
 
+        const pushCurrentBubble = () => {
+            if (currentSpeaker && currentText) {
+                bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
+                currentSpeaker = '';
+                currentText = '';
+            }
+        };
+
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
 
+            // Logic 1: Narrator/Stage Direction check (Starts with [)
+            if (/^\[/.test(trimmedLine)) {
+                pushCurrentBubble();
+                // Strip [ and ] for display
+                const displayText = trimmedLine.replace(/^\[|\]$/g, '');
+                bubbles.push({ speaker: 'NARRATOR', text: displayText });
+                return;
+            }
+
             const match = trimmedLine.match(/^(.+?):\s*(.*)/);
             
             if (match) {
-                if (currentSpeaker && currentText) {
-                    bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
-                }
+                pushCurrentBubble();
                 currentSpeaker = match[1].trim();
                 currentText = match[2];
             } else {
@@ -45,9 +59,8 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
             }
         });
         
-        if (currentSpeaker && currentText) {
-            bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
-        }
+        pushCurrentBubble();
+
         return bubbles;
     }, [content]);
 
@@ -114,7 +127,7 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
                         <MessageCircle className="w-16 h-16 mb-4 text-gray-300" />
                         <p className="text-sm font-bold">ยังไม่มีบทสนทนา</p>
-                        <p className="text-xs mt-1">พิมพ์ "ชื่อ: ข้อความ" เพื่อเริ่มคุยกันเลย!</p>
+                        <p className="text-xs mt-1">พิมพ์ "ชื่อ: ข้อความ" หรือ [วงเล็บ] เพื่อเริ่มคุยกันเลย!</p>
                     </div>
                 )}
                 

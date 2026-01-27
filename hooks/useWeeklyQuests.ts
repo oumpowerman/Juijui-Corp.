@@ -114,11 +114,36 @@ export const useWeeklyQuests = () => {
         }
     };
 
+    // New: Update Quest Details (Title / Target)
+    const updateQuest = async (id: string, updates: { title?: string, targetCount?: number }) => {
+        try {
+            // Optimistic Update
+            setQuests(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+
+            const payload: any = {};
+            if (updates.title !== undefined) payload.title = updates.title;
+            if (updates.targetCount !== undefined) payload.target_count = updates.targetCount;
+
+            const { error } = await supabase
+                .from('weekly_quests')
+                .update(payload)
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast('แก้ไข Quest เรียบร้อย ✨', 'success');
+        } catch (err: any) {
+             console.error('Update quest failed', err);
+             showToast('แก้ไขไม่สำเร็จ: ' + err.message, 'error');
+             fetchQuests(); // Revert on error
+        }
+    };
+
     return {
         quests,
         fetchQuests,
         handleAddQuest,
         handleDeleteQuest,
-        updateManualProgress
+        updateManualProgress,
+        updateQuest // Export new function
     };
 };

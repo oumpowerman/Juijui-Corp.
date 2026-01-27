@@ -340,6 +340,9 @@ export interface ScriptSummary {
     lockedBy?: string;
     lockedAt?: Date;
     locker?: { name: string; avatarUrl: string };
+    // Sharing
+    shareToken?: string;
+    isPublic?: boolean;
 }
 
 export interface Script extends ScriptSummary {

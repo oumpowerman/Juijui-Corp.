@@ -40,7 +40,7 @@ export const useTaskManager = (sessionUser: any) => {
   } = useChecklist();
 
   // 7. Weekly Quests Hook (New)
-  const { quests, fetchQuests, handleAddQuest, handleDeleteQuest, updateManualProgress } = useWeeklyQuests();
+  const { quests, fetchQuests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest } = useWeeklyQuests();
 
   // 8. Master Data Hook (New)
   const { masterOptions, fetchMasterOptions } = useMasterData();
@@ -138,6 +138,7 @@ export const useTaskManager = (sessionUser: any) => {
     handleAddQuest,
     handleDeleteQuest,
     updateManualProgress,
+    updateQuest,
 
     // Profile Actions
     updateProfile

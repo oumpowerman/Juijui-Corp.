@@ -12,6 +12,7 @@ import { useTaskManager } from './hooks/useTaskManager';
 import { useSystemNotifications } from './hooks/useSystemNotifications';
 import { useChatUnread } from './hooks/useChatUnread';
 import { Loader2 } from 'lucide-react';
+import PublicScriptViewer from './components/public/PublicScriptViewer';
 
 // --- LAZY LOAD PAGES ---
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -45,6 +46,16 @@ const PageLoader = () => (
 );
 
 function App() {
+  // --- ROUTING CHECK: Magic Link ---
+  // If URL starts with /s/, render public viewer immediately without Auth check
+  const path = window.location.pathname;
+  if (path.startsWith('/s/')) {
+      const token = path.split('/s/')[1];
+      if (token) {
+          return <PublicScriptViewer token={token} />;
+      }
+  }
+
   const [session, setSession] = useState<any>(null);
   const [currentView, setCurrentView] = useState<ViewMode>('DASHBOARD');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -95,7 +106,7 @@ function App() {
     
     approveMember, removeMember, toggleUserStatus,
 
-    quests, handleAddQuest, handleDeleteQuest, updateManualProgress,
+    quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest,
 
     updateProfile
   } = useTaskManager(session?.user);
@@ -292,6 +303,7 @@ function App() {
                         onDeleteQuest={handleDeleteQuest}
                         onOpenSettings={() => setIsNotifSettingsOpen(true)}
                         onUpdateProgress={updateManualProgress}
+                        onUpdateQuest={updateQuest}
                     />
                 );
             case 'GOALS':

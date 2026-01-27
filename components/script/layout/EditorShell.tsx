@@ -9,21 +9,14 @@ interface EditorShellProps {
 }
 
 const EditorShell: React.FC<EditorShellProps> = ({ children }) => {
-    // We access context inside the shell now to show banner
-    // Note: ScriptProvider must wrap this component in ScriptEditor.tsx
-    
-    // Safety check: hooks can only be used inside the provider. 
-    // Since ScriptEditor.tsx wraps everything in Provider, we need to extract the inner content to a component OR 
-    // assume EditorShell is used correctly inside.
-    // In current refactor, ScriptEditorContent uses EditorShell.
-    
     const { isReadOnly, lockerUser, forceTakeover } = useScriptContext();
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] bg-white flex flex-col h-screen animate-in slide-in-from-bottom-10 font-sans">
+        // CHANGED: h-screen -> h-[100dvh] to fix mobile browser bottom bar overlap issues
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col h-[100dvh] animate-in slide-in-from-bottom-10 font-sans">
             {/* Lock Notification Banner */}
             {isReadOnly && (
-                <div className="bg-amber-100 px-4 py-2 flex items-center justify-between text-amber-900 border-b border-amber-200">
+                <div className="bg-amber-100 px-4 py-2 flex items-center justify-between text-amber-900 border-b border-amber-200 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-amber-200 rounded-full">
                             <Lock className="w-4 h-4" />

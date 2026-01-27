@@ -4,7 +4,6 @@ import { Target, ChevronLeft, ChevronRight, Plus, Bell, Info } from 'lucide-reac
 import { endOfWeek, addWeeks, format, isWithinInterval, addDays, areIntervalsOverlapping } from 'date-fns';
 import { Task, Channel, WeeklyQuest, MasterOption } from '../types';
 import MentorTip from './MentorTip';
-// Removed useWeeklyQuests from here as we receive the handler via props
 
 // Import New Sub-components
 import QuestCard from './weekly-quest/QuestCard';
@@ -21,12 +20,14 @@ interface WeeklyQuestBoardProps {
     onAddQuest: (quest: Omit<WeeklyQuest, 'id'>) => void;
     onDeleteQuest: (id: string) => void;
     onOpenSettings: () => void;
-    onUpdateProgress?: (questId: string, val: number) => void; // Added Prop
+    onUpdateProgress?: (questId: string, val: number) => void;
+    // Added onUpdateQuest to Interface
+    onUpdateQuest?: (id: string, updates: { title?: string, targetCount?: number }) => void | Promise<void>;
 }
 
 const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ 
     tasks, channels, quests, masterOptions = [], 
-    onAddQuest, onDeleteQuest, onOpenSettings, onUpdateProgress 
+    onAddQuest, onDeleteQuest, onOpenSettings, onUpdateProgress, onUpdateQuest 
 }) => {
     
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -208,6 +209,8 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({
                 weekStart={weekStart}
                 weekEnd={weekEnd}
                 onUpdateManualProgress={onUpdateProgress || (() => {})} // Provide fallback if undefined
+                onDeleteQuest={onDeleteQuest}
+                onUpdateQuest={onUpdateQuest}
             />
 
             {/* INFO GUIDE MODAL */}

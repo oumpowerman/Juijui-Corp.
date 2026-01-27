@@ -19,6 +19,11 @@ interface ScriptContextType {
     setCharacters: (val: string[]) => void;
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
+    
+    // Share State
+    isPublic: boolean;
+    shareToken: string | undefined;
+    handleToggleShare: () => Promise<void>;
 
     // UI State
     isSaving: boolean;
@@ -82,6 +87,10 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
     
+    // Share State
+    const [isPublic, setIsPublic] = useState(script.isPublic || false);
+    const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
+
     // Lock System State
     const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
     const [lockerUser, setLockerUser] = useState<{ name: string; avatarUrl: string } | null>(null);
@@ -256,6 +265,26 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         setLastSaved(new Date());
         setIsSaving(false);
     };
+    
+    // --- SHARE LOGIC ---
+    const handleToggleShare = async () => {
+        const newStatus = !isPublic;
+        let newToken = shareToken;
+
+        if (newStatus && !shareToken) {
+            newToken = crypto.randomUUID();
+            setShareToken(newToken);
+        }
+        
+        setIsPublic(newStatus);
+        
+        await onSave(script.id, { 
+            isPublic: newStatus, 
+            shareToken: newToken 
+        });
+        
+        showToast(newStatus ? 'เปิดใช้งาน Magic Link แล้ว 🔗' : 'ปิดการแชร์แล้ว 🔒', newStatus ? 'success' : 'info');
+    };
 
     const handleGenerateAIWrapper = async (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => {
         if (isReadOnly) return;
@@ -274,17 +303,12 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
     const handleInsertCharacter = (charName: string) => {
         if (editorInstance && !isReadOnly) {
-            // God-Tier Flow:
-            // 1. Focus editor
-            // 2. Insert new paragraph with Bold Name and Colon
-            // 3. Ensure cursor is AFTER the space
             editorInstance
                 .chain()
                 .focus()
                 .insertContent(`<p><strong>${charName}:</strong> </p>`)
                 .run();
         } else {
-             // Fallback for when editor instance is not ready yet
              setContent(prev => prev + `<p><strong>${charName}:</strong> </p>`);
         }
     };
@@ -300,6 +324,9 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isSaving, lastSaved,
             setEditorInstance,
             
+            // Share
+            isPublic, shareToken, handleToggleShare,
+
             lockStatus,
             lockerUser,
             isReadOnly,

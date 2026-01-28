@@ -208,8 +208,11 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
 
     // Realtime Subscription
     useEffect(() => {
+        // Generate a unique channel name to prevent collision
+        const channelName = `realtime-planner-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
         const channel = supabase
-            .channel('realtime-planner')
+            .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTasks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks())

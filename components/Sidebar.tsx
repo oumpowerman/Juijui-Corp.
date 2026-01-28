@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
 
 interface SidebarProps {
@@ -61,6 +61,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     items: [
       { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2 },
       { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
+      { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal }, // NEW
     ]
   }
 ];

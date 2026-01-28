@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Priority, Status, Platform, ContentPillar, ContentFormat, AssetCategory, ChipConfig, Difficulty, WorkStatus } from './types';
 import { Youtube, Facebook, Instagram, Video, Globe, FileText, Image, Film, Receipt, Link as LinkIcon, LucideIcon } from 'lucide-react';
@@ -118,22 +119,36 @@ export const COLOR_THEMES = [
     { id: 'purple', bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', activeBg: 'bg-purple-600', ring: 'ring-purple-500' },
 ];
 
-// --- HELPER: Intelligent Status Check ---
-export const isTaskCompleted = (status: string): boolean => {
-    if (!status) return false;
-    const s = status.toUpperCase();
-    // Check against standard enums
-    if (s === 'DONE' || s === 'APPROVE') return true;
-    
-    // Check against common semantic keywords for custom statuses
-    const COMPLETION_KEYWORDS = ['DONE', 'APPROVE', 'PASSED', 'COMPLETE', 'SUCCESS', 'PUBLISH', 'POSTED', 'FINISH', 'CLOSED'];
-    return COMPLETION_KEYWORDS.some(k => s.includes(k));
-};
-
 export const WORK_STATUS_CONFIG: Record<WorkStatus, { label: string, icon: string, color: string }> = {
     ONLINE: { label: 'Online (พร้อมลุย)', icon: '🟢', color: 'bg-green-100 text-green-700' },
     BUSY: { label: 'Busy (ยุ่งมาก)', icon: '🔴', color: 'bg-red-100 text-red-700' },
     SICK: { label: 'Sick (ลาป่วย)', icon: '🤢', color: 'bg-orange-100 text-orange-700' },
     VACATION: { label: 'Vacation (ลาพักร้อน)', icon: '🏖️', color: 'bg-blue-100 text-blue-700' },
     MEETING: { label: 'Meeting (ติดประชุม)', icon: '📅', color: 'bg-purple-100 text-purple-700' }
+};
+
+// --- HELPER: Intelligent Status Check (The Brains 🧠) ---
+export const isTaskCompleted = (status: string): boolean => {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    
+    // 1. Core System Statuses (Strict Match)
+    if (s === 'DONE' || s === 'APPROVE' || s === 'PASSED') return true;
+    
+    // 2. Semantic Keyword Matching (Fuzzy Match)
+    // ถ้ายูสเซอร์ตั้งชื่อ Status ว่า 'Posted (FB)' หรือ 'Finished' หรือ 'Closed' 
+    // ระบบจะรู้ทันทีว่างานนี้ "เสร็จแล้ว"
+    const COMPLETION_KEYWORDS = [
+        'COMPLETE', // Complete
+        'SUCCESS',  // Success
+        'PUBLISH',  // Published, Publishing
+        'POSTED',   // Posted
+        'FINISH',   // Finished
+        'CLOSED',   // Closed
+        'ARCHIVE',  // Archived
+        'FINAL',    // Final
+        'DONE'      // Custom Done like "Done (YT)"
+    ];
+    
+    return COMPLETION_KEYWORDS.some(k => s.includes(k));
 };

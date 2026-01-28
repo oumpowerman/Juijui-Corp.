@@ -67,6 +67,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             remark: data.remark,
             startDate: new Date(startDateVal),
             endDate: new Date(endDateVal),
+            createdAt: new Date(data.created_at), // Mapped here
             channelId: data.channel_id || data.channelId,
             targetPlatforms: platforms,
             isUnscheduled: data.is_unscheduled || data.isUnscheduled,
@@ -273,9 +274,19 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             // 1. Snapshot previous state (in case of rollback)
             const previousTasks = [...tasks];
             
-            // 2. Update UI Immediately (Only if it's in the main list)
+            // 2. Update UI Immediately
             if (tasks.some(t => t.id === task.id)) {
-                setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
+                // If in list, update it. If showOnBoard became false, remove it.
+                if (task.contentId && task.showOnBoard === false) {
+                     setTasks(prev => prev.filter(t => t.id !== task.id));
+                } else {
+                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
+                }
+            } else {
+                // If NOT in list (sub-task) but now showOnBoard is true, add it!
+                if (task.contentId && task.showOnBoard === true) {
+                    setTasks(prev => [...prev, task]);
+                }
             }
             
             // Don't close modal yet if it's sub-task from Logistics Tab, handled by caller

@@ -7,6 +7,7 @@ import { Sparkles, CalendarDays, Archive, Layout, Layers, MonitorPlay, Check, Us
 import { format, isWithinInterval } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import UserStatusBadge from '../UserStatusBadge';
+import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Import
 
 interface TaskFormProps {
     initialData?: Task | null;
@@ -34,6 +35,8 @@ const ALL_PLATFORMS = [
 const TaskForm: React.FC<TaskFormProps> = ({ 
     initialData, selectedDate, channels, users, lockedType, masterOptions, currentUser, onSave, onDelete, onClose, activeTab, setActiveTab 
 }) => {
+    const { showConfirm } = useGlobalDialog(); // Destructure hook
+
     const {
         title, setTitle,
         description, setDescription,
@@ -381,7 +384,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100 bg-white sticky bottom-0 pb-safe-area">
                 <div>
                 {initialData && onDelete && (
-                    <button type="button" onClick={async () => { if(await window.confirm('แน่ใจนะว่าจะลบงานนี้?')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
+                    <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
                     <Trash2 className="w-4 h-4 mr-2" /> ลบ
                     </button>
                 )}

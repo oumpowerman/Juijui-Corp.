@@ -34,11 +34,18 @@ export const useGamification = (currentUser?: any) => {
             // 3. Apply Changes
             const newXp = Math.max(0, user.xp + result.xp);
             const newHp = Math.min(100, Math.max(0, user.hp + result.hp)); // Clamp 0-100
-            const newCoins = Math.max(0, user.available_points + result.coins);
             
             // Check Level Up
             const newLevel = calculateLevel(newXp);
             const isLevelUp = newLevel > user.level;
+            
+            // LEVEL UP BONUS Logic
+            let bonusCoins = 0;
+            if (isLevelUp) {
+                bonusCoins = 500; // Give 500 coins per level
+            }
+
+            const newCoins = Math.max(0, user.available_points + result.coins + bonusCoins);
 
             // 4. Update Database
             const { error: updateError } = await supabase
@@ -59,7 +66,7 @@ export const useGamification = (currentUser?: any) => {
                 action_type: action,
                 xp_change: result.xp,
                 hp_change: result.hp,
-                jp_change: result.coins,
+                jp_change: result.coins + bonusCoins,
                 description: result.message,
                 related_id: context.id || null
             });
@@ -71,7 +78,7 @@ export const useGamification = (currentUser?: any) => {
 
             if (isLevelUp) {
                 setTimeout(() => {
-                    showToast(`🎉 Level Up! ยินดีด้วยคุณเลื่อนเป็น Lv.${newLevel}`, 'success');
+                    showToast(`🎉 LEVEL UP! เลื่อนเป็น Lv.${newLevel} (รับโบนัส +${bonusCoins} JP)`, 'success');
                     // Optional: Trigger confetti effect via global event
                 }, 1000);
             }
@@ -274,6 +281,52 @@ export const useGamification = (currentUser?: any) => {
             setIsLoading(false);
         }
     };
+    
+    // NEW: ADMIN ADJUSTMENT (Game Master)
+    const adminAdjustStats = async (userId: string, adjustments: { hp?: number, xp?: number, points?: number }, reason: string) => {
+        try {
+            const { data: user } = await supabase
+                .from('profiles')
+                .select('hp, xp, available_points, level, max_hp')
+                .eq('id', userId)
+                .single();
+            
+            if (!user) throw new Error("User not found");
+
+            let newHp = user.hp;
+            let newXp = user.xp;
+            let newPoints = user.available_points;
+            let newLevel = user.level;
+
+            if (adjustments.hp !== undefined) newHp = Math.min(user.max_hp, Math.max(0, user.hp + adjustments.hp));
+            if (adjustments.xp !== undefined) {
+                newXp = Math.max(0, user.xp + adjustments.xp);
+                newLevel = calculateLevel(newXp);
+            }
+            if (adjustments.points !== undefined) newPoints = Math.max(0, user.available_points + adjustments.points);
+
+            await supabase
+                .from('profiles')
+                .update({ hp: newHp, xp: newXp, available_points: newPoints, level: newLevel })
+                .eq('id', userId);
+
+            await supabase.from('game_logs').insert({
+                user_id: userId,
+                action_type: 'MANUAL_ADJUST',
+                hp_change: adjustments.hp || 0,
+                xp_change: adjustments.xp || 0,
+                jp_change: adjustments.points || 0,
+                description: `GM ปรับค่า: ${reason}`
+            });
+
+            showToast('ปรับสถานะเรียบร้อย (GM Action) ⚡', 'success');
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            showToast('ปรับค่าไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
 
     useEffect(() => {
         if (currentUser) {
@@ -288,6 +341,7 @@ export const useGamification = (currentUser?: any) => {
         userInventory,
         buyItem,
         useItem,
+        adminAdjustStats, // Exported for Admin Usage
         isLoading
     };
 };

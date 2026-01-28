@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, Smile, Paperclip, CheckSquare, User as UserIcon, Power, HelpCircle, Zap, MessageSquare, Image as ImageIcon, FileText, X, ChevronUp, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, memo } from 'react';
+import { Send, Bot, Smile, Paperclip, CheckSquare, User as UserIcon, Power, HelpCircle, Zap, MessageSquare, FileText, X, ChevronUp, Loader2, ArrowDown } from 'lucide-react';
 import { User, ChatMessage, Task } from '../types';
-import { format } from 'date-fns';
+import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { useTeamChat } from '../hooks/useTeamChat';
+import heic2any from 'heic2any';
 
 interface TeamChatProps {
     currentUser: User | null;
@@ -13,34 +14,165 @@ interface TeamChatProps {
 
 const EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '🎉', '💩', '👻', '🚀', '💸', '👀', '✅', '❌', '✨', '🙏', '🫡'];
 
+// --- SUB-COMPONENT: Date Separator ---
+const DateSeparator = memo(({ date }: { date: Date }) => {
+    let label = format(date, 'd MMM yyyy');
+    if (isToday(date)) label = 'วันนี้ (Today)';
+    else if (isYesterday(date)) label = 'เมื่อวาน (Yesterday)';
+
+    return (
+        <div className="flex justify-center my-6 sticky top-0 z-10 pointer-events-none opacity-80">
+            <span className="bg-gray-200/80 backdrop-blur-sm text-gray-600 text-[10px] px-3 py-1 rounded-full font-bold shadow-sm border border-white">
+                {label}
+            </span>
+        </div>
+    );
+});
+
+// --- OPTIMIZED SUB-COMPONENT: Message Item ---
+interface MessageItemProps {
+    msg: ChatMessage;
+    prevMsg: ChatMessage | undefined;
+    currentUser: User | null;
+    isImageUrl: (url: string) => boolean;
+}
+
+const MessageItem = memo(({ msg, prevMsg, currentUser, isImageUrl }: MessageItemProps) => {
+    const isMe = msg.userId === currentUser?.id;
+    const isBot = msg.isBot;
+    
+    // Check time gap > 5 mins to show avatar again
+    const isTimeGap = prevMsg && (msg.createdAt.getTime() - prevMsg.createdAt.getTime() > 5 * 60 * 1000);
+    // Show avatar if: First msg OR Different user OR Time gap OR Date changed
+    const showAvatar = !prevMsg || prevMsg.userId !== msg.userId || isTimeGap || !isSameDay(msg.createdAt, prevMsg.createdAt);
+
+    if (isBot) {
+        return (
+            <div className="flex gap-3 mb-4 animate-in slide-in-from-left-2 duration-300">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                    <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex flex-col items-start max-w-[85%]">
+                    <span className="text-[10px] text-gray-400 font-bold mb-1 ml-1">Juijui Bot (AI)</span>
+                    <div className={`px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm ${msg.messageType === 'TASK_CREATED' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
+                        {msg.messageType === 'TASK_CREATED' && <CheckSquare className="w-4 h-4 inline-block mr-2 -mt-1" />}
+                        {msg.content}
+                    </div>
+                    <span className="text-[10px] text-gray-300 mt-1 ml-1">
+                        {format(msg.createdAt, 'HH:mm')}
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    const isImage = msg.messageType === 'IMAGE' || isImageUrl(msg.content);
+    const isFile = msg.messageType === 'FILE';
+
+    return (
+        <div className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''} ${showAvatar ? 'mt-4' : 'mt-1'} group`}>
+            <div className={`w-8 h-8 shrink-0 flex flex-col items-center ${!showAvatar ? 'invisible' : ''}`}>
+                {msg.user ? (
+                    <img src={msg.user.avatarUrl} className="w-8 h-8 rounded-full bg-gray-200 object-cover border border-gray-100" loading="lazy" />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                        <UserIcon className="w-4 h-4 text-white" />
+                    </div>
+                )}
+            </div>
+            
+            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%] md:max-w-[60%]`}>
+                {showAvatar && !isMe && (
+                    <span className="text-[10px] text-gray-400 mb-1 ml-1 truncate max-w-[150px]">
+                        {msg.user?.name || 'Unknown'} • {msg.user?.position}
+                    </span>
+                )}
+                
+                <div className={`
+                    text-sm shadow-sm break-words relative
+                    ${isMe 
+                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none' 
+                        : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none'
+                    }
+                    ${(isImage || isFile) ? 'p-1' : 'px-4 py-2.5'}
+                `}>
+                    {isImage ? (
+                        <img 
+                            src={msg.content} 
+                            alt="Attachment" 
+                            className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity min-w-[100px] min-h-[100px] bg-gray-100 object-cover" 
+                            loading="lazy"
+                            onClick={() => window.open(msg.content, '_blank')} 
+                        />
+                    ) : isFile ? (
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => window.open(msg.content, '_blank')}>
+                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><FileText className="w-5 h-5"/></div>
+                            <div className="text-gray-700 underline truncate max-w-[200px]">Attachment</div>
+                        </div>
+                    ) : (
+                        msg.content
+                    )}
+                </div>
+                {/* Time tooltip on hover or if last message */}
+                <span className={`text-[9px] text-gray-300 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isMe ? 'mr-1' : 'ml-1'}`}>
+                    {format(msg.createdAt, 'HH:mm')}
+                </span>
+            </div>
+        </div>
+    );
+});
+
+// --- MAIN COMPONENT ---
+
 const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask }) => {
     const [isBotEnabled, setIsBotEnabled] = useState(true);
     const [inputValue, setInputValue] = useState('');
     const [showEmoji, setShowEmoji] = useState(false);
+    const [isProcessingFile, setIsProcessingFile] = useState(false);
     
-    // Use Hook to manage state and logic
     const { messages, isLoading, isLoadingMore, hasMore, loadMore, sendMessage, sendFile, markAsRead } = useTeamChat(currentUser, allUsers, onAddTask, isBotEnabled);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    // Keep track of scroll height to maintain position when loading more
     const [prevScrollHeight, setPrevScrollHeight] = useState(0);
 
+    // Smart Scroll State
+    const [showScrollButton, setShowScrollButton] = useState(false);
+    const isNearBottomRef = useRef(true);
+
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            setShowScrollButton(false);
+        }
     };
 
-    // Auto-scroll to bottom on initial load or new messages (only if near bottom)
+    const handleScroll = () => {
+        if (!containerRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+        const threshold = 150; 
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        
+        const isNear = distanceFromBottom < threshold;
+        isNearBottomRef.current = isNear;
+        setShowScrollButton(!isNear);
+    };
+
+    // Auto-scroll Effect
     useEffect(() => {
-        if (!isLoadingMore) {
-            // Only auto-scroll if it's not a pagination load
+        if (isLoadingMore) return;
+
+        const lastMessage = messages[messages.length - 1];
+        const isMyMessage = lastMessage?.userId === currentUser?.id;
+
+        // Scroll if it's my message OR if I was already at the bottom
+        if (isMyMessage || isNearBottomRef.current) {
             scrollToBottom();
         }
-    }, [messages.length, isLoadingMore]); // Depend on length change
+    }, [messages, isLoadingMore, currentUser]);
 
-    // Handle scroll position maintenance when loading more
+    // Maintain scroll position when loading history
     useEffect(() => {
         if (!isLoadingMore && prevScrollHeight > 0 && containerRef.current) {
             const newScrollHeight = containerRef.current.scrollHeight;
@@ -50,7 +182,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
         }
     }, [messages.length, isLoadingMore, prevScrollHeight]);
 
-    // Mark read on mount
     useEffect(() => {
         markAsRead();
     }, []);
@@ -71,10 +202,31 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            sendFile(e.target.files[0]);
-            // Reset input to allow re-uploading same file if needed
+            let file = e.target.files[0];
+            setIsProcessingFile(true);
+
+            // Handle HEIC Files
+            if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
+                try {
+                    const convertedBlob = await heic2any({
+                        blob: file,
+                        toType: 'image/jpeg',
+                        quality: 0.8
+                    });
+                    const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                    file = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+                } catch (error) {
+                    console.error("HEIC conversion error:", error);
+                    alert("ไม่สามารถแปลงไฟล์รูปภาพได้ กรุณาลองใหม่");
+                    setIsProcessingFile(false);
+                    return;
+                }
+            }
+
+            await sendFile(file);
+            setIsProcessingFile(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
@@ -83,16 +235,15 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
         setInputValue(prev => prev + emoji);
     };
 
-    const isImageUrl = (url: string) => {
-        return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-    };
+    // Memoized checker to avoid recreating function
+    const isImageUrl = useRef((url: string) => {
+        return /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(url);
+    }).current;
 
     return (
         <div className="flex flex-col h-full animate-in fade-in duration-500">
-            {/* Main Chat Container */}
             <div className="flex-1 flex gap-6 overflow-hidden h-full">
                 
-                {/* Left: Chat Area */}
                 <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col overflow-hidden relative">
                     
                     {/* Header */}
@@ -110,22 +261,14 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                         </div>
 
                         <div className="flex items-center gap-4">
-                             {/* Toggle Bot Switch */}
                              <div className="flex items-center bg-gray-50 rounded-xl p-1 border border-gray-200">
-                                <button
-                                    onClick={() => setIsBotEnabled(false)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${!isBotEnabled ? 'bg-white shadow text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
+                                <button onClick={() => setIsBotEnabled(false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${!isBotEnabled ? 'bg-white shadow text-gray-700' : 'text-gray-400 hover:text-gray-600'}`}>
                                     <Power className="w-3 h-3" /> Off
                                 </button>
-                                <button
-                                    onClick={() => setIsBotEnabled(true)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${isBotEnabled ? 'bg-indigo-600 shadow text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                >
+                                <button onClick={() => setIsBotEnabled(true)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${isBotEnabled ? 'bg-indigo-600 shadow text-white' : 'text-gray-400 hover:text-gray-600'}`}>
                                     <Bot className="w-3 h-3" /> On
                                 </button>
                             </div>
-
                             <div className="flex -space-x-2 hidden sm:flex">
                                 {allUsers.slice(0, 5).map(u => (
                                     <img key={u.id} src={u.avatarUrl} className="w-8 h-8 rounded-full border-2 border-white object-cover" title={u.name} />
@@ -134,10 +277,11 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                         </div>
                     </div>
 
-                    {/* Messages List */}
+                    {/* Messages List - Optimized */}
                     <div 
-                        className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-[#f8fafc]" 
+                        className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#f8fafc] relative" 
                         ref={containerRef}
+                        onScroll={handleScroll}
                         onClick={() => setShowEmoji(false)}
                     >
                         {isLoading ? (
@@ -146,7 +290,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                             </div>
                         ) : (
                             <>
-                                {/* Load More Button */}
                                 {hasMore && (
                                     <div className="flex justify-center mb-4">
                                         <button 
@@ -169,76 +312,20 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                                 )}
 
                                 {messages.map((msg, index) => {
-                                    const isMe = msg.userId === currentUser?.id;
-                                    const isBot = msg.isBot;
-                                    const showAvatar = index === 0 || messages[index - 1].userId !== msg.userId;
-
-                                    if (isBot) {
-                                        return (
-                                            <div key={msg.id} className="flex gap-3 mb-4">
-                                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm">
-                                                    <Bot className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div className="flex flex-col items-start max-w-[85%]">
-                                                    <span className="text-[10px] text-gray-400 font-bold mb-1 ml-1">Juijui Bot (AI)</span>
-                                                    <div className={`px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm ${msg.messageType === 'TASK_CREATED' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
-                                                        {msg.messageType === 'TASK_CREATED' && <CheckSquare className="w-4 h-4 inline-block mr-2 -mt-1" />}
-                                                        {msg.content}
-                                                    </div>
-                                                    <span className="text-[10px] text-gray-300 mt-1 ml-1">
-                                                        {format(msg.createdAt, 'HH:mm')}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
-                                    const isImage = msg.messageType === 'IMAGE' || isImageUrl(msg.content);
-                                    const isFile = msg.messageType === 'FILE';
-
+                                    const prevMsg = messages[index - 1];
+                                    // Logic for Date Separator
+                                    const showDateSeparator = !prevMsg || !isSameDay(msg.createdAt, prevMsg.createdAt);
+                                    
                                     return (
-                                        <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                            <div className={`w-8 h-8 shrink-0 flex flex-col items-center ${!showAvatar ? 'opacity-0' : ''}`}>
-                                                {msg.user ? (
-                                                    <img src={msg.user.avatarUrl} className="w-8 h-8 rounded-full bg-gray-200 object-cover" />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                                                        <UserIcon className="w-4 h-4 text-white" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
-                                            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%] md:max-w-[60%]`}>
-                                                {showAvatar && !isMe && (
-                                                    <span className="text-[10px] text-gray-400 mb-1 ml-1">
-                                                        {msg.user?.name || 'Unknown'} • {msg.user?.position}
-                                                    </span>
-                                                )}
-                                                
-                                                <div className={`
-                                                    text-sm shadow-sm break-words
-                                                    ${isMe 
-                                                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none' 
-                                                        : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none'
-                                                    }
-                                                    ${(isImage || isFile) ? 'p-1' : 'px-4 py-2.5'}
-                                                `}>
-                                                    {isImage ? (
-                                                        <img src={msg.content} alt="Attachment" className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.content, '_blank')} />
-                                                    ) : isFile ? (
-                                                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => window.open(msg.content, '_blank')}>
-                                                            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><FileText className="w-5 h-5"/></div>
-                                                            <div className="text-gray-700 underline truncate max-w-[200px]">Attachment</div>
-                                                        </div>
-                                                    ) : (
-                                                        msg.content
-                                                    )}
-                                                </div>
-                                                <span className={`text-[10px] text-gray-300 mt-1 ${isMe ? 'mr-1' : 'ml-1'}`}>
-                                                    {format(msg.createdAt, 'HH:mm')}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        <React.Fragment key={msg.id}>
+                                            {showDateSeparator && <DateSeparator date={msg.createdAt} />}
+                                            <MessageItem 
+                                                msg={msg} 
+                                                prevMsg={prevMsg} 
+                                                currentUser={currentUser}
+                                                isImageUrl={isImageUrl}
+                                            />
+                                        </React.Fragment>
                                     );
                                 })}
                                 <div ref={messagesEndRef} />
@@ -246,9 +333,20 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                         )}
                     </div>
 
+                    {/* Scroll to Bottom Button */}
+                    {showScrollButton && (
+                        <button 
+                            onClick={scrollToBottom}
+                            className="absolute bottom-20 right-6 p-2.5 bg-white shadow-lg rounded-full text-indigo-600 border border-indigo-100 z-40 animate-in fade-in zoom-in hover:bg-indigo-50 transition-colors"
+                            title="เลื่อนลงล่างสุด"
+                        >
+                            <ArrowDown className="w-5 h-5" />
+                        </button>
+                    )}
+
                     {/* Input Area */}
                     <div className="p-4 bg-white border-t border-gray-100 relative shrink-0 z-30">
-                        {/* Emoji Picker Popover - Moved to stick above input */}
+                        {/* Emoji Picker */}
                         {showEmoji && (
                             <div className="absolute bottom-full mb-2 right-4 md:left-4 md:right-auto bg-white p-3 rounded-2xl shadow-xl border border-gray-100 z-50 w-72 animate-in zoom-in-95 slide-in-from-bottom-2">
                                 <div className="flex justify-between items-center mb-2 px-1">
@@ -257,11 +355,7 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                                 </div>
                                 <div className="grid grid-cols-6 gap-2">
                                     {EMOJIS.map(emoji => (
-                                        <button 
-                                            key={emoji} 
-                                            onClick={() => addEmoji(emoji)}
-                                            className="text-2xl hover:bg-gray-50 rounded p-1 transition-colors"
-                                        >
+                                        <button key={emoji} onClick={() => addEmoji(emoji)} className="text-2xl hover:bg-gray-50 rounded p-1 transition-colors">
                                             {emoji}
                                         </button>
                                     ))}
@@ -270,27 +364,17 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                         )}
 
                         <form onSubmit={handleSend} className="flex items-end gap-2 bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 transition-all">
-                            {/* File Upload - Z-Index ensured */}
                             <button 
                                 type="button" 
-                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all relative z-10"
-                                onClick={() => {
-                                    if (fileInputRef.current) {
-                                        fileInputRef.current.click();
-                                    }
-                                }}
+                                disabled={isProcessingFile}
+                                className={`p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all relative z-10 ${isProcessingFile ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={() => fileInputRef.current?.click()}
                                 title="แนบไฟล์"
                             >
-                                <Paperclip className="w-5 h-5" />
+                                {isProcessingFile ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
                             </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                className="hidden" 
-                                onChange={handleFileChange}
-                            />
+                            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
 
-                            {/* Text Input with Padding Left Adjustment */}
                             <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
@@ -305,7 +389,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                                 rows={1}
                             />
                             
-                            {/* Emoji Trigger */}
                             <button 
                                 type="button" 
                                 className="p-2 text-gray-400 hover:text-yellow-500 hover:bg-white rounded-xl transition-all relative z-10"
@@ -314,7 +397,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                                 <Smile className="w-5 h-5" />
                             </button>
                             
-                            {/* Send Button */}
                             <button 
                                 type="submit"
                                 disabled={!inputValue.trim()}
@@ -332,8 +414,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
 
                 {/* Right Sidebar (Bot Guide & Members) */}
                 <div className="w-72 hidden lg:flex flex-col gap-4 overflow-y-auto">
-                    
-                    {/* Bot Controls & Guide */}
                     <div className={`rounded-2xl shadow-sm border p-4 transition-all duration-300 ${isBotEnabled ? 'bg-white border-indigo-100 shadow-indigo-100' : 'bg-gray-50 border-gray-200 opacity-70'}`}>
                         <div className="flex items-center gap-2 mb-3">
                             <div className={`p-2 rounded-lg ${isBotEnabled ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
@@ -357,7 +437,7 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                             <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100">
                                 <h4 className="text-xs font-bold text-indigo-700 mb-2 flex items-center"><Zap className="w-3 h-3 mr-1"/> สั่งสร้างงาน (Task)</h4>
                                 <p className="text-[10px] text-indigo-600 leading-relaxed">
-                                    พิมพ์คำว่า <span className="font-mono bg-white px-1 rounded border text-indigo-500">สร้างงาน</span>, <span className="font-mono bg-white px-1 rounded border text-indigo-500">เพิ่มงาน</span> <br/>
+                                    พิมพ์คำว่า <span className="font-mono bg-white px-1 rounded border text-indigo-500">สร้างงาน</span> <br/>
                                     <i>"ฝากสร้างงาน ตัดต่อ Vlog ให้หน่อย"</i>
                                 </p>
                             </div>
@@ -365,13 +445,12 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                             <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                                  <h4 className="text-xs font-bold text-gray-600 mb-2 flex items-center"><HelpCircle className="w-3 h-3 mr-1"/> ขอความช่วยเหลือ</h4>
                                  <p className="text-[10px] text-gray-500 leading-relaxed">
-                                    พิมพ์ <span className="font-mono bg-white px-1 rounded border">ช่วยด้วย</span> หรือ <span className="font-mono bg-white px-1 rounded border">Help</span> เพื่อดูคำสั่งทั้งหมด
+                                    พิมพ์ <span className="font-mono bg-white px-1 rounded border">ช่วยด้วย</span> หรือ <span className="font-mono bg-white px-1 rounded border">Help</span>
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Team Members List */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex-1 overflow-y-auto">
                         <h3 className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wider flex justify-between items-center">
                             สมาชิกทีม <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{allUsers.length}</span>

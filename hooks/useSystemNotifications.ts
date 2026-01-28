@@ -13,18 +13,33 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
 
         const newNotifications: AppNotification[] = [];
         const today = new Date();
+        const yesterday = addDays(today, -1);
 
         tasks.forEach(task => {
             // Skip done tasks or unscheduled
-            // Use smart completion check here
             if (isTaskCompleted(task.status) || task.isUnscheduled) return;
 
             // Check ownership (Assignee, Owner, Editor)
-            const isRelated = task.assigneeIds.includes(currentUser.id) || 
+            const isAssignee = task.assigneeIds.includes(currentUser.id);
+            const isRelated = isAssignee || 
                               task.ideaOwnerIds?.includes(currentUser.id) || 
                               task.editorIds?.includes(currentUser.id);
 
-            // 1. OVERDUE CHECK
+            // 1. NEW ASSIGNMENT CHECK (Added)
+            // Check if task was created in last 24 hours and I am the assignee
+            if (isAssignee && task.createdAt && isAfter(task.createdAt, yesterday)) {
+                 newNotifications.push({
+                    id: `new_${task.id}`,
+                    type: 'NEW_ASSIGNMENT',
+                    title: '✨ งานใหม่เข้า (New Task)',
+                    message: `คุณได้รับมอบหมายงาน "${task.title}"`,
+                    taskId: task.id,
+                    date: task.createdAt,
+                    isRead: false
+                 });
+            }
+
+            // 2. OVERDUE CHECK
             if (isBefore(task.endDate, today) && !isSameDay(task.endDate, today)) {
                 // If I am related OR I am Admin (Admins see all overdue)
                 if (isRelated || currentUser.role === 'ADMIN') {
@@ -41,7 +56,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                 }
             }
 
-            // 2. UPCOMING CHECK (Next 3 days)
+            // 3. UPCOMING CHECK (Next 3 days)
             else if (isAfter(task.endDate, today) && isBefore(task.endDate, addDays(today, 3)) && isRelated) {
                 const daysLeft = differenceInDays(task.endDate, today);
                 newNotifications.push({
@@ -55,7 +70,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                 });
             }
 
-            // 3. REVIEW CHECK (For Status = FEEDBACK)
+            // 4. REVIEW CHECK (For Status = FEEDBACK)
             if (task.status === 'FEEDBACK') {
                 // Show to Idea Owner (who might need to review) or Admin
                 const isReviewer = task.ideaOwnerIds?.includes(currentUser.id) || currentUser.role === 'ADMIN';
@@ -73,8 +88,8 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
             }
         });
 
-        // Sort by priority: Overdue > Review > Upcoming
-        const typePriority = { 'OVERDUE': 0, 'REVIEW': 1, 'UPCOMING': 2, 'INFO': 3 };
+        // Sort by priority: Overdue > New > Review > Upcoming
+        const typePriority = { 'OVERDUE': 0, 'NEW_ASSIGNMENT': 1, 'REVIEW': 2, 'UPCOMING': 3, 'INFO': 4 };
         
         newNotifications.sort((a, b) => {
             if (typePriority[a.type] !== typePriority[b.type]) {

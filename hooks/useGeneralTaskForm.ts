@@ -9,24 +9,30 @@ interface UseGeneralTaskFormProps {
     users: any[];
     masterOptions: MasterOption[];
     onSave: (task: Task) => void;
+    projects?: Task[]; // Add projects prop
 }
 
-export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, onSave }: UseGeneralTaskFormProps) => {
+export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, onSave, projects = [] }: UseGeneralTaskFormProps) => {
     // --- State ---
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     
     // Status & Dates
     const [status, setStatus] = useState<string>(''); 
+    const [priority, setPriority] = useState<Priority>('MEDIUM');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     
     // Task Specifics
-    const [assigneeType, setAssigneeType] = useState<AssigneeType>('INDIVIDUAL'); // Changed Default to INDIVIDUAL
+    const [assigneeType, setAssigneeType] = useState<AssigneeType>('INDIVIDUAL'); 
     const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
     const [targetPosition, setTargetPosition] = useState('');
     const [caution, setCaution] = useState('');
     const [importance, setImportance] = useState('');
+    
+    // Hidden Fields (Preservation) & Linking
+    const [contentId, setContentId] = useState<string | undefined>(undefined);
+    const [showOnBoard, setShowOnBoard] = useState(false);
     
     // Gamification
     const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
@@ -42,6 +48,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setTitle(initialData.title);
             setDescription(initialData.description);
             setStatus(initialData.status);
+            setPriority(initialData.priority);
             setStartDate(initialData.startDate ? format(initialData.startDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
             setEndDate(initialData.endDate ? format(initialData.endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
             
@@ -50,6 +57,10 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setTargetPosition(initialData.targetPosition || '');
             setCaution(initialData.caution || '');
             setImportance(initialData.importance || '');
+            
+            // Link & Board State
+            setContentId(initialData.contentId);
+            setShowOnBoard(initialData.showOnBoard || false);
             
             setDifficulty(initialData.difficulty || 'MEDIUM');
             setEstimatedHours(initialData.estimatedHours || 0);
@@ -60,16 +71,20 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             
             const defaultStatus = taskStatusOptions.find(o => o.isDefault)?.key || (taskStatusOptions.length > 0 ? taskStatusOptions[0].key : 'TODO');
             setStatus(defaultStatus);
+            setPriority('MEDIUM');
             
             const defaultDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
             setStartDate(defaultDate);
             setEndDate(defaultDate);
             
-            setAssigneeType('INDIVIDUAL'); // Ensure Default is Solo
+            setAssigneeType('INDIVIDUAL'); 
             setAssigneeIds([]);
             setTargetPosition('');
             setCaution('');
             setImportance('');
+            
+            setContentId(undefined);
+            setShowOnBoard(false);
             
             setDifficulty('MEDIUM');
             setEstimatedHours(0);
@@ -96,8 +111,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             title,
             description,
             status: status as Status, 
-            priority: 'MEDIUM', // Task always medium or calculated
-            tags: [],
+            priority,
+            tags: initialData?.tags || [], // Preserve Tags
             
             // Dates
             startDate: new Date(startDate),
@@ -113,13 +128,17 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             caution,
             importance,
             
+            // Context / Parent Link (CRITICAL FIX)
+            contentId: contentId,
+            showOnBoard: showOnBoard,
+            
             // Gamification
             difficulty,
             estimatedHours,
             
             // Empty Content Fields
-            assets: [],
-            reviews: [],
+            assets: initialData?.assets || [],
+            reviews: initialData?.reviews || [],
             logs: []
         };
 
@@ -128,18 +147,21 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
 
     const toggleUserSelection = (userId: string) => {
         if (assigneeType === 'INDIVIDUAL') {
-            // Only allow one
             setAssigneeIds(prev => prev.includes(userId) ? [] : [userId]);
         } else {
-            // Allow multiple
             setAssigneeIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
         }
+    };
+    
+    const handleSetParentProject = (id: string | null) => {
+        setContentId(id || undefined);
     };
 
     return {
         title, setTitle,
         description, setDescription,
         status, setStatus,
+        priority, setPriority,
         startDate, setStartDate,
         endDate, setEndDate,
         
@@ -148,6 +170,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         targetPosition, setTargetPosition,
         caution, setCaution,
         importance, setImportance,
+        
+        contentId, handleSetParentProject,
         
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,

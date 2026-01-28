@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, Duty, DutyConfig } from '../types';
+import React, { useState } from 'react';
+import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
-import { format, endOfWeek, eachDayOfInterval, isSameDay, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Dices, Settings } from 'lucide-react';
+import { format, endOfWeek, eachDayOfInterval, addWeeks } from 'date-fns';
+import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 
@@ -12,10 +12,12 @@ import DutyCalendarGrid from './duty/DutyCalendarGrid';
 import RandomizerModal from './duty/RandomizerModal';
 import ConfigModal from './duty/ConfigModal';
 import MyDutyWidget from './dashboard/member/MyDutyWidget';
+import SwapInbox from './duty/SwapInbox';
+import SwapRequestModal from './duty/SwapRequestModal';
 
 interface DutyViewProps {
     users: User[];
-    currentUser?: User; // Optional in case needed, but usually passed
+    currentUser?: User;
 }
 
 const WEEK_DAYS_MAP = [
@@ -29,10 +31,11 @@ const WEEK_DAYS_MAP = [
 const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     // Hook Logic
     const { 
-        duties, configs, isLoading, 
+        duties, configs, swapRequests, isLoading, 
         saveConfigs, addDuty, toggleDuty, deleteDuty, 
-        generateRandomDuties, cleanupOldDuties, submitProof 
-    } = useDuty();
+        calculateRandomDuties, saveDuties, cleanupOldDuties, submitProof,
+        requestSwap, respondSwap 
+    } = useDuty(currentUser);
 
     const { showAlert } = useGlobalDialog();
 
@@ -46,17 +49,14 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
     // --- Randomizer State ---
     const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
-    const [participatingIds, setParticipatingIds] = useState<string[]>([]);
-    const [randomStage, setRandomStage] = useState<'IDLE' | 'SHUFFLING' | 'RESULT'>('IDLE');
-    const [loadingText, setLoadingText] = useState('กำลังล้างไพ่...');
-    const [previewDuties, setPreviewDuties] = useState<Duty[]>([]);
-    const [randomMode, setRandomMode] = useState<'ROTATION' | 'DURATION'>('ROTATION');
-    const [randomStartDate, setRandomStartDate] = useState<Date>(new Date()); 
-    const [genDurationWeeks, setGenDurationWeeks] = useState<number>(1); 
-
+    
     // --- Config Modal State ---
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
     const [editingConfigs, setEditingConfigs] = useState<DutyConfig[]>([]);
+
+    // --- Swap Request State ---
+    const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+    const [sourceDutyForSwap, setSourceDutyForSwap] = useState<Duty | null>(null);
 
     // Date Calculation
     const getStartOfWeek = (date: Date) => {
@@ -72,42 +72,6 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     const weekDays = eachDayOfInterval({ start, end });
     
     const activeUsers = users.filter(u => u.isActive);
-
-    // --- Randomizer Handlers ---
-    const handleOpenRandomizer = () => {
-        setParticipatingIds(activeUsers.map(u => u.id));
-        setRandomStage('IDLE');
-        setPreviewDuties([]);
-        setRandomMode('ROTATION'); 
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        setRandomStartDate(today >= start && today <= end ? today : start);
-        setIsRandomModalOpen(true);
-    };
-
-    const handleStartRandomize = () => {
-        if (participatingIds.length === 0) {
-            showAlert('ต้องเลือกคนอย่างน้อย 1 คนครับ');
-            return;
-        }
-
-        setRandomStage('SHUFFLING');
-        const texts = ['กำลังล้างไพ่...', 'วนคิวให้ครบทุกคน...', 'เกลี่ยงานให้เท่ากัน...', 'จัดตารางหลบเสาร์อาทิตย์...', '🔮 โอมเพี้ยง...'];
-        let step = 0;
-        const interval = setInterval(() => {
-            setLoadingText(texts[step % texts.length]);
-            step++;
-        }, 400);
-
-        setTimeout(async () => {
-            clearInterval(interval);
-            const selectedUsers = activeUsers.filter(u => participatingIds.includes(u.id));
-            const results = await generateRandomDuties(randomStartDate, randomMode, genDurationWeeks, selectedUsers);
-            setPreviewDuties(results);
-            setRandomStage('RESULT');
-        }, 2000);
-    };
 
     // --- Config Handlers ---
     const handleOpenConfig = () => {
@@ -148,62 +112,86 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         }
     };
 
+    // --- Swap Handler ---
+    const handleInitiateSwap = (duty: Duty) => {
+        setSourceDutyForSwap(duty);
+        setIsSwapModalOpen(true);
+    };
+
+    const handleConfirmSwap = (targetDutyId: string) => {
+        if (sourceDutyForSwap) {
+            requestSwap(sourceDutyForSwap.id, targetDutyId);
+            setIsSwapModalOpen(false);
+            setSourceDutyForSwap(null);
+        }
+    };
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
             <MentorTip variant="green" messages={[
-                "ใหม่! ระบบส่งการบ้าน 📸 ถ่ายรูปยืนยันว่าทำเวรแล้วได้เลย",
-                "เมื่อส่งรูป ระบบจะแจ้งเตือนใน Team Chat ให้เพื่อนๆ ทราบอัตโนมัติ"
+                "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
+                "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!"
             ]} />
 
-            {/* My Duty Highlight */}
-            {currentUser && <MyDutyWidget duties={duties} currentUser={currentUser} />}
+            {/* --- HERO SECTION --- */}
+            <div>
+                {/* 1. Alerts */}
+                {currentUser && <SwapInbox requests={swapRequests} currentUser={currentUser} onRespond={respondSwap} />}
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                        ตารางเวรประจำสัปดาห์ 🧹 (Duty Roster)
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        ใครทำอะไร วันไหน เช็คได้เลยที่นี่
-                    </p>
+                {/* 2. My Mission Card */}
+                {currentUser && <MyDutyWidget duties={duties} currentUser={currentUser} />}
+            </div>
+
+            {/* --- CONTROL DOCK --- */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 sticky top-2 z-30">
+                
+                {/* Left: Title */}
+                <div className="flex items-center gap-3">
+                    <div className="bg-indigo-50 p-2 rounded-xl text-indigo-600">
+                        <CalendarDays className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-gray-800 tracking-tight">Duty Roster</h2>
+                        <p className="text-xs text-gray-500 font-medium">ตารางเวรประจำสัปดาห์</p>
+                    </div>
                 </div>
 
+                {/* Center: Navigator */}
+                <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-200">
+                    <button onClick={() => setCurrentDate(addWeeks(currentDate, -1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="px-6 text-center min-w-[140px]">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
+                        <p className="text-indigo-600 font-black text-sm">
+                            {format(start, 'd MMM')} - {format(end, 'd MMM')}
+                        </p>
+                    </div>
+                    <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Right: Actions */}
                 <div className="flex items-center gap-2">
                     <button 
+                        onClick={() => setIsRandomModalOpen(true)}
+                        className="flex items-center px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
+                    >
+                        <Dices className="w-4 h-4 mr-2" />
+                        สุ่มเวร (Randomizer)
+                    </button>
+                    <button 
                         onClick={handleOpenConfig}
-                        className="p-2.5 bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-200 rounded-xl shadow-sm transition-all"
-                        title="จัดการกติกาเวร (Rules)"
+                        className="p-2.5 bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all"
+                        title="ตั้งค่ากติกา"
                     >
                         <Settings className="w-5 h-5" />
                     </button>
-
-                    <button 
-                        onClick={handleOpenRandomizer}
-                        className="flex items-center px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 active:scale-95 transition-all mr-2"
-                    >
-                        <Dices className="w-5 h-5 mr-2" />
-                        สุ่มเวร (Randomizer)
-                    </button>
-
-                    <div className="flex items-center bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
-                        <button onClick={() => setCurrentDate(addWeeks(currentDate, -1))} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 transition-colors">
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <div className="px-4 text-center min-w-[160px]">
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
-                            <p className="text-indigo-600 font-black">
-                                {format(start, 'd MMM')} - {format(end, 'd MMM')}
-                            </p>
-                        </div>
-                        <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 transition-colors">
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    </div>
                 </div>
             </div>
 
-            {/* Calendar Grid */}
+            {/* --- GRID --- */}
             <DutyCalendarGrid 
                 weekDays={weekDays}
                 duties={duties}
@@ -220,30 +208,17 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 onToggleDuty={toggleDuty}
                 onDeleteDuty={deleteDuty}
                 onSubmitProof={submitProof}
+                onRequestSwap={handleInitiateSwap}
             />
 
             {/* Modals */}
             <RandomizerModal 
                 isOpen={isRandomModalOpen}
                 onClose={() => setIsRandomModalOpen(false)}
-                stage={randomStage}
-                loadingText={loadingText}
-                mode={randomMode}
-                setMode={setRandomMode}
-                startDate={randomStartDate}
-                setStartDate={setRandomStartDate}
-                durationWeeks={genDurationWeeks}
-                setDurationWeeks={setGenDurationWeeks}
                 users={activeUsers}
-                selectedIds={participatingIds}
-                onToggleUser={(id) => setParticipatingIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
-                onSelectAll={() => setParticipatingIds(activeUsers.map(u => u.id))}
-                onClearAll={() => setParticipatingIds([])}
-                onStart={handleStartRandomize}
-                onReset={() => { setRandomStage('IDLE'); setPreviewDuties([]); }}
-                onConfirm={() => { setIsRandomModalOpen(false); setRandomStage('IDLE'); }}
                 configs={configs}
-                previewDuties={previewDuties}
+                calculateDuties={calculateRandomDuties}
+                onSaveToDB={saveDuties}
             />
 
             <ConfigModal 
@@ -255,6 +230,18 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 onSave={() => { saveConfigs(editingConfigs); setIsConfigModalOpen(false); }}
                 onCleanup={cleanupOldDuties}
             />
+
+            {currentUser && (
+                <SwapRequestModal 
+                    isOpen={isSwapModalOpen}
+                    onClose={() => setIsSwapModalOpen(false)}
+                    sourceDuty={sourceDutyForSwap}
+                    allDuties={duties}
+                    users={users}
+                    currentUser={currentUser}
+                    onConfirmSwap={handleConfirmSwap}
+                />
+            )}
         </div>
     );
 };

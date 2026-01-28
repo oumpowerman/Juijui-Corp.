@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Duty, User, DutyConfig } from '../types';
+import { Duty, User, DutyConfig, DutySwap } from '../types';
 import { useToast } from '../context/ToastContext';
 import { addDays, isWeekend, getDay, format } from 'date-fns';
 import { useGamification } from './useGamification'; // Import Engine
@@ -16,9 +16,10 @@ const DEFAULT_CONFIGS: DutyConfig[] = [
 
 const HISTORY_LOOKBACK_DAYS = 90;
 
-export const useDuty = () => {
+export const useDuty = (currentUser?: User) => {
     const [duties, setDuties] = useState<Duty[]>([]);
     const [configs, setConfigs] = useState<DutyConfig[]>([]);
+    const [swapRequests, setSwapRequests] = useState<DutySwap[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { processAction } = useGamification(); // Initialize Engine
@@ -70,15 +71,51 @@ export const useDuty = () => {
         }
     };
 
+    // Fetch Swap Requests
+    const fetchSwapRequests = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('duty_swaps')
+                .select(`
+                    *,
+                    requestor:profiles!duty_swaps_requestor_id_fkey(full_name, avatar_url),
+                    target_duty:duties!duty_swaps_target_duty_id_fkey(title, date, assignee_id),
+                    own_duty:duties!duty_swaps_own_duty_id_fkey(title, date, assignee_id)
+                `)
+                .eq('status', 'PENDING')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+                const mappedSwaps: DutySwap[] = data.map((s: any) => ({
+                    id: s.id,
+                    requestorId: s.requestor_id,
+                    targetDutyId: s.target_duty_id,
+                    ownDutyId: s.own_duty_id,
+                    status: s.status,
+                    createdAt: new Date(s.created_at),
+                    requestor: s.requestor ? { name: s.requestor.full_name, avatarUrl: s.requestor.avatar_url } : undefined,
+                    targetDuty: s.target_duty,
+                    ownDuty: s.own_duty
+                }));
+                setSwapRequests(mappedSwaps);
+            }
+        } catch (err) {
+            console.error('Fetch swaps failed', err);
+        }
+    };
+
     // Initialize & Realtime
     useEffect(() => {
         fetchDuties();
         fetchConfigs();
+        fetchSwapRequests();
 
         const dutyChannel = supabase
             .channel('realtime-duties')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, () => fetchDuties())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_configs' }, () => fetchConfigs())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_swaps' }, () => fetchSwapRequests())
             .subscribe();
 
         return () => {
@@ -147,10 +184,8 @@ export const useDuty = () => {
         }
     };
 
-    // --- New: Submit Proof Logic (With Auto-Chat & Gamification) ---
     const submitProof = async (dutyId: string, file: File, userName: string) => {
         try {
-            // 1. Upload Image
             const fileExt = file.name.split('.').pop();
             const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
             
@@ -166,7 +201,6 @@ export const useDuty = () => {
             
             const imageUrl = urlData.publicUrl;
 
-            // 2. Update Duty Record
             const { error: dbError } = await supabase
                 .from('duties')
                 .update({ 
@@ -177,7 +211,6 @@ export const useDuty = () => {
 
             if (dbError) throw dbError;
 
-            // 3. Auto-Post to Team Chat
             const duty = duties.find(d => d.id === dutyId);
             if (duty) {
                 const message = `📸 **${userName}** ส่งการบ้านเวร "${duty.title}" เรียบร้อย! \n(Proof: ${format(new Date(), 'HH:mm')})`;
@@ -195,14 +228,11 @@ export const useDuty = () => {
                     user_id: null
                 });
 
-                // 4. Trigger Gamification
-                // Need assignee ID. If it's the current user calling, we assume success.
                 if (duty.assigneeId) {
                     processAction(duty.assigneeId, 'DUTY_COMPLETE', duty);
                 }
             }
 
-            // showToast('ส่งการบ้านเรียบร้อย! แจ้งในแชทให้แล้วครับ', 'success'); // Toast handled by game engine
             return true;
         } catch (err: any) {
             console.error(err);
@@ -225,12 +255,9 @@ export const useDuty = () => {
         }
     };
 
-    // --- REVISED RANDOMIZER LOGIC (Queue/Rotation System) ---
-    const generateRandomDuties = async (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
-        if (activeUsers.length === 0) {
-            showToast('ไม่พบสมาชิกที่ Active เลยครับ', 'error');
-            return [];
-        }
+    // --- REVISED: Generate Draft (Pure Logic) ---
+    const calculateRandomDuties = (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
+        if (activeUsers.length === 0) return [];
 
         const shuffle = (array: User[]) => {
             let currentIndex = array.length, randomIndex;
@@ -262,7 +289,7 @@ export const useDuty = () => {
             return selected;
         };
 
-        const newDutiesPayload: any[] = [];
+        const draftDuties: Duty[] = [];
         let currentGenDate = new Date(startDate);
         let daysGenerated = 0;
         const targetDaysForDuration = weeksToGenerate * 5; 
@@ -271,7 +298,7 @@ export const useDuty = () => {
             if (mode === 'DURATION') {
                 if (daysGenerated >= targetDaysForDuration) break;
             } else if (mode === 'ROTATION') {
-                if (assignedUserIds.size >= activeUsers.length) break;
+                if (assignedUserIds.size >= activeUsers.length && daysGenerated % 5 === 0) break; // Complete cycle + full weeks
                 if (daysGenerated > activeUsers.length * 5) break; 
             }
 
@@ -291,11 +318,12 @@ export const useDuty = () => {
                         if (peopleNeeded > 1) title += ` (${idx + 1})`;
                     }
                     
-                    newDutiesPayload.push({
+                    draftDuties.push({
+                        id: crypto.randomUUID(), // Temp ID for draft
                         title,
-                        assignee_id: user.id,
-                        date: format(currentGenDate, 'yyyy-MM-dd'),
-                        is_done: false
+                        assigneeId: user.id,
+                        date: new Date(currentGenDate),
+                        isDone: false
                     });
                 });
                 
@@ -303,12 +331,23 @@ export const useDuty = () => {
             }
             currentGenDate = addDays(currentGenDate, 1);
         }
+        return draftDuties;
+    };
 
+    // --- NEW: Save Draft Duties (Commit) ---
+    const saveDuties = async (newDuties: Duty[]) => {
         try {
-            const endGenDate = addDays(currentGenDate, -1); 
-            const startStr = format(startDate, 'yyyy-MM-dd');
-            const endStr = format(endGenDate, 'yyyy-MM-dd');
+            if (newDuties.length === 0) return;
+            
+            // Determine range to clear old duties
+            const dates = newDuties.map(d => d.date.getTime());
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            
+            const startStr = format(minDate, 'yyyy-MM-dd');
+            const endStr = format(maxDate, 'yyyy-MM-dd');
 
+            // 1. Clear overlapping duties
             const { error: deleteError } = await supabase.from('duties')
                 .delete()
                 .gte('date', startStr)
@@ -316,38 +355,87 @@ export const useDuty = () => {
             
             if (deleteError) throw deleteError;
             
-            const { data, error } = await supabase.from('duties').insert(newDutiesPayload).select();
+            // 2. Insert new ones
+            const payload = newDuties.map(d => ({
+                title: d.title,
+                assignee_id: d.assigneeId,
+                date: format(d.date, 'yyyy-MM-dd'),
+                is_done: d.isDone
+            }));
+
+            const { error } = await supabase.from('duties').insert(payload);
             if (error) throw error;
             
-            if (mode === 'ROTATION') {
-                showToast(`จัดเวรให้ครบทุกคนแล้ว! (รวม ${daysGenerated} วันทำการ) 🎉`, 'success');
-            } else {
-                showToast(`จัดเวร ${weeksToGenerate} สัปดาห์เรียบร้อย 🎉`, 'success');
-            }
-            
-            return data.map((d: any) => ({
-                id: d.id,
-                title: d.title,
-                assigneeId: d.assignee_id,
-                date: new Date(d.date),
-                isDone: d.is_done
-            }));
+            showToast('บันทึกตารางเวรเรียบร้อย 🎉', 'success');
         } catch (err: any) {
-            showToast('จัดเวรล้มเหลว: ' + err.message, 'error');
-            return [];
+            showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    // --- SWAP LOGIC ---
+    const requestSwap = async (ownDutyId: string, targetDutyId: string) => {
+        if (!currentUser) return;
+        try {
+            const { error } = await supabase.from('duty_swaps').insert({
+                requestor_id: currentUser.id,
+                own_duty_id: ownDutyId,
+                target_duty_id: targetDutyId,
+                status: 'PENDING'
+            });
+            if (error) throw error;
+            showToast('ส่งคำขอแลกเวรแล้ว รออีกฝั่งตอบรับนะครับ 🔄', 'success');
+        } catch (err: any) {
+            showToast('ส่งคำขอไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const respondSwap = async (swapId: string, accept: boolean) => {
+        try {
+            if (!accept) {
+                await supabase.from('duty_swaps').update({ status: 'REJECTED' }).eq('id', swapId);
+                showToast('ปฏิเสธการแลกเวรแล้ว', 'info');
+                return;
+            }
+
+            // Transaction: Swap Assignees
+            const { data: swap } = await supabase.from('duty_swaps').select('own_duty_id, target_duty_id').eq('id', swapId).single();
+            if (!swap) return;
+
+            // Get current assignees
+            const { data: dutiesData } = await supabase.from('duties').select('id, assignee_id').in('id', [swap.own_duty_id, swap.target_duty_id]);
+            if (!dutiesData || dutiesData.length !== 2) return;
+
+            const duty1 = dutiesData[0];
+            const duty2 = dutiesData[1];
+
+            // Perform Swap
+            await supabase.from('duties').update({ assignee_id: duty2.assignee_id }).eq('id', duty1.id);
+            await supabase.from('duties').update({ assignee_id: duty1.assignee_id }).eq('id', duty2.id);
+
+            // Update Swap Status
+            await supabase.from('duty_swaps').update({ status: 'APPROVED' }).eq('id', swapId);
+            
+            showToast('แลกเวรสำเร็จ! อัปเดตตารางแล้ว ✅', 'success');
+            
+        } catch (err: any) {
+            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
     };
 
     return {
         duties,
         configs,
+        swapRequests,
         isLoading,
         saveConfigs,
         addDuty,
         toggleDuty,
         deleteDuty,
-        generateRandomDuties,
+        calculateRandomDuties,
+        saveDuties,
         cleanupOldDuties,
-        submitProof
+        submitProof,
+        requestSwap,
+        respondSwap
     };
 };

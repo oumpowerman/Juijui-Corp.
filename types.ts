@@ -10,7 +10,7 @@ export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | '
 export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'LINK' | 'OTHER';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING';
-export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'STOCK' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI';
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'STOCK' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE';
 export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE';
 export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
 export type ScriptType = 'MONOLOGUE' | 'DIALOGUE';
@@ -106,6 +106,7 @@ export interface Task {
     tags: string[];
     startDate: Date;
     endDate: Date;
+    createdAt?: Date; // Added for Notification Logic
     
     // Content specific
     channelId?: string;
@@ -203,7 +204,7 @@ export interface NotificationPreferences {
 
 export interface AppNotification {
     id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO';
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT';
     title: string;
     message: string;
     taskId?: string;
@@ -293,6 +294,18 @@ export interface DutyConfig {
     dayOfWeek: number;
     requiredPeople: number;
     taskTitles: string[];
+}
+
+export interface DutySwap {
+    id: string;
+    requestorId: string;
+    targetDutyId: string;
+    ownDutyId: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: Date;
+    requestor?: { name: string; avatarUrl: string };
+    targetDuty?: { title: string; date: string; assigneeId: string };
+    ownDuty?: { title: string; date: string; assigneeId: string };
 }
 
 export interface ShopItem {

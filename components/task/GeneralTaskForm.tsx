@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { Task, User, MasterOption, Difficulty } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Task, User, MasterOption, Difficulty, Priority } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
-import { DIFFICULTY_LABELS } from '../../constants';
-import { Users, Swords, Check, Activity, AlertTriangle, Info, Star, Calendar, Trash2, Send, Loader2, List, X, Briefcase } from 'lucide-react';
+import { DIFFICULTY_LABELS, STATUS_COLORS } from '../../constants';
+import { Users, Swords, Check, Activity, AlertTriangle, Info, Star, Calendar, Trash2, Send, Loader2, List, X, Briefcase, Zap, Flag, Link as LinkIcon, Search, LayoutTemplate } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
@@ -17,20 +17,26 @@ interface GeneralTaskFormProps {
     onSave: (task: Task) => void;
     onDelete?: (taskId: string) => void;
     onClose: () => void;
+    projects?: Task[]; // Received from TaskModal
 }
 
 const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({ 
-    initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose 
+    initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose, projects = []
 }) => {
     const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog();
     const [isSendingQC, setIsSendingQC] = useState(false);
     const [isResPickerOpen, setIsResPickerOpen] = useState(false);
+    
+    // Project Picker State
+    const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
+    const [projectSearch, setProjectSearch] = useState('');
 
     const {
         title, setTitle,
         description, setDescription,
         status, setStatus,
+        priority, setPriority,
         startDate, setStartDate,
         endDate, setEndDate,
         assigneeType, setAssigneeType,
@@ -40,6 +46,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         importance, setImportance,
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,
+        contentId, handleSetParentProject,
         error,
         taskStatusOptions,
         handleSubmit,
@@ -49,13 +56,25 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         selectedDate,
         users,
         masterOptions,
-        onSave
+        onSave,
+        projects
     });
 
     const activeUsers = users.filter(u => u.isActive);
     const baseXP = DIFFICULTY_LABELS[difficulty || 'MEDIUM'].xp;
     const hourlyBonus = Math.floor((estimatedHours || 0) * 20);
     const totalProjectedXP = baseXP + hourlyBonus;
+
+    // --- Project Picker Logic ---
+    const parentProject = useMemo(() => {
+        return contentId ? projects.find(p => p.id === contentId) : null;
+    }, [contentId, projects]);
+
+    const filteredProjects = useMemo(() => {
+        return projects
+            .filter(p => p.title.toLowerCase().includes(projectSearch.toLowerCase()))
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    }, [projects, projectSearch]);
 
     // Auto-fill Target Position when Solo user is selected
     useEffect(() => {
@@ -69,25 +88,19 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         }
     }, [assigneeIds, assigneeType, users]);
 
-    // Get suggested responsibilities based on selected user's position
-    const getSuggestedResponsibilities = () => {
+    // Get suggested responsibilities
+    const suggestedTasks = useMemo(() => {
         if (assigneeIds.length !== 1) return [];
         const user = users.find(u => u.id === assigneeIds[0]);
         if (!user || !user.position) return [];
-
-        // 1. Find Position Option to get Key
         const positionOpt = masterOptions.find(o => o.type === 'POSITION' && o.label === user.position);
         if (!positionOpt) return [];
-
-        // 2. Filter Responsibilities by Parent Key
         return masterOptions.filter(o => o.type === 'RESPONSIBILITY' && o.parentKey === positionOpt.key);
-    };
-
-    const suggestedTasks = getSuggestedResponsibilities();
+    }, [assigneeIds, users, masterOptions]);
 
     const handleSendToQC = async () => {
         if (!initialData?.id) {
-            alert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ');
+            await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
             return;
         }
         const currentRoundCount = initialData.reviews?.length || 0;
@@ -275,7 +288,102 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     </div>
                 )}
 
-                {/* 3. Description & Status */}
+                {/* 3. Connect to Project (NEW) */}
+                <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-400 ml-1 uppercase flex items-center">
+                        <LinkIcon className="w-3 h-3 mr-1" /> เชื่อมโยงกับโปรเจกต์ (Optional)
+                    </label>
+                    {parentProject ? (
+                        <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                    <LayoutTemplate className="w-5 h-5 text-indigo-500" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-indigo-400 font-bold uppercase">Linked to Project</p>
+                                    <p className="font-bold text-indigo-800 text-sm truncate max-w-[200px]">{parentProject.title}</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => handleSetParentProject(null)}
+                                className="p-2 text-indigo-400 hover:text-red-500 hover:bg-white rounded-lg transition-all"
+                                title="ยกเลิกการเชื่อมโยง"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsProjectPickerOpen(true)}
+                            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 text-sm"
+                        >
+                            <Search className="w-4 h-4" /> เลือกโปรเจกต์หลัก (Select Parent Project)
+                        </button>
+                    )}
+                </div>
+
+                {/* Project Picker Modal */}
+                {isProjectPickerOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                        <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 border-4 border-indigo-50">
+                            <div className="px-6 py-5 border-b border-gray-100 bg-white flex justify-between items-center sticky top-0 z-10">
+                                <h3 className="font-bold text-lg text-gray-800">เลือกโปรเจกต์หลัก</h3>
+                                <button onClick={() => setIsProjectPickerOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
+                            </div>
+                            
+                            <div className="p-4 bg-gray-50 border-b border-gray-100">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="ค้นหาชื่อโปรเจกต์..." 
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 text-sm font-bold"
+                                        value={projectSearch}
+                                        onChange={e => setProjectSearch(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="overflow-y-auto flex-1 p-4 space-y-2">
+                                {filteredProjects.length === 0 ? (
+                                    <div className="text-center py-10 text-gray-400">
+                                        <p>ไม่พบโปรเจกต์ที่ค้นหา</p>
+                                    </div>
+                                ) : (
+                                    filteredProjects.map(proj => (
+                                        <div 
+                                            key={proj.id} 
+                                            onClick={() => { handleSetParentProject(proj.id); setIsProjectPickerOpen(false); }}
+                                            className="p-3 bg-white border border-gray-100 rounded-xl hover:border-indigo-300 hover:shadow-md cursor-pointer transition-all flex items-center gap-3 group"
+                                        >
+                                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                                <LayoutTemplate className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-gray-800 text-sm truncate group-hover:text-indigo-600">{proj.title}</h4>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold ${STATUS_COLORS[proj.status as any] || 'bg-gray-100 text-gray-500'}`}>
+                                                        {proj.status}
+                                                    </span>
+                                                    {/* We can fetch channel name if we pass channels list, for now just basic info */}
+                                                </div>
+                                            </div>
+                                            <div className="opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity">
+                                                <Check className="w-5 h-5" />
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* 3. Description, Priority & Status */}
                 <div className="space-y-4">
                     <div className="group bg-gray-50 p-4 rounded-2xl border border-gray-100 focus-within:bg-white focus-within:border-gray-300 focus-within:shadow-sm transition-all">
                         <label className="block text-xs font-bold text-gray-400 mb-2 uppercase">Details</label>
@@ -288,20 +396,46 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                         />
                     </div>
 
-                    <div className="bg-white p-3 border border-gray-200 rounded-xl flex items-center justify-between">
-                        <label className="text-sm font-bold text-gray-500 flex items-center">
-                            <Activity className="w-4 h-4 mr-2" /> สถานะ (Status)
-                        </label>
-                        <div className="relative">
-                            <select 
-                                value={status} 
-                                onChange={(e) => setStatus(e.target.value)} 
-                                className="pl-3 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 outline-none focus:border-indigo-500 cursor-pointer appearance-none"
-                            >
-                                {taskStatusOptions.map(opt => (
-                                    <option key={opt.key} value={opt.key}>{opt.label}</option>
-                                ))}
-                            </select>
+                    <div className="grid grid-cols-2 gap-4">
+                         {/* Priority Selector */}
+                         <div className="bg-white p-3 border border-gray-200 rounded-xl flex items-center justify-between">
+                            <label className="text-sm font-bold text-gray-500 flex items-center shrink-0">
+                                <Flag className="w-4 h-4 mr-2" /> ความเร่งด่วน
+                            </label>
+                            <div className="relative flex-1 ml-2">
+                                <select 
+                                    value={priority} 
+                                    onChange={(e) => setPriority(e.target.value as Priority)} 
+                                    className={`w-full pl-2 pr-6 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-black outline-none focus:border-indigo-500 cursor-pointer appearance-none ${
+                                        priority === 'URGENT' ? 'text-red-600 bg-red-50 border-red-200' : 
+                                        priority === 'HIGH' ? 'text-orange-600 bg-orange-50' : 
+                                        'text-gray-700'
+                                    }`}
+                                >
+                                    <option value="LOW">ชิวๆ (Low)</option>
+                                    <option value="MEDIUM">ทั่วไป (Medium)</option>
+                                    <option value="HIGH">ด่วน (High)</option>
+                                    <option value="URGENT">ไฟลุก (Urgent)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Status Selector */}
+                        <div className="bg-white p-3 border border-gray-200 rounded-xl flex items-center justify-between">
+                            <label className="text-sm font-bold text-gray-500 flex items-center shrink-0">
+                                <Activity className="w-4 h-4 mr-2" /> สถานะ
+                            </label>
+                            <div className="relative flex-1 ml-2">
+                                <select 
+                                    value={status} 
+                                    onChange={(e) => setStatus(e.target.value)} 
+                                    className="w-full pl-2 pr-6 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-black text-gray-700 outline-none focus:border-indigo-500 cursor-pointer appearance-none"
+                                >
+                                    {taskStatusOptions.map(opt => (
+                                        <option key={opt.key} value={opt.key}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -374,7 +508,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
             <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100">
                 <div className="flex items-center gap-2">
                     {initialData && onDelete && (
-                        <button type="button" onClick={async () => { if(await window.confirm('แน่ใจนะว่าจะลบงานนี้?')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
+                        <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
                         <Trash2 className="w-4 h-4 mr-2" /> ลบ
                         </button>
                     )}

@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, Role } from '../types';
-import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban } from 'lucide-react';
+import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban, Trophy, Heart, Coins, Gavel } from 'lucide-react';
+import { useGamification } from '../hooks/useGamification';
 
 interface MemberManagementModalProps {
     isOpen: boolean;
@@ -13,7 +14,7 @@ interface MemberManagementModalProps {
     onUpdateMember: (userId: string, updates: { name?: string, position?: string, role?: Role }) => Promise<boolean>;
 }
 
-type TabType = 'ACTIVE' | 'INACTIVE';
+type TabType = 'ACTIVE' | 'INACTIVE' | 'GAME_MASTER';
 
 const MemberManagementModal: React.FC<MemberManagementModalProps> = ({ 
     isOpen, onClose, users, currentUser, onToggleStatus, onRemoveMember, onUpdateMember 
@@ -23,6 +24,11 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     const [editingUser, setEditingUser] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{ name: string, position: string, role: Role }>({ name: '', position: '', role: 'MEMBER' });
     const [isSaving, setIsSaving] = useState(false);
+    
+    // Game Master State
+    const [adjustForm, setAdjustForm] = useState<{ hp: number, xp: number, points: number, reason: string }>({ hp: 0, xp: 0, points: 0, reason: '' });
+    const [selectedGmUser, setSelectedGmUser] = useState<User | null>(null);
+    const { adminAdjustStats } = useGamification(currentUser);
 
     // --- Stats Calculation ---
     const activeCount = users.filter(u => u.isActive).length;
@@ -34,6 +40,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         return users
             .filter(u => {
                 // 1. Tab Filter
+                if (currentTab === 'GAME_MASTER') return u.isActive; // Show all active users for GM
                 const statusMatch = currentTab === 'ACTIVE' ? u.isActive : !u.isActive;
                 // 2. Search Filter
                 const searchLower = searchQuery.toLowerCase();
@@ -43,7 +50,6 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                 return statusMatch && searchMatch;
             })
             .sort((a, b) => {
-                // Sort Admins first, then Alphabetical
                 if (a.role === 'ADMIN' && b.role !== 'ADMIN') return -1;
                 if (a.role !== 'ADMIN' && b.role === 'ADMIN') return 1;
                 return a.name.localeCompare(b.name);
@@ -60,6 +66,22 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         await onUpdateMember(userId, editForm);
         setIsSaving(false);
         setEditingUser(null);
+    };
+
+    const handleGmSave = async () => {
+        if (!selectedGmUser) return;
+        setIsSaving(true);
+        const success = await adminAdjustStats(selectedGmUser.id, {
+            hp: Number(adjustForm.hp),
+            xp: Number(adjustForm.xp),
+            points: Number(adjustForm.points)
+        }, adjustForm.reason || 'Admin Adjustment');
+        
+        setIsSaving(false);
+        if (success) {
+            setSelectedGmUser(null);
+            setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
+        }
     };
 
     if (!isOpen) return null;
@@ -123,6 +145,14 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                         >
                             <UserX className="w-4 h-4" /> Inactive ({inactiveCount})
                         </button>
+                        {currentUser.role === 'ADMIN' && (
+                            <button 
+                                onClick={() => setCurrentTab('GAME_MASTER')}
+                                className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${currentTab === 'GAME_MASTER' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Gavel className="w-4 h-4" /> Game Master
+                            </button>
+                        )}
                     </div>
 
                     {/* Search */}
@@ -160,7 +190,33 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 
                                     {/* Info */}
                                     <div className="flex-1 text-center md:text-left w-full">
-                                        {editingUser === user.id ? (
+                                        {/* GAME MASTER EDIT MODE */}
+                                        {selectedGmUser?.id === user.id && currentTab === 'GAME_MASTER' ? (
+                                            <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 animate-in fade-in">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-xs font-bold text-purple-700">ปรับค่า Stats ของ {user.name}</span>
+                                                    <button onClick={() => setSelectedGmUser(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4"/></button>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-2 mb-2">
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-gray-500 flex items-center mb-1"><Heart className="w-3 h-3 mr-1 text-red-400"/> HP (+/-)</label>
+                                                        <input type="number" className="w-full text-xs p-1.5 rounded border border-gray-200" placeholder="0" value={adjustForm.hp} onChange={e => setAdjustForm({...adjustForm, hp: Number(e.target.value)})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-gray-500 flex items-center mb-1"><Trophy className="w-3 h-3 mr-1 text-yellow-400"/> XP (+/-)</label>
+                                                        <input type="number" className="w-full text-xs p-1.5 rounded border border-gray-200" placeholder="0" value={adjustForm.xp} onChange={e => setAdjustForm({...adjustForm, xp: Number(e.target.value)})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-gray-500 flex items-center mb-1"><Coins className="w-3 h-3 mr-1 text-yellow-600"/> Coin (+/-)</label>
+                                                        <input type="number" className="w-full text-xs p-1.5 rounded border border-gray-200" placeholder="0" value={adjustForm.points} onChange={e => setAdjustForm({...adjustForm, points: Number(e.target.value)})} />
+                                                    </div>
+                                                </div>
+                                                <input type="text" className="w-full text-xs p-2 rounded border border-gray-200 mb-2" placeholder="เหตุผล (เช่น ชดเชย, หักโทษ)..." value={adjustForm.reason} onChange={e => setAdjustForm({...adjustForm, reason: e.target.value})} />
+                                                <button onClick={handleGmSave} disabled={isSaving} className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center">
+                                                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin"/> : <Check className="w-3 h-3 mr-1"/>} ยืนยันการปรับค่า
+                                                </button>
+                                            </div>
+                                        ) : editingUser === user.id && currentTab !== 'GAME_MASTER' ? (
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-in fade-in">
                                                 <div>
                                                     <label className="text-[10px] text-gray-400 font-bold uppercase ml-1">ชื่อเรียก</label>
@@ -201,19 +257,38 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                                                         <span className="bg-yellow-100 text-yellow-700 text-[9px] px-2 py-0.5 rounded-full font-bold border border-yellow-200 uppercase tracking-wide">ADMIN</span>
                                                     )}
                                                 </div>
-                                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-gray-500">
-                                                    <span className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><Briefcase className="w-3 h-3 mr-1.5"/> {user.position || 'No Position'}</span>
-                                                    <span className="flex items-center"><Phone className="w-3 h-3 mr-1.5"/> {user.phoneNumber || '-'}</span>
-                                                    <span className="hidden md:inline text-gray-300">|</span>
-                                                    <span>{user.email}</span>
-                                                </div>
+                                                
+                                                {currentTab === 'GAME_MASTER' ? (
+                                                     <div className="flex gap-4 text-xs font-medium text-gray-500">
+                                                         <span className="flex items-center"><Heart className="w-3 h-3 mr-1 text-red-500"/> {user.hp}/{user.maxHp}</span>
+                                                         <span className="flex items-center"><Trophy className="w-3 h-3 mr-1 text-yellow-500"/> Lv.{user.level} ({user.xp} XP)</span>
+                                                         <span className="flex items-center"><Coins className="w-3 h-3 mr-1 text-yellow-600"/> {user.availablePoints} JP</span>
+                                                     </div>
+                                                ) : (
+                                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-gray-500">
+                                                        <span className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><Briefcase className="w-3 h-3 mr-1.5"/> {user.position || 'No Position'}</span>
+                                                        <span className="flex items-center"><Phone className="w-3 h-3 mr-1.5"/> {user.phoneNumber || '-'}</span>
+                                                        <span className="hidden md:inline text-gray-300">|</span>
+                                                        <span>{user.email}</span>
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </div>
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 border-gray-100 pt-3 md:pt-0 w-full md:w-auto justify-end">
-                                        {editingUser === user.id ? (
+                                        {/* GM MODE ACTIONS */}
+                                        {currentTab === 'GAME_MASTER' ? (
+                                             selectedGmUser?.id !== user.id && (
+                                                 <button 
+                                                    onClick={() => { setSelectedGmUser(user); setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' }); }} 
+                                                    className="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl text-xs font-bold hover:bg-purple-200 transition-colors flex items-center"
+                                                 >
+                                                    <Edit2 className="w-3 h-3 mr-1.5"/> ปรับค่า (Adjust)
+                                                 </button>
+                                             )
+                                        ) : editingUser === user.id ? (
                                             <>
                                                 <button onClick={() => setEditingUser(null)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-xl text-xs font-bold transition-colors">ยกเลิก</button>
                                                 <button onClick={() => handleSave(user.id)} disabled={isSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200 transition-all active:scale-95">

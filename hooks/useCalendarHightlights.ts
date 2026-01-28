@@ -105,6 +105,19 @@ export const useCalendarHighlights = (currentDate: Date) => {
 
     const setHighlight = async (date: Date, typeKey: string, note?: string) => {
         const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // Optimistic UI Update
+        setHighlights(prev => {
+            // Remove existing highlight for this date if any
+            const others = prev.filter(h => format(h.date, 'yyyy-MM-dd') !== dateStr);
+            return [...others, {
+                id: `temp-${Date.now()}`,
+                date: date,
+                typeKey: typeKey,
+                note: note
+            }];
+        });
+
         try {
             // Upsert based on unique constraint (date)
             // This overrides any annual holiday because we check 'calendar_highlights' first
@@ -120,11 +133,16 @@ export const useCalendarHighlights = (currentDate: Date) => {
             showToast('บันทึกไฮไลท์เรียบร้อย 🎨', 'success');
         } catch (err: any) {
             showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+            fetchHighlights(); // Revert on error
         }
     };
 
     const removeHighlight = async (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // Optimistic UI Update
+        setHighlights(prev => prev.filter(h => format(h.date, 'yyyy-MM-dd') !== dateStr));
+
         try {
             const { error } = await supabase
                 .from('calendar_highlights')
@@ -137,6 +155,7 @@ export const useCalendarHighlights = (currentDate: Date) => {
             // because we removed the specific override. This is expected behavior.
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+            fetchHighlights(); // Revert on error
         }
     };
 

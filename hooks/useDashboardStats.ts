@@ -84,6 +84,12 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
+            // 0. Exclude Stock Items (Unscheduled) from general stats (unless Done)
+            // This prevents "Ghost" overdue tasks from stock
+            if (t.isUnscheduled && t.status !== 'DONE' && t.status !== 'APPROVE') {
+                return false;
+            }
+
             // 1. Scope Filter (Me vs All)
             if (viewScope === 'ME') {
                 const isAssignee = t.assigneeIds?.includes(currentUser.id);
@@ -98,7 +104,8 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
             if (t.status === 'DONE' || t.status === 'APPROVE') {
                 return isInRange;
             } else {
-                return isInRange || isBefore(t.endDate, today); // Show if in range OR overdue
+                // Show if in range OR if it's an overdue/active task relevant to now
+                return isInRange || isBefore(t.endDate, today); 
             }
         });
     }, [tasks, viewScope, timeRange, customDays, currentUser.id]);
@@ -132,12 +139,21 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
 
     // --- Urgent & Due Soon Logic ---
     const urgentTasks = useMemo(() => filteredTasks
-        .filter(t => (t.priority === 'URGENT' || t.priority === 'HIGH') && !(t.status === 'DONE' || t.status === 'APPROVE'))
+        .filter(t => 
+            (t.priority === 'URGENT' || t.priority === 'HIGH') && 
+            !(t.status === 'DONE' || t.status === 'APPROVE') &&
+            !t.isUnscheduled // Double check to ensure no stock items leak in
+        )
         .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
         .slice(0, 3), [filteredTasks]);
 
     const dueSoon = useMemo(() => filteredTasks
-        .filter(t => isAfter(t.endDate, today) && isBefore(t.endDate, addDays(today, 3)) && !(t.status === 'DONE' || t.status === 'APPROVE'))
+        .filter(t => 
+            isAfter(t.endDate, today) && 
+            isBefore(t.endDate, addDays(today, 3)) && 
+            !(t.status === 'DONE' || t.status === 'APPROVE') &&
+            !t.isUnscheduled
+        )
         .slice(0, 3), [filteredTasks, today]);
 
     // --- Chart Data ---

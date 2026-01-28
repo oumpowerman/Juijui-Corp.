@@ -1,10 +1,32 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, WorkStatus } from '../types';
 
 export const useAuth = (sessionUser: any) => {
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+
+    const mapProfileToUser = (data: any): User => ({
+        id: data.id,
+        email: data.email,
+        name: data.full_name || 'No Name',
+        role: data.role,
+        avatarUrl: data.avatar_url,
+        position: data.position || 'Member',
+        phoneNumber: data.phone_number,
+        bio: data.bio || '',
+        feeling: data.feeling || '',
+        isApproved: data.is_approved,
+        isActive: data.is_active !== false,
+        xp: data.xp || 0,
+        level: data.level || 1,
+        availablePoints: data.available_points || 0,
+        hp: data.hp || 100,
+        maxHp: data.max_hp || 100,
+        workStatus: (data.work_status as WorkStatus) || 'ONLINE',
+        leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
+        leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
+    });
 
     const fetchProfile = async () => {
         if (!sessionUser) return null;
@@ -17,31 +39,7 @@ export const useAuth = (sessionUser: any) => {
 
             if (error) throw error;
 
-            // Mapping ข้อมูลจาก DB ลงใน Interface User ของเรา
-            const mappedUser: User = {
-                id: data.id,
-                email: data.email,
-                name: data.full_name || 'No Name',
-                role: data.role, // สิทธิ์ระบบ: ADMIN, MEMBER
-                avatarUrl: data.avatar_url,
-                position: data.position || 'Member', // ตำแหน่งงานในบริษัท
-                phoneNumber: data.phone_number, // เบอร์โทร
-                bio: data.bio || '', // ADDED: Mapped bio field
-                feeling: data.feeling || '', // ADDED: Mapped feeling field
-                isApproved: data.is_approved,
-                isActive: data.is_active !== false,
-                xp: data.xp || 0,
-                level: data.level || 1,
-                availablePoints: data.available_points || 0,
-                hp: data.hp || 100,
-                maxHp: data.max_hp || 100,
-                
-                // --- NEW STATUS FIELDS ---
-                workStatus: (data.work_status as WorkStatus) || 'ONLINE',
-                leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
-                leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
-            };
-            
+            const mappedUser = mapProfileToUser(data);
             setCurrentUserProfile(mappedUser);
             return mappedUser;
         } catch (err: any) {
@@ -50,29 +48,57 @@ export const useAuth = (sessionUser: any) => {
         }
     };
 
+    // --- REALTIME SYNC ADDED ---
+    useEffect(() => {
+        if (!sessionUser?.id) return;
+
+        // Initial Fetch
+        fetchProfile();
+
+        const channel = supabase
+            .channel(`profile-sync-${sessionUser.id}`)
+            .on(
+                'postgres_changes',
+                { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'profiles', 
+                    filter: `id=eq.${sessionUser.id}` 
+                },
+                (payload) => {
+                    // Update state immediately when DB changes (XP, HP, Points, etc.)
+                    setCurrentUserProfile(prev => {
+                        if (!prev) return null;
+                        const updated = mapProfileToUser(payload.new);
+                        // Preserve some fields if needed, but usually full replace is safer for sync
+                        return updated;
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [sessionUser?.id]);
+
     const updateProfile = async (updates: Partial<User>, avatarFile?: File) => {
         if (!currentUserProfile) return false;
         
         try {
             const payload: any = {};
             
-            // Check undefined to allow empty strings (clearing data)
             if (updates.name !== undefined) payload.full_name = updates.name;
             if (updates.position !== undefined) payload.position = updates.position;
             if (updates.bio !== undefined) payload.bio = updates.bio; 
             if (updates.feeling !== undefined) payload.feeling = updates.feeling; 
-            
-            // Map camelCase (Frontend) to snake_case (Database) correctly
             if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
             
-            // --- NEW STATUS UPDATES ---
             if (updates.workStatus !== undefined) payload.work_status = updates.workStatus;
             if (updates.leaveStartDate !== undefined) payload.leave_start_date = updates.leaveStartDate ? updates.leaveStartDate.toISOString() : null;
             if (updates.leaveEndDate !== undefined) payload.leave_end_date = updates.leaveEndDate ? updates.leaveEndDate.toISOString() : null;
 
-            // Handle File Upload
             if (avatarFile) {
-                // Sanitize filename to avoid issues with special characters
                 const fileExt = avatarFile.name.split('.').pop();
                 const fileName = `${currentUserProfile.id}-${Date.now()}.${fileExt}`;
 
@@ -95,8 +121,9 @@ export const useAuth = (sessionUser: any) => {
                 .eq('id', currentUserProfile.id);
 
             if (error) throw error;
-
-            // Update Local State immediately
+            
+            // Note: Realtime subscription will likely catch this update too, 
+            // but optimistic update here makes UI snappier for the user editing their own profile.
             setCurrentUserProfile(prev => prev ? ({ 
                 ...prev, 
                 ...updates, 

@@ -15,8 +15,12 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, onOpenTask }) => {
 
     // Logic: Urgent = Overdue OR Due Today/Tomorrow (Exclude Done)
     const urgentTasks = tasks.filter(t => {
+        // Exclude Done tasks
         const isDone = t.status === 'DONE' || t.status === 'APPROVE';
         if (isDone) return false;
+
+        // Exclude Stock / Unscheduled tasks (Fix: Prevent stock items appearing as overdue)
+        if (t.isUnscheduled) return false;
         
         const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
         const isDueSoon = isToday(t.endDate) || (isBefore(t.endDate, addDays(today, 2)) && !isPast(t.endDate));

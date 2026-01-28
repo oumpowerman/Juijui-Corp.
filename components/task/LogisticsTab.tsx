@@ -9,9 +9,10 @@ import { useToast } from '../../context/ToastContext';
 interface LogisticsTabProps {
     parentContentId: string;
     users: User[];
+    onUpdate?: (task: Task) => void;
 }
 
-const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users }) => {
+const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, onUpdate }) => {
     const { fetchSubTasks, handleSaveTask, handleDeleteTask } = useTasks(() => {});
     const [subTasks, setSubTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,20 +69,27 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users }) =
 
     const handleToggleStatus = async (task: Task) => {
         const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+        const updatedTask = { ...task, status: newStatus };
         
         // Optimistic
-        setSubTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+        setSubTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
         
-        await handleSaveTask({ ...task, status: newStatus }, task);
+        await handleSaveTask(updatedTask, task);
+        if (onUpdate && task.showOnBoard) onUpdate(updatedTask);
     };
 
     const handleToggleShowOnBoard = async (task: Task) => {
         const newValue = !task.showOnBoard;
+        const updatedTask = { ...task, showOnBoard: newValue };
         
         // Optimistic
-        setSubTasks(prev => prev.map(t => t.id === task.id ? { ...t, showOnBoard: newValue } : t));
+        setSubTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
         
-        await handleSaveTask({ ...task, showOnBoard: newValue }, task);
+        await handleSaveTask(updatedTask, task);
+        
+        // Notify Parent to update board immediately
+        if (onUpdate) onUpdate(updatedTask);
+        
         showToast(newValue ? 'แสดงงานบนบอร์ดหลักแล้ว 👀' : 'ซ่อนงานจากบอร์ดหลักแล้ว 🙈', 'info');
     };
 

@@ -14,6 +14,7 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
+  onUpdate?: (task: Task) => void; // New prop for live updates without closing
   onDelete?: (taskId: string) => void;
   initialData?: Task | null;
   selectedDate?: Date | null;
@@ -22,10 +23,11 @@ interface TaskModalProps {
   lockedType?: TaskType | null; 
   masterOptions?: MasterOption[];
   currentUser?: User; 
+  projects?: Task[]; // Added projects list for linking
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ 
-    isOpen, onClose, onSave, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser 
+    isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [] 
 }) => {
   // Main View State
   const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS'>('DETAILS');
@@ -165,6 +167,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                  <LogisticsTab 
                     parentContentId={initialData.id}
                     users={users}
+                    onUpdate={onUpdate}
                  />
             ) : viewMode === 'WIKI' ? (
                 <TaskWiki className="flex-1" />
@@ -191,6 +194,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         users={users}
                         masterOptions={masterOptions}
                         currentUser={currentUser} 
+                        projects={projects} // Pass Projects here
                         onSave={(task) => { onSave(task); onClose(); }}
                         onDelete={onDelete}
                         onClose={onClose}

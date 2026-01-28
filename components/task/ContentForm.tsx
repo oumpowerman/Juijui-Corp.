@@ -466,7 +466,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-100 bg-white sticky bottom-0 pb-safe-area">
+            <div className="flex justify-between items-center pt-6 mt-8 border-t border-gray-100 bg-white pb-safe-area">
                 <div className="flex items-center gap-2">
                     {initialData && onDelete && (
                         <button type="button" onClick={handleDeleteTask} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">

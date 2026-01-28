@@ -32,6 +32,8 @@ const ShootChecklist = lazy(() => import('./components/ShootChecklist'));
 const WeeklyQuestBoard = lazy(() => import('./components/WeeklyQuestBoard'));
 const GoalView = lazy(() => import('./components/GoalView'));
 const WikiView = lazy(() => import('./components/WikiView'));
+// NEW PAGE: System Guide
+const SystemLogicGuide = lazy(() => import('./components/admin/SystemLogicGuide'));
 
 // --- LAZY LOAD MODALS (Optimization: Load only when needed) ---
 const TaskModal = lazy(() => import('./components/TaskModal'));
@@ -317,6 +319,8 @@ function App() {
                 );
             case 'WIKI':
                 return <WikiView currentUser={currentUserProfile} />;
+            case 'SYSTEM_GUIDE':
+                return <SystemLogicGuide />;
             default:
               return <div className="p-10 text-center text-gray-500">Coming Soon...</div>;
           }
@@ -347,6 +351,7 @@ function App() {
                     isOpen={isModalOpen}
                     onClose={closeModal}
                     onSave={(t) => handleSaveTask(t)}
+                    onUpdate={(t) => handleSaveTask(t)}
                     onDelete={handleDeleteTask}
                     initialData={editingTask}
                     selectedDate={selectedDate}
@@ -355,6 +360,7 @@ function App() {
                     lockedType={lockedTaskType}
                     masterOptions={masterOptions}
                     currentUser={currentUserProfile}
+                    projects={tasks.filter(t => t.type === 'CONTENT')} 
                 />
             )}
 
@@ -377,7 +383,6 @@ function App() {
             )}
         </Suspense>
         
-        {/* Notification Popover (Already lightweight, keep direct) */}
         <div className="relative z-[100]">
              <NotificationPopover 
                 isOpen={isNotificationOpen}

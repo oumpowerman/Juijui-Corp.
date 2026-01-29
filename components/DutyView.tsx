@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
-import { format, endOfWeek, eachDayOfInterval, addWeeks } from 'date-fns';
+import { format, endOfWeek, eachDayOfInterval, addWeeks, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -14,6 +14,7 @@ import ConfigModal from './duty/ConfigModal';
 import MyDutyWidget from './dashboard/member/MyDutyWidget';
 import SwapInbox from './duty/SwapInbox';
 import SwapRequestModal from './duty/SwapRequestModal';
+import MobileDutyAction from './duty/MobileDutyAction';
 
 interface DutyViewProps {
     users: User[];
@@ -73,6 +74,17 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     
     const activeUsers = users.filter(u => u.isActive);
 
+    // --- Find My Pending Duty for Today (Mobile Logic) ---
+    const myPendingDutyToday = useMemo(() => {
+        if (!currentUser) return null;
+        const today = new Date();
+        return duties.find(d => 
+            d.assigneeId === currentUser.id && 
+            !d.isDone && 
+            isSameDay(new Date(d.date), today)
+        );
+    }, [duties, currentUser]);
+
     // --- Config Handlers ---
     const handleOpenConfig = () => {
         const fullConfigs = WEEK_DAYS_MAP.map(day => {
@@ -128,6 +140,20 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
+            
+            {/* --- MOBILE ACTION (If has pending duty) --- */}
+            <div className="lg:hidden">
+                {myPendingDutyToday && currentUser && (
+                    <MobileDutyAction 
+                        duty={myPendingDutyToday}
+                        onToggle={toggleDuty}
+                        onSubmitProof={submitProof}
+                        onRequestSwap={handleInitiateSwap}
+                        userName={currentUser.name}
+                    />
+                )}
+            </div>
+
             <MentorTip variant="green" messages={[
                 "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
                 "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!"
@@ -137,9 +163,6 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
             <div>
                 {/* 1. Alerts */}
                 {currentUser && <SwapInbox requests={swapRequests} currentUser={currentUser} onRespond={respondSwap} />}
-
-                {/* 2. My Mission Card */}
-                {currentUser && <MyDutyWidget duties={duties} currentUser={currentUser} />}
             </div>
 
             {/* --- CONTROL DOCK --- */}

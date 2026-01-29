@@ -21,8 +21,7 @@ interface WeeklyQuestBoardProps {
     onDeleteQuest: (id: string) => void;
     onOpenSettings: () => void;
     onUpdateProgress?: (questId: string, val: number) => void;
-    // Added onUpdateQuest to Interface
-    onUpdateQuest?: (id: string, updates: { title?: string, targetCount?: number }) => void | Promise<void>;
+    onUpdateQuest?: (id: string, updates: Partial<WeeklyQuest>) => void; // Updated type
 }
 
 const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({ 

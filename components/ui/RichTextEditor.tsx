@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useEditor, EditorContent, Editor, Extension } from '@tiptap/react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, Quote, Undo, Redo, Strikethrough, Palette, Type, ChevronDown, Check, Plus } from 'lucide-react';
+import Link from '@tiptap/extension-link';
+import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, Quote, Undo, Redo, Strikethrough, Palette, Type, ChevronDown, Check, Plus, Link as LinkIcon, Unlink } from 'lucide-react';
+import EditorLinkModal from './EditorLinkModal';
 
 // --- Custom Extension for Font Size ---
 const FontSize = Extension.create({
@@ -77,6 +81,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     minHeight = '300px',
     onEditorReady
 }) => {
+    // Modal State
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [currentLinkUrl, setCurrentLinkUrl] = useState('');
+
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -103,6 +111,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             TextStyle,
             Color,
             FontSize,
+            Link.configure({
+                openOnClick: false,
+                autolink: true,
+                defaultProtocol: 'https',
+            }),
         ],
         content: content, 
         editable: !readOnly,
@@ -153,6 +166,34 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // --- Link Handling Logic ---
+    const openLinkModal = useCallback(() => {
+        if (!editor) return;
+        const previousUrl = editor.getAttributes('link').href;
+        setCurrentLinkUrl(previousUrl || '');
+        setIsLinkModalOpen(true);
+    }, [editor]);
+
+    const handleSaveLink = (url: string) => {
+        if (!editor) return;
+        
+        // Critical: Focus back to editor before applying command
+        editor.chain().focus().extendMarkRange('link');
+
+        if (url === '') {
+            editor.chain().focus().unsetLink().run();
+        } else {
+            editor.chain().focus().setLink({ href: url }).run();
+        }
+        setIsLinkModalOpen(false);
+    };
+
+    const handleUnlink = () => {
+        if (!editor) return;
+        editor.chain().focus().unsetLink().run();
+        setIsLinkModalOpen(false);
+    }
 
     if (!editor) {
         return null;
@@ -311,6 +352,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                         icon={Strikethrough} 
                         title="Strikethrough" 
                     />
+                    <MenuButton 
+                        onClick={openLinkModal} 
+                        isActive={editor.isActive('link')} 
+                        icon={LinkIcon} 
+                        title="Link" 
+                    />
                     
                     <Divider />
                     
@@ -341,6 +388,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             <div className="cursor-text p-4 md:p-8" onClick={() => editor.chain().focus().run()}>
                 <EditorContent editor={editor} />
             </div>
+
+            {/* Custom Link Modal */}
+            <EditorLinkModal 
+                isOpen={isLinkModalOpen}
+                onClose={() => setIsLinkModalOpen(false)}
+                initialUrl={currentLinkUrl}
+                onSave={handleSaveLink}
+                onUnlink={handleUnlink}
+            />
         </div>
     );
 };

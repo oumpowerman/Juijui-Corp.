@@ -41,6 +41,22 @@ const DutyCard: React.FC<DutyCardProps> = ({
         }
     };
 
+    const handleToggleCheck = async () => {
+        // If currently unchecked (marking as done), ask for confirmation
+        if (!duty.isDone) {
+            const confirmed = await showConfirm(
+                'ยืนยันว่าทำเวรเสร็จเรียบร้อยแล้วใช่หรือไม่?',
+                'ยืนยันการส่งงาน'
+            );
+            if (confirmed) {
+                onToggle(duty.id);
+            }
+        } else {
+            // Unchecking (correcting mistake) - usually immediate, or can add confirm if needed
+            onToggle(duty.id);
+        }
+    };
+
     return (
         <>
             <div className={`
@@ -90,9 +106,9 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 {/* Actions Footer */}
                 <div className="mt-3 pt-2 border-t border-dashed border-gray-200 flex items-center justify-between">
                     <div className="flex gap-2">
-                        {/* Status Toggle */}
+                        {/* Status Toggle with Confirmation */}
                          <button 
-                            onClick={() => onToggle(duty.id)} 
+                            onClick={handleToggleCheck} 
                             className={`text-xs font-bold flex items-center gap-1 transition-colors ${duty.isDone ? 'text-emerald-600' : 'text-gray-400 hover:text-indigo-600'}`}
                             disabled={isUploading}
                         >
@@ -152,6 +168,7 @@ const DutyCard: React.FC<DutyCardProps> = ({
                     ref={fileInputRef} 
                     className="hidden" 
                     accept="image/*" 
+                    capture="environment"
                     onChange={handleFileChange}
                 />
             </div>

@@ -114,8 +114,8 @@ export const useWeeklyQuests = () => {
         }
     };
 
-    // New: Update Quest Details (Title / Target)
-    const updateQuest = async (id: string, updates: { title?: string, targetCount?: number }) => {
+    // Updated: Update Quest Details (Flexible)
+    const updateQuest = async (id: string, updates: Partial<WeeklyQuest>) => {
         try {
             // Optimistic Update
             setQuests(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
@@ -123,6 +123,10 @@ export const useWeeklyQuests = () => {
             const payload: any = {};
             if (updates.title !== undefined) payload.title = updates.title;
             if (updates.targetCount !== undefined) payload.target_count = updates.targetCount;
+            if (updates.targetPlatform !== undefined) payload.target_platform = updates.targetPlatform;
+            if (updates.targetFormat !== undefined) payload.target_format = updates.targetFormat;
+            if (updates.targetStatus !== undefined) payload.target_status = updates.targetStatus;
+            if (updates.questType !== undefined) payload.quest_type = updates.questType;
 
             const { error } = await supabase
                 .from('weekly_quests')
@@ -144,6 +148,6 @@ export const useWeeklyQuests = () => {
         handleAddQuest,
         handleDeleteQuest,
         updateManualProgress,
-        updateQuest // Export new function
+        updateQuest
     };
 };

@@ -53,18 +53,46 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                 </div>
 
                 {isAdmin && (
-                    <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
+                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 flex shadow-sm relative overflow-visible">
                         <button 
                             onClick={() => setTab('BOARD')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'BOARD' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab === 'BOARD' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-gray-500 hover:bg-gray-50'}`}
                         >
                             Public Board
                         </button>
+                        
                         <button 
                             onClick={() => setTab('ADMIN')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${tab === 'ADMIN' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                            className={`
+                                relative px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 overflow-hidden
+                                ${tab === 'ADMIN' 
+                                    ? 'bg-orange-50 text-orange-700 shadow-inner ring-1 ring-orange-100' 
+                                    : pendingFeedbacks.length > 0 
+                                        ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-200 hover:scale-105 hover:-translate-y-0.5' 
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                }
+                            `}
                         >
-                            <ShieldCheck className="w-3 h-3" /> Inbox ({pendingFeedbacks.length})
+                            <ShieldCheck className={`w-4 h-4 ${pendingFeedbacks.length > 0 && tab !== 'ADMIN' ? 'animate-bounce' : ''}`} /> 
+                            <span>Inbox</span>
+                            
+                            {/* Counter Badge */}
+                            {pendingFeedbacks.length > 0 && (
+                                <span className={`
+                                    ml-1 px-1.5 py-0.5 rounded-md text-[10px] min-w-[20px] text-center shadow-sm
+                                    ${tab === 'ADMIN' ? 'bg-orange-200 text-orange-800' : 'bg-white text-rose-600 font-black'}
+                                `}>
+                                    {pendingFeedbacks.length}
+                                </span>
+                            )}
+
+                            {/* Attention Ping */}
+                            {pendingFeedbacks.length > 0 && tab !== 'ADMIN' && (
+                                <span className="absolute top-1 right-1 flex h-2.5 w-2.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-400"></span>
+                                </span>
+                            )}
                         </button>
                     </div>
                 )}
@@ -81,8 +109,15 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
 
                     {/* Feed List */}
                     <div className="space-y-4">
-                        <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider pl-1">
-                            {tab === 'BOARD' ? 'ล่าสุด (Latest Updates)' : 'รอการตรวจสอบ (Moderation Queue)'}
+                        <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider pl-1 flex items-center">
+                            {tab === 'BOARD' ? (
+                                <>🔥 ล่าสุด (Latest Updates)</>
+                            ) : (
+                                <>
+                                    🛡️ รอการตรวจสอบ (Moderation Queue) 
+                                    <span className="ml-2 bg-orange-100 text-orange-600 text-[10px] px-2 py-0.5 rounded-full">{pendingFeedbacks.length}</span>
+                                </>
+                            )}
                         </h3>
                         
                         {isLoading ? (

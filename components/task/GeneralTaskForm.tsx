@@ -103,6 +103,17 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
             await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
             return;
         }
+
+        // --- VALIDATION: Check for Pending Reviews ---
+        const pendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
+        if (pendingReview) {
+             await showAlert(
+                 `มีรายการ "Draft ${pendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
+                 '⚠️ ส่งซ้ำไม่ได้'
+             );
+             return;
+        }
+
         const currentRoundCount = initialData.reviews?.length || 0;
         const nextRound = currentRoundCount + 1;
         
@@ -368,7 +379,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                                                     <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold ${STATUS_COLORS[proj.status as any] || 'bg-gray-100 text-gray-500'}`}>
                                                         {proj.status}
                                                     </span>
-                                                    {/* We can fetch channel name if we pass channels list, for now just basic info */}
                                                 </div>
                                             </div>
                                             <div className="opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity">
@@ -504,7 +514,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 </div>
             </div>
 
-            {/* Footer - Moved out of scrolling area in a way, or just appended at the bottom without sticky */}
+            {/* Footer */}
             <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100">
                 <div className="flex items-center gap-2">
                     {initialData && onDelete && (

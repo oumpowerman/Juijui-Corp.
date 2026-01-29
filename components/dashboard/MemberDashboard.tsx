@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Task, Channel, MasterOption, WorkStatus } from '../../types';
+import { User, Task, Channel, MasterOption, WorkStatus, ViewMode } from '../../types';
 import { supabase } from '../../lib/supabase';
 import WelcomeHeader from './member/WelcomeHeader';
 import FocusZone from './member/FocusZone';
 import MyWorkBoard from './member/MyWorkBoard';
-import MyDutyWidget from './member/MyDutyWidget'; // Import Widget
+import MyDutyWidget from './member/MyDutyWidget';
 import WeeklyQuestBoard from '../WeeklyQuestBoard'; 
 import ItemShopModal from '../gamification/ItemShopModal';
+import GameRulesModal from '../gamification/GameRulesModal'; // Import New Modal
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
-import { useDuty } from '../../hooks/useDuty'; // Import Hook
+import { useDuty } from '../../hooks/useDuty';
 import { useToast } from '../../context/ToastContext';
 
 interface MemberDashboardProps {
@@ -20,8 +21,10 @@ interface MemberDashboardProps {
     masterOptions: MasterOption[];
     onEditTask: (task: Task) => void;
     onOpenSettings: () => void;
-    onEditProfile: () => void; // New Prop
+    onOpenNotifications?: () => void;
+    onEditProfile: () => void;
     onRefreshMasterData?: () => Promise<void>;
+    onNavigate: (view: ViewMode) => void;
 }
 
 const MemberDashboard: React.FC<MemberDashboardProps> = ({ 
@@ -32,91 +35,82 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     masterOptions, 
     onEditTask, 
     onOpenSettings,
-    onEditProfile 
+    onOpenNotifications,
+    onEditProfile,
+    onNavigate
 }) => {
-    // Local State for fast UI updates
+    // Local State
     const [localUser, setLocalUser] = useState<User>(currentUser);
     const [isShopOpen, setIsShopOpen] = useState(false);
+    const [isRulesOpen, setIsRulesOpen] = useState(false); // Rules Modal State
     const { showToast } = useToast();
     
-    // Weekly Quests Hook (Reused)
+    // Hooks
     const { quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest } = useWeeklyQuests();
-
-    // Duty Hook (To check for daily duties on dashboard)
     const { duties } = useDuty();
 
-    // Sync local user with prop updates (Realtime updates flow down here)
+    // Sync
     useEffect(() => {
         setLocalUser(currentUser);
     }, [currentUser]);
 
-    // Update Status Handler
+    // Handlers
     const handleUpdateStatus = async (status: WorkStatus) => {
-        // Optimistic Update
         setLocalUser(prev => ({ ...prev, workStatus: status }));
-        
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ work_status: status })
-                .eq('id', currentUser.id);
-            
+            const { error } = await supabase.from('profiles').update({ work_status: status }).eq('id', currentUser.id);
             if (error) throw error;
             showToast(`เปลี่ยนสถานะเป็น ${status} แล้ว`, 'success');
         } catch (err: any) {
             console.error(err);
-            // Revert on error
             setLocalUser(currentUser); 
             showToast('เปลี่ยนสถานะไม่สำเร็จ', 'error');
         }
     };
 
-    // Filter Tasks specific to this user
     const myTasks = tasks.filter(t => 
         t.assigneeIds.includes(currentUser.id) || 
         t.ideaOwnerIds?.includes(currentUser.id) || 
         t.editorIds?.includes(currentUser.id)
     );
 
-    // Mock Notification Count
     const unreadNotifications = 0; 
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24">
             
-            {/* 1. Welcome & Gamification Header */}
+            {/* 1. Header */}
             <WelcomeHeader 
                 user={localUser}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenShop={() => setIsShopOpen(true)}
-                onOpenNotifications={onOpenSettings}
+                onOpenNotifications={onOpenNotifications || onOpenSettings}
                 onEditProfile={onEditProfile}
+                onOpenRules={() => setIsRulesOpen(true)} // Pass Handler
                 unreadNotifications={unreadNotifications}
             />
 
-            {/* 2. My Duty Warning (High Priority) */}
+            {/* 2. Widgets */}
             <MyDutyWidget 
                 duties={duties} 
                 currentUser={currentUser} 
+                onNavigate={onNavigate}
             />
 
-            {/* 3. Focus Zone (Urgent / Revise) */}
             <FocusZone 
                 tasks={myTasks} 
                 onOpenTask={onEditTask} 
             />
 
-            {/* 4. My Work Board (Kanban) */}
             <MyWorkBoard 
                 tasks={myTasks} 
                 masterOptions={masterOptions}
                 onOpenTask={onEditTask}
             />
 
-            {/* 5. Weekly Quests */}
             <div className="pt-4 border-t border-gray-100">
                 <WeeklyQuestBoard 
-                    tasks={myTasks}
+                    tasks={tasks}
                     channels={channels}
                     quests={quests}
                     masterOptions={masterOptions}
@@ -128,11 +122,16 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 />
             </div>
 
-            {/* 6. Item Shop Modal */}
+            {/* Modals */}
             <ItemShopModal 
                 isOpen={isShopOpen}
                 onClose={() => setIsShopOpen(false)}
                 currentUser={localUser}
+            />
+
+            <GameRulesModal 
+                isOpen={isRulesOpen}
+                onClose={() => setIsRulesOpen(false)}
             />
         </div>
     );

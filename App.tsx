@@ -13,6 +13,7 @@ import { useSystemNotifications } from './hooks/useSystemNotifications';
 import { useChatUnread } from './hooks/useChatUnread';
 import { Loader2 } from 'lucide-react';
 import PublicScriptViewer from './components/public/PublicScriptViewer';
+import { TaskProvider } from './context/TaskContext'; // Import Provider
 
 // --- LAZY LOAD PAGES ---
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -32,7 +33,6 @@ const ShootChecklist = lazy(() => import('./components/ShootChecklist'));
 const WeeklyQuestBoard = lazy(() => import('./components/WeeklyQuestBoard'));
 const GoalView = lazy(() => import('./components/GoalView'));
 const WikiView = lazy(() => import('./components/WikiView'));
-// NEW PAGE: System Guide
 const SystemLogicGuide = lazy(() => import('./components/admin/SystemLogicGuide'));
 
 // --- LAZY LOAD MODALS (Optimization: Load only when needed) ---
@@ -47,17 +47,7 @@ const PageLoader = () => (
   </div>
 );
 
-function App() {
-  // --- ROUTING CHECK: Magic Link ---
-  // If URL starts with /s/, render public viewer immediately without Auth check
-  const path = window.location.pathname;
-  if (path.startsWith('/s/')) {
-      const token = path.split('/s/')[1];
-      if (token) {
-          return <PublicScriptViewer token={token} />;
-      }
-  }
-
+function AppContent() {
   const [session, setSession] = useState<any>(null);
   const [currentView, setCurrentView] = useState<ViewMode>('DASHBOARD');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -88,14 +78,11 @@ function App() {
     masterOptions,
     fetchMasterOptions,
     
-    // Checklist
     checklistPresets, activeChecklistItems,
     
-    // UI State
     isModalOpen, editingTask, selectedDate, notificationSettings, lockedTaskType,
     setIsModalOpen, setEditingTask,
     
-    // Actions
     handleAddTask, handleEditTask, handleSelectDate, closeModal,
     handleSaveTask, handleDeleteTask, handleDelayTask,
     checkAndExpandRange, fetchAllTasks,
@@ -114,7 +101,7 @@ function App() {
   } = useTaskManager(session?.user);
 
   // --- SUB-HOOKS ---
-  const { notifications, unreadCount: sysUnread } = useSystemNotifications(tasks, currentUserProfile);
+  const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead } = useSystemNotifications(tasks, currentUserProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
 
   // --- LOADING SCREEN ---
@@ -160,7 +147,9 @@ function App() {
                   currentUser={currentUserProfile}
                   onEditTask={handleEditTask}
                   onNavigateToCalendar={() => setCurrentView('CALENDAR')}
+                  onNavigate={(view) => setCurrentView(view)} 
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                  onOpenNotifications={() => setIsNotificationOpen(true)}
                   onEditProfile={() => setIsProfileModalOpen(true)}
                   masterOptions={masterOptions}
                   onFetchAllData={fetchAllTasks}
@@ -179,6 +168,7 @@ function App() {
                   onMoveTask={handleSaveTask}
                   onDelayTask={(tid, date, reason) => handleDelayTask(tid, date, reason, currentUserProfile.id)}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                  onOpenNotifications={() => setIsNotificationOpen(true)} 
                   onAddTask={status => { 
                       const t = { status, type: 'TASK' }; 
                       // @ts-ignore
@@ -351,7 +341,7 @@ function App() {
                     isOpen={isModalOpen}
                     onClose={closeModal}
                     onSave={(t) => handleSaveTask(t)}
-                    onUpdate={(t) => handleSaveTask(t)}
+                    onUpdate={(t) => handleSaveTask(t)} 
                     onDelete={handleDeleteTask}
                     initialData={editingTask}
                     selectedDate={selectedDate}
@@ -383,6 +373,7 @@ function App() {
             )}
         </Suspense>
         
+        {/* Notification Popover */}
         <div className="relative z-[100]">
              <NotificationPopover 
                 isOpen={isNotificationOpen}
@@ -391,10 +382,30 @@ function App() {
                 tasks={tasks}
                 onOpenTask={handleEditTask}
                 onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                onDismiss={dismissNotification}
+                onMarkAllRead={markAllAsRead}
              />
         </div>
 
     </AppShell>
+  );
+}
+
+function App() {
+  // --- ROUTING CHECK: Magic Link ---
+  const path = window.location.pathname;
+  if (path.startsWith('/s/')) {
+      const token = path.split('/s/')[1];
+      if (token) {
+          return <PublicScriptViewer token={token} />;
+      }
+  }
+
+  // Wrap everything in TaskProvider
+  return (
+    <TaskProvider>
+      <AppContent />
+    </TaskProvider>
   );
 }
 

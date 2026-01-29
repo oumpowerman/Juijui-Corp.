@@ -23,7 +23,7 @@ interface DutyCalendarGridProps {
     onToggleDuty: (id: string) => void;
     onDeleteDuty: (id: string) => void;
     onSubmitProof: (dutyId: string, file: File, userName: string) => Promise<boolean>;
-    onRequestSwap: (duty: Duty) => void; // New Prop
+    onRequestSwap: (duty: Duty) => void; // New Prop passed down
 }
 
 const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({

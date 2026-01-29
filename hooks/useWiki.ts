@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { WikiArticle } from '../types';
+import { WikiArticle, User } from '../types';
 import { useToast } from '../context/ToastContext';
 
-export const useWiki = () => {
+export const useWiki = (currentUser?: User) => {
     const [articles, setArticles] = useState<WikiArticle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -14,7 +14,11 @@ export const useWiki = () => {
         try {
             const { data, error } = await supabase
                 .from('wiki_articles')
-                .select('*')
+                .select(`
+                    *,
+                    author:profiles!wiki_articles_created_by_fkey(full_name, avatar_url),
+                    lastEditor:profiles!wiki_articles_updated_by_fkey(full_name, avatar_url)
+                `)
                 .order('is_pinned', { ascending: false })
                 .order('updated_at', { ascending: false });
 
@@ -27,15 +31,19 @@ export const useWiki = () => {
                     category: a.category,
                     content: a.content,
                     targetRoles: a.target_roles || ['ALL'],
+                    createdAt: new Date(a.created_at),
                     lastUpdated: new Date(a.updated_at),
                     isPinned: a.is_pinned,
-                    coverImage: a.cover_image, // Mapped
-                    helpfulCount: a.helpful_count || 0 // Mapped
+                    coverImage: a.cover_image,
+                    helpfulCount: a.helpful_count || 0,
+                    createdBy: a.created_by,
+                    updatedBy: a.updated_by,
+                    author: a.author ? { name: a.author.full_name, avatarUrl: a.author.avatar_url } : undefined,
+                    lastEditor: a.lastEditor ? { name: a.lastEditor.full_name, avatarUrl: a.lastEditor.avatar_url } : undefined,
                 })));
             }
         } catch (err: any) {
             console.error('Fetch wiki failed:', err);
-            // Silent fail or low-intrusive toast if needed
         } finally {
             setIsLoading(false);
         }
@@ -55,7 +63,8 @@ export const useWiki = () => {
         };
     }, []);
 
-    const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated' | 'helpfulCount'>) => {
+    const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated' | 'helpfulCount' | 'createdAt' | 'author' | 'lastEditor'>) => {
+        if (!currentUser) return;
         try {
             const payload = {
                 title: article.title,
@@ -63,7 +72,9 @@ export const useWiki = () => {
                 category: article.category,
                 target_roles: article.targetRoles,
                 is_pinned: article.isPinned,
-                cover_image: article.coverImage
+                cover_image: article.coverImage,
+                created_by: currentUser.id,
+                updated_by: currentUser.id
             };
 
             const { error } = await supabase.from('wiki_articles').insert(payload);
@@ -77,9 +88,11 @@ export const useWiki = () => {
     };
 
     const updateArticle = async (id: string, updates: Partial<WikiArticle>) => {
+        if (!currentUser) return;
         try {
             const payload: any = {
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.id
             };
             if (updates.title) payload.title = updates.title;
             if (updates.content) payload.content = updates.content;
@@ -109,8 +122,6 @@ export const useWiki = () => {
     };
 
     const toggleHelpful = async (id: string) => {
-        // Simple client-side toggle simulation without complex user-tracking table for now
-        // In production, we should track WHO liked to prevent spam.
         try {
             const article = articles.find(a => a.id === id);
             if (article) {

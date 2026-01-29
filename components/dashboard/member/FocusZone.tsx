@@ -13,7 +13,7 @@ interface FocusZoneProps {
 const FocusZone: React.FC<FocusZoneProps> = ({ tasks, onOpenTask }) => {
     const today = new Date();
 
-    // Logic: Urgent = Overdue OR Due Today/Tomorrow (Exclude Done)
+    // Logic: Urgent = Overdue OR Due Today/Tomorrow (Exclude Done & Stock)
     const urgentTasks = tasks.filter(t => {
         // Exclude Done tasks
         const isDone = t.status === 'DONE' || t.status === 'APPROVE';
@@ -28,8 +28,11 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, onOpenTask }) => {
         return isOverdue || isDueSoon || t.priority === 'URGENT';
     }).sort((a,b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-    // Logic: Revise = Status is Feedback/Revise
+    // Logic: Revise = Status is Feedback/Revise (Exclude Stock)
     const reviseTasks = tasks.filter(t => {
+        // Ensure we filter out Stock items from Revise zone as well
+        if (t.isUnscheduled) return false;
+
         const s = t.status as string;
         return s === 'FEEDBACK' || s === 'REVISE' || s.includes('EDIT_DRAFT'); // Adapt based on your specific status keys
     });

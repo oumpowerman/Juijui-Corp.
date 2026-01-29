@@ -1,32 +1,136 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     X, CheckCircle2, MousePointerClick, Database, ChevronUp, ChevronDown, 
     Calendar, Target, Edit2, Trash2, Save, Settings, AlertCircle, 
-    ExternalLink, Layers, MonitorPlay, FileText, Clock
+    ExternalLink, Layers, MonitorPlay, FileText, Clock, CheckSquare, Square
 } from 'lucide-react';
 import { WeeklyQuest, Task, Channel, Platform } from '../../types';
 import { format, addDays, isWithinInterval, differenceInDays, isPast, isToday } from 'date-fns';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import { STATUS_COLORS } from '../../constants';
+import { STATUS_COLORS, CONTENT_FORMATS } from '../../constants';
 
 interface QuestDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
-    channel?: Channel; // undefined if misc
+    channel?: Channel; 
     quests: WeeklyQuest[];
-    allTasks: Task[]; // Receive all tasks to filter correctly by quest range
-    // tasksInWeek prop removed as it is unused
+    allTasks: Task[]; 
     weekStart: Date;
     weekEnd: Date;
     onUpdateManualProgress: (questId: string, newValue: number) => void;
     onDeleteQuest: (id: string) => void;
-    onUpdateQuest?: (id: string, updates: { title?: string, targetCount?: number }) => void;
+    onUpdateQuest?: (id: string, updates: Partial<WeeklyQuest>) => void;
 }
+
+// Re-using MultiSelect component (Duplicate for simplicity within same feature module)
+const FormatMultiSelect = ({ 
+    options, 
+    selectedKeys = [], 
+    onChange 
+}: { 
+    options: { key: string, label: string }[], 
+    selectedKeys: string[], 
+    onChange: (keys: string[]) => void 
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState<{ top: number, left: number, width: number } | null>(null);
+
+    const updatePosition = () => {
+        if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setPosition({
+                top: rect.bottom + 4,
+                left: rect.left,
+                width: rect.width
+            });
+        }
+    };
+
+    const toggleOpen = () => {
+        if (!isOpen) {
+            updatePosition();
+        }
+        setIsOpen(!isOpen);
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [isOpen]);
+
+    const toggleSelection = (key: string) => {
+        if (selectedKeys.includes(key)) {
+            onChange(selectedKeys.filter(k => k !== key));
+        } else {
+            onChange([...selectedKeys, key]);
+        }
+    };
+
+    const displayText = selectedKeys.length === 0 
+        ? '(ทุกรูปแบบ)' 
+        : selectedKeys.length === 1 
+            ? options.find(o => o.key === selectedKeys[0])?.label || selectedKeys[0]
+            : `${selectedKeys.length} รูปแบบ`;
+
+    return (
+        <div className="relative w-full" ref={containerRef}>
+            <button 
+                type="button"
+                onClick={toggleOpen}
+                className={`w-full border-b-2 border-indigo-200 px-1 py-1 text-xs font-bold flex justify-between items-center bg-transparent ${isOpen ? 'border-indigo-400' : ''}`}
+            >
+                <span className={`truncate ${selectedKeys.length > 0 ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    {displayText}
+                </span>
+                <ChevronDown className="w-3 h-3 text-gray-400 ml-1 shrink-0" />
+            </button>
+            
+            {isOpen && position && createPortal(
+                <>
+                    <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)} />
+                    <div 
+                        className="fixed z-[9999] bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 max-h-[200px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+                        style={{
+                            top: position.top,
+                            left: position.left,
+                            width: position.width
+                        }}
+                    >
+                        {options.map(opt => {
+                            const isSelected = selectedKeys.includes(opt.key);
+                            return (
+                                <div 
+                                    key={opt.key}
+                                    onClick={() => toggleSelection(opt.key)}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-xs ${isSelected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-600'}`}
+                                >
+                                    {isSelected 
+                                        ? <CheckSquare className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> 
+                                        : <Square className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                                    }
+                                    <span className="truncate">{opt.label}</span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </>,
+                document.body
+            )}
+        </div>
+    );
+};
 
 const QuestDetailModal: React.FC<QuestDetailModalProps> = ({ 
     isOpen, onClose, channel, quests, allTasks, weekStart, weekEnd, onUpdateManualProgress, onDeleteQuest, onUpdateQuest 
 }) => {
-    // Expand the first quest by default if there's only one
     const [expandedQuestId, setExpandedQuestId] = useState<string | null>(quests.length === 1 ? quests[0].id : null);
     const [isManageMode, setIsManageMode] = useState(false);
     
@@ -34,12 +138,15 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editTarget, setEditTarget] = useState(0);
+    const [editPlatform, setEditPlatform] = useState<Platform | 'ALL' | ''>('');
+    const [editFormatKeys, setEditFormatKeys] = useState<string[]>([]);
+    const [editStatus, setEditStatus] = useState('');
 
     const { showConfirm } = useGlobalDialog();
 
     if (!isOpen) return null;
 
-    // --- Logic Reused ---
+    // --- Logic Reused & Enhanced ---
     const getMatchingTasks = (quest: WeeklyQuest) => {
         if (quest.questType === 'MANUAL') return [];
         
@@ -60,14 +167,20 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
             const matchChannel = quest.channelId ? t.channelId === quest.channelId : true;
             const matchStatus = quest.targetStatus ? t.status === quest.targetStatus : t.status === 'DONE';
             
+            // 3. Platform Check (Wildcard Logic)
             let matchPlatform = true;
-            if (quest.targetPlatform === 'ALL') {
-                matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
-            } else if (quest.targetPlatform) {
-                matchPlatform = (t.targetPlatforms && t.targetPlatforms.includes(quest.targetPlatform as Platform)) || false;
+            if (quest.targetPlatform) {
+                if (quest.targetPlatform === 'ALL') {
+                     matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
+                } else {
+                     // Check if specific platform matches OR if task is wildcard 'ALL'
+                     const hasSpecific = t.targetPlatforms?.includes(quest.targetPlatform as Platform);
+                     const hasAll = t.targetPlatforms?.includes('ALL');
+                     matchPlatform = hasSpecific || hasAll || false;
+                }
             }
             
-            // Format check: Array inclusion
+            // 4. Format check: Array inclusion
             let matchFormat = true;
             if (quest.targetFormat && quest.targetFormat.length > 0) {
                  matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;
@@ -92,11 +205,20 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
         setEditingId(quest.id);
         setEditTitle(quest.title);
         setEditTarget(quest.targetCount);
+        setEditPlatform(quest.targetPlatform || 'ALL');
+        setEditFormatKeys(quest.targetFormat || []);
+        setEditStatus(quest.targetStatus || 'DONE');
     };
 
     const saveEditing = (id: string) => {
         if (onUpdateQuest) {
-            onUpdateQuest(id, { title: editTitle, targetCount: Number(editTarget) });
+            onUpdateQuest(id, { 
+                title: editTitle, 
+                targetCount: Number(editTarget),
+                targetPlatform: editPlatform || 'ALL',
+                targetFormat: editFormatKeys,
+                targetStatus: editStatus
+            });
         }
         setEditingId(null);
     };
@@ -116,6 +238,9 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
     // Styling
     const modalBg = channel?.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 ') || 'bg-gray-50';
     const accentColor = channel?.color.split(' ')[1] || 'text-gray-800';
+
+    // Format Options (Static Fallback)
+    const formatOptions = Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: v.split(' ')[0] }));
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-sans">
@@ -187,14 +312,14 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                                 <div 
                                     key={quest.id} 
                                     className={`
-                                        bg-white border rounded-3xl shadow-sm transition-all relative overflow-hidden group
-                                        ${isEditingThis ? 'border-indigo-400 ring-4 ring-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:shadow-md'}
+                                        bg-white border rounded-3xl shadow-sm transition-all relative overflow-visible group
+                                        ${isEditingThis ? 'border-indigo-400 ring-4 ring-indigo-50 z-20' : 'border-gray-200 hover:border-indigo-200 hover:shadow-md'}
                                         ${isCompleted ? 'bg-gradient-to-r from-emerald-50/50 to-white' : ''}
                                     `}
                                 >
-                                    {/* Edit Mode Overlay */}
+                                    {/* Edit Mode Overlay Badge */}
                                     {isEditingThis && (
-                                        <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl z-20">
+                                        <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl z-20 pointer-events-none">
                                             Editing Mode
                                         </div>
                                     )}
@@ -215,7 +340,7 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
 
                                                 <div className="flex-1 min-w-0">
                                                     {/* Title Row */}
-                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                    <div className="flex items-center gap-2 mb-2">
                                                         {isEditingThis ? (
                                                             <input 
                                                                 type="text" 
@@ -236,18 +361,48 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                                                         )}
                                                     </div>
 
-                                                    {/* Badges Row */}
+                                                    {/* Conditions Row (Edit Mode) */}
+                                                    {isEditingThis && quest.questType === 'AUTO' && (
+                                                        <div className="grid grid-cols-3 gap-2 mb-2">
+                                                            <select 
+                                                                className="w-full text-xs font-bold border-b-2 border-indigo-200 outline-none py-1 bg-transparent text-gray-600 focus:border-indigo-500"
+                                                                value={editPlatform}
+                                                                onChange={e => setEditPlatform(e.target.value as Platform | 'ALL')}
+                                                            >
+                                                                <option value="ALL">All Platforms</option>
+                                                                <option value="FACEBOOK">Facebook</option>
+                                                                <option value="YOUTUBE">YouTube</option>
+                                                                <option value="TIKTOK">TikTok</option>
+                                                                <option value="INSTAGRAM">Instagram</option>
+                                                            </select>
+                                                            
+                                                            <FormatMultiSelect 
+                                                                options={formatOptions}
+                                                                selectedKeys={editFormatKeys}
+                                                                onChange={setEditFormatKeys}
+                                                            />
+                                                            
+                                                            <select 
+                                                                className="w-full text-xs font-bold border-b-2 border-indigo-200 outline-none py-1 bg-transparent text-gray-600 focus:border-indigo-500"
+                                                                value={editStatus}
+                                                                onChange={e => setEditStatus(e.target.value)}
+                                                            >
+                                                                <option value="DONE">Done ✅</option>
+                                                                <option value="APPROVE">Approve 👍</option>
+                                                            </select>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Badges Row (View Mode) */}
                                                     {!isEditingThis && (
                                                         <div className="flex flex-wrap gap-2 text-[10px] font-bold text-gray-500">
                                                             {quest.questType === 'AUTO' ? (
                                                                 <>
-                                                                    {/* Platform Badge */}
                                                                     <span className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200">
                                                                         <MonitorPlay className="w-3 h-3" />
                                                                         {quest.targetPlatform === 'ALL' || !quest.targetPlatform ? 'All Platforms' : quest.targetPlatform}
                                                                     </span>
                                                                     
-                                                                    {/* Format Badge */}
                                                                     {quest.targetFormat && quest.targetFormat.length > 0 && (
                                                                         <span className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100" title={quest.targetFormat.join(', ')}>
                                                                             <Layers className="w-3 h-3" />
@@ -255,7 +410,6 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                                                                         </span>
                                                                     )}
 
-                                                                    {/* Status Badge */}
                                                                     {quest.targetStatus && (
                                                                         <span className="flex items-center gap-1 bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-100">
                                                                             <FileText className="w-3 h-3" />
@@ -269,7 +423,6 @@ const QuestDetailModal: React.FC<QuestDetailModalProps> = ({
                                                                 </span>
                                                             )}
                                                             
-                                                            {/* Date Badge */}
                                                             <span className={`flex items-center gap-1 px-2 py-1 rounded border ${isExpired ? 'bg-red-50 text-red-500 border-red-100' : 'bg-gray-50 border-gray-200'}`}>
                                                                 <Clock className="w-3 h-3" /> {timeLeft}
                                                             </span>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { MasterOption, Reward } from '../types';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText, Calendar, CalendarDays, Smile, Presentation } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, Type, Tag, Loader2, Power, Check, Activity, HardDrive, Gift, Package, Briefcase, Award, LayoutTemplate, CheckSquare, CornerDownRight, User, Info, MapPin, Flag, AlertTriangle, HeartPulse, ShieldAlert, Monitor, FileText, Calendar, CalendarDays, Smile, Presentation, BookOpen } from 'lucide-react';
 import MentorTip from './MentorTip';
 import DashboardConfigModal from './DashboardConfigModal';
 import MaintenancePanel from './admin/maintenance/MaintenancePanel';
@@ -44,6 +44,7 @@ const MASTER_META: Record<string, { label: string, icon: any, desc: string, grou
     GREETINGS: { label: 'Greetings', icon: Smile, desc: 'คำอวยพร/ข้อความต้อนรับที่จะสุ่มแสดงเมื่อเปิดแอป', group: 'SYSTEM' },
     DASHBOARD: { label: 'Dashboard', icon: Monitor, desc: 'ตั้งค่าการ์ดสรุปงานในหน้า Admin Dashboard', group: 'SYSTEM' },
     MAINTENANCE: { label: 'Maintenance', icon: HardDrive, desc: 'ดูแลรักษาระบบ (Backup, Cleanup)', group: 'SYSTEM' },
+    WIKI_CATEGORY: { label: 'Wiki Categories', icon: BookOpen, desc: 'หมวดหมู่ของคู่มือการทำงาน (Wiki)', group: 'SYSTEM' },
 };
 
 const MasterDataManager: React.FC = () => {
@@ -229,7 +230,7 @@ const MasterDataManager: React.FC = () => {
                      {/* GROUP: SYSTEM */}
                      <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">System Config</div>
-                         {['REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE'].map(key => renderTabButton(key))}
+                         {['REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY'].map(key => renderTabButton(key))}
                     </div>
                 </div>
 

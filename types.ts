@@ -274,10 +274,15 @@ export interface WikiArticle {
     category: string;
     content: string;
     targetRoles?: string[];
+    createdAt: Date;
     lastUpdated: Date;
     isPinned: boolean;
     coverImage?: string;
     helpfulCount?: number;
+    createdBy?: string;
+    updatedBy?: string;
+    author?: { name: string; avatarUrl: string };
+    lastEditor?: { name: string; avatarUrl: string };
 }
 
 export interface Duty {

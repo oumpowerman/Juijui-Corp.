@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Sparkles, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban, Bell } from 'lucide-react';
 import { Channel, ChipConfig, TaskType } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -26,6 +26,7 @@ interface CalendarHeaderProps {
     customChips: ChipConfig[];
     setIsManageModalOpen: (val: boolean) => void;
     onOpenSettings: () => void;
+    onOpenNotifications?: () => void; // Added Prop
     filterChannelId: string;
     setFilterChannelId: (id: string) => void;
     channels: Channel[];
@@ -47,7 +48,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     setIsManageModalOpen,
     displayMode, setDisplayMode,
     onSelectDate,
-    channels
+    channels,
+    onOpenSettings,
+    onOpenNotifications
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
     const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
@@ -191,6 +194,15 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 {/* --- RIGHT SECTION: Controls --- */}
                 <div className="flex items-center justify-between w-full xl:w-auto shrink-0 gap-3 border-t xl:border-t-0 border-gray-100 pt-4 xl:pt-0">
                     
+                     {/* Notifications Bell */}
+                    <button 
+                        onClick={onOpenNotifications || onOpenSettings}
+                        className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
+                        title="การแจ้งเตือน"
+                    >
+                        <Bell className="w-5 h-5" />
+                    </button>
+
                     {/* Today Button */}
                     <button 
                         onClick={goToToday} 
@@ -258,7 +270,6 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     >
                         <Plus className="w-5 h-5 stroke-[3px] group-hover:rotate-90 transition-transform duration-300" />
                         <span className="hidden xl:inline ml-2 text-sm font-bold tracking-wide">สร้างงาน</span>
-                        <Sparkles className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse text-yellow-300 hidden xl:block" />
                     </button>
 
                 </div>

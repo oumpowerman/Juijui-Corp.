@@ -25,9 +25,12 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, onOpenT
         return 'DOING'; // Default everything else to Doing (Actionable)
     };
 
-    const todoTasks = tasks.filter(t => getPhase(t.status as string) === 'TODO');
-    const doingTasks = tasks.filter(t => getPhase(t.status as string) === 'DOING');
-    const doneTasks = tasks.filter(t => getPhase(t.status as string) === 'DONE');
+    // Filter Logic: Must be active (scheduled) tasks, excluding Stock items
+    const activeTasks = tasks.filter(t => !t.isUnscheduled);
+
+    const todoTasks = activeTasks.filter(t => getPhase(t.status as string) === 'TODO');
+    const doingTasks = activeTasks.filter(t => getPhase(t.status as string) === 'DOING');
+    const doneTasks = activeTasks.filter(t => getPhase(t.status as string) === 'DONE');
 
     const renderTaskCard = (task: Task, isDoing = false) => (
         <div 

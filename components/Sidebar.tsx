@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
+import { useSidebarBadges } from '../hooks/useSidebarBadges';
 
 interface SidebarProps {
   currentUser: User;
@@ -78,16 +79,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
+  // Smart Badges Hook
+  const { badges, markAsViewed } = useSidebarBadges(currentUser);
+
   // State for Accordion
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
       'WORKSPACE': true,
       'PRODUCTION': true,
-      'OFFICE': false,
+      'OFFICE': true, // Auto expand office to show feedback/qc
       'ADMIN': false
   });
 
   const toggleGroup = (groupId: string) => {
-      // Allow toggle even if collapsed, but UI handles visual
       setExpandedGroups(prev => ({
           ...prev,
           [groupId]: !prev[groupId]
@@ -96,7 +99,27 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleMenuItemClick = (view: ViewMode) => {
       onNavigate(view);
-      // Optional: Auto-collapse on click if desired, but user asked for hover behavior
+      
+      // Clear badge logic
+      if (view === 'MEETINGS') {
+          markAsViewed('MEETING');
+      }
+  };
+
+  const getBadgeContent = (view: ViewMode): { count: number, color: string } | null => {
+      if (view === 'CHAT' && unreadChatCount > 0) {
+          return { count: unreadChatCount, color: 'bg-red-500' };
+      }
+      if (view === 'QUALITY_GATE' && badges.qualityGate > 0) {
+          return { count: badges.qualityGate, color: 'bg-orange-500' };
+      }
+      if (view === 'FEEDBACK' && badges.feedback > 0) {
+          return { count: badges.feedback, color: 'bg-pink-500' };
+      }
+      if (view === 'MEETINGS' && badges.meeting > 0) {
+          return { count: badges.meeting, color: 'bg-blue-500' };
+      }
+      return null;
   };
 
   return (
@@ -150,7 +173,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               ) : (
                 <div className="w-full flex justify-center py-2 text-slate-200">
-                   {/* Divider or Mini Icon when collapsed */}
                    <div className="w-10 h-px bg-slate-100"></div>
                 </div>
               )}
@@ -161,6 +183,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {group.items.map((item) => {
                       const isActive = currentView === item.view;
                       const Icon = item.icon;
+                      const badge = getBadgeContent(item.view);
+
                       return (
                         <button
                           key={item.view}
@@ -179,13 +203,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                              {item.label}
                           </span>
                           
-                          {item.view === 'CHAT' && unreadChatCount > 0 && (
+                          {/* Smart Badge */}
+                          {badge && (
                             <div className={`
-                              font-black rounded-full animate-pulse flex items-center justify-center shrink-0
-                              ${isCollapsed ? 'absolute top-2 right-2 w-4 h-4 text-[7px]' : 'px-2 py-0.5 text-[9px] ml-2'}
-                              ${isActive ? 'bg-white text-indigo-600' : 'bg-red-500 text-white'}
+                              font-black rounded-full animate-pulse flex items-center justify-center shrink-0 shadow-sm
+                              ${isCollapsed ? 'absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[7px]' : 'min-w-[20px] h-5 px-1.5 text-[9px] ml-2'}
+                              ${isActive ? 'bg-white text-indigo-600' : `${badge.color} text-white`}
                             `}>
-                              {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                              {badge.count > 99 ? '99+' : badge.count}
                             </div>
                           )}
                         </button>

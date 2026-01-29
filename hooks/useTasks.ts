@@ -1,231 +1,27 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Task, TaskLog, ReviewSession, Status } from '../types';
+import { Task, TaskLog } from '../types';
 import { useToast } from '../context/ToastContext';
 import { isTaskCompleted } from '../constants';
-import { addMonths, endOfMonth, format } from 'date-fns';
-import { useGamification } from './useGamification'; // Import Engine
+import { useGamification } from './useGamification';
+import { useTaskContext } from '../context/TaskContext';
 
-export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const { showToast } = useToast();
-    const { processAction } = useGamification(); // Initialize Engine
+export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
+    // Consume state and fetchers from Context
+    const { 
+        tasks, setTasks, 
+        fetchTasks, fetchSubTasks, 
+        checkAndExpandRange, fetchAllTasks, 
+        isFetching 
+    } = useTaskContext();
     
-    // Helper to replace startOfMonth from date-fns
-    const getStartOfMonth = (date: Date) => {
-        return new Date(date.getFullYear(), date.getMonth(), 1);
-    };
+    const { showToast } = useToast();
+    const { processAction } = useGamification();
 
-    // --- Date Windowing State ---
-    // Default: Load 3 months back and 3 months forward
-    const [dateRange, setDateRange] = useState<{ start: Date, end: Date }>({
-        start: addMonths(getStartOfMonth(new Date()), -3),
-        end: addMonths(endOfMonth(new Date()), 3)
-    });
-    const [isAllLoaded, setIsAllLoaded] = useState(false);
-    const [isFetching, setIsFetching] = useState(false);
+    // --- ACTIONS (Write Operations) ---
+    // Kept here to separate concerns: Context = State/Read, Hook = Actions/Write
 
-    // Map Raw DB Data to Unified Task Type
-    const mapSupabaseToTask = (data: any, type: 'CONTENT' | 'TASK'): Task => {
-        const startDateVal = data.start_date || data.startDate;
-        const endDateVal = data.end_date || data.endDate;
-
-        let platforms = [];
-        if (Array.isArray(data.target_platform)) {
-            platforms = data.target_platform;
-        } else if (data.target_platform) {
-            platforms = [data.target_platform];
-        }
-
-        // Map Reviews (Link via content_id or task_id)
-        const reviews: ReviewSession[] = (data.task_reviews || []).map((r: any) => ({
-            id: r.id,
-            taskId: r.content_id || r.task_id, // Map correctly
-            round: r.round,
-            scheduledAt: new Date(r.scheduled_at),
-            reviewerId: r.reviewer_id,
-            status: r.status,
-            feedback: r.feedback,
-            isCompleted: r.is_completed
-        }));
-
-        // Logs are fetched on demand in TaskHistory, keeping initial load light
-        const logs: TaskLog[] = []; 
-
-        return {
-            id: data.id,
-            title: data.title,
-            description: data.description || '',
-            type: type, // Force type based on table source
-            status: data.status,
-            priority: data.priority,
-            tags: data.tags || [],
-            pillar: data.pillar,
-            contentFormat: data.content_format || data.contentFormat,
-            category: data.category,
-            remark: data.remark,
-            startDate: new Date(startDateVal),
-            endDate: new Date(endDateVal),
-            createdAt: new Date(data.created_at), // Mapped here
-            channelId: data.channel_id || data.channelId,
-            targetPlatforms: platforms,
-            isUnscheduled: data.is_unscheduled || data.isUnscheduled,
-            assigneeIds: data.assignee_ids || data.assigneeIds || [],
-            ideaOwnerIds: data.idea_owner_ids || data.ideaOwnerIds || [],
-            editorIds: data.editor_ids || data.editorIds || [],
-            assets: data.assets || [],
-            reviews: reviews.sort((a, b) => a.round - b.round),
-            logs: logs, // Empty by default
-            performance: data.performance || undefined,
-            difficulty: data.difficulty || 'MEDIUM',
-            estimatedHours: data.estimated_hours || 0,
-            
-            // New Mappings
-            assigneeType: data.assignee_type || 'TEAM',
-            targetPosition: data.target_position,
-            caution: data.caution,
-            importance: data.importance,
-            publishedLinks: data.published_links || {}, // Map JSONB to Object
-
-            // Production Info
-            shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
-            shootLocation: data.shoot_location || undefined,
-            
-            // Trinity Phase 2
-            contentId: data.content_id,
-            
-            // Promote to Board
-            showOnBoard: data.show_on_board,
-            parentContentTitle: data.contents?.title
-        };
-    };
-
-    const fetchTasks = useCallback(async () => {
-        setIsFetching(true);
-        let newTasks: Task[] = [];
-        
-        // Format dates for Supabase
-        const startStr = dateRange.start.toISOString();
-        const endStr = dateRange.end.toISOString();
-
-        // 1. Fetch CONTENTS
-        try {
-            let query = supabase
-                .from('contents')
-                .select(`
-                    *,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
-                `);
-            
-            if (!isAllLoaded) {
-                query = query.or(`is_unscheduled.eq.true,and(end_date.gte.${startStr},start_date.lte.${endStr})`);
-            }
-
-            const { data: contentsData, error: contentsError } = await query;
-            
-            if (contentsError) {
-                console.warn("Contents fetch warning:", contentsError.message);
-            } else if (contentsData) {
-                newTasks = [...newTasks, ...contentsData.map(d => mapSupabaseToTask(d, 'CONTENT'))];
-            }
-        } catch (err) {
-            console.error('Contents Fetch unexpected error:', err);
-        }
-
-        // 2. Fetch TASKS (Including promoted sub-tasks)
-        try {
-            // Updated query: Join contents to get parent title
-            let query = supabase.from('tasks').select(`
-                *,
-                contents (title)
-            `);
-
-            if (!isAllLoaded) {
-                query = query.gte('end_date', startStr).lte('start_date', endStr);
-            }
-
-            // Exclude pure sub-tasks unless they are promoted to board
-            query = query.or('content_id.is.null,show_on_board.eq.true');
-
-            const { data: tasksData, error: tasksError } = await query;
-
-            if (tasksData) {
-                newTasks = [...newTasks, ...tasksData.map(d => mapSupabaseToTask(d, 'TASK'))];
-            }
-        } catch (err) {
-            console.error('Tasks Fetch unexpected error:', err);
-        }
-
-        setTasks(newTasks);
-        setIsFetching(false);
-    }, [dateRange, isAllLoaded]);
-
-    // NEW: Fetch Sub-Tasks specifically for a content
-    const fetchSubTasks = async (contentId: string): Promise<Task[]> => {
-        try {
-            const { data, error } = await supabase
-                .from('tasks')
-                .select('*')
-                .eq('content_id', contentId)
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
-            return data ? data.map(d => mapSupabaseToTask(d, 'TASK')) : [];
-        } catch (err) {
-            console.error('Fetch sub-tasks failed', err);
-            return [];
-        }
-    };
-
-    const checkAndExpandRange = useCallback((targetDate: Date) => {
-        if (isAllLoaded) return; 
-
-        const target = new Date(targetDate);
-        let needsUpdate = false;
-        let newStart = dateRange.start;
-        let newEnd = dateRange.end;
-
-        if (target < dateRange.start) {
-            newStart = addMonths(getStartOfMonth(target), -1);
-            needsUpdate = true;
-        }
-        if (target > dateRange.end) {
-            newEnd = addMonths(endOfMonth(target), 1);
-            needsUpdate = true;
-        }
-
-        if (needsUpdate) {
-            console.log(`Expanding data range: ${format(newStart, 'yyyy-MM')} to ${format(newEnd, 'yyyy-MM')}`);
-            setDateRange({ start: newStart, end: newEnd });
-        }
-    }, [dateRange, isAllLoaded]);
-
-    const fetchAllTasks = useCallback(() => {
-        if (isAllLoaded) return;
-        setIsAllLoaded(true);
-    }, [isAllLoaded]);
-
-    // Realtime Subscription
-    useEffect(() => {
-        // Generate a unique channel name to prevent collision
-        const channelName = `realtime-planner-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
-        const channel = supabase
-            .channel(channelName)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTasks())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks())
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchTasks]);
-
-    useEffect(() => {
-        fetchTasks();
-    }, [fetchTasks]);
-
-    // --- REFACTORED: Hybrid Optimistic/Loading Logic ---
     const handleSaveTask = async (task: Task, editingTask: Task | null) => {
         const isContent = task.type === 'CONTENT';
         const table = isContent ? 'contents' : 'tasks';
@@ -249,7 +45,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             ...(isContent ? {} : { 
                 type: 'TASK', 
                 content_id: task.contentId || null,
-                show_on_board: task.showOnBoard || false // Add show_on_board
+                show_on_board: task.showOnBoard || false 
             }) 
         };
 
@@ -272,39 +68,34 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
 
         const dbPayload = { ...basePayload, ...contentPayload };
 
-        // --- Flow 1: UPDATE (Optimistic - Update Immediate) ---
+        // --- Optimistic Update ---
         if (isUpdate) {
-            // 1. Snapshot previous state (in case of rollback)
             const previousTasks = [...tasks];
             
-            // 2. Update UI Immediately
+            // Update Context State Immediately
             if (tasks.some(t => t.id === task.id)) {
-                // If in list, update it. If showOnBoard became false, remove it.
                 if (task.contentId && task.showOnBoard === false) {
                      setTasks(prev => prev.filter(t => t.id !== task.id));
                 } else {
                      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
                 }
             } else {
-                // If NOT in list (sub-task) but now showOnBoard is true, add it!
                 if (task.contentId && task.showOnBoard === true) {
                     setTasks(prev => [...prev, task]);
                 }
             }
             
-            // Don't close modal yet if it's sub-task from Logistics Tab, handled by caller
-            if (!task.contentId) {
+            if (!task.contentId && setIsModalOpen) {
                 setIsModalOpen(false); 
             }
 
             try {
-                // 3. Fire API
                 const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
                 
                 showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
                 
-                // Gamification Check (Post-Success)
+                // Gamification
                 const isCompleted = isTaskCompleted(task.status);
                 const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
                 if (isCompleted && !wasCompleted) {
@@ -317,29 +108,25 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
                 }
 
             } catch (dbError: any) {
-                // 4. Rollback UI on Error
                 console.error(dbError);
-                setTasks(previousTasks);
+                setTasks(previousTasks); // Rollback
                 showToast('บันทึกไม่สำเร็จ: ' + dbError.message, 'error');
             }
         } 
-        
-        // --- Flow 2: CREATE (Loading - Wait for ID) ---
         else {
+            // Create New
             try {
-                // 1. Fire API (Wait for ID)
                 const insertPayload = { id: task.id, ...dbPayload };
                 const { error } = await supabase.from(table).insert(insertPayload);
                 
                 if (error) throw error;
                 
-                // 2. Update UI After Success (Only if not a sub-task)
+                // Update Context State (if suitable for list)
                 if (!task.contentId) {
                     setTasks(prev => [...prev, task]);
-                    setIsModalOpen(false);
+                    if (setIsModalOpen) setIsModalOpen(false);
                 }
 
-                // Log Creation
                 const logPayload: any = {
                      action: 'CREATED',
                      details: `สร้างใหม่: ${task.title}`
@@ -358,10 +145,9 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     };
 
     const handleDelayTask = async (taskId: string, newDate: Date, reason: string, userId: string) => {
-        // Optimistic Update
         const previousTasks = [...tasks];
         
-        // Update UI
+        // Optimistic
         setTasks(prev => prev.map(t => t.id === taskId ? { 
             ...t, 
             startDate: newDate, 
@@ -383,7 +169,6 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             
             if (taskError) throw taskError;
 
-            // Log Logic
             const logPayload: any = {
                 user_id: userId,
                 action: 'DELAYED',
@@ -397,8 +182,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
             showToast('บันทึกการเลื่อนงานแล้ว ⏳', 'warning');
 
         } catch (err: any) {
-            // Revert
-            setTasks(previousTasks);
+            setTasks(previousTasks); // Rollback
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
     };
@@ -406,26 +190,19 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     const handleDeleteTask = async (taskId: string) => {
         const previousTasks = [...tasks];
         
-        // Optimistic UI
         setTasks(prev => prev.filter(t => t.id !== taskId));
-        setIsModalOpen(false);
+        if (setIsModalOpen) setIsModalOpen(false);
         showToast('ลบเรียบร้อย', 'info');
 
         try {
-            // Check if it's in local state to know type, otherwise query DB or assume based on ID lookups if possible
-            // Simpler: Try deleting from both or assume type passed? 
-            // For now, relying on local state is safer
             const targetTask = previousTasks.find(t => t.id === taskId);
-            
-            // If not found in main list (maybe subtask?), try deleting from tasks table first
             const table = targetTask?.type === 'CONTENT' ? 'contents' : 'tasks';
 
             const { error } = await supabase.from(table).delete().eq('id', taskId);
             if (error) throw error;
             
         } catch (dbError) {
-             // Revert
-             setTasks(previousTasks);
+             setTasks(previousTasks); // Rollback
              showToast('ลบไม่สำเร็จ (กู้คืนข้อมูล)', 'error');
         }
     };
@@ -433,7 +210,7 @@ export const useTasks = (setIsModalOpen: (isOpen: boolean) => void) => {
     return {
         tasks,
         fetchTasks,
-        fetchSubTasks, // Exported
+        fetchSubTasks,
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,

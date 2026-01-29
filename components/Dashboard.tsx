@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Task, Channel, User, MasterOption } from '../types';
+import { Task, Channel, User, MasterOption, ViewMode } from '../types';
 import AdminDashboard from './dashboard/AdminDashboard';
 import MemberDashboard from './dashboard/MemberDashboard';
 
@@ -11,8 +11,10 @@ interface DashboardProps {
   currentUser: User;
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
+  onNavigate: (view: ViewMode) => void; // Added for generic navigation
   onOpenSettings: () => void;
-  onEditProfile: () => void; // New Prop
+  onOpenNotifications?: () => void;
+  onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
   onFetchAllData?: () => void;
@@ -28,7 +30,13 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   }
 
   // If Member, show the new Member Dashboard (Personalized)
-  return <MemberDashboard {...props} masterOptions={props.masterOptions || []} />;
+  return (
+    <MemberDashboard 
+      {...props} 
+      masterOptions={props.masterOptions || []} 
+      onNavigate={props.onNavigate}
+    />
+  );
 };
 
 export default Dashboard;

@@ -16,6 +16,7 @@ interface DashboardHeaderProps {
     viewScope: ViewScope;
     setViewScope: (scope: ViewScope) => void;
     onOpenSettings: () => void;
+    onOpenNotifications?: () => void; // New prop
     getTimeRangeLabel: () => string;
 }
 
@@ -29,6 +30,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     viewScope,
     setViewScope,
     onOpenSettings,
+    onOpenNotifications,
     getTimeRangeLabel
 }) => {
     const { randomGreeting } = useGreetings();
@@ -68,7 +70,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         </p>
                     </div>
                     <button 
-                        onClick={onOpenSettings}
+                        onClick={onOpenNotifications || onOpenSettings} // Use notifications if available, else settings
                         className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
                         title="การแจ้งเตือน"
                     >

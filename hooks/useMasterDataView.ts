@@ -20,7 +20,7 @@ export type MasterTab =
     // QC
     | 'REJECTION_REASON'
     // System
-    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE';
+    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY';
 
 export const useMasterDataView = () => {
     // --- Hooks ---
@@ -75,7 +75,7 @@ export const useMasterDataView = () => {
             label: option.label, 
             color: option.color || 'bg-gray-100 text-gray-700', 
             sortOrder: option.sortOrder, 
-            isActive: option.isActive,
+            isActive: option.isActive, 
             parentKey: option.parentKey || ''
         });
         setIsEditing(true);

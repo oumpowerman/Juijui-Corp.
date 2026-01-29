@@ -10,7 +10,9 @@ export const useFeedback = (currentUser: User) => {
     const { showToast } = useToast();
 
     const fetchFeedbacks = async () => {
-        setIsLoading(true);
+        // Don't set loading to true on background refetches to avoid flickering
+        if (feedbacks.length === 0) setIsLoading(true);
+        
         try {
             // 1. Fetch Feedbacks
             const { data, error } = await supabase
@@ -64,15 +66,12 @@ export const useFeedback = (currentUser: User) => {
 
     const submitFeedback = async (content: string, type: FeedbackType, isAnonymous: boolean) => {
         try {
-            // If Shoutout, force NOT anonymous (usually), but let's respect the toggle
-            // If Direct to Admin (ISSUE), logic handles it via status usually, but here we treat types.
-            
             const payload = {
                 content,
                 type,
                 is_anonymous: isAnonymous,
                 user_id: currentUser.id,
-                status: 'PENDING', // Always pending first for moderation
+                status: 'PENDING',
                 vote_count: 0
             };
 
@@ -88,17 +87,55 @@ export const useFeedback = (currentUser: User) => {
     };
 
     const toggleVote = async (id: string, currentStatus: boolean) => {
+        // 1. Optimistic Update (เปลี่ยนหน้าเว็บทันที)
+        setFeedbacks(prev => prev.map(f => {
+            if (f.id === id) {
+                return {
+                    ...f,
+                    hasVoted: !currentStatus,
+                    voteCount: currentStatus ? f.voteCount - 1 : f.voteCount + 1
+                };
+            }
+            return f;
+        }));
+
         try {
             if (currentStatus) {
-                // Remove Vote
-                await supabase.from('feedback_votes').delete().eq('feedback_id', id).eq('user_id', currentUser.id);
+                // UI says Voted -> Remove Vote
+                const { error } = await supabase.from('feedback_votes').delete().eq('feedback_id', id).eq('user_id', currentUser.id);
+                if (error) throw error;
             } else {
-                // Add Vote
-                await supabase.from('feedback_votes').insert({ feedback_id: id, user_id: currentUser.id });
+                // UI says Not Voted -> Add Vote
+                const { error } = await supabase.from('feedback_votes').insert({ feedback_id: id, user_id: currentUser.id });
+                
+                // Handle Duplicate Key Error (Race Condition or Sync Issue)
+                if (error) {
+                    if (error.code === '23505') {
+                        console.warn("Vote exists (Sync Issue), toggling OFF instead.");
+                        // If insert fails because it exists, perform DELETE instead
+                        await supabase.from('feedback_votes').delete().eq('feedback_id', id).eq('user_id', currentUser.id);
+                        
+                        // Force refresh to correct the count if optimistic update was wrong direction
+                        fetchFeedbacks(); 
+                    } else {
+                        throw error;
+                    }
+                }
             }
-            // Realtime will update UI
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error('Toggle vote error:', err);
+            // Revert optimistic update on error (Rollback)
+            setFeedbacks(prev => prev.map(f => {
+                if (f.id === id) {
+                    return {
+                        ...f,
+                        hasVoted: currentStatus, // Revert to original
+                        voteCount: currentStatus ? f.voteCount + 1 : f.voteCount - 1 // Revert count
+                    };
+                }
+                return f;
+            }));
+            showToast('ทำรายการไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
@@ -106,6 +143,8 @@ export const useFeedback = (currentUser: User) => {
         try {
             await supabase.from('feedbacks').update({ status }).eq('id', id);
             showToast(`อัปเดตสถานะเป็น ${status} แล้ว`, 'info');
+            // Optimistic update for status
+            setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
         } catch (err) {
             showToast('อัปเดตไม่สำเร็จ', 'error');
         }
@@ -116,6 +155,8 @@ export const useFeedback = (currentUser: User) => {
         try {
             await supabase.from('feedbacks').delete().eq('id', id);
             showToast('ลบเรียบร้อย', 'info');
+            // Optimistic delete
+            setFeedbacks(prev => prev.filter(f => f.id !== id));
         } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');
         }

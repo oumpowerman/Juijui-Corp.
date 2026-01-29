@@ -1,6 +1,11 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, Database } from 'lucide-react';
+import { 
+    LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
+    Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
+    LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
+    Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart 
+} from 'lucide-react';
 import { User, ViewMode, TaskType } from '../types';
 
 interface MobileNavigationProps {
@@ -13,17 +18,36 @@ interface MobileNavigationProps {
     unreadChatCount: number;
 }
 
-const MobileMenuButton = ({ view, icon: Icon, label, color, currentView, onNavigate }: { view: ViewMode, icon: any, label: string, color: string, currentView: ViewMode, onNavigate: (v: ViewMode) => void }) => (
-    <button
-        onClick={() => onNavigate(view)}
-        className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${currentView === view ? 'bg-gray-100 border-gray-300' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
-    >
-        <div className={`p-2 rounded-xl mb-1 ${color}`}>
-            <Icon className="w-5 h-5" />
-        </div>
-        <span className="text-[10px] font-bold text-gray-600 text-center leading-tight">{label}</span>
-    </button>
-);
+const MobileMenuButton = ({ 
+    view, icon: Icon, label, color, currentView, onNavigate, badge 
+}: { 
+    view: ViewMode, icon: any, label: string, color: string, currentView: ViewMode, onNavigate: (v: ViewMode) => void, badge?: number 
+}) => {
+    const isActive = currentView === view;
+    return (
+        <button
+            onClick={() => onNavigate(view)}
+            className={`
+                flex flex-col items-center justify-center p-3 rounded-2xl border transition-all relative group active:scale-95
+                ${isActive 
+                    ? 'bg-indigo-50 border-indigo-200 shadow-sm' 
+                    : 'bg-white border-gray-100 hover:border-indigo-100 hover:shadow-md'}
+            `}
+        >
+            <div className={`p-2.5 rounded-xl mb-2 transition-colors ${isActive ? 'bg-white text-indigo-600 shadow-sm' : `${color} bg-opacity-10`}`}>
+                <Icon className={`w-6 h-6 ${isActive ? 'text-indigo-600' : color.replace('bg-', 'text-').replace('/10', '')}`} />
+            </div>
+            <span className={`text-[10px] font-bold text-center leading-tight ${isActive ? 'text-indigo-700' : 'text-gray-600'}`}>{label}</span>
+            
+            {/* Badge */}
+            {badge && badge > 0 && (
+                <div className="absolute top-2 right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                    {badge > 99 ? '99+' : badge}
+                </div>
+            )}
+        </button>
+    );
+};
 
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -33,139 +57,177 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
         setIsMenuOpen(false);
     };
 
-    // Updated Bottom Nav Items (Added Script and Meeting)
-    const mainNavItems = [
-        { view: 'DASHBOARD' as ViewMode, icon: LayoutGrid, label: 'Home' },
-        { view: 'SCRIPT_HUB' as ViewMode, icon: FileText, label: 'Script' },
-        { view: 'MEETINGS' as ViewMode, icon: Presentation, label: 'Meeting' },
-        { view: 'CHAT' as ViewMode, icon: MessageCircle, label: 'Chat' },
-    ];
+    // Calculate Level Progress
+    const nextLevelXP = currentUser.level * 1000;
+    const progressPercent = Math.min((currentUser.xp / nextLevelXP) * 100, 100);
 
     return (
         <>
-            {/* Bottom Bar (5-item layout) */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-2 py-2 flex justify-around items-center z-50 lg:hidden pb-safe-area h-[75px] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-                {mainNavItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.view;
-                    return (
-                        <button
-                            key={item.view}
-                            onClick={() => onNavigate(item.view)}
-                            className={`flex flex-col items-center gap-1 w-14 transition-all ${isActive ? 'text-indigo-600' : 'text-gray-400'}`}
-                        >
-                            <div className={`relative p-1.5 rounded-xl transition-all ${isActive ? 'bg-indigo-50 shadow-inner' : 'bg-transparent'}`}>
-                                <Icon className={`w-5 h-5 ${isActive ? 'fill-indigo-600' : ''}`} />
-                                {item.view === 'CHAT' && unreadChatCount > 0 && (
-                                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
+            {/* --- BOTTOM DOCK (Floating Glass) --- */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center pb-safe-area">
+                <div className="bg-white/90 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] px-2 py-2 flex items-center justify-between pointer-events-auto gap-1 w-full max-w-md ring-1 ring-gray-200/50">
+                    {[
+                        { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
+                        { view: 'CALENDAR', icon: CalendarIcon, label: 'Calendar' },
+                        { view: 'CHAT', icon: MessageCircle, label: 'Chat', badge: unreadChatCount },
+                        { view: 'TEAM', icon: Users, label: 'Team' }, // Added Team to Dock
+                    ].map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.view;
+                        // @ts-ignore
+                        const badge = item.badge;
+
+                        return (
+                            <button
+                                key={item.view}
+                                onClick={() => onNavigate(item.view as ViewMode)}
+                                className={`
+                                    relative flex-1 flex flex-col items-center justify-center h-[60px] rounded-[1.5rem] transition-all duration-300
+                                    ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}
+                                `}
+                            >
+                                <Icon className={`w-6 h-6 mb-0.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
+                                <span className="text-[9px] font-bold">{item.label}</span>
+                                {badge > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                                 )}
-                            </div>
-                            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
-                        </button>
-                    );
-                })}
-                
-                <button
-                    onClick={() => setIsMenuOpen(true)}
-                    className={`flex flex-col items-center gap-1 w-14 transition-all ${isMenuOpen ? 'text-indigo-600' : 'text-gray-400'}`}
-                >
-                    <div className={`p-1.5 rounded-xl transition-all ${isMenuOpen ? 'bg-indigo-50 shadow-inner' : 'bg-transparent'}`}>
-                        <Menu className="w-5 h-5" />
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-tighter">Menu</span>
-                </button>
+                            </button>
+                        );
+                    })}
+                    
+                    <div className="w-px h-8 bg-gray-200 mx-1"></div>
+
+                    <button
+                        onClick={() => setIsMenuOpen(true)}
+                        className={`
+                            relative flex-1 flex flex-col items-center justify-center h-[60px] rounded-[1.5rem] transition-all duration-300
+                            ${isMenuOpen ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}
+                        `}
+                    >
+                        <Menu className="w-6 h-6 mb-0.5" />
+                        <span className="text-[9px] font-bold">Menu</span>
+                    </button>
+                </div>
             </div>
 
-            {/* Mobile Menu Overlay */}
+            {/* --- FULL SCREEN DRAWER --- */}
             {isMenuOpen && (
-                <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm lg:hidden animate-in fade-in duration-200" onClick={() => setIsMenuOpen(false)}>
-                    <div 
-                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] p-6 animate-in slide-in-from-bottom-full duration-300 shadow-2xl h-[85vh] flex flex-col border-t-4 border-indigo-50"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Pull Bar */}
-                        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+                <div className="fixed inset-0 z-[60] bg-white lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col">
+                    
+                    {/* Header: User Profile & Stats */}
+                    <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[2.5rem] shadow-xl relative overflow-hidden shrink-0">
+                        {/* Background Effects */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
 
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-black text-gray-800 tracking-tight">เมนูทั้งหมด</h3>
-                            <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto space-y-8 pb-10 scrollbar-hide">
-                            
-                            {/* General/Workspace */}
-                            <div>
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 pl-1">Workspace</h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <MobileMenuButton view="CALENDAR" icon={CalendarIcon} label="ปฏิทิน" color="bg-indigo-100 text-indigo-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="WEEKLY" icon={Target} label="ภารกิจ" color="bg-orange-100 text-orange-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="GOALS" icon={TrendingUp} label="เป้าหมาย" color="bg-green-100 text-green-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                </div>
-                            </div>
-
-                            {/* Production Grid */}
-                            <div>
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 pl-1">งานผลิต (Production)</h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <MobileMenuButton view="SCRIPT_HUB" icon={FileText} label="เขียนบท" color="bg-rose-100 text-rose-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="MEETINGS" icon={Presentation} label="ห้องประชุม" color="bg-blue-100 text-blue-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="STOCK" icon={Film} label="คลังคลิป" color="bg-indigo-100 text-indigo-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="CHECKLIST" icon={ClipboardList} label="จัดเป๋า" color="bg-teal-100 text-teal-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                </div>
-                            </div>
-
-                            {/* Office Grid */}
-                            <div>
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 pl-1">จัดการภายใน (Office)</h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <MobileMenuButton view="DUTY" icon={Coffee} label="ตารางเวร" color="bg-amber-100 text-amber-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="QUALITY_GATE" icon={ScanEye} label="ตรวจงาน" color="bg-purple-100 text-purple-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="KPI" icon={BarChart3} label="KPI" color="bg-lime-100 text-lime-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="FEEDBACK" icon={Megaphone} label="Feedback" color="bg-pink-100 text-pink-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="WIKI" icon={BookOpen} label="คู่มือ" color="bg-sky-100 text-sky-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                </div>
-                            </div>
-
-                            {/* Admin Link (If Admin) */}
-                            {currentUser.role === 'ADMIN' && (
-                                <div className="pb-4">
-                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 pl-1">Admin Settings</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button 
-                                            onClick={() => handleNavigateAndClose('CHANNELS')}
-                                            className="py-4 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
-                                        >
-                                            <Settings2 className="w-4 h-4" /> จัดการช่อง
-                                        </button>
-                                        <button 
-                                            onClick={() => handleNavigateAndClose('MASTER_DATA')}
-                                            className="py-4 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-gray-700 flex items-center justify-center gap-2"
-                                        >
-                                            <Database className="w-4 h-4" /> ตั้งค่าระบบ
-                                        </button>
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="flex items-center gap-4" onClick={onEditProfile}>
+                                    <div className="relative">
+                                        <img src={currentUser.avatarUrl} className="w-14 h-14 rounded-full border-2 border-white/20 shadow-md object-cover" />
+                                        <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-slate-900"></div>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black">{currentUser.name}</h2>
+                                        <p className="text-xs text-slate-400 font-medium bg-white/10 px-2 py-0.5 rounded-lg w-fit mt-1 backdrop-blur-sm">
+                                            {currentUser.position}
+                                        </p>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                                <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
 
-                        {/* User Profile Footer */}
-                        <div className="pt-4 border-t border-gray-100 flex items-center justify-between bg-white">
-                            <div className="flex items-center gap-3" onClick={() => { onEditProfile(); setIsMenuOpen(false); }}>
-                                <img src={currentUser.avatarUrl} alt="User" className="w-12 h-12 rounded-full object-cover border-2 border-indigo-100 shadow-sm" />
-                                <div>
-                                    <p className="text-sm font-black text-gray-800">{currentUser.name}</p>
-                                    <p className="text-[10px] font-bold text-indigo-500 uppercase">{currentUser.position}</p>
+                            {/* Mini Stats Bar */}
+                            <div className="flex gap-3">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5">
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-300 mb-1">
+                                        <span className="flex items-center"><Heart className="w-3 h-3 mr-1 text-red-400 fill-red-400"/> HP</span>
+                                        <span>{currentUser.hp}/{currentUser.maxHp}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${(currentUser.hp/currentUser.maxHp)*100}%` }}></div>
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5">
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-300 mb-1">
+                                        <span className="flex items-center"><Trophy className="w-3 h-3 mr-1 text-yellow-400 fill-yellow-400"/> Lv.{currentUser.level}</span>
+                                        <span>{progressPercent.toFixed(0)}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${progressPercent}%` }}></div>
+                                    </div>
                                 </div>
                             </div>
-                            <button 
-                                onClick={onLogout}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold border border-red-100 active:scale-95 transition-all"
-                            >
-                                <LogOut className="w-4 h-4" /> ลงชื่อออก
-                            </button>
                         </div>
+                    </div>
+
+                    {/* Menu Grid */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide pb-32">
+                        
+                        {/* 1. Workspace */}
+                        <div>
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
+                                Workspace <div className="h-px bg-gray-200 flex-1 ml-3"></div>
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <MobileMenuButton view="WEEKLY" icon={Target} label="ภารกิจ" color="bg-orange-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="GOALS" icon={TrendingUp} label="เป้าหมาย" color="bg-green-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="TEAM" icon={Users} label="ทีมงาน" color="bg-blue-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                            </div>
+                        </div>
+
+                        {/* 2. Production */}
+                        <div>
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
+                                Production <div className="h-px bg-gray-200 flex-1 ml-3"></div>
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <MobileMenuButton view="SCRIPT_HUB" icon={FileText} label="เขียนบท" color="bg-rose-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="MEETINGS" icon={Presentation} label="ห้องประชุม" color="bg-indigo-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="STOCK" icon={Film} label="คลังคลิป" color="bg-violet-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="CHECKLIST" icon={ClipboardList} label="จัดเป๋า" color="bg-teal-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                            </div>
+                        </div>
+
+                        {/* 3. Office */}
+                        <div>
+                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
+                                Office <div className="h-px bg-gray-200 flex-1 ml-3"></div>
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <MobileMenuButton view="DUTY" icon={Coffee} label="ตารางเวร" color="bg-amber-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="QUALITY_GATE" icon={ScanEye} label="ตรวจงาน" color="bg-purple-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="KPI" icon={BarChart3} label="KPI" color="bg-lime-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="FEEDBACK" icon={Megaphone} label="Feedback" color="bg-pink-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="WIKI" icon={BookOpen} label="คู่มือ" color="bg-sky-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                            </div>
+                        </div>
+
+                        {/* 4. Admin (Conditional) */}
+                        {currentUser.role === 'ADMIN' && (
+                            <div>
+                                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
+                                    <Shield className="w-3 h-3 mr-1" /> Admin Only <div className="h-px bg-gray-200 flex-1 ml-3"></div>
+                                </h4>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <MobileMenuButton view="CHANNELS" icon={Settings2} label="จัดการช่อง" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                    <MobileMenuButton view="MASTER_DATA" icon={Database} label="ตั้งค่าระบบ" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                    <MobileMenuButton view="SYSTEM_GUIDE" icon={Terminal} label="Logic Guide" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="p-4 bg-white border-t border-gray-100">
+                        <button 
+                            onClick={onLogout}
+                            className="w-full py-3.5 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        >
+                            <LogOut className="w-5 h-5" /> ลงชื่อออก (Logout)
+                        </button>
                     </div>
                 </div>
             )}

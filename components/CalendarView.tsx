@@ -23,6 +23,7 @@ interface CalendarViewProps {
   onMoveTask: (task: Task) => void; 
   onDelayTask?: (taskId: string, newDate: Date, reason: string) => void;
   onOpenSettings: () => void;
+  onOpenNotifications?: () => void; // Added Prop
   onAddTask: (status: Status, type?: TaskType) => void;
   onUpdateStatus: (task: Task, newStatus: Status) => void;
   onRangeChange?: (targetDate: Date) => void; 
@@ -39,6 +40,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onMoveTask, 
     onDelayTask, 
     onOpenSettings,
+    onOpenNotifications,
     onAddTask,
     onUpdateStatus,
     onRangeChange,
@@ -151,6 +153,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             customChips={customChips || []} 
             setIsManageModalOpen={setIsManageModalOpen}
             onOpenSettings={onOpenSettings}
+            onOpenNotifications={onOpenNotifications} // Pass down
             filterChannelId={filterChannelId}
             setFilterChannelId={setFilterChannelId}
             channels={channels}

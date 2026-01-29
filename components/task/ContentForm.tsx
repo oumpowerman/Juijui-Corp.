@@ -41,6 +41,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
     const [linkedScript, setLinkedScript] = useState<ScriptSummary | null>(null);
     const [scriptToEdit, setScriptToEdit] = useState<Script | null>(null); // State for Full Script Editor
     const [isLoadingScript, setIsLoadingScript] = useState(false);
+    const [isSendingQC, setIsSendingQC] = useState(false);
 
     const {
         title, setTitle,
@@ -135,6 +136,66 @@ const ContentForm: React.FC<ContentFormProps> = ({
         if (confirmed && initialData && onDelete) {
             onDelete(initialData.id);
             onClose();
+        }
+    };
+
+    const handleSendToQC = async () => {
+        if (!initialData?.id) {
+             await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
+             return;
+        }
+
+        // Check for pending review
+        const pendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
+        if (pendingReview) {
+             await showAlert(
+                 `มีรายการ "Draft ${pendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
+                 '⚠️ ส่งซ้ำไม่ได้'
+             );
+             return;
+        }
+        
+        const currentRoundCount = initialData.reviews?.length || 0;
+        const nextRound = currentRoundCount + 1;
+        
+        const confirmed = await showConfirm(
+            `งานจะถูกส่งเข้าห้องตรวจ และเปลี่ยนสถานะเป็น "Feedback"`,
+            `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}" ?`
+        );
+
+        if (!confirmed) return;
+
+        setIsSendingQC(true);
+        try {
+            const { error: reviewError } = await supabase.from('task_reviews').insert({
+                content_id: initialData.id, // CONTENT uses content_id
+                task_id: null,
+                round: nextRound,
+                scheduled_at: new Date().toISOString(),
+                status: 'PENDING',
+                reviewer_id: null
+            });
+            if (reviewError) throw reviewError;
+
+            await supabase.from('task_logs').insert({
+                content_id: initialData.id,
+                action: 'SENT_TO_QC',
+                details: `ส่งตรวจงาน (Draft ${nextRound})`,
+                user_id: currentUser?.id
+            });
+
+            // Update status to FEEDBACK
+            setStatus('FEEDBACK');
+            await supabase.from('contents').update({ status: 'FEEDBACK' }).eq('id', initialData.id);
+            
+            showToast(`ส่ง Draft ${nextRound} เรียบร้อย! 🚀`, 'success');
+            onClose();
+
+        } catch (err: any) {
+            console.error(err);
+            showToast('ส่งตรวจไม่สำเร็จ: ' + err.message, 'error');
+        } finally {
+            setIsSendingQC(false);
         }
     };
 
@@ -475,6 +536,19 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     )}
                 </div>
                 <div className="flex space-x-3">
+                     {/* Send To QC Button */}
+                    {initialData && status !== 'FEEDBACK' && status !== 'DONE' && status !== 'APPROVE' && (
+                        <button 
+                            type="button" 
+                            onClick={handleSendToQC}
+                            disabled={isSendingQC}
+                            className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50"
+                        >
+                            {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                            ส่งตรวจ
+                        </button>
+                    )}
+
                     <button type="button" onClick={onClose} className="px-5 py-3 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
                         ยกเลิก
                     </button>

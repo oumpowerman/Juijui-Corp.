@@ -19,10 +19,11 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
-  onEditProfile: () => void; // Added for interface consistency with Dashboard.tsx
+  onOpenNotifications?: () => void; // Added Prop
+  onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
-  onFetchAllData?: () => void; // New prop for manual fetching ALL data
+  onFetchAllData?: () => void;
   isFetching?: boolean;
 }
 
@@ -33,7 +34,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     currentUser, 
     onEditTask, 
     onNavigateToCalendar, 
-    onOpenSettings 
+    onOpenSettings,
+    onOpenNotifications
 }) => {
   
   // Use the new hook for logic
@@ -78,6 +80,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           viewScope={viewScope}
           setViewScope={setViewScope}
           onOpenSettings={onOpenSettings}
+          onOpenNotifications={onOpenNotifications} // Pass down
           getTimeRangeLabel={getTimeRangeLabel}
       />
 

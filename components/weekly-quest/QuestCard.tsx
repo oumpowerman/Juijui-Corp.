@@ -26,6 +26,9 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
         qEnd.setHours(23, 59, 59, 999);
 
         return allTasks.filter(t => {
+            // 0. Filter out Stock / Unscheduled Items
+            if (t.isUnscheduled) return false;
+
             // 1. Check Date Range (Use Task End Date)
             if (!t.endDate) return false;
             const taskDate = new Date(t.endDate);
@@ -36,14 +39,22 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
             const matchChannel = quest.channelId ? t.channelId === quest.channelId : true;
             const matchStatus = quest.targetStatus ? t.status === quest.targetStatus : t.status === 'DONE';
             
+            // 3. Platform Check (Wildcard Logic)
             let matchPlatform = true;
-            if (quest.targetPlatform === 'ALL') {
-                matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
-            } else if (quest.targetPlatform) {
-                matchPlatform = (t.targetPlatforms && t.targetPlatforms.includes(quest.targetPlatform as Platform)) || false;
+            if (quest.targetPlatform) {
+                if (quest.targetPlatform === 'ALL') {
+                     // Quest wants ALL -> Task must have at least one platform
+                     matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
+                } else {
+                     // Quest wants Specific (e.g. FACEBOOK)
+                     // Task counts if it has FACEBOOK OR if task is marked as ALL
+                     const hasSpecific = t.targetPlatforms?.includes(quest.targetPlatform as Platform);
+                     const hasAll = t.targetPlatforms?.includes('ALL');
+                     matchPlatform = hasSpecific || hasAll || false;
+                }
             }
             
-            // Format check: Array inclusion
+            // 4. Format Check (Array inclusion)
             let matchFormat = true;
             if (quest.targetFormat && quest.targetFormat.length > 0) {
                  matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;

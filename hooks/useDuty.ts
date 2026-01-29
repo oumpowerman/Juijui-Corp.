@@ -163,14 +163,26 @@ export const useDuty = (currentUser?: User) => {
         const duty = duties.find(d => d.id === id);
         if (!duty) return;
         
+        const newStatus = !duty.isDone;
+
+        // 1. Optimistic Update (Immediate UI Change)
+        setDuties(prev => prev.map(d => d.id === id ? { ...d, isDone: newStatus } : d));
+        
         try {
             const { error } = await supabase
                 .from('duties')
-                .update({ is_done: !duty.isDone })
+                .update({ is_done: newStatus })
                 .eq('id', id);
+            
             if (error) throw error;
-        } catch (err) {
+            
+            // Note: Realtime subscription will re-sync eventually, but UI is already updated.
+            
+        } catch (err: any) {
             console.error('Toggle duty failed', err);
+            // 2. Rollback on Error
+            setDuties(prev => prev.map(d => d.id === id ? { ...d, isDone: !newStatus } : d));
+            showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 

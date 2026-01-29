@@ -11,9 +11,10 @@ interface DashboardProps {
   currentUser: User;
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
-  onNavigate: (view: ViewMode) => void; // Added for generic navigation
+  onNavigate: (view: ViewMode) => void;
   onOpenSettings: () => void;
   onOpenNotifications?: () => void;
+  unreadCount?: number; // Added
   onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;

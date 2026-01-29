@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Sidebar from '../Sidebar';
 import MobileNavigation from '../MobileNavigation';
@@ -46,6 +47,7 @@ const AppShell: React.FC<AppShellProps> = ({
                 onEditProfile={onEditProfile}
                 onAddTask={() => onAddTask()}
                 unreadChatCount={chatUnreadCount}
+                systemUnreadCount={systemUnreadCount} // Added
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={setIsSidebarCollapsed}
             />

@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Edit2, X, Check, LayoutTemplate, Youtube, Facebook, Instagram, Video, Globe, Palette, Loader2, Bell, Image as ImageIcon, Camera } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, LayoutTemplate, Youtube, Facebook, Instagram, Video, Globe, Palette, Loader2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Channel, Platform, Task } from '../types';
 import { PLATFORM_ICONS } from '../constants';
 import MentorTip from './MentorTip';
+import NotificationBellBtn from './NotificationBellBtn';
 
 interface ChannelManagerProps {
   tasks: Task[];
@@ -167,12 +168,10 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
             )}
             
             {/* Notification Button */}
-            <button 
-                onClick={onOpenSettings}
-                className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
-            >
-                <Bell className="w-5 h-5" />
-            </button>
+            <NotificationBellBtn 
+                onClick={() => onOpenSettings()}
+                className="hidden md:flex"
+            />
         </div>
       </div>
 

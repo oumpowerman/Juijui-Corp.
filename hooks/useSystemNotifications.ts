@@ -8,7 +8,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
-    // Local state for dismissed notifications (persisted in localStorage)
+    // Local state for dismissed notifications (Removed from list entirely)
     const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem('juijui_dismissed_notifs');
@@ -18,15 +18,38 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         }
     });
 
-    // Save dismissed IDs when they change
+    // New: Local state for viewed notifications (Clears badge but keeps in list)
+    const [viewedIds, setViewedIds] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('juijui_viewed_notifs');
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            return [];
+        }
+    });
+
+    // Save states when they change
     useEffect(() => {
         localStorage.setItem('juijui_dismissed_notifs', JSON.stringify(dismissedIds));
     }, [dismissedIds]);
+
+    useEffect(() => {
+        localStorage.setItem('juijui_viewed_notifs', JSON.stringify(viewedIds));
+    }, [viewedIds]);
 
     const dismissNotification = (id: string) => {
         setDismissedIds(prev => [...prev, id]);
     };
 
+    // Clears the badge number (called when opening the modal)
+    const markAsViewed = () => {
+        const currentIds = notifications.map(n => n.id);
+        if (currentIds.length > 0) {
+            setViewedIds(prev => [...new Set([...prev, ...currentIds])]);
+        }
+    };
+
+    // Clears the list (called via button inside modal)
     const markAllAsRead = () => {
         const allIds = notifications.map(n => n.id);
         setDismissedIds(prev => [...new Set([...prev, ...allIds])]);
@@ -130,9 +153,12 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         });
 
         setNotifications(newNotifications);
-        setUnreadCount(newNotifications.length);
+        
+        // Count unread based on what hasn't been viewed yet
+        const unviewedCount = newNotifications.filter(n => !viewedIds.includes(n.id)).length;
+        setUnreadCount(unviewedCount);
 
-    }, [tasks, currentUser, dismissedIds]);
+    }, [tasks, currentUser, dismissedIds, viewedIds]);
 
     // Helper to generate simple date key YYYYMMDD
     const formatDateKey = (date: Date) => {
@@ -143,6 +169,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         notifications,
         unreadCount,
         dismissNotification,
-        markAllAsRead
+        markAllAsRead,
+        markAsViewed
     };
 };

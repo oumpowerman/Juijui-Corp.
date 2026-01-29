@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { WikiArticle, MasterOption } from '../../types';
-import { ArrowLeft, Trash2, Edit3, Heart, List, Clock, User, Share2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit3, Heart, List, Clock, User, Share2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../../context/ToastContext';
+import { WikiLayoutMode } from '../WikiView';
 
 interface WikiReaderProps {
     article: WikiArticle;
@@ -13,6 +14,9 @@ interface WikiReaderProps {
     onEdit: (article: WikiArticle) => void;
     onDelete: (id: string) => void;
     onToggleHelpful: (id: string) => void;
+    // New Layout Props
+    layoutMode: WikiLayoutMode;
+    onCycleLayout: () => void;
 }
 
 // --- Internal TOC Component ---
@@ -27,8 +31,9 @@ const TableOfContents = ({ content }: { content: string }) => {
         const extracted = Array.from(headerElements).map((el, index) => {
             const text = el.textContent || '';
             const id = `header-${index}`; 
-            // Note: In a real implementation, you'd inject these IDs into the rendered HTML or use a library that does it.
-            // Here we just extract for display.
+            // Inject ID into the DOM elements rendered by dangerouslySetInnerHTML would require parsing there too.
+            // For simplicity, we just extract text to show structure. Scroll logic needs IDs in the content itself.
+            // A better way is to use a rehype plugin, but for now we keep it simple.
             return { id, text, level: parseInt(el.tagName.substring(1)) };
         });
         setHeaders(extracted);
@@ -41,16 +46,16 @@ const TableOfContents = ({ content }: { content: string }) => {
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center">
                 <List className="w-3 h-3 mr-2" /> สารบัญ (Contents)
             </h4>
-            <div className="border-l-2 border-slate-100 pl-3 space-y-3">
+            <div className="border-l-2 border-slate-100 pl-3 space-y-3 relative">
                 {headers.map((header, idx) => (
                     <div 
                         key={idx} 
                         className={`
-                            text-xs text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors leading-relaxed
-                            ${header.level === 3 ? 'pl-3' : 'font-medium'}
+                            text-xs text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors leading-relaxed hover:translate-x-1 duration-200
+                            ${header.level === 3 ? 'pl-3 border-l border-transparent hover:border-indigo-200' : 'font-bold'}
                         `}
                         onClick={() => {
-                            // Simple scroll attempt (best effort without ID injection)
+                             // Simple scroll match by text content (approximate)
                              const elements = document.querySelectorAll(`h${header.level}`);
                              Array.from(elements).find(e => e.textContent === header.text)?.scrollIntoView({ behavior: 'smooth' });
                         }}
@@ -64,26 +69,46 @@ const TableOfContents = ({ content }: { content: string }) => {
 };
 
 const WikiReader: React.FC<WikiReaderProps> = ({ 
-    article, category, isAdmin, onBack, onEdit, onDelete, onToggleHelpful 
+    article, category, isAdmin, onBack, onEdit, onDelete, onToggleHelpful, layoutMode, onCycleLayout
 }) => {
     const { showToast } = useToast();
     const [isHelpfulAnim, setIsHelpfulAnim] = useState(false);
+    
+    // Optimistic UI State
+    const [optimisticLikes, setOptimisticLikes] = useState(article.helpfulCount || 0);
+    const [hasLikedLocal, setHasLikedLocal] = useState(false); // Simplified local toggle
+
+    // Sync when article changes
+    useEffect(() => {
+        setOptimisticLikes(article.helpfulCount || 0);
+        setHasLikedLocal(false);
+    }, [article.id, article.helpfulCount]);
 
     const handleHelpful = () => {
+        if (hasLikedLocal) return; // Prevent spamming for demo logic (real app would check user vote DB)
+
         setIsHelpfulAnim(true);
+        setHasLikedLocal(true);
+        setOptimisticLikes(prev => prev + 1);
+        
+        // Trigger actual API
         onToggleHelpful(article.id);
+        
         setTimeout(() => setIsHelpfulAnim(false), 1000);
     };
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
-        showToast('คัดลอกลิงก์แล้ว', 'success');
+        showToast('คัดลอกลิงก์แล้ว 🔗', 'success');
     };
+
+    // Layout Icon Logic
+    const LayoutIcon = layoutMode === 'STANDARD' ? Maximize2 : layoutMode === 'FOCUS' ? PanelLeftClose : Minimize2;
 
     return (
         <>
             {/* Header Toolbar (Floating) */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-30 shadow-sm transition-all">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white/90 backdrop-blur-md sticky top-0 z-30 shadow-sm transition-all">
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="lg:hidden p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
@@ -101,16 +126,28 @@ const WikiReader: React.FC<WikiReaderProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* View Toggle (Desktop Only) */}
+                    <button 
+                        onClick={onCycleLayout}
+                        className="hidden lg:flex p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors items-center gap-2"
+                        title="Change Layout"
+                    >
+                         <LayoutIcon className="w-4 h-4" />
+                         <span className="text-[10px] font-bold uppercase">{layoutMode}</span>
+                    </button>
+
+                    <div className="w-px h-4 bg-slate-200 mx-1 hidden lg:block"></div>
+
                     <button onClick={handleShare} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Share">
                         <Share2 className="w-4 h-4" />
                     </button>
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                    
                     {isAdmin && (
                         <button onClick={() => onDelete(article.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                             <Trash2 className="w-4 h-4" />
                         </button>
                     )}
-                    <button onClick={() => onEdit(article)} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all font-bold flex items-center gap-2 text-xs">
+                    <button onClick={() => onEdit(article)} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all font-bold flex items-center gap-2 text-xs border border-indigo-100">
                         <Edit3 className="w-4 h-4" /> <span className="hidden sm:inline">แก้ไข</span>
                     </button>
                 </div>
@@ -153,42 +190,58 @@ const WikiReader: React.FC<WikiReaderProps> = ({
                                         </div>
                                     </div>
                                     
-                                    {/* Helpful Count */}
-                                    <div className="ml-auto flex items-center gap-1.5 bg-pink-50 text-pink-600 px-3 py-1.5 rounded-full text-xs font-bold border border-pink-100">
-                                        <Heart className="w-3.5 h-3.5 fill-pink-600" /> {article.helpfulCount || 0} Likes
+                                    {/* Helpful Count (Optimistic) */}
+                                    <div className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${hasLikedLocal ? 'bg-pink-100 text-pink-700 border-pink-200' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                                        <Heart className={`w-3.5 h-3.5 ${hasLikedLocal ? 'fill-pink-600 text-pink-600' : 'text-slate-400'}`} /> 
+                                        {optimisticLikes} Likes
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Prose Content */}
+                            {/* Prose Content (Enhanced Typography) */}
                             <article 
-                                className="prose prose-slate prose-lg max-w-none 
-                                prose-headings:font-black prose-headings:text-slate-800 prose-headings:tracking-tight
-                                prose-p:text-slate-600 prose-p:leading-relaxed
-                                prose-a:text-indigo-600 prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-                                prose-img:rounded-2xl prose-img:shadow-lg prose-img:border prose-img:border-slate-100
-                                prose-blockquote:border-l-4 prose-blockquote:border-indigo-400 prose-blockquote:bg-indigo-50/50 prose-blockquote:px-6 prose-blockquote:py-4 prose-blockquote:rounded-r-xl prose-blockquote:text-indigo-900 prose-blockquote:font-medium prose-blockquote:not-italic
-                                prose-code:bg-slate-100 prose-code:text-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-sm prose-code:font-bold
-                                prose-li:marker:text-indigo-300"
+                                className="
+                                    prose prose-slate prose-lg max-w-none 
+                                    prose-headings:font-black prose-headings:text-slate-800 prose-headings:tracking-tight
+                                    prose-p:text-slate-600 prose-p:leading-relaxed
+                                    prose-a:text-indigo-600 prose-a:font-bold prose-a:no-underline hover:prose-a:underline hover:prose-a:text-indigo-500
+                                    
+                                    prose-img:rounded-3xl prose-img:shadow-xl prose-img:border-4 prose-img:border-white prose-img:transform hover:prose-img:scale-[1.01] prose-img:transition-transform
+                                    
+                                    prose-blockquote:border-l-4 prose-blockquote:border-indigo-400 prose-blockquote:bg-indigo-50/30 prose-blockquote:px-6 prose-blockquote:py-4 prose-blockquote:rounded-r-2xl prose-blockquote:text-indigo-900 prose-blockquote:font-medium prose-blockquote:not-italic prose-blockquote:shadow-sm
+                                    
+                                    prose-code:bg-slate-800 prose-code:text-green-400 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-sm prose-code:font-bold prose-code:shadow-sm
+                                    
+                                    prose-li:marker:text-indigo-300
+                                    
+                                    prose-strong:bg-yellow-100 prose-strong:px-1 prose-strong:rounded prose-strong:text-yellow-800 prose-strong:box-decoration-clone
+                                "
                                 dangerouslySetInnerHTML={{ __html: article.content }}
                             />
                             
                             {/* Footer Interaction */}
-                            <div className="mt-20 pt-10 border-t border-dashed border-slate-200 flex flex-col items-center text-center">
-                                <h4 className="text-lg font-bold text-slate-700 mb-2">บทความนี้มีประโยชน์ไหม?</h4>
-                                <p className="text-slate-400 text-sm mb-6">ส่งกำลังใจให้คนเขียนด้วยการกดปุ่มด้านล่าง</p>
+                            <div className="mt-20 pt-10 border-t-2 border-dashed border-slate-100 flex flex-col items-center text-center bg-gradient-to-b from-white to-slate-50/50 rounded-b-3xl -mx-6 px-6 pb-10">
+                                <h4 className="text-xl font-black text-slate-700 mb-2">บทความนี้มีประโยชน์ไหม?</h4>
+                                <p className="text-slate-400 text-sm mb-6 font-medium">ส่งกำลังใจให้คนเขียนด้วยการกดปุ่มด้านล่าง</p>
                                 <button 
                                     onClick={handleHelpful}
+                                    disabled={hasLikedLocal}
                                     className={`
-                                        group relative flex items-center gap-3 px-8 py-3 rounded-full text-sm font-bold transition-all duration-300
-                                        ${isHelpfulAnim ? 'bg-pink-100 text-pink-600 scale-110' : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-pink-200 hover:text-pink-600 hover:shadow-lg hover:-translate-y-1'}
+                                        group relative flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold transition-all duration-300 shadow-lg
+                                        ${hasLikedLocal 
+                                            ? 'bg-pink-100 text-pink-600 border-2 border-pink-200 cursor-default scale-100' 
+                                            : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-pink-200 hover:text-pink-600 hover:shadow-pink-100 hover:-translate-y-1 active:scale-95'}
                                     `}
                                 >
-                                    <Heart className={`w-5 h-5 transition-all duration-300 ${isHelpfulAnim ? 'fill-pink-600 scale-125' : 'group-hover:fill-pink-100'}`} />
-                                    <span>เยี่ยมมาก! (Helpful)</span>
+                                    <Heart className={`w-6 h-6 transition-all duration-500 ${isHelpfulAnim || hasLikedLocal ? 'fill-pink-500 text-pink-500 scale-125' : 'group-hover:fill-pink-200'}`} />
+                                    <span>{hasLikedLocal ? 'ขอบคุณครับ! (Liked)' : 'เยี่ยมมาก! (Helpful)'}</span>
                                     
                                     {isHelpfulAnim && (
-                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-2xl animate-bounce">💖</span>
+                                        <>
+                                            <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-4xl animate-bounce">💖</span>
+                                            <span className="absolute -top-6 -right-6 text-2xl animate-ping delay-100">✨</span>
+                                            <span className="absolute -top-4 -left-6 text-xl animate-ping delay-75">🎉</span>
+                                        </>
                                     )}
                                 </button>
                             </div>

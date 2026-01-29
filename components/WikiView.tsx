@@ -21,6 +21,8 @@ interface WikiViewProps {
     currentUser: User;
 }
 
+export type WikiLayoutMode = 'STANDARD' | 'FOCUS' | 'ZEN';
+
 const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const { articles, addArticle, updateArticle, deleteArticle, toggleHelpful } = useWiki(currentUser);
     const { masterOptions } = useMasterData();
@@ -34,8 +36,8 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     
-    // Responsive State
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
+    // Responsive & Layout State
+    const [layoutMode, setLayoutMode] = useState<WikiLayoutMode>('STANDARD');
     const [isMobileListVisible, setIsMobileListVisible] = useState(true);
 
     const isAdmin = currentUser.role === 'ADMIN';
@@ -134,44 +136,67 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
         }
     };
 
-    // --- Renders ---
+    // --- Layout Controllers ---
+    const cycleLayoutMode = () => {
+        setLayoutMode(prev => {
+            if (prev === 'STANDARD') return 'FOCUS';
+            if (prev === 'FOCUS') return 'ZEN';
+            return 'STANDARD';
+        });
+    };
+
+    // Calculate visibility based on layout mode (Desktop only logic)
+    const showSidebar = layoutMode === 'STANDARD';
+    const showList = layoutMode === 'STANDARD' || layoutMode === 'FOCUS';
 
     return (
-        <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-2xl relative ring-1 ring-white/50 font-sans isolate">
+        <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-2xl relative ring-1 ring-white/50 font-sans isolate transition-all duration-500">
             
             {/* Background Decoration */}
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 z-50"></div>
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 z-50"></div>
             
             {/* 1. LEFT SIDEBAR (Categories) */}
-            <WikiSidebar 
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                onOpenGuide={() => setIsInfoOpen(true)}
-            />
+            <div className={`
+                ${showSidebar ? 'lg:w-64 opacity-100' : 'lg:w-0 opacity-0'} 
+                hidden lg:flex flex-col border-r border-slate-100 bg-slate-50/50 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
+            `}>
+                <WikiSidebar 
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    onSelectCategory={setSelectedCategory}
+                    isOpen={true} // Controlled by parent width
+                    onClose={() => setLayoutMode('FOCUS')}
+                    onOpenGuide={() => setIsInfoOpen(true)}
+                />
+            </div>
 
             {/* 2. MIDDLE LIST (Articles) */}
-            <WikiList 
-                articles={filteredArticles}
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                viewingArticleId={viewingArticle?.id}
-                onSelectArticle={handleOpenArticle}
-                onCreate={handleCreateStart}
-                isSidebarOpen={isSidebarOpen}
-                onOpenSidebar={() => setIsSidebarOpen(true)}
-                isMobileListVisible={isMobileListVisible}
-            />
+            <div className={`
+                ${showList ? 'lg:w-96 opacity-100' : 'lg:w-0 opacity-0'}
+                border-r border-slate-100 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]
+                ${isMobileListVisible ? 'flex w-full absolute inset-0 z-20 lg:static' : 'hidden lg:flex'}
+                overflow-hidden bg-white
+            `}>
+                <WikiList 
+                    articles={filteredArticles}
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    onSelectCategory={setSelectedCategory}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    viewingArticleId={viewingArticle?.id}
+                    onSelectArticle={handleOpenArticle}
+                    onCreate={handleCreateStart}
+                    isSidebarOpen={showSidebar}
+                    onOpenSidebar={() => setLayoutMode('STANDARD')}
+                    isMobileListVisible={isMobileListVisible}
+                />
+            </div>
 
             {/* 3. RIGHT CONTENT (Reader / Editor) */}
             <div className={`
-                flex-1 bg-white flex flex-col relative transition-all duration-500 ease-in-out z-20 overflow-hidden
-                ${!isMobileListVisible ? 'absolute inset-0' : 'hidden lg:flex'}
+                flex-1 bg-white flex flex-col relative transition-all duration-500 ease-in-out z-10 overflow-hidden
+                ${!isMobileListVisible ? 'absolute inset-0 z-30' : 'hidden lg:flex'}
             `}>
                 {isEditing ? (
                     <Suspense fallback={
@@ -199,27 +224,30 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                         onEdit={handleEditStart}
                         onDelete={handleDelete}
                         onToggleHelpful={toggleHelpful}
+                        layoutMode={layoutMode}
+                        onCycleLayout={cycleLayoutMode}
                     />
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30 relative overflow-hidden">
-                         {/* Empty State Decor */}
-                         <div className="absolute w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -top-20 -right-20 pointer-events-none"></div>
-                         <div className="absolute w-[400px] h-[400px] bg-cyan-50/50 rounded-full blur-3xl bottom-0 left-0 pointer-events-none"></div>
+                         {/* Playful Empty State Decor */}
+                         <div className="absolute w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -top-20 -right-20 pointer-events-none animate-pulse"></div>
+                         <div className="absolute w-[400px] h-[400px] bg-pink-50/50 rounded-full blur-3xl bottom-0 left-0 pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-                        <div className="relative z-10 text-center animate-in zoom-in-95 duration-500">
-                            <div className="w-24 h-24 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mb-6 mx-auto transform rotate-6 hover:rotate-12 transition-transform duration-500">
-                                <FileText className="w-12 h-12 text-indigo-400" />
+                        <div className="relative z-10 text-center animate-in zoom-in-95 duration-500 hover:scale-105 transition-transform">
+                            <div className="w-32 h-32 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mb-6 mx-auto transform -rotate-6 ring-8 ring-white/50">
+                                <span className="text-6xl">📖</span>
                             </div>
-                            <h3 className="text-2xl font-black text-slate-700 mb-2">เลือกบทความเพื่ออ่าน</h3>
-                            <p className="text-slate-400 font-medium max-w-xs mx-auto mb-8">
-                                คลังความรู้ของทีม รวบรวมเทคนิค Workflow <br/>และคู่มือต่างๆ ไว้ที่นี่
+                            <h3 className="text-3xl font-black text-slate-700 mb-2 tracking-tight">Ready to Read!</h3>
+                            <p className="text-slate-500 font-medium max-w-xs mx-auto mb-8 leading-relaxed">
+                                เลือกบทความจากด้านซ้าย <br/> หรือจะเริ่มเขียนตำนานบทใหม่ก็ได้นะ
                             </p>
                             
                             <button 
                                 onClick={handleCreateStart}
-                                className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:border-indigo-300 hover:text-indigo-600 hover:shadow-lg transition-all active:scale-95 flex items-center mx-auto gap-2"
+                                className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 flex items-center mx-auto gap-3 group"
                             >
-                                <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400" /> สร้างบทความใหม่
+                                <Sparkles className="w-5 h-5 text-yellow-300 fill-yellow-300 group-hover:spin" /> 
+                                สร้างบทความใหม่
                             </button>
                         </div>
                     </div>

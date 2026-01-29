@@ -40,6 +40,18 @@ export const useChatUnread = (currentUser: User | null) => {
         setUnreadCount(0);
     };
 
+    // Sync across components
+    useEffect(() => {
+        const handleReadEvent = () => {
+             const now = new Date();
+             setLastReadTime(now);
+             setUnreadCount(0);
+        };
+        
+        window.addEventListener('juijui-chat-read', handleReadEvent);
+        return () => window.removeEventListener('juijui-chat-read', handleReadEvent);
+    }, []);
+
     useEffect(() => {
         fetchUnreadCount();
 

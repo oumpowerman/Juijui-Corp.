@@ -115,6 +115,8 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
         setLastReadTime(now);
         localStorage.setItem('juijui_chat_last_read', now.toISOString());
         setUnreadCount(0);
+        // Sync Sidebar Badge immediately
+        window.dispatchEvent(new Event('juijui-chat-read'));
     };
 
     const processAIResponse = async (userMessage: string) => {

@@ -1,10 +1,11 @@
 
 import React from 'react';
 import { User, DashboardConfig } from '../../../types';
-import { Palette, Bell, Users, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
+import { Palette, Users, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
 import MentorTip from '../../MentorTip';
 import { TimeRangeOption, ViewScope } from '../../../hooks/useDashboardStats';
 import { useGreetings } from '../../../hooks/useGreetings';
+import NotificationBellBtn from '../../NotificationBellBtn';
 
 interface DashboardHeaderProps {
     currentUser: User;
@@ -16,7 +17,8 @@ interface DashboardHeaderProps {
     viewScope: ViewScope;
     setViewScope: (scope: ViewScope) => void;
     onOpenSettings: () => void;
-    onOpenNotifications?: () => void; // New prop
+    onOpenNotifications?: () => void; 
+    unreadCount?: number; // Added
     getTimeRangeLabel: () => string;
 }
 
@@ -31,6 +33,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     setViewScope,
     onOpenSettings,
     onOpenNotifications,
+    unreadCount = 0,
     getTimeRangeLabel
 }) => {
     const { randomGreeting } = useGreetings();
@@ -69,13 +72,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                              ภาพรวมในช่วง: <span className="font-bold text-gray-600">{getTimeRangeLabel()}</span>
                         </p>
                     </div>
-                    <button 
-                        onClick={onOpenNotifications || onOpenSettings} // Use notifications if available, else settings
-                        className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
-                        title="การแจ้งเตือน"
-                    >
-                        <Bell className="w-5 h-5" />
-                    </button>
+                    
+                    <NotificationBellBtn 
+                        onClick={() => { if (onOpenNotifications) onOpenNotifications(); else onOpenSettings(); }}
+                        unreadCount={unreadCount}
+                        className="hidden md:flex"
+                    />
                 </div>
 
                 {/* Controls Row */}

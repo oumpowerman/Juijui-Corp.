@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Search, Menu, Plus, Pin, Book, Clock } from 'lucide-react';
+import { Search, Menu, Plus, Pin, Book, Clock, Star, Zap, Shield, HelpCircle, Layers } from 'lucide-react';
 import { WikiArticle, MasterOption } from '../../types';
 import { format } from 'date-fns';
 
@@ -19,6 +19,15 @@ interface WikiListProps {
     isMobileListVisible: boolean;
 }
 
+// Playful Icons Map
+const CATEGORY_ICONS: Record<string, any> = {
+    'GENERAL': Star,
+    'RULES': Shield,
+    'TOOLS': Zap,
+    'ONBOARDING': HelpCircle,
+    'WORKFLOW': Layers,
+};
+
 const WikiList: React.FC<WikiListProps> = ({
     articles, categories, selectedCategory, onSelectCategory,
     searchQuery, setSearchQuery, viewingArticleId, onSelectArticle, onCreate,
@@ -26,8 +35,7 @@ const WikiList: React.FC<WikiListProps> = ({
 }) => {
     return (
         <div className={`
-            flex-col bg-white border-r border-slate-100 min-w-0 transition-all duration-300 absolute inset-0 z-10 lg:static lg:flex lg:w-96 shadow-sm
-            ${isMobileListVisible ? 'flex w-full' : 'hidden'}
+            flex-col bg-white border-r border-slate-100 min-w-0 transition-all duration-300 h-full w-full
         `}>
             {/* Header Area */}
             <div className="p-5 border-b border-slate-100 bg-white/95 backdrop-blur-sm sticky top-0 z-20 space-y-4">
@@ -36,8 +44,9 @@ const WikiList: React.FC<WikiListProps> = ({
                          {!isSidebarOpen && (
                              <button onClick={onOpenSidebar} className="hidden lg:flex p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-colors"><Menu className="w-5 h-5" /></button>
                          )}
-                         <h2 className="text-xl font-black text-slate-800 tracking-tight">บทความ</h2>
-                         <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{articles.length}</span>
+                         <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                            📚 บทความ <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{articles.length}</span>
+                         </h2>
                     </div>
                      <button 
                         onClick={onCreate} 
@@ -58,23 +67,37 @@ const WikiList: React.FC<WikiListProps> = ({
                     />
                 </div>
 
-                {/* Mobile Category Dropdown */}
-                <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
+                {/* Mobile Category Dropdown (Sticker Style) */}
+                <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1 py-1">
                     <button 
                         onClick={() => onSelectCategory('ALL')} 
-                        className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${selectedCategory === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-slate-200 text-slate-500'}`}
+                        className={`
+                            px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap border-2 transition-all transform active:scale-95
+                            ${selectedCategory === 'ALL' 
+                                ? 'bg-slate-800 text-white border-slate-800 shadow-md rotate-1' 
+                                : 'bg-white border-slate-200 text-slate-500 hover:rotate-1'}
+                        `}
                     >
-                        All
+                        ALL
                     </button>
-                    {categories.map(c => (
-                        <button 
-                            key={c.key} 
-                            onClick={() => onSelectCategory(c.key)} 
-                            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${selectedCategory === c.key ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500'}`}
-                        >
-                            {c.label.split('(')[0]}
-                        </button>
-                    ))}
+                    {categories.map(c => {
+                         const colorKey = c.color?.split(' ')[0].replace('bg-', '') || 'indigo';
+                         const isActive = selectedCategory === c.key;
+                         return (
+                            <button 
+                                key={c.key} 
+                                onClick={() => onSelectCategory(c.key)} 
+                                className={`
+                                    px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap border-2 transition-all transform active:scale-95
+                                    ${isActive 
+                                        ? `bg-${colorKey}-100 text-${colorKey}-600 border-${colorKey}-200 shadow-md -rotate-1` 
+                                        : 'bg-white border-slate-200 text-slate-500 hover:-rotate-1'}
+                                `}
+                            >
+                                {c.label.split('(')[0]}
+                            </button>
+                         );
+                    })}
                 </div>
             </div>
 
@@ -83,42 +106,52 @@ const WikiList: React.FC<WikiListProps> = ({
                 {articles.map(article => {
                      const isActive = viewingArticleId === article.id;
                      const category = categories.find(c => c.key === article.category);
-                     const catColor = category?.color || 'text-slate-500 bg-slate-100';
+                     const colorKey = category?.color?.split(' ')[0].replace('bg-', '') || 'slate';
+                     const Icon = CATEGORY_ICONS[article.category] || Book;
 
                      return (
                         <div 
                             key={article.id}
                             onClick={() => onSelectArticle(article)}
                             className={`
-                                p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-lg group relative flex flex-col gap-2
+                                p-5 rounded-3xl border-2 cursor-pointer transition-all duration-300 group relative flex flex-col gap-3 overflow-hidden
                                 ${isActive 
-                                    ? 'bg-white border-indigo-500 shadow-md ring-4 ring-indigo-50 z-10' 
-                                    : 'bg-white border-slate-200 hover:border-indigo-200'}
+                                    ? 'bg-white border-indigo-500 shadow-xl shadow-indigo-100 ring-2 ring-indigo-50 z-10 transform scale-[1.02]' 
+                                    : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1'}
                             `}
                         >
+                            {/* Sticker Header */}
                             <div className="flex justify-between items-start">
-                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border border-transparent uppercase tracking-wide ${catColor.replace('text-', 'bg-').replace('bg-', 'text-opacity-80 text-').replace('border-', '')} bg-opacity-10`}>
+                                <div className={`
+                                    flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border-2
+                                    bg-${colorKey}-50 text-${colorKey}-600 border-${colorKey}-100
+                                `}>
+                                    <Icon className="w-3 h-3" />
                                     {category?.label.split('(')[0] || article.category}
-                                </span>
-                                {article.isPinned && <Pin className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 rotate-45" />}
+                                </div>
+                                {article.isPinned && (
+                                    <div className="bg-yellow-100 p-1.5 rounded-full text-yellow-600 border-2 border-yellow-200 rotate-12 shadow-sm">
+                                        <Pin className="w-3 h-3 fill-yellow-600" />
+                                    </div>
+                                )}
                             </div>
 
-                            <h3 className={`font-bold text-sm leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700 group-hover:text-indigo-700'}`}>
+                            <h3 className={`font-black text-base leading-snug line-clamp-2 ${isActive ? 'text-indigo-900' : 'text-slate-700 group-hover:text-indigo-700 transition-colors'}`}>
                                 {article.title}
                             </h3>
                             
-                            <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-50">
-                                <div className="flex items-center gap-1.5">
+                            <div className="flex items-center justify-between mt-1 pt-3 border-t border-dashed border-slate-100">
+                                <div className="flex items-center gap-2">
                                     {article.lastEditor?.avatarUrl ? (
-                                        <img src={article.lastEditor.avatarUrl} className="w-4 h-4 rounded-full" />
+                                        <img src={article.lastEditor.avatarUrl} className="w-5 h-5 rounded-full border border-white shadow-sm" />
                                     ) : (
-                                        <div className="w-4 h-4 rounded-full bg-slate-200"></div>
+                                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-500">?</div>
                                     )}
-                                    <span className="text-[10px] text-slate-400 font-medium truncate max-w-[80px]">
+                                    <span className="text-[10px] text-slate-400 font-bold truncate max-w-[80px]">
                                         {article.lastEditor?.name.split(' ')[0] || 'Unknown'}
                                     </span>
                                 </div>
-                                <span className="text-[10px] text-slate-400 flex items-center">
+                                <span className="text-[10px] text-slate-400 flex items-center font-medium bg-slate-50 px-2 py-0.5 rounded-md">
                                     <Clock className="w-3 h-3 mr-1" /> {format(article.lastUpdated, 'd MMM')}
                                 </span>
                             </div>
@@ -127,12 +160,13 @@ const WikiList: React.FC<WikiListProps> = ({
                 })}
                 
                 {articles.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                            <Book className="w-8 h-8 opacity-20 text-slate-500" />
+                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 animate-in zoom-in-95">
+                        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4 relative">
+                            <Book className="w-10 h-10 opacity-20 text-slate-500" />
+                            <div className="absolute top-0 right-0 w-6 h-6 bg-red-400 rounded-full border-2 border-white"></div>
                         </div>
-                        <p className="text-sm font-bold">ไม่พบบทความ</p>
-                        <p className="text-xs mt-1">ลองค้นหาคำอื่น หรือสร้างใหม่เลย</p>
+                        <p className="text-base font-black text-slate-600">ไม่พบบทความ</p>
+                        <p className="text-xs mt-1 text-slate-400">ลองค้นหาคำอื่น หรือสร้างใหม่เลย</p>
                     </div>
                 )}
                 

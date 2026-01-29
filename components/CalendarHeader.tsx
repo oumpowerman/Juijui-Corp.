@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban } from 'lucide-react';
 import { Channel, ChipConfig, TaskType } from '../types';
 import { COLOR_THEMES } from '../constants';
+import NotificationBellBtn from './NotificationBellBtn';
 
 const THAI_MONTHS_FULL = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
@@ -26,7 +27,8 @@ interface CalendarHeaderProps {
     customChips: ChipConfig[];
     setIsManageModalOpen: (val: boolean) => void;
     onOpenSettings: () => void;
-    onOpenNotifications?: () => void; // Added Prop
+    onOpenNotifications?: () => void; 
+    unreadCount?: number; // Added
     filterChannelId: string;
     setFilterChannelId: (id: string) => void;
     channels: Channel[];
@@ -50,7 +52,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     onSelectDate,
     channels,
     onOpenSettings,
-    onOpenNotifications
+    onOpenNotifications,
+    unreadCount = 0
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
     const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
@@ -195,13 +198,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 <div className="flex items-center justify-between w-full xl:w-auto shrink-0 gap-3 border-t xl:border-t-0 border-gray-100 pt-4 xl:pt-0">
                     
                      {/* Notifications Bell */}
-                    <button 
-                        onClick={onOpenNotifications || onOpenSettings}
-                        className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
-                        title="การแจ้งเตือน"
-                    >
-                        <Bell className="w-5 h-5" />
-                    </button>
+                    <NotificationBellBtn 
+                        onClick={() => { if (onOpenNotifications) onOpenNotifications(); else onOpenSettings(); }}
+                        unreadCount={unreadCount}
+                        className="hidden md:flex"
+                    />
 
                     {/* Today Button */}
                     <button 

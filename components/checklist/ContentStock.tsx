@@ -1,14 +1,14 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Task, Channel, Status, User, ContentPillar, ContentFormat, Platform, MasterOption } from '../../types';
-import { CalendarPlus, Film, Scissors, PlaySquare, ListFilter, Lightbulb, Video, CheckCircle2, MoreHorizontal, Search, X, Layout, FileText, StickyNote, Plus, Bell, Upload, Loader2, Download, Users, Filter, ChevronDown, CheckSquare, Square, Sparkles, ArrowUpDown, ArrowUp, ArrowDown, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarPlus, Film, Scissors, PlaySquare, ListFilter, Lightbulb, Video, CheckCircle2, MoreHorizontal, Search, X, Layout, FileText, StickyNote, Plus, Upload, Loader2, Download, Users, Filter, ChevronDown, CheckSquare, Square, Sparkles, ArrowUpDown, ArrowUp, ArrowDown, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PLATFORM_ICONS, STATUS_COLORS } from '../../constants';
 import MentorTip from '../MentorTip';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useContentStock } from '../../hooks/useContentStock';
-import Skeleton from '../ui/Skeleton';
+import NotificationBellBtn from '../NotificationBellBtn';
 
 interface ContentStockProps {
   tasks: Task[]; // Kept for interface compatibility but mostly unused for list
@@ -433,12 +433,10 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: _legacyTasks, channe
                     <Sparkles className="w-4 h-4 text-yellow-300 absolute -top-1 -right-1 animate-bounce opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
 
-                <button 
-                    onClick={onOpenSettings}
-                    className="hidden md:flex p-2.5 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl shadow-sm transition-all active:scale-95"
-                >
-                    <Bell className="w-5 h-5" />
-                </button>
+                <NotificationBellBtn 
+                    onClick={() => onOpenSettings()}
+                    className="hidden md:flex"
+                />
             </div>
         </div>
       </div>
@@ -581,8 +579,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: _legacyTasks, channe
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
         {isLoading ? (
             <div className="p-16 flex flex-col items-center justify-center text-gray-400">
-                <Skeleton className="w-16 h-16 rounded-full mb-4" />
-                <Skeleton className="w-32 h-4 rounded-full" />
+                <Loader2 className="w-10 h-10 animate-spin mb-2 text-indigo-500" />
+                <p>กำลังโหลดข้อมูล...</p>
             </div>
         ) : paginatedTasks.length === 0 ? (
            <div className="p-16 text-center flex flex-col items-center justify-center h-full">

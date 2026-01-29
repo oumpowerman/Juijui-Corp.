@@ -64,7 +64,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     return (
         <>
             {/* --- BOTTOM DOCK (Floating Glass) --- */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center pb-safe-area">
+            {/* Added lg:hidden to hide on desktop */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center pb-safe-area lg:hidden">
                 <div className="bg-white/90 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] px-2 py-2 flex items-center justify-between pointer-events-auto gap-1 w-full max-w-md ring-1 ring-gray-200/50">
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },

@@ -42,6 +42,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             target_position: task.targetPosition,
             caution: task.caution,
             importance: task.importance,
+            assets: task.assets || [], // MOVED HERE: Now General Tasks can save assets too
             ...(isContent ? {} : { 
                 type: 'TASK', 
                 content_id: task.contentId || null,
@@ -59,7 +60,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             is_unscheduled: task.isUnscheduled || false,
             idea_owner_ids: task.ideaOwnerIds || [],
             editor_ids: task.editorIds || [],
-            assets: task.assets || [],
+            // assets: task.assets || [], // REMOVED FROM HERE
             performance: task.performance || null,
             published_links: task.publishedLinks || null,
             shoot_date: task.shootDate ? task.shootDate.toISOString() : null,

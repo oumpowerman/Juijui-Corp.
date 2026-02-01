@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ScriptSummary, Channel, MasterOption } from '../../../types';
-import { FileText, Trash2, Video, User as UserIcon, Users, PlayCircle, CheckCircle2, ListPlus, XCircle, Clock, Lightbulb, Tag, History, Search } from 'lucide-react';
+import { FileText, Trash2, Clock, ListPlus, CheckCircle2, History, Search, Tag, Lightbulb, RotateCcw, ArrowRightLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ScriptListProps {
@@ -62,8 +62,9 @@ const ScriptList: React.FC<ScriptListProps> = ({
                             ${viewTab === 'HISTORY' ? 'opacity-70 grayscale hover:grayscale-0 hover:opacity-100' : ''}
                         `}
                     >
-                        <div className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border ${script.scriptType === 'DIALOGUE' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                             {script.scriptType === 'DIALOGUE' ? <Users className="w-6 h-6"/> : <FileText className="w-6 h-6"/>}
+                        {/* Icon Type */}
+                        <div className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border font-black text-xs ${script.scriptType === 'DIALOGUE' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                             {script.scriptType === 'DIALOGUE' ? 'DIAL' : 'MONO'}
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -89,19 +90,28 @@ const ScriptList: React.FC<ScriptListProps> = ({
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onToggleQueue(script.id, false); }}
                                     className="p-2.5 text-indigo-600 hover:bg-indigo-100 rounded-xl bg-indigo-50 border border-indigo-100 transition-all shadow-sm"
-                                    title="Add to Queue"
+                                    title="Add to Queue (ไปถ่าย)"
                                 >
                                     <ListPlus className="w-5 h-5" />
                                 </button>
                             )}
                             {viewTab === 'QUEUE' && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onDone(script.id); }}
-                                    className="p-2.5 text-green-600 hover:bg-green-100 rounded-xl bg-green-50 border border-green-100 transition-all shadow-sm"
-                                    title="Mark Done"
-                                >
-                                    <CheckCircle2 className="w-5 h-5" />
-                                </button>
+                                <>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); onToggleQueue(script.id, true); }}
+                                        className="p-2.5 text-orange-600 hover:bg-orange-100 rounded-xl bg-orange-50 border border-orange-100 transition-all shadow-sm"
+                                        title="Return to Library (เก็บเข้าคลัง)"
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); onDone(script.id); }}
+                                        className="p-2.5 text-green-600 hover:bg-green-100 rounded-xl bg-green-50 border border-green-100 transition-all shadow-sm"
+                                        title="Mark Done (ถ่ายเสร็จแล้ว)"
+                                    >
+                                        <CheckCircle2 className="w-5 h-5" />
+                                    </button>
+                                </>
                             )}
                             {viewTab === 'HISTORY' && (
                                 <button 
@@ -194,20 +204,30 @@ const ScriptList: React.FC<ScriptListProps> = ({
                             </button>
                         )}
                         {viewTab === 'QUEUE' && (
-                             <button 
-                                onClick={() => onDone(script.id)}
-                                className="flex items-center gap-1.5 text-xs font-black text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl transition-all shadow-md shadow-green-100 active:scale-95"
-                             >
-                                <CheckCircle2 className="w-4 h-4" />
-                                เสร็จแล้ว
-                             </button>
+                             <div className="flex gap-2">
+                                <button 
+                                    onClick={() => onToggleQueue(script.id, true)}
+                                    className="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition-all active:scale-95"
+                                    title="เอาออกจากคิว"
+                                >
+                                    <RotateCcw className="w-4 h-4" />
+                                    คืนคลัง
+                                </button>
+                                <button 
+                                    onClick={() => onDone(script.id)}
+                                    className="flex items-center gap-1.5 text-xs font-black text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl transition-all shadow-md shadow-green-100 active:scale-95"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    เสร็จแล้ว
+                                </button>
+                             </div>
                         )}
                         {viewTab === 'HISTORY' && (
                             <button 
                                 onClick={() => onRestore(script.id)}
-                                className="text-xs font-bold text-indigo-600 hover:underline"
+                                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800"
                             >
-                                นำกลับมาใช้
+                                <ArrowRightLeft className="w-3.5 h-3.5" /> นำกลับมาใช้
                             </button>
                         )}
                     </div>

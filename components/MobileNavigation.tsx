@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { 
     LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
-    Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart 
+    Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock
 } from 'lucide-react';
 import { User, ViewMode, TaskType } from '../types';
 
@@ -198,6 +197,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                 Office <div className="h-px bg-gray-200 flex-1 ml-3"></div>
                             </h4>
                             <div className="grid grid-cols-3 gap-3">
+                                <MobileMenuButton view="ATTENDANCE" icon={Clock} label="ลงเวลา" color="bg-emerald-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                <MobileMenuButton view="LEADERBOARD" icon={Crown} label="Hall of Fame" color="bg-yellow-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
                                 <MobileMenuButton view="DUTY" icon={Coffee} label="ตารางเวร" color="bg-amber-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
                                 <MobileMenuButton view="QUALITY_GATE" icon={ScanEye} label="ตรวจงาน" color="bg-purple-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
                                 <MobileMenuButton view="KPI" icon={BarChart3} label="KPI" color="bg-lime-500" currentView={currentView} onNavigate={handleNavigateAndClose} />

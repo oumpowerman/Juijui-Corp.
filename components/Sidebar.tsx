@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
 
 interface SidebarProps {
@@ -47,6 +47,8 @@ export const MENU_GROUPS: MenuGroup[] = [
     title: 'Office',
     icon: Building2,
     items: [
+      { view: 'ATTENDANCE', label: 'ลงเวลาทำงาน', icon: Clock },
+      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, // Added Here
       { view: 'DUTY', label: 'ตารางเวร', icon: Coffee },
       { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
       { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
@@ -60,9 +62,10 @@ export const MENU_GROUPS: MenuGroup[] = [
     icon: ShieldCheck,
     adminOnly: true,
     items: [
+      { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
       { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2 },
       { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
-      { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal }, // NEW
+      { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal }, 
     ]
   }
 ];
@@ -219,7 +222,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           
           <div className="sidebar-item-text flex-1 min-w-0">
             <p className="text-sm font-black text-slate-800 truncate">{currentUser.name}</p>
-            <p className="text-[10px] font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
+            <p className="text-xs font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
           </div>
           
           {!isCollapsed && (

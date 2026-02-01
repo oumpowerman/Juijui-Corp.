@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { ArrowRight, CheckCircle2, Layout, MousePointerClick, Database, Calendar } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Layout, MousePointerClick, Database, Calendar, Flame, Zap } from 'lucide-react';
 import { WeeklyQuest, Task, Channel, Platform } from '../../types';
-import { addDays, isWithinInterval, format } from 'date-fns';
+import { addDays, isWithinInterval, format, differenceInDays, isSameDay } from 'date-fns';
 
 interface QuestCardProps {
     channel?: Channel; 
@@ -154,12 +154,42 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                     
                     const formatCount = quest.targetFormat ? quest.targetFormat.length : 0;
 
+                    // --- HEAT LOGIC (4 Levels) ---
+                    const daysRemaining = differenceInDays(qEnd, new Date());
+                    
+                    let heatClass = 'py-1'; // Default spacing
+                    let HeatIcon = null;
+
+                    if (!isCompleted) {
+                        if (daysRemaining <= 0) {
+                            // Level 4: Inferno (Today/Overdue)
+                            heatClass = 'bg-red-50 border border-red-200 shadow-[0_0_10px_rgba(239,68,68,0.15)] rounded-lg p-2 -mx-2 animate-pulse';
+                            HeatIcon = <Flame className="w-3.5 h-3.5 text-red-600 fill-red-600 animate-bounce shrink-0" />;
+                        } else if (daysRemaining === 1) {
+                            // Level 3: Burning (Tomorrow)
+                            heatClass = 'bg-orange-50 border border-orange-200 rounded-lg p-2 -mx-2';
+                            HeatIcon = <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 shrink-0" />;
+                        } else if (daysRemaining === 2) {
+                            // Level 2: Hot (2 Days)
+                            heatClass = 'bg-orange-50/50 border border-orange-100 rounded-lg p-2 -mx-2';
+                            HeatIcon = <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />;
+                        } else if (daysRemaining === 3) {
+                            // Level 1: Warm (3 Days)
+                            heatClass = 'bg-yellow-50/40 border border-yellow-100/50 rounded-lg p-2 -mx-2';
+                        }
+                    }
+
                     return (
-                        <div key={quest.id} className="relative">
+                        <div key={quest.id} className={`relative transition-all duration-300 ${heatClass}`}>
                             <div className="flex justify-between items-center mb-1.5 text-sm">
                                 <div className="flex items-center gap-2 max-w-[75%]">
-                                    {quest.questType === 'MANUAL' && <MousePointerClick className="w-3 h-3 text-orange-500 shrink-0" />}
-                                    <span className={`font-medium truncate ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{quest.title}</span>
+                                    {/* Heat Icon Priority */}
+                                    {HeatIcon ? HeatIcon : (quest.questType === 'MANUAL' && <MousePointerClick className="w-3 h-3 text-gray-400 shrink-0" />)}
+                                    
+                                    <span className={`font-medium truncate ${isCompleted ? 'text-gray-400 line-through' : daysRemaining <= 0 ? 'text-red-700 font-bold' : 'text-gray-700'}`}>
+                                        {quest.title}
+                                    </span>
+                                    
                                     {/* Format Badge for Auto */}
                                     <div className="flex gap-1 shrink-0">
                                         {quest.questType === 'AUTO' && formatCount > 0 && (
@@ -190,9 +220,11 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                                 </div>
                             </div>
                             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-700 ${isCompleted ? 'bg-emerald-500' : 'bg-gray-300'}`} style={{ width: `${percent}%` }} />
+                                <div className={`h-full rounded-full transition-all duration-700 ${isCompleted ? 'bg-emerald-500' : daysRemaining <= 0 ? 'bg-red-500' : daysRemaining <= 2 ? 'bg-orange-400' : 'bg-gray-300'}`} style={{ width: `${percent}%` }} />
                             </div>
-                            <div className="text-[9px] text-gray-300 text-right mt-0.5">{dateLabel}</div>
+                            <div className={`text-[9px] text-right mt-0.5 ${daysRemaining <= 1 && !isCompleted ? 'text-red-500 font-bold' : 'text-gray-300'}`}>
+                                {dateLabel} {daysRemaining <= 1 && !isCompleted && '(ใกล้หมดเวลา!)'}
+                            </div>
                         </div>
                     );
                 })}

@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, AlertTriangle, Clock, ScanEye, Settings, CheckCircle2, Info, X, Trash2, CheckSquare } from 'lucide-react';
+import { Bell, AlertTriangle, Clock, ScanEye, Settings, CheckCircle2, Info, X, Trash2, CheckSquare, FileSignature } from 'lucide-react';
 import { AppNotification, Task } from '../types';
 import { format, isToday } from 'date-fns';
 
@@ -30,12 +30,14 @@ const NotificationItem: React.FC<{ notif: AppNotification; onClick: () => void; 
                     ${notif.type === 'OVERDUE' ? 'bg-red-100 text-red-600' : 
                       notif.type === 'UPCOMING' ? 'bg-orange-100 text-orange-600' :
                       notif.type === 'REVIEW' ? 'bg-purple-100 text-purple-600' :
+                      notif.type === 'APPROVAL_REQ' ? 'bg-pink-100 text-pink-600' :
                       notif.type === 'NEW_ASSIGNMENT' ? 'bg-blue-100 text-blue-600' :
                       'bg-gray-100 text-gray-600'}
                 `}>
                     {notif.type === 'OVERDUE' && <AlertTriangle className="w-5 h-5" />}
                     {notif.type === 'UPCOMING' && <Clock className="w-5 h-5" />}
                     {notif.type === 'REVIEW' && <ScanEye className="w-5 h-5" />}
+                    {notif.type === 'APPROVAL_REQ' && <FileSignature className="w-5 h-5" />}
                     {(notif.type === 'INFO' || notif.type === 'NEW_ASSIGNMENT') && <Info className="w-5 h-5" />}
                 </div>
                 
@@ -96,12 +98,16 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 onOpenTask(task);
                 onClose();
             }
+        } else if (notification.type === 'APPROVAL_REQ') {
+             // Just close, user sees where to go. 
+             // Ideally we route, but for now simple close is enough as badge will be on Attendance tab
+             onClose();
         }
     };
 
     const displayedNotifications = notifications.filter(n => {
         if (activeTab === 'ALERTS') {
-            return n.type === 'OVERDUE' || n.type === 'REVIEW';
+            return n.type === 'OVERDUE' || n.type === 'REVIEW' || n.type === 'APPROVAL_REQ';
         }
         return true;
     });

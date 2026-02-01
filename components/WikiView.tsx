@@ -62,7 +62,11 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     // --- Filter Logic ---
     const filteredArticles = useMemo(() => {
         return articles.filter(a => {
+            // Category Match (Includes sub-categories if we implemented mapping logic, but here simple match)
+            // For now, if selected is ALL, show all. If specific, show matches.
+            // Note: If you have nested categories, you might want to match children too.
             const matchCat = selectedCategory === 'ALL' || a.category === selectedCategory;
+            
             const matchSearch = a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                 a.content.toLowerCase().includes(searchQuery.toLowerCase());
             return matchCat && matchSearch;
@@ -150,15 +154,16 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const showList = layoutMode === 'STANDARD' || layoutMode === 'FOCUS';
 
     return (
+        // Main Container: Fixed height relative to viewport to enable independent scrolling
         <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-2xl relative ring-1 ring-white/50 font-sans isolate transition-all duration-500">
             
             {/* Background Decoration */}
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 z-50"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 z-50"></div>
             
-            {/* 1. LEFT SIDEBAR (Categories) */}
+            {/* 1. LEFT SIDEBAR (Categories Tree) */}
             <div className={`
-                ${showSidebar ? 'lg:w-64 opacity-100' : 'lg:w-0 opacity-0'} 
-                hidden lg:flex flex-col border-r border-slate-100 bg-slate-50/50 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
+                ${showSidebar ? 'lg:w-72 opacity-100' : 'lg:w-0 opacity-0'} 
+                hidden lg:flex flex-col border-r border-slate-100 bg-slate-50/80 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
             `}>
                 <WikiSidebar 
                     categories={categories}
@@ -175,7 +180,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 ${showList ? 'lg:w-96 opacity-100' : 'lg:w-0 opacity-0'}
                 border-r border-slate-100 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]
                 ${isMobileListVisible ? 'flex w-full absolute inset-0 z-20 lg:static' : 'hidden lg:flex'}
-                overflow-hidden bg-white
+                flex-col bg-white overflow-hidden
             `}>
                 <WikiList 
                     articles={filteredArticles}
@@ -233,13 +238,13 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                          <div className="absolute w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -top-20 -right-20 pointer-events-none animate-pulse"></div>
                          <div className="absolute w-[400px] h-[400px] bg-pink-50/50 rounded-full blur-3xl bottom-0 left-0 pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-                        <div className="relative z-10 text-center animate-in zoom-in-95 duration-500 hover:scale-105 transition-transform">
+                        <div className="relative z-10 text-center animate-in zoom-in-95 duration-500 hover:scale-105 transition-transform px-6">
                             <div className="w-32 h-32 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mb-6 mx-auto transform -rotate-6 ring-8 ring-white/50">
                                 <span className="text-6xl">📖</span>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-700 mb-2 tracking-tight">Ready to Read!</h3>
-                            <p className="text-slate-500 font-medium max-w-xs mx-auto mb-8 leading-relaxed">
-                                เลือกบทความจากด้านซ้าย <br/> หรือจะเริ่มเขียนตำนานบทใหม่ก็ได้นะ
+                            <h3 className="text-3xl font-black text-slate-700 mb-2 tracking-tight">Wiki Knowledge Base</h3>
+                            <p className="text-slate-500 font-medium max-w-sm mx-auto mb-8 leading-relaxed">
+                                คลังความรู้ประจำทีม เลือกหัวข้อจากด้านซ้าย <br/> เพื่อเริ่มอ่านหรือค้นหาข้อมูล
                             </p>
                             
                             <button 
@@ -247,7 +252,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                                 className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 flex items-center mx-auto gap-3 group"
                             >
                                 <Sparkles className="w-5 h-5 text-yellow-300 fill-yellow-300 group-hover:spin" /> 
-                                สร้างบทความใหม่
+                                เขียนบทความใหม่
                             </button>
                         </div>
                     </div>

@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { X, Calendar, ArrowRight } from 'lucide-react';
-import { Task, Channel, Status } from '../types';
+import { X, Calendar, ArrowRight, User, AlertCircle } from 'lucide-react';
+import { Task, Channel } from '../types';
 import { STATUS_COLORS, STATUS_LABELS, PLATFORM_ICONS } from '../constants';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 interface TaskCategoryModalProps {
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface TaskCategoryModalProps {
   tasks: Task[];
   channels: Channel[];
   onEditTask: (task: Task) => void;
-  colorTheme: string; // e.g., 'blue', 'green', 'red'
+  colorTheme: string; // e.g., 'blue', 'green', 'red', 'orange'
 }
 
 const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({ 
@@ -20,86 +20,127 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const getChannelIcon = (channelId: string) => {
+  // Map color theme to actual styling
+  const themeStyles: Record<string, { bg: string, text: string, border: string, iconBg: string }> = {
+    slate: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200', iconBg: 'bg-slate-100' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', iconBg: 'bg-blue-100' },
+    green: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', iconBg: 'bg-emerald-100' },
+    red: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', iconBg: 'bg-red-100' },
+    orange: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', iconBg: 'bg-orange-100' },
+  };
+
+  const theme = themeStyles[colorTheme] || themeStyles['blue'];
+
+  const getChannelInfo = (channelId: string) => {
     const channel = channels.find(c => c.id === channelId);
     if (!channel) return null;
     const platform = channel.platforms?.[0] || 'OTHER';
     const Icon = PLATFORM_ICONS[platform];
     const colorClass = (channel.color || 'bg-gray-100').split(' ')[1] || 'text-gray-500';
-    return <Icon className={`w-3 h-3 ${colorClass}`} />;
+    return { name: channel.name, Icon, colorClass, fullColor: channel.color };
   };
 
-  // Map color theme to actual tailwind classes
-  const themeClasses: Record<string, string> = {
-    slate: 'bg-slate-50 text-slate-700 border-slate-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    green: 'bg-green-50 text-green-700 border-green-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
+  const getDueText = (date: Date) => {
+      const diff = differenceInDays(date, new Date());
+      if (diff < 0) return { text: `${Math.abs(diff)} วันที่แล้ว`, color: 'text-red-500' };
+      if (diff === 0) return { text: 'วันนี้', color: 'text-orange-600' };
+      if (diff === 1) return { text: 'พรุ่งนี้', color: 'text-indigo-600' };
+      return { text: `อีก ${diff} วัน`, color: 'text-gray-500' };
   };
-
-  const currentTheme = themeClasses[colorTheme] || themeClasses['blue'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-gray-100 animate-modal-pop">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border-4 border-white animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className={`px-6 py-4 border-b flex justify-between items-center ${currentTheme}`}>
-          <div className="flex items-center space-x-2">
-            <h2 className="text-lg font-bold">
-                {title}
-            </h2>
-            <span className="bg-white/50 px-2 py-0.5 rounded-full text-xs font-bold border border-white/20">
-                {tasks.length} งาน
-            </span>
+        <div className={`px-6 py-5 border-b flex justify-between items-center ${theme.bg} ${theme.border}`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl ${theme.iconBg} ${theme.text}`}>
+                 <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+                <h2 className={`text-xl font-black ${theme.text} tracking-tight`}>
+                    {title}
+                </h2>
+                <p className="text-xs font-bold opacity-70">
+                    รายการทั้งหมด {tasks.length} งาน
+                </p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/50 rounded-full transition-colors opacity-70 hover:opacity-100">
+          <button 
+            onClick={onClose} 
+            className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-red-500 shadow-sm"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* List */}
-        <div className="p-2 overflow-y-auto bg-gray-50 flex-1">
+        <div className="p-4 overflow-y-auto bg-gray-50/50 flex-1 space-y-3">
             {tasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                    <p>ไม่มีงานในรายการนี้ครับ</p>
+                    <p className="font-bold">ไม่มีงานในรายการนี้ครับ</p>
                 </div>
             ) : (
-                <div className="space-y-2">
-                    {tasks.map(task => (
+                tasks.map(task => {
+                    const channelInfo = getChannelInfo(task.channelId || '');
+                    const dueInfo = getDueText(task.endDate);
+                    
+                    return (
                         <div 
                             key={task.id}
                             onClick={() => {
                                 onEditTask(task);
-                                onClose();
+                                onClose(); // Optional: Close modal when clicking a task? Or keep open?
+                                // Usually better to keep open or open task modal on top. 
+                                // But current system replaces modal content. Let's close this one.
                             }}
-                            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all group active:scale-[0.98]"
+                            className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all group relative overflow-hidden"
                         >
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center space-x-2">
-                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${STATUS_COLORS[task.status]}`}>
-                                        {STATUS_LABELS[task.status]}
-                                    </span>
-                                    <div className="flex items-center space-x-1 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                                        {getChannelIcon(task.channelId)}
-                                        <span className="text-[10px] text-gray-500 font-medium truncate max-w-[80px]">
-                                            {channels.find(c => c.id === task.channelId)?.name}
+                            {/* Hover Bar */}
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+                            <div className="flex justify-between items-start gap-4">
+                                <div className="flex-1 min-w-0">
+                                    {/* Top Metadata */}
+                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        {channelInfo && (
+                                            <span className={`flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded border ${channelInfo.fullColor}`}>
+                                                <channelInfo.Icon className="w-3 h-3" /> {channelInfo.name}
+                                            </span>
+                                        )}
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[task.status as any]}`}>
+                                            {STATUS_LABELS[task.status as any]}
                                         </span>
                                     </div>
+                                    
+                                    <h3 className="font-bold text-gray-800 text-base leading-snug group-hover:text-indigo-700 transition-colors mb-2">
+                                        {task.title}
+                                    </h3>
+                                    
+                                    {/* Bottom Metadata */}
+                                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                                        <div className={`flex items-center font-bold ${dueInfo.color}`}>
+                                            <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                                            {format(task.endDate, 'd MMM')} ({dueInfo.text})
+                                        </div>
+                                        {/* Assignees (Visual only) */}
+                                        {(task.assigneeIds.length > 0 || task.ideaOwnerIds?.length > 0) && (
+                                            <div className="flex items-center gap-1">
+                                                <User className="w-3.5 h-3.5" />
+                                                <span>{(task.assigneeIds.length || 0) + (task.ideaOwnerIds?.length || 0)} คน</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="text-[10px] text-gray-400 flex items-center bg-gray-50 px-2 py-1 rounded-lg">
-                                    <Calendar className="w-3 h-3 mr-1" />
-                                    {format(task.endDate, 'd MMM')}
+
+                                <div className="p-2 bg-gray-50 rounded-full text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors self-center">
+                                    <ArrowRight className="w-5 h-5" />
                                 </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors line-clamp-1">{task.title}</h3>
-                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
                             </div>
                         </div>
-                    ))}
-                </div>
+                    );
+                })
             )}
         </div>
       </div>

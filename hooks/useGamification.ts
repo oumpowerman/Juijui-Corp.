@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase';
 import { GameActionType, ShopItem, UserInventoryItem } from '../types';
 import { useToast } from '../context/ToastContext';
 import { evaluateAction, calculateLevel } from '../lib/gameLogic';
+import { useGameConfig } from '../context/GameConfigContext'; // NEW IMPORT
 
 export const useGamification = (currentUser?: any) => {
     const { showToast } = useToast();
+    const { config } = useGameConfig(); // NEW: Get config from context
     const [shopItems, setShopItems] = useState<ShopItem[]>([]);
     const [userInventory, setUserInventory] = useState<UserInventoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -18,8 +20,8 @@ export const useGamification = (currentUser?: any) => {
         context: any = {}
     ) => {
         try {
-            // 1. Calculate Delta using Rule Engine
-            const result = evaluateAction(action, context);
+            // 1. Calculate Delta using Rule Engine (Pass dynamic config)
+            const result = evaluateAction(action, context, config);
             if (result.xp === 0 && result.hp === 0 && result.coins === 0 && !result.message) return;
 
             // 2. Fetch Current User State (to ensure atomicity, ideally use RPC, but Client-side is okay for V1)
@@ -35,8 +37,8 @@ export const useGamification = (currentUser?: any) => {
             const newXp = Math.max(0, user.xp + result.xp);
             const newHp = Math.min(100, Math.max(0, user.hp + result.hp)); // Clamp 0-100
             
-            // Check Level Up
-            const newLevel = calculateLevel(newXp);
+            // Check Level Up (Pass dynamic config)
+            const newLevel = calculateLevel(newXp, config);
             const isLevelUp = newLevel > user.level;
             
             // LEVEL UP BONUS Logic
@@ -86,7 +88,7 @@ export const useGamification = (currentUser?: any) => {
         } catch (err) {
             console.error("Gamification Error:", err);
         }
-    }, [showToast]);
+    }, [showToast, config]); // Add config to dependency
 
 
     // --- Shop & Inventory System ---
@@ -282,7 +284,7 @@ export const useGamification = (currentUser?: any) => {
         }
     };
     
-    // NEW: ADMIN ADJUSTMENT (Game Master)
+    // NEW: ADMIN ADJUSTMENT (Game Master) (Pass config to calculateLevel)
     const adminAdjustStats = async (userId: string, adjustments: { hp?: number, xp?: number, points?: number }, reason: string) => {
         try {
             const { data: user } = await supabase
@@ -301,7 +303,7 @@ export const useGamification = (currentUser?: any) => {
             if (adjustments.hp !== undefined) newHp = Math.min(user.max_hp, Math.max(0, user.hp + adjustments.hp));
             if (adjustments.xp !== undefined) {
                 newXp = Math.max(0, user.xp + adjustments.xp);
-                newLevel = calculateLevel(newXp);
+                newLevel = calculateLevel(newXp, config); // Pass Config
             }
             if (adjustments.points !== undefined) newPoints = Math.max(0, user.available_points + adjustments.points);
 

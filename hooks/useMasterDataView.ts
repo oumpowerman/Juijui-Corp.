@@ -16,11 +16,11 @@ export type MasterTab =
     // Production
     | 'MEETING_CATEGORY'
     // HR & Team
-    | 'POSITION' | 'LEAVE_TYPE' 
+    | 'POSITION' | 'LEAVE_TYPE' | 'ATTENDANCE_RULES' | 'LOCATIONS'
     // QC
     | 'REJECTION_REASON'
     // System
-    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY';
+    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY' | 'GAME_TUNING'; 
 
 export const useMasterDataView = () => {
     // --- Hooks ---

@@ -36,35 +36,42 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, onU
 
     const handleAddSubTask = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!newTaskTitle.trim()) return;
+        
+        // Double Lock: Check both validation AND current loading state
+        if (!newTaskTitle.trim() || isAdding) return;
 
         setIsAdding(true);
-        const newTask: Task = {
-            id: crypto.randomUUID(),
-            type: 'TASK',
-            title: newTaskTitle,
-            description: '',
-            status: 'TODO',
-            priority: 'MEDIUM',
-            tags: [],
-            startDate: new Date(),
-            endDate: new Date(),
-            assigneeIds: newTaskAssignee ? [newTaskAssignee] : [],
-            assigneeType: 'INDIVIDUAL',
-            difficulty: 'EASY',
-            estimatedHours: 0,
-            contentId: parentContentId, // Link to Parent
-            showOnBoard: false,
-            assets: [],
-            reviews: [],
-            logs: []
-        };
+        try {
+            const newTask: Task = {
+                id: crypto.randomUUID(),
+                type: 'TASK',
+                title: newTaskTitle,
+                description: '',
+                status: 'TODO',
+                priority: 'MEDIUM',
+                tags: [],
+                startDate: new Date(),
+                endDate: new Date(),
+                assigneeIds: newTaskAssignee ? [newTaskAssignee] : [],
+                assigneeType: 'INDIVIDUAL',
+                difficulty: 'EASY',
+                estimatedHours: 0,
+                contentId: parentContentId, // Link to Parent
+                showOnBoard: false,
+                assets: [],
+                reviews: [],
+                logs: []
+            };
 
-        await handleSaveTask(newTask, null);
-        setSubTasks(prev => [...prev, newTask]);
-        setNewTaskTitle('');
-        setNewTaskAssignee('');
-        setIsAdding(false);
+            await handleSaveTask(newTask, null);
+            setSubTasks(prev => [...prev, newTask]);
+            setNewTaskTitle('');
+            setNewTaskAssignee('');
+        } catch (error) {
+            console.error("Failed to add subtask", error);
+        } finally {
+            setIsAdding(false);
+        }
     };
 
     const handleToggleStatus = async (task: Task) => {
@@ -117,7 +124,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, onU
                         />
                     </div>
                     <select 
-                        className="w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 outline-none focus:border-indigo-400"
+                        className="w-40 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600 outline-none focus:border-indigo-400 cursor-pointer"
                         value={newTaskAssignee}
                         onChange={e => setNewTaskAssignee(e.target.value)}
                     >
@@ -127,7 +134,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, onU
                     <button 
                         type="submit" 
                         disabled={!newTaskTitle.trim() || isAdding}
-                        className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                        className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm min-w-[44px] flex items-center justify-center"
                     >
                         {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                     </button>

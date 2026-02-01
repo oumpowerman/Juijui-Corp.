@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, ZoomIn, ZoomOut, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ScriptStatus } from '../../../types';
 import { useScriptContext } from '../core/ScriptContext';
 import CharacterManager from '../tools/config/CharacterManager';
+import ScriptMetadataModal from '../tools/ScriptMetadataModal';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
@@ -29,6 +30,7 @@ const EditorToolbar: React.FC = () => {
         onClose,
         setIsAIOpen, setIsTeleprompterOpen,
         isChatPreviewOpen, setIsChatPreviewOpen,
+        setIsMetadataOpen, // New setter
         setContent,
         users, ideaOwnerId,
         isPublic, shareToken, handleToggleShare,
@@ -141,6 +143,15 @@ const EditorToolbar: React.FC = () => {
                             </span>
                         </div>
                     </div>
+
+                    {/* Metadata Button (New) */}
+                    <button 
+                        onClick={() => setIsMetadataOpen(true)}
+                        className="p-2 text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-100 transition-all shrink-0"
+                        title="แก้ไขรายละเอียด (Metadata)"
+                    >
+                        <FileText className="w-5 h-5" />
+                    </button>
                 </div>
 
                 {/* Bottom Line (Mobile) / Right Side (Desktop): Tools */}
@@ -281,8 +292,11 @@ const EditorToolbar: React.FC = () => {
                 </div>
             </div>
 
-            {/* Character Manager */}
+            {/* Config Modals */}
             {showConfig && <CharacterManager onClose={() => setShowConfig(false)} />}
+            
+            {/* New Metadata Modal */}
+            <ScriptMetadataModal />
             
             {/* Share Modal */}
             {showShareModal && (

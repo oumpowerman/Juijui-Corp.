@@ -110,7 +110,7 @@ export const useGoals = (currentUser: User) => {
     };
 
     const deleteGoal = async (id: string) => {
-        if(!confirm('ลบเป้าหมายนี้?')) return;
+        // Confirm logic moved to UI component (GoalView)
         try {
             await supabase.from('goals').delete().eq('id', id);
             showToast('ลบเป้าหมายแล้ว', 'info');

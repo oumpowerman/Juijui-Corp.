@@ -47,6 +47,26 @@ const DEFAULT_OPTIONS = [
     { type: 'POSITION', key: 'EDITOR', label: 'Editor', color: 'bg-blue-100 text-blue-700', sort_order: 2 },
     { type: 'POSITION', key: 'PRODUCTION', label: 'Production', color: 'bg-green-100 text-green-700', sort_order: 3 },
     { type: 'POSITION', key: 'ADMIN', label: 'Admin / Co-ord', color: 'bg-purple-100 text-purple-700', sort_order: 4 },
+
+    // --- WORK CONFIG (Attendance Rules) ---
+    { type: 'WORK_CONFIG', key: 'START_TIME', label: '10:00', color: '', sort_order: 1 },
+    { type: 'WORK_CONFIG', key: 'END_TIME', label: '19:00', color: '', sort_order: 2 },
+    { type: 'WORK_CONFIG', key: 'LATE_BUFFER', label: '15', color: '', sort_order: 3 },
+
+    // --- ATTENDANCE TYPES (Using sort_order as HP/Score impact) ---
+    { type: 'ATTENDANCE_TYPE', key: 'OFFICE', label: 'เข้าออฟฟิศ', color: 'bg-indigo-600', sort_order: 10 },
+    { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10 },
+    { type: 'ATTENDANCE_TYPE', key: 'SITE', label: 'ออกกอง/ข้างนอก', color: 'bg-orange-500', sort_order: 10 },
+    { type: 'ATTENDANCE_TYPE', key: 'LATE', label: 'มาสาย (Late)', color: 'bg-yellow-500', sort_order: -5 },
+    { type: 'ATTENDANCE_TYPE', key: 'EARLY_LEAVE', label: 'กลับก่อน (Early)', color: 'bg-orange-400', sort_order: -5 },
+    { type: 'ATTENDANCE_TYPE', key: 'ABSENT', label: 'ขาดงาน (Absent)', color: 'bg-red-500', sort_order: -20 },
+    { type: 'ATTENDANCE_TYPE', key: 'NO_SHOW', label: 'หายเงียบ (No Show)', color: 'bg-red-800', sort_order: -50 },
+
+    // --- LEAVE TYPES ---
+    { type: 'LEAVE_TYPE', key: 'SICK', label: 'ลาป่วย', color: 'bg-gray-500', sort_order: 0 },
+    { type: 'LEAVE_TYPE', key: 'BUSINESS', label: 'ลากิจ', color: 'bg-gray-500', sort_order: 0 },
+    { type: 'LEAVE_TYPE', key: 'VACATION', label: 'พักร้อน', color: 'bg-blue-500', sort_order: 0 },
+    { type: 'LEAVE_TYPE', key: 'WITHOUT_PAY', label: 'ลาไม่รับค่าจ้าง', color: 'bg-gray-800', sort_order: -5 },
 ];
 
 export const useMasterData = () => {

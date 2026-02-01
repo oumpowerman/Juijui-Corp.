@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Goal, Channel, Platform, User } from '../types';
 import { useGoals } from '../hooks/useGoals';
 import { PLATFORM_ICONS } from '../constants';
-import { Plus, Target, Calendar, Trophy, TrendingUp, RefreshCw, X, ArrowRight, Wallet, Flame, Users, Sparkles, Coins, Star } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { Plus, Trophy, TrendingUp, RefreshCw, X, Flame, Coins, Star, Target, Sparkles } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 import MentorTip from './MentorTip';
+import { useGlobalDialog } from '../context/GlobalDialogContext'; // Import Dialog Hook
 
 interface GoalViewProps {
     channels: Channel[];
@@ -15,6 +16,8 @@ interface GoalViewProps {
 
 const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => {
     const { goals, addGoal, updateGoalValue, deleteGoal, toggleOwner, toggleBoost } = useGoals(currentUser);
+    const { showConfirm } = useGlobalDialog(); // Use Hook
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     // Form State
@@ -61,6 +64,18 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
         if(editingGoal) {
             updateGoalValue(editingGoal.id, Number(newValue));
             setEditingGoal(null);
+        }
+    };
+
+    // New Delete Handler using GlobalDialog
+    const handleDeleteGoal = async (id: string, goalTitle: string) => {
+        const confirmed = await showConfirm(
+            `คุณต้องการลบภารกิจ "${goalTitle}" ใช่หรือไม่?`,
+            'ยืนยันการลบภารกิจ'
+        );
+        
+        if (confirmed) {
+            await deleteGoal(id);
         }
     };
 
@@ -203,7 +218,11 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                 </button>
                                 
                                 {currentUser.role === 'ADMIN' && (
-                                    <button onClick={() => deleteGoal(goal.id)} className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                                    <button 
+                                        onClick={() => handleDeleteGoal(goal.id, goal.title)} 
+                                        className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                        title="ลบภารกิจ"
+                                    >
                                         <X className="w-4 h-4" />
                                     </button>
                                 )}

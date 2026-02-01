@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Script, User } from '../../types';
+import { Script, User, Channel, MasterOption } from '../../types';
 import { ScriptProvider, useScriptContext } from './core/ScriptContext';
 import EditorShell from './layout/EditorShell';
 import EditorToolbar from './layout/EditorToolbar';
@@ -14,7 +14,9 @@ import ChatPreview from './tools/ChatPreview';
 interface ScriptEditorProps {
     script: Script;
     users: User[];
-    currentUser: User; // NEW PROP
+    channels: Channel[]; // New
+    masterOptions: MasterOption[]; // New
+    currentUser: User; 
     onClose: () => void;
     onSave: (id: string, updates: Partial<Script>) => Promise<void>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;

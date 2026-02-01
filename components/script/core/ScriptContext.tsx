@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Script, ScriptStatus, ScriptType, User } from '../../../types';
+import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
 import { Editor } from '@tiptap/core';
@@ -21,6 +21,16 @@ interface ScriptContextType {
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
     
+    // Metadata State (Added)
+    channelId: string | undefined;
+    setChannelId: (val: string | undefined) => void;
+    category: string | undefined;
+    setCategory: (val: string | undefined) => void;
+    tags: string[];
+    setTags: (val: string[]) => void;
+    objective: string;
+    setObjective: (val: string) => void;
+
     // View State
     fontSize: number;
     setFontSize: (val: number) => void;
@@ -50,6 +60,8 @@ interface ScriptContextType {
     setIsAIOpen: (val: boolean) => void;
     isGenerating: boolean;
     setIsGenerating: (val: boolean) => void;
+    isMetadataOpen: boolean;
+    setIsMetadataOpen: (val: boolean) => void;
 
     // Actions
     handleSave: (silent?: boolean) => Promise<void>;
@@ -58,6 +70,8 @@ interface ScriptContextType {
     
     // External Props
     users: any[];
+    channels: Channel[];
+    masterOptions: MasterOption[];
     onClose: () => void;
 }
 
@@ -72,6 +86,8 @@ export const useScriptContext = () => {
 interface ScriptProviderProps {
     script: Script;
     users: any[];
+    channels: Channel[];
+    masterOptions: MasterOption[];
     currentUser: User; 
     onClose: () => void;
     onSave: (id: string, updates: Partial<Script>) => Promise<void>;
@@ -80,7 +96,7 @@ interface ScriptProviderProps {
 }
 
 export const ScriptProvider: React.FC<ScriptProviderProps> = ({ 
-    children, script, users, currentUser, onClose, onSave, onGenerateAI 
+    children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI 
 }) => {
     const { showToast } = useToast();
 
@@ -92,6 +108,12 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
     
+    // Metadata State (Initialized from script)
+    const [channelId, setChannelId] = useState<string | undefined>(script.channelId);
+    const [category, setCategory] = useState<string | undefined>(script.category);
+    const [tags, setTags] = useState<string[]>(script.tags || []);
+    const [objective, setObjective] = useState<string>(script.objective || '');
+
     // View State (Zoom)
     const [fontSize, setFontSize] = useState(16); // Default 16px
 
@@ -114,6 +136,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
     const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
     const [isAIOpen, setIsAIOpen] = useState(false);
+    const [isMetadataOpen, setIsMetadataOpen] = useState(false);
     
     // Logic State
     const [isGenerating, setIsGenerating] = useState(false);
@@ -249,13 +272,17 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
                 title !== script.title || 
                 scriptType !== script.scriptType ||
                 ideaOwnerId !== script.ideaOwnerId ||
-                JSON.stringify(characters) !== JSON.stringify(script.characters)
+                JSON.stringify(characters) !== JSON.stringify(script.characters) ||
+                channelId !== script.channelId ||
+                category !== script.category ||
+                objective !== script.objective ||
+                JSON.stringify(tags) !== JSON.stringify(script.tags)
             ) {
                 handleSave(true);
             }
         }, 3000);
         return () => clearTimeout(timer);
-    }, [content, title, status, scriptType, characters, ideaOwnerId, isReadOnly]);
+    }, [content, title, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective, isReadOnly]);
 
     const handleSave = async (silent = false) => {
         if (isReadOnly) return;
@@ -267,13 +294,16 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             estimatedDuration: estimatedSeconds,
             scriptType,
             characters,
-            ideaOwnerId
+            ideaOwnerId,
+            channelId,
+            category,
+            tags,
+            objective
         });
         setLastSaved(new Date());
         setIsSaving(false);
     };
 
-    // NEW: Immediate Status Change (For Toolbar)
     const changeStatus = async (newStatus: ScriptStatus) => {
         if (isReadOnly) return;
         
@@ -356,6 +386,13 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             scriptType, setScriptType,
             characters, setCharacters,
             ideaOwnerId, setIdeaOwnerId,
+            
+            // Metadata
+            channelId, setChannelId,
+            category, setCategory,
+            tags, setTags,
+            objective, setObjective,
+
             isSaving, lastSaved,
             setEditorInstance,
             
@@ -374,10 +411,14 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isChatPreviewOpen, setIsChatPreviewOpen,
             isAIOpen, setIsAIOpen,
             isGenerating, setIsGenerating,
+            isMetadataOpen, setIsMetadataOpen,
+            
             handleSave,
             handleGenerateAI: handleGenerateAIWrapper,
             handleInsertCharacter,
             users,
+            channels,
+            masterOptions,
             onClose: handleCloseWrapper
         }}>
             {children}

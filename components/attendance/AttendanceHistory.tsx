@@ -1,0 +1,282 @@
+
+import React, { useState, useEffect } from 'react';
+import { AttendanceLog } from '../../types/attendance';
+import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; // Import hook type
+import { format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { th } from 'date-fns/locale';
+import { 
+    Clock, Calendar, CheckCircle2, MapPin, XCircle, Image as ImageIcon, 
+    ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight
+} from 'lucide-react';
+
+interface AttendanceHistoryProps {
+    userId: string; // Changed: Pass ID instead of data to let component fetch itself
+}
+
+const PAGE_SIZE = 15;
+
+const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
+    const { getAttendanceLogs, isLoading } = useAttendance(userId);
+    
+    // Data State
+    const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [page, setPage] = useState(1);
+    
+    // Filter State
+    const [filters, setFilters] = useState<AttendanceFilters>({
+        startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+        workType: 'ALL'
+    });
+    
+    const [isFetching, setIsFetching] = useState(false);
+    const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
+
+    // Initial Fetch & Filter Change
+    useEffect(() => {
+        fetchData();
+    }, [page, filters]); // Re-fetch on page/filter change
+
+    const fetchData = async () => {
+        setIsFetching(true);
+        const { data, count } = await getAttendanceLogs(page, PAGE_SIZE, filters);
+        setHistoryLogs(data);
+        setTotalCount(count);
+        setIsFetching(false);
+    };
+
+    const handleFilterChange = (key: keyof AttendanceFilters, value: string) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+        setPage(1); // Reset to page 1 on filter change
+    };
+
+    const resetFilters = () => {
+        setFilters({
+            startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+            endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+            workType: 'ALL'
+        });
+        setPage(1);
+    };
+
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+    // Helpers
+    const isLate = (log: AttendanceLog) => {
+        if (!log.checkInTime) return false;
+        const hour = log.checkInTime.getHours();
+        return hour > 10 || (hour === 10 && log.checkInTime.getMinutes() > 0);
+    };
+
+    const getProofUrl = (note?: string) => {
+        if (!note) return null;
+        const match = note.match(/\[PROOF:(.*?)\]/);
+        return match ? match[1] : null;
+    };
+
+    const getWorkHours = (log: AttendanceLog) => {
+        if (!log.checkInTime || !log.checkOutTime) return '-';
+        const diffMs = log.checkOutTime.getTime() - log.checkInTime.getTime();
+        const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${hrs}h ${mins}m`;
+    };
+
+    return (
+        <div className="space-y-4">
+            
+            {/* --- Filter Bar --- */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    {/* Date Range */}
+                    <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200 w-full sm:w-auto">
+                        <Calendar className="w-4 h-4 text-gray-400 ml-2" />
+                        <input 
+                            type="date" 
+                            className="bg-transparent text-xs font-bold text-gray-600 outline-none w-24"
+                            value={filters.startDate}
+                            onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                        />
+                        <ArrowRight className="w-3 h-3 text-gray-300" />
+                        <input 
+                            type="date" 
+                            className="bg-transparent text-xs font-bold text-gray-600 outline-none w-24"
+                            value={filters.endDate}
+                            onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                        />
+                    </div>
+
+                    {/* Work Type Filter */}
+                    <div className="relative w-full sm:w-40">
+                        <select 
+                            className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 appearance-none outline-none focus:border-indigo-400 cursor-pointer"
+                            value={filters.workType}
+                            onChange={(e) => handleFilterChange('workType', e.target.value)}
+                        >
+                            <option value="ALL">ทุกรูปแบบ (All Types)</option>
+                            <option value="OFFICE">เข้าออฟฟิศ</option>
+                            <option value="WFH">Work From Home</option>
+                            <option value="SITE">On Site (ข้างนอก)</option>
+                        </select>
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={resetFilters} 
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                        title="ล้างตัวกรอง"
+                    >
+                        <Filter className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={fetchData} 
+                        className={`p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all ${isFetching ? 'animate-spin' : ''}`}
+                        title="โหลดข้อมูลใหม่"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* --- Data Table --- */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+                <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] text-gray-400 font-black uppercase tracking-wider">
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4">Time In</th>
+                                <th className="px-6 py-4">Time Out</th>
+                                <th className="px-6 py-4">Location</th>
+                                <th className="px-6 py-4 text-center">Duration</th>
+                                <th className="px-6 py-4 text-center">Proof</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {isFetching && historyLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-20 text-center text-gray-400">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-400" />
+                                        กำลังโหลดข้อมูล...
+                                    </td>
+                                </tr>
+                            ) : historyLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center py-20 text-gray-400">
+                                        <Calendar className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                        ไม่พบประวัติการลงเวลาในช่วงนี้
+                                    </td>
+                                </tr>
+                            ) : (
+                                historyLogs.map(log => {
+                                    const late = isLate(log);
+                                    const proof = getProofUrl(log.note);
+                                    
+                                    return (
+                                        <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-2 h-2 rounded-full ${isSameDay(new Date(log.date), new Date()) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                                                    <div>
+                                                        <span className="block text-sm font-bold text-gray-700">{format(new Date(log.date), 'd MMM yyyy')}</span>
+                                                        <span className="text-[10px] text-gray-400 font-medium">{format(new Date(log.date), 'EEEE', { locale: th })}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {log.checkInTime ? (
+                                                    <span className={`font-mono font-bold text-sm ${late ? 'text-red-500' : 'text-green-600'}`}>
+                                                        {format(log.checkInTime, 'HH:mm')}
+                                                        {late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {log.checkOutTime ? (
+                                                    <span className="font-mono font-bold text-sm text-gray-600">{format(log.checkOutTime, 'HH:mm')}</span>
+                                                ) : (
+                                                    <span className="text-gray-300 italic text-xs">Working...</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide ${
+                                                    log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                                    log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                    'bg-orange-50 text-orange-600 border-orange-100'
+                                                }`}>
+                                                    {log.workType}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">{getWorkHours(log)}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {proof ? (
+                                                    <button onClick={() => setViewProofUrl(proof)} className="p-1.5 bg-white border border-gray-200 hover:border-indigo-300 hover:text-indigo-600 rounded-lg text-gray-400 transition-all shadow-sm">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-200 text-lg">•</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Footer Pagination */}
+                {totalCount > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                        <span className="text-xs text-gray-500 font-medium">
+                            Showing {((page - 1) * PAGE_SIZE) + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1 || isFetching}
+                                className="p-2 bg-white border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs font-bold text-gray-700 px-2">
+                                Page {page} / {totalPages}
+                            </span>
+                            <button 
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages || isFetching}
+                                className="p-2 bg-white border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Proof Modal */}
+            {viewProofUrl && (
+                <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setViewProofUrl(null)}>
+                    <div className="relative max-w-lg w-full bg-white p-2 rounded-2xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setViewProofUrl(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
+                            <XCircle className="w-8 h-8" />
+                        </button>
+                        <img src={viewProofUrl} className="w-full h-auto rounded-xl shadow-inner bg-gray-100" alt="Proof" />
+                        <a href={viewProofUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center mt-3 text-indigo-600 font-bold text-sm hover:underline py-2">
+                            เปิดรูปต้นฉบับ <ExternalLink className="w-4 h-4 ml-1.5" />
+                        </a>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default AttendanceHistory;

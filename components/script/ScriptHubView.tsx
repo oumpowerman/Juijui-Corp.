@@ -12,6 +12,7 @@ import ScriptEditor from './ScriptEditor';
 import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
 
 // --- Sub-components ---
 
@@ -93,6 +94,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     
     const { channels } = useChannels();
     const { masterOptions } = useMasterData();
+    const { showConfirm } = useGlobalDialog(); // USE DIALOG
 
     // UI State
     const [activeScript, setActiveScript] = useState<Script | null>(null);
@@ -163,12 +165,59 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
         }
     };
 
+    // --- WRAPPED HANDLERS WITH GLOBAL MODAL ---
+    
+    const handleToggleQueue = async (id: string, currentStatus: boolean) => {
+        // currentStatus: true = in queue, false = not in queue
+        const actionText = currentStatus ? 'นำออกจากคิวถ่ายทำ (เก็บเข้าคลัง)' : 'ย้ายเข้าคิวถ่ายทำ (Active Queue)';
+        const confirmed = await showConfirm(
+            `คุณต้องการ ${actionText} ใช่หรือไม่?`,
+            'ยืนยันการย้ายรายการ'
+        );
+        
+        if (confirmed) {
+            toggleShootQueue(id, currentStatus);
+        }
+    };
+
+    const handleDeleteScript = async (id: string) => {
+        const confirmed = await showConfirm(
+            'สคริปต์จะถูกลบถาวรและไม่สามารถกู้คืนได้',
+            '⚠️ ยืนยันการลบสคริปต์?'
+        );
+        if (confirmed) {
+            deleteScript(id);
+        }
+    };
+
+    const handleDoneScript = async (id: string) => {
+        const confirmed = await showConfirm(
+            'รายการจะถูกย้ายไปที่ "ประวัติ (History)" และถือว่าถ่ายทำเสร็จสิ้นแล้ว',
+            '🎉 ยืนยันจบงาน (Mark as Done)?'
+        );
+        if (confirmed) {
+            updateScript(id, { status: 'DONE', isInShootQueue: false });
+        }
+    };
+
+    const handleRestoreScript = async (id: string) => {
+        const confirmed = await showConfirm(
+            'สคริปต์จะถูกย้ายกลับมาที่คลัง (Library) ในสถานะ DRAFT',
+            'ยืนยันการนำกลับมาใช้?'
+        );
+        if (confirmed) {
+            updateScript(id, { status: 'DRAFT', isInShootQueue: false });
+        }
+    };
+
     // If Editor is open, show full screen editor
     if (activeScript) {
         return (
             <ScriptEditor 
                 script={activeScript} 
                 users={users}
+                channels={channels} // Pass channels
+                masterOptions={masterOptions} // Pass masterOptions
                 currentUser={currentUser}
                 onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus }); }} 
                 onSave={updateScript} 
@@ -196,7 +245,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     onInfoClick={() => setIsInfoOpen(true)} 
                 />
 
-                {/* 2. Dashboard Stats Grid (NOW USING REAL STATS) */}
+                {/* 2. Dashboard Stats Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard 
                         label="ถ่ายวันนี้ (Queue)" 
@@ -265,19 +314,19 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     />
 
                     <ScriptList 
-                        scripts={scripts} // Now receiving ScriptSummary[]
+                        scripts={scripts}
                         layoutMode={layoutMode}
                         viewTab={viewTab}
                         isLoading={isLoading}
                         channels={channels}
                         masterOptions={masterOptions}
                         onOpen={handleOpenScript}
-                        onToggleQueue={toggleShootQueue}
-                        onDelete={deleteScript}
-                        onRestore={(id) => updateScript(id, { status: 'DRAFT' })}
-                        onDone={(id) => {
-                             if(confirm('ถ่ายเสร็จแล้ว? (ย้ายไปประวัติ)')) updateScript(id, { status: 'DONE', isInShootQueue: false });
-                        }}
+                        
+                        // Pass wrapped handlers
+                        onToggleQueue={handleToggleQueue}
+                        onDelete={handleDeleteScript}
+                        onRestore={handleRestoreScript}
+                        onDone={handleDoneScript}
                     />
 
                     {/* Pagination Controls */}

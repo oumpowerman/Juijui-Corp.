@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType } from '../types';
+import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType, TaskAsset } from '../types';
 
 interface UseGeneralTaskFormProps {
     initialData?: Task | null;
@@ -34,9 +34,10 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     const [contentId, setContentId] = useState<string | undefined>(undefined);
     const [showOnBoard, setShowOnBoard] = useState(false);
     
-    // Gamification
+    // Gamification & Assets
     const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
     const [estimatedHours, setEstimatedHours] = useState<number>(0);
+    const [assets, setAssets] = useState<TaskAsset[]>([]);
 
     const [error, setError] = useState('');
 
@@ -64,6 +65,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             
             setDifficulty(initialData.difficulty || 'MEDIUM');
             setEstimatedHours(initialData.estimatedHours || 0);
+            setAssets(initialData.assets || []);
         } else {
             // Defaults
             setTitle('');
@@ -88,6 +90,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             
             setDifficulty('MEDIUM');
             setEstimatedHours(0);
+            setAssets([]);
         }
         setError('');
     }, [initialData, selectedDate, masterOptions]);
@@ -132,12 +135,12 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             contentId: contentId,
             showOnBoard: showOnBoard,
             
-            // Gamification
+            // Gamification & Assets
             difficulty,
             estimatedHours,
+            assets,
             
             // Empty Content Fields
-            assets: initialData?.assets || [],
             reviews: initialData?.reviews || [],
             logs: []
         };
@@ -157,6 +160,9 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         setContentId(id || undefined);
     };
 
+    const addAsset = (newAsset: TaskAsset) => setAssets(prev => [...prev, newAsset]);
+    const removeAsset = (id: string) => setAssets(prev => prev.filter(a => a.id !== id));
+
     return {
         title, setTitle,
         description, setDescription,
@@ -175,6 +181,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,
+        assets, addAsset, removeAsset,
         
         error,
         taskStatusOptions,

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { User, DashboardConfig } from '../../../types';
+import { User } from '../../../types';
 import { Palette, Users, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
 import MentorTip from '../../MentorTip';
 import { TimeRangeOption, ViewScope } from '../../../hooks/useDashboardStats';

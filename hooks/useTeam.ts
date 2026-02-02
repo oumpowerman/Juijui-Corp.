@@ -31,16 +31,17 @@ export const useTeam = () => {
         workStatus: (u.work_status as WorkStatus) || 'ONLINE',
         leaveStartDate: u.leave_start_date ? new Date(u.leave_start_date) : null,
         leaveEndDate: u.leave_end_date ? new Date(u.leave_end_date) : null,
+        // --- NEW READ FIELDS ---
+        lastReadChatAt: u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0),
+        lastReadNotificationAt: u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0),
     });
 
     const fetchTeamMembers = async () => {
         try {
-            // Explicitly selecting columns to ensure we get everything
-            // Note: If 'bio' or 'feeling' columns don't exist in DB, Supabase might throw error.
-            // Ensure SQL script is run to add these columns.
+            // Select all columns or explicitly list new ones if needed
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, email, full_name, avatar_url, role, position, phone_number, bio, feeling, is_approved, is_active, xp, level, available_points, hp, max_hp, work_status, leave_start_date, leave_end_date')
+                .select('*')
                 .order('full_name', { ascending: true });
                 
             if (error) {
@@ -52,10 +53,6 @@ export const useTeam = () => {
             }
         } catch (err: any) { 
             console.error('Fetch team failed', err);
-            // If error is about missing column, we might want to fallback or just log
-            if (err.message?.includes('column') && err.message?.includes('does not exist')) {
-                console.warn("Missing columns in profiles table. Please run the SQL migration script.");
-            }
         }
     };
 

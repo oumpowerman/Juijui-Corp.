@@ -40,14 +40,12 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
     // Inventory Hook Logic - We use local state for Presets to ensure Optimistic Updates work instantly
     const { 
         inventoryItems, 
-        checklistPresets, // Use this instead of props
+        checklistPresets, // Use this local state for latest presets
         handleAddInventoryItem, 
         handleUpdateInventoryItem, 
         handleDeleteInventoryItem, 
         handleUpdatePreset,
-        handleAddPreset,    // Use local
-        handleDeletePreset, // Use local
-        handleLoadPreset    // Use local
+        // We DO NOT destructure handleLoadPreset here to avoid using the wrong instance
     } = useChecklist();
     
     const { showConfirm } = useGlobalDialog();
@@ -80,12 +78,14 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
         if (presetId === 'CLEAR') {
             const confirmed = await showConfirm('ต้องการลบรายการทั้งหมดหน้าจอใช่หรือไม่?', 'ยืนยันการล้างกระเป๋า 🗑️');
             if (confirmed) {
-                handleLoadPreset('CLEAR');
+                // Use Prop function to ensure Parent State updates (Visual Sync)
+                propOnLoadPreset('CLEAR');
                 setActivePresetId(null);
             }
         } else {
             setActivePresetId(presetId);
-            handleLoadPreset(presetId, true); // Exclusive load
+            // Use Prop function to ensure Parent State updates (Visual Sync)
+            propOnLoadPreset(presetId, true); // Exclusive load
         }
     };
 
@@ -394,8 +394,8 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                 onClose={() => setIsPresetModalOpen(false)}
                 presets={checklistPresets}
                 inventoryItems={inventoryItems}
-                onAddPreset={handleAddPreset}
-                onDeletePreset={handleDeletePreset}
+                onAddPreset={(name, ids) => propOnAddPreset(name, ids)} // Use Prop
+                onDeletePreset={(id) => propOnDeletePreset(id)} // Use Prop
             />
 
             {/* NEW: Preset Editor */}

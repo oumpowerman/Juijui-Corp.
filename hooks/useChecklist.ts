@@ -127,6 +127,9 @@ export const useChecklist = () => {
         // PATCH: Use 'await' with confirm because it is now monkey-patched to be async
         // @ts-ignore
         if (await window.confirm('รีเซ็ตสถานะเช็คลิสต์ทั้งหมด?')) {
+            // Optimistic Reset
+            setActiveChecklistItems(prev => prev.map(i => ({ ...i, isChecked: false })));
+            
             try {
                 await supabase.from('active_checklist_items').update({ is_checked: false }).neq('id', NIL_UUID); 
                 showToast('รีเซ็ตสถานะแล้ว', 'info');
@@ -243,7 +246,9 @@ export const useChecklist = () => {
     // UPDATED: Support clearFirst to replace items instead of append
     const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
         if (presetId === 'CLEAR') {
-            // REMOVED window.confirm here to allow UI to handle it
+            // Optimistic Clear
+            setActiveChecklistItems([]); 
+            
             await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
             showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
             loadChecklistData();
@@ -252,19 +257,41 @@ export const useChecklist = () => {
 
         const preset = checklistPresets.find(p => p.id === presetId);
         if(preset) {
+            // Optimistic Insert (Visual)
+            const tempItems: ChecklistItem[] = preset.items.map((i, idx) => ({
+                id: `temp-${Date.now()}-${idx}`,
+                text: i.text,
+                categoryId: i.categoryId,
+                isChecked: false
+            }));
+
             if (clearFirst) {
-                await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
+                setActiveChecklistItems(tempItems); // Replace
+            } else {
+                setActiveChecklistItems(prev => [...prev, ...tempItems]); // Append
             }
 
-            const itemsToInsert = preset.items.map(i => ({
-                text: i.text,
-                category_id: i.categoryId,
-                is_checked: false
-            }));
-            
-            if (itemsToInsert.length > 0) {
-                await supabase.from('active_checklist_items').insert(itemsToInsert);
-                showToast(`โหลดชุด "${preset.name}" เรียบร้อย`, 'success');
+            // DB Operations
+            try {
+                if (clearFirst) {
+                    await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
+                }
+
+                const itemsToInsert = preset.items.map(i => ({
+                    text: i.text,
+                    category_id: i.categoryId,
+                    is_checked: false
+                }));
+                
+                if (itemsToInsert.length > 0) {
+                    await supabase.from('active_checklist_items').insert(itemsToInsert);
+                    showToast(`โหลดชุด "${preset.name}" เรียบร้อย`, 'success');
+                    // Finally sync with real data to get proper IDs
+                    loadChecklistData();
+                }
+            } catch (err) {
+                console.error("Load Preset DB Error", err);
+                // On error, reload to revert to real state
                 loadChecklistData();
             }
         }

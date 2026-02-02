@@ -20,6 +20,7 @@ interface DashboardProps {
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
   onOpenNotifications?: () => void; // Added Prop
+  unreadCount?: number; // Added Prop for Notification Badge
   onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
@@ -35,7 +36,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     onEditTask, 
     onNavigateToCalendar, 
     onOpenSettings,
-    onOpenNotifications
+    onOpenNotifications,
+    unreadCount = 0
 }) => {
   
   // Use the new hook for logic
@@ -61,7 +63,15 @@ const AdminDashboard: React.FC<DashboardProps> = ({
 
   const handleCardClick = (title: string, tasks: Task[], theme: string) => {
     setModalTitle(title);
-    setModalTasks(tasks);
+    
+    // 🔥 SORTING: Sort tasks by end date (Ascending: Oldest/Overdue first)
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const timeA = new Date(a.endDate).getTime();
+        const timeB = new Date(b.endDate).getTime();
+        return timeA - timeB;
+    });
+
+    setModalTasks(sortedTasks);
     setModalTheme(theme);
     setModalOpen(true);
   };
@@ -80,7 +90,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           viewScope={viewScope}
           setViewScope={setViewScope}
           onOpenSettings={onOpenSettings}
-          onOpenNotifications={onOpenNotifications} // Pass down
+          onOpenNotifications={onOpenNotifications} 
+          unreadCount={unreadCount} // Pass down to Header
           getTimeRangeLabel={getTimeRangeLabel}
       />
 

@@ -101,6 +101,20 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
       setIsNotificationOpen(!isNotificationOpen);
   };
 
+  // --- ROBUST LOGOUT HANDLER ---
+  const handleForceLogout = async () => {
+      try {
+          // Attempt standard sign out
+          await supabase.auth.signOut();
+      } catch (error) {
+          console.warn("Logout error (session might be missing):", error);
+      } finally {
+          // FORCE CLEANUP: Clear local storage and reload to reset state
+          localStorage.clear(); 
+          window.location.href = '/'; 
+      }
+  };
+
   // 1. Initial Load or Profile Fetching
   if (isManagerLoading) {
      return (
@@ -117,11 +131,11 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   }
   
   if (!currentUserProfile.isApproved) {
-    return <PendingApprovalScreen user={currentUserProfile} onLogout={async () => { await supabase.auth.signOut(); }} />;
+    return <PendingApprovalScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
   if (!currentUserProfile.isActive) {
-    return <InactiveScreen user={currentUserProfile} onLogout={async () => { await supabase.auth.signOut(); }} />;
+    return <InactiveScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
   // 3. View Router
@@ -186,6 +200,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                   onToggleStatus={toggleUserStatus}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onAddTask={(type) => handleAddTask(type)}
+                  onMoveTask={(t) => handleSaveTask(t)} // DnD Handler
                 />
               );
             case 'CHAT':
@@ -329,7 +344,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
         currentUser={currentUserProfile}
         currentView={currentView}
         onNavigate={setCurrentView}
-        onLogout={async () => { await supabase.auth.signOut(); }}
+        onLogout={handleForceLogout}
         onEditProfile={() => setIsProfileModalOpen(true)}
         onAddTask={handleAddTask}
         chatUnreadCount={chatUnread}

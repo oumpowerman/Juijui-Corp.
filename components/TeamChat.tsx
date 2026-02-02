@@ -4,6 +4,7 @@ import { Send, Bot, Smile, Paperclip, CheckSquare, User as UserIcon, Power, Help
 import { User, ChatMessage, Task } from '../types';
 import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { useTeamChat } from '../hooks/useTeamChat';
+import { useAutoScroll } from '../hooks/useAutoScroll'; // New Import
 import heic2any from 'heic2any';
 
 interface TeamChatProps {
@@ -35,9 +36,10 @@ interface MessageItemProps {
     prevMsg: ChatMessage | undefined;
     currentUser: User | null;
     isImageUrl: (url: string) => boolean;
+    onImageLoad: () => void; // Added Prop
 }
 
-const MessageItem = memo(({ msg, prevMsg, currentUser, isImageUrl }: MessageItemProps) => {
+const MessageItem = memo(({ msg, prevMsg, currentUser, isImageUrl, onImageLoad }: MessageItemProps) => {
     const isMe = msg.userId === currentUser?.id;
     const isBot = msg.isBot;
     
@@ -102,7 +104,8 @@ const MessageItem = memo(({ msg, prevMsg, currentUser, isImageUrl }: MessageItem
                             alt="Attachment" 
                             className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity min-w-[100px] min-h-[100px] bg-gray-100 object-cover" 
                             loading="lazy"
-                            onClick={() => window.open(msg.content, '_blank')} 
+                            onClick={() => window.open(msg.content, '_blank')}
+                            onLoad={onImageLoad} // FIX: Trigger scroll on load
                         />
                     ) : isFile ? (
                         <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => window.open(msg.content, '_blank')}>
@@ -139,14 +142,9 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
 
     // Smart Scroll State
     const [showScrollButton, setShowScrollButton] = useState(false);
-    const isNearBottomRef = useRef(true);
-
-    const scrollToBottom = () => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-            setShowScrollButton(false);
-        }
-    };
+    
+    // --- INTEGRATE NEW HOOK ---
+    const { scrollToBottom, handleImageLoad, setShouldScroll } = useAutoScroll(messages, currentUser, messagesEndRef);
 
     const handleScroll = () => {
         if (!containerRef.current) return;
@@ -155,24 +153,11 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
         const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
         
         const isNear = distanceFromBottom < threshold;
-        isNearBottomRef.current = isNear;
+        setShouldScroll(isNear); // Tell the hook if we are near bottom
         setShowScrollButton(!isNear);
     };
 
-    // Auto-scroll Effect
-    useEffect(() => {
-        if (isLoadingMore) return;
-
-        const lastMessage = messages[messages.length - 1];
-        const isMyMessage = lastMessage?.userId === currentUser?.id;
-
-        // Scroll if it's my message OR if I was already at the bottom
-        if (isMyMessage || isNearBottomRef.current) {
-            scrollToBottom();
-        }
-    }, [messages, isLoadingMore, currentUser]);
-
-    // Maintain scroll position when loading history
+    // Maintain scroll position when loading history (Legacy Logic preserved)
     useEffect(() => {
         if (!isLoadingMore && prevScrollHeight > 0 && containerRef.current) {
             const newScrollHeight = containerRef.current.scrollHeight;
@@ -313,7 +298,6 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
 
                                 {messages.map((msg, index) => {
                                     const prevMsg = messages[index - 1];
-                                    // Logic for Date Separator
                                     const showDateSeparator = !prevMsg || !isSameDay(msg.createdAt, prevMsg.createdAt);
                                     
                                     return (
@@ -324,6 +308,7 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                                                 prevMsg={prevMsg} 
                                                 currentUser={currentUser}
                                                 isImageUrl={isImageUrl}
+                                                onImageLoad={handleImageLoad} // PASS HANDLER HERE
                                             />
                                         </React.Fragment>
                                     );

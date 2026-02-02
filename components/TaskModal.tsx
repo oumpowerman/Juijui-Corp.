@@ -55,7 +55,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md sm:p-4 animate-in fade-in duration-300 font-kanit">
+    // UPDATED: Increased z-index to z-[200] to ensure it is above MyWorkloadModal (z-[60])
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md sm:p-4 animate-in fade-in duration-300 font-kanit">
       <div className="bg-white w-full sm:max-w-3xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] border-4 border-white transition-all">
         
         {/* --- DYNAMIC HEADER --- */}

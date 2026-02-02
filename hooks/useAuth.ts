@@ -26,6 +26,9 @@ export const useAuth = (sessionUser: any) => {
         workStatus: (data.work_status as WorkStatus) || 'ONLINE',
         leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
         leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
+        // Map new read timestamps
+        lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
+        lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
     });
 
     const fetchProfile = async () => {

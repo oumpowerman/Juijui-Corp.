@@ -196,7 +196,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                                 </span>
                             )}
                         </div>
-                        <h3 className="text-3xl font-black tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
+                        <h3 className="text-3xl font-bold tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
                             พร้อมลุยไหม? <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
                         </h3>
                         <p className="text-indigo-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">

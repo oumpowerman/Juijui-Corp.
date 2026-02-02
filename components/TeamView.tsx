@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Task, Status, Channel, User, Role } from '../types';
 import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Eye, EyeOff, Palette, Zap, Layers, Activity, ClipboardList } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useRewards } from '../hooks/useRewards';
 import MemberManagementModal from './MemberManagementModal'; 
@@ -15,6 +15,10 @@ import RewardHistory from './RewardHistory';
 import TeamHeader from './team/TeamHeader';
 import TeamPoolRow from './team/TeamPoolRow';
 import TeamMemberRow from './team/TeamMemberRow';
+import MyWorkloadModal from './team/MyWorkloadModal'; // New Import
+
+// Import DnD Hook
+import { useTeamDragDrop } from '../hooks/useTeamDragDrop';
 
 interface TeamViewProps {
   tasks: Task[];
@@ -27,19 +31,29 @@ interface TeamViewProps {
   onToggleStatus?: (id: string, currentStatus: boolean) => void; 
   onOpenSettings: () => void;
   onAddTask?: (type?: any) => void; 
+  onMoveTask?: (task: Task) => void; // New Prop for DnD
 }
+
+export type ColorLensMode = 'STATUS' | 'PRIORITY' | 'TYPE';
 
 const TeamView: React.FC<TeamViewProps> = ({ 
   tasks, 
+  channels,
   users, 
   currentUser,
   onEditTask, 
   onApproveMember, 
   onRemoveMember, 
   onToggleStatus,
-  onAddTask
+  onAddTask,
+  onMoveTask
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // --- NEW STATES: View Controls ---
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [colorLens, setColorLens] = useState<ColorLensMode>('STATUS');
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false); // Modal State
   
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -113,6 +127,25 @@ const TeamView: React.FC<TeamViewProps> = ({
       return (taskStart <= targetDayEnd) && (taskEnd >= targetDayStart);
   }, []);
 
+  // --- DnD Hook Initialization ---
+  const { handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useTeamDragDrop({
+      tasks,
+      onTaskMove: (taskId, newAssigneeId, newDate) => {
+          const task = tasks.find(t => t.id === taskId);
+          if (task && onMoveTask) {
+              // Update task data: Re-assign to the new user row and update date
+              const updatedTask = {
+                  ...task,
+                  assigneeIds: [newAssigneeId], // Move task to this user
+                  startDate: newDate,
+                  endDate: newDate,
+                  isUnscheduled: false
+              };
+              onMoveTask(updatedTask);
+          }
+      }
+  });
+
   // --- Handlers ---
   const nextWeek = () => setCurrentDate(prev => addWeeks(prev, 1));
   const prevWeek = () => setCurrentDate(prev => addWeeks(prev, -1));
@@ -128,7 +161,15 @@ const TeamView: React.FC<TeamViewProps> = ({
       }
   };
 
+  // --- MEMBERS FILTER LOGIC (Focus Mode) ---
   const activeMembers = useMemo(() => users.filter(u => u.isApproved && u.isActive), [users]);
+  const displayedMembers = useMemo(() => {
+      if (isFocusMode && currentUser) {
+          return activeMembers.filter(u => u.id === currentUser.id);
+      }
+      return activeMembers;
+  }, [activeMembers, isFocusMode, currentUser]);
+
   const pendingMembers = useMemo(() => users.filter(u => !u.isApproved), [users]);
 
   // Map Tasks to Users ONCE to avoid O(N*M) in render
@@ -151,7 +192,8 @@ const TeamView: React.FC<TeamViewProps> = ({
       <MentorTip variant="blue" messages={[
           "เช็ค Load งานเบี้ยบ้ายรายทางของชาวแก๊งได้ที่นี่",
           "ใครว่าง/ไม่ว่าง ดูที่สถานะแบตเตอรี่และไอคอนสถานะ (Online/Sick) ได้เลย",
-          "งานที่เป็นสีเขียวคืองาน Team ที่ช่วยกันทำหลายคน"
+          "ลองใช้ปุ่ม 'Focus Me' เพื่อดูเฉพาะงานตัวเองแบบชัดๆ",
+          "เปลี่ยนมุมมองสี (Color Lens) เพื่อดูความเร่งด่วนของงานได้นะ"
       ]} />
       
       {/* Header */}
@@ -229,19 +271,76 @@ const TeamView: React.FC<TeamViewProps> = ({
           </div>
       )}
 
-      {/* Week Navigator */}
-      <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit mb-4">
-            <button onClick={prevWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-            <div className="flex flex-col items-center px-4 min-w-[140px]">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
-                <span className="text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
-            </div>
-            <button onClick={nextWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
-            {!isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) && (
-                <div className="border-l border-gray-200 pl-1 ml-1">
-                    <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
+      {/* --- CONTROLS ROW: Date & View Options --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        
+        {/* Date Navigator */}
+        <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit">
+                <button onClick={prevWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <div className="flex flex-col items-center px-4 min-w-[140px]">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
+                    <span className="text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
                 </div>
-            )}
+                <button onClick={nextWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                {!isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) && (
+                    <div className="border-l border-gray-200 pl-1 ml-1">
+                        <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
+                    </div>
+                )}
+        </div>
+
+        {/* View Controls (Focus & Lens) */}
+        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm">
+            {/* My Tasks Modal Trigger */}
+             <button 
+                onClick={() => setIsWorkloadModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                title="My Active Tasks"
+            >
+                <ClipboardList className="w-4 h-4" />
+                <span className="hidden sm:inline">My Tasks</span>
+            </button>
+
+            <div className="w-px h-6 bg-gray-200 mx-1"></div>
+
+            {/* Focus Toggle */}
+            <button 
+                onClick={() => setIsFocusMode(!isFocusMode)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${isFocusMode ? 'bg-slate-800 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                title={isFocusMode ? "Show All Team" : "Focus My Work"}
+            >
+                {isFocusMode ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isFocusMode ? 'My View' : 'Team View'}</span>
+            </button>
+
+            <div className="w-px h-6 bg-gray-200 mx-1"></div>
+
+            {/* Lens Switcher */}
+            <div className="flex items-center gap-1">
+                 <button 
+                    onClick={() => setColorLens('STATUS')}
+                    className={`p-2 rounded-lg transition-all ${colorLens === 'STATUS' ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500/20' : 'text-gray-400 hover:bg-gray-50'}`}
+                    title="Color by Status"
+                 >
+                     <Activity className="w-4 h-4" />
+                 </button>
+                 <button 
+                    onClick={() => setColorLens('PRIORITY')}
+                    className={`p-2 rounded-lg transition-all ${colorLens === 'PRIORITY' ? 'bg-orange-100 text-orange-700 ring-2 ring-orange-500/20' : 'text-gray-400 hover:bg-gray-50'}`}
+                    title="Color by Priority"
+                 >
+                     <Zap className="w-4 h-4" />
+                 </button>
+                 <button 
+                    onClick={() => setColorLens('TYPE')}
+                    className={`p-2 rounded-lg transition-all ${colorLens === 'TYPE' ? 'bg-purple-100 text-purple-700 ring-2 ring-purple-500/20' : 'text-gray-400 hover:bg-gray-50'}`}
+                    title="Color by Type"
+                 >
+                     <Layers className="w-4 h-4" />
+                 </button>
+            </div>
+        </div>
+
       </div>
 
       {/* --- DESKTOP VIEW: GANG TABLE --- */}
@@ -258,24 +357,28 @@ const TeamView: React.FC<TeamViewProps> = ({
         </div>
 
         <div className="divide-y divide-gray-100">
-            {/* Team Pool Rows */}
-            <TeamPoolRow 
-                type="POOL" 
-                tasks={teamPoolTasks} 
-                weekDays={weekDays} 
-                onEditTask={onEditTask} 
-                isTaskOnDay={isTaskOnDay}
-            />
-            <TeamPoolRow 
-                type="UNASSIGNED" 
-                tasks={unassignedTasks} 
-                weekDays={weekDays} 
-                onEditTask={onEditTask}
-                isTaskOnDay={isTaskOnDay}
-            />
+            {/* Team Pool Rows (Hide in Focus Mode to reduce noise) */}
+            {!isFocusMode && (
+                <>
+                    <TeamPoolRow 
+                        type="POOL" 
+                        tasks={teamPoolTasks} 
+                        weekDays={weekDays} 
+                        onEditTask={onEditTask} 
+                        isTaskOnDay={isTaskOnDay}
+                    />
+                    <TeamPoolRow 
+                        type="UNASSIGNED" 
+                        tasks={unassignedTasks} 
+                        weekDays={weekDays} 
+                        onEditTask={onEditTask}
+                        isTaskOnDay={isTaskOnDay}
+                    />
+                </>
+            )}
 
             {/* Member Rows */}
-            {activeMembers.map(user => (
+            {displayedMembers.map(user => (
                 <TeamMemberRow 
                     key={user.id}
                     user={user}
@@ -285,13 +388,17 @@ const TeamView: React.FC<TeamViewProps> = ({
                     onEditTask={onEditTask}
                     onSelectUser={setSelectedMember}
                     isTaskOnDay={isTaskOnDay}
+                    // DnD Props
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    // Visual Props
+                    colorLens={colorLens}
+                    isFocused={isFocusMode}
                 />
             ))}
         </div>
       </div>
-
-      {/* Mobile View Placeholder (Optional: You can componentize this later if needed) */}
-      {/* ... Mobile view code ... */}
 
       {/* Modals */}
       <MemberDetailModal 
@@ -309,6 +416,18 @@ const TeamView: React.FC<TeamViewProps> = ({
               onToggleStatus={(uid, status) => handleAction('TOGGLE_STATUS', uid, status)}
               onRemoveMember={(uid) => handleAction('REMOVE', uid)}
               onUpdateMember={updateMember}
+          />
+      )}
+
+      {/* WORKLOAD MODAL */}
+      {currentUser && (
+          <MyWorkloadModal 
+              isOpen={isWorkloadModalOpen}
+              onClose={() => setIsWorkloadModalOpen(false)}
+              tasks={tasks}
+              currentUser={currentUser}
+              channels={channels}
+              onOpenTask={onEditTask}
           />
       )}
     </div>

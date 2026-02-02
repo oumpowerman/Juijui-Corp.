@@ -5,61 +5,34 @@ import { User } from '../types';
 
 export const useChatUnread = (currentUser: User | null) => {
     const [unreadCount, setUnreadCount] = useState(0);
-    
-    // Initialize last read time from local storage
-    const getStoredTime = () => {
-        const stored = localStorage.getItem('juijui_chat_last_read');
-        return stored ? new Date(stored) : new Date(0); // Epoch if never read
-    };
 
-    const [lastReadTime, setLastReadTime] = useState<Date>(getStoredTime);
-
-    const fetchUnreadCount = async () => {
+    // Initial Fetch (On Mount or User Change)
+    useEffect(() => {
         if (!currentUser) return;
-        try {
-            // Count messages created after lastReadTime AND not sent by me
+
+        const fetchUnread = async () => {
+            // 1. Get last read time from DB (Source of Truth)
+            const lastRead = currentUser.lastReadChatAt || new Date(0);
+
+            // 2. Count messages created AFTER last read
             const { count, error } = await supabase
                 .from('team_messages')
                 .select('*', { count: 'exact', head: true })
-                .gt('created_at', lastReadTime.toISOString())
-                .neq('user_id', currentUser.id);
-            
+                .gt('created_at', lastRead.toISOString())
+                .neq('user_id', currentUser.id); // Don't count own messages
+
             if (!error) {
                 setUnreadCount(count || 0);
             }
-        } catch (error) {
-            console.error("Unread fetch error", error);
-        }
-    };
-
-    // Mark as read function
-    const markAsRead = () => {
-        const now = new Date();
-        localStorage.setItem('juijui_chat_last_read', now.toISOString());
-        setLastReadTime(now);
-        setUnreadCount(0);
-    };
-
-    // Sync across components
-    useEffect(() => {
-        const handleReadEvent = () => {
-             const now = new Date();
-             setLastReadTime(now);
-             setUnreadCount(0);
         };
-        
-        window.addEventListener('juijui-chat-read', handleReadEvent);
-        return () => window.removeEventListener('juijui-chat-read', handleReadEvent);
-    }, []);
 
-    useEffect(() => {
-        fetchUnreadCount();
+        fetchUnread();
 
-        // Subscribe to new messages to increment counter in real-time
+        // 3. Subscribe to NEW messages
         const channel = supabase
             .channel('global-chat-unread')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_messages' }, (payload) => {
-                if (payload.new.user_id !== currentUser?.id) {
+                if (payload.new.user_id !== currentUser.id) {
                     setUnreadCount(prev => prev + 1);
                 }
             })
@@ -68,7 +41,23 @@ export const useChatUnread = (currentUser: User | null) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [currentUser, lastReadTime]);
+    }, [currentUser?.id, currentUser?.lastReadChatAt]); // Re-run if lastReadChatAt updates
+
+    // Mark as read function
+    const markAsRead = async () => {
+        if (!currentUser) return;
+        const now = new Date();
+        setUnreadCount(0); // Optimistic UI update
+
+        try {
+            await supabase
+                .from('profiles')
+                .update({ last_read_chat_at: now.toISOString() })
+                .eq('id', currentUser.id);
+        } catch (error) {
+            console.error("Failed to update read status", error);
+        }
+    };
 
     return { unreadCount, markAsRead };
 };

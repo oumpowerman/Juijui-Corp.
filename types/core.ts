@@ -23,4 +23,7 @@ export interface User {
     workStatus: WorkStatus;
     leaveStartDate?: Date | null;
     leaveEndDate?: Date | null;
+    // New Fields for Persistent Notifications
+    lastReadChatAt?: Date;
+    lastReadNotificationAt?: Date;
 }

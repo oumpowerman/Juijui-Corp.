@@ -27,8 +27,9 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
             const mediaStream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: facingMode,
-                    width: { ideal: 720 }, // Higher quality
-                    height: { ideal: 1280 } 
+                    // FIX: Use 4:3 aspect ratio (1280x960) to prevent sensor cropping/zooming
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 960 } 
                 } 
             });
             setStream(mediaStream);

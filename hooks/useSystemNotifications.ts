@@ -1,199 +1,189 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, User, AppNotification } from '../types';
-import { isBefore, isAfter, addDays, differenceInDays, isSameDay } from 'date-fns';
+import { isBefore, isAfter, addDays, differenceInDays, isSameDay, startOfDay } from 'date-fns';
 import { isTaskCompleted } from '../constants';
 
 export const useSystemNotifications = (tasks: Task[], currentUser: User | null) => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
-    // Local state for dismissed notifications
-    const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
-        try {
-            const saved = localStorage.getItem('juijui_dismissed_notifs');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            return [];
-        }
-    });
+    // Ref to track locally applied read time to prevent stale data override during sync gap
+    const localReadTimeRef = useRef<Date | null>(null);
 
-    const [viewedIds, setViewedIds] = useState<string[]>(() => {
-        try {
-            const saved = localStorage.getItem('juijui_viewed_notifs');
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            return [];
-        }
-    });
-
-    useEffect(() => {
-        localStorage.setItem('juijui_dismissed_notifs', JSON.stringify(dismissedIds));
-    }, [dismissedIds]);
-
-    useEffect(() => {
-        localStorage.setItem('juijui_viewed_notifs', JSON.stringify(viewedIds));
-    }, [viewedIds]);
-
-    const dismissNotification = (id: string) => {
-        setDismissedIds(prev => [...prev, id]);
-    };
-
-    const markAsViewed = () => {
-        const currentIds = notifications.map(n => n.id);
-        if (currentIds.length > 0) {
-            setViewedIds(prev => [...new Set([...prev, ...currentIds])]);
-        }
-    };
-
-    const markAllAsRead = () => {
-        const allIds = notifications.map(n => n.id);
-        setDismissedIds(prev => [...new Set([...prev, ...allIds])]);
-    };
-
+    // --- MAIN FETCH EFFECT ---
     useEffect(() => {
         if (!currentUser) return;
 
-        const fetchNotifications = async () => {
-            const newNotifications: AppNotification[] = [];
+        const fetchAllNotifications = async () => {
             const today = new Date();
-            const yesterday = addDays(today, -1);
+            const startOfToday = startOfDay(today);
+            
+            // Resolve effective read time: Max(DB Time, Local Action Time)
+            const profileReadTime = currentUser.lastReadNotificationAt || new Date(0);
+            const lastReadTime = localReadTimeRef.current && localReadTimeRef.current > profileReadTime 
+                ? localReadTimeRef.current 
+                : profileReadTime;
 
-            // --- 1. TASK NOTIFICATIONS ---
+            // 1. Fetch Persistent Notifications from DB (Real rows)
+            const { data: dbNotifs, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(20); // Limit recent
+
+            // 2. Generate Dynamic Alerts (Computed on the fly)
+            const dynamicNotifs: AppNotification[] = [];
+
+            // A. Task Logic (Overdue / Upcoming)
             tasks.forEach(task => {
                 if (isTaskCompleted(task.status) || task.isUnscheduled) return;
 
-                const isAssignee = task.assigneeIds.includes(currentUser.id);
-                const isRelated = isAssignee || 
+                const isRelated = task.assigneeIds.includes(currentUser.id) || 
                                   task.ideaOwnerIds?.includes(currentUser.id) || 
                                   task.editorIds?.includes(currentUser.id);
 
-                if (isAssignee && task.createdAt && isAfter(task.createdAt, yesterday)) {
-                     const id = `new_${task.id}`;
-                     if (!dismissedIds.includes(id)) {
-                         newNotifications.push({
-                            id,
-                            type: 'NEW_ASSIGNMENT',
-                            title: '✨ งานใหม่เข้า (New Task)',
-                            message: `คุณได้รับมอบหมายงาน "${task.title}"`,
-                            taskId: task.id,
-                            date: task.createdAt,
-                            isRead: false
-                         });
-                     }
-                }
-
+                // Overdue
                 if (isBefore(task.endDate, today) && !isSameDay(task.endDate, today)) {
                     if (isRelated || currentUser.role === 'ADMIN') {
-                        const id = `overdue_${task.id}_${formatDateKey(today)}`;
-                        if (!dismissedIds.includes(id)) {
-                            const daysLate = differenceInDays(today, task.endDate);
-                            newNotifications.push({
-                                id,
-                                type: 'OVERDUE',
-                                title: '🔥 งานเลยกำหนด (Overdue)',
-                                message: `งาน "${task.title}" ล่าช้า ${daysLate} วันแล้ว รีบเคลียร์ด่วน!`,
-                                taskId: task.id,
-                                date: task.endDate,
-                                isRead: false
-                            });
-                        }
-                    }
-                } else if (isAfter(task.endDate, today) && isBefore(task.endDate, addDays(today, 3)) && isRelated) {
-                    const id = `upcoming_${task.id}_${formatDateKey(today)}`;
-                    if (!dismissedIds.includes(id)) {
-                        const daysLeft = differenceInDays(task.endDate, today);
-                        newNotifications.push({
+                        const id = `overdue_${task.id}`;
+                        const daysLate = differenceInDays(today, task.endDate);
+                        dynamicNotifs.push({
                             id,
-                            type: 'UPCOMING',
-                            title: '⏳ ใกล้ถึงกำหนดส่ง',
-                            message: `งาน "${task.title}" ต้องส่งในอีก ${daysLeft} วัน (${daysLeft === 0 ? 'วันนี้' : ''})`,
+                            type: 'OVERDUE',
+                            title: '🔥 งานเลยกำหนด (Overdue)',
+                            message: `งาน "${task.title}" ล่าช้า ${daysLate} วันแล้ว รีบเคลียร์ด่วน!`,
                             taskId: task.id,
-                            date: task.endDate,
-                            isRead: false
+                            date: task.endDate, // Keep overdue date as is (historical context)
+                            isRead: new Date(task.endDate) < lastReadTime
                         });
                     }
-                }
-
-                if (task.status === 'FEEDBACK') {
-                    const isReviewer = task.ideaOwnerIds?.includes(currentUser.id) || currentUser.role === 'ADMIN';
-                    const id = `review_${task.id}`;
-                    if (isReviewer && !dismissedIds.includes(id)) {
-                        newNotifications.push({
-                            id,
-                            type: 'REVIEW',
-                            title: '👀 มีงานรอตรวจ (Review)',
-                            message: `งาน "${task.title}" ส่งมาแล้ว รอคุณเข้าไปตรวจครับ`,
-                            taskId: task.id,
-                            date: new Date(),
-                            isRead: false
-                        });
-                    }
+                } 
+                // Upcoming
+                else if (isAfter(task.endDate, today) && isBefore(task.endDate, addDays(today, 3)) && isRelated) {
+                    const id = `upcoming_${task.id}`;
+                    const daysLeft = differenceInDays(task.endDate, today);
+                    dynamicNotifs.push({
+                        id,
+                        type: 'UPCOMING',
+                        title: '⏳ ใกล้ถึงกำหนดส่ง',
+                        message: `งาน "${task.title}" ต้องส่งในอีก ${daysLeft} วัน`,
+                        taskId: task.id,
+                        // FIX: Use 'startOfToday' instead of 'task.endDate' (future).
+                        // This allows the notification to be marked as read for "today", 
+                        // but it will reappear tomorrow as a new daily reminder.
+                        date: startOfToday,
+                        isRead: startOfToday < lastReadTime
+                    });
                 }
             });
 
-            // --- 2. LEAVE REQUEST NOTIFICATIONS (ADMIN ONLY) ---
+            // B. Admin Checks (Leave Requests)
             if (currentUser.role === 'ADMIN') {
                 const { data: leaves } = await supabase
                     .from('leave_requests')
-                    .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`) // Explicit FK to avoid ambiguity
+                    .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
                     .eq('status', 'PENDING');
 
                 if (leaves) {
                     leaves.forEach((req: any) => {
-                        const id = `leave_${req.id}`;
-                        if (!dismissedIds.includes(id)) {
-                            let title = '📋 คำขออนุมัติใหม่';
-                            if (req.type === 'LATE_ENTRY') title = '⏰ ขอเข้าสาย (Late Entry)';
-                            if (req.type === 'OVERTIME') title = '🌙 ขอทำ OT (Overtime)';
-                            
-                            newNotifications.push({
-                                id,
-                                type: 'APPROVAL_REQ',
-                                title: title,
-                                message: `คุณ ${req.profiles?.full_name || 'Unknown'} ส่งคำขอเข้ามา: "${req.reason}"`,
-                                date: new Date(req.created_at),
-                                isRead: false,
-                                actionLink: 'ATTENDANCE' // Custom hint for router
-                            });
-                        }
+                        dynamicNotifs.push({
+                            id: `leave_${req.id}`,
+                            type: 'APPROVAL_REQ',
+                            title: '📋 คำขออนุมัติใหม่',
+                            message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
+                            date: new Date(req.created_at),
+                            isRead: new Date(req.created_at) < lastReadTime,
+                            actionLink: 'ATTENDANCE'
+                        });
                     });
                 }
             }
 
-            // Sort
-            const typePriority = { 'APPROVAL_REQ': 0, 'OVERDUE': 1, 'REVIEW': 2, 'NEW_ASSIGNMENT': 3, 'UPCOMING': 4, 'INFO': 5 };
-            
-            newNotifications.sort((a, b) => {
-                if (typePriority[a.type] !== typePriority[b.type]) {
-                    return typePriority[a.type] - typePriority[b.type];
-                }
-                return new Date(b.date).getTime() - new Date(a.date).getTime();
-            });
+            // 3. Merge & Map DB Notifs
+            const mappedDbNotifs: AppNotification[] = (dbNotifs || []).map((n: any) => ({
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                message: n.message,
+                taskId: n.related_id,
+                date: new Date(n.created_at),
+                isRead: n.is_read || new Date(n.created_at) < lastReadTime,
+                actionLink: n.link_path
+            }));
 
-            setNotifications(newNotifications);
-            const unviewedCount = newNotifications.filter(n => !viewedIds.includes(n.id)).length;
-            setUnreadCount(unviewedCount);
+            const combined = [...mappedDbNotifs, ...dynamicNotifs];
+            
+            // Sort by Date DESC
+            combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            setNotifications(combined);
+
+            // Calculate Unread: (DB items not read) + (Dynamic items fresher than lastRead)
+            const effectiveUnread = combined.filter(n => n.date > lastReadTime).length;
+            setUnreadCount(effectiveUnread);
         };
 
-        fetchNotifications();
+        fetchAllNotifications();
+
+        // Subscribe to NEW db notifications
+        const channel = supabase
+            .channel('system-notifications')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
+                fetchAllNotifications();
+            })
+            .subscribe();
+            
+        // Polling for time-based updates (e.g. task becoming overdue)
+        const interval = setInterval(fetchAllNotifications, 60000);
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(interval);
+        };
+
+    }, [tasks, currentUser?.id, currentUser?.lastReadNotificationAt]); // Depend on lastRead from profile
+
+    // Actions
+    const markAsViewed = async () => {
+        if (!currentUser) return;
         
-        // Polling every minute to keep it fresh
-        const interval = setInterval(fetchNotifications, 60000);
-        return () => clearInterval(interval);
+        // Update local ref to prevent race condition reversion
+        const now = new Date();
+        localReadTimeRef.current = now;
+        
+        setUnreadCount(0); // Optimistic UI update
 
-    }, [tasks, currentUser, dismissedIds, viewedIds]);
+        try {
+            // Update Profile Timestamp
+            await supabase.from('profiles').update({ last_read_notification_at: now.toISOString() }).eq('id', currentUser.id);
+            
+            // Optionally: Mark all DB notifications as read
+            await supabase.from('notifications').update({ is_read: true }).eq('user_id', currentUser.id).eq('is_read', false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
-    const formatDateKey = (date: Date) => {
-        return date.toISOString().split('T')[0];
+    const dismissNotification = async (id: string) => {
+        // If it's a real DB notification, delete it or mark read
+        // If dynamic, we can't easily "delete" it without local storage state, unless we convert it to DB record marked as read/hidden.
+        // For simplicity in this version: Just remove from UI state temporarily
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        
+        // Try to delete from DB if it's a UUID (DB ID)
+        if (!id.includes('_')) {
+             await supabase.from('notifications').delete().eq('id', id);
+        }
     };
 
     return {
         notifications,
         unreadCount,
         dismissNotification,
-        markAllAsRead,
-        markAsViewed
+        markAsViewed,
+        markAllAsRead: markAsViewed // Alias
     };
 };

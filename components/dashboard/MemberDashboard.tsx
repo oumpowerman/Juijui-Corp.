@@ -103,16 +103,20 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     
                     {/* Left: Profile & Attendance */}
                     <div className="xl:col-span-8 flex flex-col gap-6">
-                         <WelcomeHeader 
-                            user={localUser}
-                            onUpdateStatus={handleUpdateStatus}
-                            onOpenShop={() => setIsShopOpen(true)}
-                            onOpenNotifications={onOpenNotifications || onOpenSettings} 
-                            onEditProfile={onEditProfile}
-                            unreadNotifications={unreadCount}
-                        />
-                        {/* Attendance Bar */}
-                        <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-sm p-2 hover:shadow-md transition-all">
+                         {/* Header Wrapper with High Z-Index for Dropdowns */}
+                         <div className="relative z-30">
+                            <WelcomeHeader 
+                                user={localUser}
+                                onUpdateStatus={handleUpdateStatus}
+                                onOpenShop={() => setIsShopOpen(true)}
+                                onOpenNotifications={onOpenNotifications || onOpenSettings} 
+                                onEditProfile={onEditProfile}
+                                unreadNotifications={unreadCount}
+                            />
+                         </div>
+                        
+                        {/* Attendance Bar Wrapper */}
+                        <div className="relative z-20 bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-sm p-2 hover:shadow-md transition-all">
                              <SmartAttendance 
                                 user={currentUser} 
                                 masterOptions={masterOptions} 
@@ -121,8 +125,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     </div>
 
                     {/* Right: Daily Mission */}
-                    <div className="xl:col-span-4 flex flex-col h-full">
-                        <div className="h-full bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-[2.5rem] border border-orange-100 shadow-sm p-1 relative overflow-hidden group">
+                    <div className="xl:col-span-4 flex flex-col h-full relative z-10">
+                        <div className="h-full bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-[2.5rem] border border-orange-100 shadow-sm p-1 relative overflow-hidden group min-h-[200px]">
                              <div className="absolute top-0 right-0 w-40 h-40 bg-white/40 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
                              <DailyMission 
                                 currentUser={currentUser}
@@ -134,7 +138,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 </div>
 
                 {/* --- ROW 2: SQUAD HUB (NEW) --- */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-6 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-6 items-stretch relative z-10">
                     {/* Quest Widget (Purple Theme) */}
                     <div className="lg:col-span-2 xl:col-span-6 h-full">
                         <QuestOverviewWidget 
@@ -163,7 +167,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 </div>
 
                 {/* --- ROW 3: WORKSPACE --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 relative z-10">
                     
                     {/* Focus Zone (Left Side - 35% ish on XL) */}
                     <div className="xl:col-span-4 flex flex-col gap-4">

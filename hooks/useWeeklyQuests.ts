@@ -30,7 +30,10 @@ export const useWeeklyQuests = () => {
                     targetFormat: Array.isArray(q.target_format) ? q.target_format : (q.target_format ? [q.target_format] : []),
                     targetStatus: q.target_status,
                     questType: q.quest_type || 'AUTO',
-                    manualProgress: q.manual_progress || 0
+                    manualProgress: q.manual_progress || 0,
+                    // Grouping
+                    groupId: q.group_id,
+                    groupTitle: q.group_title
                 })));
             }
         } catch (err) {
@@ -73,7 +76,9 @@ export const useWeeklyQuests = () => {
                 target_format: (quest.targetFormat && quest.targetFormat.length > 0) ? quest.targetFormat : null,
                 target_status: quest.targetStatus || null,
                 quest_type: quest.questType,
-                manual_progress: quest.manualProgress || 0
+                manual_progress: quest.manualProgress || 0,
+                group_id: quest.groupId || null,
+                group_title: quest.groupTitle || null
             };
 
             const { error } = await supabase.from('weekly_quests').insert(payload);
@@ -127,6 +132,7 @@ export const useWeeklyQuests = () => {
             if (updates.targetFormat !== undefined) payload.target_format = updates.targetFormat;
             if (updates.targetStatus !== undefined) payload.target_status = updates.targetStatus;
             if (updates.questType !== undefined) payload.quest_type = updates.questType;
+            // Can add group updates later if needed
 
             const { error } = await supabase
                 .from('weekly_quests')

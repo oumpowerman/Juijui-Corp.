@@ -92,31 +92,45 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
     }, [assigneeIds, assigneeType, users, masterOptions]);
 
     const handleSendToQC = async () => {
+        // 1. Disable Immediately to prevent double clicks
+        if (isSendingQC) return;
+        setIsSendingQC(true);
+
+        // 2. Validation Checks
         if (!initialData?.id) {
             await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
+            setIsSendingQC(false);
             return;
         }
 
-        const pendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
-        if (pendingReview) {
+        // --- FIX: Check for EXISTING Pending Reviews ---
+        // ป้องกันการส่งซ้ำถ้ามีรายการที่ยังตรวจไม่เสร็จค้างอยู่
+        const existingPendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
+        if (existingPendingReview) {
              await showAlert(
-                 `มีรายการ "Draft ${pendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
+                 `มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
                  '⚠️ ส่งซ้ำไม่ได้'
              );
+             setIsSendingQC(false);
              return;
         }
+        // ------------------------------------------------
 
         const currentRoundCount = initialData.reviews?.length || 0;
         const nextRound = currentRoundCount + 1;
         
+        // 3. Confirmation Dialog
         const confirmed = await showConfirm(
             `งานจะถูกส่งเข้าห้องตรวจ และเปลี่ยนสถานะเป็น "Feedback"`,
             `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}" ?`
         );
 
-        if (!confirmed) return;
+        if (!confirmed) {
+            setIsSendingQC(false);
+            return;
+        }
 
-        setIsSendingQC(true);
+        // 4. Proceed with API
         try {
             const { error: reviewError } = await supabase.from('task_reviews').insert({
                 task_id: initialData.id,
@@ -144,8 +158,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         } catch (err: any) {
             console.error(err);
             showToast('ส่งตรวจไม่สำเร็จ: ' + err.message, 'error');
-        } finally {
-            setIsSendingQC(false);
+            setIsSendingQC(false); // Re-enable only on error
         }
     };
 
@@ -268,7 +281,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                             type="button" 
                             onClick={handleSendToQC}
                             disabled={isSendingQC}
-                            className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50"
+                            className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                             ส่งตรวจ

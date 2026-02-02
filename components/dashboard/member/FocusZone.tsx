@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Task, Channel, User } from '../../../types';
 import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone } from 'lucide-react';
-import { isPast, isToday, addDays, isBefore, differenceInDays } from 'date-fns';
+import { isPast, isToday, addDays, isBefore, differenceInCalendarDays, startOfDay } from 'date-fns';
 import TaskCategoryModal from '../../TaskCategoryModal';
 import { isTaskCompleted } from '../../../constants';
 
@@ -16,7 +16,10 @@ interface CardItemProps {
 }
 
 const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, users, onOpenTask }) => {
-    const today = new Date();
+    // FIX: Normalize today to 00:00:00 to ensure accurate calendar day comparison
+    const today = startOfDay(new Date());
+    const taskDate = startOfDay(new Date(task.endDate));
+
     const isOverdue = isPast(task.endDate) && !isToday(task.endDate);
     const channel = channels.find(c => c.id === task.channelId);
     
@@ -24,8 +27,10 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
     const assigneeId = task.assigneeIds?.[0] || task.ideaOwnerIds?.[0] || task.editorIds?.[0];
     const assignee = users.find(u => u.id === assigneeId);
 
-    const getDeadlineText = (date: Date) => {
-        const diff = differenceInDays(date, today);
+    const getDeadlineText = (targetDate: Date) => {
+        // FIX: Use differenceInCalendarDays to ignore time components
+        const diff = differenceInCalendarDays(targetDate, today);
+        
         if (diff < 0) return `${Math.abs(diff)} วันที่แล้ว`;
         if (diff === 0) return 'ส่งวันนี้!';
         if (diff === 1) return 'พรุ่งนี้';
@@ -93,7 +98,7 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
                 {/* Date */}
                 <div className={`flex items-center text-[10px] font-black ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
                     <Clock className="w-3 h-3 mr-1" />
-                    {getDeadlineText(task.endDate)}
+                    {getDeadlineText(taskDate)}
                 </div>
             </div>
             
@@ -115,18 +120,24 @@ interface FocusZoneProps {
 }
 
 const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTask }) => {
-    const today = new Date();
+    // FIX: Normalize 'today' to start of day for consistent filtering
+    const today = startOfDay(new Date());
     
     const [viewAllType, setViewAllType] = useState<'URGENT' | 'REVISE' | null>(null);
 
     // Filter Logic
     const urgentTasks = tasks.filter(t => {
+        // SMART CHECK: Use helper to check if task is completed
         const isDone = isTaskCompleted(t.status as string);
         if (isDone) return false;
         if (t.isUnscheduled) return false;
         
+        const taskDate = startOfDay(new Date(t.endDate));
         const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
-        const isDueSoon = isToday(t.endDate) || (isBefore(t.endDate, addDays(today, 2)) && !isPast(t.endDate));
+        
+        // FIX: Compare normalized dates for "Due Soon" (Today or Tomorrow or Next Day)
+        const diff = differenceInCalendarDays(taskDate, today);
+        const isDueSoon = diff >= 0 && diff <= 2; // Today (0), Tmr (1), Next (2)
         
         return isOverdue || isDueSoon || t.priority === 'URGENT';
     }).sort((a,b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
@@ -134,7 +145,8 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
     const reviseTasks = tasks.filter(t => {
         if (t.isUnscheduled) return false;
         const s = t.status as string;
-        // Strict checks for revise keywords still okay, but ensure not done
+        
+        // SMART CHECK: Ensure completed tasks aren't in revise list
         if (isTaskCompleted(s)) return false; 
         
         return s === 'FEEDBACK' || s === 'REVISE' || s.includes('EDIT_DRAFT');

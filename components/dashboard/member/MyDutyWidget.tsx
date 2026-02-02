@@ -52,7 +52,7 @@ const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users,
                                     <Sparkles className="w-3 h-3 mr-1" /> Daily Quest
                                 </span>
                             </div>
-                            <h3 className="text-2xl font-black tracking-tight leading-none mb-1">
+                            <h3 className="text-2xl font-bold tracking-tight leading-none mb-1">
                                 ภารกิจของคุณ!
                             </h3>
                             <p className="text-orange-50 text-sm opacity-90 truncate max-w-[200px] font-medium">

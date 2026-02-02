@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Script, ScriptSummary, User, ScriptType } from '../types';
@@ -10,8 +11,8 @@ interface FetchScriptsOptions {
     pageSize: number;
     searchQuery?: string;
     viewTab?: 'QUEUE' | 'LIBRARY' | 'HISTORY';
-    filterOwner?: string;
-    filterChannel?: string;
+    filterOwner?: string[]; // Changed to Array
+    filterChannel?: string[]; // Changed to Array
     filterCategory?: string;
     filterStatus?: string;
 }
@@ -114,13 +115,17 @@ export const useScripts = (currentUser: User) => {
                 query = query.eq('is_in_shoot_queue', false).neq('status', 'DONE');
             }
 
-            // 2. Specific Filters
-            if (options.filterOwner && options.filterOwner !== 'ALL') {
-                query = query.or(`author_id.eq.${options.filterOwner},idea_owner_id.eq.${options.filterOwner}`);
+            // 2. Specific Filters (UPDATED: Support Multi-Select)
+            if (options.filterOwner && options.filterOwner.length > 0) {
+                // Check if Author OR Idea Owner matches ANY of the selected IDs
+                // Using .in() for arrays
+                query = query.or(`author_id.in.(${options.filterOwner.join(',')}),idea_owner_id.in.(${options.filterOwner.join(',')})`);
             }
-            if (options.filterChannel && options.filterChannel !== 'ALL') {
-                query = query.eq('channel_id', options.filterChannel);
+
+            if (options.filterChannel && options.filterChannel.length > 0) {
+                query = query.in('channel_id', options.filterChannel);
             }
+
             if (options.filterCategory && options.filterCategory !== 'ALL') {
                 query = query.eq('category', options.filterCategory);
             }

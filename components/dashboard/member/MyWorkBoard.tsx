@@ -149,7 +149,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     <Play className="w-5 h-5 fill-current" />
                 </div>
                 <div>
-                    <h3 className="text-xl font-black text-slate-800 tracking-tight">กระดานผจญภัย</h3>
+                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">กระดานผจญภัย</h3>
                     <p className="text-xs text-slate-400 font-bold">My Adventure Board</p>
                 </div>
             </div>

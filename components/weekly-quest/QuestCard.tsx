@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { ArrowRight, CheckCircle2, Layout, MousePointerClick, Database, Calendar, Flame, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Layout, MousePointerClick, Database, Calendar, Flame, Zap, Skull } from 'lucide-react';
 import { WeeklyQuest, Task, Channel, Platform } from '../../types';
-import { addDays, isWithinInterval, format, differenceInDays, isSameDay } from 'date-fns';
+import { addDays, isWithinInterval, format, differenceInDays, isPast, isToday } from 'date-fns';
 
 interface QuestCardProps {
     channel?: Channel; 
     quests: WeeklyQuest[];
-    allTasks: Task[]; // Receive ALL tasks to filter by specific quest range
+    allTasks: Task[]; 
     onClick: () => void;
     onUpdateManualProgress?: (id: string, val: number) => void;
 }
@@ -26,35 +26,26 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
         qEnd.setHours(23, 59, 59, 999);
 
         return allTasks.filter(t => {
-            // 0. Filter out Stock / Unscheduled Items
             if (t.isUnscheduled) return false;
-
-            // 1. Check Date Range (Use Task End Date)
             if (!t.endDate) return false;
             const taskDate = new Date(t.endDate);
             const inRange = isWithinInterval(taskDate, { start: qStart, end: qEnd });
             if (!inRange) return false;
 
-            // 2. Check Criteria
             const matchChannel = quest.channelId ? t.channelId === quest.channelId : true;
             const matchStatus = quest.targetStatus ? t.status === quest.targetStatus : t.status === 'DONE';
             
-            // 3. Platform Check (Wildcard Logic)
             let matchPlatform = true;
             if (quest.targetPlatform) {
                 if (quest.targetPlatform === 'ALL') {
-                     // Quest wants ALL -> Task must have at least one platform
                      matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
                 } else {
-                     // Quest wants Specific (e.g. FACEBOOK)
-                     // Task counts if it has FACEBOOK OR if task is marked as ALL
                      const hasSpecific = t.targetPlatforms?.includes(quest.targetPlatform as Platform);
                      const hasAll = t.targetPlatforms?.includes('ALL');
                      matchPlatform = hasSpecific || hasAll || false;
                 }
             }
             
-            // 4. Format Check (Array inclusion)
             let matchFormat = true;
             if (quest.targetFormat && quest.targetFormat.length > 0) {
                  matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;
@@ -83,7 +74,6 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
     const overallPercent = calculateOverall();
     const isMisc = !channel;
     
-    // Styling constants
     const cardBgColor = isMisc ? 'bg-gray-50' : channel?.color.replace('text-', 'bg-').replace('bg-', 'bg-opacity-10 ') || 'bg-gray-50';
     const textColor = isMisc ? 'text-gray-600' : 'text-gray-800';
 
@@ -101,7 +91,6 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
             <div className={`px-5 py-5 border-b border-gray-100 ${cardBgColor}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                            {/* Logo / Initials */}
                             <div className="shrink-0">
                                 {isMisc ? (
                                     <div className="w-14 h-14 rounded-2xl bg-white border-4 border-white shadow-md flex items-center justify-center text-gray-400">
@@ -122,18 +111,16 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                                 )}
                             </div>
                             
-                            {/* Name */}
                             <div>
                                 <h3 className={`font-black text-xl tracking-tight leading-tight ${textColor}`}>
                                     {isMisc ? 'ทั่วไป (Misc)' : channel?.name}
                                 </h3>
                                 <p className="text-xs opacity-60 font-bold mt-1 flex items-center">
-                                    <Calendar className="w-3 h-3 mr-1" /> {quests.length} Active Plans
+                                    <Calendar className="w-3 h-3 mr-1" /> {quests.length} Quests
                                 </p>
                             </div>
                     </div>
                     
-                    {/* Percent */}
                     <div className="text-right">
                         <span className={`text-3xl font-black tracking-tighter ${textColor}`}>{overallPercent}%</span>
                     </div>
@@ -147,83 +134,58 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
                     const percent = Math.min((progress / quest.targetCount) * 100, 100);
                     const isCompleted = percent >= 100;
                     
-                    // Display Date Range if unusual
                     const qStart = new Date(quest.weekStartDate);
                     const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
-                    const dateLabel = `${format(qStart, 'd/M')} - ${format(qEnd, 'd/M')}`;
                     
-                    const formatCount = quest.targetFormat ? quest.targetFormat.length : 0;
-
-                    // --- HEAT LOGIC (4 Levels) ---
                     const daysRemaining = differenceInDays(qEnd, new Date());
+                    const isFailed = isPast(qEnd) && !isToday(qEnd) && !isCompleted;
                     
-                    let heatClass = 'py-1'; // Default spacing
+                    let heatClass = 'py-1'; 
                     let HeatIcon = null;
 
-                    if (!isCompleted) {
+                    if (!isCompleted && !isFailed) {
                         if (daysRemaining <= 0) {
-                            // Level 4: Inferno (Today/Overdue)
                             heatClass = 'bg-red-50 border border-red-200 shadow-[0_0_10px_rgba(239,68,68,0.15)] rounded-lg p-2 -mx-2 animate-pulse';
                             HeatIcon = <Flame className="w-3.5 h-3.5 text-red-600 fill-red-600 animate-bounce shrink-0" />;
                         } else if (daysRemaining === 1) {
-                            // Level 3: Burning (Tomorrow)
                             heatClass = 'bg-orange-50 border border-orange-200 rounded-lg p-2 -mx-2';
                             HeatIcon = <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 shrink-0" />;
-                        } else if (daysRemaining === 2) {
-                            // Level 2: Hot (2 Days)
-                            heatClass = 'bg-orange-50/50 border border-orange-100 rounded-lg p-2 -mx-2';
-                            HeatIcon = <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />;
-                        } else if (daysRemaining === 3) {
-                            // Level 1: Warm (3 Days)
-                            heatClass = 'bg-yellow-50/40 border border-yellow-100/50 rounded-lg p-2 -mx-2';
                         }
                     }
 
+                    // --- FAILED STYLE (Haunted) ---
+                    if (isFailed) {
+                        heatClass = 'bg-slate-100 border border-slate-300 border-dashed rounded-lg p-2 -mx-2 opacity-70 grayscale relative overflow-hidden';
+                        HeatIcon = <Skull className="w-3.5 h-3.5 text-slate-500 shrink-0" />;
+                    }
+
                     return (
-                        <div key={quest.id} className={`relative transition-all duration-300 ${heatClass}`}>
-                            <div className="flex justify-between items-center mb-1.5 text-sm">
+                        <div key={quest.id} className={`transition-all duration-300 ${heatClass}`}>
+                            {/* FAILED STAMP */}
+                            {isFailed && (
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 text-[30px] font-black text-slate-300/20 rotate-[-10deg] pointer-events-none select-none z-0">
+                                    FAILED
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-center mb-1.5 text-sm relative z-10">
                                 <div className="flex items-center gap-2 max-w-[75%]">
-                                    {/* Heat Icon Priority */}
-                                    {HeatIcon ? HeatIcon : (quest.questType === 'MANUAL' && <MousePointerClick className="w-3 h-3 text-gray-400 shrink-0" />)}
+                                    {/* Icon */}
+                                    {HeatIcon ? HeatIcon : (quest.questType === 'MANUAL' ? <MousePointerClick className="w-3 h-3 text-gray-400 shrink-0" /> : <Zap className="w-3 h-3 text-gray-400 shrink-0" />)}
                                     
-                                    <span className={`font-medium truncate ${isCompleted ? 'text-gray-400 line-through' : daysRemaining <= 0 ? 'text-red-700 font-bold' : 'text-gray-700'}`}>
+                                    <span className={`font-medium truncate ${isCompleted ? 'text-gray-400 line-through' : isFailed ? 'text-slate-600 line-through decoration-slate-400' : 'text-gray-700'}`}>
                                         {quest.title}
                                     </span>
-                                    
-                                    {/* Format Badge for Auto */}
-                                    <div className="flex gap-1 shrink-0">
-                                        {quest.questType === 'AUTO' && formatCount > 0 && (
-                                            <span className="text-[8px] bg-purple-50 text-purple-600 px-1 rounded border border-purple-100" title={quest.targetFormat?.join(', ')}>
-                                                {formatCount === 1 ? quest.targetFormat![0] : `${formatCount} Formats`}
-                                            </span>
-                                        )}
-                                    </div>
                                 </div>
                                 <div className="text-right flex items-center gap-2">
-                                     {quest.questType === 'MANUAL' && onUpdateManualProgress && (
-                                         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200" onClick={e => e.stopPropagation()}>
-                                             <button 
-                                                 onClick={() => onUpdateManualProgress(quest.id, Math.max(0, (quest.manualProgress || 0) - 1))} 
-                                                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white rounded transition-colors"
-                                             >
-                                                 -
-                                             </button>
-                                             <button 
-                                                 onClick={() => onUpdateManualProgress(quest.id, (quest.manualProgress || 0) + 1)} 
-                                                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-white rounded transition-colors"
-                                             >
-                                                 +
-                                             </button>
-                                         </div>
-                                     )}
-                                    <span className={`text-xs font-bold ${isCompleted ? 'text-emerald-600' : 'text-gray-400'}`}>{progress}/{quest.targetCount}</span>
+                                    <span className={`text-xs font-bold ${isCompleted ? 'text-emerald-600' : isFailed ? 'text-slate-500' : 'text-gray-400'}`}>
+                                        {progress}/{quest.targetCount}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-700 ${isCompleted ? 'bg-emerald-500' : daysRemaining <= 0 ? 'bg-red-500' : daysRemaining <= 2 ? 'bg-orange-400' : 'bg-gray-300'}`} style={{ width: `${percent}%` }} />
-                            </div>
-                            <div className={`text-[9px] text-right mt-0.5 ${daysRemaining <= 1 && !isCompleted ? 'text-red-500 font-bold' : 'text-gray-300'}`}>
-                                {dateLabel} {daysRemaining <= 1 && !isCompleted && '(ใกล้หมดเวลา!)'}
+
+                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden relative z-10">
+                                <div className={`h-full rounded-full transition-all duration-700 ${isCompleted ? 'bg-emerald-500' : isFailed ? 'bg-slate-500' : 'bg-indigo-500'}`} style={{ width: `${percent}%` }} />
                             </div>
                         </div>
                     );

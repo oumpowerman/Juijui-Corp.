@@ -15,6 +15,9 @@ export interface WeeklyQuest {
     targetStatus?: string;
     questType: 'AUTO' | 'MANUAL';
     manualProgress?: number;
+    // New Fields for Grouping
+    groupId?: string;
+    groupTitle?: string;
 }
 
 export interface Reward {

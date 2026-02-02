@@ -104,13 +104,13 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
 
-    // Pagination & Filters
+    // Pagination & Filters (Updated to Array)
     const [page, setPage] = useState(1);
     const pageSize = 20;
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterOwner, setFilterOwner] = useState<string>('ALL');
+    const [filterOwner, setFilterOwner] = useState<string[]>([]); // Array of IDs
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
-    const [filterChannel, setFilterChannel] = useState<string>('ALL');
+    const [filterChannel, setFilterChannel] = useState<string[]>([]); // Array of IDs
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
     const totalPages = Math.ceil(totalCount / pageSize);

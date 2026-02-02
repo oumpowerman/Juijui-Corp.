@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight, CheckSquare, Square, ChevronDown } from 'lucide-react';
+import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight, CheckSquare, Square, ChevronDown, Layers } from 'lucide-react';
 import { Channel, MasterOption, WeeklyQuest, Platform } from '../../types';
 import { CONTENT_FORMATS } from '../../constants';
 import { format, addDays, differenceInDays } from 'date-fns';
@@ -139,6 +139,9 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     const [customChannelName, setCustomChannelName] = useState('');
     const [isCustomChannel, setIsCustomChannel] = useState(false);
     
+    // Group Title (Optional)
+    const [groupTitle, setGroupTitle] = useState('');
+
     // Custom Dates
     const [customStartDate, setCustomStartDate] = useState(format(weekStart, 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState(format(addDays(weekStart, 6), 'yyyy-MM-dd'));
@@ -192,6 +195,9 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
 
         const effectiveStartDate = new Date(customStartDate);
         const effectiveEndDate = new Date(customEndDate);
+        
+        // Generate Group ID if title exists
+        const groupId = groupTitle.trim() ? crypto.randomUUID() : undefined;
 
         questItems.forEach(item => {
             if(!item.title) return;
@@ -207,7 +213,10 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                 targetFormat: item.questType === 'AUTO' ? item.formatKeys : undefined, // Send Array
                 targetStatus: item.questType === 'AUTO' ? item.statusKey : undefined,
                 questType: item.questType,
-                manualProgress: 0
+                manualProgress: 0,
+                // Grouping
+                groupId: groupId,
+                groupTitle: groupTitle.trim() || undefined
             });
         });
 
@@ -217,6 +226,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
         setSelectedChannelId('');
         setCustomChannelName('');
         setIsCustomChannel(false);
+        setGroupTitle('');
     };
     
     // Calculate Duration
@@ -243,6 +253,21 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                 <div className="p-6 overflow-y-auto flex-1">
                     <form id="quest-form" onSubmit={handleCreateGroup} className="space-y-6">
                         
+                        {/* Group Title Section (Optional) */}
+                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                             <label className="text-sm font-bold text-indigo-900 flex items-center mb-2">
+                                <Layers className="w-4 h-4 mr-2" /> ชื่อโปรเจกต์ / เควสหลัก (Optional)
+                             </label>
+                             <input 
+                                type="text" 
+                                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 outline-none focus:ring-2 focus:ring-indigo-200 text-sm font-bold text-gray-700 placeholder:text-gray-400 placeholder:font-normal"
+                                placeholder="เช่น Campaign สงกรานต์, Launch สินค้าใหม่..."
+                                value={groupTitle}
+                                onChange={e => setGroupTitle(e.target.value)}
+                             />
+                             <p className="text-[10px] text-gray-400 mt-1 ml-1">* หากกรอก ระบบจะมัดรวมรายการข้างล่างเป็นกลุ่มเดียวกัน</p>
+                        </div>
+
                         <div className="flex flex-col md:flex-row gap-6">
                             {/* Channel Selection */}
                             <div className="flex-1 space-y-3">

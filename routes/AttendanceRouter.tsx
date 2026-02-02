@@ -5,6 +5,7 @@ import AttendanceWidget from '../components/attendance/AttendanceWidget';
 import AttendanceHistory from '../components/attendance/AttendanceHistory'; 
 import AdminAttendanceDashboard from '../components/attendance/AdminAttendanceDashboard'; 
 import LeaveApprovalList from '../components/attendance/LeaveApprovalList'; 
+import AttendanceInfoCard from '../components/attendance/AttendanceInfoCard'; // New Import
 import { useAttendance } from '../hooks/useAttendance'; 
 import { useLeaveRequests } from '../hooks/useLeaveRequests'; // Import hook to get count
 import MentorTip from '../components/MentorTip';
@@ -87,24 +88,21 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
             {/* Content Area */}
             <div className="min-h-[400px]">
                 {currentTab === 'CHECK_IN' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                          <div className="space-y-6">
                              {/* Reusing the Widget here as the main component for this tab */}
                              <AttendanceWidget user={currentUser} />
                              
-                             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                                 <h3 className="font-bold text-gray-800 mb-2">สถานะวันนี้</h3>
-                                 <p className="text-sm text-gray-500">
+                             <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden">
+                                 <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-bl-[50px] opacity-50 pointer-events-none"></div>
+                                 <h3 className="font-bold text-gray-800 mb-2 relative z-10">สถานะวันนี้</h3>
+                                 <p className="text-sm text-gray-500 relative z-10">
                                      อย่าลืมถ่ายรูปบรรยากาศการทำงานมาฝากเพื่อนๆ ด้วยนะครับ 📸
                                  </p>
                              </div>
                          </div>
-                         <div className="hidden md:block bg-indigo-50/50 rounded-3xl border border-indigo-100 p-8 flex flex-col items-center justify-center text-center">
-                             <img src="https://cdni.iconscout.com/illustration/premium/thumb/time-management-4560797-3788737.png" alt="Time" className="w-48 mb-4 opacity-80 mix-blend-multiply" />
-                             <h4 className="font-bold text-indigo-900 text-lg">ตรงต่อเวลา = มืออาชีพ</h4>
-                             <p className="text-sm text-indigo-600 mt-2 max-w-xs">
-                                 การลงเวลาที่ถูกต้องช่วยให้การคำนวณเบี้ยขยันและประเมินผล KPI แม่นยำขึ้นนะครับ
-                             </p>
+                         <div className="hidden md:block h-full">
+                             <AttendanceInfoCard />
                          </div>
                     </div>
                 )}

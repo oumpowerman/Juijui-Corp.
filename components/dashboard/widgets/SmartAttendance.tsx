@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAttendance } from '../../../hooks/useAttendance';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
@@ -80,7 +81,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
         await checkIn(type, file, location, note, googleDriveUploader);
     };
 
-    if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse"></div>;
+    if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
 
     const isCheckedIn = !!todayLog;
     const isCheckedOut = !!todayLog?.checkOutTime;
@@ -90,7 +91,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
     // 1. FINISHED WORK (Pastel Green)
     if (isCheckedOut) {
         return (
-            <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden group gap-4">
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden group gap-4 w-full">
                 <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
                     <CheckCircle2 className="w-32 h-32 text-emerald-500" />
                 </div>
@@ -129,8 +130,8 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
     // 2. WORKING NOW (Gradient Border + Glow)
     if (isCheckedIn) {
         return (
-            <div className="relative p-[2px] rounded-[2.5rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-100/50">
-                <div className="bg-white rounded-[2.4rem] p-5 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden h-full">
+            <div className="relative p-[2px] rounded-[2.5rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-100/50 w-full">
+                <div className="bg-white rounded-[2.4rem] p-5 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden h-full w-full">
                     
                     {/* Pulsing Dot */}
                     <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -176,8 +177,8 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
 
     // 3. START WORK (Vibrant Gradient Card)
     return (
-        <>
-            <div className="bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 rounded-[2.5rem] p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group border-4 border-white/20">
+        <div className="w-full">
+            <div className="bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 rounded-[2.5rem] p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group border-4 border-white/20 w-full">
                 {/* Dynamic Background */}
                 <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500 opacity-20 rounded-full blur-2xl"></div>
@@ -195,7 +196,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                                 </span>
                             )}
                         </div>
-                        <h3 className="text-3xl font-bold tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
+                        <h3 className="text-3xl font-black tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
                             พร้อมลุยไหม? <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
                         </h3>
                         <p className="text-indigo-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">
@@ -220,7 +221,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                 onConfirm={handleConfirmCheckIn}
                 availableLocations={availableLocations}
             />
-        </>
+        </div>
     );
 };
 

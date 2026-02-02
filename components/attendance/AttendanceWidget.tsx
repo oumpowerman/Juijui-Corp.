@@ -20,7 +20,7 @@ interface AttendanceWidgetProps {
 
 const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
     // Hooks
-    const { todayLog, isLoading, checkIn, checkOut } = useAttendance(user.id);
+    const { todayLog, isLoading, checkIn, checkOut, refresh } = useAttendance(user.id);
     const { masterOptions } = useMasterData(); 
     const { submitRequest } = useLeaveRequests(user);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
@@ -102,11 +102,13 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
 
             {/* 2. Status Card (Handles UI States) */}
             <StatusCard 
+                user={user}
                 todayLog={todayLog}
                 onCheckOut={checkOut}
                 onOpenCheckIn={() => setIsCheckInModalOpen(true)}
                 onOpenLeave={() => setIsLeaveModalOpen(true)}
                 isDriveReady={isDriveReady}
+                onRefresh={refresh}
             />
 
             {/* Modals */}

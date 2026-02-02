@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
-import { th } from 'date-fns/locale';
+import { format, isSameDay } from 'date-fns';
+import startOfMonth from 'date-fns/startOfMonth';
+import endOfMonth from 'date-fns/endOfMonth';
+import th from 'date-fns/locale/th';
 import { 
     Users, Clock, AlertTriangle, Calendar, Download, 
     ChevronLeft, ChevronRight, Search, BarChart3, HeartPulse 

@@ -2,8 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { AttendanceLog } from '../../types/attendance';
 import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; // Import hook type
-import { format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
-import { th } from 'date-fns/locale';
+import { format, isSameDay } from 'date-fns';
+import subDays from 'date-fns/subDays';
+import startOfMonth from 'date-fns/startOfMonth';
+import endOfMonth from 'date-fns/endOfMonth';
+import th from 'date-fns/locale/th';
 import { 
     Clock, Calendar, CheckCircle2, MapPin, XCircle, Image as ImageIcon, 
     ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight

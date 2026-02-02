@@ -51,26 +51,32 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   'URGENT': 'ไฟลุกท่วม 🔥',
 };
 
-// --- HELPER: Intelligent Status Check (The Brains 🧠) ---
+// --- HELPERS: Intelligent Status Check (The Brains 🧠) ---
+
 export const isTaskCompleted = (status: string): boolean => {
     if (!status) return false;
     const s = status.toUpperCase();
     
-    // 1. Core System Statuses (Strict Match)
     if (s === 'DONE' || s === 'APPROVE' || s === 'PASSED') return true;
     
-    // 2. Semantic Keyword Matching (Fuzzy Match)
     const COMPLETION_KEYWORDS = [
-        'COMPLETE', // Complete
-        'SUCCESS',  // Success
-        'PUBLISH',  // Published, Publishing
-        'POSTED',   // Posted
-        'FINISH',   // Finished
-        'CLOSED',   // Closed
-        'ARCHIVE',  // Archived
-        'FINAL',    // Final
-        'DONE'      // Custom Done like "Done (YT)"
+        'COMPLETE', 'SUCCESS', 'PUBLISH', 'POSTED', 
+        'FINISH', 'CLOSED', 'ARCHIVE', 'FINAL', 'DONE'
     ];
     
     return COMPLETION_KEYWORDS.some(k => s.includes(k));
+};
+
+export const isTaskTodo = (status: string): boolean => {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    
+    // Core Initial Statuses
+    if (s === 'TODO' || s === 'IDEA' || s === 'SCRIPT') return true;
+    
+    const TODO_KEYWORDS = [
+        'TODO', 'IDEA', 'SCRIPT', 'BACKLOG', 'PLAN', 'START', 'READY'
+    ];
+    
+    return TODO_KEYWORDS.some(k => s.includes(k));
 };

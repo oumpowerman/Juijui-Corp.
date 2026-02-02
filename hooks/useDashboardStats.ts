@@ -1,14 +1,14 @@
 
 import { useState, useMemo } from 'react';
-import { Task, Status, Priority, DashboardConfig, User } from '../types';
-import { isAfter, isBefore, addDays, isSameMonth, getISOWeek } from 'date-fns';
+import { Task, User } from '../types';
+import { isAfter, isBefore, addDays, isSameMonth, getISOWeek, isPast, isToday } from 'date-fns';
 import { useDashboardConfig } from './useDashboardConfig';
 import { CHART_COLORS_MAP } from '../components/dashboard/admin/constants';
+import { isTaskCompleted } from '../constants';
 
 export type TimeRangeOption = 'THIS_MONTH' | 'LAST_30' | 'LAST_90' | 'CUSTOM' | 'ALL';
 export type ViewScope = 'ALL' | 'ME';
 
-// Theme Definitions moved here to keep logic centralized
 export const WEEKLY_THEMES = [
     {
         id: 'MODERN_CLEAN',
@@ -29,7 +29,7 @@ export const WEEKLY_THEMES = [
             iconBg: `bg-white text-${color}-500 shadow-sm`,
             textCount: `text-${color}-900`,
             label: `text-${color}-700 font-bold`,
-            decoration: 'blob' // Simplified marker for component to render
+            decoration: 'blob' 
         })
     },
     {
@@ -84,9 +84,10 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
-            // 0. Exclude Stock Items (Unscheduled) from general stats (unless Done)
-            // This prevents "Ghost" overdue tasks from stock
-            if (t.isUnscheduled && t.status !== 'DONE' && t.status !== 'APPROVE') {
+            const isDone = isTaskCompleted(t.status as string);
+
+            // 0. Exclude Stock Items from general stats (unless Done)
+            if (t.isUnscheduled && !isDone) {
                 return false;
             }
 
@@ -101,10 +102,12 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
             // 2. Time Range Filter
             if (timeRange === 'ALL') return true;
             const isInRange = checkDateInRange(t.endDate);
-            if (t.status === 'DONE' || t.status === 'APPROVE') {
+            
+            if (isDone) {
+                // Done tasks: Strict range check
                 return isInRange;
             } else {
-                // Show if in range OR if it's an overdue/active task relevant to now
+                // Pending tasks: Show if in range OR if overdue
                 return isInRange || isBefore(t.endDate, today); 
             }
         });
@@ -129,31 +132,51 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 return false;
             });
 
+            // Urgent Count: Overdue or Due Soon
+            const urgentCount = matchingTasks.filter(t => {
+                const isDone = isTaskCompleted(t.status as string);
+                if (isDone || t.isUnscheduled) return false;
+                
+                const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
+                const isDueSoon = isToday(t.endDate) || isBefore(t.endDate, addDays(new Date(), 2));
+                
+                return isOverdue || isDueSoon;
+            }).length;
+
             return {
                 ...config,
                 tasks: matchingTasks,
-                count: matchingTasks.length
+                count: matchingTasks.length,
+                urgentCount: urgentCount
             };
         });
     }, [configs, filteredTasks]);
 
-    // --- Urgent & Due Soon Logic ---
+    // --- Urgent & Due Soon Logic (The FIX is here) ---
     const urgentTasks = useMemo(() => filteredTasks
-        .filter(t => 
-            (t.priority === 'URGENT' || t.priority === 'HIGH') && 
-            !(t.status === 'DONE' || t.status === 'APPROVE') &&
-            !t.isUnscheduled // Double check to ensure no stock items leak in
-        )
-        .sort((a, b) => a.endDate.getTime() - b.endDate.getTime())
-        .slice(0, 3), [filteredTasks]);
+        .filter(t => {
+            // FIX: Use isTaskCompleted helper to handle various "Done" statuses (e.g. "10_DONE_✅️")
+            const isDone = isTaskCompleted(t.status as string);
+            
+            if (isDone || t.isUnscheduled) return false;
+
+            const isExplicitUrgent = t.priority === 'URGENT' || t.priority === 'HIGH';
+            const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
+            const isDueSoon = isToday(t.endDate) || isBefore(t.endDate, addDays(today, 2));
+
+            return isExplicitUrgent || isOverdue || isDueSoon;
+        })
+        .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+        .slice(0, 5), [filteredTasks]);
 
     const dueSoon = useMemo(() => filteredTasks
-        .filter(t => 
-            isAfter(t.endDate, today) && 
-            isBefore(t.endDate, addDays(today, 3)) && 
-            !(t.status === 'DONE' || t.status === 'APPROVE') &&
-            !t.isUnscheduled
-        )
+        .filter(t => {
+            const isDone = isTaskCompleted(t.status as string);
+            return isAfter(t.endDate, today) && 
+                   isBefore(t.endDate, addDays(today, 3)) && 
+                   !isDone &&
+                   !t.isUnscheduled;
+        })
         .slice(0, 3), [filteredTasks, today]);
 
     // --- Chart Data ---
@@ -166,7 +189,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     }, [cardStats]);
 
     const totalFilteredTasks = filteredTasks.length;
-    const doneTasksCount = filteredTasks.filter(t => t.status === 'DONE' || t.status === 'APPROVE').length;
+    const doneTasksCount = filteredTasks.filter(t => isTaskCompleted(t.status as string)).length;
     const progressPercentage = totalFilteredTasks > 0 ? Math.round((doneTasksCount / totalFilteredTasks) * 100) : 0;
 
     const getTimeRangeLabel = () => {
@@ -180,12 +203,9 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     };
 
     return {
-        // State
         timeRange, setTimeRange,
         customDays, setCustomDays,
         viewScope, setViewScope,
-        
-        // Data
         configLoading,
         currentTheme,
         cardStats,
@@ -194,8 +214,6 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
         chartData,
         totalFilteredTasks,
         progressPercentage,
-        
-        // Helpers
         getTimeRangeLabel
     };
 };

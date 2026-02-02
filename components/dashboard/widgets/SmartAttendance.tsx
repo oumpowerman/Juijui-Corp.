@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAttendance } from '../../../hooks/useAttendance';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { User, MasterOption } from '../../../types';
 import { WorkLocation } from '../../../types/attendance';
-import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud } from 'lucide-react';
+import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import CheckInModal from '../../attendance/CheckInModal';
 
@@ -91,95 +90,125 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
     // 1. FINISHED WORK (Pastel Green)
     if (isCheckedOut) {
         return (
-            <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex items-center justify-between shadow-sm relative overflow-hidden group">
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden group gap-4">
                 <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
                     <CheckCircle2 className="w-32 h-32 text-emerald-500" />
                 </div>
-                <div className="relative z-10">
-                    <h3 className="text-lg font-black text-emerald-700 flex items-center gap-2">
-                        🎉 เลิกงานแล้ว!
-                    </h3>
-                    <p className="text-sm text-emerald-600 mt-1 font-medium">พักผ่อนให้เต็มที่ เจอกันพรุ่งนี้ครับ</p>
-                </div>
-                <div className="text-right relative z-10 bg-white/60 px-4 py-2 rounded-2xl backdrop-blur-sm border border-emerald-100">
-                    <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Clock Out</p>
-                    <p className="text-xl font-black text-emerald-700 font-mono">{format(todayLog.checkOutTime!, 'HH:mm')}</p>
-                </div>
-            </div>
-        );
-    }
-
-    // 2. WORKING NOW (Pastel Purple Outline)
-    if (isCheckedIn) {
-        return (
-            <div className="bg-white/90 backdrop-blur-md border-2 border-purple-100 rounded-[2.5rem] p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 relative overflow-hidden">
-                {/* Background Blob */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-2xl opacity-60 -mr-10 -mt-10"></div>
                 
-                {/* Info */}
-                <div className="flex-1 flex items-center gap-4 w-full relative z-10">
-                    <div className="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center shrink-0 border border-purple-100 shadow-inner">
-                        <Clock className="w-7 h-7 animate-pulse" />
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shadow-inner">
+                        <Coffee className="w-7 h-7" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold bg-green-100 text-green-600 px-2 py-0.5 rounded-full border border-green-200">
-                                Active
-                            </span>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Since {format(todayLog.checkInTime!, 'HH:mm')}</p>
-                        </div>
-                        <h3 className="text-lg font-black text-gray-700 flex items-center gap-2">
-                            Working ({todayLog?.workType})
+                        <h3 className="text-lg font-black text-emerald-800 flex items-center gap-2">
+                            เลิกงานแล้ว! 🎉
                         </h3>
+                        <p className="text-sm text-emerald-600 mt-0.5 font-medium">พักผ่อนให้เต็มที่ เจอกันพรุ่งนี้ครับ</p>
                     </div>
                 </div>
 
-                {/* Clock Out Button */}
-                <button 
-                    onClick={() => checkOut()}
-                    className="w-full md:w-auto px-6 py-3.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border-2 border-red-100 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 relative z-10 group"
-                >
-                    <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> 
-                    <span>เลิกงาน (Out)</span>
-                </button>
+                <div className="flex items-center gap-4 relative z-10">
+                    <div className="text-right">
+                        <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide mb-0.5">เข้างาน</p>
+                        <p className="text-sm font-bold text-emerald-700 font-mono bg-white/50 px-2 py-1 rounded-lg">
+                            {format(todayLog.checkInTime!, 'HH:mm')}
+                        </p>
+                    </div>
+                    <div className="h-8 w-px bg-emerald-200"></div>
+                    <div className="text-right">
+                        <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide mb-0.5">ออกงาน</p>
+                        <p className="text-xl font-black text-emerald-700 font-mono bg-white/80 px-3 py-1 rounded-xl shadow-sm">
+                            {format(todayLog.checkOutTime!, 'HH:mm')}
+                        </p>
+                    </div>
+                </div>
             </div>
         );
     }
 
-    // 3. START WORK (Vibrant Pastel)
+    // 2. WORKING NOW (Gradient Border + Glow)
+    if (isCheckedIn) {
+        return (
+            <div className="relative p-[2px] rounded-[2.5rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-100/50">
+                <div className="bg-white rounded-[2.4rem] p-5 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden h-full">
+                    
+                    {/* Pulsing Dot */}
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                         <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Active</span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 flex items-center gap-5 w-full relative z-10">
+                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0 border border-indigo-100 shadow-inner">
+                            <Clock className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
+                                Check-in at {format(todayLog.checkInTime!, 'HH:mm')}
+                            </p>
+                            <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                                กำลังทำงาน 👨‍💻
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 flex items-center">
+                                    <MapPin className="w-3 h-3 mr-1" /> {todayLog?.workType}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Clock Out Button */}
+                    <button 
+                        onClick={() => checkOut()}
+                        className="group w-full md:w-auto px-6 py-3.5 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white border-2 border-red-100 hover:border-red-500 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 relative z-10 overflow-hidden"
+                    >
+                        <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> 
+                        <span>เลิกงาน (Clock Out)</span>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. START WORK (Vibrant Gradient Card)
     return (
         <>
-            <div className="bg-gradient-to-br from-violet-400 to-fuchsia-400 rounded-[2.5rem] p-6 text-white shadow-xl shadow-purple-200 relative overflow-hidden group border border-white/20">
-                {/* Background Decor */}
-                <div className="absolute -right-4 -top-4 w-40 h-40 bg-white opacity-20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500 opacity-10 rounded-full blur-3xl"></div>
+            <div className="bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 rounded-[2.5rem] p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden group border-4 border-white/20">
+                {/* Dynamic Background */}
+                <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500 opacity-20 rounded-full blur-2xl"></div>
                 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                     <div className="flex-1 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                            <span className="bg-white/25 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black border border-white/30 tracking-wider">
-                                {format(time, 'd MMM yyyy')}
+                            <span className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 tracking-wider flex items-center shadow-sm">
+                                <Calendar className="w-3 h-3 mr-1.5" />
+                                {format(time, 'EEEE, d MMM')}
                             </span>
                             {isDriveReady && (
-                                <span className="bg-emerald-400/30 backdrop-blur-md px-2 py-1 rounded-full text-[10px] font-bold border border-emerald-200/40 text-emerald-50 flex items-center">
-                                    <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full mr-1 animate-pulse"></span> Cloud Ready
+                                <span className="bg-emerald-400/20 backdrop-blur-md px-2 py-1 rounded-full text-[10px] font-bold border border-emerald-200/30 text-emerald-100 flex items-center">
+                                    <Cloud className="w-3 h-3 mr-1" /> Cloud Ready
                                 </span>
                             )}
                         </div>
-                        <h3 className="text-3xl font-black tracking-tight mt-1 drop-shadow-sm">
-                            พร้อมลุยไหม? ✌️
+                        <h3 className="text-3xl font-bold tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
+                            พร้อมลุยไหม? <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
                         </h3>
-                        <p className="text-purple-50 text-sm mt-1 font-medium opacity-90">
-                            ได้เวลาสร้างสรรค์ผลงานแล้ว (Check-in)
+                        <p className="text-indigo-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">
+                            เริ่มต้นวันใหม่ด้วยพลัง! อย่าลืมถ่ายรูปเช็คอินนะ
                         </p>
                     </div>
 
                     <button 
                         onClick={() => setIsCheckInModalOpen(true)}
-                        className="group/btn relative px-8 py-4 bg-white text-purple-600 rounded-2xl font-black shadow-lg shadow-purple-900/10 hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden w-full md:w-auto justify-center"
+                        className="group/btn relative px-8 py-4 bg-white text-indigo-600 rounded-2xl font-black shadow-lg hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden w-full md:w-auto justify-center"
                     >
-                        <div className="absolute inset-0 bg-purple-50 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300"></div>
-                        <Camera className="w-6 h-6 relative z-10" />
+                        <div className="absolute inset-0 bg-indigo-50 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300"></div>
+                        <Camera className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform" />
                         <span className="relative z-10 text-base">ถ่ายรูปเข้างาน</span>
                     </button>
                 </div>

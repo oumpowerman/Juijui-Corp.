@@ -7,15 +7,17 @@ import MyDutyWidget from '../member/MyDutyWidget';
 interface DailyMissionProps {
     currentUser: User;
     onNavigate: (view: ViewMode) => void;
+    users?: User[]; // Added users prop
 }
 
-const DailyMission: React.FC<DailyMissionProps> = ({ currentUser, onNavigate }) => {
+const DailyMission: React.FC<DailyMissionProps> = ({ currentUser, onNavigate, users = [] }) => {
     const { duties } = useDuty(); // Hook handles fetching and realtime updates
 
     return (
         <MyDutyWidget 
             duties={duties} 
             currentUser={currentUser} 
+            users={users} // Pass users down
             onNavigate={onNavigate}
         />
     );

@@ -1,11 +1,14 @@
+
 import React, { useState } from 'react';
 import { 
     LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
-    Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock
+    Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock,
+    Maximize2, Minimize2
 } from 'lucide-react';
 import { User, ViewMode, TaskType } from '../types';
+import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
 
 interface MobileNavigationProps {
     currentUser: User;
@@ -50,10 +53,29 @@ const MobileMenuButton = ({
 
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Integrate the back button handler
+    useMobileBackHandler(isMenuOpen, () => setIsMenuOpen(false));
 
     const handleNavigateAndClose = (view: ViewMode) => {
         onNavigate(view);
         setIsMenuOpen(false);
+    };
+
+    const toggleFullScreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.warn(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        }
     };
 
     // Calculate Level Progress
@@ -112,7 +134,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
 
             {/* --- FULL SCREEN DRAWER --- */}
             {isMenuOpen && (
-                <div className="fixed inset-0 z-[60] bg-white lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col">
+                <div className="fixed inset-0 z-[9999] bg-white lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[100dvh]">
                     
                     {/* Header: User Profile & Stats */}
                     <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[2.5rem] shadow-xl relative overflow-hidden shrink-0">
@@ -134,9 +156,18 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                         </p>
                                     </div>
                                 </div>
-                                <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white">
-                                    <X className="w-6 h-6" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={toggleFullScreen}
+                                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white"
+                                        title="Full Screen Mode"
+                                    >
+                                        {isFullscreen ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
+                                    </button>
+                                    <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white">
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Mini Stats Bar */}

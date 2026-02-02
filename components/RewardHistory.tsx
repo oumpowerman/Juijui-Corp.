@@ -3,7 +3,7 @@ import React from 'react';
 import { Redemption } from '../types';
 import { X, History, User } from 'lucide-react';
 import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
+import th from 'date-fns/locale/th';
 
 interface RewardHistoryProps {
     redemptions: (Redemption & { user?: any })[];

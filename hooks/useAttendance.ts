@@ -3,7 +3,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { AttendanceLog, WorkLocation, AttendanceStats } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
+import startOfMonth from 'date-fns/startOfMonth';
+import endOfMonth from 'date-fns/endOfMonth';
 
 export interface AttendanceFilters {
     startDate?: string;

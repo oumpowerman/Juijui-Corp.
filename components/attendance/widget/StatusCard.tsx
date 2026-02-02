@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { AttendanceLog } from '../../../types/attendance';
 import { LogIn, LogOut, MapPin, CheckCircle2, Clock, Cloud, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
-import { th } from 'date-fns/locale';
+import th from 'date-fns/locale/th';
 import LeaveRequestModal from '../LeaveRequestModal';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 

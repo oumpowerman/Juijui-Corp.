@@ -3,7 +3,7 @@ import React from 'react';
 import { FeedbackItem, User } from '../../types';
 import { ThumbsUp, Trash2, CheckCircle2, XCircle, ShieldAlert, Lightbulb, Heart, User as UserIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { th } from 'date-fns/locale';
+import th from 'date-fns/locale/th';
 
 interface FeedbackCardProps {
     item: FeedbackItem;
@@ -78,7 +78,7 @@ const FeedbackCard: React.FC<FeedbackCardProps> = ({ item, currentUser, onVote, 
                                 </div>
                             )}
                             <span className="text-[10px] text-gray-400 ml-8 block -mt-1">
-                                {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: th })}
+                                {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: th } as any)}
                             </span>
                         </div>
                     </div>

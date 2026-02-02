@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ListTodo, Film, MessageCircle, CheckCircle2, LayoutTemplate, ArrowRight } from 'lucide-react';
+import { ListTodo, Film, MessageCircle, CheckCircle2, LayoutTemplate, ArrowRight, Flame } from 'lucide-react';
 import { Task } from '../../../types';
 import Skeleton from '../../ui/Skeleton';
 
@@ -49,15 +49,17 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                 const colorKey = stat.colorTheme || 'slate';
                 const Icon = getIconComponent(stat.icon || 'circle');
                 const styles = currentTheme.getStyle(colorKey);
+                const hasUrgent = stat.urgentCount > 0;
                 
                 return (
                     <div 
                         key={stat.id}
                         onClick={() => onCardClick(`${stat.label} (${timeRangeLabel})`, stat.tasks, colorKey)}
                         className={`
-                            relative overflow-hidden group cursor-pointer transition-all duration-300 active:scale-95
+                            relative overflow-visible group cursor-pointer transition-all duration-300 active:scale-95
                             p-5 md:p-6 rounded-[2rem] flex flex-col justify-between h-32 md:h-40
                             ${styles.container}
+                            ${hasUrgent ? 'ring-2 ring-red-100 border-red-200' : ''}
                         `}
                     >
                         {/* Dynamic Decoration from Theme */}
@@ -68,6 +70,14 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                             <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-${colorKey}-400 to-${colorKey}-200 opacity-50`} />
                         )}
                         {typeof styles.decoration !== 'string' && styles.decoration}
+
+                        {/* 🔥 Fire Notification Badge */}
+                        {hasUrgent && (
+                            <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg shadow-red-200 border-2 border-white animate-bounce-slow z-20 flex items-center justify-center min-w-[28px] h-[28px]">
+                                <Flame className="w-3.5 h-3.5 fill-white" />
+                                <span className="text-[10px] font-bold ml-0.5">{stat.urgentCount}</span>
+                            </div>
+                        )}
 
                         <div className="flex justify-between items-start relative z-10">
                             <p className={`text-xs md:text-sm ${styles.label}`}>

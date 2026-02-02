@@ -13,7 +13,13 @@ import ItemShopModal from '../gamification/ItemShopModal';
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
 import DailyMission from './widgets/DailyMission';
-import QuestBoardWidget from './widgets/QuestBoardWidget';
+import QuestOverviewWidget from './widgets/QuestOverviewWidget';
+import GoalOverviewWidget from './widgets/GoalOverviewWidget';
+import HallOfFameWidget from './widgets/HallOfFameWidget';
+
+// Hooks
+import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
+import { useGoals } from '../../hooks/useGoals';
 
 interface MemberDashboardProps {
     currentUser: User;
@@ -47,6 +53,10 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const [localUser, setLocalUser] = useState<User>(currentUser);
     const [isShopOpen, setIsShopOpen] = useState(false);
     const { showToast } = useToast();
+
+    // Data Hooks
+    const { quests } = useWeeklyQuests();
+    const { goals } = useGoals(currentUser);
 
     // Sync local user
     useEffect(() => {
@@ -117,12 +127,42 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                              <DailyMission 
                                 currentUser={currentUser}
                                 onNavigate={onNavigate}
+                                users={users}
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* --- ROW 2: WORKSPACE --- */}
+                {/* --- ROW 2: SQUAD HUB (NEW) --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-6 items-stretch">
+                    {/* Quest Widget (Purple Theme) */}
+                    <div className="lg:col-span-2 xl:col-span-6 h-full">
+                        <QuestOverviewWidget 
+                            quests={quests} 
+                            tasks={tasks} // Needs global tasks for counting
+                            onNavigate={onNavigate} 
+                        />
+                    </div>
+                    
+                    {/* Goal Widget (Green Theme) */}
+                    <div className="lg:col-span-1 xl:col-span-3 h-full">
+                        <GoalOverviewWidget 
+                            goals={goals} 
+                            onNavigate={onNavigate} 
+                        />
+                    </div>
+
+                    {/* Hall of Fame (Gold Theme) */}
+                    <div className="lg:col-span-1 xl:col-span-3 h-full">
+                        <HallOfFameWidget 
+                            users={users} 
+                            currentUser={currentUser} 
+                            onNavigate={onNavigate} 
+                        />
+                    </div>
+                </div>
+
+                {/* --- ROW 3: WORKSPACE --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                     
                     {/* Focus Zone (Left Side - 35% ish on XL) */}
@@ -146,17 +186,6 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             />
                         </div>
                     </div>
-                </div>
-
-                {/* --- ROW 3: TEAM QUESTS --- */}
-                <div className="bg-gradient-to-r from-indigo-50/80 via-purple-50/80 to-pink-50/80 rounded-[2.5rem] border border-white/50 p-6 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 opacity-30"></div>
-                    <QuestBoardWidget 
-                        tasks={tasks}
-                        channels={channels}
-                        masterOptions={masterOptions}
-                        onOpenSettings={onOpenSettings}
-                    />
                 </div>
             </div>
 

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AttendanceLog, LeaveType } from '../../../types/attendance';
+import { AttendanceLog, LeaveType, LocationDef } from '../../../types/attendance';
 import { User } from '../../../types';
 import { LogIn, LogOut, MapPin, CheckCircle2, Clock, Cloud, AlertTriangle, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { format, isToday } from 'date-fns';
@@ -9,19 +9,21 @@ import LeaveRequestModal from '../LeaveRequestModal';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
+import { CheckOutModal } from '../CheckOutModal';
 
 interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
-    onCheckOut: () => void;
+    onCheckOut: () => Promise<void>; // Make async
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
     onRefresh?: () => void;
+    availableLocations: LocationDef[];
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, onCheckOut, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh
+    user, todayLog, onCheckOut, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations
 }) => {
     const isCheckedOut = !!todayLog?.checkOutTime;
     const isCheckedIn = !!todayLog;
@@ -33,6 +35,10 @@ const StatusCard: React.FC<StatusCardProps> = ({
     
     // Recovery Logic
     const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+    
+    // Check-out Verification Logic
+    const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
+
     const { submitRequest } = useLeaveRequests(user);
 
     const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
@@ -71,6 +77,18 @@ const StatusCard: React.FC<StatusCardProps> = ({
             // --- MEMBER FLOW ---
             return await submitRequest('FORGOT_CHECKOUT', start, end, reason, file);
         }
+    };
+
+    const handleCheckOutRequest = async (timeStr: string, reason: string) => {
+        const now = new Date();
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const checkoutDate = new Date(now);
+        checkoutDate.setHours(hours, minutes, 0, 0);
+        
+        const formattedReason = `[TIME:${timeStr}] ${reason} (Location Mismatch)`;
+
+        // Using FORGOT_CHECKOUT type for correction requests
+        return await submitRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
 
     // State 1: Forgot Check-out (Prioritized)
@@ -141,11 +159,20 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     </span>
                 </div>
                 <button 
-                    onClick={onCheckOut}
+                    onClick={() => setIsCheckOutModalOpen(true)}
                     className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                     <LogOut className="w-5 h-5" /> ตอกบัตรออก (Check Out)
                 </button>
+
+                <CheckOutModal 
+                    isOpen={isCheckOutModalOpen}
+                    onClose={() => setIsCheckOutModalOpen(false)}
+                    onConfirm={onCheckOut}
+                    onRequest={handleCheckOutRequest}
+                    availableLocations={availableLocations}
+                    checkInTime={todayLog!.checkInTime!} // Pass checkIn time here
+                />
             </div>
         );
     }

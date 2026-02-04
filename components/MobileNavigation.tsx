@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
@@ -54,26 +54,64 @@ const MobileMenuButton = ({
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isIOS, setIsIOS] = useState(false);
 
     // Integrate the back button handler
     useMobileBackHandler(isMenuOpen, () => setIsMenuOpen(false));
+
+    useEffect(() => {
+        // Check if iOS to conditionally hide/show feature
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        setIsIOS(isIOSDevice);
+
+        // Listener for external fullscreen changes (e.g. user presses ESC or swipes)
+        const handleFullscreenChange = () => {
+            const isFull = !!document.fullscreenElement || 
+                           !!(document as any).webkitFullscreenElement || 
+                           !!(document as any).mozFullScreenElement;
+            setIsFullscreen(isFull);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+        };
+    }, []);
 
     const handleNavigateAndClose = (view: ViewMode) => {
         onNavigate(view);
         setIsMenuOpen(false);
     };
 
-    const toggleFullScreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().then(() => {
-                setIsFullscreen(true);
-            }).catch(err => {
-                console.warn(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-                setIsFullscreen(false);
+    const toggleFullScreen = async () => {
+        const doc = window.document as any;
+        const docEl = doc.documentElement as any;
+
+        try {
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    await requestFullScreen.call(docEl);
+                    setIsFullscreen(true);
+                }
+            } else {
+                if (cancelFullScreen) {
+                    await cancelFullScreen.call(doc);
+                    setIsFullscreen(false);
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen toggle error:", err);
+            // Fail safely without crashing
+            if (isIOS) {
+                alert("บน iOS กรุณาใช้เมนู Share > 'Add to Home Screen' เพื่อใช้งานเต็มจอครับ");
             }
         }
     };
@@ -157,13 +195,15 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    {/* Fullscreen Button - Conditionally styled for iOS vs Android */}
                                     <button 
                                         onClick={toggleFullScreen}
-                                        className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white"
-                                        title="Full Screen Mode"
+                                        className={`p-2 rounded-full transition-colors text-white/70 hover:text-white ${isIOS ? 'bg-white/5 opacity-50 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
+                                        title={isIOS ? "iOS does not support button fullscreen" : "Full Screen Mode"}
                                     >
                                         {isFullscreen ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
                                     </button>
+                                    
                                     <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white">
                                         <X className="w-6 h-6" />
                                     </button>

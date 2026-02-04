@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
 import TaskCategoryModal from '../TaskCategoryModal';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
+import WorkloadModal from '../workload/WorkloadModal'; // NEW
 
 // Import Sub-components
 import DashboardHeader from './admin/DashboardHeader';
@@ -10,6 +11,7 @@ import StatCardsGrid from './admin/StatCardsGrid';
 import UrgentTasksWidget from './admin/UrgentTasksWidget';
 import WorkloadChart from './admin/WorkloadChart';
 import DutyRosterWidget from './admin/DutyRosterWidget';
+import AttendanceComparisonWidget from './admin/AttendanceComparisonWidget'; // NEW
 
 interface DashboardProps {
   tasks: Task[];
@@ -37,7 +39,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     onNavigateToCalendar, 
     onOpenSettings,
     onOpenNotifications,
-    unreadCount = 0
+    unreadCount = 0,
+    masterOptions = [] // Default to empty array if not passed
 }) => {
   
   // Use the new hook for logic
@@ -48,15 +51,18 @@ const AdminDashboard: React.FC<DashboardProps> = ({
       configLoading,
       currentTheme,
       cardStats,
-      urgentTasks,
-      dueSoon,
+      // urgentTasks, // REMOVED: Widget calculates itself now
+      // dueSoon,     // REMOVED: Widget calculates itself now
       chartData,
       progressPercentage,
-      getTimeRangeLabel
+      getTimeRangeLabel,
+      attendanceToday,
+      attendanceYesterday
   } = useDashboardStats(tasks, currentUser);
 
   // UI State for Modal (kept here as it's UI coordination)
   const [modalOpen, setModalOpen] = useState(false);
+  const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); // NEW
   const [modalTitle, setModalTitle] = useState('');
   const [modalTasks, setModalTasks] = useState<Task[]>([]);
   const [modalTheme, setModalTheme] = useState('blue');
@@ -93,6 +99,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           onOpenNotifications={onOpenNotifications} 
           unreadCount={unreadCount} // Pass down to Header
           getTimeRangeLabel={getTimeRangeLabel}
+          onOpenWorkload={() => setIsWorkloadOpen(true)} // Pass handler
       />
 
       {/* 2. Stats Grid (Themed) */}
@@ -104,24 +111,39 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           timeRangeLabel={getTimeRangeLabel()}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 3. Main Content: Urgent Tasks */}
-        <UrgentTasksWidget 
-            urgentTasks={urgentTasks}
-            dueSoon={dueSoon}
-            channels={channels}
-            viewScope={viewScope}
-            onEditTask={onEditTask}
-            onNavigateToCalendar={onNavigateToCalendar}
-        />
+      {/* 3. Main Grid Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        {/* Left Column: Urgent Tasks (2 cols wide on large screens) */}
+        <div className="xl:col-span-2 space-y-6">
+            <UrgentTasksWidget 
+                tasks={tasks} // PASS ALL TASKS
+                channels={channels}
+                users={users} // PASS USERS for avatars
+                masterOptions={masterOptions} // PASS MASTER OPTIONS FOR VLOOKUP
+                currentUser={currentUser}
+                viewScope={viewScope}
+                onEditTask={onEditTask}
+                onNavigateToCalendar={onNavigateToCalendar}
+            />
+        </div>
 
-        {/* 4. Sidebar: Charts & Duty */}
-        <div className="space-y-6">
+        {/* Right Column: Widgets (1 col wide) */}
+        <div className="xl:col-span-1 space-y-6 flex flex-col">
+          {/* New Attendance Widget */}
+          <div className="flex-shrink-0">
+             <AttendanceComparisonWidget 
+                todayStats={attendanceToday}
+                yesterdayStats={attendanceYesterday}
+             />
+          </div>
+
           <WorkloadChart 
               chartData={chartData}
               progressPercentage={progressPercentage}
               timeRangeLabel={getTimeRangeLabel()}
           />
+          
           <DutyRosterWidget users={users} />
         </div>
       </div>
@@ -134,6 +156,15 @@ const AdminDashboard: React.FC<DashboardProps> = ({
         channels={channels}
         onEditTask={onEditTask}
         colorTheme={modalTheme}
+      />
+
+      {/* NEW Workload Modal */}
+      <WorkloadModal 
+        isOpen={isWorkloadOpen}
+        onClose={() => setIsWorkloadOpen(false)}
+        tasks={tasks}
+        users={users}
+        currentUser={currentUser}
       />
     </div>
   );

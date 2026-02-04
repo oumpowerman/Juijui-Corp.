@@ -233,7 +233,8 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
         }
     };
 
-    const sendFile = async (file: File) => {
+    // UPDATED: sendFile supports custom uploader strategy
+    const sendFile = async (file: File, customUploader?: (file: File) => Promise<string>) => {
         if (!currentUser) return;
         
         if (file.size > 10 * 1024 * 1024) {
@@ -242,26 +243,30 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
         }
 
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            
-            const { error: uploadError } = await supabase.storage
-                .from('chat-files') 
-                .upload(fileName, file);
-
-            if (uploadError) {
-                console.error("Upload Error:", uploadError);
-                throw new Error(`Upload Failed: ${uploadError.message}`);
-            }
-
-            const { data: urlData } = supabase.storage
-                .from('chat-files')
-                .getPublicUrl(fileName);
-
-            const publicUrl = urlData.publicUrl;
-            
+            let publicUrl = '';
             const isImage = file.type.startsWith('image/');
             const type = isImage ? 'IMAGE' : 'FILE';
+
+            if (customUploader) {
+                // Use Google Drive or other external service
+                publicUrl = await customUploader(file);
+            } else {
+                // Fallback to Supabase Storage
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('chat-files') 
+                    .upload(fileName, file);
+
+                if (uploadError) throw new Error(`Upload Failed: ${uploadError.message}`);
+
+                const { data: urlData } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(fileName);
+
+                publicUrl = urlData.publicUrl;
+            }
 
             const { error } = await supabase.from('team_messages').insert({
                 content: publicUrl,

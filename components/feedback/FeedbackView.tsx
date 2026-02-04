@@ -1,29 +1,77 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User } from '../../types';
 import { useFeedback } from '../../hooks/useFeedback';
 import FeedbackCard from './FeedbackCard';
 import FeedbackForm from './FeedbackForm';
 import FeedbackStats from './FeedbackStats';
+import FeedbackControls, { FilterOption, SortOption } from './FeedbackControls'; // New Import
+import FeedbackPagination from './FeedbackPagination'; // New Import
 import MentorTip from '../MentorTip';
 import { Inbox, ShieldCheck, Info } from 'lucide-react';
 import Skeleton from '../ui/Skeleton';
-import InfoModal from '../ui/InfoModal'; // Import InfoModal
-import FeedbackGuide from './FeedbackGuide'; // Import FeedbackGuide
+import InfoModal from '../ui/InfoModal';
+import FeedbackGuide from './FeedbackGuide';
 
 interface FeedbackViewProps {
     currentUser: User;
 }
 
+const ITEMS_PER_PAGE = 6; // Configurable: How many items per page
+
 const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
     const { feedbacks, isLoading, submitFeedback, toggleVote, updateStatus, deleteFeedback } = useFeedback(currentUser);
     const [tab, setTab] = useState<'BOARD' | 'ADMIN'>('BOARD');
-    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
     const isAdmin = currentUser.role === 'ADMIN';
 
-    // Filter Logic
+    // --- NEW STATE: Filter & Pagination ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState<FilterOption>('ALL');
+    const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // --- Data Processing Logic ---
     const approvedFeedbacks = feedbacks.filter(f => f.status === 'APPROVED');
-    const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING' || f.status === 'REJECTED'); // Admins see pending/rejected in admin tab
+    const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING' || f.status === 'REJECTED');
+
+    const sourceData = tab === 'BOARD' ? approvedFeedbacks : pendingFeedbacks;
+
+    // 1. Filtering
+    const filteredData = useMemo(() => {
+        return sourceData.filter(item => {
+            const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  (item.creatorName && item.creatorName.toLowerCase().includes(searchQuery.toLowerCase()));
+            const matchesType = activeFilter === 'ALL' || item.type === activeFilter;
+            return matchesSearch && matchesType;
+        });
+    }, [sourceData, searchQuery, activeFilter]);
+
+    // 2. Sorting
+    const sortedData = useMemo(() => {
+        return [...filteredData].sort((a, b) => {
+            if (sortBy === 'VOTES') {
+                return b.voteCount - a.voteCount;
+            } else if (sortBy === 'OLDEST') {
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            } else {
+                // NEWEST (Default)
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+        });
+    }, [filteredData, sortBy]);
+
+    // 3. Pagination
+    const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
+    const paginatedData = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedData.slice(start, start + ITEMS_PER_PAGE);
+    }, [sortedData, currentPage]);
+
+    // Reset page when filter changes
+    useMemo(() => {
+        setCurrentPage(1);
+    }, [activeFilter, searchQuery, sortBy, tab]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -85,14 +133,6 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                                     {pendingFeedbacks.length}
                                 </span>
                             )}
-
-                            {/* Attention Ping */}
-                            {pendingFeedbacks.length > 0 && tab !== 'ADMIN' && (
-                                <span className="absolute top-1 right-1 flex h-2.5 w-2.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-400"></span>
-                                </span>
-                            )}
                         </button>
                     </div>
                 )}
@@ -102,22 +142,35 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                 
                 {/* Left: Feed */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Input Form (Only show on Public Board) */}
+                    
+                    {/* 1. Input Form (Only show on Public Board) */}
                     {tab === 'BOARD' && (
                         <FeedbackForm onSubmit={submitFeedback} />
                     )}
 
-                    {/* Feed List */}
+                    {/* 2. Controls (Search & Filter) */}
+                    <FeedbackControls 
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        activeFilter={activeFilter}
+                        setActiveFilter={setActiveFilter}
+                        sortBy={sortBy}
+                        setSortBy={setSortBy}
+                    />
+
+                    {/* 3. Feed List */}
                     <div className="space-y-4">
-                        <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider pl-1 flex items-center">
-                            {tab === 'BOARD' ? (
-                                <>🔥 ล่าสุด (Latest Updates)</>
-                            ) : (
-                                <>
-                                    🛡️ รอการตรวจสอบ (Moderation Queue) 
-                                    <span className="ml-2 bg-orange-100 text-orange-600 text-[10px] px-2 py-0.5 rounded-full">{pendingFeedbacks.length}</span>
-                                </>
-                            )}
+                        <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider pl-1 flex items-center justify-between">
+                            <span className="flex items-center">
+                                {tab === 'BOARD' ? (
+                                    <>🔥 ล่าสุด (Latest Updates)</>
+                                ) : (
+                                    <>🛡️ รอการตรวจสอบ (Moderation Queue)</>
+                                )}
+                            </span>
+                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {sortedData.length} items
+                            </span>
                         </h3>
                         
                         {isLoading ? (
@@ -142,24 +195,38 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                              </div>
                         ) : (
                             <>
-                                {(tab === 'BOARD' ? approvedFeedbacks : pendingFeedbacks).length === 0 ? (
+                                {paginatedData.length === 0 ? (
                                     <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-3xl bg-white/50">
                                         <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">ยังไม่มีข้อมูลในส่วนนี้</p>
+                                        <p className="text-gray-400 font-medium">ไม่พบข้อมูลที่ตรงกับเงื่อนไข</p>
+                                        <button onClick={() => { setSearchQuery(''); setActiveFilter('ALL'); }} className="text-indigo-500 text-sm font-bold mt-2 hover:underline">
+                                            ล้างตัวกรอง
+                                        </button>
                                     </div>
                                 ) : (
-                                    (tab === 'BOARD' ? approvedFeedbacks : pendingFeedbacks).map(item => (
-                                        <FeedbackCard 
-                                            key={item.id} 
-                                            item={item} 
-                                            currentUser={currentUser}
-                                            onVote={toggleVote}
-                                            onUpdateStatus={updateStatus}
-                                            onDelete={deleteFeedback}
-                                        />
-                                    ))
+                                    <div className="space-y-4 min-h-[400px]">
+                                        {paginatedData.map(item => (
+                                            <FeedbackCard 
+                                                key={item.id} 
+                                                item={item} 
+                                                currentUser={currentUser}
+                                                onVote={toggleVote}
+                                                onUpdateStatus={updateStatus}
+                                                onDelete={deleteFeedback}
+                                            />
+                                        ))}
+                                    </div>
                                 )}
                             </>
+                        )}
+
+                        {/* 4. Pagination */}
+                        {!isLoading && sortedData.length > 0 && (
+                            <FeedbackPagination 
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                            />
                         )}
                     </div>
                 </div>

@@ -6,6 +6,8 @@ import { useToast } from '../context/ToastContext';
 import { format } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
+import { useGamification } from './useGamification';
+import { calculateCheckOutStatus } from '../lib/attendanceUtils';
 
 export interface AttendanceFilters {
     startDate?: string;
@@ -25,6 +27,9 @@ export const useAttendance = (userId: string) => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    
+    // Connect to Game Engine
+    const { processAction } = useGamification();
     
     // Refs for AbortController to cancel stale requests
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -212,7 +217,8 @@ export const useAttendance = (userId: string) => {
         setIsLoading(true);
         try {
             const now = new Date();
-            const isLate = now.getHours() >= 10; 
+            // TODO: Fetch Late Config from Master Data later for dynamic check
+            const isLate = now.getHours() > 10 || (now.getHours() === 10 && now.getMinutes() > 0); 
 
             // Upload Logic
             let proofUrl = null;
@@ -257,6 +263,13 @@ export const useAttendance = (userId: string) => {
             showToast(isLate ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', isLate ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
+            // --- TRIGGER GAME EVENT ---
+            // This creates a log which 'useSystemNotifications' listens to
+            await processAction(userId, 'ATTENDANCE_CHECK_IN', {
+                status: isLate ? 'LATE' : 'ON_TIME',
+                time: format(now, 'HH:mm')
+            });
+
             fetchTodayStatus();
             fetchStats();
 
@@ -268,23 +281,63 @@ export const useAttendance = (userId: string) => {
         }
     };
 
-    // 5. Check Out Action
+    // 5. Check Out Action (Strict Duration Logic)
     const checkOut = async () => {
-        if (!todayLog) return;
+        if (!todayLog || !todayLog.checkInTime) return;
         setIsLoading(true);
         try {
             const now = new Date();
+            
+            // --- FETCH LATEST CONFIG ---
+            const { data: configData } = await supabase
+                .from('master_options')
+                .select('key, label')
+                .eq('type', 'WORK_CONFIG');
+                
+            const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
+            const minHours = parseFloat(minHoursStr) || 9;
+
+            // --- CALCULATE STATUS ---
+            const calcResult = calculateCheckOutStatus(
+                todayLog.checkInTime,
+                now,
+                minHours
+            );
+
+            // Update DB Status
+            // We record 'COMPLETED' in DB to close the session, but we log 'EARLY_LEAVE' in text if needed
+            // The real penalty happens via Game Engine based on calcResult
+            
+            // Append Calculation result to note for audit
+            const noteAppend = calcResult.status === 'EARLY_LEAVE' 
+                ? `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]` 
+                : `[OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+
             const { error } = await supabase
                 .from('attendance_logs')
                 .update({
                     check_out_time: now.toISOString(),
-                    status: 'COMPLETED'
+                    status: 'COMPLETED', // Always mark completed cycle for data consistency
+                    note: (todayLog.note || '') + ' ' + noteAppend
                 })
                 .eq('id', todayLog.id);
 
             if (error) throw error;
-            showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+            
             await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
+
+            // --- TRIGGER GAME EVENT (Conditional) ---
+            if (calcResult.status === 'COMPLETED') {
+                showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+                await processAction(userId, 'DUTY_COMPLETE', {
+                    reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`
+                });
+            } else {
+                showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');
+                await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
+                    missingMinutes: Math.round(calcResult.missingMinutes)
+                });
+            }
 
             fetchTodayStatus();
             fetchStats();

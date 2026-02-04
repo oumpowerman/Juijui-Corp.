@@ -40,7 +40,11 @@ export const useDuty = (currentUser?: User) => {
                     assigneeId: d.assignee_id,
                     date: new Date(d.date),
                     isDone: d.is_done,
-                    proofImageUrl: d.proof_image_url
+                    proofImageUrl: d.proof_image_url,
+                    isPenalized: d.is_penalized,
+                    penaltyStatus: d.penalty_status,
+                    appealReason: d.appeal_reason,
+                    appealProofUrl: d.appeal_proof_url
                 })));
             }
         } catch (err) {
@@ -196,23 +200,47 @@ export const useDuty = (currentUser?: User) => {
         }
     };
 
-    const submitProof = async (dutyId: string, file: File, userName: string) => {
+    const submitProof = async (
+        dutyId: string, 
+        file: File, 
+        userName: string,
+        externalUploadFn?: (file: File) => Promise<string | null>
+    ) => {
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
-            
-            const { error: uploadError } = await supabase.storage
-                .from('chat-files') 
-                .upload(fileName, file);
+            let imageUrl = null;
 
-            if (uploadError) throw uploadError;
+            // 1. Try External Upload (Google Drive) First
+            if (externalUploadFn) {
+                try {
+                    // This function should already return the viewable link
+                    imageUrl = await externalUploadFn(file);
+                } catch (extErr) {
+                    console.warn("External upload failed, falling back to Supabase", extErr);
+                    // Fallthrough to Supabase
+                }
+            }
 
-            const { data: urlData } = supabase.storage
-                .from('chat-files')
-                .getPublicUrl(fileName);
-            
-            const imageUrl = urlData.publicUrl;
+            // 2. Fallback to Supabase Storage if no external URL
+            if (!imageUrl) {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('chat-files') 
+                    .upload(fileName, file);
 
+                if (uploadError) throw uploadError;
+
+                const { data: urlData } = supabase.storage
+                    .from('chat-files')
+                    .getPublicUrl(fileName);
+                
+                imageUrl = urlData.publicUrl;
+            }
+
+            if (!imageUrl) throw new Error("Could not upload image to any storage provider.");
+
+            // 3. Update Duty Record
             const { error: dbError } = await supabase
                 .from('duties')
                 .update({ 
@@ -223,13 +251,14 @@ export const useDuty = (currentUser?: User) => {
 
             if (dbError) throw dbError;
 
+            // 4. Send Message to Chat
             const duty = duties.find(d => d.id === dutyId);
             if (duty) {
                 const message = `📸 **${userName}** ส่งการบ้านเวร "${duty.title}" เรียบร้อย! \n(Proof: ${format(new Date(), 'HH:mm')})`;
                 await supabase.from('team_messages').insert({
                     content: message,
                     is_bot: true, 
-                    message_type: 'IMAGE', 
+                    message_type: 'TEXT', 
                     user_id: null
                 });
                 
@@ -250,6 +279,62 @@ export const useDuty = (currentUser?: User) => {
             console.error(err);
             showToast('ส่งหลักฐานไม่สำเร็จ: ' + err.message, 'error');
             return false;
+        }
+    };
+
+    const submitAppeal = async (
+        dutyId: string,
+        reason: string,
+        file?: File,
+        userName?: string,
+        externalUploadFn?: (file: File) => Promise<string | null>
+    ) => {
+        try {
+            let proofUrl = null;
+            if (file) {
+                 if (externalUploadFn) {
+                     proofUrl = await externalUploadFn(file);
+                 }
+                 if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `duty-appeal-${dutyId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(fileName, file);
+                    if (!uploadError) {
+                         const { data } = supabase.storage.from('chat-files').getPublicUrl(fileName);
+                         proofUrl = data.publicUrl;
+                    }
+                 }
+            }
+
+            const { error } = await supabase
+                .from('duties')
+                .update({ 
+                    penalty_status: 'UNDER_REVIEW',
+                    appeal_reason: reason,
+                    appeal_proof_url: proofUrl
+                })
+                .eq('id', dutyId);
+
+            if (error) throw error;
+            
+            // Notify Admin
+            const duty = duties.find(d => d.id === dutyId);
+            if (duty) {
+                 const message = `🙏 **${userName || 'User'}** ส่งคำร้องอุทธรณ์เวร "${duty.title}" \n📝 เหตุผล: "${reason}"`;
+                 await supabase.from('team_messages').insert({
+                    content: message,
+                    is_bot: true, 
+                    message_type: 'TEXT', 
+                    user_id: null
+                });
+            }
+
+            showToast('ส่งคำร้องแล้ว รอ Admin ตรวจสอบครับ', 'success');
+            return true;
+        } catch (err: any) {
+             console.error(err);
+             showToast('ส่งคำร้องไม่สำเร็จ: ' + err.message, 'error');
+             return false;
         }
     };
 
@@ -447,6 +532,7 @@ export const useDuty = (currentUser?: User) => {
         saveDuties,
         cleanupOldDuties,
         submitProof,
+        submitAppeal,
         requestSwap,
         respondSwap
     };

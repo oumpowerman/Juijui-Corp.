@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 import { calculateDistance, OFFICE_COORDS, getRandomPose } from '../../lib/locationUtils';
 import { WorkLocation, LocationDef } from '../../types/attendance';
 import CameraView from './CameraView';
+import { compressImage } from '../../lib/imageUtils';
 
 // Sub-steps components
 import LocationStep from './steps/LocationStep';
@@ -16,20 +17,24 @@ interface CheckInModalProps {
     onClose: () => void;
     onConfirm: (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => void;
     availableLocations?: LocationDef[]; // Accept list of locations
+    startTime?: string;
+    lateBuffer?: number;
+    onSwitchToLeave?: () => void;
 }
 
 type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 
-const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm, availableLocations = [] }) => {
+const CheckInModal: React.FC<CheckInModalProps> = ({ 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave 
+}) => {
     const [step, setStep] = useState<Step>('LOCATION');
     
-    // Updated State: Added 'distance' to store the calculated meters
     const [locationState, setLocationState] = useState<{ 
         status: 'LOADING' | 'SUCCESS' | 'ERROR', 
         lat: number, 
         lng: number, 
         matchedLocation?: LocationDef,
-        distance?: number // Distance to the matched OR closest location
+        distance?: number 
     }>({
         status: 'LOADING', lat: 0, lng: 0
     });
@@ -38,18 +43,19 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm,
     const [challenge, setChallenge] = useState('');
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [compressing, setCompressing] = useState(false);
+    const [showLateIntervention, setShowLateIntervention] = useState(false);
 
-    // Fallback if no locations provided (should come from Master Data)
     const targets = availableLocations.length > 0 ? availableLocations : [
         { id: 'def', name: 'Office', ...OFFICE_COORDS }
     ];
 
-    // Reset when open
     useEffect(() => {
         if (isOpen) {
             setStep('LOCATION');
             setChallenge(getRandomPose());
             setCapturedFile(null);
+            setShowLateIntervention(false);
             checkLocation();
         }
     }, [isOpen]);
@@ -63,23 +69,16 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm,
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
-                
-                // Check against ALL defined locations to find Match OR Closest
                 let matched: LocationDef | undefined = undefined;
                 let minDistance = Infinity;
                 
                 for (const loc of targets) {
                     const dist = calculateDistance(latitude, longitude, loc.lat, loc.lng);
-                    
-                    // Track closest distance for UI feedback
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                    }
-
+                    if (dist < minDistance) minDistance = dist;
                     if (dist <= loc.radiusMeters) {
                         matched = loc;
-                        minDistance = dist; // If matched, this is the relevant distance
-                        break; // Stop at first match
+                        minDistance = dist;
+                        break;
                     }
                 }
 
@@ -88,11 +87,10 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm,
                     lat: latitude,
                     lng: longitude,
                     matchedLocation: matched,
-                    distance: minDistance // Store calculated distance
+                    distance: minDistance
                 });
                 
-                // Auto proceed after short delay
-                setTimeout(() => setStep('TYPE'), 1500); // Increased delay slightly to let user see the status
+                setTimeout(() => setStep('TYPE'), 1500);
             },
             (err) => {
                 console.error(err);
@@ -104,67 +102,111 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm,
 
     const handleTypeSelect = (type: WorkLocation) => {
         const isNearAnyOffice = !!locationState.matchedLocation;
-        
         if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS') {
-            alert(`คุณไม่ได้อยู่ในพื้นที่ Office หรือ Site งานที่กำหนดไว้ครับ \n\n(ห่างจากจุดที่ใกล้ที่สุด ${locationState.distance?.toFixed(0)} เมตร) \n\nกรุณาเลือก "On Site" หากออกกองนอกสถานที่ หรือ "WFH"`);
+            alert(`คุณไม่ได้อยู่ในพื้นที่ออฟฟิศครับ (ห่าง ${locationState.distance?.toFixed(0)} ม.)`);
             return;
         }
-        
         setSelectedType(type);
         setStep('CAMERA');
     };
 
     const handleCapture = (file: File) => {
         setCapturedFile(file);
-        setStep('PREVIEW'); // Close camera view, show preview modal
+        setStep('PREVIEW');
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (forceCheckIn = false) => {
         if (!selectedType || !capturedFile) return;
+
+        // --- Late Intervention Logic ---
+        if (startTime && !forceCheckIn && !showLateIntervention) {
+            const now = new Date();
+            const [h, m] = startTime.split(':').map(Number);
+            const limit = new Date();
+            limit.setHours(h, m + lateBuffer, 0, 0);
+
+            if (now > limit) {
+                setShowLateIntervention(true);
+                return;
+            }
+        }
+
         setIsSubmitting(true);
+        setCompressing(true);
+        setShowLateIntervention(false);
         
-        // Pass location name if matched, otherwise generic
-        const locName = locationState.matchedLocation ? locationState.matchedLocation.name : undefined;
-        
-        await onConfirm(selectedType, capturedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
-        setIsSubmitting(false);
-        onClose();
+        try {
+            // COMPRESSION LOGIC
+            const compressedFile = await compressImage(capturedFile);
+            const locName = locationState.matchedLocation ? locationState.matchedLocation.name : undefined;
+            await onConfirm(selectedType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
+            onClose();
+        } catch (error) {
+            console.error("Submission error:", error);
+            alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่");
+        } finally {
+            setCompressing(false);
+            setIsSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
 
-    // --- STEP: CAMERA OVERLAY (Intercepts if step is CAMERA) ---
     if (step === 'CAMERA') {
         return <CameraView challengeText={challenge} onCapture={handleCapture} onClose={() => setStep('TYPE')} />;
     }
 
     return createPortal(
         <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200 font-sans">
-            {/* 
-                RESPONSIVE ADJUSTMENT: 
-                Mobile: w-full h-full rounded-none (Full Screen App feel)
-                Desktop: w-full max-w-sm rounded-3xl (Card feel)
-            */}
             <div className="bg-white w-full h-full md:h-auto md:max-w-sm md:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-10 duration-300">
-                
-                {/* Header */}
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0 safe-area-top">
                     <div>
                         <h3 className="font-bold text-gray-800 text-lg">ลงเวลาเข้างาน</h3>
                         <p className="text-xs text-gray-400">
-                            Step: {step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}
+                            {compressing ? 'กำลังบีบอัดภาพ...' : `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm"><X className="w-5 h-5"/></button>
                 </div>
 
-                <div className="p-6 flex-1 overflow-y-auto">
-                    
+                <div className="p-6 flex-1 overflow-y-auto relative">
+                    {/* Late Intervention Overlay */}
+                    {showLateIntervention && (
+                        <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in zoom-in-95">
+                            <div className="bg-red-50 p-4 rounded-full mb-4 animate-bounce">
+                                <AlertTriangle className="w-12 h-12 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-black text-gray-800 mb-2">สายเกินกำหนด! 😱</h3>
+                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
+                                ตอนนี้เลยเวลาเข้างาน ({startTime} น.) แล้ว <br/>
+                                ระบบจะบันทึกว่า <b>"มาสาย"</b> และหักคะแนน
+                            </p>
+                            
+                            <div className="w-full space-y-3">
+                                <button 
+                                    onClick={() => {
+                                        if (onSwitchToLeave) onSwitchToLeave();
+                                        else onClose();
+                                    }}
+                                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Clock className="w-5 h-5" /> แจ้งขอเข้าสาย / ลา
+                                </button>
+                                <button 
+                                    onClick={() => handleSubmit(true)}
+                                    className="w-full py-3.5 bg-white border-2 border-orange-100 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    เช็คอินเลย (ยอมรับโทษ) <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {step === 'LOCATION' && (
                         <div className="h-full flex flex-col justify-center">
                             <LocationStep 
                                 status={locationState.status} 
-                                distance={locationState.distance || 0} // Pass calculated distance
+                                distance={locationState.distance || 0} 
                                 lat={locationState.lat} 
                                 lng={locationState.lng} 
                                 matchedLocation={locationState.matchedLocation}
@@ -186,9 +228,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({ isOpen, onClose, onConfirm,
                             challenge={challenge}
                             locationState={locationState}
                             selectedType={selectedType}
-                            isSubmitting={isSubmitting}
+                            isSubmitting={isSubmitting || compressing}
                             onRetake={() => setStep('CAMERA')}
-                            onSubmit={handleSubmit}
+                            onSubmit={() => handleSubmit(false)}
                         />
                     )}
                 </div>

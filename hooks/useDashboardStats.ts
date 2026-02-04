@@ -1,57 +1,71 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Task, User } from '../types';
-import { isAfter, isBefore, addDays, isSameMonth, getISOWeek, isPast, isToday } from 'date-fns';
+import { isAfter, isBefore, addDays, isSameMonth, getISOWeek, isPast, isToday, format, subDays } from 'date-fns';
 import { useDashboardConfig } from './useDashboardConfig';
 import { CHART_COLORS_MAP } from '../components/dashboard/admin/constants';
-import { isTaskCompleted } from '../constants';
+import { isTaskCompleted } from '../constants'; // Import helper
+import { supabase } from '../lib/supabase';
 
 export type TimeRangeOption = 'THIS_MONTH' | 'LAST_30' | 'LAST_90' | 'CUSTOM' | 'ALL';
 export type ViewScope = 'ALL' | 'ME';
 
+export interface AttendanceStat {
+    present: number;
+    late: number;
+    leave: number;
+    absent: number;
+    totalUsers: number;
+}
+
+// Theme Definitions - Updated for Redesign 2.0 (Clean White Cards)
 export const WEEKLY_THEMES = [
     {
         id: 'MODERN_CLEAN',
         name: 'Modern Clean ☁️',
         getStyle: (color: string) => ({
-            container: `bg-white border border-gray-100 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:border-${color}-200`,
-            iconBg: `bg-${color}-50 text-${color}-600`,
+            container: `bg-white border border-gray-100 shadow-sm hover:shadow-md border-b-[4px] border-b-${color}-400`,
+            iconBg: `text-${color}-500 bg-${color}-50 opacity-0 group-hover:opacity-100 transition-opacity`, // Hidden by default in new design usually, but we use absolute positioning
             textCount: `text-gray-800`,
             label: `text-gray-500 font-bold uppercase tracking-wider`,
-            decoration: null
+            decoration: 'bottom-bar',
+            accentColor: color
         })
     },
     {
         id: 'SOFT_POP',
         name: 'Soft Pop 🍬',
         getStyle: (color: string) => ({
-            container: `bg-${color}-50/60 border-2 border-${color}-100 shadow-sm hover:shadow-md hover:bg-${color}-50`,
-            iconBg: `bg-white text-${color}-500 shadow-sm`,
-            textCount: `text-${color}-900`,
-            label: `text-${color}-700 font-bold`,
-            decoration: 'blob' 
+            container: `bg-white border border-gray-100 shadow-sm hover:shadow-md border-l-[4px] border-l-${color}-400`,
+            iconBg: `text-${color}-500`,
+            textCount: `text-gray-800`,
+            label: `text-gray-500 font-bold`,
+            decoration: 'left-border',
+            accentColor: color
         })
     },
     {
         id: 'NEO_GLASS',
         name: 'Neo Glass 💎',
         getStyle: (color: string) => ({
-            container: `bg-white/80 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-gray-100 hover:ring-${color}-300`,
-            iconBg: `bg-gradient-to-br from-${color}-500 to-${color}-600 text-white shadow-lg shadow-${color}-200`,
+            container: `bg-white/90 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-gray-100 hover:ring-${color}-300`,
+            iconBg: `text-${color}-500`,
             textCount: `text-gray-800`,
             label: `text-gray-500 font-bold`,
-            decoration: 'line'
+            decoration: 'glass',
+            accentColor: color
         })
     },
     {
         id: 'BOLD_STROKE',
         name: 'Bold Stroke ✏️',
         getStyle: (color: string) => ({
-            container: `bg-white border-l-[6px] border-${color}-500 shadow-sm border-y border-r border-gray-200 hover:shadow-md`,
-            iconBg: `bg-gray-100 text-${color}-600`,
+            container: `bg-white border-2 border-gray-100 hover:border-${color}-400 shadow-sm`,
+            iconBg: `text-${color}-600`,
             textCount: `text-gray-900`,
             label: `text-gray-600 font-black uppercase`,
-            decoration: null
+            decoration: 'border-hover',
+            accentColor: color
         })
     }
 ];
@@ -65,10 +79,72 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     const [customDays, setCustomDays] = useState<number>(7);
     const [viewScope, setViewScope] = useState<ViewScope>(currentUser.role === 'ADMIN' ? 'ALL' : 'ME');
 
+    // Attendance Stats
+    const [attendanceToday, setAttendanceToday] = useState<AttendanceStat>({ present: 0, late: 0, leave: 0, absent: 0, totalUsers: 0 });
+    const [attendanceYesterday, setAttendanceYesterday] = useState<AttendanceStat>({ present: 0, late: 0, leave: 0, absent: 0, totalUsers: 0 });
+
     // --- Weekly Theme Logic ---
     const currentWeekNum = getISOWeek(today);
     const themeIndex = currentWeekNum % WEEKLY_THEMES.length;
     const currentTheme = WEEKLY_THEMES[themeIndex];
+
+    // --- Attendance Fetching Logic ---
+    useEffect(() => {
+        const fetchAttendance = async () => {
+            try {
+                // 1. Get Total Active Users
+                const { count: totalUsers } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_active', true);
+                
+                const todayStr = format(today, 'yyyy-MM-dd');
+                const yesterdayStr = format(subDays(today, 1), 'yyyy-MM-dd');
+
+                // 2. Fetch Logs for Today & Yesterday
+                const { data: logs } = await supabase
+                    .from('attendance_logs')
+                    .select('date, status, check_in_time, work_type')
+                    .in('date', [todayStr, yesterdayStr]);
+
+                if (logs) {
+                    const calcStats = (dateStr: string): AttendanceStat => {
+                        const dayLogs = logs.filter(l => l.date === dateStr);
+                        
+                        let present = 0;
+                        let late = 0;
+                        let leave = 0;
+
+                        dayLogs.forEach(log => {
+                            if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
+                                leave++;
+                            } else {
+                                present++;
+                                // Check Late (Using 10:00 AM rule or status)
+                                if (log.check_in_time) {
+                                    const time = new Date(log.check_in_time);
+                                    if (time.getHours() > 10 || (time.getHours() === 10 && time.getMinutes() > 0)) {
+                                        late++;
+                                    }
+                                }
+                            }
+                        });
+
+                        // Absent = Total Active - (Present + Leave)
+                        // Note: This is an approximation. Ideally check against user list.
+                        const absent = Math.max(0, (totalUsers || 0) - (present + leave));
+
+                        return { present, late, leave, absent, totalUsers: totalUsers || 0 };
+                    };
+
+                    setAttendanceToday(calcStats(todayStr));
+                    setAttendanceYesterday(calcStats(yesterdayStr));
+                }
+
+            } catch (err) {
+                console.error("Error fetching attendance stats:", err);
+            }
+        };
+
+        fetchAttendance();
+    }, []); // Run once on mount
 
     // --- Filtering Logic ---
     const checkDateInRange = (date: Date) => {
@@ -107,7 +183,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 // Done tasks: Strict range check
                 return isInRange;
             } else {
-                // Pending tasks: Show if in range OR if overdue
+                // Pending tasks: Show if in range OR if overdue (Active work should stay visible)
                 return isInRange || isBefore(t.endDate, today); 
             }
         });
@@ -132,11 +208,12 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 return false;
             });
 
-            // Urgent Count: Overdue or Due Soon
+            // Urgent Count: Overdue or Due Soon AND NOT DONE
             const urgentCount = matchingTasks.filter(t => {
-                const isDone = isTaskCompleted(t.status as string);
+                const isDone = isTaskCompleted(t.status as string); // Explicit check using helper
                 if (isDone || t.isUnscheduled) return false;
                 
+                // Logic: Overdue OR Due Today/Tomorrow
                 const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
                 const isDueSoon = isToday(t.endDate) || isBefore(t.endDate, addDays(new Date(), 2));
                 
@@ -152,10 +229,10 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
         });
     }, [configs, filteredTasks]);
 
-    // --- Urgent & Due Soon Logic (The FIX is here) ---
+    // --- Urgent & Due Soon Logic (Global) ---
     const urgentTasks = useMemo(() => filteredTasks
         .filter(t => {
-            // FIX: Use isTaskCompleted helper to handle various "Done" statuses (e.g. "10_DONE_✅️")
+            // FIX: Use isTaskCompleted helper to handle all "Done" variations
             const isDone = isTaskCompleted(t.status as string);
             
             if (isDone || t.isUnscheduled) return false;
@@ -214,6 +291,9 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
         chartData,
         totalFilteredTasks,
         progressPercentage,
-        getTimeRangeLabel
+        getTimeRangeLabel,
+        // Attendance Data
+        attendanceToday,
+        attendanceYesterday
     };
 };

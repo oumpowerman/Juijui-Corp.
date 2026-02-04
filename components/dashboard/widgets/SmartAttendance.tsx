@@ -2,11 +2,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAttendance } from '../../../hooks/useAttendance';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
+import { useLeaveRequests } from '../../../hooks/useLeaveRequests'; // New Import
 import { User, MasterOption } from '../../../types';
-import { WorkLocation } from '../../../types/attendance';
+import { WorkLocation, LeaveType } from '../../../types/attendance'; // Import Types
 import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import CheckInModal from '../../attendance/CheckInModal';
+import LeaveRequestModal from '../../attendance/LeaveRequestModal'; // New Import
 
 interface SmartAttendanceProps {
     user: User;
@@ -16,8 +18,10 @@ interface SmartAttendanceProps {
 const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }) => {
     const { todayLog, isLoading, checkIn, checkOut } = useAttendance(user.id);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    const { submitRequest } = useLeaveRequests(user); // New Hook
     
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+    const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false); // New State
     const [time, setTime] = useState(new Date());
 
     // Live Clock
@@ -59,6 +63,10 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
         }
         return parsed;
     }, [masterOptions]);
+    
+    // Configs for Late Check
+    const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+    const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
         const note = locationName ? `📍 ${locationName}` : undefined;
@@ -79,6 +87,11 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
         } : undefined;
 
         await checkIn(type, file, location, note, googleDriveUploader);
+    };
+
+    // Handler: Leave Request
+    const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
+        return await submitRequest(type, start, end, reason, file);
     };
 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
@@ -196,7 +209,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                                 </span>
                             )}
                         </div>
-                        <h3 className="text-3xl font-bold tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
+                        <h3 className="text-3xl font-black tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
                             พร้อมลุยไหม? <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
                         </h3>
                         <p className="text-indigo-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">
@@ -220,6 +233,15 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                 onClose={() => setIsCheckInModalOpen(false)}
                 onConfirm={handleConfirmCheckIn}
                 availableLocations={availableLocations}
+                startTime={startTime}
+                lateBuffer={lateBuffer}
+                onSwitchToLeave={() => { setIsCheckInModalOpen(false); setIsLeaveModalOpen(true); }}
+            />
+            
+            <LeaveRequestModal 
+                isOpen={isLeaveModalOpen}
+                onClose={() => setIsLeaveModalOpen(false)}
+                onSubmit={handleLeaveSubmit}
             />
         </div>
     );

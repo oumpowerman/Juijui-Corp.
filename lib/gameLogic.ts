@@ -23,7 +23,7 @@ export const DEFAULT_GAME_CONFIG = {
         ABSENT:  { xp: 0, hp: -20, coins: -50 },
         NO_SHOW: { xp: 0, hp: -100, coins: -100 },
         LEAVE:   { xp: 0, hp: 0, coins: 0 },
-        EARLY_LEAVE: { xp: 0, hp: 0, coins: 0 },
+        EARLY_LEAVE: { xp: 0, hp: -5, coins: 0 }, // Default penalty
         WFH: { xp: 10, hp: 0, coins: 0 },
         SITE: { xp: 20, hp: 0, coins: 10 }
     } as any,
@@ -51,7 +51,6 @@ export const evaluateAction = (
     };
 
     // Mapping Config Keys to Logic Variables
-    // The config object passed here should be the merged object from GameConfigContext
     const ATTENDANCE = config.ATTENDANCE_RULES || config.ATTENDANCE;
     const MULTIPLIERS = config.GLOBAL_MULTIPLIERS || config;
     const PENALTIES = config.PENALTY_RATES || config;
@@ -78,15 +77,25 @@ export const evaluateAction = (
         case 'ATTENDANCE_ABSENT':
             result = {
                 ...ATTENDANCE.ABSENT,
-                message: 'ขาดงานโดยไม่แจ้ง! 👻',
+                // Fix: Include date in message so AutoJudge can detect duplicates via ILIKE query
+                message: `ขาดงานโดยไม่แจ้ง! 👻 (ประจำวันที่ ${context.date || 'ไม่ระบุ'})`,
                 details: `HP ${ATTENDANCE.ABSENT.hp}, Coin ${ATTENDANCE.ABSENT.coins}`
+            };
+            break;
+        
+        case 'ATTENDANCE_EARLY_LEAVE':
+            result = {
+                ...ATTENDANCE.EARLY_LEAVE,
+                message: `กลับก่อนเวลา! 📉 (ขาด ${context.missingMinutes} นาที)`,
+                details: `HP ${ATTENDANCE.EARLY_LEAVE.hp}`
             };
             break;
 
         case 'ATTENDANCE_NO_SHOW':
              result = {
                 ...ATTENDANCE.NO_SHOW,
-                message: 'หายเงียบ (No Show)! โดนหนักนะ 💀',
+                // Fix: Include date in message so AutoJudge can detect duplicates via ILIKE query
+                message: `หายเงียบ (No Show)! โดนหนักนะ 💀 (ประจำวันที่ ${context.date || 'ไม่ระบุ'})`,
                 details: `HP ${ATTENDANCE.NO_SHOW.hp}, Coin ${ATTENDANCE.NO_SHOW.coins}`
             };
             break;
@@ -122,7 +131,17 @@ export const evaluateAction = (
                 hp: -dutyPenalty,
                 coins: 0,
                 message: 'ลืมทำเวร! ระวังหลังเดาะนะ 🩸',
-                details: `HP ลดลง ${dutyPenalty}%`
+                details: `HP -${dutyPenalty}`
+            };
+            break;
+        case 'DUTY_LATE_SUBMIT':
+            // New Case: Late Submission (Redemption)
+            result = {
+                xp: 0,
+                hp: -5, // Small penalty
+                coins: 0,
+                message: 'ส่งการบ้านเวรช้า (Late Submit)',
+                details: 'HP -5 (ดีกว่าโดนเต็มๆ)'
             };
             break;
         case 'MANUAL_ADJUST':
@@ -167,7 +186,7 @@ const calculateTaskCompletion = (task: any, config: any): GameActionResult => {
     if (isBefore(now, new Date(dueDate.getTime() - 24 * 60 * 60 * 1000))) {
         const bonus = MULTIPLIERS.COIN_BONUS_EARLY || 20;
         coins += bonus;
-        xp += 50; // Early XP bonus (Hardcoded for now or add to config later)
+        xp += 50; 
         message = `สุดยอด! ส่งงานก่อนกำหนดไวมาก ⚡️`;
         details += ` (Early Bonus +50 XP, +${bonus} Coins)`;
     } else {

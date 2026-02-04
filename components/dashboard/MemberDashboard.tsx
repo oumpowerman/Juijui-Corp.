@@ -9,6 +9,7 @@ import WelcomeHeader from './member/WelcomeHeader';
 import FocusZone from './member/FocusZone';
 import MyWorkBoard from './member/MyWorkBoard';
 import ItemShopModal from '../gamification/ItemShopModal';
+import WorkloadModal from '../workload/WorkloadModal'; // NEW
 
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
@@ -20,6 +21,7 @@ import HallOfFameWidget from './widgets/HallOfFameWidget';
 // Hooks
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
 import { useGoals } from '../../hooks/useGoals';
+import { useTasks } from '../../hooks/useTasks'; // Import useTasks to get save handler
 
 interface MemberDashboardProps {
     currentUser: User;
@@ -34,6 +36,7 @@ interface MemberDashboardProps {
     onEditProfile: () => void;
     onRefreshMasterData?: () => Promise<void>;
     onNavigate: (view: ViewMode) => void;
+    onUpdateTask?: (task: Task) => void; // New prop from parent wrapper
 }
 
 const MemberDashboard: React.FC<MemberDashboardProps> = ({ 
@@ -52,11 +55,13 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     // Local State for UI responsiveness
     const [localUser, setLocalUser] = useState<User>(currentUser);
     const [isShopOpen, setIsShopOpen] = useState(false);
+    const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); // NEW STATE
     const { showToast } = useToast();
 
     // Data Hooks
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
+    const { handleSaveTask } = useTasks(); // Use Internal Hook for DnD updates
 
     // Sync local user
     useEffect(() => {
@@ -112,6 +117,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 onOpenNotifications={onOpenNotifications || onOpenSettings} 
                                 onEditProfile={onEditProfile}
                                 unreadNotifications={unreadCount}
+                                onOpenWorkload={() => setIsWorkloadOpen(true)} // Pass trigger
                             />
                          </div>
                         
@@ -187,6 +193,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 masterOptions={masterOptions}
                                 users={users}
                                 onOpenTask={onEditTask}
+                                onUpdateTask={(t) => handleSaveTask(t, null)} // Handle DnD Updates
                             />
                         </div>
                     </div>
@@ -198,6 +205,14 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 isOpen={isShopOpen}
                 onClose={() => setIsShopOpen(false)}
                 currentUser={localUser}
+            />
+
+            <WorkloadModal 
+                isOpen={isWorkloadOpen}
+                onClose={() => setIsWorkloadOpen(false)}
+                tasks={tasks}
+                users={users}
+                currentUser={currentUser}
             />
         </div>
     );

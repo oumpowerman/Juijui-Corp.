@@ -9,6 +9,7 @@ import NotificationPopover from '../components/NotificationPopover';
 import { useTaskManager } from '../hooks/useTaskManager';
 import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useChatUnread } from '../hooks/useChatUnread';
+import { useAutoJudge } from '../hooks/useAutoJudge'; // New Import
 import { Loader2 } from 'lucide-react';
 
 // --- LAZY LOAD PAGES ---
@@ -93,6 +94,9 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   // --- SUB-HOOKS ---
   const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
+  
+  // --- ACTIVATE THE JUDGE ---
+  useAutoJudge(currentUserProfile); // Run automated checks for current user
 
   const handleToggleNotification = () => {
       if (!isNotificationOpen) {

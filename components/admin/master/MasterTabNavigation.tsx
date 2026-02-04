@@ -12,6 +12,7 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     TAG_PRESET: { label: 'Tag Presets', icon: Tag, desc: 'ป้ายกำกับด่วน (เช่น #Urgent, #Rerun) ให้ทีมกดเลือกได้เลยไม่ต้องพิมพ์', group: 'WORKFLOW' },
     EVENT_TYPE: { label: 'Calendar Events', icon: Calendar, desc: 'ประเภทของ Highlight วันที่ในปฏิทิน (เช่น วันหยุด, วันออกกอง)', group: 'WORKFLOW' },
     YEARLY: { label: 'Yearly Holidays', icon: CalendarDays, desc: 'วันหยุดประจำปี (กำหนดครั้งเดียว แสดงทุกปี)', group: 'WORKFLOW' },
+    CALENDAR: { label: 'Operational Calendar', icon: Calendar, desc: 'ปฏิทินปฏิบัติงาน (กำหนดวันทำงาน/วันหยุดพิเศษรายวัน)', group: 'WORKFLOW' }, // NEW
     
     // --- CONTENT ---
     FORMAT: { label: 'Formats', icon: Type, desc: 'รูปแบบของงาน (เช่น Short Form, Long Form, Post)', group: 'CONTENT' },
@@ -68,7 +69,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
             {/* GROUP: WORKFLOW */}
             <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Production & Workflow</div>
-                {['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET', 'EVENT_TYPE', 'YEARLY'].map(key => renderTabButton(key))}
+                {['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET', 'EVENT_TYPE', 'YEARLY', 'CALENDAR'].map(key => renderTabButton(key))}
             </div>
 
             {/* GROUP: CONTENT */}

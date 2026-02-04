@@ -3,7 +3,7 @@ import React, { memo, useMemo } from 'react';
 import { User, Task, Status, Priority } from '../../types';
 import { Crown, BatteryFull, BatteryCharging, Battery, BatteryWarning, Users, Briefcase as JobIcon, Sparkles } from 'lucide-react';
 import { STATUS_COLORS, WORK_STATUS_CONFIG, PRIORITY_COLORS } from '../../constants';
-import { isToday, differenceInCalendarDays, format } from 'date-fns';
+import { isToday, differenceInCalendarDays, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ColorLensMode } from '../TeamView';
 
 // DnD Wrappers
@@ -37,6 +37,17 @@ const BUBBLE_THEMES = [
     { name: 'Teal', bg: 'from-teal-50 via-white to-cyan-50', border: 'border-teal-200', text: 'text-teal-600', icon: 'text-teal-400 fill-teal-100', shadow: 'rgba(20, 184, 166, 0.2)' },
     { name: 'Rose', bg: 'from-rose-50 via-white to-red-50', border: 'border-rose-200', text: 'text-rose-600', icon: 'text-rose-400 fill-rose-100', shadow: 'rgba(225, 29, 72, 0.2)' },
     { name: 'Indigo', bg: 'from-indigo-50 via-white to-violet-50', border: 'border-indigo-200', text: 'text-indigo-600', icon: 'text-indigo-400 fill-indigo-100', shadow: 'rgba(79, 70, 229, 0.2)' },
+];
+
+// 7-Level Color Scale for Workload (Matching Modal)
+const WORKLOAD_LEVELS = [
+    { max: 5, color: 'bg-slate-200', text: 'text-slate-400', label: 'Idle' },
+    { max: 15, color: 'bg-emerald-300', text: 'text-emerald-600', label: 'Light' },
+    { max: 25, color: 'bg-sky-400', text: 'text-sky-600', label: 'Comfy' },
+    { max: 35, color: 'bg-indigo-500', text: 'text-indigo-600', label: 'Good' },
+    { max: 45, color: 'bg-orange-400', text: 'text-orange-600', label: 'Busy' },
+    { max: 55, color: 'bg-red-500', text: 'text-red-600', label: 'Heavy' },
+    { max: 999, color: 'bg-rose-800', text: 'text-rose-800', label: 'Max!' }
 ];
 
 // Helper for Priority Colors (Full classes)
@@ -131,6 +142,22 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
         return { slots: grid, maxRows: max };
     }, [tasks, weekDays]);
 
+    // --- Workload Calculation (NEW) ---
+    const weeklyHours = useMemo(() => {
+        const start = startOfDay(weekDays[0]);
+        const end = endOfDay(weekDays[weekDays.length - 1]);
+        
+        return tasks
+            .filter(t => {
+                if (t.isUnscheduled || !t.endDate) return false;
+                const tEnd = new Date(t.endDate);
+                return isWithinInterval(tEnd, { start, end });
+            })
+            .reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+    }, [tasks, weekDays]);
+
+    const workloadLevel = WORKLOAD_LEVELS.find(l => weeklyHours <= l.max) || WORKLOAD_LEVELS[WORKLOAD_LEVELS.length - 1];
+
     // --- Visual Helpers ---
     const getJuijuiScore = (workload: number) => {
         if (workload === 0) return { text: 'ว่างจัด (Free)', color: 'text-green-600 bg-green-100', icon: <BatteryFull className="w-4 h-4" /> };
@@ -151,8 +178,8 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
         return BUBBLE_THEMES[index];
     }, [user.id]);
 
-    const workload = tasks.length;
-    const statusInfo = getJuijuiScore(workload);
+    const workloadCount = tasks.length;
+    const statusInfo = getJuijuiScore(workloadCount);
     const levelProgress = (user.xp % 1000) / 10;
     const isMe = user.id === currentUser?.id;
 
@@ -193,11 +220,25 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
 
             {/* Member Profile Column */}
             <div 
-                className={`col-span-1 p-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-6 ${isFocused ? 'z-20 border-r-indigo-100' : 'z-10'}`}
+                className={`col-span-1 p-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-4 ${isFocused ? 'z-20 border-r-indigo-100' : 'z-10'}`}
                 onClick={() => onSelectUser(user)}
             >
-                {/* Avatar & Status (Same as before) */}
-                <div className="relative mb-2 mt-2">
+                {/* NEW: Weekly Workload Bar */}
+                <div className="w-full px-2 mb-3">
+                    <div className="flex justify-between items-center text-[9px] font-bold mb-1">
+                       <span className="text-gray-400 uppercase">Wk Load</span>
+                       <span className={weeklyHours > 45 ? 'text-red-500 animate-pulse' : 'text-slate-600'}>{weeklyHours}h</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                        <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${workloadLevel.color}`} 
+                            style={{ width: `${Math.min((weeklyHours / 40) * 100, 100)}%` }} // Cap visual at 100% (40h)
+                        />
+                    </div>
+                </div>
+
+                {/* Avatar & Status */}
+                <div className="relative mb-2">
                     {user.feeling && (
                         <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30 animate-wiggle-float w-max max-w-[160px] origin-bottom-center">
                             <div className={`relative bg-gradient-to-r ${bubbleTheme.bg} border-2 ${bubbleTheme.border} ${bubbleTheme.text} font-bold text-[10px] px-3 py-1.5 rounded-2xl rounded-bl-none flex items-center gap-1.5`} style={{ boxShadow: `3px 3px 0px ${bubbleTheme.shadow}` }}>
@@ -219,7 +260,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                 <p className={`text-xs font-bold truncate w-full mb-0.5 ${isMe ? 'text-indigo-700' : 'text-gray-800'}`}>{(user.name || 'Unknown').split(' ')[0]}</p>
                 <p className="text-[9px] text-gray-400 font-medium mb-2">{user.position || 'Member'}</p>
                 <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden mb-2"><div className="bg-indigo-500 h-full rounded-full" style={{ width: `${levelProgress}%` }}></div></div>
-                <div className={`text-[9px] px-2 py-0.5 rounded-md font-bold flex items-center justify-center gap-1 w-full border ${statusInfo.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ')} bg-white text-gray-600`}>{statusInfo.icon} {workload} Tasks</div>
+                <div className={`text-[9px] px-2 py-0.5 rounded-md font-bold flex items-center justify-center gap-1 w-full border ${statusInfo.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ')} bg-white text-gray-600`}>{statusInfo.icon} {workloadCount} Tasks</div>
             </div>
 
             {/* Timeline Grid */}

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { User } from '../../../types';
-import { Palette, Users, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
+import { Palette, Users, User as UserIcon, ChevronDown, Sparkles, BatteryCharging } from 'lucide-react';
 import MentorTip from '../../MentorTip';
 import { TimeRangeOption, ViewScope } from '../../../hooks/useDashboardStats';
 import { useGreetings } from '../../../hooks/useGreetings';
@@ -18,8 +18,9 @@ interface DashboardHeaderProps {
     setViewScope: (scope: ViewScope) => void;
     onOpenSettings: () => void;
     onOpenNotifications?: () => void; 
-    unreadCount?: number; // Added
+    unreadCount?: number; 
     getTimeRangeLabel: () => string;
+    onOpenWorkload: () => void; // New Prop
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -34,7 +35,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     onOpenSettings,
     onOpenNotifications,
     unreadCount = 0,
-    getTimeRangeLabel
+    getTimeRangeLabel,
+    onOpenWorkload
 }) => {
     const { randomGreeting } = useGreetings();
     
@@ -73,11 +75,20 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         </p>
                     </div>
                     
-                    <NotificationBellBtn 
-                        onClick={() => { if (onOpenNotifications) onOpenNotifications(); else onOpenSettings(); }}
-                        unreadCount={unreadCount}
-                        className="hidden md:flex"
-                    />
+                    <div className="flex items-center gap-3">
+                         <button 
+                            onClick={onOpenWorkload}
+                            className="p-2.5 bg-white border border-gray-200 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95 hidden md:flex"
+                            title="เช็คภาระงาน (Workload)"
+                        >
+                            <BatteryCharging className="w-5 h-5" />
+                        </button>
+                        <NotificationBellBtn 
+                            onClick={() => { if (onOpenNotifications) onOpenNotifications(); else onOpenSettings(); }}
+                            unreadCount={unreadCount}
+                            className="hidden md:flex"
+                        />
+                    </div>
                 </div>
 
                 {/* Controls Row */}

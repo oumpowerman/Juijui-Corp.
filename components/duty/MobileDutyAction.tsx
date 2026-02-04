@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Duty } from '../../types';
 import { Camera, CheckCircle2, Loader2, Sparkles, ArrowRightLeft } from 'lucide-react';
+import { compressImage } from '../../lib/imageUtils';
 
 interface MobileDutyActionProps {
     duty: Duty;
@@ -19,7 +20,14 @@ const MobileDutyAction: React.FC<MobileDutyActionProps> = ({ duty, onToggle, onS
         const file = e.target.files?.[0];
         if (file) {
             setIsUploading(true);
-            await onSubmitProof(duty.id, file, userName);
+            try {
+                // Compress before upload
+                const compressedFile = await compressImage(file);
+                await onSubmitProof(duty.id, compressedFile, userName);
+            } catch (error) {
+                console.error("Compression failed, using original", error);
+                await onSubmitProof(duty.id, file, userName);
+            }
             setIsUploading(false);
         }
     };

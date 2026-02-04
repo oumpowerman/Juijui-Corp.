@@ -62,6 +62,10 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
         }
         return parsedLocations;
     }, [masterOptions]);
+    
+    // Configs for Late Check
+    const startTime = masterOptions.find(o => o.key === 'START_TIME')?.label || '10:00';
+    const lateBuffer = parseInt(masterOptions.find(o => o.key === 'LATE_BUFFER')?.label || '15');
 
     // Handler: Check In with Drive Upload
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
@@ -109,6 +113,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 onOpenLeave={() => setIsLeaveModalOpen(true)}
                 isDriveReady={isDriveReady}
                 onRefresh={refresh}
+                availableLocations={availableLocations}
             />
 
             {/* Modals */}
@@ -117,6 +122,9 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 onClose={() => setIsCheckInModalOpen(false)}
                 onConfirm={handleConfirmCheckIn}
                 availableLocations={availableLocations}
+                startTime={startTime}
+                lateBuffer={lateBuffer}
+                onSwitchToLeave={() => { setIsCheckInModalOpen(false); setIsLeaveModalOpen(true); }}
             />
             
             <LeaveRequestModal 

@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, AlertTriangle, Clock, ScanEye, Settings, CheckCircle2, Info, X, Trash2, CheckSquare, FileSignature } from 'lucide-react';
+import { Bell, AlertTriangle, Clock, ScanEye, Settings, CheckCircle2, Info, X, Trash2, CheckSquare, FileSignature, Trophy, HeartCrack } from 'lucide-react';
 import { AppNotification, Task } from '../types';
 import { format, isToday } from 'date-fns';
 
@@ -32,17 +32,21 @@ const NotificationItem: React.FC<{ notif: AppNotification; onClick: () => void; 
                       notif.type === 'REVIEW' ? 'bg-purple-100 text-purple-600' :
                       notif.type === 'APPROVAL_REQ' ? 'bg-pink-100 text-pink-600' :
                       notif.type === 'NEW_ASSIGNMENT' ? 'bg-blue-100 text-blue-600' :
+                      notif.type === 'GAME_REWARD' ? 'bg-yellow-100 text-yellow-600' :
+                      notif.type === 'GAME_PENALTY' ? 'bg-rose-100 text-rose-600' :
                       'bg-gray-100 text-gray-600'}
                 `}>
                     {notif.type === 'OVERDUE' && <AlertTriangle className="w-5 h-5" />}
                     {notif.type === 'UPCOMING' && <Clock className="w-5 h-5" />}
                     {notif.type === 'REVIEW' && <ScanEye className="w-5 h-5" />}
                     {notif.type === 'APPROVAL_REQ' && <FileSignature className="w-5 h-5" />}
+                    {notif.type === 'GAME_REWARD' && <Trophy className="w-5 h-5 fill-yellow-500 text-yellow-600" />}
+                    {notif.type === 'GAME_PENALTY' && <HeartCrack className="w-5 h-5" />}
                     {(notif.type === 'INFO' || notif.type === 'NEW_ASSIGNMENT') && <Info className="w-5 h-5" />}
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'OVERDUE' ? 'text-red-700' : 'text-gray-800'}`}>
+                    <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'OVERDUE' || notif.type === 'GAME_PENALTY' ? 'text-red-700' : 'text-gray-800'}`}>
                         {notif.title}
                     </h4>
                     <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 font-medium">
@@ -107,7 +111,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
     const displayedNotifications = notifications.filter(n => {
         if (activeTab === 'ALERTS') {
-            return n.type === 'OVERDUE' || n.type === 'REVIEW' || n.type === 'APPROVAL_REQ';
+            return n.type === 'OVERDUE' || n.type === 'REVIEW' || n.type === 'APPROVAL_REQ' || n.type === 'GAME_PENALTY';
         }
         return true;
     });

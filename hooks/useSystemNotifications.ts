@@ -27,14 +27,22 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                 : profileReadTime;
 
             // 1. Fetch Persistent Notifications from DB (Real rows)
-            const { data: dbNotifs, error } = await supabase
+            const { data: dbNotifs } = await supabase
                 .from('notifications')
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .order('created_at', { ascending: false })
-                .limit(20); // Limit recent
+                .limit(20);
 
-            // 2. Generate Dynamic Alerts (Computed on the fly)
+            // 2. Fetch recent Game Logs (Rewards/Penalties)
+            const { data: gameLogs } = await supabase
+                .from('game_logs')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(20); // Fetch more to allow deduping
+
+            // 3. Generate Dynamic Alerts (Computed on the fly)
             const dynamicNotifs: AppNotification[] = [];
 
             // A. Task Logic (Overdue / Upcoming)
@@ -71,9 +79,6 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                         title: '⏳ ใกล้ถึงกำหนดส่ง',
                         message: `งาน "${task.title}" ต้องส่งในอีก ${daysLeft} วัน`,
                         taskId: task.id,
-                        // FIX: Use 'startOfToday' instead of 'task.endDate' (future).
-                        // This allows the notification to be marked as read for "today", 
-                        // but it will reappear tomorrow as a new daily reminder.
                         date: startOfToday,
                         isRead: startOfToday < lastReadTime
                     });
@@ -102,7 +107,44 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                 }
             }
 
-            // 3. Merge & Map DB Notifs
+            // C. Map Game Logs to Notifications (With Deduplication)
+            if (gameLogs) {
+                const processedKeys = new Set<string>();
+                
+                gameLogs.forEach((log: any) => {
+                    // Create a unique key based on Action Type + Related ID
+                    // This prevents multiple alerts for the same item if the backend glitches and inserts duplicates
+                    const dedupKey = `${log.action_type}_${log.related_id || log.id}`;
+                    
+                    if (processedKeys.has(dedupKey)) return; // Skip duplicates
+                    processedKeys.add(dedupKey);
+
+                    // Determine if it's Good or Bad based on HP/XP change or Action Type
+                    const isPenalty = log.hp_change < 0 || log.jp_change < 0 || 
+                                      ['TASK_LATE', 'DUTY_MISSED', 'ATTENDANCE_ABSENT', 'ATTENDANCE_LATE'].includes(log.action_type);
+                    
+                    const title = isPenalty ? '📉 โดนหักคะแนน!' : '🎉 ได้รับรางวัล!';
+                    
+                    // Format Message details
+                    let details = [];
+                    if (log.hp_change !== 0) details.push(`${log.hp_change > 0 ? '+' : ''}${log.hp_change} HP`);
+                    if (log.xp_change !== 0) details.push(`${log.xp_change > 0 ? '+' : ''}${log.xp_change} XP`);
+                    if (log.jp_change !== 0) details.push(`${log.jp_change > 0 ? '+' : ''}${log.jp_change} JP`);
+                    
+                    const message = `${log.description} (${details.join(', ')})`;
+
+                    dynamicNotifs.push({
+                        id: `game_${log.id}`,
+                        type: isPenalty ? 'GAME_PENALTY' : 'GAME_REWARD',
+                        title: title,
+                        message: message,
+                        date: new Date(log.created_at),
+                        isRead: new Date(log.created_at) < lastReadTime
+                    });
+                });
+            }
+
+            // 4. Merge & Map DB Notifs
             const mappedDbNotifs: AppNotification[] = (dbNotifs || []).map((n: any) => ({
                 id: n.id,
                 type: n.type,
@@ -128,11 +170,14 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
 
         fetchAllNotifications();
 
-        // Subscribe to NEW db notifications
+        // Subscribe to NEW db notifications and GAME LOGS
         const channel = supabase
-            .channel('system-notifications')
+            .channel('system-notifications-v2')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
                 fetchAllNotifications();
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_logs', filter: `user_id=eq.${currentUser.id}` }, () => {
+                 fetchAllNotifications();
             })
             .subscribe();
             
@@ -173,7 +218,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         // For simplicity in this version: Just remove from UI state temporarily
         setNotifications(prev => prev.filter(n => n.id !== id));
         
-        // Try to delete from DB if it's a UUID (DB ID)
+        // Try to delete from DB if it's a UUID (DB ID) and NOT a dynamic/game ID
         if (!id.includes('_')) {
              await supabase.from('notifications').delete().eq('id', id);
         }

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { MasterOption } from '../../../../types';
-import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair } from 'lucide-react';
+import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair, Clock } from 'lucide-react';
+import { useGameConfig } from '../../../../context/GameConfigContext';
 
 interface AttendanceRulesViewProps {
     masterOptions: MasterOption[];
@@ -14,8 +15,11 @@ interface AttendanceRulesViewProps {
 const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({ 
     masterOptions, onUpdate, onCreate, onEdit, onDelete 
 }) => {
+    // Game Config Context (For Syncing Scores)
+    const { config, updateConfigValue } = useGameConfig();
+
     // Attendance Rules Local State
-    const [tempTimeConfig, setTempTimeConfig] = useState<{ start: string, end: string, buffer: string }>({ start: '10:00', end: '19:00', buffer: '15' });
+    const [tempTimeConfig, setTempTimeConfig] = useState<{ start: string, end: string, buffer: string, minHours: string }>({ start: '10:00', end: '19:00', buffer: '15', minHours: '9' });
     
     // Location Config State
     const [officeConfig, setOfficeConfig] = useState<{ lat: string, lng: string, radius: string }>({ lat: '', lng: '', radius: '500' });
@@ -23,16 +27,18 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
 
     // Sync Temp Config with Loaded Data
     useEffect(() => {
-        // Time
+        // Time & Duration
         const startOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME');
         const endOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'END_TIME');
         const bufferOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
+        const minHoursOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MIN_HOURS');
         
-        if (startOpt || endOpt || bufferOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
-                buffer: bufferOpt?.label || '15'
+                buffer: bufferOpt?.label || '15',
+                minHours: minHoursOpt?.label || '9'
             });
         }
 
@@ -56,9 +62,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             if (existing) {
                 await onUpdate({ ...existing, label: val });
             } else {
-                 // In a real app, we should trigger create here, but for now assuming seeded or user manually adds via generic form if missing. 
-                 // However, since we are in a specific view, let's assume they exist or we alert.
-                 // Better UX: Auto-create if missing (simplified here to alert/console)
                  console.warn(`Config ${key} missing, please add via Master Data if not seeded.`);
             }
         };
@@ -66,6 +69,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrSkip('START_TIME', tempTimeConfig.start);
         await updateOrSkip('END_TIME', tempTimeConfig.end);
         await updateOrSkip('LATE_BUFFER', tempTimeConfig.buffer);
+        await updateOrSkip('MIN_HOURS', tempTimeConfig.minHours);
+        
+        alert('บันทึกเวลาทำการเรียบร้อย ✅');
     };
 
     const handleSaveLocationConfig = async () => {
@@ -74,7 +80,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             if (existing) {
                 await onUpdate({ ...existing, label: val });
             } else {
-                // If missing, we really should create it. But sticking to props interface:
                 alert(`ไม่พบ Config Key: ${key} กรุณาเพิ่มข้อมูล WORK_CONFIG -> ${key} ในหน้ารวมก่อนครับ`);
             }
         };
@@ -111,7 +116,39 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
     };
 
     const handleScoreChange = async (option: MasterOption, newScore: number) => {
+        // 1. Update Master Option (For Sort Order / UI persistence)
         await onUpdate({ ...option, sortOrder: newScore });
+
+        // 2. Update Game Config (For Actual Logic)
+        // ATTENDANCE_RULES structure: { [KEY]: { xp, hp, coins } }
+        const currentRules = config.ATTENDANCE_RULES || {};
+        const key = option.key; // e.g., 'LATE', 'ABSENT'
+        
+        // Logic: Negative score -> HP penalty, Positive score -> XP reward
+        const newRule = {
+            xp: newScore > 0 ? newScore : 0,
+            hp: newScore < 0 ? newScore : 0,
+            coins: 0 // Keep coins 0 for now (or manage via advanced settings)
+        };
+
+        const updatedRules = {
+            ...currentRules,
+            [key]: newRule
+        };
+
+        await updateConfigValue('ATTENDANCE_RULES', updatedRules);
+    };
+
+    // Helper to get score from Game Config first (Source of Truth), fallback to sortOrder
+    const getDisplayScore = (opt: MasterOption) => {
+        const rule = config.ATTENDANCE_RULES?.[opt.key];
+        if (rule) {
+            // If HP is negative, show that. Else show XP.
+            if (rule.hp < 0) return rule.hp;
+            if (rule.xp > 0) return rule.xp;
+            return 0;
+        }
+        return opt.sortOrder; // Fallback
     };
 
     const attendanceTypes = masterOptions.filter(o => o.type === 'ATTENDANCE_TYPE');
@@ -125,13 +162,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             </div>
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Score</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Score (HP/XP)</span>
                     <input 
                         type="number" 
-                        className={`w-14 px-1 py-1 text-center rounded-md border text-xs font-black focus:outline-none focus:border-indigo-400 transition-colors ${opt.sortOrder < 0 ? 'text-red-500 bg-white border-red-200' : 'text-green-600 bg-white border-green-200'}`}
-                        value={opt.sortOrder}
+                        className={`w-14 px-1 py-1 text-center rounded-md border text-xs font-black focus:outline-none focus:border-indigo-400 transition-colors ${getDisplayScore(opt) < 0 ? 'text-red-500 bg-white border-red-200' : 'text-green-600 bg-white border-green-200'}`}
+                        value={getDisplayScore(opt)}
                         onChange={(e) => handleScoreChange(opt, parseInt(e.target.value))}
-                        title="คะแนนที่จะบวก/ลบ เมื่อเกิดเหตุการณ์นี้"
+                        title="คะแนนที่จะบวก/ลบ (ลบ = หัก HP, บวก = เพิ่ม XP)"
                     />
                 </div>
                 
@@ -163,10 +200,11 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h3 className="font-bold text-gray-800 flex items-center mb-6">
                     <Settings className="w-5 h-5 mr-2 text-indigo-600" />
-                    ตั้งค่าเวลาทำการ (Work Time Config)
+                    ตั้งค่าเวลาทำการ (Hybrid Logic)
                 </h3>
-                <div className="flex flex-col md:flex-row gap-6 items-end">
-                        <div className="flex-1 w-full">
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                        <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">เวลาเข้างาน (Start Time)</label>
                             <input 
                                 type="time" 
@@ -175,7 +213,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                                 onChange={e => setTempTimeConfig(prev => ({ ...prev, start: e.target.value }))}
                             />
                         </div>
-                        <div className="flex-1 w-full">
+                        <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">เวลาเลิกงาน (End Time)</label>
                             <input 
                                 type="time" 
@@ -184,7 +222,19 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                                 onChange={e => setTempTimeConfig(prev => ({ ...prev, end: e.target.value }))}
                             />
                         </div>
-                        <div className="flex-1 w-full">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">ชั่วโมงขั้นต่ำ (Min Hours)</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    value={tempTimeConfig.minHours}
+                                    onChange={e => setTempTimeConfig(prev => ({ ...prev, minHours: e.target.value }))}
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Hrs</span>
+                            </div>
+                        </div>
+                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">อนุโลมสายได้ (Late Buffer)</label>
                             <div className="relative">
                                 <input 
@@ -193,16 +243,22 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                                     value={tempTimeConfig.buffer}
                                     onChange={e => setTempTimeConfig(prev => ({ ...prev, buffer: e.target.value }))}
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Mins</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Min</span>
                             </div>
                         </div>
-                        <button 
-                            onClick={handleSaveTimeConfig}
-                            className="bg-indigo-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200"
-                        >
-                            <Save className="w-4 h-4 mr-2 inline-block" /> บันทึกเวลา
-                        </button>
+                        
                 </div>
+                <div className="mt-6 flex justify-end">
+                     <button 
+                            onClick={handleSaveTimeConfig}
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-200 flex items-center"
+                        >
+                            <Save className="w-4 h-4 mr-2" /> บันทึกกฎการเข้างาน
+                    </button>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-4 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                    * <b>Hybrid Rule:</b> พนักงานจะถือว่าทำงานครบสมบูรณ์ เมื่อกดออกหลังเวลาเลิกงาน <b>หรือ</b> ทำงานครบชั่วโมงขั้นต่ำที่กำหนด
+                </p>
             </div>
 
             {/* 2. Location Configuration (NEW) */}
@@ -268,10 +324,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 flex items-center">
                         <Heart className="w-5 h-5 mr-2 text-red-500" />
-                        กติกาการให้คะแนน (HP Impact)
+                        กติกาการให้คะแนน (Game Config Sync)
                     </h3>
                     <div className="text-xs text-gray-500 font-medium">
-                        * คะแนนติดลบจะหัก HP, คะแนนบวกจะเพิ่ม
+                        * คะแนนติดลบ = หัก HP, คะแนนบวก = เพิ่ม XP
                     </div>
                 </div>
                 

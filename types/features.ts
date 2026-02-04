@@ -103,6 +103,8 @@ export interface FeedbackItem {
 }
 
 // --- DUTY ---
+export type PenaltyStatus = 'NONE' | 'AWAITING_TRIBUNAL' | 'LATE_COMPLETED' | 'ACCEPTED_FAULT' | 'ABANDONED' | 'EXCUSED' |'REDEEMED' |'PENDING'| 'UNDER_REVIEW';
+
 export interface Duty {
     id: string;
     title: string;
@@ -110,7 +112,8 @@ export interface Duty {
     date: Date;
     isDone: boolean;
     proofImageUrl?: string;
-    isPenalized?: boolean;
+    isPenalized?: boolean; 
+    penaltyStatus?: PenaltyStatus; 
 }
 
 export interface DutyConfig {
@@ -160,7 +163,7 @@ export interface NotificationPreferences {
 
 export interface AppNotification {
     id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ';
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY';
     title: string;
     message: string;
     taskId?: string;

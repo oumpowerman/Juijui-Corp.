@@ -1,11 +1,14 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
+import { useGoogleDrive } from '../hooks/useGoogleDrive'; // New Import
 import { format, endOfWeek, eachDayOfInterval, addWeeks, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useGamification } from '../hooks/useGamification';
+import { supabase } from '../lib/supabase';
 
 // Sub Components
 import DutyCalendarGrid from './duty/DutyCalendarGrid';
@@ -15,6 +18,7 @@ import MyDutyWidget from './dashboard/member/MyDutyWidget';
 import SwapInbox from './duty/SwapInbox';
 import SwapRequestModal from './duty/SwapRequestModal';
 import MobileDutyAction from './duty/MobileDutyAction';
+import DutyTribunalModal from './duty/DutyTribunalModal'; // Import Tribunal
 
 interface DutyViewProps {
     users: User[];
@@ -35,10 +39,12 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         duties, configs, swapRequests, isLoading, 
         saveConfigs, addDuty, toggleDuty, deleteDuty, 
         calculateRandomDuties, saveDuties, cleanupOldDuties, submitProof,
-        requestSwap, respondSwap 
+        requestSwap, respondSwap, submitAppeal 
     } = useDuty(currentUser);
 
-    const { showAlert } = useGlobalDialog();
+    const { processAction } = useGamification(currentUser);
+    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    const { showAlert, showConfirm } = useGlobalDialog();
 
     // View State
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -58,6 +64,9 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     // --- Swap Request State ---
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [sourceDutyForSwap, setSourceDutyForSwap] = useState<Duty | null>(null);
+
+    // --- Tribunal State ---
+    const [pendingRedemptionDuty, setPendingRedemptionDuty] = useState<Duty | null>(null);
 
     // Date Calculation
     const getStartOfWeek = (date: Date) => {
@@ -84,6 +93,42 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
             isSameDay(new Date(d.date), today)
         );
     }, [duties, currentUser]);
+
+    // --- Check for Pending Penalties (Tribunal Trigger) ---
+    useEffect(() => {
+        if (currentUser) {
+            const tribunalDuty = duties.find(d => 
+                d.assigneeId === currentUser.id && 
+                d.penaltyStatus === 'AWAITING_TRIBUNAL' &&
+                !d.isDone
+            );
+            if (tribunalDuty) {
+                setPendingRedemptionDuty(tribunalDuty);
+            }
+        }
+    }, [duties, currentUser]);
+
+    // --- Wrapper to inject Google Drive logic ---
+    const handleSubmitProofWrapper = async (dutyId: string, file: File, userName: string) => {
+        // Define uploader if Drive is ready
+        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
+            const currentMonthFolder = format(new Date(), 'yyyy-MM');
+            return new Promise((resolve) => {
+                uploadFileToDrive(
+                    fileToUpload, 
+                    (result) => {
+                        // Use thumbnailLink hack or full url.
+                        const finalUrl = result.thumbnailUrl || result.url;
+                        resolve(finalUrl);
+                    },
+                    ['Duty', currentMonthFolder] 
+                );
+            });
+        } : undefined;
+
+        // Pass to original hook
+        return await submitProof(dutyId, file, userName, googleDriveUploader);
+    };
 
     // --- Config Handlers ---
     const handleOpenConfig = () => {
@@ -138,6 +183,70 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         }
     };
 
+    // --- Tribunal Handlers ---
+    const handleAcceptPenalty = async (duty: Duty) => {
+        if (!currentUser) return;
+        if (duty.assigneeId !== currentUser.id) return; // SECURITY LOCK
+        
+        try {
+            await supabase.from('duties').update({ 
+                is_penalized: true, 
+                penalty_status: 'ACCEPTED_FAULT' 
+            }).eq('id', duty.id);
+            
+            await processAction(currentUser.id, 'DUTY_MISSED', duty);
+            setPendingRedemptionDuty(null);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleRedeem = async (duty: Duty, file: File) => {
+        if (!currentUser) return;
+        if (duty.assigneeId !== currentUser.id) return; // SECURITY LOCK
+
+        try {
+            // 1. Submit Proof (Mark done)
+            const success = await handleSubmitProofWrapper(duty.id, file, currentUser.name);
+            if (!success) return;
+
+            // 2. Update status to LATE_COMPLETED
+            await supabase.from('duties').update({ 
+                penalty_status: 'LATE_COMPLETED' 
+            }).eq('id', duty.id);
+
+            // 3. Process Logic (Small Penalty or Cost)
+            // 'DUTY_LATE_SUBMIT' logic defined in gameLogic (e.g. -3 HP, but marked done)
+            await processAction(currentUser.id, 'DUTY_LATE_SUBMIT', duty);
+
+            setPendingRedemptionDuty(null);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleAppeal = async (duty: Duty, reason: string, file?: File) => {
+        if (!currentUser) return;
+        if (duty.assigneeId !== currentUser.id) return; // SECURITY LOCK
+        
+        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
+            const currentMonthFolder = format(new Date(), 'yyyy-MM');
+            return new Promise((resolve) => {
+                uploadFileToDrive(
+                    fileToUpload, 
+                    (result) => {
+                        const finalUrl = result.thumbnailUrl || result.url;
+                        resolve(finalUrl);
+                    },
+                    ['Duty_Appeals', currentMonthFolder] 
+                );
+            });
+        } : undefined;
+
+        await submitAppeal(duty.id, reason, file, currentUser.name, googleDriveUploader);
+        setPendingRedemptionDuty(null);
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
             
@@ -147,7 +256,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     <MobileDutyAction 
                         duty={myPendingDutyToday}
                         onToggle={toggleDuty}
-                        onSubmitProof={submitProof}
+                        onSubmitProof={handleSubmitProofWrapper} // Use Wrapper
                         onRequestSwap={handleInitiateSwap}
                         userName={currentUser.name}
                     />
@@ -156,7 +265,8 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
             <MentorTip variant="green" messages={[
                 "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
-                "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!"
+                "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!",
+                "หากลืมทำเวร ระบบจะให้โอกาสแก้ตัวในวันรุ่งขึ้น (Tribunal) อย่าเพิ่งตกใจ!"
             ]} />
 
             {/* --- HERO SECTION --- */}
@@ -185,7 +295,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <div className="px-6 text-center min-w-[140px]">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
                         <p className="text-indigo-600 font-black text-sm">
                             {format(start, 'd MMM')} - {format(end, 'd MMM')}
                         </p>
@@ -230,7 +340,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 setAssigneeId={setAssigneeId}
                 onToggleDuty={toggleDuty}
                 onDeleteDuty={deleteDuty}
-                onSubmitProof={submitProof}
+                onSubmitProof={handleSubmitProofWrapper} // Use Wrapper
                 onRequestSwap={handleInitiateSwap}
             />
 
@@ -263,6 +373,17 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     users={users}
                     currentUser={currentUser}
                     onConfirmSwap={handleConfirmSwap}
+                />
+            )}
+
+            {/* THE TRIBUNAL MODAL */}
+            {pendingRedemptionDuty && (
+                <DutyTribunalModal 
+                    isOpen={!!pendingRedemptionDuty}
+                    pendingDuty={pendingRedemptionDuty}
+                    onAcceptPenalty={handleAcceptPenalty}
+                    onRedeem={handleRedeem}
+                    onAppeal={handleAppeal}
                 />
             )}
         </div>

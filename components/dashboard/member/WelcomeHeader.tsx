@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User, WorkStatus } from '../../../types';
 import { WORK_STATUS_CONFIG } from '../../../constants';
-import { Trophy, ChevronDown, Heart, ShoppingBag, BookOpen, Edit2 } from 'lucide-react';
+import { Trophy, ChevronDown, Heart, ShoppingBag, BookOpen, Edit2, BatteryCharging } from 'lucide-react';
 import GameRulesModal from '../../gamification/GameRulesModal';
 import { useGreetings } from '../../../hooks/useGreetings';
 import NotificationBellBtn from '../../NotificationBellBtn';
@@ -14,6 +14,7 @@ interface WelcomeHeaderProps {
     onOpenNotifications: () => void;
     onEditProfile: () => void;
     unreadNotifications: number;
+    onOpenWorkload: () => void; // New Prop
 }
 
 const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ 
@@ -22,7 +23,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     onOpenShop,
     onOpenNotifications,
     onEditProfile,
-    unreadNotifications
+    unreadNotifications,
+    onOpenWorkload
 }) => {
     const [isRulesOpen, setIsRulesOpen] = useState(false);
     const { randomGreeting } = useGreetings();
@@ -203,6 +205,15 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                         </div>
 
                         <div className="flex gap-2">
+                             {/* Workload Monitor Button (NEW) */}
+                             <button 
+                                onClick={onOpenWorkload}
+                                className="p-3 bg-white border border-gray-200 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
+                                title="เช็คภาระงาน (Workload)"
+                            >
+                                <BatteryCharging className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+
                             {/* Rules Button */}
                             <button 
                                 onClick={() => setIsRulesOpen(true)}

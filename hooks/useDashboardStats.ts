@@ -113,7 +113,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                         let leave = 0;
 
                         dayLogs.forEach(log => {
-                            if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
+                            if (log.status === 'LEAVE' || log.work_type === 'LEAVE') {
                                 leave++;
                             } else {
                                 present++;

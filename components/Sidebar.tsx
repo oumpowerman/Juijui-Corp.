@@ -50,7 +50,6 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'ATTENDANCE', label: 'ลงเวลาทำงาน', icon: Clock },
       { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, // Added Here
       { view: 'DUTY', label: 'ตารางเวร', icon: Coffee },
-      { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
       { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
       { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone },
       { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
@@ -62,6 +61,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     icon: ShieldCheck,
     adminOnly: true,
     items: [
+      { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
       { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
       { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2 },
       { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },

@@ -192,6 +192,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 tasks={myTasks} 
                                 masterOptions={masterOptions}
                                 users={users}
+                                currentUser={currentUser} 
                                 onOpenTask={onEditTask}
                                 onUpdateTask={(t) => handleSaveTask(t, null)} // Handle DnD Updates
                             />

@@ -320,6 +320,42 @@ export const useScripts = (currentUser: User) => {
         }
     };
 
+    // Promote Script to Content
+    const promoteToContent = async (scriptId: string, contentData: any) => {
+        try {
+            // 1. Create Content
+            const { data: newContent, error: contentError } = await supabase
+                .from('contents')
+                .insert(contentData)
+                .select()
+                .single();
+
+            if (contentError) throw contentError;
+
+            // 2. Link Script to new Content
+            const { error: scriptError } = await supabase
+                .from('scripts')
+                .update({ 
+                    content_id: newContent.id,
+                    channel_id: newContent.channel_id, // Sync channel
+                    category: newContent.category // Sync category
+                })
+                .eq('id', scriptId);
+
+            if (scriptError) throw scriptError;
+
+            // 3. Update Local State
+            setScripts(prev => prev.map(s => s.id === scriptId ? { ...s, contentId: newContent.id } : s));
+            
+            showToast('ส่งเข้ากระบวนการผลิตเรียบร้อย! 🚀', 'success');
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            showToast('Promote ไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
+
     const deleteScript = async (id: string) => {
         if (!await showConfirm('ยืนยันการลบสคริปต์?')) return;
         try {
@@ -384,9 +420,10 @@ export const useScripts = (currentUser: User) => {
         isLoading,
         fetchScripts,
         getScriptById,
-        getScriptByContentId, // New Export
+        getScriptByContentId, 
         createScript,
         updateScript,
+        promoteToContent, // NEW EXPORT
         deleteScript,
         toggleShootQueue,
         generateScriptWithAI

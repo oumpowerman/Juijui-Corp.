@@ -1,21 +1,82 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useScriptContext } from '../core/ScriptContext';
 import RichTextEditor from '../../ui/RichTextEditor';
 import CharacterBar from './CharacterBar';
+import { MessageSquarePlus } from 'lucide-react';
+import { CommentMark } from './CommentExtension';
 
 const ScriptTextArea: React.FC = () => {
-    const { content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, fontSize } = useScriptContext();
+    const { 
+        content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, zoomLevel,
+        addComment, scrollToComment, editorInstance
+    } = useScriptContext();
+
+    const [isCommentInputOpen, setIsCommentInputOpen] = useState(false);
+    const [commentText, setCommentText] = useState('');
+
+    // Listener for clicking on comment marks
+    useEffect(() => {
+        if (!editorInstance) return;
+
+        const handleSelectionUpdate = () => {
+            const { selection } = editorInstance.state;
+            const { $from } = selection;
+            
+            // Check if cursor is within a comment mark
+            const node = $from.nodeAfter || $from.nodeBefore; // Simple check around cursor
+            // Better check: iterate marks at position
+            let commentId = null;
+            
+            // Tiptap way to get active mark attributes
+            if (editorInstance.isActive('comment')) {
+                 const attrs = editorInstance.getAttributes('comment');
+                 if (attrs && attrs.id) {
+                     commentId = attrs.id;
+                 }
+            }
+
+            if (commentId) {
+                scrollToComment(commentId);
+            }
+        };
+
+        editorInstance.on('selectionUpdate', handleSelectionUpdate);
+
+        return () => {
+            editorInstance.off('selectionUpdate', handleSelectionUpdate);
+        };
+    }, [editorInstance, scrollToComment]);
+
+    const handleAddComment = async (editor: any) => {
+        if (!commentText.trim()) return;
+        
+        const { from, to } = editor.state.selection;
+        const selectedText = editor.state.doc.textBetween(from, to, ' ');
+        const highlightId = crypto.randomUUID();
+
+        // 1. Add mark in editor immediately (Optimistic)
+        editor.chain().focus().setComment({ id: highlightId }).run();
+        
+        // 2. Save to DB
+        await addComment(commentText, highlightId, selectedText);
+        
+        // Reset
+        setCommentText('');
+        setIsCommentInputOpen(false);
+    };
 
     return (
         <div 
             className={`
-                flex-1 flex flex-col bg-[#f8fafc] overflow-hidden relative
-                ${isChatPreviewOpen && scriptType === 'DIALOGUE' ? 'hidden md:flex md:w-1/2' : 'w-full'}
+                flex-1 flex flex-col bg-[#f8fafc] overflow-hidden relative min-w-0 transition-all duration-300
+                ${isChatPreviewOpen && scriptType === 'DIALOGUE' ? 'hidden md:flex md:w-1/2' : ''}
             `} 
         >
-            {/* Character Bar (Fixed at top) */}
-            <CharacterBar />
+            {/* Character Bar (Sticky Header) */}
+            <div className="sticky top-0 z-20 w-full bg-[#f8fafc]">
+                <CharacterBar />
+            </div>
 
             {/* Dot Grid Pattern Background (Fixed behind) */}
             <div className="absolute inset-0 opacity-[0.3] pointer-events-none z-0" 
@@ -23,34 +84,64 @@ const ScriptTextArea: React.FC = () => {
             </div>
 
             {/* Main Scrollable Area */}
-            <div className="flex-1 overflow-y-auto cursor-text relative z-0 scrollbar-thin scrollbar-thumb-indigo-100">
-                <div className="flex justify-center p-4 md:p-8 min-h-full">
+            <div className="flex-1 overflow-y-auto cursor-text relative z-0 scrollbar-thin scrollbar-thumb-indigo-100 bg-[#f8fafc]">
+                <div className="flex justify-center p-4 md:p-8 min-h-full pb-64">
                     
-                    {/* Paper Container */}
-                    <div className="w-full max-w-4xl bg-white shadow-xl shadow-indigo-100/50 rounded-[2rem] border border-gray-100 relative flex flex-col">
+                    {/* Paper Container - Scaled based on Zoom Level */}
+                    <div 
+                        className="w-full max-w-4xl bg-white shadow-xl shadow-indigo-100/50 rounded-[2rem] border border-gray-100 relative flex flex-col transition-all duration-200 ease-out"
+                        style={{ 
+                            // @ts-ignore
+                            zoom: zoomLevel / 100
+                        }}
+                    >
                         
                         {/* Top Accent Line */}
                         <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 rounded-t-[2rem]"></div>
                         
-                        {/* Content Area with Zoom */}
-                        <div className="p-6 md:p-10 lg:p-12 flex-1" style={{ fontSize: `${fontSize}px` }}>
-                            {/* Override Prose Default Sizes to scale with container font-size */}
-                            <style>{`
-                                .ProseMirror { font-size: 1em !important; }
-                                .ProseMirror h1 { font-size: 2em; }
-                                .ProseMirror h2 { font-size: 1.5em; }
-                                .ProseMirror h3 { font-size: 1.25em; }
-                                .ProseMirror p, .ProseMirror ul, .ProseMirror ol { font-size: 1em; line-height: 1.6; }
-                            `}</style>
-                            
+                        {/* Content Area */}
+                        <div className="p-6 md:p-10 lg:p-12 flex-1 cursor-text caret-black">
                             <RichTextEditor 
                                 content={content}
                                 onChange={setContent}
                                 readOnly={isReadOnly}
-                                onEditorReady={setEditorInstance}
+                                onEditorReady={(editor) => {
+                                    setEditorInstance(editor);
+                                }}
+                                extensions={[CommentMark]}
                                 placeholder={scriptType === 'DIALOGUE' ? "คลิกเลือกตัวละครด้านบน หรือพิมพ์เอง..." : "เริ่มเขียนบทของคุณที่นี่..."}
                                 className="prose max-w-none focus:outline-none" 
                                 minHeight="500px"
+                                bubbleMenuContent={(editor) => (
+                                    <>
+                                        {!isCommentInputOpen ? (
+                                            <button 
+                                                onClick={() => setIsCommentInputOpen(true)}
+                                                className="flex items-center gap-1 bg-white border border-gray-200 shadow-lg rounded-lg px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95"
+                                            >
+                                                <MessageSquarePlus className="w-4 h-4 text-indigo-500" /> Comment
+                                            </button>
+                                        ) : (
+                                            <div className="bg-white border border-gray-200 shadow-xl rounded-xl p-2 flex gap-2 items-center min-w-[250px] animate-in zoom-in-95">
+                                                <input 
+                                                    autoFocus
+                                                    type="text" 
+                                                    className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                                                    placeholder="พิมพ์คอมเมนต์..."
+                                                    value={commentText}
+                                                    onChange={e => setCommentText(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if(e.key === 'Enter') handleAddComment(editor);
+                                                        if(e.key === 'Escape') setIsCommentInputOpen(false);
+                                                    }}
+                                                />
+                                                <button onClick={() => handleAddComment(editor)} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                                    <MessageSquarePlus className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             />
                         </div>
                     </div>

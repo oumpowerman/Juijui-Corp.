@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, ZoomIn, ZoomOut, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ScriptStatus } from '../../../types';
 import { useScriptContext } from '../core/ScriptContext';
@@ -22,19 +22,24 @@ const TEMPLATES = [
     { label: 'Vlog (Cinematic)', content: "<p><strong>Scene 1: Intro (B-Roll)</strong></p><p>[ภาพบรรยากาศสวยๆ เพลงประกอบขึ้น]</p><p>Voice over: วันนี้จะพามา...</p><p><strong>Scene 2: Talking Head</strong></p><p>สวัสดีครับทุกคน วันนี้เราอยู่ที่...</p><p><strong>Scene 3: Montage</strong></p><p>[ตัดสลับภาพกิจกรรมรัวๆ]</p><p><strong>Scene 4: Conclusion</strong></p><p>สรุปความประทับใจ...</p>" },
 ];
 
+const ZOOM_OPTIONS = [50, 75, 100, 125, 150, 200];
+
 const EditorToolbar: React.FC = () => {
     const { 
         title, setTitle, content, status, setStatus, changeStatus,
         scriptType, setScriptType,
-        isSaving, lastSaved,
+        isSaving, lastSaved, handleSave, // Use handleSave from context
         onClose,
         setIsAIOpen, setIsTeleprompterOpen,
         isChatPreviewOpen, setIsChatPreviewOpen,
-        setIsMetadataOpen, // New setter
+        setIsMetadataOpen,
         setContent,
         users, ideaOwnerId,
         isPublic, shareToken, handleToggleShare,
-        fontSize, setFontSize
+        zoomLevel, setZoomLevel,
+        contentId, onPromote, 
+        isScriptOwner, 
+        isCommentsOpen, setIsCommentsOpen, comments
     } = useScriptContext();
     
     const { showToast } = useToast();
@@ -44,17 +49,30 @@ const EditorToolbar: React.FC = () => {
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [showZoomMenu, setShowZoomMenu] = useState(false);
+    
+    // New State for Save Feedback
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
     const textContent = content.replace(/<[^>]*>?/gm, '');
     const estimatedSeconds = Math.ceil(textContent.length / 12); 
     const formattedDuration = `${Math.floor(estimatedSeconds / 60)}m ${estimatedSeconds % 60}s`;
     const owner = users.find(u => u.id === ideaOwnerId);
     
-    // Construct Magic Link
     const magicLink = shareToken ? `${window.location.origin}/s/${shareToken}` : '';
+    const isAnyMenuOpen = showStatusMenu || showTemplates || showZoomMenu;
+    const openCommentCount = comments.filter(c => c.status === 'OPEN').length;
 
-    // Track if any dropdown is open to adjust z-index
-    const isAnyMenuOpen = showStatusMenu || showTemplates;
+    const handleManualSave = async () => {
+        if (isSaving) return;
+        
+        // Trigger save (false = show toast if implemented in context, but we handle visual here too)
+        await handleSave(false);
+        
+        // Show success state
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 2000);
+    };
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
@@ -102,7 +120,7 @@ const EditorToolbar: React.FC = () => {
     return (
         <>
             {isAnyMenuOpen && (
-                <div className="fixed inset-0 z-[40]" onClick={() => { setShowStatusMenu(false); setShowTemplates(false); }}></div>
+                <div className="fixed inset-0 z-[40]" onClick={() => { setShowStatusMenu(false); setShowTemplates(false); setShowZoomMenu(false); }}></div>
             )}
 
             {/* Main Toolbar - Responsive Layout */}
@@ -133,10 +151,36 @@ const EditorToolbar: React.FC = () => {
                                 </div>
                             )}
                             
-                            <span className="flex items-center shrink-0">
-                                {isSaving ? <Save className="w-3 h-3 mr-1 animate-spin text-indigo-400" /> : <Check className="w-3 h-3 mr-1 text-green-500" />} 
-                                {isSaving ? 'Saving...' : `Saved ${format(lastSaved, 'HH:mm')}`}
-                            </span>
+                            {/* Manual Save Button (Replaces passive text) */}
+                            <button 
+                                onClick={handleManualSave}
+                                disabled={isSaving}
+                                className={`
+                                    flex items-center gap-1.5 px-3 py-0.5 rounded-full border transition-all shrink-0 active:scale-95
+                                    ${showSaveSuccess 
+                                        ? 'bg-green-50 text-green-600 border-green-200' 
+                                        : isSaving 
+                                            ? 'bg-indigo-50 text-indigo-400 border-indigo-200 cursor-wait'
+                                            : 'bg-white text-gray-500 border-gray-200 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'
+                                    }
+                                `}
+                                title="คลิกเพื่อบันทึกทันที"
+                            >
+                                {isSaving ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : showSaveSuccess ? (
+                                    <Check className="w-3 h-3" />
+                                ) : (
+                                    <Save className="w-3 h-3" />
+                                )}
+                                
+                                {isSaving 
+                                    ? 'Saving...' 
+                                    : showSaveSuccess 
+                                        ? 'Saved!' 
+                                        : `Save (${format(lastSaved, 'HH:mm')})`
+                                }
+                            </button>
                             
                             <span className="flex items-center shrink-0" title="Estimated Reading Time">
                                 <Clock className="w-3 h-3 mr-1 text-orange-400" /> {formattedDuration}
@@ -144,7 +188,7 @@ const EditorToolbar: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Metadata Button (New) */}
+                    {/* Metadata Button */}
                     <button 
                         onClick={() => setIsMetadataOpen(true)}
                         className="p-2 text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-100 transition-all shrink-0"
@@ -152,11 +196,36 @@ const EditorToolbar: React.FC = () => {
                     >
                         <FileText className="w-5 h-5" />
                     </button>
+                    
+                    {/* Promote to Content Button */}
+                    {!contentId && isScriptOwner && (
+                         <button 
+                            onClick={onPromote}
+                            className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
+                            title="ส่งเข้ากระบวนการผลิต (Create Content)"
+                         >
+                             <Rocket className="w-4 h-4" /> ส่งเข้าผลิต
+                         </button>
+                    )}
                 </div>
 
                 {/* Bottom Line (Mobile) / Right Side (Desktop): Tools */}
                 <div className="flex items-center gap-2 shrink-0 overflow-x-auto xl:overflow-visible pb-1 xl:pb-0 scrollbar-hide w-full xl:w-auto -mx-4 px-4 xl:mx-0 xl:px-0">
                     
+                    {/* Comments Toggle */}
+                    <button 
+                        onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+                        className={`relative p-2 rounded-xl transition-all border shadow-sm shrink-0 ${isCommentsOpen ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : 'bg-white text-gray-500 border-gray-200 hover:text-yellow-600'}`}
+                        title="Comments"
+                    >
+                        <MessageSquarePlus className="w-4 h-4" />
+                        {openCommentCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full font-bold border border-white">
+                                {openCommentCount}
+                            </span>
+                        )}
+                    </button>
+
                     {/* Share Button */}
                     <button 
                         onClick={() => setShowShareModal(true)}
@@ -190,7 +259,7 @@ const EditorToolbar: React.FC = () => {
                                         type="button"
                                         onClick={(e) => { 
                                             e.stopPropagation(); 
-                                            changeStatus(key as ScriptStatus); // Use changeStatus to save to DB
+                                            changeStatus(key as ScriptStatus); 
                                             setShowStatusMenu(false); 
                                         }} 
                                         className={`w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-between transition-colors mb-1 ${status === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -205,23 +274,28 @@ const EditorToolbar: React.FC = () => {
 
                     <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
 
-                    {/* Zoom Controls */}
-                    <div className="flex items-center bg-gray-100 p-1 rounded-lg shrink-0 h-9">
-                        <button 
-                            onClick={() => setFontSize(Math.max(12, fontSize - 2))} 
-                            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600 hover:shadow-sm transition-all"
-                            title="ลดขนาดตัวอักษร"
+                    {/* Zoom Dropdown */}
+                    <div className="relative shrink-0">
+                         <button 
+                            onClick={() => setShowZoomMenu(!showZoomMenu)}
+                            className="h-9 px-3 bg-gray-100 rounded-lg flex items-center gap-1 text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors border border-gray-200"
                         >
-                            <ZoomOut className="w-3.5 h-3.5" />
+                             {zoomLevel}% <ChevronDown className="w-3 h-3 opacity-50" />
                         </button>
-                        <span className="text-[10px] font-bold text-gray-500 w-6 text-center">{fontSize}</span>
-                        <button 
-                            onClick={() => setFontSize(Math.min(48, fontSize + 2))} 
-                            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600 hover:shadow-sm transition-all"
-                            title="เพิ่มขนาดตัวอักษร"
-                        >
-                            <ZoomIn className="w-3.5 h-3.5" />
-                        </button>
+                        
+                        {showZoomMenu && (
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-24 bg-white rounded-xl shadow-xl border border-gray-100 p-1 z-50 animate-in fade-in zoom-in-95">
+                                {ZOOM_OPTIONS.map(z => (
+                                    <button
+                                        key={z}
+                                        onClick={() => { setZoomLevel(z); setShowZoomMenu(false); }}
+                                        className={`w-full text-center px-2 py-1.5 rounded-lg text-xs font-bold transition-colors ${zoomLevel === z ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    >
+                                        {z}%
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
@@ -295,7 +369,6 @@ const EditorToolbar: React.FC = () => {
             {/* Config Modals */}
             {showConfig && <CharacterManager onClose={() => setShowConfig(false)} />}
             
-            {/* New Metadata Modal */}
             <ScriptMetadataModal />
             
             {/* Share Modal */}

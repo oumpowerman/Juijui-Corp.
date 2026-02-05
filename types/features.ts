@@ -37,6 +37,21 @@ export interface Script extends ScriptSummary {
     characters?: string[];
 }
 
+export interface ScriptComment {
+    id: string;
+    scriptId: string;
+    userId: string;
+    content: string;
+    selectedText?: string;
+    highlightId?: string;
+    status: 'OPEN' | 'RESOLVED';
+    createdAt: Date;
+    user?: {
+        name: string;
+        avatarUrl: string;
+    };
+}
+
 // --- CHECKLIST ---
 export interface ChecklistItem {
     id: string;
@@ -103,7 +118,7 @@ export interface FeedbackItem {
 }
 
 // --- DUTY ---
-export type PenaltyStatus = 'NONE' | 'AWAITING_TRIBUNAL' | 'LATE_COMPLETED' | 'ACCEPTED_FAULT' | 'ABANDONED' | 'EXCUSED' |'REDEEMED' |'PENDING'| 'UNDER_REVIEW';
+export type PenaltyStatus = 'NONE' | 'AWAITING_TRIBUNAL' | 'LATE_COMPLETED' | 'ACCEPTED_FAULT' | 'ABANDONED' | 'EXCUSED' | 'UNDER_REVIEW';
 
 export interface Duty {
     id: string;
@@ -113,7 +128,9 @@ export interface Duty {
     isDone: boolean;
     proofImageUrl?: string;
     isPenalized?: boolean; 
-    penaltyStatus?: PenaltyStatus; 
+    penaltyStatus?: PenaltyStatus;
+    appealReason?: string;
+    appealProofUrl?: string; 
 }
 
 export interface DutyConfig {
@@ -170,6 +187,13 @@ export interface AppNotification {
     date: Date;
     isRead: boolean;
     actionLink?: string; // Optional link for navigation
+    // New Metadata for v2.0
+    metadata?: {
+        hp?: number;
+        xp?: number;
+        coins?: number;
+        subText?: string;
+    };
 }
 
 export interface ChatMessage {

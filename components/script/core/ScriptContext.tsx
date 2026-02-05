@@ -1,9 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption } from '../../../types';
+import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
 import { Editor } from '@tiptap/core';
+import { useScriptComments } from '../../../hooks/useScriptComments';
 
 interface ScriptContextType {
     // Data State
@@ -21,7 +22,8 @@ interface ScriptContextType {
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
     
-    // Metadata State (Added)
+    // Metadata State
+    contentId: string | undefined;
     channelId: string | undefined;
     setChannelId: (val: string | undefined) => void;
     category: string | undefined;
@@ -32,8 +34,8 @@ interface ScriptContextType {
     setObjective: (val: string) => void;
 
     // View State
-    fontSize: number;
-    setFontSize: (val: number) => void;
+    zoomLevel: number;
+    setZoomLevel: (val: number) => void;
     
     // Share State
     isPublic: boolean;
@@ -44,6 +46,7 @@ interface ScriptContextType {
     isSaving: boolean;
     lastSaved: Date;
     setEditorInstance: (editor: Editor | null) => void; 
+    editorInstance: Editor | null;
 
     // Lock System State
     lockStatus: 'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE';
@@ -62,12 +65,28 @@ interface ScriptContextType {
     setIsGenerating: (val: boolean) => void;
     isMetadataOpen: boolean;
     setIsMetadataOpen: (val: boolean) => void;
+    
+    // Comments State
+    isCommentsOpen: boolean;
+    setIsCommentsOpen: (val: boolean) => void;
+    comments: ScriptComment[];
+    addComment: (content: string, highlightId?: string, selectedText?: string) => Promise<boolean>;
+    resolveComment: (id: string) => Promise<void>;
+    deleteComment: (id: string) => Promise<void>;
+    scrollToComment: (highlightId: string) => void;
+    activeCommentId: string | null; // NEW: Track currently focused comment
+    setActiveCommentId: (id: string | null) => void; // NEW
 
     // Actions
     handleSave: (silent?: boolean) => Promise<void>;
     handleGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<void>;
     handleInsertCharacter: (charName: string) => void;
+    onPromote: () => void;
     
+    // Permissions
+    isScriptOwner: boolean;
+    currentUser: User;
+
     // External Props
     users: any[];
     channels: Channel[];
@@ -92,13 +111,17 @@ interface ScriptProviderProps {
     onClose: () => void;
     onSave: (id: string, updates: Partial<Script>) => Promise<void>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
+    onPromote: () => void;
     children: React.ReactNode;
 }
 
 export const ScriptProvider: React.FC<ScriptProviderProps> = ({ 
-    children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI 
+    children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI, onPromote 
 }) => {
     const { showToast } = useToast();
+    
+    // Hooks
+    const { comments, addComment: addCommentHook, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook } = useScriptComments(script.id);
 
     // Core State
     const [content, setContent] = useState(script.content || '');
@@ -108,44 +131,76 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
     
-    // Metadata State (Initialized from script)
+    // Metadata
+    const [contentId, setContentId] = useState<string | undefined>(script.contentId);
     const [channelId, setChannelId] = useState<string | undefined>(script.channelId);
     const [category, setCategory] = useState<string | undefined>(script.category);
     const [tags, setTags] = useState<string[]>(script.tags || []);
     const [objective, setObjective] = useState<string>(script.objective || '');
 
-    // View State (Zoom)
-    const [fontSize, setFontSize] = useState(16); // Default 16px
+    // View State
+    const [zoomLevel, setZoomLevel] = useState(100);
 
     // Share State
     const [isPublic, setIsPublic] = useState(script.isPublic || false);
     const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
 
-    // Lock System State
+    // Lock System
     const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
     const [lockerUser, setLockerUser] = useState<{ name: string; avatarUrl: string } | null>(null);
 
-    // Editor Instance for Direct Manipulation
+    // Editor
     const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
 
     // Save State
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date>(new Date());
     
+    // Refs
+    const isDirtyRef = useRef(false);
+    const latestStateRef = useRef({ 
+        title, content, status, scriptType, characters, ideaOwnerId,
+        channelId, category, tags, objective 
+    });
+    
     // UI Toggles
     const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
     const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
     const [isAIOpen, setIsAIOpen] = useState(false);
     const [isMetadataOpen, setIsMetadataOpen] = useState(false);
+    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+    const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
     
-    // Logic State
     const [isGenerating, setIsGenerating] = useState(false);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const estimatedSeconds = Math.ceil(content.length / 12); 
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
+    const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
 
-    // --- LOCK SYSTEM LOGIC ---
+    // --- COMMENTS INTEGRATION ---
+    const addComment = async (text: string, highlightId?: string, selectedText?: string) => {
+        const success = await addCommentHook(currentUser.id, text, highlightId, selectedText);
+        if (success) {
+             setIsCommentsOpen(true); 
+        }
+        return success;
+    };
+    
+    const scrollToComment = (highlightId: string) => {
+         setIsCommentsOpen(true);
+         setActiveCommentId(highlightId);
+         
+         // Delay slightly to allow sidebar to render
+         setTimeout(() => {
+             const element = document.getElementById(`comment-item-${highlightId}`);
+             if (element) {
+                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+         }, 100);
+    };
+
+    // ... (Lock Logic same as before) ...
     const acquireLock = async () => {
         try {
             const { error } = await supabase
@@ -155,48 +210,34 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
                     locked_at: new Date().toISOString() 
                 })
                 .eq('id', script.id);
-            
             if (error) throw error;
             setLockStatus('LOCKED_BY_ME');
             setLockerUser(currentUser);
-        } catch (err) {
-            console.error("Failed to acquire lock:", err);
-        }
+        } catch (err) { console.error("Failed to acquire lock:", err); }
     };
 
     const refreshLock = async () => {
         if (lockStatus !== 'LOCKED_BY_ME') return;
-        await supabase
-            .from('scripts')
-            .update({ locked_at: new Date().toISOString() })
-            .eq('id', script.id);
+        await supabase.from('scripts').update({ locked_at: new Date().toISOString() }).eq('id', script.id);
     };
 
     const releaseLock = async () => {
         if (lockStatus === 'LOCKED_BY_ME') {
-             await supabase
-                .from('scripts')
-                .update({ locked_by: null })
-                .eq('id', script.id);
+             await supabase.from('scripts').update({ locked_by: null }).eq('id', script.id);
         }
     };
 
     const forceTakeover = async () => {
-        if(confirm(`ยืนยันจะแย่งสิทธิ์การแก้ไขจาก ${lockerUser?.name}? (ข้อมูลที่เขาพิมพ์ค้างไว้อาจหายไป)`)) {
+        if(confirm(`ยืนยันจะแย่งสิทธิ์การแก้ไขจาก ${lockerUser?.name}?`)) {
             await acquireLock();
             showToast('แย่งสิทธิ์การแก้ไขเรียบร้อย 😈', 'success');
         }
     };
 
-    // 1. Initial Lock Check on Mount
+    // 1. Initial Lock Check
     useEffect(() => {
         const checkLock = async () => {
-            const { data } = await supabase
-                .from('scripts')
-                .select('locked_by, locked_at')
-                .eq('id', script.id)
-                .single();
-
+            const { data } = await supabase.from('scripts').select('locked_by, locked_at').eq('id', script.id).single();
             if (data) {
                 if (data.locked_by && data.locked_by !== currentUser.id) {
                     setLockStatus('LOCKED_BY_OTHER');
@@ -207,42 +248,33 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
                 }
             }
         };
-
         checkLock();
-
-        const channel = supabase.channel(`script-lock-${script.id}`)
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` },
-                (payload) => {
-                    const newLockedBy = payload.new.locked_by;
-                    if (newLockedBy === currentUser.id) {
-                        setLockStatus('LOCKED_BY_ME');
-                        setLockerUser(currentUser);
-                    } else if (newLockedBy === null) {
-                        setLockStatus('FREE');
-                        if (lockStatus === 'LOCKED_BY_OTHER') {
-                            acquireLock();
-                            showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
-                        }
-                    } else {
-                        setLockStatus('LOCKED_BY_OTHER');
-                        const locker = users.find(u => u.id === newLockedBy);
-                        setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
-                        if (lockStatus === 'LOCKED_BY_ME') {
-                             alert(`คุณถูกแย่งสิทธิ์การแก้ไขโดย ${locker?.name || 'คนอื่น'}! ระบบจะเปลี่ยนเป็น Read-Only Mode`);
-                        }
-                    }
+        const channel = supabase.channel(`script-lock-${script.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` }, (payload) => {
+            const newLockedBy = payload.new.locked_by;
+            if (newLockedBy === currentUser.id) {
+                setLockStatus('LOCKED_BY_ME');
+                setLockerUser(currentUser);
+            } else if (newLockedBy === null) {
+                setLockStatus('FREE');
+                if (lockStatus === 'LOCKED_BY_OTHER') {
+                    acquireLock();
+                    showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
                 }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+            } else {
+                setLockStatus('LOCKED_BY_OTHER');
+                const locker = users.find(u => u.id === newLockedBy);
+                setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
+            }
+        }).subscribe();
+        return () => { supabase.removeChannel(channel); };
     }, []);
 
-    // 3. Heartbeat Effect
+    // 2. Keep Latest State
+    useEffect(() => {
+        latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective };
+    }, [title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective]);
+
+    // 3. Heartbeat
     useEffect(() => {
         if (lockStatus === 'LOCKED_BY_ME') {
             refreshLock();
@@ -250,131 +282,95 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         } else {
             if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         }
-
-        return () => {
-            if (heartbeatRef.current) clearInterval(heartbeatRef.current);
-        };
+        return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
     }, [lockStatus]);
 
-    // 4. Cleanup on Close
-    const handleCloseWrapper = async () => {
-        await releaseLock();
-        onClose();
-    };
-
-    // Autosave Logic
+    // 4. Autosave
     useEffect(() => {
         if (isReadOnly) return; 
-
+        if (content !== script.content || title !== script.title) {
+            isDirtyRef.current = true;
+        }
         const timer = setTimeout(() => {
-            if (
-                content !== script.content || 
-                title !== script.title || 
-                scriptType !== script.scriptType ||
-                ideaOwnerId !== script.ideaOwnerId ||
-                JSON.stringify(characters) !== JSON.stringify(script.characters) ||
-                channelId !== script.channelId ||
-                category !== script.category ||
-                objective !== script.objective ||
-                JSON.stringify(tags) !== JSON.stringify(script.tags)
-            ) {
+            if (isDirtyRef.current) {
                 handleSave(true);
             }
         }, 3000);
         return () => clearTimeout(timer);
     }, [content, title, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective, isReadOnly]);
 
+    // 5. Cleanup
+    useEffect(() => {
+        return () => {
+            if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
+                const data = latestStateRef.current;
+                onSave(script.id, { title: data.title, content: data.content, status: data.status }).catch(console.error);
+            }
+            if (lockStatus === 'LOCKED_BY_ME') {
+                supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then();
+            }
+        };
+    }, [lockStatus]);
+
     const handleSave = async (silent = false) => {
         if (isReadOnly) return;
         setIsSaving(true);
         await onSave(script.id, { 
-            title, 
-            content, 
-            status, 
-            estimatedDuration: estimatedSeconds,
-            scriptType,
-            characters,
-            ideaOwnerId,
-            channelId,
-            category,
-            tags,
-            objective
+            title, content, status, estimatedDuration: estimatedSeconds,
+            scriptType, characters, ideaOwnerId, channelId, category, tags, objective
         });
         setLastSaved(new Date());
         setIsSaving(false);
+        isDirtyRef.current = false;
     };
 
     const changeStatus = async (newStatus: ScriptStatus) => {
         if (isReadOnly) return;
-        
-        // 1. Optimistic Update
         setStatus(newStatus);
-        
-        // 2. Trigger Save Immediately (Bypassing autosave)
         setIsSaving(true);
         try {
-            await onSave(script.id, { 
-                title, 
-                content, 
-                status: newStatus, 
-                estimatedDuration: estimatedSeconds,
-                scriptType,
-                characters,
-                ideaOwnerId
-            });
+            await onSave(script.id, { title, content, status: newStatus });
             setLastSaved(new Date());
-        } catch (error) {
-            console.error("Failed to save status", error);
-        } finally {
-            setIsSaving(false);
-        }
+        } catch (error) { console.error("Failed to save status", error); } finally { setIsSaving(false); }
     };
     
-    // --- SHARE LOGIC ---
     const handleToggleShare = async () => {
         const newStatus = !isPublic;
         let newToken = shareToken;
-
         if (newStatus && !shareToken) {
             newToken = crypto.randomUUID();
             setShareToken(newToken);
         }
-        
         setIsPublic(newStatus);
-        
-        await onSave(script.id, { 
-            isPublic: newStatus, 
-            shareToken: newToken 
-        });
-        
+        await onSave(script.id, { isPublic: newStatus, shareToken: newToken });
         showToast(newStatus ? 'เปิดใช้งาน Magic Link แล้ว 🔗' : 'ปิดการแชร์แล้ว 🔒', newStatus ? 'success' : 'info');
     };
 
     const handleGenerateAIWrapper = async (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => {
         if (isReadOnly) return;
-        if (!prompt && type !== 'OUTLINE' && !title) {
-             alert("กรุณาใส่หัวข้อ หรือสิ่งที่ต้องการให้ AI ช่วย");
-             return;
-        }
         setIsGenerating(true);
         const result = await onGenerateAI(prompt || title, type);
         if (result) {
-            setContent(prev => prev + "<br/><br/>" + result); // Use HTML break
+            setContent(prev => prev + "<br/><br/>" + result);
             setIsAIOpen(false);
+            isDirtyRef.current = true;
         }
         setIsGenerating(false);
     };
 
     const handleInsertCharacter = (charName: string) => {
         if (editorInstance && !isReadOnly) {
-            editorInstance
-                .chain()
-                .focus()
-                .insertContent(`<p><strong>${charName}:</strong> </p>`)
-                .run();
+            editorInstance.chain().focus().insertContent(`<p><strong>${charName}:</strong> </p>`).run();
         } else {
              setContent(prev => prev + `<p><strong>${charName}:</strong> </p>`);
         }
+        isDirtyRef.current = true;
+    };
+
+    const handleCloseWrapper = async () => {
+        if (isDirtyRef.current) await handleSave(true);
+        await releaseLock();
+        onClose();
     };
 
     return (
@@ -386,39 +382,31 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             scriptType, setScriptType,
             characters, setCharacters,
             ideaOwnerId, setIdeaOwnerId,
-            
-            // Metadata
-            channelId, setChannelId,
+            contentId, channelId, setChannelId,
             category, setCategory,
             tags, setTags,
             objective, setObjective,
-
             isSaving, lastSaved,
-            setEditorInstance,
-            
-            // View State
-            fontSize, setFontSize,
-            
-            // Share
+            setEditorInstance, editorInstance,
+            zoomLevel, setZoomLevel,
             isPublic, shareToken, handleToggleShare,
-
-            lockStatus,
-            lockerUser,
-            isReadOnly,
-            forceTakeover,
-
+            lockStatus, lockerUser, isReadOnly, forceTakeover,
             isTeleprompterOpen, setIsTeleprompterOpen,
             isChatPreviewOpen, setIsChatPreviewOpen,
             isAIOpen, setIsAIOpen,
             isGenerating, setIsGenerating,
             isMetadataOpen, setIsMetadataOpen,
-            
+            // Comments
+            isCommentsOpen, setIsCommentsOpen,
+            comments, addComment, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook, scrollToComment,
+            activeCommentId, setActiveCommentId,
             handleSave,
             handleGenerateAI: handleGenerateAIWrapper,
             handleInsertCharacter,
-            users,
-            channels,
-            masterOptions,
+            onPromote, 
+            isScriptOwner,
+            currentUser,
+            users, channels, masterOptions,
             onClose: handleCloseWrapper
         }}>
             {children}

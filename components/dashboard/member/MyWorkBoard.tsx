@@ -12,15 +12,17 @@ interface MyWorkBoardProps {
     tasks: Task[];
     masterOptions: MasterOption[];
     users: User[];
+    currentUser: User; // Added currentUser prop
     onOpenTask: (task: Task) => void;
     onUpdateTask?: (task: Task) => void; // New prop for saving changes
 }
 
 type ColumnType = 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 
-const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, onOpenTask, onUpdateTask }) => {
+const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask }) => {
     const [activeModalColumn, setActiveModalColumn] = useState<ColumnType | null>(null);
     const [isDoneHistoryOpen, setIsDoneHistoryOpen] = useState(false); // New state for Done Modal
+    const isAdmin = currentUser.role === 'ADMIN';
 
     // --- Logic: Categorize Tasks ---
     const getPhase = (status: string): ColumnType => {
@@ -69,20 +71,27 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
         const task = tasks.find(t => t.id === taskId);
         if (!task || !onUpdateTask) return;
 
+        // Security Check: Only Admin can drag to DONE
+        if (targetType === 'DONE' && !isAdmin) {
+            alert('🔒 เฉพาะหัวหน้า/Admin เท่านั้นที่สามารถย้ายงานไปช่อง "เสร็จแล้ว" ได้\n\nกรุณากด "ส่งงาน" ในหน้าแก้ไขงาน เพื่อให้หัวหน้าตรวจสอบครับ');
+            return;
+        }
+
         const currentType = getPhase(task.status as string);
         if (currentType === targetType) return; // No change
 
-        // Only allow swaps between TODO and DOING
         let newStatus = task.status;
 
         if (targetType === 'TODO') {
-            // Default to 'TODO' status
             newStatus = 'TODO'; 
         } else if (targetType === 'DOING') {
-            // Default to 'DOING' status
             newStatus = 'DOING';
+        } else if (targetType === 'DONE' && isAdmin) {
+            newStatus = 'DONE';
+        } else if (targetType === 'WAITING') {
+            // Usually mapped to FEEDBACK or WAITING
+            newStatus = 'WAITING';
         } else {
-            // Should not happen based on isDroppable prop, but safe guard
             return;
         }
 
@@ -95,7 +104,6 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
             case 'TODO': return { title: '🎒 รายการที่รอทำ (To Do)', tasks: todoTasks, theme: 'slate' };
             case 'DOING': return { title: '⚡ กำลังลุยงาน (Doing)', tasks: doingTasks, theme: 'blue' };
             case 'WAITING': return { title: '☕ รอตรวจ / รอผล (Waiting)', tasks: waitingTasks, theme: 'orange' };
-            // DONE is now handled by DoneHistoryModal, so this case might be unused or just a fallback
             case 'DONE': return { title: '', tasks: [], theme: 'green' }; 
             default: return { title: '', tasks: [], theme: 'slate' };
         }
@@ -152,8 +160,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     type="DONE" 
                     tasks={doneTasks} 
                     users={users}
-                    isDroppable={false} // READ ONLY
-                    onDropTask={() => {}}
+                    isDroppable={isAdmin} // READ ONLY for members, Droppable for Admin
+                    onDropTask={handleDropTask}
                     onOpenTask={onOpenTask}
                     onViewAll={() => setIsDoneHistoryOpen(true)} // Open new modal
                 />

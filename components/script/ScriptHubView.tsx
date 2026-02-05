@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Script, MasterOption, ScriptSummary } from '../../types';
+import { User, Script, MasterOption, ScriptSummary, Task } from '../../types';
 import { useScripts } from '../../hooks/useScripts';
 import { useChannels } from '../../hooks/useChannels';
 import { useMasterData } from '../../hooks/useMasterData';
@@ -13,6 +13,8 @@ import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
+import ContentForm from '../task/ContentForm'; // IMPORT
+import { createPortal } from 'react-dom'; // IMPORT
 
 // --- Sub-components ---
 
@@ -89,7 +91,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const { 
         scripts, totalCount, stats, isLoading, 
         fetchScripts, getScriptById,
-        createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI 
+        createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI,
+        promoteToContent // NEW
     } = useScripts(currentUser);
     
     const { channels } = useChannels();
@@ -103,6 +106,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
+
+    // Promote State
+    const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+    const [promoteScriptData, setPromoteScriptData] = useState<Script | null>(null);
 
     // Pagination & Filters (Updated to Array)
     const [page, setPage] = useState(1);
@@ -209,20 +216,105 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             updateScript(id, { status: 'DRAFT', isInShootQueue: false });
         }
     };
+    
+    // --- PROMOTE LOGIC ---
+    const handlePromoteClick = (scriptId: string) => {
+        // We need the full script data (which we have in activeScript)
+        if (activeScript && activeScript.id === scriptId) {
+            setPromoteScriptData(activeScript);
+            setIsPromoteModalOpen(true);
+        }
+    };
+
+    const handlePromoteSubmit = async (contentTask: Task) => {
+        if (!promoteScriptData) return;
+
+        // Extract payload from Task object (ContentForm returns a Task object)
+        // We need to strip ID if it's auto-generated in form, but here we want DB to generate
+        const payload = {
+            title: contentTask.title,
+            description: contentTask.description,
+            status: contentTask.status,
+            channel_id: contentTask.channelId,
+            start_date: contentTask.startDate,
+            end_date: contentTask.endDate,
+            target_platform: contentTask.targetPlatforms,
+            content_format: contentTask.contentFormat,
+            pillar: contentTask.pillar,
+            category: contentTask.category,
+            is_unscheduled: contentTask.isUnscheduled,
+            // Add creator as idea owner by default if not set? 
+            // ContentForm already handles this via `ideaOwnerIds`
+            idea_owner_ids: contentTask.ideaOwnerIds,
+            editor_ids: contentTask.editorIds,
+            assignee_ids: contentTask.assigneeIds,
+            remark: contentTask.remark
+        };
+
+        const success = await promoteToContent(promoteScriptData.id, payload);
+        
+        if (success) {
+            setIsPromoteModalOpen(false);
+            setPromoteScriptData(null);
+            // Refresh Active Script to show linked content status
+            const refreshed = await getScriptById(promoteScriptData.id);
+            if (refreshed) setActiveScript(refreshed);
+        }
+    };
 
     // If Editor is open, show full screen editor
     if (activeScript) {
         return (
-            <ScriptEditor 
-                script={activeScript} 
-                users={users}
-                channels={channels} // Pass channels
-                masterOptions={masterOptions} // Pass masterOptions
-                currentUser={currentUser}
-                onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus }); }} 
-                onSave={updateScript} 
-                onGenerateAI={generateScriptWithAI}
-            />
+            <>
+                <ScriptEditor 
+                    script={activeScript} 
+                    users={users}
+                    channels={channels} // Pass channels
+                    masterOptions={masterOptions} // Pass masterOptions
+                    currentUser={currentUser}
+                    onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus }); }} 
+                    onSave={updateScript} 
+                    onGenerateAI={generateScriptWithAI}
+                    onPromote={handlePromoteClick} // Pass handler
+                />
+                
+                {/* Promote Modal Overlay */}
+                {isPromoteModalOpen && promoteScriptData && createPortal(
+                     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                        <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
+                             <div className="px-8 py-5 border-b border-gray-100 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex justify-between items-center">
+                                 <div>
+                                     <h3 className="text-xl font-black flex items-center gap-2">🚀 ส่งเข้าผลิต (Promote to Content)</h3>
+                                     <p className="text-sm text-orange-100">แปลงสคริปต์เป็นงานจริงในระบบ</p>
+                                 </div>
+                                 <button onClick={() => setIsPromoteModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                             </div>
+                             
+                             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                                 <ContentForm 
+                                    // Pre-fill data from Script
+                                    initialData={{ 
+                                        type: 'CONTENT', 
+                                        title: promoteScriptData.title,
+                                        channelId: promoteScriptData.channelId,
+                                        category: promoteScriptData.category,
+                                        description: `Script Link: ${promoteScriptData.title}`, // Optional: Add context
+                                        // Default fields will be handled by useContentForm
+                                    } as any}
+                                    channels={channels}
+                                    users={users}
+                                    masterOptions={masterOptions}
+                                    currentUser={currentUser}
+                                    onSave={handlePromoteSubmit}
+                                    onClose={() => setIsPromoteModalOpen(false)}
+                                    // Hide Delete button
+                                 />
+                             </div>
+                        </div>
+                     </div>,
+                     document.body
+                )}
+            </>
         );
     }
 
@@ -380,3 +472,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 };
 
 export default ScriptHubView;
+// Simple X Icon for local use if not imported
+const X = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+);

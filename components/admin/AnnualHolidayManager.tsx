@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { MasterOption } from '../../types';
 import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
 import { Calendar, Plus, Trash2, CalendarDays, Loader2 } from 'lucide-react';
-
+// ถ้าจะใช้ Toast (แจ้งเตือนมุมขวาบน หายไปเอง)
+import { useToast } from '../../context/ToastContext'; // เช็ค path ให้ถูกตามโฟลเดอร์นะ
+// ถ้าจะใช้ Dialog (กล่องเด้งตรงกลาง ต้องกดปุ่ม)
+import { useGlobalDialog } from '../../context/GlobalDialogContext'; // เช็ค path ให้ถูกตามโฟลเดอร์นะ
 interface AnnualHolidayManagerProps {
     masterOptions: MasterOption[];
 }

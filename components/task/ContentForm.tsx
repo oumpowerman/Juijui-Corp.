@@ -217,6 +217,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                         getScriptByContentId(initialData.id).then(setLinkedScript);
                     }
                 }}
+                onPromote={() => showToast('สคริปต์นี้เชื่อมโยงกับงานนี้อยู่แล้วครับ', 'info')}
                 onSave={updateScript}
                 onGenerateAI={generateScriptWithAI}
             />
@@ -314,6 +315,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                             disabled={isSendingQC}
                             className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50"
                         >
+                            
                             {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                             ส่งตรวจ
                         </button>

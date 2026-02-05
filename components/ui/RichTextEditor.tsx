@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
+import BubbleMenuExtension from '@tiptap/extension-bubble-menu';
 import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -70,6 +72,8 @@ interface RichTextEditorProps {
     className?: string;
     minHeight?: string;
     onEditorReady?: (editor: Editor) => void; 
+    extensions?: any[]; // Allow injecting custom extensions
+    bubbleMenuContent?: (editor: Editor) => React.ReactNode; // Content for Bubble Menu
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -79,7 +83,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     readOnly = false,
     className = '',
     minHeight = '300px',
-    onEditorReady
+    onEditorReady,
+    extensions = [],
+    bubbleMenuContent
 }) => {
     // Modal State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -105,6 +111,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     newGroupDelay: 500,
                 }
             } as any),
+
+            BubbleMenuExtension.configure({
+            options: {
+                placement: 'top',
+                strategy: 'absolute',
+            },
+            }),
+
             Placeholder.configure({
                 placeholder: placeholder,
             }),
@@ -116,6 +130,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 autolink: true,
                 defaultProtocol: 'https',
             }),
+            ...extensions, // Add injected extensions
         ],
         content: content, 
         editable: !readOnly,
@@ -222,6 +237,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     return (
         <div className="flex flex-col w-full relative group">
+            {/* Bubble Menu for Comments */}
+            {editor && bubbleMenuContent && (
+                <BubbleMenu editor={editor} >
+                    {bubbleMenuContent(editor)}
+                </BubbleMenu>
+            )}
+
             {/* Toolbar */}
             {!readOnly && (
                 <div className="flex items-center gap-1 p-2 border-b border-gray-100 bg-gray-50/80 backdrop-blur-sm sticky top-0 z-20 flex-wrap rounded-t-[2rem]">

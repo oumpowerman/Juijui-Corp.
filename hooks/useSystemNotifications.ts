@@ -2,14 +2,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, User, AppNotification } from '../types';
-import { isBefore, isAfter, addDays, differenceInDays, isSameDay, startOfDay } from 'date-fns';
+import { isBefore, isAfter, addDays, differenceInCalendarDays, isSameDay, startOfDay, isValid } from 'date-fns';
 import { isTaskCompleted } from '../constants';
+import { 
+    mapGameLogToNotification, 
+    mapTaskOverdueNotification, 
+    mapTaskUpcomingNotification, 
+    mapLeaveRequestNotification,
+    mapDbNotification 
+} from '../utils/notificationMappers';
 
 export const useSystemNotifications = (tasks: Task[], currentUser: User | null) => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
-    // Ref to track locally applied read time to prevent stale data override during sync gap
+    // Ref to track locally applied read time to prevent stale data override
     const localReadTimeRef = useRef<Date | null>(null);
 
     // --- MAIN FETCH EFFECT ---
@@ -17,16 +24,17 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         if (!currentUser) return;
 
         const fetchAllNotifications = async () => {
-            const today = new Date();
-            const startOfToday = startOfDay(today);
+            const today = startOfDay(new Date());
             
-            // Resolve effective read time: Max(DB Time, Local Action Time)
-            const profileReadTime = currentUser.lastReadNotificationAt || new Date(0);
-            const lastReadTime = localReadTimeRef.current && localReadTimeRef.current > profileReadTime 
+            // 1. Resolve Effective Read Time
+            // Use local ref if it's fresher (optimistic update), otherwise DB
+            const dbReadTime = currentUser.lastReadNotificationAt || new Date(0);
+            const lastReadTime = localReadTimeRef.current && localReadTimeRef.current > dbReadTime 
                 ? localReadTimeRef.current 
-                : profileReadTime;
+                : dbReadTime;
 
-            // 1. Fetch Persistent Notifications from DB (Real rows)
+            // 2. FETCH DATA (Limited for UI Performance)
+            // ------------------------------------------------
             const { data: dbNotifs } = await supabase
                 .from('notifications')
                 .select('*')
@@ -34,154 +42,112 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                 .order('created_at', { ascending: false })
                 .limit(20);
 
-            // 2. Fetch recent Game Logs (Rewards/Penalties)
             const { data: gameLogs } = await supabase
                 .from('game_logs')
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .order('created_at', { ascending: false })
-                .limit(20); // Fetch more to allow deduping
+                .limit(20);
 
-            // 3. Generate Dynamic Alerts (Computed on the fly)
-            const dynamicNotifs: AppNotification[] = [];
+            // 3. GENERATE & MERGE (Layer 2: Logic)
+            // ------------------------------------------------
+            const combined = new Map<string, AppNotification>();
 
-            // A. Task Logic (Overdue / Upcoming)
+            // A. Map DB Notifications
+            dbNotifs?.forEach(n => {
+                combined.set(n.id, mapDbNotification(n, lastReadTime));
+            });
+
+            // B. Map Game Logs
+            gameLogs?.forEach(log => {
+                const n = mapGameLogToNotification(log, lastReadTime);
+                combined.set(n.id, n);
+            });
+
+            // C. Dynamic Task Alerts
             tasks.forEach(task => {
                 if (isTaskCompleted(task.status) || task.isUnscheduled) return;
-
+                
+                // Only relevant people
                 const isRelated = task.assigneeIds.includes(currentUser.id) || 
                                   task.ideaOwnerIds?.includes(currentUser.id) || 
                                   task.editorIds?.includes(currentUser.id);
+                
+                const endDateObj = new Date(task.endDate);
+                if (!isValid(endDateObj)) return;
 
                 // Overdue
-                if (isBefore(task.endDate, today) && !isSameDay(task.endDate, today)) {
+                if (isBefore(endDateObj, today) && !isSameDay(endDateObj, today)) {
                     if (isRelated || currentUser.role === 'ADMIN') {
-                        const id = `overdue_${task.id}`;
-                        const daysLate = differenceInDays(today, task.endDate);
-                        dynamicNotifs.push({
-                            id,
-                            type: 'OVERDUE',
-                            title: '🔥 งานเลยกำหนด (Overdue)',
-                            message: `งาน "${task.title}" ล่าช้า ${daysLate} วันแล้ว รีบเคลียร์ด่วน!`,
-                            taskId: task.id,
-                            date: task.endDate, // Keep overdue date as is (historical context)
-                            isRead: new Date(task.endDate) < lastReadTime
-                        });
+                        const n = mapTaskOverdueNotification(task, today, lastReadTime);
+                        // Only add if "date" (generated now) is newer than lastRead
+                        // Or we can treat dynamic alerts as always "relevant" but mark read if viewed recently?
+                        // For simplicity: Dynamic alerts are always "Unread" visually until action taken, 
+                        // BUT for the counter, we only count them if we haven't opened the menu recently.
+                        n.isRead = new Date() < lastReadTime; 
+                        combined.set(n.id, n);
                     }
                 } 
                 // Upcoming
-                else if (isAfter(task.endDate, today) && isBefore(task.endDate, addDays(today, 3)) && isRelated) {
-                    const id = `upcoming_${task.id}`;
-                    const daysLeft = differenceInDays(task.endDate, today);
-                    dynamicNotifs.push({
-                        id,
-                        type: 'UPCOMING',
-                        title: '⏳ ใกล้ถึงกำหนดส่ง',
-                        message: `งาน "${task.title}" ต้องส่งในอีก ${daysLeft} วัน`,
-                        taskId: task.id,
-                        date: startOfToday,
-                        isRead: startOfToday < lastReadTime
-                    });
+                else if (isAfter(endDateObj, today) && isBefore(endDateObj, addDays(today, 3)) && isRelated) {
+                    const n = mapTaskUpcomingNotification(task, today, lastReadTime);
+                    n.isRead = new Date() < lastReadTime;
+                    combined.set(n.id, n);
                 }
             });
 
-            // B. Admin Checks (Leave Requests)
+            // D. Admin Leave Requests
             if (currentUser.role === 'ADMIN') {
                 const { data: leaves } = await supabase
                     .from('leave_requests')
                     .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
                     .eq('status', 'PENDING');
 
-                if (leaves) {
-                    leaves.forEach((req: any) => {
-                        dynamicNotifs.push({
-                            id: `leave_${req.id}`,
-                            type: 'APPROVAL_REQ',
-                            title: '📋 คำขออนุมัติใหม่',
-                            message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
-                            date: new Date(req.created_at),
-                            isRead: new Date(req.created_at) < lastReadTime,
-                            actionLink: 'ATTENDANCE'
-                        });
-                    });
-                }
-            }
-
-            // C. Map Game Logs to Notifications (With Deduplication)
-            if (gameLogs) {
-                const processedKeys = new Set<string>();
-                
-                gameLogs.forEach((log: any) => {
-                    // Create a unique key based on Action Type + Related ID
-                    // This prevents multiple alerts for the same item if the backend glitches and inserts duplicates
-                    const dedupKey = `${log.action_type}_${log.related_id || log.id}`;
-                    
-                    if (processedKeys.has(dedupKey)) return; // Skip duplicates
-                    processedKeys.add(dedupKey);
-
-                    // Determine if it's Good or Bad based on HP/XP change or Action Type
-                    const isPenalty = log.hp_change < 0 || log.jp_change < 0 || 
-                                      ['TASK_LATE', 'DUTY_MISSED', 'ATTENDANCE_ABSENT', 'ATTENDANCE_LATE'].includes(log.action_type);
-                    
-                    const title = isPenalty ? '📉 โดนหักคะแนน!' : '🎉 ได้รับรางวัล!';
-                    
-                    // Format Message details
-                    let details = [];
-                    if (log.hp_change !== 0) details.push(`${log.hp_change > 0 ? '+' : ''}${log.hp_change} HP`);
-                    if (log.xp_change !== 0) details.push(`${log.xp_change > 0 ? '+' : ''}${log.xp_change} XP`);
-                    if (log.jp_change !== 0) details.push(`${log.jp_change > 0 ? '+' : ''}${log.jp_change} JP`);
-                    
-                    const message = `${log.description} (${details.join(', ')})`;
-
-                    dynamicNotifs.push({
-                        id: `game_${log.id}`,
-                        type: isPenalty ? 'GAME_PENALTY' : 'GAME_REWARD',
-                        title: title,
-                        message: message,
-                        date: new Date(log.created_at),
-                        isRead: new Date(log.created_at) < lastReadTime
-                    });
+                leaves?.forEach(req => {
+                    const n = mapLeaveRequestNotification(req, lastReadTime);
+                    combined.set(n.id, n);
                 });
             }
 
-            // 4. Merge & Map DB Notifs
-            const mappedDbNotifs: AppNotification[] = (dbNotifs || []).map((n: any) => ({
-                id: n.id,
-                type: n.type,
-                title: n.title,
-                message: n.message,
-                taskId: n.related_id,
-                date: new Date(n.created_at),
-                isRead: n.is_read || new Date(n.created_at) < lastReadTime,
-                actionLink: n.link_path
-            }));
-
-            const combined = [...mappedDbNotifs, ...dynamicNotifs];
+            // 4. SORT & SET
+            const sorted = Array.from(combined.values()).sort((a, b) => 
+                b.date.getTime() - a.date.getTime()
+            );
             
-            // Sort by Date DESC
-            combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+            setNotifications(sorted);
 
-            setNotifications(combined);
+            // 5. CALCULATE UNREAD COUNT (Accurate Strategy)
+            // ------------------------------------------------
+            // For DB items: Trust the is_read flag + check against lastReadTime
+            // For Dynamic items: Check against lastReadTime
+            
+            // NOTE: Ideally we query COUNT from DB for older unread items not in limit(20)
+            // But for V2 MVP, calculating from the merged set (and maybe assumes user clears list often) is safer for performance.
+            // A truly scalable way requires a separate 'SELECT count(*) FROM notifications WHERE is_read=false'
+            
+            const { count: dbUnreadCount } = await supabase
+                .from('notifications')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', currentUser.id)
+                .eq('is_read', false);
 
-            // Calculate Unread: (DB items not read) + (Dynamic items fresher than lastRead)
-            const effectiveUnread = combined.filter(n => n.date > lastReadTime).length;
-            setUnreadCount(effectiveUnread);
+            const dynamicUnread = sorted.filter(n => 
+                !n.id.includes('-') && // Filter out DB UUIDs which we counted above
+                n.date > lastReadTime
+            ).length;
+
+            setUnreadCount((dbUnreadCount || 0) + dynamicUnread);
         };
 
         fetchAllNotifications();
 
-        // Subscribe to NEW db notifications and GAME LOGS
+        // Subscribe to NEW events
         const channel = supabase
             .channel('system-notifications-v2')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
-                fetchAllNotifications();
-            })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_logs', filter: `user_id=eq.${currentUser.id}` }, () => {
-                 fetchAllNotifications();
-            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => fetchAllNotifications())
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_logs', filter: `user_id=eq.${currentUser.id}` }, () => fetchAllNotifications())
             .subscribe();
             
-        // Polling for time-based updates (e.g. task becoming overdue)
         const interval = setInterval(fetchAllNotifications, 60000);
 
         return () => {
@@ -189,23 +155,21 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
             clearInterval(interval);
         };
 
-    }, [tasks, currentUser?.id, currentUser?.lastReadNotificationAt]); // Depend on lastRead from profile
+    }, [tasks, currentUser?.id, currentUser?.lastReadNotificationAt]);
 
-    // Actions
+    // --- ACTIONS ---
+
     const markAsViewed = async () => {
         if (!currentUser) return;
         
-        // Update local ref to prevent race condition reversion
         const now = new Date();
-        localReadTimeRef.current = now;
-        
-        setUnreadCount(0); // Optimistic UI update
+        localReadTimeRef.current = now; // Optimistic
+        setUnreadCount(0); // Optimistic
 
         try {
             // Update Profile Timestamp
             await supabase.from('profiles').update({ last_read_notification_at: now.toISOString() }).eq('id', currentUser.id);
-            
-            // Optionally: Mark all DB notifications as read
+            // Mark DB notifications read
             await supabase.from('notifications').update({ is_read: true }).eq('user_id', currentUser.id).eq('is_read', false);
         } catch (err) {
             console.error(err);
@@ -213,13 +177,10 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
     };
 
     const dismissNotification = async (id: string) => {
-        // If it's a real DB notification, delete it or mark read
-        // If dynamic, we can't easily "delete" it without local storage state, unless we convert it to DB record marked as read/hidden.
-        // For simplicity in this version: Just remove from UI state temporarily
+        // UI Remove
         setNotifications(prev => prev.filter(n => n.id !== id));
-        
-        // Try to delete from DB if it's a UUID (DB ID) and NOT a dynamic/game ID
-        if (!id.includes('_')) {
+        // DB Remove (if applicable)
+        if (!id.includes('_') && !id.startsWith('game_')) {
              await supabase.from('notifications').delete().eq('id', id);
         }
     };
@@ -229,6 +190,6 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         unreadCount,
         dismissNotification,
         markAsViewed,
-        markAllAsRead: markAsViewed // Alias
+        markAllAsRead: markAsViewed
     };
 };

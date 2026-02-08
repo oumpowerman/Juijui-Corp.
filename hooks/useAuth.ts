@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, WorkStatus } from '../types';
@@ -21,7 +20,7 @@ export const useAuth = (sessionUser: any) => {
         xp: data.xp || 0,
         level: data.level || 1,
         availablePoints: data.available_points || 0,
-        hp: data.hp || 100,
+        hp: data.hp && 100,
         maxHp: data.max_hp || 100,
         workStatus: (data.work_status as WorkStatus) || 'ONLINE',
         leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
@@ -29,6 +28,12 @@ export const useAuth = (sessionUser: any) => {
         // Map new read timestamps
         lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
         lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
+        // --- PAYROLL FIELDS ---
+        baseSalary: data.base_salary || 0,
+        bankAccount: data.bank_account || '',
+        bankName: data.bank_name || '',
+        ssoIncluded: data.sso_included !== false,
+        taxType: data.tax_type || 'WHT_3'
     });
 
     const fetchProfile = async () => {
@@ -51,7 +56,7 @@ export const useAuth = (sessionUser: any) => {
         }
     };
 
-    // --- REALTIME SYNC ADDED ---
+    // --- REALTIME SYNC (ROBUST PATTERN) ---
     useEffect(() => {
         if (!sessionUser?.id) return;
 
@@ -68,14 +73,10 @@ export const useAuth = (sessionUser: any) => {
                     table: 'profiles', 
                     filter: `id=eq.${sessionUser.id}` 
                 },
-                (payload) => {
-                    // Update state immediately when DB changes (XP, HP, Points, etc.)
-                    setCurrentUserProfile(prev => {
-                        if (!prev) return null;
-                        const updated = mapProfileToUser(payload.new);
-                        // Preserve some fields if needed, but usually full replace is safer for sync
-                        return updated;
-                    });
+                () => {
+                    // ROBUST FIX: Instead of mapping the payload (which can be risky/partial),
+                    // we use the event as a signal to re-fetch the authoritative data.
+                    fetchProfile();
                 }
             )
             .subscribe();
@@ -125,8 +126,7 @@ export const useAuth = (sessionUser: any) => {
 
             if (error) throw error;
             
-            // Note: Realtime subscription will likely catch this update too, 
-            // but optimistic update here makes UI snappier for the user editing their own profile.
+            // Optimistic update for immediate feedback (re-fetch will confirm it shortly)
             setCurrentUserProfile(prev => prev ? ({ 
                 ...prev, 
                 ...updates, 

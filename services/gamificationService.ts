@@ -14,7 +14,8 @@ export const gamificationService = {
         price: i.price,
         icon: i.icon,
         effectType: i.effect_type,
-        effectValue: i.effect_value
+        effectValue: i.effect_value,
+        isActive: i.is_active // Added missing property
     }));
   },
 
@@ -23,7 +24,7 @@ export const gamificationService = {
         .from('user_inventory')
         .select(`
             id, item_id, is_used, 
-            shop_items (id, name, description, icon, effect_type, effect_value)
+            shop_items (id, name, description, icon, effect_type, effect_value, is_active)
         `)
         .eq('user_id', userId)
         .eq('is_used', false);
@@ -42,7 +43,8 @@ export const gamificationService = {
             price: 0,
             icon: i.shop_items.icon,
             effectType: i.shop_items.effect_type,
-            effectValue: i.shop_items.effect_value
+            effectValue: i.shop_items.effect_value,
+            isActive: i.shop_items.is_active // Added missing property
         } : undefined
     }));
   },

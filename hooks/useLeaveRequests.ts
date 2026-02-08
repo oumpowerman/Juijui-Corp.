@@ -103,20 +103,8 @@ export const useLeaveRequests = (currentUser?: any) => {
                 user_id: null
             });
 
-            // --- NOTIFY ADMINS ---
-            // 1. Fetch Admin IDs
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
-                    type: 'APPROVAL_REQ',
-                    title: `📋 คำขออนุมัติใหม่: ${currentUser.name}`,
-                    message: `${type}: ${reason}`,
-                    is_read: false,
-                    link_path: 'ATTENDANCE'
-                }));
-                await supabase.from('notifications').insert(notifications);
-            }
+            // Note: Admin notifications for 'APPROVAL_REQ' are now handled dynamically via useSystemNotifications
+            // based on PENDING status in leave_requests table, to avoid duplication.
 
             showToast('ส่งคำขอเรียบร้อย รอหัวหน้าอนุมัติครับ 📨', 'success');
             return true;

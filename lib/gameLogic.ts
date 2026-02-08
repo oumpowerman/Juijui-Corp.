@@ -105,13 +105,15 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             // If customPenalty is provided (from AutoJudge), use it. Otherwise use default base.
             const basePenalty = penalties.HP_PENALTY_LATE || 5;
             const hpPenalty = context.customPenalty ? Math.abs(context.customPenalty) : basePenalty;
-            const daysLateText = context.daysLate ? ` (ช้า ${context.daysLate} วัน)` : '';
+            const daysLate = context.daysLate || 1;
+            const daysLateText = daysLate > 0 ? ` (ช้า ${daysLate} วัน)` : '';
+            const taskTitle = context.title ? `"${context.title}"` : 'งาน';
 
             return {
                 xp: 0,
                 hp: -hpPenalty,
                 coins: -(penalties.COIN_PENALTY_LATE_PER_DAY || 5),
-                message: `ส่งงานช้ากว่ากำหนด!${daysLateText}`,
+                message: `โดนหักคะแนน! ${taskTitle} ล่าช้า${daysLateText}`,
                 details: `-${hpPenalty} HP`
             };
         }

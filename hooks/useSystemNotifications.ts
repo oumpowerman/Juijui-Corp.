@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, User, AppNotification } from '../types';
-import { startOfDay } from 'date-fns';
+import { startOfDay, isSameDay } from 'date-fns';
 import { mapGameLogToNotification, mapTaskToNotification } from '../lib/notificationMappers';
 
 export const useSystemNotifications = (tasks: Task[], currentUser: User | null) => {
@@ -44,13 +44,43 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
             // 3. Generate Dynamic Alerts (Computed on the fly)
             const dynamicNotifs: AppNotification[] = [];
 
-            // A. Task Logic (Overdue / Upcoming) - Uses imported Mapper
+            // A. Map Game Logs to Notifications & Track Penalties
+            // We do this BEFORE Tasks to know what has been penalized today
+            const penalizedTaskIdsToday = new Set<string>();
+            const processedLogKeys = new Set<string>();
+
+            if (gameLogs) {
+                gameLogs.forEach((log: any) => {
+                    // Check if this log is a penalty for a task that happened TODAY
+                    if (log.action_type === 'TASK_LATE' && log.related_id) {
+                        const logDate = new Date(log.created_at);
+                        if (isSameDay(logDate, today)) {
+                            penalizedTaskIdsToday.add(log.related_id);
+                        }
+                    }
+
+                    // Deduplicate logs visually
+                    const dedupKey = `${log.action_type}_${log.related_id || log.id}`;
+                    if (processedLogKeys.has(dedupKey)) return; 
+                    processedLogKeys.add(dedupKey);
+
+                    const notif = mapGameLogToNotification(log, lastReadTime);
+                    dynamicNotifs.push(notif);
+                });
+            }
+
+            // B. Task Logic (Overdue / Upcoming) - Uses imported Mapper
             tasks.forEach(task => {
+                // IMPORTANT: If this task was already penalized today (found in gameLogs),
+                // SKIP generating the generic "Overdue" alert.
+                // The user will see the "โดนหักคะแนน!" notification instead.
+                if (penalizedTaskIdsToday.has(task.id)) return;
+
                 const notif = mapTaskToNotification(task, currentUser, lastReadTime);
                 if (notif) dynamicNotifs.push(notif);
             });
 
-            // B. Admin Checks (Leave Requests)
+            // C. Admin Checks (Leave Requests)
             if (currentUser.role === 'ADMIN') {
                 const { data: leaves } = await supabase
                     .from('leave_requests')
@@ -70,20 +100,6 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
                         });
                     });
                 }
-            }
-
-            // C. Map Game Logs to Notifications (With Deduplication) - Uses imported Mapper
-            if (gameLogs) {
-                const processedKeys = new Set<string>();
-                
-                gameLogs.forEach((log: any) => {
-                    const dedupKey = `${log.action_type}_${log.related_id || log.id}`;
-                    if (processedKeys.has(dedupKey)) return; 
-                    processedKeys.add(dedupKey);
-
-                    const notif = mapGameLogToNotification(log, lastReadTime);
-                    dynamicNotifs.push(notif);
-                });
             }
 
             // 4. Merge & Map DB Notifs
@@ -113,13 +129,17 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
 
         fetchAllNotifications();
 
-        // Subscribe to NEW db notifications and GAME LOGS
+        // Subscribe to NEW db notifications, GAME LOGS, and LEAVE REQUESTS (For Admin)
         const channel = supabase
             .channel('system-notifications-v2')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
                 fetchAllNotifications();
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_logs', filter: `user_id=eq.${currentUser.id}` }, () => {
+                 fetchAllNotifications();
+            })
+            // NEW: Listen for leave requests so Admins get instant alerts
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
                  fetchAllNotifications();
             })
             .subscribe();

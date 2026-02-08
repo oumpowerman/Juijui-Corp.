@@ -1,6 +1,8 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, RefreshCw, X, Check, SwitchCamera } from 'lucide-react';
+import { format } from 'date-fns';
+import th from 'date-fns/locale/th';
 
 interface CameraViewProps {
     challengeText: string;
@@ -18,7 +20,6 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
 
     // Start Camera Function
     const startCamera = useCallback(async () => {
-        // Stop previous stream if any
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
@@ -27,9 +28,8 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
             const mediaStream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: facingMode,
-                    // FIX: Use 4:3 aspect ratio (1280x960) to prevent sensor cropping/zooming
                     width: { ideal: 1280 }, 
-                    height: { ideal: 960 } 
+                    height: { ideal: 720 } 
                 } 
             });
             setStream(mediaStream);
@@ -50,7 +50,7 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                 stream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [facingMode]); // Re-run when facingMode changes
+    }, [facingMode]);
 
     const toggleCamera = () => {
         setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
@@ -74,6 +74,32 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                 
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
+                // --- WATERMARK LOGIC START ---
+                // Reset transform to draw text correctly
+                context.setTransform(1, 0, 0, 1, 0, 0);
+
+                // Add Timestamp Overlay
+                const now = new Date();
+                const dateStr = format(now, 'dd MMM yyyy HH:mm:ss', { locale: th });
+                
+                // Gradient Background for Text
+                const gradient = context.createLinearGradient(0, canvas.height - 60, 0, canvas.height);
+                gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+                gradient.addColorStop(1, "rgba(0, 0, 0, 0.7)");
+                context.fillStyle = gradient;
+                context.fillRect(0, canvas.height - 100, canvas.width, 100);
+
+                // Draw Text
+                context.font = "bold 24px sans-serif";
+                context.fillStyle = "white";
+                context.textAlign = "right";
+                context.fillText(dateStr, canvas.width - 20, canvas.height - 20);
+                
+                context.font = "16px sans-serif";
+                context.fillStyle = "#fbbf24"; // Yellow
+                context.fillText("Juijui Planner Verified", canvas.width - 20, canvas.height - 50);
+                // --- WATERMARK LOGIC END ---
+                
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
                 setImagePreview(dataUrl);
             }
@@ -84,7 +110,7 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
         if (imagePreview) {
             const res = await fetch(imagePreview);
             const blob = await res.blob();
-            const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
+            const file = new File([blob], `attendance-${Date.now()}.jpg`, { type: "image/jpeg" });
             onCapture(file);
         }
     };
@@ -143,13 +169,13 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                 <div className="p-8 flex justify-between items-center gap-4 max-w-md mx-auto">
                     {!imagePreview ? (
                         <>
-                            {/* Gallery / Placeholder (Left) */}
+                            {/* Placeholder (Left) */}
                             <div className="w-12 h-12"></div> 
 
                             {/* Shutter (Center) */}
                             <button 
                                 onClick={takePhoto}
-                                className="w-20 h-20 rounded-full border-[6px] border-white flex items-center justify-center bg-white/20 active:scale-95 transition-transform shadow-lg"
+                                className="w-20 h-20 rounded-full border-[6px] border-white flex items-center justify-center bg-white/20 active:scale-95 transition-transform shadow-lg hover:bg-white/30"
                             >
                                 <div className="w-16 h-16 bg-white rounded-full"></div>
                             </button>

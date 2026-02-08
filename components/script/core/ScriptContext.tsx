@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
 import { Editor } from '@tiptap/core';
 import { useScriptComments } from '../../../hooks/useScriptComments';
+import { useScriptBroadcast } from '../../../hooks/useScriptBroadcast';
 
 interface ScriptContextType {
     // Data State
@@ -82,6 +83,11 @@ interface ScriptContextType {
     handleGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<void>;
     handleInsertCharacter: (charName: string) => void;
     onPromote: () => void;
+    
+    // Realtime Broadcast
+    sendLiveUpdate: (content: string) => void;
+    liveContent: string | null;
+    isBroadcastConnected: boolean;
     
     // Permissions
     isScriptOwner: boolean;
@@ -177,6 +183,13 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const estimatedSeconds = Math.ceil(content.length / 12); 
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
     const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
+    
+    // --- REALTIME BROADCAST ---
+    const { sendLiveUpdate, liveContent, isConnected: isBroadcastConnected } = useScriptBroadcast(
+        script.id, 
+        currentUser.id, 
+        lockStatus === 'LOCKED_BY_ME'
+    );
 
     // --- COMMENTS INTEGRATION ---
     const addComment = async (text: string, highlightId?: string, selectedText?: string) => {
@@ -400,6 +413,10 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isCommentsOpen, setIsCommentsOpen,
             comments, addComment, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook, scrollToComment,
             activeCommentId, setActiveCommentId,
+            
+            // Broadcast
+            sendLiveUpdate, liveContent, isBroadcastConnected,
+
             handleSave,
             handleGenerateAI: handleGenerateAIWrapper,
             handleInsertCharacter,

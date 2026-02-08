@@ -138,7 +138,10 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         try {
             // COMPRESSION LOGIC
             const compressedFile = await compressImage(capturedFile);
-            const locName = locationState.matchedLocation ? locationState.matchedLocation.name : undefined;
+            
+            // Pass Location Name if available, otherwise just coords
+            const locName = locationState.matchedLocation ? locationState.matchedLocation.name : (selectedType === 'WFH' ? 'WFH' : 'On Site');
+            
             await onConfirm(selectedType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
             onClose();
         } catch (error) {

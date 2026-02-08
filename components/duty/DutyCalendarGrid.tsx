@@ -23,7 +23,7 @@ interface DutyCalendarGridProps {
     onToggleDuty: (id: string) => void;
     onDeleteDuty: (id: string) => void;
     onSubmitProof: (dutyId: string, file: File, userName: string) => Promise<boolean>;
-    onRequestSwap: (duty: Duty) => void; // New Prop passed down
+    onRequestSwap: (duty: Duty) => void; 
 }
 
 const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
@@ -89,6 +89,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                         duty={duty}
                                         assignee={assignee}
                                         isCurrentUser={isCurrentUser}
+                                        currentUserName={currentUser.name} // Pass current user name for Hero assist
                                         onToggle={onToggleDuty}
                                         onDelete={onDeleteDuty}
                                         onSubmitProof={onSubmitProof}

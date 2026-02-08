@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight, CheckSquare, Square, ChevronDown, Layers } from 'lucide-react';
@@ -153,7 +152,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     // Convert constants to options array if MasterData is empty
     const availableFormats = formatOptions.length > 0 
         ? formatOptions.map(o => ({ key: o.key, label: o.label }))
-        : Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: v.split(' ')[0] }));
+        : Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: (v as string).split(' ')[0] }));
 
     const defaultStatusKey = statusOptions.length > 0 ? statusOptions[statusOptions.length - 1].key : 'DONE';
 

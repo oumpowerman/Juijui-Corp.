@@ -44,7 +44,7 @@ const DashboardConfigModal: React.FC<DashboardConfigModalProps> = ({
         availableOptions = Object.entries(STATUS_LABELS).map(([key, label], idx) => ({
             id: key,
             key: key,
-            label: label,
+            label: label as string,
             type: 'STATUS' as const,
             color: 'bg-gray-100 text-gray-600',
             sortOrder: idx,

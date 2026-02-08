@@ -17,11 +17,12 @@ interface QualityGateViewProps {
     users: User[]; 
     masterOptions: MasterOption[]; 
     onOpenTask: (task: Task) => void;
+    currentUser: User; // Ensure we have currentUser
 }
 
 type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING';
 
-const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask }) => {
+const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
     const { handleConfirmAction } = useQualityActions();
     
@@ -133,12 +134,18 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             modalConfig.taskId,
             modalConfig.task,
             feedback,
-            updateReviewStatus
+            updateReviewStatus,
+            currentUser.id // Pass Current User ID here!
         );
         if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };
 
     const totalActiveTasks = groups.critical.length + groups.revise.length + groups.today.length;
+
+    // Permission Check: Can this user review?
+    // Allow Admins AND user with position 'Senior Editor', 'Manager' (Example logic)
+    const canReview = currentUser.role === 'ADMIN' || 
+                     ['Senior', 'Manager', 'Head'].some(role => (currentUser.position || '').includes(role));
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -169,7 +176,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             </div>
 
             {/* Stats */}
-            <QualityStatsWidget reviews={reviews} />
+            <QualityStatsWidget reviews={reviews} users={users} />
 
             {/* Main Control Bar */}
             <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row gap-3 sticky top-2 z-30">
@@ -253,6 +260,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                             onAction={handleActionClick} onOpenTask={onOpenTask} 
                                             getChannelName={getChannelName} getStatusInfo={getStatusInfo}
                                             isOverdue={true} // Special flag for styling
+                                            currentUser={currentUser} // Pass currentUser to check permission
+                                            canReview={canReview}
                                         />
                                     ))}
                                 </div>
@@ -280,6 +289,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                             onAction={handleActionClick} onOpenTask={onOpenTask} 
                                             getChannelName={getChannelName} getStatusInfo={getStatusInfo}
                                             highlightRevise={true}
+                                            currentUser={currentUser}
+                                            canReview={canReview}
                                         />
                                     ))}
                                 </div>
@@ -306,6 +317,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                             key={r.id} review={r} users={users}
                                             onAction={handleActionClick} onOpenTask={onOpenTask} 
                                             getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                            currentUser={currentUser}
+                                            canReview={canReview}
                                         />
                                     ))}
                                 </div>
@@ -332,6 +345,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                             key={r.id} review={r} users={users}
                                             onAction={handleActionClick} onOpenTask={onOpenTask} 
                                             getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                            currentUser={currentUser}
+                                            canReview={canReview}
                                         />
                                     ))}
                                 </div>

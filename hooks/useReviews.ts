@@ -81,20 +81,27 @@ export const useReviews = () => {
         }
     };
 
-    const updateReviewStatus = async (reviewId: string, status: ReviewStatus, feedback?: string) => {
+    const updateReviewStatus = async (reviewId: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => {
         try {
+            const payload: any = { 
+                status, 
+                feedback,
+                is_completed: status === 'PASSED' // Auto complete if passed
+            };
+
+            // Only update reviewer_id if provided (means someone actually clicked it)
+            if (reviewerId) {
+                payload.reviewer_id = reviewerId;
+            }
+
             const { error } = await supabase
                 .from('task_reviews')
-                .update({ 
-                    status, 
-                    feedback,
-                    is_completed: status === 'PASSED' // Auto complete if passed
-                })
+                .update(payload)
                 .eq('id', reviewId);
 
             if (error) throw error;
 
-            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, status, feedback } : r));
+            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, ...payload } : r));
             showToast(status === 'PASSED' ? 'อนุมัติงานแล้ว! ✅' : 'ส่งกลับแก้ไขแล้ว 🛠️', status === 'PASSED' ? 'success' : 'warning');
         } catch (err: any) {
             showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');

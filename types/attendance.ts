@@ -22,6 +22,14 @@ export interface AttendanceLog {
     status: AttendanceStatus;
     note?: string;
     user?: User; // Joined profile
+    
+    // New Structured Data Columns
+    locationLat?: number;
+    locationLng?: number;
+    locationName?: string;
+    checkOutLat?: number;
+    checkOutLng?: number;
+    checkOutLocationName?: string;
 }
 
 export interface AttendanceStats {

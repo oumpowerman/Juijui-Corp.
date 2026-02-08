@@ -1,5 +1,5 @@
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { ViewMode } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
@@ -9,8 +9,9 @@ import NotificationPopover from '../components/NotificationPopover';
 import { useTaskManager } from '../hooks/useTaskManager';
 import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useChatUnread } from '../hooks/useChatUnread';
-import { useAutoJudge } from '../hooks/useAutoJudge'; // New Import
-import { Loader2 } from 'lucide-react';
+import { useAutoJudge } from '../hooks/useAutoJudge'; 
+import { useGameEventListener } from '../hooks/useGameEventListener'; 
+import { Loader2, Search } from 'lucide-react';
 
 // --- LAZY LOAD PAGES ---
 const Dashboard = lazy(() => import('../components/Dashboard'));
@@ -32,10 +33,12 @@ const GoalView = lazy(() => import('../components/GoalView'));
 const WikiView = lazy(() => import('../components/WikiView'));
 const SystemLogicGuide = lazy(() => import('../components/admin/SystemLogicGuide'));
 const LeaderboardView = lazy(() => import('../components/LeaderboardView')); 
+const AssetRegistryView = lazy(() => import('../components/assets/AssetRegistryView')); 
 
 // --- NEW MODULE BRIDGES (Lazy Loaded) ---
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
 const FinanceRouter = lazy(() => import('./FinanceRouter'));
+const CommandPalette = lazy(() => import('../components/ui/CommandPalette')); 
 
 // --- LAZY LOAD MODALS ---
 const TaskModal = lazy(() => import('../components/TaskModal'));
@@ -58,6 +61,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
 
   // --- MAIN LOGIC HOOK (Orchestrator) ---
   const {
@@ -69,7 +73,8 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
     channels,
     masterOptions,
     
-    checklistPresets, activeChecklistItems,
+    checklistPresets,
+    activeChecklistItems,
     
     isModalOpen, editingTask, selectedDate, notificationSettings, lockedTaskType,
     setIsModalOpen, setEditingTask,
@@ -95,31 +100,47 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
   
-  // --- ACTIVATE THE JUDGE ---
-  useAutoJudge(currentUserProfile); // Run automated checks for current user
+  // --- BACKGROUND SERVICES ---
+  useAutoJudge(currentUserProfile); 
+  useGameEventListener(currentUserProfile); 
+
+  // --- GLOBAL KEYBOARD SHORTCUTS ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Cmd/Ctrl + K = Command Palette
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            setIsCommandPaletteOpen(prev => !prev);
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleToggleNotification = () => {
-      if (!isNotificationOpen) {
-          markAsViewed(); // Clear badge when opening
-      }
+      // Changed: Do NOT mark as viewed immediately upon opening
+      // Let the user read it first. Marking happens on Close or explicit 'Read All'
       setIsNotificationOpen(!isNotificationOpen);
   };
 
-  // --- ROBUST LOGOUT HANDLER ---
+  // Handler for Popover Close
+  const handleCloseNotification = () => {
+      setIsNotificationOpen(false);
+      markAsViewed(); // Mark read when closing
+  };
+
   const handleForceLogout = async () => {
       try {
-          // Attempt standard sign out
           await supabase.auth.signOut();
       } catch (error) {
-          console.warn("Logout error (session might be missing):", error);
+          console.warn("Logout error:", error);
       } finally {
-          // FORCE CLEANUP: Clear local storage and reload to reset state
           localStorage.clear(); 
           window.location.href = '/'; 
       }
   };
 
-  // 1. Initial Load or Profile Fetching
   if (isManagerLoading) {
      return (
         <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -129,7 +150,6 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
      );
   }
 
-  // 2. Access Control Screens (Must have profile)
   if (!currentUserProfile) {
      return <div className="p-10 text-center text-gray-500">ไม่พบข้อมูลผู้ใช้ (User Profile Not Found)</div>;
   }
@@ -142,7 +162,6 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
     return <InactiveScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
-  // 3. View Router
   const renderContent = () => {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -204,7 +223,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                   onToggleStatus={toggleUserStatus}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onAddTask={(type) => handleAddTask(type)}
-                  onMoveTask={(t) => handleSaveTask(t)} // DnD Handler
+                  onMoveTask={(t) => handleSaveTask(t)}
                 />
               );
             case 'CHAT':
@@ -285,6 +304,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                         users={allUsers}
                         masterOptions={masterOptions}
                         onOpenTask={handleEditTask}
+                        currentUser={currentUserProfile}
                     />
                 );
             case 'KPI':
@@ -325,15 +345,16 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
             case 'SYSTEM_GUIDE':
                 return <SystemLogicGuide />;
                 
-            // --- FIXED: Leaderboard Route ---
             case 'LEADERBOARD':
                 return <LeaderboardView users={allUsers} currentUser={currentUserProfile} />;
 
-            // --- NEW BRIDGES ---
             case 'ATTENDANCE':
                 return <AttendanceRouter currentUser={currentUserProfile} users={allUsers} />;
             case 'FINANCE':
-                return <FinanceRouter currentUser={currentUserProfile} />;
+                return <FinanceRouter currentUser={currentUserProfile} users={allUsers} />;
+
+            case 'ASSETS':
+                return <AssetRegistryView users={allUsers} masterOptions={masterOptions} />;
                 
             default:
               return <div className="p-10 text-center text-gray-500">Coming Soon...</div>;
@@ -356,10 +377,30 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
         isNotificationOpen={isNotificationOpen}
         onToggleNotification={handleToggleNotification}
     >
+        {/* --- GLOBAL SEARCH BUTTON (FLOATING) --- */}
+        <button 
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="fixed bottom-6 right-6 z-40 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
+        >
+            <Search className="w-6 h-6" />
+        </button>
+
         {renderContent()}
 
-        {/* --- GLOBAL MODALS (Suspense Wrapped) --- */}
+        {/* --- GLOBAL MODALS --- */}
         <Suspense fallback={null}>
+            {isCommandPaletteOpen && (
+                <CommandPalette 
+                    isOpen={isCommandPaletteOpen}
+                    onClose={() => setIsCommandPaletteOpen(false)}
+                    onNavigate={setCurrentView}
+                    tasks={tasks}
+                    users={allUsers}
+                    onOpenTask={(task) => { handleEditTask(task); setIsCommandPaletteOpen(false); }}
+                    onOpenProfile={() => { setIsProfileModalOpen(true); setIsCommandPaletteOpen(false); }}
+                />
+            )}
+
             {isModalOpen && (
                 <TaskModal
                     isOpen={isModalOpen}
@@ -397,16 +438,16 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
             )}
         </Suspense>
         
-        {/* Notification Modal (Portal) */}
         <NotificationPopover 
             isOpen={isNotificationOpen}
-            onClose={() => setIsNotificationOpen(false)}
+            onClose={handleCloseNotification} // Changed to new handler
             notifications={notifications}
             tasks={tasks}
             onOpenTask={handleEditTask}
             onOpenSettings={() => setIsNotifSettingsOpen(true)}
             onDismiss={dismissNotification}
             onMarkAllRead={markAllAsRead}
+            onNavigate={setCurrentView} 
         />
 
     </AppShell>

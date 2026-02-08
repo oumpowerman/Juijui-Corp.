@@ -10,6 +10,7 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
+    "incremental": true,
     "types": [
       "node"
     ],

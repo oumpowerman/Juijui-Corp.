@@ -11,6 +11,7 @@ import {
     ChevronLeft, ChevronRight, Search, BarChart3, HeartPulse 
 } from 'lucide-react';
 import { AttendanceLog } from '../../types/attendance';
+import { checkIsLate } from '../../lib/attendanceUtils';
 
 interface AdminAttendanceDashboardProps {
     users: User[];
@@ -31,6 +32,24 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Config State
+    const [startTime, setStartTime] = useState('10:00');
+    const [lateBuffer, setLateBuffer] = useState(0);
+
+    // Load Config
+    useEffect(() => {
+        const loadConfig = async () => {
+             const { data } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+             if(data) {
+                 const start = data.find(c => c.key === 'START_TIME')?.label || '10:00';
+                 const buffer = parseInt(data.find(c => c.key === 'LATE_BUFFER')?.label || '0');
+                 setStartTime(start);
+                 setLateBuffer(buffer);
+             }
+        };
+        loadConfig();
+    }, []);
 
     // Fetch Logs for the selected month
     useEffect(() => {
@@ -98,11 +117,9 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 } else {
                     stat.present++; // Only count working days as present
 
-                    // Late Check (Hardcoded 10:00 AM rule for now)
+                    // Dynamic Late Check
                     if (log.checkInTime) {
-                        const hour = log.checkInTime.getHours();
-                        const minute = log.checkInTime.getMinutes();
-                        if (hour > 10 || (hour === 10 && minute > 0)) {
+                        if (checkIsLate(log.checkInTime, startTime, lateBuffer)) {
                             stat.late++;
                         }
                     }
@@ -117,7 +134,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         });
 
         return Object.values(statsMap);
-    }, [users, logs]);
+    }, [users, logs, startTime, lateBuffer]);
 
     // Filtering
     const filteredStats = userStats.filter(stat => {

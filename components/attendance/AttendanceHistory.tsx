@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { AttendanceLog } from '../../types/attendance';
-import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; // Import hook type
+import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; 
 import { format, isSameDay } from 'date-fns';
-import subDays from 'date-fns/subDays';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
 import th from 'date-fns/locale/th';
@@ -11,9 +10,10 @@ import {
     Clock, Calendar, CheckCircle2, MapPin, XCircle, Image as ImageIcon, 
     ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight
 } from 'lucide-react';
+import { parseAttendanceMetadata } from '../../lib/attendanceUtils';
 
 interface AttendanceHistoryProps {
-    userId: string; // Changed: Pass ID instead of data to let component fetch itself
+    userId: string;
 }
 
 const PAGE_SIZE = 15;
@@ -39,7 +39,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     // Initial Fetch & Filter Change
     useEffect(() => {
         fetchData();
-    }, [page, filters]); // Re-fetch on page/filter change
+    }, [page, filters]); 
 
     const fetchData = async () => {
         setIsFetching(true);
@@ -51,7 +51,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
 
     const handleFilterChange = (key: keyof AttendanceFilters, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }));
-        setPage(1); // Reset to page 1 on filter change
+        setPage(1); 
     };
 
     const resetFilters = () => {
@@ -72,10 +72,20 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
         return hour > 10 || (hour === 10 && log.checkInTime.getMinutes() > 0);
     };
 
-    const getProofUrl = (note?: string) => {
-        if (!note) return null;
-        const match = note.match(/\[PROOF:(.*?)\]/);
-        return match ? match[1] : null;
+    const getProofUrl = (log: AttendanceLog) => {
+        // Fallback for old data in note
+        if (log.note && log.note.includes('[PROOF:')) {
+            const meta = parseAttendanceMetadata(log.note);
+            return meta.proofUrl;
+        }
+        return null; // or from new column if added later
+    };
+
+    const getLocationDisplay = (log: AttendanceLog) => {
+        if (log.locationName) return log.locationName;
+        // Fallback to legacy note parsing
+        const meta = parseAttendanceMetadata(log.note);
+        return meta.locationName || (meta.location ? `${meta.location.lat.toFixed(4)}, ${meta.location.lng.toFixed(4)}` : '-');
     };
 
     const getWorkHours = (log: AttendanceLog) => {
@@ -177,7 +187,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                             ) : (
                                 historyLogs.map(log => {
                                     const late = isLate(log);
-                                    const proof = getProofUrl(log.note);
+                                    const proof = getProofUrl(log);
                                     
                                     return (
                                         <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors group">
@@ -206,13 +216,18 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide ${
-                                                    log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                    log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                    'bg-orange-50 text-orange-600 border-orange-100'
-                                                }`}>
-                                                    {log.workType}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide w-fit ${
+                                                        log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                                        log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                        'bg-orange-50 text-orange-600 border-orange-100'
+                                                    }`}>
+                                                        {log.workType}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 truncate max-w-[120px]" title={getLocationDisplay(log)}>
+                                                        {getLocationDisplay(log)}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">{getWorkHours(log)}</span>

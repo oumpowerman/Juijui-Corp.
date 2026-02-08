@@ -215,7 +215,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 
                 // Logic: Overdue OR Due Today/Tomorrow
                 const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
-                const isDueSoon = isToday(t.endDate) || isBefore(t.endDate, addDays(new Date(), 2));
+                const isDueSoon = isToday(t.endDate) || isBefore(t.endDate, addDays(new Date(), 1));
                 
                 return isOverdue || isDueSoon;
             }).length;

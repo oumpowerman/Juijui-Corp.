@@ -55,3 +55,16 @@
 .comment-highlight:hover {
   @apply bg-yellow-300/50;
 }
+
+/* Notification Bell Animation */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-10deg); }
+  40% { transform: rotate(10deg); }
+  60% { transform: rotate(-5deg); }
+  80% { transform: rotate(5deg); }
+}
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out infinite;
+  transform-origin: top center;
+}

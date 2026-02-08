@@ -4,11 +4,13 @@ import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format } from 'date-fns';
+import { useGamification } from './useGamification';
 
 export const useLeaveRequests = (currentUser?: any) => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { processAction } = useGamification(); // Connect to Game Engine
 
     const fetchRequests = async () => {
         setIsLoading(true);
@@ -92,7 +94,7 @@ export const useLeaveRequests = (currentUser?: any) => {
             const { error } = await supabase.from('leave_requests').insert(payload);
             if (error) throw error;
 
-            // Notify Admin via Chat Bot
+            // Notify Chat
             const msg = `📢 **${currentUser.name}** แจ้งขอลา/แก้ไขเวลา (${type}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
             await supabase.from('team_messages').insert({
                 content: msg,
@@ -100,6 +102,21 @@ export const useLeaveRequests = (currentUser?: any) => {
                 message_type: 'TEXT',
                 user_id: null
             });
+
+            // --- NOTIFY ADMINS ---
+            // 1. Fetch Admin IDs
+            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
+            if (admins && admins.length > 0) {
+                const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'APPROVAL_REQ',
+                    title: `📋 คำขออนุมัติใหม่: ${currentUser.name}`,
+                    message: `${type}: ${reason}`,
+                    is_read: false,
+                    link_path: 'ATTENDANCE'
+                }));
+                await supabase.from('notifications').insert(notifications);
+            }
 
             showToast('ส่งคำขอเรียบร้อย รอหัวหน้าอนุมัติครับ 📨', 'success');
             return true;
@@ -141,6 +158,14 @@ export const useLeaveRequests = (currentUser?: any) => {
                      };
                      await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
 
+                     // **GAMIFICATION TRIGGER**: Re-calculate score as if checked in now (Retroactive)
+                     // Will deduct LATE penalty if timeStr is late, or award ON_TIME if okay.
+                     await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
+                         status: 'ON_TIME', // Assuming forgiveness if approved, or check logic?
+                         // Let's rely on strict logic: Calculate late status based on approved time
+                         time: timeStr
+                     });
+
                 } else if (request.type === 'FORGOT_CHECKOUT') {
                      // Update existing log
                      const { data: log } = await supabase.from('attendance_logs').select('id').eq('user_id', request.userId).eq('date', logDate).single();
@@ -151,6 +176,12 @@ export const useLeaveRequests = (currentUser?: any) => {
                              status: 'COMPLETED',
                              note: `[APPROVED CORRECTION] ${request.reason}`
                         }).eq('id', log.id);
+                        
+                        // Award completion points
+                        await processAction(request.userId, 'DUTY_COMPLETE', { 
+                            reason: 'Manual Checkout Approved' 
+                        });
+
                      } else {
                          // Fallback create
                          const defaultStart = `${logDate}T10:00:00`;
@@ -167,7 +198,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                 }
 
             } else {
-                // Regular Leave Logic
+                // Regular Leave Logic (Sick, Vacation)
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
                 const logs = days.map(day => ({
                     user_id: request.userId,
@@ -182,14 +213,27 @@ export const useLeaveRequests = (currentUser?: any) => {
                     .upsert(logs, { onConflict: 'user_id, date' });
 
                 if (logError) throw logError;
+
+                // **GAMIFICATION**: Log leave (Neutral event, but good for tracking)
+                await processAction(request.userId, 'ATTENDANCE_LEAVE', { type: request.type });
             }
 
-            // 3. Notify User
+            // 3. Notify User (Chat + Persistent Notification)
             await supabase.from('team_messages').insert({
                 content: `✅ คำขอของ **${request.user?.name}** (${request.type}) ได้รับการอนุมัติแล้ว`,
                 is_bot: true,
                 message_type: 'TEXT',
                 user_id: null
+            });
+            
+            // Persistent Notification
+            await supabase.from('notifications').insert({
+                 user_id: request.userId,
+                 type: 'INFO',
+                 title: '✅ คำขออนุมัติสำเร็จ',
+                 message: `คำขอ ${request.type} ได้รับการอนุมัติแล้ว`,
+                 is_read: false,
+                 link_path: 'ATTENDANCE'
             });
 
             showToast('อนุมัติและปรับปรุงข้อมูลเวลาให้แล้ว ✅', 'success');
@@ -204,6 +248,20 @@ export const useLeaveRequests = (currentUser?: any) => {
                 .from('leave_requests')
                 .update({ status: 'REJECTED', approver_id: currentUser.id })
                 .eq('id', id);
+            
+            // Fetch request details to notify user
+            const { data: req } = await supabase.from('leave_requests').select('user_id, type').eq('id', id).single();
+            if (req) {
+                 await supabase.from('notifications').insert({
+                     user_id: req.user_id,
+                     type: 'INFO',
+                     title: '❌ คำขอถูกปฏิเสธ',
+                     message: `คำขอ ${req.type} ของคุณไม่ผ่านการอนุมัติ`,
+                     is_read: false,
+                     link_path: 'ATTENDANCE'
+                });
+            }
+
             showToast('ปฏิเสธคำขอแล้ว', 'info');
         } catch (err: any) {
             showToast('เกิดข้อผิดพลาด', 'error');

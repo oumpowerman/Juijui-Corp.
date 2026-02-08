@@ -58,39 +58,81 @@ export const useQualityActions = () => {
         taskId: string, 
         task: Task | undefined,
         feedback: string | undefined,
-        updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string) => Promise<void>
+        updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => Promise<void>,
+        reviewerId: string // NEW ARGUMENT
     ) => {
         setIsProcessing(true);
         try {
             const tableName = task?.type === 'CONTENT' ? 'contents' : 'tasks';
             
+            // Determine Notification Targets
+            const recipients = new Set([
+                ...(task?.assigneeIds || []),
+                ...(task?.ideaOwnerIds || []),
+                ...(task?.editorIds || [])
+            ]);
+
             if (action === 'PASS') {
-                await updateReviewStatus(reviewId, 'PASSED');
+                // Pass reviewerId here
+                await updateReviewStatus(reviewId, 'PASSED', undefined, reviewerId);
+                
                 await supabase.from(tableName).update({ status: 'DONE' }).eq('id', taskId);
                 await supabase.from('task_logs').insert({
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
-                    details: 'Quality Gate: PASSED -> Status set to DONE'
+                    details: 'Quality Gate: PASSED -> Status set to DONE',
+                    user_id: reviewerId // Log who did it
                 });
 
                 // Trigger XP Distribution
                 if (task) {
                     await distributeXP(task);
                 }
+                
+                // NOTIFICATION: SUCCESS
+                if (recipients.size > 0) {
+                     const notifications = Array.from(recipients).map(uid => ({
+                         user_id: uid,
+                         type: 'REVIEW',
+                         title: '✅ งานผ่านแล้ว!',
+                         message: `งาน "${task?.title}" ได้รับการอนุมัติแล้ว`,
+                         related_id: taskId,
+                         link_path: 'STOCK',
+                         is_read: false
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                }
 
             } else {
                 if (!feedback?.trim()) {
                     throw new Error("กรุณาระบุสิ่งที่ต้องแก้ไข");
                 }
-                await updateReviewStatus(reviewId, 'REVISE', feedback);
+                // Pass reviewerId here
+                await updateReviewStatus(reviewId, 'REVISE', feedback, reviewerId);
+                
                 await supabase.from(tableName).update({ status: 'DOING' }).eq('id', taskId);
                 await supabase.from('task_logs').insert({
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
-                    details: `Quality Gate: REVISE -> ${feedback}`
+                    details: `Quality Gate: REVISE -> ${feedback}`,
+                    user_id: reviewerId // Log who did it
                 });
+
+                // NOTIFICATION: REVISE
+                if (recipients.size > 0) {
+                     const notifications = Array.from(recipients).map(uid => ({
+                         user_id: uid,
+                         type: 'REVIEW',
+                         title: '🛠️ งานถูกส่งแก้',
+                         message: `งาน "${task?.title}" ต้องแก้ไข: ${feedback}`,
+                         related_id: taskId,
+                         link_path: 'STOCK',
+                         is_read: false
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                }
             }
             return true;
         } catch (err: any) {

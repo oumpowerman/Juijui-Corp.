@@ -190,6 +190,21 @@ const ContentForm: React.FC<ContentFormProps> = ({
             // Update status to FEEDBACK
             setStatus('FEEDBACK');
             await supabase.from('contents').update({ status: 'FEEDBACK' }).eq('id', initialData.id);
+
+            // --- NOTIFY ADMINS ---
+            const admins = users.filter(u => u.role === 'ADMIN');
+            if (admins.length > 0) {
+                 const notifications = admins.map(admin => ({
+                     user_id: admin.id,
+                     type: 'REVIEW',
+                     title: `🔍 งานส่งตรวจใหม่: ${title}`,
+                     message: `ส่งโดย ${currentUser?.name || 'Unknown'} (Draft ${nextRound})`,
+                     related_id: initialData.id,
+                     link_path: 'QUALITY_GATE',
+                     is_read: false
+                 }));
+                 await supabase.from('notifications').insert(notifications);
+            }
             
             showToast(`ส่ง Draft ${nextRound} เรียบร้อย! 🚀`, 'success');
             onClose();
@@ -208,18 +223,18 @@ const ContentForm: React.FC<ContentFormProps> = ({
             <ScriptEditor 
                 script={scriptToEdit}
                 users={users}
-                currentUser={currentUser}
                 channels={channels}
                 masterOptions={masterOptions}
+                currentUser={currentUser}
                 onClose={() => {
                     setScriptToEdit(null);
                     if (initialData?.id) {
                         getScriptByContentId(initialData.id).then(setLinkedScript);
                     }
                 }}
-                onPromote={() => showToast('สคริปต์นี้เชื่อมโยงกับงานนี้อยู่แล้วครับ', 'info')}
                 onSave={updateScript}
                 onGenerateAI={generateScriptWithAI}
+                onPromote={() => {}}
             />
         );
     }
@@ -315,7 +330,6 @@ const ContentForm: React.FC<ContentFormProps> = ({
                             disabled={isSendingQC}
                             className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50"
                         >
-                            
                             {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                             ส่งตรวจ
                         </button>
@@ -332,5 +346,6 @@ const ContentForm: React.FC<ContentFormProps> = ({
         </form>
     );
 };
+
 
 export default ContentForm;

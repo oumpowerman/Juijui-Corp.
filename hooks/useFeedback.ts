@@ -78,6 +78,21 @@ export const useFeedback = (currentUser: User) => {
             const { error } = await supabase.from('feedbacks').insert(payload);
             if (error) throw error;
 
+            // --- NOTIFY ADMINS ---
+            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
+            if (admins && admins.length > 0) {
+                 const notifTitle = type === 'ISSUE' ? '🚨 รายงานปัญหา (Private)' : '💡 ความคิดเห็นใหม่';
+                 const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'INFO',
+                    title: notifTitle,
+                    message: `${isAnonymous ? 'Anonymous' : currentUser.name}: ${content.substring(0, 50)}...`,
+                    is_read: false,
+                    link_path: 'FEEDBACK'
+                }));
+                await supabase.from('notifications').insert(notifications);
+            }
+
             showToast('ส่งความคิดเห็นแล้ว! รอแอดมินตรวจสอบครับ 📨', 'success');
             return true;
         } catch (err: any) {

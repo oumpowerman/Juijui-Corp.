@@ -3,17 +3,30 @@ import React, { useState, useEffect } from 'react';
 import { useScriptContext } from '../core/ScriptContext';
 import RichTextEditor from '../../ui/RichTextEditor';
 import CharacterBar from './CharacterBar';
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageSquarePlus, Eye, Radio } from 'lucide-react';
 import { CommentMark } from './CommentExtension';
 
 const ScriptTextArea: React.FC = () => {
     const { 
         content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, zoomLevel,
-        addComment, scrollToComment, editorInstance
+        addComment, scrollToComment, editorInstance, 
+        sendLiveUpdate, liveContent, isBroadcastConnected 
     } = useScriptContext();
 
     const [isCommentInputOpen, setIsCommentInputOpen] = useState(false);
     const [commentText, setCommentText] = useState('');
+
+    // --- REALTIME: Receive Live Updates (Spectator Mode) ---
+    useEffect(() => {
+        if (isReadOnly && liveContent && editorInstance) {
+            // Check if content actually changed to avoid cursor jitter
+            if (editorInstance.getHTML() !== liveContent) {
+                // Update content silently (don't trigger update event if possible to avoid loops)
+                // Note: Removed 'false' arg as it caused type error. Loop is prevented by !isReadOnly check in onChange.
+                editorInstance.commands.setContent(liveContent); 
+            }
+        }
+    }, [liveContent, isReadOnly, editorInstance]);
 
     // Listener for clicking on comment marks
     useEffect(() => {
@@ -24,11 +37,7 @@ const ScriptTextArea: React.FC = () => {
             const { $from } = selection;
             
             // Check if cursor is within a comment mark
-            const node = $from.nodeAfter || $from.nodeBefore; // Simple check around cursor
-            // Better check: iterate marks at position
             let commentId = null;
-            
-            // Tiptap way to get active mark attributes
             if (editorInstance.isActive('comment')) {
                  const attrs = editorInstance.getAttributes('comment');
                  if (attrs && attrs.id) {
@@ -74,8 +83,30 @@ const ScriptTextArea: React.FC = () => {
             `} 
         >
             {/* Character Bar (Sticky Header) */}
-            <div className="sticky top-0 z-20 w-full bg-[#f8fafc]">
+            <div className="sticky top-0 z-20 w-full bg-[#f8fafc] flex justify-between items-center pr-4">
                 <CharacterBar />
+                
+                {/* Real-time Indicator Badge */}
+                {isBroadcastConnected && (
+                    <div className={`
+                        flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border shadow-sm
+                        ${isReadOnly 
+                            ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' 
+                            : 'bg-green-50 text-green-600 border-green-100'}
+                    `}>
+                        {isReadOnly ? (
+                            <>
+                                <Eye className="w-3 h-3" />
+                                <span>LIVE Watching</span>
+                            </>
+                        ) : (
+                            <>
+                                <Radio className="w-3 h-3" />
+                                <span>Broadcasting</span>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Dot Grid Pattern Background (Fixed behind) */}
@@ -103,7 +134,14 @@ const ScriptTextArea: React.FC = () => {
                         <div className="p-6 md:p-10 lg:p-12 flex-1 cursor-text caret-black">
                             <RichTextEditor 
                                 content={content}
-                                onChange={setContent}
+                                onChange={(html) => {
+                                    // 1. Update local state
+                                    setContent(html);
+                                    // 2. Broadcast if Writer
+                                    if (!isReadOnly) {
+                                        sendLiveUpdate(html);
+                                    }
+                                }}
                                 readOnly={isReadOnly}
                                 onEditorReady={(editor) => {
                                     setEditorInstance(editor);

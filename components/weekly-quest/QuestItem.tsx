@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
     CheckCircle2, MousePointerClick, Database, ChevronUp, ChevronDown, 
@@ -94,7 +93,7 @@ const QuestItem: React.FC<QuestItemProps> = ({
         }
     };
 
-    const formatOptions = Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: v.split(' ')[0] }));
+    const formatOptions = Object.entries(CONTENT_FORMATS).map(([k, v]) => ({ key: k, label: (v as string).split(' ')[0] }));
 
     return (
         <div 

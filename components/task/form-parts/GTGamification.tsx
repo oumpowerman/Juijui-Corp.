@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Star } from 'lucide-react';
 import { Difficulty } from '../../../types';
@@ -27,7 +26,7 @@ const GTGamification: React.FC<GTGamificationProps> = ({ difficulty, setDifficul
                 <div>
                     <label className="text-[10px] font-bold text-gray-400 mb-1 block uppercase">Difficulty</label>
                     <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)} className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-600 cursor-pointer hover:border-emerald-300 transition-all focus:ring-2 focus:ring-emerald-100">
-                        {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}
+                        {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => <option key={key} value={key}>{(val as any).label}</option>)}
                     </select>
                 </div>
                 <div>

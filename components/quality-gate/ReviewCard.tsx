@@ -2,7 +2,7 @@
 import React from 'react';
 import { ReviewSession, User, Task } from '../../types';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock } from 'lucide-react';
+import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck } from 'lucide-react';
 import { DIFFICULTY_LABELS } from '../../constants';
 
 interface ReviewCardProps {
@@ -13,9 +13,11 @@ interface ReviewCardProps {
     getChannelName: (id?: string) => string;
     getStatusInfo: (statusKey: string) => { label: string, color: string };
     
-    // New Props for context styling
+    // New Props for context styling and permission
     isOverdue?: boolean;
     highlightRevise?: boolean;
+    currentUser: User;
+    canReview: boolean;
 }
 
 const ReviewCard: React.FC<ReviewCardProps> = ({ 
@@ -26,7 +28,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     getChannelName,
     getStatusInfo,
     isOverdue,
-    highlightRevise
+    highlightRevise,
+    currentUser,
+    canReview
 }) => {
     const today = new Date();
     // Helper to find the latest asset link
@@ -46,6 +50,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     }
 
     const primaryAssignee = users.find(u => u.id === taskAssigneeIds[0]);
+
+    // FIND REVIEWER (If reviewed)
+    const reviewer = review.reviewerId ? users.find(u => u.id === review.reviewerId) : null;
 
     // Calculate XP
     const difficulty = review.task?.difficulty || 'MEDIUM';
@@ -186,22 +193,43 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
             {/* Actions */}
             <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto mt-2 md:mt-0 shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-4">
-                {review.status === 'PENDING' && review.task && (
-                    <>
-                        <button 
-                            onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!)}
-                            className="flex-1 md:flex-none px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center justify-center transition-all shadow-sm shadow-emerald-200 active:scale-95"
-                        >
-                            <ThumbsUp className="w-4 h-4 mr-2" /> ผ่าน (Pass)
-                        </button>
-                        <button 
-                            onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!)}
-                            className="flex-1 md:flex-none px-5 py-2.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 rounded-xl text-xs font-bold flex items-center justify-center transition-all active:scale-95"
-                        >
-                            <Wrench className="w-4 h-4 mr-2" /> แก้ (Revise)
-                        </button>
-                    </>
+                
+                {/* SHOW REVIEWER IF COMPLETED */}
+                {(review.status === 'PASSED' || review.status === 'REVISE') && reviewer && (
+                     <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                         <img src={reviewer.avatarUrl} className="w-6 h-6 rounded-full object-cover" />
+                         <div className="min-w-0">
+                             <p className="text-[9px] text-gray-400 font-bold uppercase leading-none">Reviewed By</p>
+                             <p className="text-xs font-bold text-gray-700 truncate max-w-[80px]">{reviewer.name}</p>
+                         </div>
+                     </div>
                 )}
+
+                {/* ACTION BUTTONS (Only if Pending and Permission Granted) */}
+                {review.status === 'PENDING' && review.task && (
+                    canReview ? (
+                        <>
+                            <button 
+                                onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!)}
+                                className="flex-1 md:flex-none px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center justify-center transition-all shadow-sm shadow-emerald-200 active:scale-95"
+                            >
+                                <ThumbsUp className="w-4 h-4 mr-2" /> ผ่าน (Pass)
+                            </button>
+                            <button 
+                                onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!)}
+                                className="flex-1 md:flex-none px-5 py-2.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 rounded-xl text-xs font-bold flex items-center justify-center transition-all active:scale-95"
+                            >
+                                <Wrench className="w-4 h-4 mr-2" /> แก้ (Revise)
+                            </button>
+                        </>
+                    ) : (
+                        <div className="p-3 bg-gray-100 rounded-xl text-center border border-gray-200">
+                            <ShieldCheck className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                            <p className="text-[10px] text-gray-500 font-bold">รอหัวหน้าตรวจ</p>
+                        </div>
+                    )
+                )}
+
                 <button 
                     onClick={() => review.task && onOpenTask(review.task)}
                     className="flex-1 md:flex-none px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold flex items-center justify-center transition-colors"

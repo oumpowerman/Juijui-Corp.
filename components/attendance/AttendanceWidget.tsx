@@ -69,7 +69,8 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
 
     // Handler: Check In with Drive Upload
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
-        const note = locationName ? `📍 ${locationName}` : undefined;
+        // No longer embedding locationName in note here, passed as separate arg
+        const note = undefined; 
         
         // Custom Uploader Adapter
         const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
@@ -86,7 +87,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
             });
         } : undefined;
 
-        await checkIn(type, file, location, note, googleDriveUploader);
+        await checkIn(type, file, location, locationName, note, googleDriveUploader);
     };
     
     // Handler: Leave Request

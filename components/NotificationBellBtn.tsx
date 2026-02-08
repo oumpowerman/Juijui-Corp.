@@ -30,10 +30,10 @@ const NotificationBellBtn: React.FC<NotificationBellBtnProps> = ({
             `}
             title={title}
         >
-            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-swing text-indigo-600' : ''}`} />
+            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-wiggle text-indigo-600' : ''}`} />
             
             {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
                     {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
             )}

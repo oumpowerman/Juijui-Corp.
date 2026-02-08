@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, TaskType, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface UseTaskFormProps {
     initialData?: Task | null;
@@ -12,20 +14,22 @@ interface UseTaskFormProps {
 }
 
 export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, masterOptions, onSave }: UseTaskFormProps) => {
-    // Basic Fields
+    // --- State ---
     const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [remark, setRemark] = useState('');
+    
+    // Dates & Status
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [status, setStatus] = useState<string>(''); 
     const [priority, setPriority] = useState<Priority>('MEDIUM');
     const [tags, setTags] = useState<string[]>([]);
     
-    // Content Specific
+    // Content Specifics
     const [channelId, setChannelId] = useState<string>('');
-    const [targetPlatforms, setTargetPlatforms] = useState<Platform[]>([]);
+    const [targetPlatforms, setTargetPlatforms] = useState<Platform[]>(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
     const [pillar, setPillar] = useState<string>('');
     const [contentFormat, setContentFormat] = useState<string>('');
     const [category, setCategory] = useState('');
@@ -47,6 +51,10 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
     const [caution, setCaution] = useState('');
     const [importance, setImportance] = useState('');
     const [publishedLinks, setPublishedLinks] = useState<Record<string, string>>({}); 
+
+    // Production Info
+    const [shootDate, setShootDate] = useState('');
+    const [shootLocation, setShootLocation] = useState('');
 
     // Metrics
     const [performance, setPerformance] = useState<TaskPerformance>({
@@ -99,6 +107,10 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             setCaution(initialData.caution || '');
             setImportance(initialData.importance || '');
             setPublishedLinks(initialData.publishedLinks || {}); 
+
+            // Production Info
+            setShootDate(initialData.shootDate ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
+            setShootLocation(initialData.shootLocation || '');
             
             setPerformance(initialData.performance || { views: 0, likes: 0, shares: 0, comments: 0, revenue: 0, reflection: '' });
         } else {
@@ -132,6 +144,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             setCaution('');
             setImportance('');
             setPublishedLinks({});
+            setShootDate('');
+            setShootLocation('');
         }
         setError('');
     }, [initialData, selectedDate, channels, lockedType, masterOptions]); 
@@ -198,7 +212,9 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
                 isUnscheduled: isStock,
                 assigneeIds,
                 performance,
-                publishedLinks: publishedLinks
+                publishedLinks: publishedLinks,
+                shootDate: shootDate ? new Date(shootDate) : undefined,
+                shootLocation: shootLocation || undefined
             } : {
                 assigneeIds,
                 isUnscheduled: false,
@@ -258,6 +274,9 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
         caution, setCaution,
         importance, setImportance,
         publishedLinks, handleLinkChange,
+        
+        shootDate, setShootDate,
+        shootLocation, setShootLocation,
 
         error, setError,
         performance, setPerformance, 
@@ -274,3 +293,4 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
         removeAsset
     };
 };
+    

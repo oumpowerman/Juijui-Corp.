@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AttendanceLog, LeaveType, LocationDef } from '../../../types/attendance';
 import { User } from '../../../types';
-import { LogIn, LogOut, MapPin, CheckCircle2, Clock, Cloud, AlertTriangle, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { LogIn, LogOut, MapPin, CheckCircle2, Clock, Cloud, AlertTriangle, AlertCircle, ArrowRight, ShieldCheck, Palmtree } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import th from 'date-fns/locale/th';
 import LeaveRequestModal from '../LeaveRequestModal';
@@ -14,7 +14,7 @@ import { CheckOutModal } from '../CheckOutModal';
 interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
-    onCheckOut: () => Promise<void>; // Make async
+    onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
@@ -29,13 +29,20 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const isCheckedIn = !!todayLog;
     const { showToast } = useToast();
 
-    // Logic: Detect if the log is from a previous day (Forgot Checkout)
-    const isSessionOutdated = todayLog && todayLog.status === 'WORKING' && !isToday(new Date(todayLog.date));
+    // --- OVERNIGHT LOGIC FIX ---
+    // Check session age to determine if it's truly a "forgotten" session or just a late shift
+    const checkInTime = todayLog?.checkInTime ? new Date(todayLog.checkInTime) : null;
+    const hoursSinceCheckIn = checkInTime ? (new Date().getTime() - checkInTime.getTime()) / (1000 * 60 * 60) : 0;
+    
+    // It is outdated ONLY if it's from a previous day AND older than 18 hours (Shift length safeguard)
+    const isSessionOutdated = todayLog && todayLog.status === 'WORKING' && 
+                              !isToday(new Date(todayLog.date)) && 
+                              hoursSinceCheckIn > 18;
+
     const isAdmin = user.role === 'ADMIN';
     
     // Recovery Logic
     const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
-    
     // Check-out Verification Logic
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
@@ -90,6 +97,35 @@ const StatusCard: React.FC<StatusCardProps> = ({
         // Using FORGOT_CHECKOUT type for correction requests
         return await submitRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
+
+    // State 0: ON LEAVE (New)
+    // If user's workStatus is SICK or VACATION (set via Profile Edit), show Leave Card
+    // (Note: This relies on user manually setting status or system auto-setting it via Leave Request approval in future)
+    if (user.workStatus === 'SICK' || user.workStatus === 'VACATION') {
+         return (
+            <div className={`
+                p-5 rounded-2xl border-2 relative z-10 animate-in slide-in-from-bottom-2 text-center
+                ${user.workStatus === 'SICK' ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}
+            `}>
+                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm ${user.workStatus === 'SICK' ? 'bg-orange-100 text-orange-500' : 'bg-blue-100 text-blue-500'}`}>
+                    {user.workStatus === 'SICK' ? <AlertTriangle className="w-8 h-8" /> : <Palmtree className="w-8 h-8" />}
+                </div>
+                <h3 className="font-bold text-lg">
+                    {user.workStatus === 'SICK' ? 'ลาป่วย (Sick Leave)' : 'พักร้อน (Vacation)'}
+                </h3>
+                <p className="text-sm opacity-80 mt-1 mb-4">
+                    วันนี้ไม่ต้องลงเวลานะครับ พักผ่อนให้เต็มที่!
+                </p>
+                {/* Optional: Check-in Anyway button for workaholics */}
+                <button 
+                    onClick={onOpenCheckIn}
+                    className="text-xs underline opacity-60 hover:opacity-100"
+                >
+                    ต้องการเช็คอินทำงาน? (ยกเลิกการลา)
+                </button>
+            </div>
+         );
+    }
 
     // State 1: Forgot Check-out (Prioritized)
     if (isSessionOutdated) {

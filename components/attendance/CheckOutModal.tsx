@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Loader2, AlertTriangle, Send, LogOut, RefreshCw, Clock, CheckCircle2 } from 'lucide-react';
+import { X, MapPin, Loader2, AlertTriangle, Send, LogOut, RefreshCw, Clock, CheckCircle2, MessageSquare } from 'lucide-react';
 import { LocationDef } from '../../types/attendance';
 import { calculateDistance } from '../../lib/locationUtils';
 import { format } from 'date-fns';
@@ -11,7 +11,7 @@ import { useMasterData } from '../../hooks/useMasterData';
 interface CheckOutModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => Promise<void>; // Normal checkout
+    onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; // Updated signature
     onRequest: (time: string, reason: string) => Promise<boolean>; // Correction request
     availableLocations: LocationDef[];
     checkInTime: Date; // Passed from parent for calculation
@@ -25,14 +25,17 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
     const [status, setStatus] = useState<'LOADING' | 'SUCCESS' | 'OUT_OF_RANGE' | 'ERROR'>('LOADING');
     const [distance, setDistance] = useState(0);
     const [matchedLocation, setMatchedLocation] = useState<LocationDef | undefined>();
+    const [currentLat, setCurrentLat] = useState<number>(0);
+    const [currentLng, setCurrentLng] = useState<number>(0);
     
     // Status Logic State
     const [checkOutStatus, setCheckOutStatus] = useState<'COMPLETED' | 'EARLY_LEAVE'>('COMPLETED');
     const [statusDetails, setStatusDetails] = useState<any>(null);
 
-    // Form for Request
+    // Form for Request / Early Leave
     const [time, setTime] = useState('');
     const [reason, setReason] = useState('');
+    const [earlyReason, setEarlyReason] = useState(''); // New state for early leave reason when GPS is OK
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -40,6 +43,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
             checkLocation();
             setTime(format(new Date(), 'HH:mm'));
             setReason('');
+            setEarlyReason('');
             setStatus('LOADING');
             
             // Calculate Status Logic (Strict Duration)
@@ -61,6 +65,9 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
+                setCurrentLat(latitude);
+                setCurrentLng(longitude);
+                
                 let minDetails = { dist: Infinity, loc: undefined as LocationDef | undefined };
 
                 for (const loc of availableLocations) {
@@ -88,8 +95,18 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
     };
 
     const handleNormalSubmit = async () => {
+        if (checkOutStatus === 'EARLY_LEAVE' && !earlyReason.trim()) {
+            alert('กรุณาระบุเหตุผลที่กลับก่อนเวลาด้วยครับ');
+            return;
+        }
+        
         setIsSubmitting(true);
-        await onConfirm();
+        // Pass location and potential reason
+        await onConfirm(
+            { lat: currentLat, lng: currentLng }, 
+            matchedLocation?.name, 
+            earlyReason
+        );
         setIsSubmitting(false);
         onClose();
     };
@@ -114,7 +131,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 text-gray-400"><X className="w-5 h-5"/></button>
                 </div>
 
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto">
                     {/* Status Feedback */}
                     {statusDetails && (
                         <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${checkOutStatus === 'EARLY_LEAVE' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
@@ -178,7 +195,23 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                 {matchedLocation?.name} (ระยะ {distance.toFixed(0)}m)
                             </p>
                             
-                            <div className="mt-8">
+                            {/* Early Leave Reason Input */}
+                            {checkOutStatus === 'EARLY_LEAVE' && (
+                                <div className="mt-4 text-left bg-orange-50 p-3 rounded-xl border border-orange-100">
+                                    <label className="text-xs font-bold text-orange-700 mb-1 flex items-center">
+                                        <MessageSquare className="w-3 h-3 mr-1"/> ระบุเหตุผลที่กลับก่อน (Required)
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full p-2 border border-orange-200 rounded-lg text-sm bg-white" 
+                                        placeholder="เช่น ป่วย, ธุระด่วน..."
+                                        value={earlyReason}
+                                        onChange={e => setEarlyReason(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                            
+                            <div className="mt-6">
                                 <button 
                                     onClick={handleNormalSubmit}
                                     disabled={isSubmitting}

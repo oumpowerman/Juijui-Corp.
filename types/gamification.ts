@@ -1,7 +1,7 @@
 
 import { Platform, User } from './index'; // Import form index to allow circular ref resolution or specific files
 
-export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_MISSED' | 'DUTY_LATE_SUBMIT' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE' | 'TIME_WARP_REFUND' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_ABSENT' | 'ATTENDANCE_LEAVE' | 'ATTENDANCE_NO_SHOW' |'ATTENDANCE_EARLY_LEAVE';
+export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_MISSED' | 'DUTY_LATE_SUBMIT' | 'DUTY_ASSIST' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE' | 'TIME_WARP_REFUND' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_ABSENT' | 'ATTENDANCE_LEAVE' | 'ATTENDANCE_NO_SHOW' | 'ATTENDANCE_EARLY_LEAVE' | 'KPI_REWARD';
 
 export interface WeeklyQuest {
     id: string;
@@ -68,19 +68,6 @@ export interface UserInventoryItem {
     userId: string;
     isUsed: boolean;
     item?: ShopItem;
-}
-
-export interface KPIRecord {
-    id: string;
-    userId: string;
-    evaluatorId: string;
-    monthKey: string;
-    scores: Record<string, number>;
-    feedback: string;
-    status: 'DRAFT' | 'FINAL' | 'PAID';
-    totalScore: number;
-    maxScore: number;
-    updatedAt: Date;
 }
 
 export interface GameActionResult {

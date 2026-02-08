@@ -254,7 +254,10 @@ export const useDuty = (currentUser?: User) => {
             // 4. Send Message to Chat
             const duty = duties.find(d => d.id === dutyId);
             if (duty) {
-                const message = `📸 **${userName}** ส่งการบ้านเวร "${duty.title}" เรียบร้อย! \n(Proof: ${format(new Date(), 'HH:mm')})`;
+                const isAssist = currentUser && currentUser.id !== duty.assigneeId;
+                const message = isAssist 
+                    ? `🦸‍♂️ **${userName}** เป็นฮีโร่! ช่วยทำเวรแทนเจ้าของเวร "${duty.title}" เรียบร้อย!` : `📸 **${userName}** ส่งการบ้านเวร "${duty.title}" เรียบร้อย! \n(Proof: ${format(new Date(), 'HH:mm')})`;
+                
                 await supabase.from('team_messages').insert({
                     content: message,
                     is_bot: true, 
@@ -269,7 +272,9 @@ export const useDuty = (currentUser?: User) => {
                     user_id: null
                 });
 
-                if (duty.assigneeId) {
+                if (isAssist && currentUser) {
+                    processAction(currentUser.id, 'DUTY_ASSIST', { ...duty, targetName: 'เพื่อนร่วมทีม' });
+                } else if (duty.assigneeId) {
                     processAction(duty.assigneeId, 'DUTY_COMPLETE', duty);
                 }
             }

@@ -1,23 +1,32 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AnnualHoliday } from '../types';
 import { useGamification } from './useGamification';
-import { addDays, format, isBefore, isWeekend, subDays, differenceInCalendarDays, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { useGameConfig } from '../context/GameConfigContext'; // Import Config
+import { addDays, format, isBefore, isWeekend, subDays, differenceInCalendarDays, isSameDay } from 'date-fns';
 import { isTaskCompleted } from '../constants';
 
 export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
-    const hasRun = useRef(false);
+    const { config } = useGameConfig(); // Use Game Config from DB
 
-    // Helper: Check if a specific date is a working day (Not Weekend & Not Holiday)
+    /**
+     * 🛠️ HELPER: ตรวจสอบว่าเป็นวันทำงานหรือไม่?
+     * เช็ค 3 ระดับ: 
+     * 1. Calendar Exception (วันหยุด/ทำงานพิเศษที่แอดมินตั้ง) -> Priority สูงสุด
+     * 2. Annual Holiday (วันหยุดประจำปี)
+     * 3. Weekend (เสาร์-อาทิตย์)
+     */
     const isWorkingDay = (date: Date, holidays: AnnualHoliday[], exceptions: any[]) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         
         // 1. Check Exceptions (Highest Priority)
         const exception = exceptions.find(e => e.date === dateStr);
         if (exception) {
-            return exception.type === 'WORK_DAY'; // If forced work day, return true. If forced holiday, return false.
+            // ถ้าเป็น WORK_DAY ให้ถือว่าทำงาน (แม้เป็นวันหยุด)
+            // ถ้าเป็น HOLIDAY ให้ถือว่าหยุด (แม้เป็นวันทำงาน)
+            return exception.type === 'WORK_DAY'; 
         }
 
         // 2. Check Annual Holidays
@@ -30,11 +39,33 @@ export const useAutoJudge = (currentUser: User | null) => {
         return !isWeekend(date);
     };
 
-    // Helper: Count working days passed since deadline until now (exclusive of today)
+    /**
+     * 🛠️ HELPER: เช็คว่าเป็นวันหยุดบริษัทหรือไม่ (สำหรับใช้เช็คก่อนหักคะแนนทั่วไป)
+     */
+    const isHolidayOrException = (date: Date, holidays: AnnualHoliday[], exceptions: any[]) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // Check Exception
+        const exception = exceptions.find(e => e.date === dateStr);
+        if (exception) {
+            return exception.type === 'HOLIDAY'; // If explicitly marked as holiday
+        }
+
+        // Check Annual Holiday
+        return holidays.some(h => 
+            h.isActive && h.day === date.getDate() && h.month === (date.getMonth() + 1)
+        );
+    };
+
+    /**
+     * 🛠️ HELPER: นับจำนวนวันที่ล่าช้า (เฉพาะวันทำงาน)
+     * ใช้สำหรับคำนวณโทษของ "เวร" (Duty) ที่มักจะไม่นับรวมวันหยุด
+     */
     const countWorkingDaysLate = (dutyDate: Date, today: Date, holidays: AnnualHoliday[], exceptions: any[]) => {
         let count = 0;
-        let current = addDays(dutyDate, 1);
+        let current = addDays(dutyDate, 1); // เริ่มนับจากวันถัดไป
         
+        // วนลูปจนถึงเมื่อวาน (ไม่รวมวันนี้)
         while (isBefore(current, today)) {
              if (isWorkingDay(current, holidays, exceptions)) {
                  count++;
@@ -45,16 +76,17 @@ export const useAutoJudge = (currentUser: User | null) => {
     };
 
     const checkAndPunish = async () => {
-        if (!currentUser || hasRun.current) return;
+        if (!currentUser) return;
         
-        // Lock to prevent double execution
-        hasRun.current = true;
-
         try {
             const today = new Date();
             const todayStr = format(today, 'yyyy-MM-dd');
 
-            // --- PRELOAD HOLIDAY DATA ---
+            // =========================================================
+            // 1. PRELOAD DATA (โหลดข้อมูลที่จำเป็นครั้งเดียว)
+            // =========================================================
+            
+            // 1.1 วันหยุดและข้อยกเว้นปฏิทิน
             const { data: annualHolidays } = await supabase.from('annual_holidays').select('*');
             const { data: calendarExceptions } = await supabase.from('calendar_exceptions').select('*');
             
@@ -63,20 +95,19 @@ export const useAutoJudge = (currentUser: User | null) => {
             }));
             const exceptions = calendarExceptions || [];
 
-            // --- PRELOAD USER LEAVES (Important for Fairness) ---
-            // Check approved leaves that cover recent past
+            // 1.2 ข้อมูลการลาของผู้ใช้ (เพื่อไม่ให้หักคะแนนถ้าลาถูกต้อง)
             const { data: userLeaves } = await supabase
                 .from('leave_requests')
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .eq('status', 'APPROVED')
-                .gte('end_date', format(addDays(today, -60), 'yyyy-MM-dd')); // Look back 60 days
+                .gte('end_date', format(addDays(today, -60), 'yyyy-MM-dd')); // ดูย้อนหลัง 60 วัน
 
+            // ฟังก์ชันเช็คว่าผู้ใช้อยู่ระหว่างลาหรือไม่ในวันที่ระบุ
             const isUserOnLeave = (dateStr: string) => {
                 if (!userLeaves) return false;
-                // Parse date string carefully to avoid timezone issues
                 const checkDate = new Date(dateStr); 
-                checkDate.setHours(12, 0, 0, 0); // Set to noon to avoid edge cases
+                checkDate.setHours(12, 0, 0, 0); // เที่ยงวันป้องกันเรื่อง timezone
 
                 return userLeaves.some(leave => {
                     const start = new Date(leave.start_date);
@@ -87,13 +118,16 @@ export const useAutoJudge = (currentUser: User | null) => {
                 });
             };
 
-            // --- A. CHECK MISSED DUTIES (Past dates only) ---
+            // =========================================================
+            // SECTION A: DUTIES (เวรทำความสะอาด)
+            // =========================================================
             const { data: missedDuties, error: dutyError } = await supabase
                 .from('duties')
                 .select('*')
                 .eq('assignee_id', currentUser.id)
-                .lt('date', todayStr)
-                .eq('is_done', false)
+                .lt('date', todayStr) // เวรที่ผ่านมาแล้ว
+                .eq('is_done', false) // ยังไม่เสร็จ
+                // กรองสถานะที่จัดการไปแล้วออก
                 .neq('penalty_status', 'ABANDONED') 
                 .neq('penalty_status', 'ACCEPTED_FAULT')
                 .neq('penalty_status', 'LATE_COMPLETED')
@@ -101,111 +135,125 @@ export const useAutoJudge = (currentUser: User | null) => {
 
             if (!dutyError && missedDuties && missedDuties.length > 0) {
                 for (const duty of missedDuties) {
-                    const dutyDateStr = duty.date; // YYYY-MM-DD
+                    const dutyDateStr = duty.date; 
                     const dutyDate = new Date(dutyDateStr);
 
-                    // 1. HUMANITY CHECK: Was user on leave that day?
+                    // ถ้าวันที่ต้องทำเวร เป็นวันหยุด -> ยกประโยชน์ให้ (Excused)
+                    if (isHolidayOrException(dutyDate, holidays, exceptions)) {
+                        console.log(`[AutoJudge] Excusing duty ${duty.id} because it was a holiday.`);
+                        await supabase.from('duties').update({ penalty_status: 'EXCUSED' }).eq('id', duty.id);
+                        continue;
+                    }
+
+                    // ถ้าวันที่ต้องทำเวร "ลาป่วย/ลากิจ" -> ยกประโยชน์ให้ (Excused)
                     if (isUserOnLeave(dutyDateStr)) {
                         console.log(`[AutoJudge] Excusing duty ${duty.id} because user was on leave.`);
-                        await supabase
-                            .from('duties')
-                            .update({ 
-                                penalty_status: 'EXCUSED',
-                                is_done: true // Mark as done so it clears from dashboard
-                            })
-                            .eq('id', duty.id);
-                        continue; // Skip punishment logic
+                        await supabase.from('duties').update({ penalty_status: 'EXCUSED', is_done: true }).eq('id', duty.id);
+                        continue;
                     }
                     
-                    // 2. Calculate "Working Days Passed Since Duty"
+                    // นับจำนวนวันทำการที่เลยกำหนด
                     const workingDaysLate = countWorkingDaysLate(dutyDate, today, holidays, exceptions);
 
                     if (workingDaysLate === 0) {
-                        // CASE 1: Grace Period / Tribunal Day
+                        // เลยกำหนดมานิดหน่อย (เช่น เสาร์อาทิตย์) ยังไม่นับ
                         if (duty.penalty_status === 'NONE') {
-                            await supabase
-                                .from('duties')
-                                .update({ penalty_status: 'AWAITING_TRIBUNAL' })
-                                .eq('id', duty.id);
+                            await supabase.from('duties').update({ penalty_status: 'AWAITING_TRIBUNAL' }).eq('id', duty.id);
                         }
                     } 
                     else if (workingDaysLate >= 1) {
-                        // CASE 2: Execution Day
+                        // เลยกำหนดเกิน 1 วันทำการ -> ตัดสินว่า "ละเลยหน้าที่" (ABANDONED)
                         if (duty.penalty_status !== 'ABANDONED') {
-                             await supabase
-                                .from('duties')
-                                .update({ 
-                                    is_penalized: true, 
-                                    penalty_status: 'ABANDONED' 
-                                })
-                                .eq('id', duty.id);
-                            
-                            // Severe Penalty
-                            await processAction(currentUser.id, 'DUTY_MISSED', {
-                                ...duty,
-                                reason: 'ABANDONED_DUTY'
-                            });
+                             await supabase.from('duties').update({ is_penalized: true, penalty_status: 'ABANDONED' }).eq('id', duty.id);
+                            // เรียก Action เพื่อหักคะแนน
+                            await processAction(currentUser.id, 'DUTY_MISSED', { ...duty, reason: 'ABANDONED_DUTY' });
                         }
                     }
                 }
             }
 
-            // --- B. CHECK OVERDUE TASKS (Tasks & Contents) ---
+            // =========================================================
+            // SECTION B: TASKS (งานที่ได้รับมอบหมาย) - Progressive Penalty
+            // =========================================================
+            
             const { data: overdueTasks } = await supabase
                 .from('tasks')
                 .select('*')
                 .contains('assignee_ids', [currentUser.id]) 
-                .lt('end_date', todayStr) 
-                .eq('is_penalized', false);
+                .lt('end_date', todayStr); // งานที่เลย Deadline
 
             if (overdueTasks) {
                 for (const task of overdueTasks) {
-                    if (!isTaskCompleted(task.status)) {
-                        const deadlineStr = task.end_date; // YYYY-MM-DD from DB
-
-                        // HUMANITY CHECK: Only punish if NOT on leave ON DEADLINE DATE
-                        if (isUserOnLeave(deadlineStr)) {
-                            // Mark as penalized so we don't check again (Excused)
-                            // But DO NOT call processAction (No HP deduction)
-                            await supabase.from('tasks').update({ is_penalized: true }).eq('id', task.id);
-                            console.log(`Task ${task.title} excused due to leave on deadline.`);
-                        } else {
-                            // Real Punishment
-                            await supabase.from('tasks').update({ is_penalized: true }).eq('id', task.id);
-                            await processAction(currentUser.id, 'TASK_LATE', task);
-                        }
+                    // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled ข้ามไป
+                    if (isTaskCompleted(task.status) || task.is_unscheduled) continue;
+                    
+                    // 2. เช็คว่า "วันนี้" โดนหักคะแนนไปหรือยัง?
+                    const lastPenalized = task.last_penalized_at ? new Date(task.last_penalized_at) : null;
+                    if (lastPenalized && isSameDay(lastPenalized, today)) {
+                        continue; // วันนี้โดนไปแล้ว พรุ่งนี้ค่อยว่ากันใหม่
                     }
+
+                    // 3. เช็คว่า "วันนี้" ลาหรือไม่? (Humanity Check)
+                    // Note: Task usually count holidays unless strict, but we skip if user is on leave
+                    if (isUserOnLeave(todayStr)) {
+                        continue;
+                    }
+                    
+                    // 4. คำนวณความเสียหายแบบ Progressive (Dynamic from Config)
+                    const deadlineStr = task.end_date;
+                    const deadline = new Date(deadlineStr);
+                    const daysLate = differenceInCalendarDays(today, deadline);
+                    
+                    if (daysLate <= 0) continue; 
+
+                    // DYNAMIC FORMULA: Base + (Days * Multiplier)
+                    const basePenalty = config?.PENALTY_RATES?.HP_PENALTY_LATE || 5; 
+                    const multiplier = config?.PENALTY_RATES?.HP_PENALTY_LATE_MULTIPLIER || 2;
+                    const progressiveDamage = basePenalty + (daysLate * multiplier);
+                    
+                    // 5. ลงดาบ
+                    await supabase.from('tasks').update({ 
+                        is_penalized: true,
+                        last_penalized_at: new Date().toISOString() // บันทึกว่าวันนี้โดนแล้ว
+                    }).eq('id', task.id);
+
+                    await processAction(currentUser.id, 'TASK_LATE', { 
+                        ...task, 
+                        customPenalty: progressiveDamage, // ส่งค่าดาเมจแบบคำนวณเองให้ Engine
+                        daysLate: daysLate
+                    });
                 }
             }
 
-            // --- C. CHECK ABSENT ---
-            // Check yesterday specific attendance logic (if yesterday was working day)
+            // =========================================================
+            // SECTION C: ABSENT (ขาดงานเมื่อวาน)
+            // =========================================================
             const yesterday = subDays(today, 1);
             const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-            
             const wasYesterdayWorkingDay = isWorkingDay(yesterday, holidays, exceptions);
             
-            if (wasYesterdayWorkingDay && !isUserOnLeave(yesterdayStr)) {
-                // Check if user has checked in
-                const { data: attendance } = await supabase
-                    .from('attendance_logs')
-                    .select('id')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', yesterdayStr)
-                    .maybeSingle();
+            // เช็คเฉพาะถ้าเมื่อวานเป็นวันทำงาน และไม่ได้ลา และไม่ใช่วันหยุดประจำปี
+            if (wasYesterdayWorkingDay && !isUserOnLeave(yesterdayStr) && !isHolidayOrException(yesterday, holidays, exceptions)) {
+                // ดูว่ามีการลงเวลาไหม?
+                const { data: attendance } = await supabase.from('attendance_logs').select('id').eq('user_id', currentUser.id).eq('date', yesterdayStr).maybeSingle();
 
                 if (!attendance) {
-                     // Check if already penalized to prevent duplicates
-                     const { data: existingPenalty } = await supabase
-                        .from('game_logs')
-                        .select('id')
-                        .eq('user_id', currentUser.id)
-                        .eq('action_type', 'ATTENDANCE_ABSENT')
-                        .ilike('description', `%${yesterdayStr}%`)
-                        .maybeSingle();
-
+                     // ถ้าไม่มี -> เช็คว่าเคยโดนหักคะแนน Absent ของเมื่อวานไปหรือยัง (กันหักซ้ำ)
+                     const { data: existingPenalty } = await supabase.from('game_logs').select('id').eq('user_id', currentUser.id).eq('action_type', 'ATTENDANCE_ABSENT').ilike('description', `%${yesterdayStr}%`).maybeSingle();
+                     
                      if (!existingPenalty) {
+                         // Insert Absent Log
+                         await supabase.from('attendance_logs').insert({
+                             user_id: currentUser.id,
+                             date: yesterdayStr,
+                             status: 'ABSENT',
+                             work_type: 'OFFICE',
+                             note: '[SYSTEM] Auto-marked as Absent by Judge'
+                         });
+                         
+                         // หักคะแนนขาดงาน
                          await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { date: yesterdayStr });
+                         console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${yesterdayStr}`);
                      }
                 }
             }
@@ -215,11 +263,11 @@ export const useAutoJudge = (currentUser: User | null) => {
         }
     };
 
+    // ตั้งเวลาให้ทำงานเมื่อ Component Mount และวนทุก 10 นาที
+    // เพิ่ม config เป็น dependency เพื่อให้ logic อัปเดตถ้ามีการปรับเปลี่ยนค่ากลาง
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            checkAndPunish();
-        }, 5000); // 5 sec delay to ensure other data is loaded
-        
-        return () => clearTimeout(timeout);
-    }, [currentUser?.id]); 
+        const initialTimer = setTimeout(() => { checkAndPunish(); }, 5000); 
+        const interval = setInterval(() => { checkAndPunish(); }, 10 * 60 * 1000); 
+        return () => { clearTimeout(initialTimer); clearInterval(interval); };
+    }, [currentUser?.id, config]); 
 };

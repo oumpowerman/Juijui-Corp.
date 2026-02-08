@@ -18,7 +18,8 @@ import InventoryMasterView from './admin/master/views/InventoryMasterView';
 import PositionMasterView from './admin/master/views/PositionMasterView';
 import LocationMasterView from './admin/master/views/LocationMasterView'; 
 import GameConfigManager from './admin/GameConfigManager'; 
-import CalendarExceptionManager from './admin/CalendarExceptionManager'; // New
+import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
+import PayrollRulesView from './admin/master/views/PayrollRulesView'; // New Import
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -123,6 +124,12 @@ const MasterDataManager: React.FC = () => {
                             <MaintenancePanel />
                         ) : activeTab === 'GAME_TUNING' ? (
                             <GameConfigManager />
+                        ) : activeTab === 'PAYROLL_RULES' ? (
+                            <PayrollRulesView 
+                                masterOptions={masterOptions}
+                                onUpdate={updateMasterOption}
+                                onAdd={addMasterOption}
+                            />
                         ) : activeTab === 'YEARLY' ? (
                             <AnnualHolidayManager masterOptions={masterOptions} />
                         ) : activeTab === 'CALENDAR' ? (

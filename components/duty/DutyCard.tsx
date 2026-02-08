@@ -1,7 +1,7 @@
 
 import React, { useRef, useState } from 'react';
 import { Duty, User } from '../../types';
-import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { isPast, isToday } from 'date-fns';
 import { compressImage } from '../../lib/imageUtils';
@@ -10,6 +10,7 @@ interface DutyCardProps {
     duty: Duty;
     assignee?: User;
     isCurrentUser: boolean;
+    currentUserName?: string; // Added for Hero Assist
     onToggle: (id: string) => void;
     onDelete: (id: string) => void;
     onSubmitProof: (dutyId: string, file: File, userName: string) => Promise<boolean>;
@@ -17,7 +18,7 @@ interface DutyCardProps {
 }
 
 const DutyCard: React.FC<DutyCardProps> = ({ 
-    duty, assignee, isCurrentUser, onToggle, onDelete, onSubmitProof, onRequestSwap 
+    duty, assignee, isCurrentUser, currentUserName, onToggle, onDelete, onSubmitProof, onRequestSwap 
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -32,15 +33,18 @@ const DutyCard: React.FC<DutyCardProps> = ({
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file && assignee) {
+        // Determine who is submitting (Owner or Hero)
+        const submitterName = isCurrentUser ? (assignee?.name || 'Unknown') : (currentUserName || 'Hero');
+
+        if (file) {
             setIsUploading(true);
             try {
                 // Compress before upload
                 const compressedFile = await compressImage(file);
-                await onSubmitProof(duty.id, compressedFile, assignee.name);
+                await onSubmitProof(duty.id, compressedFile, submitterName);
             } catch (error) {
                 console.error("Compression error, trying original file", error);
-                await onSubmitProof(duty.id, file, assignee.name);
+                await onSubmitProof(duty.id, file, submitterName);
             }
             setIsUploading(false);
         }
@@ -58,7 +62,7 @@ const DutyCard: React.FC<DutyCardProps> = ({
     };
 
     const handleToggleCheck = async () => {
-        // SECURITY LOCK: Only assignee can interact
+        // SECURITY LOCK: Only assignee can interact via normal toggle
         if (!isCurrentUser) return;
 
         if (isAbandoned) return; // Locked
@@ -88,6 +92,18 @@ const DutyCard: React.FC<DutyCardProps> = ({
         } else {
             // Unchecking
             onToggle(duty.id);
+        }
+    };
+
+    // Hero Assist Handler
+    const handleHeroAssist = async () => {
+        if (isAbandoned) return;
+        const confirmed = await showConfirm(
+            `คุณต้องการช่วยทำเวรแทน ${assignee?.name || 'เพื่อน'} ใช่หรือไม่? \n(คุณจะได้รับ Hero Bonus XP)`,
+            '🦸‍♂️ ยืนยันการช่วยเพื่อน'
+        );
+        if (confirmed) {
+            fileInputRef.current?.click();
         }
     };
 
@@ -197,6 +213,17 @@ const DutyCard: React.FC<DutyCardProps> = ({
                             title="ขอแลกเวร"
                         >
                             <ArrowRightLeft className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                    
+                    {/* Hero Assist Button (For Others) */}
+                    {!isCurrentUser && !duty.isDone && !isAbandoned && (
+                        <button 
+                            onClick={handleHeroAssist}
+                            className="flex items-center gap-1 px-2 py-1 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 rounded-lg text-[9px] font-bold transition-all active:scale-95"
+                            title="ช่วยเพื่อนทำเวร (ได้ XP)"
+                        >
+                            <HeartHandshake className="w-3.5 h-3.5" /> Assist
                         </button>
                     )}
 

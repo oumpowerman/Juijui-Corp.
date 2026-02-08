@@ -84,11 +84,38 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
 
                         {/* 🔥 Fire Notification Badge */}
                         {hasUrgent && (
-                            <div className="absolute top-3 right-3 bg-red-500 text-white rounded-full p-1 shadow-lg shadow-red-200 border-2 border-white animate-bounce-slow z-20 flex items-center justify-center min-w-[24px] h-[24px]">
-                                <Flame className="w-3 h-3 fill-white" />
-                                <span className="text-[9px] font-bold ml-0.5">{stat.urgentCount}</span>
-                            </div>
+                        <div className="
+                            absolute top-3 right-3 
+                            bg-red-500 text-white 
+                            rounded-full 
+                            p-1 
+                            border-2 border-white 
+                            z-20 
+                            flex items-center justify-center 
+                            min-w-[26px] h-[26px]
+                            animate-bounce
+                            shadow-lg shadow-red-400
+                        ">
+                            <Flame
+                            className="
+                                w-3 h-3 
+                                fill-white 
+                                animate-fire
+                                drop-shadow-[0_0_6px_rgba(255,80,0,0.9)]
+                            "
+                            />
+
+                            <span
+                            className="
+                                text-[13px] font-bold ml-0.5
+                                animate-pulse-fast
+                            "
+                            >
+                            {stat.urgentCount}
+                            </span>
+                        </div>
                         )}
+
 
                         <div className="relative z-10">
                             <p className={`text-xs md:text-sm tracking-wide font-bold uppercase opacity-80 ${iconColor}`}>

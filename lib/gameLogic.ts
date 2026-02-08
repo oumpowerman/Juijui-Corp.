@@ -1,219 +1,277 @@
 
 import { GameActionType, GameActionResult, Difficulty, GameConfig } from '../types';
-import { differenceInDays, isBefore } from 'date-fns';
+import { differenceInDays, isBefore, format } from 'date-fns';
 
 // --- DEFAULT FALLBACK CONFIGURATION ---
 // Used when DB is offline or loading
 export const DEFAULT_GAME_CONFIG = {
-    XP_PER_HOUR: 20,
+    GLOBAL_MULTIPLIERS: {
+        XP_PER_HOUR: 20,
+        COIN_PER_TASK: 10,
+        COIN_BONUS_EARLY: 20,
+        COIN_DUTY: 5,
+        BASE_XP_PER_LEVEL: 1000,
+        // New Flexible Keys
+        XP_BONUS_EARLY: 50,
+        XP_DUTY_COMPLETE: 20,
+        XP_DUTY_LATE_SUBMIT: 5
+    },
+
+    // XP Calculation
     DIFFICULTY_XP: {
         EASY: 50,
         MEDIUM: 100,
         HARD: 250
-    } as any,
-    COIN_PER_TASK: 10,
-    COIN_BONUS_EARLY: 20,
-    COIN_DUTY: 5,
-    HP_PENALTY_LATE: 5,
-    HP_PENALTY_MISSED_DUTY: 10,
-    COIN_PENALTY_LATE_PER_DAY: 5,
-    ATTENDANCE: {
+    },
+
+    // Penalty Rates
+    PENALTY_RATES: {
+        HP_PENALTY_LATE: 5,           // Base damage per day
+        HP_PENALTY_LATE_MULTIPLIER: 2, // Progressive multiplier (Compound damage)
+        HP_PENALTY_MISSED_DUTY: 10,
+        COIN_PENALTY_LATE_PER_DAY: 5,
+        // New Flexible Keys
+        HP_PENALTY_DUTY_LATE_SUBMIT: 3,
+        HP_PENALTY_EARLY_LEAVE_RATE: 1, // Deduct 1 HP...
+        HP_PENALTY_EARLY_LEAVE_INTERVAL: 10 // ...every 10 minutes
+    },
+
+    // Attendance Rules
+    ATTENDANCE_RULES: {
         ON_TIME: { xp: 15, hp: 0, coins: 5 },
-        LATE:    { xp: 0, hp: -5, coins: 0 },
-        ABSENT:  { xp: 0, hp: -20, coins: -50 },
+        LATE: { xp: 0, hp: -5, coins: 0 },
+        ABSENT: { xp: 0, hp: -20, coins: -50 },
         NO_SHOW: { xp: 0, hp: -100, coins: -100 },
-        LEAVE:   { xp: 0, hp: 0, coins: 0 },
-        EARLY_LEAVE: { xp: 0, hp: -5, coins: 0 }, // Default penalty
+        LEAVE: { xp: 0, hp: 0, coins: 0 },
+        EARLY_LEAVE: { xp: 0, hp: 0, coins: 0 },
         WFH: { xp: 10, hp: 0, coins: 0 },
         SITE: { xp: 20, hp: 0, coins: 10 }
-    } as any,
-    BASE_XP_PER_LEVEL: 1000
+    },
+
+    // KPI Rewards (New Section)
+    KPI_REWARDS: {
+        A: { xp: 1000, coins: 500 },
+        B: { xp: 500, coins: 200 },
+        C: { xp: 200, coins: 50 },
+        D: { xp: 0, coins: 0 }
+    }
 };
 
-// --- HELPER: Calculate Level from XP ---
-export const calculateLevel = (totalXp: number, config: any = DEFAULT_GAME_CONFIG): number => {
-    const base = config.GLOBAL_MULTIPLIERS?.BASE_XP_PER_LEVEL || config.BASE_XP_PER_LEVEL || 1000;
-    return 1 + Math.floor(totalXp / base);
+export const calculateLevel = (xp: number, config: any = DEFAULT_GAME_CONFIG): number => {
+    const base = config.GLOBAL_MULTIPLIERS?.BASE_XP_PER_LEVEL || 1000;
+    return Math.floor(xp / base) + 1;
 };
 
-// --- CORE: Rule Evaluation Engine ---
-export const evaluateAction = (
-    action: GameActionType | string, 
-    context: any,
-    config: any = DEFAULT_GAME_CONFIG // Now accepts dynamic config
-): GameActionResult => {
-    
-    let result: GameActionResult = {
-        xp: 0,
-        hp: 0,
-        coins: 0,
-        message: 'Action processed'
-    };
-
-    // Mapping Config Keys to Logic Variables
-    const ATTENDANCE = config.ATTENDANCE_RULES || config.ATTENDANCE;
-    const MULTIPLIERS = config.GLOBAL_MULTIPLIERS || config;
-    const PENALTIES = config.PENALTY_RATES || config;
-    const DIFF_XP = config.DIFFICULTY_XP || config.DIFFICULTY_XP;
+export const evaluateAction = (action: GameActionType, context: any, config: any = DEFAULT_GAME_CONFIG): GameActionResult => {
+    // Ensure config exists, else fallback
+    const cfg = config || DEFAULT_GAME_CONFIG;
+    const diffXP = cfg.DIFFICULTY_XP || DEFAULT_GAME_CONFIG.DIFFICULTY_XP;
+    const penalties = cfg.PENALTY_RATES || DEFAULT_GAME_CONFIG.PENALTY_RATES;
+    const attendanceRules = cfg.ATTENDANCE_RULES || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES;
+    const globals = cfg.GLOBAL_MULTIPLIERS || DEFAULT_GAME_CONFIG.GLOBAL_MULTIPLIERS;
+    const kpiRewards = cfg.KPI_REWARDS || DEFAULT_GAME_CONFIG.KPI_REWARDS;
 
     switch (action) {
-        // --- ATTENDANCE GROUP ---
-        case 'ATTENDANCE_CHECK_IN':
-            if (context.status === 'LATE') {
-                result = {
-                    ...ATTENDANCE.LATE,
-                    message: `เข้างานสาย! 🐢 (${context.time})`,
-                    details: `HP ${ATTENDANCE.LATE.hp}`
-                };
-            } else {
-                result = {
-                    ...ATTENDANCE.ON_TIME,
-                    message: `เข้างานตรงเวลา! ☀️ (${context.time})`,
-                    details: `+${ATTENDANCE.ON_TIME.xp} XP`
-                };
+        case 'TASK_COMPLETE': {
+            const { difficulty, estimatedHours, endDate } = context;
+            
+            // 1. Base XP
+            let xp = diffXP[difficulty as Difficulty] || diffXP.MEDIUM;
+            
+            // 2. Hourly Bonus
+            if (estimatedHours > 0) {
+                xp += Math.floor(estimatedHours * (globals.XP_PER_HOUR || 20));
             }
-            break;
 
-        case 'ATTENDANCE_ABSENT':
-            result = {
-                ...ATTENDANCE.ABSENT,
-                // Fix: Include date in message so AutoJudge can detect duplicates via ILIKE query
-                message: `ขาดงานโดยไม่แจ้ง! 👻 (ประจำวันที่ ${context.date || 'ไม่ระบุ'})`,
-                details: `HP ${ATTENDANCE.ABSENT.hp}, Coin ${ATTENDANCE.ABSENT.coins}`
+            // 3. Early Bonus
+            const isEarly = differenceInDays(new Date(endDate), new Date()) >= 1;
+            let coins = globals.COIN_PER_TASK || 10;
+            if (isEarly) {
+                coins += globals.COIN_BONUS_EARLY || 20;
+                xp += globals.XP_BONUS_EARLY || 50; // Dynamic Early XP Bonus
+            }
+
+            return {
+                xp,
+                hp: 0,
+                coins,
+                message: isEarly ? 'ปิดงานไวสุดยอด! (Early Bird)' : 'ปิดงานเรียบร้อย!',
+                details: `+${xp} XP, +${coins} JP`
             };
-            break;
+        }
+
+        case 'TASK_LATE': {
+            // UPDATED: Support Progressive Penalty passed via context
+            // If customPenalty is provided (from AutoJudge), use it. Otherwise use default base.
+            const basePenalty = penalties.HP_PENALTY_LATE || 5;
+            const hpPenalty = context.customPenalty ? Math.abs(context.customPenalty) : basePenalty;
+            const daysLateText = context.daysLate ? ` (ช้า ${context.daysLate} วัน)` : '';
+
+            return {
+                xp: 0,
+                hp: -hpPenalty,
+                coins: -(penalties.COIN_PENALTY_LATE_PER_DAY || 5),
+                message: `ส่งงานช้ากว่ากำหนด!${daysLateText}`,
+                details: `-${hpPenalty} HP`
+            };
+        }
+
+        case 'DUTY_COMPLETE': {
+            const xpReward = globals.XP_DUTY_COMPLETE || 20;
+            const coinReward = globals.COIN_DUTY || 5;
+            return {
+                xp: xpReward, 
+                hp: 0,
+                coins: coinReward,
+                message: 'ทำเวรเสร็จสิ้น เยี่ยมมาก!',
+                details: `+${xpReward} XP, +${coinReward} JP`
+            };
+        }
         
-        case 'ATTENDANCE_EARLY_LEAVE':
-            result = {
-                ...ATTENDANCE.EARLY_LEAVE,
-                message: `กลับก่อนเวลา! 📉 (ขาด ${context.missingMinutes} นาที)`,
-                details: `HP ${ATTENDANCE.EARLY_LEAVE.hp}`
+        case 'DUTY_ASSIST': {
+            const xpReward = globals.XP_DUTY_ASSIST || 30; // More XP for kindness
+            const coinReward = globals.COIN_DUTY || 5;
+            const targetName = context.targetName || 'เพื่อน';
+            return {
+                xp: xpReward,
+                hp: 0,
+                coins: coinReward,
+                message: `สุดยอด! ช่วยทำเวรแทน ${targetName}`,
+                details: `Hero Bonus: +${xpReward} XP`
             };
-            break;
+        }
 
-        case 'ATTENDANCE_NO_SHOW':
-             result = {
-                ...ATTENDANCE.NO_SHOW,
-                // Fix: Include date in message so AutoJudge can detect duplicates via ILIKE query
-                message: `หายเงียบ (No Show)! โดนหนักนะ 💀 (ประจำวันที่ ${context.date || 'ไม่ระบุ'})`,
-                details: `HP ${ATTENDANCE.NO_SHOW.hp}, Coin ${ATTENDANCE.NO_SHOW.coins}`
-            };
-            break;
-
-        case 'ATTENDANCE_LEAVE':
-            result = {
-                ...ATTENDANCE.LEAVE,
-                message: 'วันลาพักผ่อน 🏖️',
-                details: 'รักษาสุขภาพนะครับ (ไม่หักคะแนน)'
-            };
-            break;
-
-        // --- EXISTING GROUPS ---
-        case 'TASK_COMPLETE':
-            result = calculateTaskCompletion(context, config);
-            break;
-        case 'TASK_LATE':
-            result = calculateTaskLate(context, config);
-            break;
-        case 'DUTY_COMPLETE':
-            result = { 
-                xp: 20, 
-                hp: 0, 
-                coins: MULTIPLIERS.COIN_DUTY || 5, 
-                message: 'ขอบคุณที่ช่วยดูแลความสะอาด! 🧹',
-                details: `+20 XP, +${MULTIPLIERS.COIN_DUTY || 5} Coins`
-            };
-            break;
-        case 'DUTY_MISSED':
-            const dutyPenalty = PENALTIES.HP_PENALTY_MISSED_DUTY || 10;
-            result = {
+        case 'DUTY_MISSED': {
+            // Update: Show Date in Message
+            const dateStr = context.date ? ` (ประจำวันที่ ${format(new Date(context.date), 'd MMM')})` : '';
+            const penalty = penalties.HP_PENALTY_MISSED_DUTY || 10;
+            return {
                 xp: 0,
-                hp: -dutyPenalty,
+                hp: -penalty,
                 coins: 0,
-                message: 'ลืมทำเวร! ระวังหลังเดาะนะ 🩸',
-                details: `HP -${dutyPenalty}`
+                message: `ลืมทำเวร!${dateStr} ระวังหลังเดาะนะ`,
+                details: `-${penalty} HP`
             };
-            break;
-        case 'DUTY_LATE_SUBMIT':
-            // New Case: Late Submission (Redemption)
-            result = {
+        }
+
+        case 'DUTY_LATE_SUBMIT': {
+            const lateXp = globals.XP_DUTY_LATE_SUBMIT || 5;
+            const lateHpPenalty = penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 3;
+            return {
+                xp: lateXp, 
+                hp: -lateHpPenalty, 
+                coins: 0,
+                message: 'ส่งเวรย้อนหลัง (Late Submit)',
+                details: `-${lateHpPenalty} HP, +${lateXp} XP`
+            };
+        }
+
+        case 'ATTENDANCE_CHECK_IN': {
+            const status = context.status; // 'ON_TIME' | 'LATE'
+            const rule = attendanceRules[status] || attendanceRules.ON_TIME;
+            
+            let msg = status === 'LATE' ? 'เข้างานสาย' : 'เข้างานตรงเวลา';
+            
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: msg,
+                details: `${rule.xp > 0 ? `+${rule.xp} XP` : ''} ${rule.hp < 0 ? `${rule.hp} HP` : ''}`
+            };
+        }
+
+        case 'ATTENDANCE_ABSENT': {
+            const rule = attendanceRules.ABSENT;
+            const dateStr = context.date ? ` (วันที่ ${format(new Date(context.date), 'd MMM')})` : '';
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: `ขาดงาน!${dateStr}`,
+                details: `${rule.hp} HP`
+            };
+        }
+
+        case 'ATTENDANCE_NO_SHOW': {
+             const rule = attendanceRules.NO_SHOW;
+             return {
+                 xp: rule.xp,
+                 hp: rule.hp,
+                 coins: rule.coins,
+                 message: 'หายตัวไปเลย (No Show)!',
+                 details: 'CRITICAL PENALTY'
+             };
+        }
+        
+        case 'ATTENDANCE_EARLY_LEAVE': {
+             // Dynamic calc based on missing minutes
+             const interval = penalties.HP_PENALTY_EARLY_LEAVE_INTERVAL || 10;
+             const rate = penalties.HP_PENALTY_EARLY_LEAVE_RATE || 1;
+             
+             const penalty = Math.ceil((context.missingMinutes || 0) / interval) * rate;
+             
+             return {
+                 xp: 0,
+                 hp: -penalty,
+                 coins: 0,
+                 message: 'กลับก่อนเวลา',
+                 details: `-${penalty} HP`
+             };
+        }
+
+        case 'SHOP_PURCHASE':
+            return {
                 xp: 0,
-                hp: -5, // Small penalty
-                coins: 0,
-                message: 'ส่งการบ้านเวรช้า (Late Submit)',
-                details: 'HP -5 (ดีกว่าโดนเต็มๆ)'
+                hp: 0,
+                coins: context.cost ? -context.cost : 0, // Handled in component usually, but for logging
+                message: 'ซื้อไอเทมสำเร็จ',
+                details: ''
             };
-            break;
+            
+        case 'ITEM_USE':
+            return {
+                xp: 0,
+                hp: 0,
+                coins: 0,
+                message: 'ใช้ไอเทมสำเร็จ',
+                details: ''
+            };
+            
         case 'MANUAL_ADJUST':
-            result = {
+            return {
                 xp: context.xp || 0,
                 hp: context.hp || 0,
                 coins: context.coins || 0,
-                message: context.reason || 'Admin Adjustment'
+                message: 'Admin ปรับค่าพลัง',
+                details: 'Manual Adjustment'
             };
-            break;
+            
+        case 'TIME_WARP_REFUND':
+             return {
+                 xp: 0,
+                 hp: 0, // Logic handles update directly
+                 coins: 0,
+                 message: 'Time Warp! คืนค่าพลังแล้ว',
+                 details: 'Refunded'
+             };
+
+        // --- NEW: KPI REWARDS ---
+        case 'KPI_REWARD': {
+            const grade = context.grade || 'D';
+            // Use Dynamic Rewards
+            const r = kpiRewards[grade] || kpiRewards['D'] || { xp: 0, coins: 0 };
+            
+            return {
+                xp: r.xp,
+                hp: 0,
+                coins: r.coins,
+                message: `KPI Reward: Grade ${grade}`,
+                details: `+${r.xp} XP, +${r.coins} JP`
+            };
+        }
+
         default:
-            break;
+            return { xp: 0, hp: 0, coins: 0, message: '', details: '' };
     }
-
-    return result;
-};
-
-// --- SPECIFIC LOGIC HANDLERS ---
-
-const calculateTaskCompletion = (task: any, config: any): GameActionResult => {
-    const diff: Difficulty = task.difficulty || 'MEDIUM';
-    const hours = Number(task.estimatedHours) || 0;
-    
-    const MULTIPLIERS = config.GLOBAL_MULTIPLIERS || config;
-    const DIFF_XP = config.DIFFICULTY_XP || config.DIFFICULTY_XP;
-
-    // 1. Base XP
-    let xp = DIFF_XP[diff] || DIFF_XP.MEDIUM;
-    
-    // 2. Hourly Bonus
-    xp += Math.floor(hours * (MULTIPLIERS.XP_PER_HOUR || 20));
-
-    // 3. Early Bonus?
-    let coins = MULTIPLIERS.COIN_PER_TASK || 10;
-    const now = new Date();
-    const dueDate = new Date(task.endDate);
-    
-    let message = `งานเสร็จแล้ว! รับรางวัลตอบแทน 🎉`;
-    let details = `+${xp} XP`;
-
-    // Check if Early (> 24 hours before deadline)
-    if (isBefore(now, new Date(dueDate.getTime() - 24 * 60 * 60 * 1000))) {
-        const bonus = MULTIPLIERS.COIN_BONUS_EARLY || 20;
-        coins += bonus;
-        xp += 50; 
-        message = `สุดยอด! ส่งงานก่อนกำหนดไวมาก ⚡️`;
-        details += ` (Early Bonus +50 XP, +${bonus} Coins)`;
-    } else {
-        details += `, +${coins} Coins`;
-    }
-
-    return { xp, hp: 0, coins, message, details };
-};
-
-const calculateTaskLate = (task: any, config: any): GameActionResult => {
-    const now = new Date();
-    const dueDate = new Date(task.endDate);
-    const daysLate = differenceInDays(now, dueDate);
-    
-    if (daysLate <= 0) return { xp: 0, hp: 0, coins: 0, message: '' };
-
-    const PENALTIES = config.PENALTY_RATES || config;
-
-    const hpLoss = PENALTIES.HP_PENALTY_LATE || 5; 
-    const coinPenaltyPerDay = PENALTIES.COIN_PENALTY_LATE_PER_DAY || 5;
-    const coinLoss = Math.min(50, daysLate * coinPenaltyPerDay); 
-
-    return {
-        xp: 0,
-        hp: -hpLoss,
-        coins: -coinLoss,
-        message: `ส่งงานช้าไป ${daysLate} วัน! โดนหักคะแนน 🐢`,
-        details: `HP -${hpLoss}, Coins -${coinLoss}`
-    };
 };

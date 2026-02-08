@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, WorkStatus } from '../../../types';
 import { WORK_STATUS_CONFIG } from '../../../constants';
@@ -153,8 +152,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                                                 onClick={() => onUpdateStatus(key as WorkStatus)}
                                                 className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors ${user.workStatus === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
                                             >
-                                                <span>{config.icon}</span>
-                                                {config.label.split('(')[0]}
+                                                <span>{(config as any).icon}</span>
+                                                {(config as any).label.split('(')[0]}
                                             </button>
                                         ))}
                                     </div>

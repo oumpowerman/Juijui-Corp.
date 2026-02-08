@@ -34,6 +34,12 @@ export const useTeam = () => {
         // --- NEW READ FIELDS ---
         lastReadChatAt: u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0),
         lastReadNotificationAt: u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0),
+        // --- PAYROLL FIELDS ---
+        baseSalary: u.base_salary || 0,
+        bankAccount: u.bank_account || '',
+        bankName: u.bank_name || '',
+        ssoIncluded: u.sso_included !== false, // Default true
+        taxType: u.tax_type || 'WHT_3'
     });
 
     const fetchTeamMembers = async () => {
@@ -134,24 +140,26 @@ export const useTeam = () => {
         }
     };
 
-    // NEW: Function for Admin to update member info
-    const updateMember = async (userId: string, updates: { name?: string, position?: string, role?: Role }) => {
+    // NEW: Function for Admin to update member info (Expanded)
+    const updateMember = async (userId: string, updates: any) => {
         try {
             const payload: any = {};
             if (updates.name) payload.full_name = updates.name;
             if (updates.position) payload.position = updates.position;
             if (updates.role) payload.role = updates.role;
+            
+            // Payroll Fields
+            if (updates.baseSalary !== undefined) payload.base_salary = updates.baseSalary;
+            if (updates.bankAccount !== undefined) payload.bank_account = updates.bankAccount;
+            if (updates.bankName !== undefined) payload.bank_name = updates.bankName;
+            if (updates.ssoIncluded !== undefined) payload.sso_included = updates.ssoIncluded;
+            if (updates.taxType !== undefined) payload.tax_type = updates.taxType;
 
             const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
             if (error) throw error;
             
             // Update Local State Immediately
-            setAllUsers(prev => prev.map(u => u.id === userId ? { 
-                ...u, 
-                name: updates.name || u.name,
-                position: updates.position || u.position,
-                role: updates.role || u.role
-            } : u));
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
 
             showToast('อัปเดตข้อมูลสมาชิกสำเร็จ ✨', 'success');
             return true;

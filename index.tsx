@@ -6,6 +6,8 @@ import { ToastProvider } from './context/ToastContext';
 import { GlobalDialogProvider } from './context/GlobalDialogContext';
 import GlobalDialog from './components/GlobalDialog';
 
+
+
 interface ErrorBoundaryProps {
   children?: ReactNode;
 }

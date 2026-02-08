@@ -257,9 +257,9 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                                         key={key}
                                         type="button"
                                         onClick={() => handleStatusChange(key as WorkStatus)}
-                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${workStatus === key ? `${config.color} ring-2 ring-offset-1 ring-gray-200` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1 ${workStatus === key ? `${(config as any).color} ring-2 ring-offset-1 ring-gray-200` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
                                     >
-                                        <span>{config.icon}</span> {config.label.split('(')[0]}
+                                        <span>{(config as any).icon}</span> {(config as any).label.split('(')[0]}
                                     </button>
                                 ))}
                             </div>

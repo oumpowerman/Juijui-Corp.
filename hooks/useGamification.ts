@@ -117,7 +117,7 @@ export const useGamification = (currentUser?: any) => {
                 shop_items (id, name, description, icon, effect_type, effect_value)
             `)
             .eq('user_id', currentUser.id)
-            .eq('is_used', false); // Show only active items
+            .eq('is_used', false);
 
         if (data) {
             setUserInventory(data.map((i: any) => ({
@@ -285,16 +285,18 @@ export const useGamification = (currentUser?: any) => {
     };
     
     // NEW: ADMIN ADJUSTMENT (Game Master) (Pass config to calculateLevel)
-    const adminAdjustStats = async (userId: string, adjustments: { hp?: number, xp?: number, points?: number }, reason: string) => {
+    const adminAdjustStats = async (targetUserId: string, adjustments: { hp?: number, xp?: number, points?: number }, reason: string) => {
         try {
+            // 1. Fetch Target User Data
             const { data: user } = await supabase
                 .from('profiles')
                 .select('hp, xp, available_points, level, max_hp')
-                .eq('id', userId)
+                .eq('id', targetUserId)
                 .single();
             
             if (!user) throw new Error("User not found");
 
+            // 2. Calculate New Values
             let newHp = user.hp;
             let newXp = user.xp;
             let newPoints = user.available_points;
@@ -303,22 +305,27 @@ export const useGamification = (currentUser?: any) => {
             if (adjustments.hp !== undefined) newHp = Math.min(user.max_hp, Math.max(0, user.hp + adjustments.hp));
             if (adjustments.xp !== undefined) {
                 newXp = Math.max(0, user.xp + adjustments.xp);
-                newLevel = calculateLevel(newXp, config); // Pass Config
+                newLevel = calculateLevel(newXp, config); // Pass Config for level calculation
             }
             if (adjustments.points !== undefined) newPoints = Math.max(0, user.available_points + adjustments.points);
 
+            // 3. Update DB
             await supabase
                 .from('profiles')
                 .update({ hp: newHp, xp: newXp, available_points: newPoints, level: newLevel })
-                .eq('id', userId);
+                .eq('id', targetUserId);
+
+            // 4. Log the action linked to the TARGET USER so they see it
+            // We append Admin's name to description for traceability
+            const adminName = currentUser?.name || 'Admin';
 
             await supabase.from('game_logs').insert({
-                user_id: userId,
+                user_id: targetUserId, // IMPORTANT: Log for the target user
                 action_type: 'MANUAL_ADJUST',
                 hp_change: adjustments.hp || 0,
                 xp_change: adjustments.xp || 0,
                 jp_change: adjustments.points || 0,
-                description: `GM ปรับค่า: ${reason}`
+                description: `👑 GM ${adminName} ปรับค่า: ${reason}`
             });
 
             showToast('ปรับสถานะเรียบร้อย (GM Action) ⚡', 'success');

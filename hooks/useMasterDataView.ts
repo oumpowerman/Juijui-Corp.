@@ -20,7 +20,7 @@ export type MasterTab =
     // QC
     | 'REJECTION_REASON'
     // System
-    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY' | 'GAME_TUNING'; 
+    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY' | 'GAME_TUNING' | 'PAYROLL_RULES'; 
 
 export const useMasterDataView = () => {
     // --- Hooks ---
@@ -65,7 +65,7 @@ export const useMasterDataView = () => {
 
     // --- Computed ---
     // General filter for simple tabs
-    const filteredOptions = masterOptions.filter(o => o.type === activeTab);
+    const filteredOptions = masterOptions.filter(o => o.type === activeTab || (activeTab === 'PAYROLL_RULES' && o.type === 'PAYROLL_CONFIG'));
 
     // --- Handlers ---
     const handleEdit = (option: MasterOption) => {
@@ -106,7 +106,8 @@ export const useMasterDataView = () => {
                 else await addReward(rewardFormData as any);
             } else {
                 // Determine Type: explicitType overrides activeTab (useful for Sub-items like L2 or Responsibilities)
-                const targetType = explicitType || activeTab;
+                let targetType = explicitType || activeTab;
+                if (activeTab === 'PAYROLL_RULES') targetType = 'PAYROLL_CONFIG';
                 
                 const payload = { 
                     type: targetType as any, 

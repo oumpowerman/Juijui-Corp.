@@ -69,7 +69,9 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
-        const note = locationName ? `📍 ${locationName}` : undefined;
+        // Note: locationName is now stored in its own column, so we don't necessarily need to put it in the note text unless preferred.
+        // We pass undefined for 'note' parameter unless we want to add extra text.
+        const note = undefined;
         
         // Google Drive Uploader Wrapper
         const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
@@ -86,7 +88,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
             });
         } : undefined;
 
-        await checkIn(type, file, location, note, googleDriveUploader);
+        await checkIn(type, file, location, locationName, note, googleDriveUploader);
     };
 
     // Handler: Leave Request

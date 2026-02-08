@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
@@ -43,10 +42,13 @@ const DEFAULT_OPTIONS = [
     { type: 'CATEGORY', key: 'INTERVIEW', label: 'Interview', color: 'bg-gray-100 text-gray-700', sort_order: 4 },
     
     // --- POSITION (For Users) ---
-    { type: 'POSITION', key: 'CREATIVE', label: 'Creative', color: 'bg-yellow-100 text-yellow-700', sort_order: 1 },
-    { type: 'POSITION', key: 'EDITOR', label: 'Editor', color: 'bg-blue-100 text-blue-700', sort_order: 2 },
-    { type: 'POSITION', key: 'PRODUCTION', label: 'Production', color: 'bg-green-100 text-green-700', sort_order: 3 },
-    { type: 'POSITION', key: 'ADMIN', label: 'Admin / Co-ord', color: 'bg-purple-100 text-purple-700', sort_order: 4 },
+    { type: 'POSITION', key: 'CEO', label: 'CEO', color: 'bg-slate-900 text-white', sort_order: 0 },
+    { type: 'POSITION', key: 'HR_MANAGER', label: 'HR Manager', color: 'bg-pink-100 text-pink-700', sort_order: 1 },
+    { type: 'POSITION', key: 'SENIOR_HR', label: 'Senior HR', color: 'bg-pink-50 text-pink-600', sort_order: 2 },
+    { type: 'POSITION', key: 'CREATIVE', label: 'Creative', color: 'bg-yellow-100 text-yellow-700', sort_order: 3 },
+    { type: 'POSITION', key: 'EDITOR', label: 'Editor', color: 'bg-blue-100 text-blue-700', sort_order: 4 },
+    { type: 'POSITION', key: 'PRODUCTION', label: 'Production', color: 'bg-green-100 text-green-700', sort_order: 5 },
+    { type: 'POSITION', key: 'ADMIN', label: 'Admin / Co-ord', color: 'bg-purple-100 text-purple-700', sort_order: 6 },
 
     // --- WORK CONFIG (Attendance Rules) ---
     { type: 'WORK_CONFIG', key: 'START_TIME', label: '10:00', color: '', sort_order: 1 },

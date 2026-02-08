@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown , Monitor } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
 
 interface SidebarProps {
@@ -53,6 +53,8 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
       { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone },
       { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
+      { view: 'ASSETS', label: 'ทะเบียนทรัพย์สิน', icon: Monitor }, // NEW MENU
+      { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
     ]
   },
   {
@@ -62,7 +64,6 @@ export const MENU_GROUPS: MenuGroup[] = [
     adminOnly: true,
     items: [
       { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
-      { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
       { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2 },
       { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
       { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal }, 

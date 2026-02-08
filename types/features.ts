@@ -1,6 +1,85 @@
 
-import { User, TaskAsset, FilterType, ViewMode } from './index';
+import { User, ViewMode } from './core';
+import { TaskAsset, FilterType } from './task';
 
+// --- KPI TYPES ---
+export interface IndividualGoal {
+    id: string;
+    userId: string;
+    monthKey: string;
+    title: string;
+    targetValue: number;
+    actualValue: number;
+    unit: string;
+}
+
+export interface KPIConfig {
+    id: string;
+    roleTarget: string;
+    weightOkr: number;
+    weightBehavior: number;
+    weightAttendance: number;
+    penaltyLate: number;
+    penaltyAbsent: number;
+    penaltyMissedDuty: number;
+    isActive: boolean;
+}
+
+export interface KPIStats {
+    taskCompleted: number;
+    taskOverdue: number;
+    attendanceLate: number;
+    attendanceAbsent: number;
+    dutyAssigned: number;
+    dutyMissed: number; // Abandoned or Penalized
+}
+
+export interface KPIRecord {
+    id: string;
+    userId: string;
+    evaluatorId: string;
+    monthKey: string;
+    scores: Record<string, number>; // Manager Scores
+    selfScores?: Record<string, number>; // Self Scores
+    feedback: string; // Legacy
+    managerFeedback?: string;
+    selfFeedback?: string;
+    developmentPlan?: string;
+    status: 'DRAFT' | 'WAITING_SELF' | 'FINAL' | 'PAID';
+    totalScore: number;
+    maxScore: number;
+    updatedAt: Date;
+    statsSnapshot?: KPIStats;
+    finalScoreBreakdown?: {
+        okrScore: number;     // Weighted
+        behaviorScore: number; // Weighted
+        attendanceScore: number; // Weighted
+    };
+}
+
+// --- IDP ---
+export interface IDPItem {
+    id: string;
+    userId: string;
+    monthKey: string;
+    topic: string;
+    actionPlan: string;
+    status: 'TODO' | 'DONE';
+}
+
+// --- PEER REVIEW ---
+export interface PeerReview {
+    id: string;
+    fromUserId: string;
+    toUserId: string;
+    monthKey: string;
+    message: string;
+    badge: 'TEAMWORK' | 'HELPFUL' | 'CREATIVE' | 'LEADERSHIP' | 'FUN';
+    createdAt: Date;
+    fromUser?: { name: string; avatarUrl: string };
+}
+
+// ... (Existing types below: SCRIPT, CHECKLIST, etc.) ...
 // --- SCRIPT ---
 export type ScriptType = 'MONOLOGUE' | 'DIALOGUE';
 export type ScriptStatus = 'DRAFT' | 'REVIEW' | 'FINAL' | 'SHOOTING' | 'DONE';
@@ -52,7 +131,7 @@ export interface ScriptComment {
     };
 }
 
-// --- CHECKLIST ---
+// --- CHECKLIST & ASSETS ---
 export interface ChecklistItem {
     id: string;
     text: string;
@@ -66,12 +145,27 @@ export interface ChecklistPreset {
     items: { text: string; categoryId: string }[];
 }
 
+export type AssetCondition = 'GOOD' | 'REPAIR' | 'DAMAGED' | 'LOST' | 'WRITE_OFF';
+export type AssetGroup = 'PRODUCTION' | 'OFFICE' | 'IT';
+
 export interface InventoryItem {
     id: string;
     name: string;
     description?: string;
     categoryId: string;
     imageUrl?: string;
+    
+    // Extended Asset Registry Fields
+    purchasePrice?: number;
+    purchaseDate?: Date;
+    serialNumber?: string;
+    warrantyExpire?: Date;
+    condition?: AssetCondition;
+    currentHolderId?: string;
+    assetGroup?: AssetGroup;
+    
+    // Joined Fields
+    holder?: { name: string; avatarUrl: string };
 }
 
 // --- MEETING ---
@@ -187,12 +281,13 @@ export interface AppNotification {
     date: Date;
     isRead: boolean;
     actionLink?: string; // Optional link for navigation
-    // New Metadata for v2.0
+    // This Metadata field is CRITICAL for the new Popover design
     metadata?: {
         hp?: number;
         xp?: number;
         coins?: number;
-        subText?: string;
+        badge?: string;
+        [key: string]: any;
     };
 }
 

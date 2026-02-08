@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2 } from 'lucide-react';
+import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins } from 'lucide-react';
 import { MasterTab } from '../../../hooks/useMasterDataView';
 
 // Metadata Configuration
@@ -38,6 +38,7 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     DASHBOARD: { label: 'Dashboard', icon: Monitor, desc: 'ตั้งค่าการ์ดสรุปงานในหน้า Admin Dashboard', group: 'SYSTEM' },
     MAINTENANCE: { label: 'Maintenance', icon: HardDrive, desc: 'ดูแลรักษาระบบ (Backup, Cleanup)', group: 'SYSTEM' },
     WIKI_CATEGORY: { label: 'Wiki Categories', icon: BookOpen, desc: 'หมวดหมู่ของคู่มือการทำงาน (Wiki)', group: 'SYSTEM' },
+    PAYROLL_RULES: { label: 'Payroll Rules', icon: Coins, desc: 'ตั้งค่าอัตราค่าปรับ (หักเงิน) สำหรับการขาด/ลา/สาย', group: 'SYSTEM' },
 };
 
 interface MasterTabNavigationProps {
@@ -87,7 +88,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
             {/* GROUP: SYSTEM */}
             <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">System Config</div>
-                    {['GAME_TUNING', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY'].map(key => renderTabButton(key))}
+                    {['GAME_TUNING', 'PAYROLL_RULES', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY'].map(key => renderTabButton(key))}
             </div>
         </div>
     );

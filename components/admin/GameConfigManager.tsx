@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useGameConfig } from '../../context/GameConfigContext';
-import { Save, RefreshCw, Trophy, Heart, Clock, AlertTriangle, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Save, RefreshCw, Trophy, Heart, Clock, AlertTriangle, Edit2, Check, X, ShieldAlert, Award } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 const GameConfigManager: React.FC = () => {
@@ -54,7 +54,7 @@ const GameConfigManager: React.FC = () => {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 {Object.entries(data).map(([subKey, val]: [string, any]) => {
-                    // Special handling for nested ATTENDANCE_RULES (e.g. LATE: {xp, hp, coins})
+                    // Special handling for nested structures (e.g. ATTENDANCE_RULES, KPI_REWARDS)
                     if (typeof val === 'object' && val !== null) {
                         return (
                             <div key={subKey} className="col-span-full bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -137,10 +137,10 @@ const GameConfigManager: React.FC = () => {
                                 </div>
                              )
                         })}
-                        {/* Summary for complex objects like Attendance */}
+                        {/* Summary for complex objects like Attendance/KPI */}
                         {typeof Object.values(currentData)[0] === 'object' && (
                             <div className="col-span-full text-xs text-gray-500 italic bg-gray-50 p-2 rounded-lg text-center">
-                                กฎการให้คะแนนแบบละเอียด (คลิกแก้ไขเพื่อดู)
+                                รายละเอียดการตั้งค่าซับซ้อน (คลิกแก้ไขเพื่อดู)
                             </div>
                         )}
                     </div>
@@ -188,6 +188,13 @@ const GameConfigManager: React.FC = () => {
                     title="กฎการเข้างาน (Attendance Rules)" 
                     icon={Clock} 
                     color="bg-blue-100 text-blue-600" 
+                />
+
+                <ConfigCard 
+                    confKey="KPI_REWARDS" 
+                    title="รางวัลเกรด (KPI Rewards)" 
+                    icon={Award} 
+                    color="bg-green-100 text-green-600" 
                 />
             </div>
         </div>

@@ -63,14 +63,55 @@ export const useTaskComments = (taskId: string | undefined, currentUser: User | 
         if (!taskId || !currentUser || !content.trim()) return;
 
         try {
-            const payload = {
+            // 1. Insert Comment
+            const { error } = await supabase.from('task_comments').insert({
                 task_id: taskId,
                 user_id: currentUser.id,
                 content: content.trim()
-            };
-
-            const { error } = await supabase.from('task_comments').insert(payload);
+            });
             if (error) throw error;
+
+            // 2. NOTIFICATION LOGIC
+            // Get Task details to find who to notify
+            // Check both tables because ID could belong to either
+            let taskData = null;
+            let title = '';
+
+            const { data: tData } = await supabase.from('tasks').select('assignee_ids, title').eq('id', taskId).maybeSingle();
+            if (tData) {
+                taskData = tData;
+                title = tData.title;
+            } else {
+                const { data: cData } = await supabase.from('contents').select('assignee_ids, idea_owner_ids, editor_ids, title').eq('id', taskId).maybeSingle();
+                if(cData) {
+                    taskData = { 
+                        assignee_ids: [
+                            ...(cData.assignee_ids || []), 
+                            ...(cData.idea_owner_ids || []), 
+                            ...(cData.editor_ids || [])
+                        ] 
+                    };
+                    title = cData.title;
+                }
+            }
+
+            if (taskData) {
+                const recipients = new Set(taskData.assignee_ids);
+                recipients.delete(currentUser.id); // Don't notify self
+
+                if (recipients.size > 0) {
+                    const notifications = Array.from(recipients).map(uid => ({
+                         user_id: uid,
+                         type: 'INFO',
+                         title: `💬 คอมเมนต์ใหม่: ${title.substring(0, 20)}...`,
+                         message: `${currentUser.name}: ${content.substring(0, 50)}...`,
+                         related_id: taskId,
+                         link_path: 'TASK', // Just generic link type, will be handled by popover
+                         is_read: false
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                }
+            }
             
             // Note: Realtime subscription will handle the UI update
         } catch (err: any) {

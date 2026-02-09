@@ -337,7 +337,8 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 />
             </fieldset>
 
-            <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100 sticky bottom-0 pb-safe-area bg-white z-20">
+                
+                <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100 pb-10">
                 <div className="flex items-center gap-2">
                     {!isReadOnly && initialData && onDelete && isAdmin && (
                         <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">

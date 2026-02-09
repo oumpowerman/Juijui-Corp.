@@ -25,7 +25,7 @@ export const useTeam = () => {
         xp: u.xp || 0,
         level: u.level || 1,
         availablePoints: u.available_points || 0,
-        hp: u.hp || 100,
+        hp: u.hp ?? 100,
         maxHp: u.max_hp || 100,
         // --- NEW STATUS FIELDS ---
         workStatus: (u.work_status as WorkStatus) || 'ONLINE',

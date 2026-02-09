@@ -16,6 +16,14 @@ export default defineConfig(({ mode }) => {
       // Explicitly expose API_KEY for the GenAI compliance if needed, reading from VITE_GEMINI_API_KEY
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || '')
     },
+    server: {
+      host: true, // สำคัญมาก (เปิดให้ external access)
+      port: 5173,
+      strictPort: true,
+      allowedHosts: [
+        'caitlin-hyperflexible-noncontiguously.ngrok-free.dev'
+      ]
+    },
     build: {
       outDir: 'dist',
       sourcemap: false,

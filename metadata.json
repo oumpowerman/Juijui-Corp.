@@ -1,5 +1,7 @@
 {
   "name": "Juijui Planner",
   "description": "A collaborative team content scheduler and planner designed for small teams. Features a calendar view, team workload management, and task tracking.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

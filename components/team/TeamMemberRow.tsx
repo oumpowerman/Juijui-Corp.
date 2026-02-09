@@ -180,7 +180,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
 
     const workloadCount = tasks.length;
     const statusInfo = getJuijuiScore(workloadCount);
-    const levelProgress = (user.xp % 1000) / 10;
+    const levelProgress = ((user.xp % 1000) / 1000) * 100;
     const isMe = user.id === currentUser?.id;
 
     const getStatusColor = (status: string) => {

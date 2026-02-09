@@ -30,7 +30,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
 
     // Calculate Level Progress
     const nextLevelXP = user.level * 1000;
-    const progressPercent = Math.min((user.xp / nextLevelXP) * 100, 100);
+    const progressPercent = Math.min(((user.xp % 1000) / 1000) * 100, 100);
     
     // HP Percentage
     const hpPercent = Math.min((user.hp / (user.maxHp || 100)) * 100, 100);

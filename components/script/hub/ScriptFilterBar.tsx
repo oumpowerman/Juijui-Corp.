@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, ChevronDown, LayoutGrid, List, User as UserIcon, X, Check, MonitorPlay, Search, Users } from 'lucide-react';
-import { Channel, User } from '../../../types';
+import { Filter, ChevronDown, LayoutGrid, List, User as UserIcon, X, Check, MonitorPlay, Search, Users, Activity, ArrowDownAZ, ArrowUpAZ, Calendar } from 'lucide-react';
+import { Channel, User, MasterOption } from '../../../types';
 import { createPortal } from 'react-dom';
 
 interface ScriptFilterBarProps {
@@ -18,9 +18,16 @@ interface ScriptFilterBarProps {
     filterChannel: string[];
     setFilterChannel: (val: string[]) => void;
 
+    // NEW: Status & Sort
+    filterStatus: string;
+    setFilterStatus: (val: string) => void;
+    sortOrder: 'ASC' | 'DESC';
+    setSortOrder: (val: 'ASC' | 'DESC') => void;
+
     // Data
     users: User[];
     channels: Channel[];
+    masterOptions: MasterOption[];
 }
 
 const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
@@ -28,7 +35,9 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
     searchQuery, setSearchQuery,
     filterOwner, setFilterOwner,
     filterChannel, setFilterChannel,
-    users, channels
+    filterStatus, setFilterStatus,
+    sortOrder, setSortOrder,
+    users, channels, masterOptions
 }) => {
     // Local state for debouncing search input
     const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -40,6 +49,9 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
 
     // Limit Constants
     const VISIBLE_CREATORS_LIMIT = 6;
+
+    // Filter Options derived from MasterData
+    const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
     // Sync local state if parent prop changes externally
     useEffect(() => {
@@ -119,13 +131,48 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
                         onChange={e => setLocalSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-xl shrink-0 border border-gray-200">
-                    <button onClick={() => setLayoutMode('GRID')} className={`p-2 rounded-lg transition-all ${layoutMode === 'GRID' ? 'bg-white shadow-sm text-indigo-600 scale-105 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'}`}>
-                        <LayoutGrid className="w-4 h-4" />
+                
+                {/* Right Side Controls Group */}
+                <div className="flex items-center gap-2">
+                    
+                    {/* Sort Toggle */}
+                    <button 
+                        onClick={() => setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC')}
+                        className="p-2.5 bg-gray-50 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded-xl transition-all shadow-sm active:scale-95"
+                        title={sortOrder === 'DESC' ? 'ล่าสุดไปเก่าสุด' : 'เก่าสุดไปล่าสุด'}
+                    >
+                         {sortOrder === 'DESC' ? <ArrowDownAZ className="w-4 h-4" /> : <ArrowUpAZ className="w-4 h-4" />}
                     </button>
-                    <button onClick={() => setLayoutMode('LIST')} className={`p-2 rounded-lg transition-all ${layoutMode === 'LIST' ? 'bg-white shadow-sm text-indigo-600 scale-105 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'}`}>
-                        <List className="w-4 h-4" />
-                    </button>
+
+                    {/* Status Dropdown */}
+                    <div className="relative group">
+                        <select 
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className={`
+                                appearance-none pl-3 pr-8 py-2.5 rounded-xl text-xs font-bold border cursor-pointer outline-none transition-all
+                                ${filterStatus !== 'ALL' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}
+                            `}
+                        >
+                            <option value="ALL">ทุกสถานะ (All)</option>
+                            {statusOptions.map(opt => (
+                                <option key={opt.key} value={opt.key}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 mx-1"></div>
+
+                    {/* View Toggle */}
+                    <div className="flex bg-gray-100 p-1 rounded-xl shrink-0 border border-gray-200">
+                        <button onClick={() => setLayoutMode('GRID')} className={`p-2 rounded-lg transition-all ${layoutMode === 'GRID' ? 'bg-white shadow-sm text-indigo-600 scale-105 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'}`}>
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setLayoutMode('LIST')} className={`p-2 rounded-lg transition-all ${layoutMode === 'LIST' ? 'bg-white shadow-sm text-indigo-600 scale-105 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'}`}>
+                            <List className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 

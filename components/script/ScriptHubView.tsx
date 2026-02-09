@@ -119,6 +119,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [filterChannel, setFilterChannel] = useState<string[]>([]); // Array of IDs
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
+    const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC'); // NEW SORT STATE
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -132,9 +133,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             filterOwner,
             filterChannel,
             filterCategory,
-            filterStatus
+            filterStatus,
+            sortOrder // NEW
         });
-    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, fetchScripts]);
+    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder, fetchScripts]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -151,7 +153,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             if (fullScript) setActiveScript(fullScript);
         }
         // Refetch list to show new item
-        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus });
+        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder });
     };
 
     const handleOpenScript = async (summary: ScriptSummary) => {
@@ -272,7 +274,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     channels={channels} // Pass channels
                     masterOptions={masterOptions} // Pass masterOptions
                     currentUser={currentUser}
-                    onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus }); }} 
+                    onClose={() => { setActiveScript(null); fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder }); }} 
                     onSave={updateScript} 
                     onGenerateAI={generateScriptWithAI}
                     onPromote={handlePromoteClick} // Pass handler
@@ -402,7 +404,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                         filterOwner={filterOwner} setFilterOwner={setFilterOwner}
                         filterChannel={filterChannel} setFilterChannel={setFilterChannel}
-                        users={users} channels={channels}
+                        // NEW PROPS
+                        filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                        sortOrder={sortOrder} setSortOrder={setSortOrder}
+                        users={users} channels={channels} masterOptions={masterOptions}
                     />
 
                     <ScriptList 

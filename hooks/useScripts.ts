@@ -15,6 +15,7 @@ interface FetchScriptsOptions {
     filterChannel?: string[]; // Changed to Array
     filterCategory?: string;
     filterStatus?: string;
+    sortOrder?: 'ASC' | 'DESC'; // NEW: Add Sort Order
 }
 
 export const useScripts = (currentUser: User) => {
@@ -139,10 +140,18 @@ export const useScripts = (currentUser: User) => {
             }
 
             // 4. Sorting & Pagination
-            query = query
-                .order('is_in_shoot_queue', { ascending: false })
-                .order('updated_at', { ascending: false })
-                .range((options.page - 1) * options.pageSize, options.page * options.pageSize - 1);
+            // Queue view usually prioritizes queue status, but standard view follows sort order
+            const isAscending = options.sortOrder === 'ASC';
+            
+            if (options.viewTab !== 'QUEUE') {
+                 query = query.order('updated_at', { ascending: isAscending });
+            } else {
+                 // For Queue, usually we want FIFO or manual order, but let's respect sort for now
+                 query = query.order('is_in_shoot_queue', { ascending: false });
+                 query = query.order('updated_at', { ascending: isAscending });
+            }
+
+            query = query.range((options.page - 1) * options.pageSize, options.page * options.pageSize - 1);
 
             const { data, error, count } = await query;
 

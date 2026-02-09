@@ -118,7 +118,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
 
     // Calculate Level Progress
     const nextLevelXP = currentUser.level * 1000;
-    const progressPercent = Math.min((currentUser.xp / nextLevelXP) * 100, 100);
+    const progressPercent = Math.min(((currentUser.xp  % 1000) / 1000) * 100, 100);
 
     return (
         <>

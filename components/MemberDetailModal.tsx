@@ -13,7 +13,7 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
     if (!isOpen || !user) return null;
 
     // Calculate Level Progress (Example: 1000 XP per level)
-    const levelProgress = (user.xp % 1000) / 10;
+    const levelProgress = ((user.xp % 1000) / 1000) * 100;
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">

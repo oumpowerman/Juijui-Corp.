@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment } from '../../../types';
 import { supabase } from '../../../lib/supabase';
@@ -75,8 +74,8 @@ interface ScriptContextType {
     resolveComment: (id: string) => Promise<void>;
     deleteComment: (id: string) => Promise<void>;
     scrollToComment: (highlightId: string) => void;
-    activeCommentId: string | null; // NEW: Track currently focused comment
-    setActiveCommentId: (id: string | null) => void; // NEW
+    activeCommentId: string | null; 
+    setActiveCommentId: (id: string | null) => void; 
 
     // Actions
     handleSave: (silent?: boolean) => Promise<void>;
@@ -126,10 +125,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 }) => {
     const { showToast } = useToast();
     
-    // Hooks
     const { comments, addComment: addCommentHook, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook } = useScriptComments(script.id);
 
-    // Core State
     const [content, setContent] = useState(script.content || '');
     const [title, setTitle] = useState(script.title);
     const [status, setStatus] = useState<ScriptStatus>(script.status);
@@ -137,39 +134,31 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
     
-    // Metadata
     const [contentId, setContentId] = useState<string | undefined>(script.contentId);
     const [channelId, setChannelId] = useState<string | undefined>(script.channelId);
     const [category, setCategory] = useState<string | undefined>(script.category);
     const [tags, setTags] = useState<string[]>(script.tags || []);
     const [objective, setObjective] = useState<string>(script.objective || '');
 
-    // View State
     const [zoomLevel, setZoomLevel] = useState(100);
 
-    // Share State
     const [isPublic, setIsPublic] = useState(script.isPublic || false);
     const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
 
-    // Lock System
     const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
     const [lockerUser, setLockerUser] = useState<{ name: string; avatarUrl: string } | null>(null);
 
-    // Editor
     const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
 
-    // Save State
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date>(new Date());
     
-    // Refs
     const isDirtyRef = useRef(false);
     const latestStateRef = useRef({ 
         title, content, status, scriptType, characters, ideaOwnerId,
         channelId, category, tags, objective 
     });
     
-    // UI Toggles
     const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
     const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
     const [isAIOpen, setIsAIOpen] = useState(false);
@@ -184,14 +173,12 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
     const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
     
-    // --- REALTIME BROADCAST ---
     const { sendLiveUpdate, liveContent, isConnected: isBroadcastConnected } = useScriptBroadcast(
         script.id, 
         currentUser.id, 
         lockStatus === 'LOCKED_BY_ME'
     );
 
-    // --- COMMENTS INTEGRATION ---
     const addComment = async (text: string, highlightId?: string, selectedText?: string) => {
         const success = await addCommentHook(currentUser.id, text, highlightId, selectedText);
         if (success) {
@@ -204,7 +191,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
          setIsCommentsOpen(true);
          setActiveCommentId(highlightId);
          
-         // Delay slightly to allow sidebar to render
          setTimeout(() => {
              const element = document.getElementById(`comment-item-${highlightId}`);
              if (element) {
@@ -213,7 +199,37 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
          }, 100);
     };
 
-    // ... (Lock Logic same as before) ...
+    // --- NEW LOGIC: EDITOR CLEANUP ---
+    const removeMarkById = (highlightId: string) => {
+        if (!editorInstance) return;
+        editorInstance.chain().command(({ tr }) => {
+            tr.doc.descendants((node, pos) => {
+                node.marks.forEach(mark => {
+                    if (mark.type.name === 'comment' && mark.attrs.id === highlightId) {
+                        tr.removeMark(pos, pos + node.nodeSize, mark.type);
+                    }
+                });
+            });
+            return true;
+        }).run();
+    };
+
+    const resolveComment = async (id: string) => {
+        const comment = comments.find(c => c.id === id);
+        if (comment?.highlightId) {
+            removeMarkById(comment.highlightId);
+        }
+        await resolveCommentHook(id);
+    };
+
+    const deleteComment = async (id: string) => {
+        const comment = comments.find(c => c.id === id);
+        if (comment?.highlightId) {
+            removeMarkById(comment.highlightId);
+        }
+        await deleteCommentHook(id);
+    };
+
     const acquireLock = async () => {
         try {
             const { error } = await supabase
@@ -247,7 +263,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         }
     };
 
-    // 1. Initial Lock Check
     useEffect(() => {
         const checkLock = async () => {
             const { data } = await supabase.from('scripts').select('locked_by, locked_at').eq('id', script.id).single();
@@ -282,12 +297,10 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         return () => { supabase.removeChannel(channel); };
     }, []);
 
-    // 2. Keep Latest State
     useEffect(() => {
         latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective };
     }, [title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective]);
 
-    // 3. Heartbeat
     useEffect(() => {
         if (lockStatus === 'LOCKED_BY_ME') {
             refreshLock();
@@ -298,7 +311,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
     }, [lockStatus]);
 
-    // 4. Autosave
     useEffect(() => {
         if (isReadOnly) return; 
         if (content !== script.content || title !== script.title) {
@@ -312,7 +324,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         return () => clearTimeout(timer);
     }, [content, title, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective, isReadOnly]);
 
-    // 5. Cleanup
     useEffect(() => {
         return () => {
             if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
@@ -409,14 +420,10 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isAIOpen, setIsAIOpen,
             isGenerating, setIsGenerating,
             isMetadataOpen, setIsMetadataOpen,
-            // Comments
             isCommentsOpen, setIsCommentsOpen,
-            comments, addComment, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook, scrollToComment,
+            comments, addComment, resolveComment, deleteComment, scrollToComment,
             activeCommentId, setActiveCommentId,
-            
-            // Broadcast
             sendLiveUpdate, liveContent, isBroadcastConnected,
-
             handleSave,
             handleGenerateAI: handleGenerateAIWrapper,
             handleInsertCharacter,

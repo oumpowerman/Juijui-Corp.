@@ -39,4 +39,7 @@ export interface User {
     bankName?: string;
     ssoIncluded?: boolean;
     taxType?: string;
+
+    // Notification
+    lineUserId?: string;
 }

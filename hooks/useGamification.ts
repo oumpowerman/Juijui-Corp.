@@ -75,7 +75,7 @@ export const useGamification = (currentUser?: any) => {
 
             // 6. UI Feedback
             if (result.message) {
-                showToast(result.message + (result.details ? ` (${result.details})` : ''), result.hp < 0 ? 'error' : 'success');
+                showToast(result.message + (result.details ? ` (${result.details})` : ''), result.hp < 0 ? 'penalty' : 'success');
             }
 
             if (isLevelUp) {

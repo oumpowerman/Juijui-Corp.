@@ -33,7 +33,8 @@ export const useAuth = (sessionUser: any) => {
         bankAccount: data.bank_account || '',
         bankName: data.bank_name || '',
         ssoIncluded: data.sso_included !== false,
-        taxType: data.tax_type || 'WHT_3'
+        taxType: data.tax_type || 'WHT_3',
+        lineUserId: data.line_user_id || ''
     });
 
     const fetchProfile = async () => {
@@ -101,6 +102,7 @@ export const useAuth = (sessionUser: any) => {
             if (updates.workStatus !== undefined) payload.work_status = updates.workStatus;
             if (updates.leaveStartDate !== undefined) payload.leave_start_date = updates.leaveStartDate ? updates.leaveStartDate.toISOString() : null;
             if (updates.leaveEndDate !== undefined) payload.leave_end_date = updates.leaveEndDate ? updates.leaveEndDate.toISOString() : null;
+            if (updates.lineUserId !== undefined) payload.line_user_id = updates.lineUserId;
 
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();

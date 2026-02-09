@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, User, Briefcase, Phone, Loader2, Camera, UploadCloud, Trash2, Quote, Smile, Sparkles, MessageCircle, CalendarClock, Palmtree } from 'lucide-react';
+import { X, Save, User, Briefcase, Phone, Loader2, Camera, UploadCloud, Trash2, Quote, Smile, Sparkles, MessageCircle, CalendarClock, Palmtree, BellRing } from 'lucide-react';
 import { User as UserType, WorkStatus } from '../types';
 import { WORK_STATUS_CONFIG } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -39,6 +40,9 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
   const [leaveStart, setLeaveStart] = useState(user.leaveStartDate ? format(user.leaveStartDate, 'yyyy-MM-dd') : '');
   const [leaveEnd, setLeaveEnd] = useState(user.leaveEndDate ? format(user.leaveEndDate, 'yyyy-MM-dd') : '');
 
+  // Line User ID
+  const [lineUserId, setLineUserId] = useState(user.lineUserId || '');
+
   // Image State
   const [previewUrl, setPreviewUrl] = useState(user.avatarUrl || '');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -64,6 +68,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
       setWorkStatus(user.workStatus || 'ONLINE');
       setLeaveStart(user.leaveStartDate ? format(user.leaveStartDate, 'yyyy-MM-dd') : '');
       setLeaveEnd(user.leaveEndDate ? format(user.leaveEndDate, 'yyyy-MM-dd') : '');
+      setLineUserId(user.lineUserId || '');
       setPreviewUrl(user.avatarUrl || '');
       setSelectedFile(null);
       setCropImageSrc(null);
@@ -151,7 +156,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
         feeling: feeling,
         workStatus: workStatus,
         leaveStartDate: startDate,
-        leaveEndDate: endDate
+        leaveEndDate: endDate,
+        lineUserId: lineUserId.trim()
     }, selectedFile || undefined);
 
     setIsSubmitting(false);
@@ -379,6 +385,26 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                             </div>
                         </div>
                     </div>
+                    
+                    {/* LINE User ID (For Notifications) */}
+                    <div className="space-y-1.5 mt-4">
+                        <label className="block text-xs font-bold text-green-600 uppercase tracking-wider ml-1 flex items-center gap-1">
+                             <BellRing className="w-3 h-3" /> LINE User ID (สำหรับแจ้งเตือน)
+                        </label>
+                        <div className="relative group">
+                            <input 
+                                type="text" 
+                                value={lineUserId}
+                                onChange={e => setLineUserId(e.target.value)}
+                                className="w-full px-4 py-3 bg-green-50 border-2 border-green-100 focus:bg-white focus:border-green-500 rounded-2xl outline-none text-xs font-mono text-gray-600 transition-all shadow-sm placeholder:text-green-300"
+                                placeholder="Uxxxxxxxxxxxxxxxxxxxx..."
+                            />
+                        </div>
+                         <p className="text-[10px] text-gray-400 ml-1">
+                             * ใส่ User ID ของ LINE เพื่อรับแจ้งเตือนผ่านบอท (หาได้จาก Rich Menu ใน LINE)
+                         </p>
+                    </div>
+
                 </div>
             </form>
         </div>

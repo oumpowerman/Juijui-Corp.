@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, RefreshCw, X, Check, SwitchCamera } from 'lucide-react';
 import { format } from 'date-fns';
@@ -78,6 +77,34 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                 // Reset transform to draw text correctly
                 context.setTransform(1, 0, 0, 1, 0, 0);
 
+                // --- 1. CHALLENGE TEXT OVERLAY (NEW) ---
+                if (challengeText) {
+                    context.font = "bold 32px sans-serif";
+                    const measured = context.measureText(challengeText);
+                    const padding = 40;
+                    const bgWidth = measured.width + (padding * 2);
+                    const bgHeight = 60;
+                    const x = (canvas.width - bgWidth) / 2;
+                    const y = 80; 
+
+                    // Draw Background Pill
+                    context.fillStyle = "rgba(79, 70, 229, 0.85)"; // Indigo
+                    context.beginPath();
+                    // Fallback for roundRect if not supported by all browsers context
+                    if (context.roundRect) {
+                        context.roundRect(x, y, bgWidth, bgHeight, 15);
+                    } else {
+                        context.rect(x, y, bgWidth, bgHeight);
+                    }
+                    context.fill();
+
+                    // Draw Text
+                    context.fillStyle = "white";
+                    context.textAlign = "center";
+                    context.textBaseline = "middle";
+                    context.fillText(challengeText, canvas.width / 2, y + (bgHeight / 2));
+                }
+
                 // Add Timestamp Overlay
                 const now = new Date();
                 const dateStr = format(now, 'dd MMM yyyy HH:mm:ss', { locale: th });
@@ -93,6 +120,7 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                 context.font = "bold 24px sans-serif";
                 context.fillStyle = "white";
                 context.textAlign = "right";
+                context.textBaseline = "alphabetic"; // Reset baseline
                 context.fillText(dateStr, canvas.width - 20, canvas.height - 20);
                 
                 context.font = "16px sans-serif";

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Task, Channel, MasterOption, WorkStatus, ViewMode } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -126,6 +125,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                              <SmartAttendance 
                                 user={currentUser} 
                                 masterOptions={masterOptions} 
+                                onNavigate={onNavigate}
                             />
                         </div>
                     </div>

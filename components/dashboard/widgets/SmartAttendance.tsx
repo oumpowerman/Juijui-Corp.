@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAttendance } from '../../../hooks/useAttendance';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests'; // New Import
-import { User, MasterOption } from '../../../types';
+import { User, MasterOption, ViewMode } from '../../../types';
 import { WorkLocation, LeaveType } from '../../../types/attendance'; // Import Types
 import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
@@ -13,9 +12,10 @@ import LeaveRequestModal from '../../attendance/LeaveRequestModal'; // New Impor
 interface SmartAttendanceProps {
     user: User;
     masterOptions: MasterOption[]; // Receive from parent
+    onNavigate: (view: ViewMode) => void;
 }
 
-const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }) => {
+const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, onNavigate }) => {
     const { todayLog, isLoading, checkIn, checkOut } = useAttendance(user.id);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
     const { submitRequest } = useLeaveRequests(user); // New Hook
@@ -106,7 +106,10 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
     // 1. FINISHED WORK (Pastel Green)
     if (isCheckedOut) {
         return (
-            <div className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden group gap-4 w-full">
+            <div 
+                onClick={() => onNavigate('ATTENDANCE')}
+                className="bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden group gap-4 w-full cursor-pointer hover:bg-emerald-100 transition-all"
+            >
                 <div className="absolute right-0 top-0 opacity-10 transform translate-x-4 -translate-y-4">
                     <CheckCircle2 className="w-32 h-32 text-emerald-500" />
                 </div>
@@ -177,9 +180,9 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                         </div>
                     </div>
 
-                    {/* Clock Out Button */}
+                    {/* Clock Out Button - Redirects to Attendance View */}
                     <button 
-                        onClick={() => checkOut()}
+                        onClick={() => onNavigate('ATTENDANCE')}
                         className="group w-full md:w-auto px-6 py-3.5 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white border-2 border-red-100 hover:border-red-500 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 relative z-10 overflow-hidden"
                     >
                         <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> 
@@ -220,7 +223,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                     </div>
 
                     <button 
-                        onClick={() => setIsCheckInModalOpen(true)}
+                        onClick={() => onNavigate('ATTENDANCE')}
                         className="group/btn relative px-8 py-4 bg-white text-indigo-600 rounded-2xl font-black shadow-lg hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden w-full md:w-auto justify-center"
                     >
                         <div className="absolute inset-0 bg-indigo-50 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300"></div>
@@ -230,6 +233,8 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                 </div>
             </div>
 
+            {/* Modals are commented out here to simplify the Dashboard flow as requested */}
+            {/* 
             <CheckInModal 
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
@@ -245,6 +250,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions }
                 onClose={() => setIsLeaveModalOpen(false)}
                 onSubmit={handleLeaveSubmit}
             />
+            */}
         </div>
     );
 };

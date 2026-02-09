@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
@@ -160,9 +159,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     }
 
     return createPortal(
-        <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200 font-sans">
-            <div className="bg-white w-full h-full md:h-auto md:max-w-sm md:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-10 duration-300">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0 safe-area-top">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200 font-sans">
+            <div className="bg-white w-full max-w-sm h-auto max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
                         <h3 className="font-bold text-gray-800 text-lg">ลงเวลาเข้างาน</h3>
                         <p className="text-xs text-gray-400">

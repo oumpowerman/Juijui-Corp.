@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType, TaskAsset } from '../types';
@@ -34,6 +33,9 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     const [contentId, setContentId] = useState<string | undefined>(undefined);
     const [showOnBoard, setShowOnBoard] = useState(false);
     
+    // Script Linking
+    const [scriptId, setScriptId] = useState<string | undefined>(undefined);
+
     // Gamification & Assets
     const [difficulty, setDifficulty] = useState<Difficulty>('MEDIUM');
     const [estimatedHours, setEstimatedHours] = useState<number>(0);
@@ -62,6 +64,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             // Link & Board State
             setContentId(initialData.contentId);
             setShowOnBoard(initialData.showOnBoard || false);
+            setScriptId(initialData.scriptId);
             
             setDifficulty(initialData.difficulty || 'MEDIUM');
             setEstimatedHours(initialData.estimatedHours || 0);
@@ -87,6 +90,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             
             setContentId(undefined);
             setShowOnBoard(false);
+            setScriptId(undefined);
             
             setDifficulty('MEDIUM');
             setEstimatedHours(0);
@@ -135,6 +139,9 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             contentId: contentId,
             showOnBoard: showOnBoard,
             
+            // Script Link
+            scriptId: scriptId,
+
             // Gamification & Assets
             difficulty,
             estimatedHours,
@@ -178,6 +185,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         importance, setImportance,
         
         contentId, handleSetParentProject,
+        scriptId, setScriptId,
         
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,

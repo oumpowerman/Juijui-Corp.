@@ -1,13 +1,14 @@
 
-import React, { useState, useMemo } from 'react';
-import { Task, User, MasterOption } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Task, User, MasterOption, ScriptSummary } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
-import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye } from 'lucide-react';
+import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, Search, FileText, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import TaskAssets from '../TaskAssets'; // Import TaskAssets component
+import TaskAssets from '../TaskAssets'; 
 import { isTaskCompleted } from '../../constants';
+import { useScripts } from '../../hooks/useScripts'; // Use Script Hook
 
 // Import Refactored Parts
 import GTAssigneeSelector from './form-parts/GTAssigneeSelector';
@@ -17,6 +18,8 @@ import GTCoreDetails from './form-parts/GTCoreDetails';
 import GTGuidelines from './form-parts/GTGuidelines';
 import GTGamification from './form-parts/GTGamification';
 import GTDateScheduler from './form-parts/GTDateScheduler';
+import GTScriptLinker from './form-parts/GTScriptLinker'; // NEW
+import CreateScriptModal from '../script/hub/CreateScriptModal'; // Reuse
 
 interface GeneralTaskFormProps {
     initialData?: Task | null;
@@ -37,6 +40,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
     const { showConfirm, showAlert } = useGlobalDialog();
     const [isSendingQC, setIsSendingQC] = useState(false);
     const isAdmin = currentUser?.role === 'ADMIN';
+    const isCreative = currentUser?.position === 'Creative' || isAdmin;
 
     const {
         title, setTitle,
@@ -53,7 +57,8 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,
         contentId, handleSetParentProject,
-        assets, addAsset, removeAsset, // New from Hook
+        scriptId, setScriptId, // NEW
+        assets, addAsset, removeAsset,
         error,
         taskStatusOptions,
         handleSubmit,
@@ -66,49 +71,90 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         onSave,
         projects
     });
+    
+    // --- Script Logic ---
+    const { 
+        scripts, // List for picker
+        fetchScripts,
+        getScriptById, 
+        createScript 
+    } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
+
+    const [linkedScript, setLinkedScript] = useState<ScriptSummary | null>(null);
+    const [isLoadingScript, setIsLoadingScript] = useState(false);
+    const [isScriptPickerOpen, setIsScriptPickerOpen] = useState(false);
+    const [scriptSearchQuery, setScriptSearchQuery] = useState('');
+    const [isCreateScriptModalOpen, setIsCreateScriptModalOpen] = useState(false);
+
+    // Fetch Linked Script Details
+    useEffect(() => {
+        const fetchLinked = async () => {
+            if (scriptId) {
+                setIsLoadingScript(true);
+                const script = await getScriptById(scriptId);
+                if (script) setLinkedScript(script);
+                setIsLoadingScript(false);
+            } else {
+                setLinkedScript(null);
+            }
+        };
+        fetchLinked();
+    }, [scriptId]);
+
+    // Handle Script Selection
+    const handleScriptSelect = (script: ScriptSummary) => {
+        setScriptId(script.id);
+        setIsScriptPickerOpen(false);
+    };
+
+    // Handle Create Script
+    const handleCreateScriptSubmit = async (data: any) => {
+        const newScriptId = await createScript({
+            ...data,
+            // Link back to this task if we could, but task ID might not exist yet.
+            // So we rely on linking the script ID to the task here.
+        });
+        if (newScriptId) {
+            setScriptId(newScriptId);
+            setIsCreateScriptModalOpen(false);
+        }
+    };
+    
+    // Ensure scripts are loaded for picker
+    useEffect(() => {
+        if (isScriptPickerOpen) {
+            fetchScripts({ page: 1, pageSize: 50, viewTab: 'LIBRARY', searchQuery: scriptSearchQuery });
+        }
+    }, [isScriptPickerOpen, scriptSearchQuery]);
+
+    // --- End Script Logic ---
 
     const activeUsers = users.filter(u => u.isActive);
     const isOwnerOrAssignee = (currentUser && assigneeIds.includes(currentUser.id)) || isAdmin;
-    
-    // --- READ-ONLY LOGIC ---
-    // If it's an existing task AND current user is NOT an assignee/admin => Read Only
     const isReadOnly = !!initialData && !isOwnerOrAssignee;
 
-    // Filter Status Options: Hide 'DONE' for non-admins (Logic maintained, but irrelevant in Read-Only)
     const filteredStatusOptions = useMemo(() => {
         if (isAdmin) return taskStatusOptions;
         return taskStatusOptions.filter(opt => !isTaskCompleted(opt.key));
     }, [taskStatusOptions, isAdmin]);
 
-    // --- Project Picker Logic ---
     const parentProject = useMemo(() => {
         return contentId ? projects.find(p => p.id === contentId) : null;
     }, [contentId, projects]);
 
-    // --- LOGIC: Suggested Tasks based on Position ---
     const suggestedTasks = useMemo(() => {
-        // Only active in Individual mode with 1 person selected
         if (assigneeType !== 'INDIVIDUAL' || assigneeIds.length !== 1) return [];
-        
         const user = users.find(u => u.id === assigneeIds[0]);
         if (!user || !user.position) return [];
-        
-        // 1. Find the MasterOption for this Position (to get the KEY, e.g. "EDITOR")
         const positionOpt = masterOptions.find(o => o.type === 'POSITION' && o.label === user.position);
-        
-        // 2. If found, find Responsibilities that have parentKey === positionOpt.key
         if (positionOpt) {
             return masterOptions.filter(o => o.type === 'RESPONSIBILITY' && o.parentKey === positionOpt.key);
         }
-        
         return [];
     }, [assigneeIds, assigneeType, users, masterOptions]);
 
     const handleSendToQC = async () => {
-        // 1. Disable Immediately to prevent double clicks
         if (isSendingQC) return;
-        
-        // Security Check
         if (!isOwnerOrAssignee) {
              await showAlert('เฉพาะผู้รับผิดชอบงานนี้เท่านั้นที่สามารถส่งงานได้', '🔒 สิทธิ์ไม่เพียงพอ');
              return;
@@ -116,20 +162,15 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
 
         setIsSendingQC(true);
 
-        // 2. Validation Checks
         if (!initialData?.id) {
             await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
             setIsSendingQC(false);
             return;
         }
 
-        // --- FIX: Check for EXISTING Pending Reviews ---
         const existingPendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
         if (existingPendingReview) {
-             await showAlert(
-                 `มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
-                 '⚠️ ส่งซ้ำไม่ได้'
-             );
+             await showAlert(`มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว`, '⚠️ ส่งซ้ำไม่ได้');
              setIsSendingQC(false);
              return;
         }
@@ -137,7 +178,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         const currentRoundCount = initialData.reviews?.length || 0;
         const nextRound = currentRoundCount + 1;
         
-        // 3. Confirmation Dialog
         const confirmed = await showConfirm(
             `งานจะถูกเปลี่ยนสถานะเป็น "Waiting" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
             `🚀 ยืนยันการส่งงาน?`
@@ -148,7 +188,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
             return;
         }
 
-        // 4. Proceed with API
         try {
             const { error: reviewError } = await supabase.from('task_reviews').insert({
                 task_id: initialData.id,
@@ -167,8 +206,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 user_id: currentUser?.id
             });
 
-            // Update status to WAITING (mapped from FEEDBACK in DB or specific key)
-            const targetStatus = 'FEEDBACK'; // Or 'WAITING' if available in Master Data
+            const targetStatus = 'FEEDBACK'; 
             setStatus(targetStatus);
             await supabase.from('tasks').update({ status: targetStatus }).eq('id', initialData.id);
             
@@ -178,26 +216,21 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         } catch (err: any) {
             console.error(err);
             showToast('ส่งงานไม่สำเร็จ: ' + err.message, 'error');
-            setIsSendingQC(false); // Re-enable only on error
+            setIsSendingQC(false); 
         }
     };
 
-    // Wrapper to Auto-fill Position when User Selected in Solo Mode
     const handleUserSelectWrapper = (userId: string) => {
-        // Call original toggle
         toggleUserSelection(userId);
-
-        // Auto-fill logic
         if (assigneeType === 'INDIVIDUAL') {
             const isSelecting = !assigneeIds.includes(userId);
-            
             if (isSelecting) {
                 const user = users.find(u => u.id === userId);
                 if (user && user.position) {
                     setTargetPosition(user.position);
                 }
             } else {
-                setTargetPosition(''); // Clear if deselected
+                setTargetPosition(''); 
             }
         }
     };
@@ -206,7 +239,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
 
     return (
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
-            {/* Read-Only Banner */}
             {isReadOnly && (
                 <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-lg animate-in slide-in-from-top-2">
                     <div className="flex items-center">
@@ -224,10 +256,8 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
 
             {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
-            {/* Fieldset disables all inputs inside when isReadOnly is true */}
             <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
                 
-                {/* 1. Assignee Selector */}
                 <GTAssigneeSelector 
                     assigneeType={assigneeType}
                     setAssigneeType={setAssigneeType}
@@ -236,27 +266,37 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     targetPosition={targetPosition}
                     setTargetPosition={setTargetPosition}
                     activeUsers={activeUsers}
-                    toggleUserSelection={handleUserSelectWrapper} // Use Wrapper
+                    toggleUserSelection={handleUserSelectWrapper} 
                     startDate={startDate}
                     endDate={endDate}
                 />
 
-                {/* 2. Header & Title */}
                 <GTHeaderInput 
                     title={title}
                     setTitle={setTitle}
                     assigneeType={assigneeType}
-                    suggestedTasks={suggestedTasks} // Pass suggestions based on selected user
+                    suggestedTasks={suggestedTasks} 
                 />
+                
+                {/* Script Linker (Only for Creative or Admin) */}
+                {isCreative && (
+                     <GTScriptLinker 
+                        scriptId={scriptId}
+                        linkedScript={linkedScript}
+                        isLoadingScript={isLoadingScript}
+                        onSelectScript={() => setIsScriptPickerOpen(true)}
+                        onCreateScript={() => setIsCreateScriptModalOpen(true)}
+                        onOpenScript={(script) => window.open(`/script/${script.id}`, '_blank')} // Fallback if not handled by TaskModal
+                        onUnlink={() => setScriptId(undefined)}
+                     />
+                )}
 
-                {/* 3. Project Linker */}
                 <GTProjectLinker 
                     parentProject={parentProject}
                     onSetParentProject={handleSetParentProject}
                     projects={projects}
                 />
 
-                {/* 4. Core Details (Desc, Priority, Status) */}
                 <GTCoreDetails 
                     description={description}
                     setDescription={setDescription}
@@ -264,10 +304,9 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     setPriority={setPriority}
                     status={status}
                     setStatus={setStatus}
-                    taskStatusOptions={filteredStatusOptions} // Pass Filtered Options
+                    taskStatusOptions={filteredStatusOptions} 
                 />
 
-                {/* 5. Guidelines */}
                 <GTGuidelines 
                     caution={caution}
                     setCaution={setCaution}
@@ -275,7 +314,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     setImportance={setImportance}
                 />
 
-                {/* 6. Assets (NEW FEATURE) */}
                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                     <TaskAssets 
                         assets={assets}
@@ -284,7 +322,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     />
                 </div>
 
-                {/* 7. Gamification */}
                 <GTGamification 
                     difficulty={difficulty}
                     setDifficulty={setDifficulty}
@@ -292,7 +329,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     setEstimatedHours={setEstimatedHours}
                 />
 
-                {/* 8. Dates */}
                 <GTDateScheduler 
                     startDate={startDate}
                     setStartDate={setStartDate}
@@ -301,10 +337,8 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 />
             </fieldset>
 
-            {/* Footer */}
             <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100 sticky bottom-0 pb-safe-area bg-white z-20">
                 <div className="flex items-center gap-2">
-                    {/* Delete Button - Only show if NOT ReadOnly and has permission */}
                     {!isReadOnly && initialData && onDelete && isAdmin && (
                         <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
                         <Trash2 className="w-4 h-4 mr-2" /> ลบ
@@ -312,7 +346,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     )}
                 </div>
                 <div className="flex space-x-3">
-                    {/* Send QC Button - Only show if NOT ReadOnly */}
                     {!isReadOnly && initialData && !isTaskDone && status !== 'FEEDBACK' && (
                         <div className="relative group">
                             <button 
@@ -320,7 +353,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                                 onClick={handleSendToQC}
                                 disabled={isSendingQC || !isOwnerOrAssignee}
                                 className={`px-4 py-3 text-sm font-bold border rounded-xl flex items-center transition-colors shadow-sm active:scale-95 ${isOwnerOrAssignee ? 'text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100' : 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
-                                title={!isOwnerOrAssignee ? "เฉพาะคนรับผิดชอบงานเท่านั้น" : "ส่งงานเพื่อให้หัวหน้าตรวจสอบ"}
                             >
                                 {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                                 ส่งงาน / แจ้งเสร็จ
@@ -337,7 +369,6 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                         {isReadOnly ? 'ปิดหน้าต่าง' : 'ยกเลิก'}
                     </button>
                     
-                    {/* Save Button - Hide if ReadOnly */}
                     {!isReadOnly && (
                         <button type="submit" className="px-6 py-3 text-sm font-bold text-white rounded-xl shadow-lg bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all">
                             {initialData ? 'บันทึกการแก้ไข' : 'สร้างงานเลย!'}
@@ -345,6 +376,60 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Script Picker Modal */}
+            {isScriptPickerOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 border-4 border-rose-50">
+                        <div className="px-6 py-4 border-b border-gray-100 bg-white flex justify-between items-center shrink-0">
+                            <h3 className="font-bold text-lg text-gray-800">เลือกสคริปต์</h3>
+                            <button onClick={() => setIsScriptPickerOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                        </div>
+                        <div className="p-4 border-b border-gray-100">
+                             <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="ค้นหาชื่อสคริปต์..." 
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-rose-100 text-sm"
+                                    value={scriptSearchQuery}
+                                    onChange={e => setScriptSearchQuery(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-4 space-y-2">
+                             {scripts.map(script => (
+                                 <div 
+                                    key={script.id} 
+                                    onClick={() => handleScriptSelect(script)}
+                                    className="p-3 bg-white border border-gray-100 rounded-xl hover:border-rose-300 hover:shadow-md cursor-pointer transition-all flex items-center justify-between group"
+                                 >
+                                     <div>
+                                         <p className="font-bold text-gray-800 text-sm">{script.title}</p>
+                                         <div className="flex gap-2 mt-1">
+                                             <span className="text-[10px] bg-gray-100 px-1.5 rounded text-gray-500">{script.scriptType}</span>
+                                             <span className="text-[10px] text-gray-400">{new Date(script.updatedAt).toLocaleDateString()}</span>
+                                         </div>
+                                     </div>
+                                     <div className="opacity-0 group-hover:opacity-100 text-rose-500"><Check className="w-5 h-5" /></div>
+                                 </div>
+                             ))}
+                             {scripts.length === 0 && <div className="text-center text-gray-400 py-10">ไม่พบสคริปต์</div>}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Script Modal */}
+            <CreateScriptModal 
+                isOpen={isCreateScriptModalOpen}
+                onClose={() => setIsCreateScriptModalOpen(false)}
+                onSubmit={handleCreateScriptSubmit}
+                channels={[]} // Pass empty if unavailable or from props
+                masterOptions={masterOptions}
+            />
+
         </form>
     );
 };

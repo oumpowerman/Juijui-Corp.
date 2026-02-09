@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck } from 'lucide-react';
-import { Task, Channel, TaskType, User, MasterOption } from '../types';
+import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck, FileText } from 'lucide-react';
+import { Task, Channel, TaskType, User, MasterOption, Script } from '../types';
 import TaskComments from './TaskComments';
 import TaskAssets from './TaskAssets';
 import TaskHistory from './task/TaskHistory';
@@ -9,12 +8,14 @@ import TaskWiki from './task/TaskWiki';
 import ContentForm from './task/ContentForm';
 import GeneralTaskForm from './task/GeneralTaskForm';
 import LogisticsTab from './task/LogisticsTab';
+import ScriptEditor from './script/ScriptEditor'; // Import ScriptEditor
+import { useScripts } from '../hooks/useScripts'; // Import Hook
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
-  onUpdate?: (task: Task) => void; // New prop for live updates without closing
+  onUpdate?: (task: Task) => void; 
   onDelete?: (taskId: string) => void;
   initialData?: Task | null;
   selectedDate?: Date | null;
@@ -23,17 +24,21 @@ interface TaskModalProps {
   lockedType?: TaskType | null; 
   masterOptions?: MasterOption[];
   currentUser?: User; 
-  projects?: Task[]; // Added projects list for linking
+  projects?: Task[]; 
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ 
     isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [] 
 }) => {
   // Main View State
-  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS'>('DETAILS');
+  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>('DETAILS');
   
   // Tab State (Content vs Task) - Synced with props
   const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
+
+  // Script Data for General Task
+  const { getScriptById, updateScript } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
+  const [taskScript, setTaskScript] = useState<Script | null>(null);
 
   // Sync state when modal opens or props change
   useEffect(() => {
@@ -49,13 +54,24 @@ const TaskModal: React.FC<TaskModalProps> = ({
       }
   }, [isOpen, initialData, lockedType]);
 
+  // Load Script if viewing script tab
+  useEffect(() => {
+      if (viewMode === 'SCRIPT' && initialData?.scriptId) {
+          const loadScript = async () => {
+              const script = await getScriptById(initialData.scriptId!);
+              setTaskScript(script);
+          };
+          loadScript();
+      }
+  }, [viewMode, initialData?.scriptId]);
+
   const assetCount = initialData?.assets?.length || 0;
   const isContent = initialData?.type === 'CONTENT' || activeTab === 'CONTENT';
+  const hasLinkedScript = initialData?.type === 'TASK' && !!initialData.scriptId;
 
   if (!isOpen) return null;
 
   return (
-    // UPDATED: Increased z-index to z-[200] to ensure it is above MyWorkloadModal (z-[60])
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md sm:p-4 animate-in fade-in duration-300 font-kanit">
       <div className="bg-white w-full sm:max-w-3xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] border-4 border-white transition-all">
         
@@ -74,6 +90,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         viewMode === 'ASSETS' ? '📂 คลังไฟล์ (Assets)' : 
                         viewMode === 'WIKI' ? '📚 คู่มือ (Wiki)' :
                         viewMode === 'LOGISTICS' ? '🚛 งานย่อย (Logistics)' :
+                        viewMode === 'SCRIPT' ? '📜 บท (Script Editor)' :
                         (initialData ? '✏️ จัดการข้อมูล' : 
                             (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์' : '⚡ สร้างงานทั่วไป')
                         )}
@@ -110,6 +127,15 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'LOGISTICS' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
                     >
                         <Truck className="w-4 h-4" /> งานย่อย
+                    </button>
+                )}
+
+                {hasLinkedScript && (
+                     <button 
+                        onClick={() => setViewMode('SCRIPT')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 whitespace-nowrap px-3 ${viewMode === 'SCRIPT' ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-400 hover:bg-white/50'}`}
+                    >
+                        <FileText className="w-4 h-4" /> สคริปต์
                     </button>
                 )}
 
@@ -172,6 +198,21 @@ const TaskModal: React.FC<TaskModalProps> = ({
                  />
             ) : viewMode === 'WIKI' ? (
                 <TaskWiki className="flex-1" />
+            ) : viewMode === 'SCRIPT' && taskScript && currentUser ? (
+                // --- SCRIPT EDITOR EMBED ---
+                <div className="flex-1 relative overflow-hidden flex flex-col">
+                    <ScriptEditor 
+                        script={taskScript}
+                        users={users}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        currentUser={currentUser}
+                        onClose={() => setViewMode('DETAILS')} // Back to details
+                        onSave={updateScript}
+                        onGenerateAI={async () => null} // AI disabled here for simplicity or pass handler
+                        onPromote={() => {}} // No promote from here
+                    />
+                </div>
             ) : (
                 // Form Selection Logic
                 activeTab === 'CONTENT' ? (

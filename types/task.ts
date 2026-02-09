@@ -1,4 +1,3 @@
-
 import { User } from './core';
 
 export type TaskType = 'CONTENT' | 'TASK';
@@ -115,6 +114,9 @@ export interface Task {
     contentId?: string; 
     showOnBoard?: boolean;
     parentContentTitle?: string;
+
+    // Script Link (General Task)
+    scriptId?: string;
 }
 
 export interface ChipConfig {

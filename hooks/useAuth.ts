@@ -20,7 +20,7 @@ export const useAuth = (sessionUser: any) => {
         xp: data.xp || 0,
         level: data.level || 1,
         availablePoints: data.available_points || 0,
-        hp: data.hp && 100,
+        hp: data.hp ?? 100,
         maxHp: data.max_hp || 100,
         workStatus: (data.work_status as WorkStatus) || 'ONLINE',
         leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,

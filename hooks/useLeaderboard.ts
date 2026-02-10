@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
@@ -30,6 +29,9 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchStats = async () => {
+        // กรองความซ้ำซ้อน: ถ้ายังไม่มีข้อมูล User ให้ข้ามไปก่อน
+        if (users.length === 0) return;
+
         setIsLoading(true);
         try {
             let query = supabase.from('game_logs').select('user_id, action_type, xp_change, created_at');
@@ -170,11 +172,28 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
         }
     };
 
+    // Realtime Integration
     useEffect(() => {
         if (users.length > 0) {
             fetchStats();
         }
-    }, [users, timeRange]);
+
+        // 📡 ดักฟังแบบ Real-time: ทันทีที่มีการเพิ่ม/ลบ Log คะแนน (game_logs)
+        const channel = supabase
+            .channel('leaderboard-realtime-sync')
+            .on(
+                'postgres_changes', 
+                { event: '*', schema: 'public', table: 'game_logs' }, 
+                () => {
+                    fetchStats(); // Re-fetch data on any log change
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [users, timeRange]); // ทำงานใหม่ถ้า User list เปลี่ยน หรือเปลี่ยนโหมดเวลา
 
     // Find current user stats
     const myStats = useMemo(() => rankings.find(r => r.user.id === currentUser.id), [rankings, currentUser]);

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Script } from '../../types';
@@ -62,7 +61,7 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
         fetchScript();
     }, [token]);
 
-    // --- Chat Bubble Logic (Reused) ---
+    // --- Chat Bubble Logic (Reused & Fixed for Narrator Brackets) ---
     const chatBubbles = useMemo(() => {
         if (!script?.content) return [];
         const cleanContent = script.content
@@ -77,15 +76,30 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
         let currentSpeaker = '';
         let currentText = '';
 
+        const pushCurrentBubble = () => {
+            if (currentSpeaker && currentText) {
+                bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
+                currentSpeaker = '';
+                currentText = '';
+            }
+        };
+
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
 
+            // Logic 1: Narrator/Stage Direction check (Starts with [)
+            if (/^\[/.test(trimmedLine)) {
+                pushCurrentBubble();
+                // Strip [ and ] for display
+                const displayText = trimmedLine.replace(/^\[|\]$/g, '');
+                bubbles.push({ speaker: 'NARRATOR', text: displayText });
+                return;
+            }
+
             const match = trimmedLine.match(/^(.+?):\s*(.*)/);
             if (match) {
-                if (currentSpeaker && currentText) {
-                    bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
-                }
+                pushCurrentBubble();
                 currentSpeaker = match[1].trim();
                 currentText = match[2];
             } else {
@@ -96,16 +110,16 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                 }
             }
         });
-        if (currentSpeaker && currentText) {
-            bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
-        }
+        
+        pushCurrentBubble();
+
         return bubbles;
     }, [script]);
 
     if (loading) {
         return (
             <div className="h-[100dvh] flex items-center justify-center bg-gray-50 flex-col gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-50" />
                 <p className="text-gray-400 text-sm font-medium">กำลังโหลดบท...</p>
             </div>
         );
@@ -195,7 +209,7 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
 
                                 if (isNarrator) {
                                     return (
-                                        <div key={idx} className="flex justify-center my-6 opacity-80">
+                                        <div key={idx} className="flex justify-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
                                             <span className={`text-xs font-bold italic px-4 py-1.5 rounded-full border shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white/60 text-gray-500 border-gray-200'}`}>
                                                 {bubble.text}
                                             </span>

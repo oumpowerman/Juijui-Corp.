@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Role, WorkStatus } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const useTeam = () => {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     // Map DB profile to User type with Safety Checks
     const mapProfileToUser = (u: any): User => ({
@@ -111,7 +113,9 @@ export const useTeam = () => {
     };
 
     const removeMember = async (userId: string) => {
-        if(!confirm('แน่ใจนะครับว่าจะลบสมาชิกคนนี้?')) return;
+        // Fix: Replaced native confirm with showConfirm
+        const confirmed = await showConfirm('แน่ใจนะครับว่าจะลบสมาชิกคนนี้?', 'ลบสมาชิกออกจากทีม');
+        if(!confirmed) return;
         try {
             const { error } = await supabase.from('profiles').delete().eq('id', userId);
             if (error) throw error;

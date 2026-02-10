@@ -52,20 +52,38 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     // --- Core Logic: Filtering & Grouping ---
     const today = new Date();
 
+    // 1. DEDUPLICATION LOGIC: Group by Task ID and keep only the LATEST Round
+    // This prevents showing both Draft 1 (Revise) and Draft 2 (Pending) simultaneously.
+    const uniqueReviews = useMemo(() => {
+        const latestReviewsMap = new Map<string, typeof reviews[0]>();
+        
+        reviews.forEach(r => {
+            if (!r.task) return;
+            const existing = latestReviewsMap.get(r.taskId);
+            
+            // Logic: If new task OR higher round, overwrite
+            if (!existing || r.round > existing.round) {
+                latestReviewsMap.set(r.taskId, r);
+            }
+        });
+
+        return Array.from(latestReviewsMap.values());
+    }, [reviews]);
+
+    // 2. Apply Filters to the unique list
     const filteredReviews = useMemo(() => {
-        return reviews.filter(r => {
-            // 1. Channel Filter
+        return uniqueReviews.filter(r => {
+            // Channel Filter
             if (filterChannel !== 'ALL' && r.task?.channelId !== filterChannel) return false;
             
-            // 2. Search Filter
+            // Search Filter
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 const matchTitle = r.task?.title.toLowerCase().includes(searchLower);
-                // const matchReviewer = ... (Optional)
                 if (!matchTitle) return false;
             }
 
-            // 3. Main Scope Filter (Date/Status Strategy)
+            // Main Scope Filter (Date/Status Strategy)
             if (filterDateType === 'TODAY') {
                 return isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
             }
@@ -74,10 +92,9 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             }
             
             // Default: ALL PENDING (Active Workspace)
-            // Show Pending, Revise. Hide Passed (unless searching specifically, but usually Passed goes to history)
             return r.status !== 'PASSED';
         });
-    }, [reviews, filterChannel, searchTerm, filterDateType]);
+    }, [uniqueReviews, filterChannel, searchTerm, filterDateType]);
 
     // Grouping Logic
     const groups = useMemo(() => {
@@ -102,7 +119,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     result.upcoming.push(r);
                 }
             }
-            // 'PASSED' is currently filtered out by default logic above, or can be added to a 'History' group if needed
         });
 
         return result;
@@ -142,8 +158,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
     const totalActiveTasks = groups.critical.length + groups.revise.length + groups.today.length;
 
-    // Permission Check: Can this user review?
-    // Allow Admins AND user with position 'Senior Editor', 'Manager' (Example logic)
+    // Permission Check
     const canReview = currentUser.role === 'ADMIN' || 
                      ['Senior', 'Manager', 'Head'].some(role => (currentUser.position || '').includes(role));
 
@@ -175,8 +190,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
             </div>
 
-            {/* Stats */}
-            <QualityStatsWidget reviews={reviews} users={users} />
+            {/* Stats - Pass uniqueReviews to avoid counting duplicate drafts */}
+            <QualityStatsWidget reviews={uniqueReviews} users={users} />
 
             {/* Main Control Bar */}
             <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row gap-3 sticky top-2 z-30">

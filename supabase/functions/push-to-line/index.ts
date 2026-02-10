@@ -2,7 +2,8 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This code runs on Supabase Edge Functions.
 
-import { createClient } from '@supabase/supabase-js';
+// ลบ URL ยาวๆ ออก แล้วใช้ตัวย่อที่ตั้งไว้ใน import_map
+import { createClient } from '@supabase/supabase-js'
 
 
 declare const Deno: any;

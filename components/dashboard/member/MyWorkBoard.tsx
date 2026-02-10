@@ -89,8 +89,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
         } else if (targetType === 'DONE' && isAdmin) {
             newStatus = 'DONE';
         } else if (targetType === 'WAITING') {
-            // Usually mapped to FEEDBACK or WAITING
-            newStatus = 'WAITING';
+            // FIX: Use 'FEEDBACK' instead of 'WAITING' to satisfy Database Enum constraints
+            newStatus = 'FEEDBACK';
         } else {
             return;
         }

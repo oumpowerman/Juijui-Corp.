@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { AnnualHoliday } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const useAnnualHolidays = () => {
     const [annualHolidays, setAnnualHolidays] = useState<AnnualHoliday[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     const fetchHolidays = async () => {
         setIsLoading(true);
@@ -51,7 +53,9 @@ export const useAnnualHolidays = () => {
     };
 
     const deleteHoliday = async (id: string) => {
-        if(!confirm('ยืนยันการลบ?')) return;
+        // Fix: Replaced native confirm with showConfirm
+        const confirmed = await showConfirm('ยืนยันการลบวันหยุดนี้ใช่หรือไม่?', 'ลบวันหยุด');
+        if(!confirmed) return;
         try {
             const { error } = await supabase.from('annual_holidays').delete().eq('id', id);
             if (error) throw error;

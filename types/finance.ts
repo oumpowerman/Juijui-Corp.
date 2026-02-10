@@ -53,11 +53,20 @@ export interface ShootTrip {
     locationName: string;
     date: Date;
     status: 'PLANNED' | 'COMPLETED';
-    totalCost?: number;
-    clipCount?: number;
-    avgCostPerClip?: number;
+    totalCost: number;
+    clipCount: number;
+    avgCostPerClip: number;
     expenses?: FinanceTransaction[];
     contents?: Task[];
+    efficiencyScore?: number; // 0-100 score based on cost vs output
+}
+
+export interface PotentialTrip {
+    key: string; // unique key for grouping
+    date: Date;
+    locationName: string;
+    contents: Task[];
+    suggestedTitle: string;
 }
 
 // --- PAYROLL V5 (Enhanced) ---

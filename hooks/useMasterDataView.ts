@@ -11,7 +11,7 @@ export type MasterTab =
     | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION' | 'EVENT_TYPE' | 'YEARLY' | 'CALENDAR'
     // Content
     | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY'
-    // Inventory
+    // Inventory (Split types usually handled by specific views but accessible here)
     | 'INVENTORY' | 'ITEM_CONDITION'
     // Production
     | 'MEETING_CATEGORY'

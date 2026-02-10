@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { Script, ScriptSummary, User, ScriptType } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// Fix: Use correct GenAI import
+import { GoogleGenAI } from "@google/genai";
 
 interface FetchScriptsOptions {
     page: number;
@@ -288,11 +289,12 @@ export const useScripts = (currentUser: User) => {
             if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
             if (updates.shareToken !== undefined) payload.share_token = updates.shareToken;
 
+            // Fix: select aliased column name contentId from snake_case content_id to match type
             const { data, error } = await supabase
                 .from('scripts')
                 .update(payload)
                 .eq('id', id)
-                .select('content_id') // Fetch content_id for automation
+                .select('contentId:content_id') // Fetch contentId for automation
                 .single();
 
             if (error) throw error;
@@ -303,7 +305,8 @@ export const useScripts = (currentUser: User) => {
 
             // --- TRINITY PHASE 3: SYNC STATUS ---
             // If Status changed to FINAL and there is a linked Content
-            if (updates.status === 'FINAL' && data?.content_id) {
+            // Fix: data?.content_id corrected to data?.contentId
+            if (updates.status === 'FINAL' && data?.contentId) {
                  const confirmSync = await showConfirm(
                     'บทเสร็จสมบูรณ์แล้ว! (FINAL)',
                     'ต้องการอัปเดตสถานะงานหลักเป็น "ถ่ายทำ (SHOOTING)" เลยไหม?'
@@ -313,7 +316,8 @@ export const useScripts = (currentUser: User) => {
                      const { error: syncError } = await supabase
                         .from('contents')
                         .update({ status: 'SHOOTING' })
-                        .eq('id', data.content_id);
+                        // Fix: data.content_id corrected to data.contentId
+                        .eq('id', data.contentId);
                     
                     if (!syncError) {
                         showToast('อัปเดตสถานะงานหลักเป็น SHOOTING แล้ว 🎬', 'success');
@@ -392,15 +396,15 @@ export const useScripts = (currentUser: User) => {
         }
     };
 
+    // Fix: Updated to use @google/genai guidelines
     const generateScriptWithAI = async (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => {
         try {
-            if (typeof process === 'undefined' || !process.env.API_KEY) {
+            if (!process.env.API_KEY) {
                 showToast('API Key ไม่ถูกต้อง', 'error');
                 return null;
             }
 
-            const genAI = new GoogleGenerativeAI(process.env.API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
             let finalPrompt = '';
             if (type === 'HOOK') {
@@ -411,9 +415,12 @@ export const useScripts = (currentUser: User) => {
                 finalPrompt = `เขียนบทสคริปต์เต็มรูปแบบ สำหรับหัวข้อ: "${prompt}" โดยขอภาษาที่เป็นกันเอง เข้าใจง่าย เหมาะสำหรับ TikTok/Reels`;
             }
 
-            const result = await model.generateContent(finalPrompt);
-            const response = await result.response;
-            return response.text();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: finalPrompt,
+            });
+
+            return response.text;
 
         } catch (err: any) {
             console.error("AI Error:", err);

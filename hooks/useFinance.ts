@@ -1,9 +1,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { FinanceTransaction, FinanceStats } from '../types';
+import { FinanceTransaction, FinanceStats, ShootTrip, Task, PotentialTrip } from '../types';
 import { useToast } from '../context/ToastContext';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { useMasterData } from './useMasterData';
 
 const PAGE_SIZE = 15;
@@ -11,19 +11,19 @@ const PAGE_SIZE = 15;
 export const useFinance = (currentUser?: any) => {
     const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
     const [stats, setStats] = useState<FinanceStats>({ totalIncome: 0, totalExpense: 0, netProfit: 0, chartData: [] });
+    const [trips, setTrips] = useState<ShootTrip[]>([]);
+    const [potentialTrips, setPotentialTrips] = useState<PotentialTrip[]>([]); 
     
-    // Loading States
     const [isLoadingList, setIsLoadingList] = useState(true);
     const [isLoadingStats, setIsLoadingStats] = useState(true);
+    const [isLoadingTrips, setIsLoadingTrips] = useState(false);
     
-    // Pagination State
     const [page, setPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
 
     const { showToast } = useToast();
     const { masterOptions } = useMasterData();
 
-    // Mapping Helper
     const mapTransaction = useCallback((item: any): FinanceTransaction => {
         const catOpt = masterOptions.find(o => o.key === item.category_key && (o.type === 'FINANCE_IN_CAT' || o.type === 'FINANCE_OUT_CAT'));
         
@@ -36,12 +36,12 @@ export const useFinance = (currentUser?: any) => {
             name: item.name,
             description: item.description,
             projectId: item.project_id,
+            shootTripId: item.shoot_trip_id,
             assetType: item.asset_type || 'NONE',
             receiptUrl: item.receipt_url,
             createdBy: item.created_by,
             createdAt: new Date(item.created_at),
             
-            // Tax Mapping
             vatRate: Number(item.vat_rate || 0),
             vatAmount: Number(item.vat_amount || 0),
             whtRate: Number(item.wht_rate || 0),
@@ -50,8 +50,6 @@ export const useFinance = (currentUser?: any) => {
             taxInvoiceNo: item.tax_invoice_no,
             entityName: item.entity_name,
             taxId: item.tax_id,
-
-            // Specific Target
             targetUserId: item.target_user_id,
 
             projectTitle: item.contents?.title,
@@ -62,22 +60,18 @@ export const useFinance = (currentUser?: any) => {
         };
     }, [masterOptions]);
 
-    // 1. Fetch Stats (Server-side Aggregation)
     const fetchStats = useCallback(async (startDate: Date, endDate: Date) => {
         setIsLoadingStats(true);
         const start = format(startDate, 'yyyy-MM-dd');
         const end = format(endDate, 'yyyy-MM-dd');
 
         try {
-            // Call RPC function for performance
             const { data, error } = await supabase.rpc('get_finance_stats', { 
                 start_date: start, 
                 end_date: end 
             });
 
             if (error) {
-                console.warn("RPC fetch failed, falling back to client-side calc (slower)", error);
-                // Fallback: Fetch all lightweight data
                 const { data: rawData } = await supabase
                     .from('finance_transactions')
                     .select('amount, net_amount, type, category_key')
@@ -104,7 +98,6 @@ export const useFinance = (currentUser?: any) => {
                      setStats({ totalIncome: income, totalExpense: expense, netProfit: income - expense, chartData });
                 }
             } else {
-                // RPC Success
                 const chartData = (data.expense_by_category || []).map((item: any) => {
                     const opt = masterOptions.find(o => o.key === item.category_key);
                     return { name: opt?.label || item.category_key, value: item.value, color: '#8884d8' };
@@ -124,49 +117,164 @@ export const useFinance = (currentUser?: any) => {
         }
     }, [masterOptions]);
 
-    // 2. Fetch Transactions (Paginated)
     const fetchTransactions = useCallback(async (startDate: Date, endDate: Date, pageNum: number) => {
         if (masterOptions.length === 0) return;
-        
         setIsLoadingList(true);
         const start = format(startDate, 'yyyy-MM-dd');
         const end = format(endDate, 'yyyy-MM-dd');
-
-        // Pagination range
         const from = (pageNum - 1) * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
         try {
             const { data, count, error } = await supabase
                 .from('finance_transactions')
-                .select(`
-                    *,
-                    profiles:created_by (full_name, avatar_url),
-                    target_user:target_user_id (full_name, avatar_url),
-                    contents (title)
-                `, { count: 'exact' })
+                .select(`*, profiles:created_by (full_name, avatar_url), target_user:target_user_id (full_name, avatar_url), contents (title)`, { count: 'exact' })
                 .gte('date', start)
                 .lte('date', end)
                 .order('date', { ascending: false })
                 .range(from, to);
 
             if (error) throw error;
-
             if (data) {
                 setTransactions(data.map(mapTransaction));
                 setTotalCount(count || 0);
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
         } finally {
             setIsLoadingList(false);
         }
     }, [masterOptions, mapTransaction]);
 
-    // Combined Refresher
+    const fetchTrips = useCallback(async () => {
+        setIsLoadingTrips(true);
+        try {
+            // 1. Fetch Existing Trips
+            const { data: tripsData, error } = await supabase
+                .from('shoot_trips')
+                .select(`*, finance_transactions (id, amount, net_amount, type, category_key, name), contents (id, title, content_format, status, shoot_date, shoot_location)`)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            if (tripsData) {
+                const mapped: ShootTrip[] = tripsData.map((t: any) => {
+                    const totalCost = t.finance_transactions?.reduce((sum: number, tx: any) => 
+                        tx.type === 'EXPENSE' ? sum + Number(tx.net_amount || tx.amount) : sum, 0) || 0;
+                    const clipCount = t.contents?.length || 0;
+                    
+                    return {
+                        id: t.id,
+                        title: t.title,
+                        locationName: t.location_name,
+                        date: new Date(t.date),
+                        status: t.status,
+                        totalCost,
+                        clipCount,
+                        avgCostPerClip: clipCount > 0 ? totalCost / clipCount : 0,
+                        expenses: t.finance_transactions || [],
+                        contents: t.contents || []
+                    };
+                });
+                setTrips(mapped);
+            }
+
+            // 2. Potential Trips detection logic (Bi-directional path 1)
+            const { data: unlinkedData } = await supabase
+                .from('contents')
+                .select('id, title, shoot_date, shoot_location, content_format, status')
+                .is('shoot_trip_id', null)
+                .not('shoot_date', 'is', null)
+                .not('shoot_location', 'is', null);
+
+            if (unlinkedData && unlinkedData.length > 0) {
+                const grouped: Record<string, PotentialTrip> = {};
+                
+                unlinkedData.forEach((c: any) => {
+                    if (!c.shoot_date || !c.shoot_location) return;
+                    
+                    const dateStr = format(new Date(c.shoot_date), 'yyyy-MM-dd');
+                    const loc = c.shoot_location.trim();
+                    const key = `${dateStr}_${loc}`;
+
+                    if (!grouped[key]) {
+                        grouped[key] = {
+                            key,
+                            date: new Date(c.shoot_date),
+                            locationName: loc,
+                            contents: [],
+                            suggestedTitle: `ออกกอง ${loc}`
+                        };
+                    }
+                    grouped[key].contents.push({
+                        id: c.id,
+                        title: c.title,
+                        status: c.status,
+                        contentFormat: c.content_format,
+                        type: 'CONTENT',
+                        description: '',
+                        priority: 'MEDIUM',
+                        tags: [],
+                        startDate: new Date(c.shoot_date),
+                        endDate: new Date(c.shoot_date),
+                        assigneeIds: [],
+                        isUnscheduled: false
+                    } as Task);
+                });
+
+                setPotentialTrips(Object.values(grouped).sort((a,b) => b.date.getTime() - a.date.getTime()));
+            } else {
+                setPotentialTrips([]);
+            }
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoadingTrips(false);
+        }
+    }, []);
+
+    const convertGroupToTrip = async (group: PotentialTrip) => {
+        try {
+            // 1. Create Trip
+            const { data: newTrip, error: createError } = await supabase
+                .from('shoot_trips')
+                .insert({
+                    title: group.suggestedTitle,
+                    location_name: group.locationName,
+                    date: format(group.date, 'yyyy-MM-dd'),
+                    status: 'PLANNED'
+                })
+                .select()
+                .single();
+
+            if (createError) throw createError;
+
+            // 2. Link Contents & Sync Metadata (Ensures Path 1 is solid)
+            const contentIds = group.contents.map(c => c.id);
+            const { error: updateError } = await supabase
+                .from('contents')
+                .update({ 
+                    shoot_trip_id: newTrip.id,
+                    shoot_location: group.locationName,
+                    shoot_date: format(group.date, 'yyyy-MM-dd')
+                })
+                .in('id', contentIds);
+
+            if (updateError) throw updateError;
+
+            showToast(`รวม ${contentIds.length} รายการเข้ากองถ่ายใหม่เรียบร้อย 🎉`, 'success');
+            fetchTrips();
+            return true;
+        } catch (err: any) {
+            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+            return false;
+        }
+    };
+
     const refreshAll = (startDate: Date, endDate: Date, currentPage: number) => {
         fetchStats(startDate, endDate);
         fetchTransactions(startDate, endDate, currentPage);
+        fetchTrips();
     };
 
     const addTransaction = async (data: Partial<FinanceTransaction>) => {
@@ -179,12 +287,12 @@ export const useFinance = (currentUser?: any) => {
                 name: data.name,
                 description: data.description,
                 project_id: data.projectId || null,
+                shoot_trip_id: data.shootTripId || null,
+                // Fix: data.asset_type corrected to data.assetType
                 asset_type: data.assetType || 'NONE',
                 receipt_url: data.receiptUrl || null,
                 created_by: currentUser?.id,
                 target_user_id: data.targetUserId || null,
-                
-                // Tax Fields
                 vat_rate: data.vatRate || 0,
                 vat_amount: data.vatAmount || 0,
                 wht_rate: data.whtRate || 0,
@@ -197,7 +305,6 @@ export const useFinance = (currentUser?: any) => {
 
             const { error } = await supabase.from('finance_transactions').insert(payload);
             if (error) throw error;
-            
             showToast('บันทึกรายการเรียบร้อย 💰', 'success');
             return true;
         } catch (err: any) {
@@ -211,7 +318,7 @@ export const useFinance = (currentUser?: any) => {
             const { error } = await supabase.from('finance_transactions').delete().eq('id', id);
             if (error) throw error;
             showToast('ลบรายการแล้ว', 'info');
-        } catch (err: any) {
+        } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');
         }
     };
@@ -219,7 +326,10 @@ export const useFinance = (currentUser?: any) => {
     return {
         transactions,
         stats,
-        isLoading: isLoadingList || isLoadingStats,
+        trips,
+        potentialTrips,
+        convertGroupToTrip,
+        isLoading: isLoadingList || isLoadingStats || isLoadingTrips,
         isStatsLoading: isLoadingStats,
         pagination: {
             page,
@@ -229,6 +339,7 @@ export const useFinance = (currentUser?: any) => {
             totalPages: Math.ceil(totalCount / PAGE_SIZE)
         },
         refreshAll,
+        fetchTrips,
         addTransaction,
         deleteTransaction
     };

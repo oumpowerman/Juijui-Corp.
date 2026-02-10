@@ -127,7 +127,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 2. Fetch TASKS
         try {
-            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)'`);
+            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
             if (!isAllLoaded) {
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }

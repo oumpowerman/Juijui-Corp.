@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User, WorkStatus } from '../../../types';
 import { WORK_STATUS_CONFIG } from '../../../constants';
-import { Trophy, ChevronDown, Heart, ShoppingBag, BookOpen, Edit2, BatteryCharging, Skull, AlertOctagon } from 'lucide-react';
+import { Trophy, ChevronDown, Heart, ShoppingBag, BookOpen, Edit2, BatteryCharging, Skull, AlertOctagon, FileBarChart } from 'lucide-react';
 import GameRulesModal from '../../gamification/GameRulesModal';
 import { useGreetings } from '../../../hooks/useGreetings';
 import NotificationBellBtn from '../../NotificationBellBtn';
@@ -13,7 +14,8 @@ interface WelcomeHeaderProps {
     onOpenNotifications: () => void;
     onEditProfile: () => void;
     unreadNotifications: number;
-    onOpenWorkload: () => void; // New Prop
+    onOpenWorkload: () => void;
+    onOpenReport: () => void; // New Prop
 }
 
 const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ 
@@ -23,7 +25,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     onOpenNotifications,
     onEditProfile,
     unreadNotifications,
-    onOpenWorkload
+    onOpenWorkload,
+    onOpenReport
 }) => {
     const [isRulesOpen, setIsRulesOpen] = useState(false);
     const { randomGreeting } = useGreetings();
@@ -81,7 +84,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                                 ร้านค้า (กู้ชีพ)
                             </button>
                             <button 
-                                onClick={onEditProfile} // Allow editing in case they need to fix details
+                                onClick={onEditProfile} 
                                 className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all border border-white/10"
                             >
                                 แก้ไขข้อมูล
@@ -272,22 +275,22 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                         </div>
 
                         <div className="flex gap-2">
-                             {/* Workload Monitor Button (NEW) */}
+                             {/* Report Button (NEW) */}
+                             <button 
+                                onClick={onOpenReport}
+                                className="p-3 bg-white border border-gray-200 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
+                                title="สรุปผลงาน (My Report)"
+                            >
+                                <FileBarChart className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+
+                             {/* Workload Monitor Button */}
                              <button 
                                 onClick={onOpenWorkload}
                                 className="p-3 bg-white border border-gray-200 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
                                 title="เช็คภาระงาน (Workload)"
                             >
                                 <BatteryCharging className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-
-                            {/* Rules Button */}
-                            <button 
-                                onClick={() => setIsRulesOpen(true)}
-                                className="p-3 bg-white border border-gray-200 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
-                                title="กติกาการเล่น (Game Rules)"
-                            >
-                                <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
 
                             {/* Wallet / Shop Button */}

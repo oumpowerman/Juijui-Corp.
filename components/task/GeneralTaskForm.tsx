@@ -179,7 +179,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
         const nextRound = currentRoundCount + 1;
         
         const confirmed = await showConfirm(
-            `งานจะถูกเปลี่ยนสถานะเป็น "Waiting" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
+            `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
             `🚀 ยืนยันการส่งงาน?`
         );
 
@@ -206,16 +206,60 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                 user_id: currentUser?.id
             });
 
-            const targetStatus = 'FEEDBACK'; 
-            setStatus(targetStatus);
-            await supabase.from('tasks').update({ status: targetStatus }).eq('id', initialData.id);
+            // FIXED: For general tasks table, the DB Enum status is 'WAITING'
+            const targetStatus = 'WAITING'; 
             
-            showToast(`ส่งงานเรียบร้อย! 🚀 รอหัวหน้าตรวจรับ`, 'success');
+            // Construct pseudo-review object for immediate UI update
+            const newOptimisticReview = {
+                id: `temp-${Date.now()}`,
+                taskId: initialData.id,
+                round: nextRound,
+                scheduledAt: new Date(),
+                status: 'PENDING',
+                reviewerId: null
+            };
+
+            // 1. Create updatedTask for Optimistic Update
+            const updatedTask: Task = {
+                ...initialData!,
+                title,
+                description,
+                status: targetStatus,
+                priority,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                assigneeIds,
+                assigneeType,
+                targetPosition,
+                difficulty,
+                estimatedHours,
+                assets,
+                reviews: [...(initialData.reviews || []), newOptimisticReview as any], // <--- Add Optimistic Review
+                showOnBoard: true 
+            };
+
+            // 2. Update DB
+            const { error: updateError } = await supabase
+                .from('tasks')
+                .update({ 
+                    status: targetStatus,
+                    show_on_board: true
+                })
+                .eq('id', initialData.id);
+
+            if (updateError) throw updateError;
+
+            // 3. Sync to Parent
+            setStatus(targetStatus);
+            onSave(updatedTask);
+            
+            // UX Improvement: Show beautiful modal confirmation before closing
+            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 หัวหน้าจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
             onClose();
 
         } catch (err: any) {
-            console.error(err);
-            showToast('ส่งงานไม่สำเร็จ: ' + err.message, 'error');
+            console.error("Submission error details:", err);
+            showToast('ส่งงานไม่สำเร็จ: ' + (err.message || 'Unknown Error'), 'error');
             setIsSendingQC(false); 
         }
     };
@@ -347,7 +391,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({
                     )}
                 </div>
                 <div className="flex space-x-3">
-                    {!isReadOnly && initialData && !isTaskDone && status !== 'FEEDBACK' && (
+                    {!isReadOnly && initialData && !isTaskDone && status !== 'WAITING' && status !== 'FEEDBACK' && (
                         <div className="relative group">
                             <button 
                                 type="button" 

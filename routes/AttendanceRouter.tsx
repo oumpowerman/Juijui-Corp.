@@ -4,26 +4,26 @@ import { User } from '../types';
 import AttendanceWidget from '../components/attendance/AttendanceWidget';
 import AttendanceHistory from '../components/attendance/AttendanceHistory'; 
 import AdminAttendanceDashboard from '../components/attendance/AdminAttendanceDashboard'; 
+import AdminWeeklyTimesheet from '../components/attendance/AdminWeeklyTimesheet'; // New Import
 import LeaveApprovalList from '../components/attendance/LeaveApprovalList'; 
-import AttendanceInfoCard from '../components/attendance/AttendanceInfoCard'; // New Import
+import AttendanceInfoCard from '../components/attendance/AttendanceInfoCard'; 
 import { useAttendance } from '../hooks/useAttendance'; 
-import { useLeaveRequests } from '../hooks/useLeaveRequests'; // Import hook to get count
+import { useLeaveRequests } from '../hooks/useLeaveRequests'; 
 import MentorTip from '../components/MentorTip';
-import { Clock, Calendar, PieChart, FileCheck } from 'lucide-react';
+import { Clock, Calendar, PieChart, FileCheck, TableProperties } from 'lucide-react';
 
 interface AttendanceRouterProps {
     currentUser: User;
     users: User[]; 
 }
 
-type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'REPORT' | 'APPROVALS';
+type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVALS';
 
 const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
     const [currentTab, setCurrentTab] = useState<AttendanceTab>('CHECK_IN');
     
     // Hooks
     const { stats } = useAttendance(currentUser.id);
-    // Use this to get pending count for badge
     const { requests } = useLeaveRequests(currentUser);
     
     const pendingCount = requests.filter(r => r.status === 'PENDING').length;
@@ -47,23 +47,30 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 </div>
             </div>
 
-            {/* Navigation Tabs (Local Router) */}
-            <div className="flex p-1 bg-white rounded-xl border border-gray-200 w-fit overflow-x-auto">
+            {/* Navigation Tabs */}
+            <div className="flex p-1 bg-white rounded-xl border border-gray-200 w-fit overflow-x-auto scrollbar-hide">
                 <button 
                     onClick={() => setCurrentTab('CHECK_IN')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'CHECK_IN' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    <Clock className="w-4 h-4" /> ลงเวลา (Check-in)
+                    <Clock className="w-4 h-4" /> ลงเวลา
                 </button>
                 <button 
                     onClick={() => setCurrentTab('HISTORY')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
-                    <Calendar className="w-4 h-4" /> ประวัติ (History)
+                    <Calendar className="w-4 h-4" /> ประวัติ
                 </button>
-                {/* Only Admin or HR might see this */}
+                {/* Only Admin see these tabs */}
                 {currentUser.role === 'ADMIN' && (
                     <>
+                        <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
+                        <button 
+                            onClick={() => setCurrentTab('TIMESHEET')}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <TableProperties className="w-4 h-4" /> ตรวจสอบทีม
+                        </button>
                         <button 
                             onClick={() => setCurrentTab('APPROVALS')}
                             className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'APPROVALS' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -79,7 +86,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                             onClick={() => setCurrentTab('REPORT')}
                             className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'REPORT' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            <PieChart className="w-4 h-4" /> สรุปผล (Reports)
+                            <PieChart className="w-4 h-4" /> สรุปผลรายเดือน
                         </button>
                     </>
                 )}
@@ -90,7 +97,6 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 {currentTab === 'CHECK_IN' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                          <div className="space-y-6">
-                             {/* Reusing the Widget here as the main component for this tab */}
                              <AttendanceWidget user={currentUser} />
                              
                              <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden">
@@ -111,6 +117,10 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                     <AttendanceHistory 
                         userId={currentUser.id}
                     />
+                )}
+
+                {currentTab === 'TIMESHEET' && currentUser.role === 'ADMIN' && (
+                    <AdminWeeklyTimesheet users={users} />
                 )}
                 
                 {currentTab === 'APPROVALS' && currentUser.role === 'ADMIN' && (

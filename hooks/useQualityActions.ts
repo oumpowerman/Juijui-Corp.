@@ -1,54 +1,39 @@
-
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, ReviewStatus } from '../types';
 import { DIFFICULTY_LABELS } from '../constants';
 import { useToast } from '../context/ToastContext';
+import { useGamification } from './useGamification';
 
 export const useQualityActions = () => {
     const { showToast } = useToast();
+    const { processAction } = useGamification();
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // XP Distribution Logic
+    // XP Distribution Logic (Synced with Engine)
     const distributeXP = async (task: Task) => {
         try {
-            const baseXP = DIFFICULTY_LABELS[task.difficulty || 'MEDIUM'].xp;
-            const hourlyBonus = Math.floor((task.estimatedHours || 0) * 20);
-            const isLate = new Date() > new Date(task.endDate);
-            const penalty = isLate ? 50 : 0;
-            const finalXP = Math.max(10, (baseXP + hourlyBonus) - penalty);
-
             const peopleToReward = new Set([
                 ...(task.assigneeIds || []),
                 ...(task.ideaOwnerIds || []),
                 ...(task.editorIds || [])
             ]);
 
-            // Execute XP updates
-            for (const userId of Array.from(peopleToReward)) {
-                // Fetch current user data
-                const { data: user, error: getError } = await supabase
-                    .from('profiles')
-                    .select('xp, available_points')
-                    .eq('id', userId)
-                    .single();
-                
-                if (getError) continue; 
+            let actualXP = 0;
+            const userIds = Array.from(peopleToReward);
 
-                let newXP = (user.xp || 0) + finalXP;
-                let newPoints = (user.available_points || 0) + finalXP;
-                let newLevel = Math.floor(newXP / 1000) + 1;
-
-                await supabase
-                    .from('profiles')
-                    .update({ xp: newXP, level: newLevel, available_points: newPoints })
-                    .eq('id', userId);
+            // Execute XP updates via Gamification Engine to ensure game_logs are created
+            for (let i = 0; i < userIds.length; i++) {
+                const result = await processAction(userIds[i], 'TASK_COMPLETE', task);
+                if (i === 0 && result) {
+                    actualXP = result.xp;
+                }
             }
-            
-            showToast(`🎉 อนุมัติและแจก +${finalXP} XP ให้ทีมงานแล้ว!`, 'success');
+            return actualXP;
         } catch (err) {
             console.error("XP Distribution Error:", err);
             showToast('แจก XP ไม่สำเร็จ แต่บันทึกสถานะงานแล้ว', 'warning');
+            return 0;
         }
     };
 
@@ -59,7 +44,7 @@ export const useQualityActions = () => {
         task: Task | undefined,
         feedback: string | undefined,
         updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => Promise<void>,
-        reviewerId: string // NEW ARGUMENT
+        reviewerId: string 
     ) => {
         setIsProcessing(true);
         try {
@@ -73,54 +58,65 @@ export const useQualityActions = () => {
             ]);
 
             if (action === 'PASS') {
-                // Pass reviewerId here
+                // 1. Trigger Engine for Rewards & Logs FIRST and get actual XP
+                let finalXP = 0;
+                if (task) {
+                    finalXP = await distributeXP(task);
+                }
+
+                // 2. Update Review Record
                 await updateReviewStatus(reviewId, 'PASSED', undefined, reviewerId);
                 
+                // 3. Update Task Status to DONE
                 await supabase.from(tableName).update({ status: 'DONE' }).eq('id', taskId);
+                
+                // 4. Log the system change
                 await supabase.from('task_logs').insert({
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
                     details: 'Quality Gate: PASSED -> Status set to DONE',
-                    user_id: reviewerId // Log who did it
+                    user_id: reviewerId 
                 });
-
-                // Trigger XP Distribution
-                if (task) {
-                    await distributeXP(task);
-                }
                 
-                // NOTIFICATION: SUCCESS
+                // 5. NOTIFICATION: SUCCESS (With Rich Metadata using engine value)
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,
                          type: 'REVIEW',
                          title: '✅ งานผ่านแล้ว!',
-                         message: `งาน "${task?.title}" ได้รับการอนุมัติแล้ว`,
+                         message: `งาน "${task?.title}" ได้รับการอนุมัติแล้ว (+${finalXP} XP)`,
                          related_id: taskId,
                          link_path: 'STOCK',
-                         is_read: false
+                         is_read: false,
+                         metadata: {
+                             xp: finalXP,
+                             title: task?.title
+                         }
                     }));
                     await supabase.from('notifications').insert(notifications);
                 }
+
+                showToast(`🎉 อนุมัติงาน "${task?.title}" เรียบร้อย!`, 'success');
 
             } else {
                 if (!feedback?.trim()) {
                     throw new Error("กรุณาระบุสิ่งที่ต้องแก้ไข");
                 }
-                // Pass reviewerId here
+                
                 await updateReviewStatus(reviewId, 'REVISE', feedback, reviewerId);
                 
                 await supabase.from(tableName).update({ status: 'DOING' }).eq('id', taskId);
+                
                 await supabase.from('task_logs').insert({
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
                     details: `Quality Gate: REVISE -> ${feedback}`,
-                    user_id: reviewerId // Log who did it
+                    user_id: reviewerId
                 });
 
-                // NOTIFICATION: REVISE
+                // NOTIFICATION: REVISE (With metadata for clarity)
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,
@@ -129,7 +125,11 @@ export const useQualityActions = () => {
                          message: `งาน "${task?.title}" ต้องแก้ไข: ${feedback}`,
                          related_id: taskId,
                          link_path: 'STOCK',
-                         is_read: false
+                         is_read: false,
+                         metadata: {
+                             feedback: feedback,
+                             title: task?.title
+                         }
                     }));
                     await supabase.from('notifications').insert(notifications);
                 }

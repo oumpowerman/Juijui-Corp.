@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 // Default Data for seeding
 const DEFAULT_OPTIONS = [
@@ -18,7 +20,8 @@ const DEFAULT_OPTIONS = [
     // --- TASK STATUS (ใหม่! สำหรับงานทั่วไป) ---
     { type: 'TASK_STATUS', key: 'TODO', label: 'To Do (รอทำ) 📥', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
     { type: 'TASK_STATUS', key: 'DOING', label: 'Doing (กำลังทำ) 🔨', color: 'bg-blue-50 text-blue-600', sort_order: 2 },
-    { type: 'TASK_STATUS', key: 'WAITING', label: 'Waiting (รอของ/คน) ✋', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
+    // FIX: Change key from 'WAITING' to 'FEEDBACK' to match DB Enum
+    { type: 'TASK_STATUS', key: 'FEEDBACK', label: 'Waiting (รอตรวจ/รอผล) ✋', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
     { type: 'TASK_STATUS', key: 'DONE', label: 'Done (เสร็จแล้ว) ✅', color: 'bg-green-100 text-green-700', sort_order: 4 },
 
     // --- FORMAT ---
@@ -76,6 +79,7 @@ export const useMasterData = () => {
     const [options, setOptions] = useState<MasterOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     const fetchOptions = async () => {
         // Only set loading on initial fetch or empty state
@@ -178,7 +182,9 @@ export const useMasterData = () => {
     };
 
     const handleDeleteOption = async (id: string) => {
-        if(!confirm('ยืนยันการลบข้อมูลนี้? หากลบแล้วอาจกระทบกับงานเก่าที่ใช้ค่านี้อยู่')) return;
+        // Fix: Replaced native confirm with showConfirm
+        const confirmed = await showConfirm('ยืนยันการลบข้อมูลนี้? หากลบแล้วอาจกระทบกับงานเก่าที่ใช้ค่านี้อยู่', 'ลบข้อมูลมาสเตอร์');
+        if(!confirmed) return;
 
         try {
             const { error } = await supabase.from('master_options').delete().eq('id', id);

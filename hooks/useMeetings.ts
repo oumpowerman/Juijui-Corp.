@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MeetingLog, MeetingCategory } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { format, isValid } from 'date-fns';
 
 export const useMeetings = () => {
     const [meetings, setMeetings] = useState<MeetingLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     // Helper to map DB object to MeetingLog type
     const mapMeeting = (m: any): MeetingLog => ({
@@ -144,7 +146,9 @@ export const useMeetings = () => {
     };
 
     const deleteMeeting = async (id: string) => {
-        if(!confirm('ยืนยันการลบบันทึกนี้?')) return;
+        // Fix: Replaced native confirm with showConfirm
+        const confirmed = await showConfirm('ยืนยันการลบบันทึกนี้ใช่หรือไม่?', 'ลบบันทึกการประชุม');
+        if(!confirmed) return;
         try {
             const { error } = await supabase.from('meeting_logs').delete().eq('id', id);
             if (error) throw error;

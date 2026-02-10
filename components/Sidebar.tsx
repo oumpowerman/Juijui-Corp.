@@ -1,7 +1,7 @@
-
-import React, { useState } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown , Monitor } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
+import { useSidebarBadges } from '../hooks/useSidebarBadges';
 
 interface SidebarProps {
   currentUser: User;
@@ -11,10 +11,23 @@ interface SidebarProps {
   onEditProfile: () => void;
   onAddTask: () => void;
   unreadChatCount: number;
-  systemUnreadCount?: number; // Added new prop
+  systemUnreadCount?: number; 
   isCollapsed: boolean;
   onToggleCollapse: (val: boolean) => void;
 }
+
+// Notification Pill Component
+const NotificationPill = ({ count, color = 'bg-red-500' }: { count: number, color?: string }) => {
+    if (count <= 0) return null;
+    return (
+        <span className={`
+            min-w-[18px] h-[18px] flex items-center justify-center 
+            text-[9px] font-black text-white rounded-full border-2 border-white shadow-sm z-20 ${color} animate-pulse
+        `}>
+            {count > 99 ? '99+' : count}
+        </span>
+    );
+};
 
 // Menu Groups Definition
 export const MENU_GROUPS: MenuGroup[] = [
@@ -48,12 +61,12 @@ export const MENU_GROUPS: MenuGroup[] = [
     icon: Building2,
     items: [
       { view: 'ATTENDANCE', label: 'ลงเวลาทำงาน', icon: Clock },
-      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, // Added Here
+      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, 
       { view: 'DUTY', label: 'ตารางเวร', icon: Coffee },
       { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
       { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone },
       { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
-      { view: 'ASSETS', label: 'ทะเบียนทรัพย์สิน', icon: Monitor }, // NEW MENU
+      { view: 'ASSETS', label: 'ทะเบียนทรัพย์สิน', icon: Monitor },
       { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
     ]
   },
@@ -78,11 +91,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout, 
   onEditProfile, 
   unreadChatCount,
-  systemUnreadCount = 0, // Default to 0
+  systemUnreadCount = 0,
   isCollapsed,
   onToggleCollapse
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
+  const { badges } = useSidebarBadges(currentUser);
 
   // State for Accordion
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -93,7 +107,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const toggleGroup = (groupId: string) => {
-      // Allow toggle even if collapsed, but UI handles visual
       setExpandedGroups(prev => ({
           ...prev,
           [groupId]: !prev[groupId]
@@ -102,7 +115,23 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleMenuItemClick = (view: ViewMode) => {
       onNavigate(view);
-      // Optional: Auto-collapse on click if desired, but user asked for hover behavior
+  };
+
+  // Helper to get badge count for a specific view
+  const getBadgeForView = (view: ViewMode) => {
+      if (view === 'CHAT') return unreadChatCount;
+      if (view === 'DASHBOARD') return systemUnreadCount;
+      if (view === 'QUALITY_GATE') return badges.qualityGate;
+      if (view === 'FEEDBACK') return badges.feedback;
+      if (view === 'DUTY') return badges.myDuty;
+      // Show Member Approval count on Team menu for Admins
+      if (view === 'TEAM' && isAdmin) return badges.memberApproval;
+      return 0;
+  };
+
+  // Helper to get total badge count for a group
+  const getGroupBadgeTotal = (groupItems: { view: ViewMode }[]) => {
+      return groupItems.reduce((acc, item) => acc + getBadgeForView(item.view), 0);
   };
 
   return (
@@ -135,6 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           
           const isExpanded = expandedGroups[group.id];
           const GroupIcon = group.icon;
+          const groupTotalBadge = getGroupBadgeTotal(group.items);
 
           return (
             <div key={group.id} className="mb-6">
@@ -150,55 +180,67 @@ const Sidebar: React.FC<SidebarProps> = ({
                           {group.title}
                         </h3>
                     </div>
-                    <div className="sidebar-item-text">
+                    <div className="flex items-center gap-2 sidebar-item-text">
+                        {/* Show aggregated badge on group header if collapsed */}
+                        {!isExpanded && groupTotalBadge > 0 && (
+                             <NotificationPill count={groupTotalBadge} color="bg-indigo-500" />
+                        )}
                         {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                     </div>
                 </button>
               ) : (
-                <div className="w-full flex justify-center py-2 text-slate-200">
+                <div className="w-full flex justify-center py-2 text-slate-200 relative group/icon">
                    {/* Divider or Mini Icon when collapsed */}
                    <div className="w-10 h-px bg-slate-100"></div>
+                   
+                   {/* Tooltip for Group Name (Optional Enhancement) */}
+                   <div className="absolute left-full ml-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/icon:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                       {group.title}
+                   </div>
                 </div>
               )}
 
               {/* Group Items */}
-              <div className={`overflow-hidden transition-all duration-500 ${isCollapsed || isExpanded ? 'max-h-[600px]' : 'max-h-0'}`}>
+              <div className={`overflow-hidden transition-all duration-500 ${isCollapsed || isExpanded ? 'max-h-[800px]' : 'max-h-0'}`}>
                   <div className={`space-y-1.5 mt-2 ${isCollapsed ? 'px-3' : 'px-4'}`}>
                     {group.items.map((item) => {
                       const isActive = currentView === item.view;
                       const Icon = item.icon;
-                      
-                      // Calculate Badge
-                      let badgeCount = 0;
-                      if (item.view === 'CHAT') badgeCount = unreadChatCount;
-                      if (item.view === 'DASHBOARD') badgeCount = systemUnreadCount;
+                      const badgeCount = getBadgeForView(item.view);
 
                       return (
                         <button
                           key={item.view}
                           onClick={() => handleMenuItemClick(item.view)}
                           className={`
-                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-hidden
+                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-visible
                             ${isCollapsed ? 'justify-center py-3.5' : 'px-4 py-3'}
                             ${isActive 
                               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
                               : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-700'}
                           `}
+                          title={isCollapsed ? item.label : ''}
                         >
-                          <Icon className={`sidebar-icon shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5 mr-3.5'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
+                          <div className="relative shrink-0">
+                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
+                                
+                                {/* Collapsed Badge (Attached to Icon) */}
+                                {isCollapsed && badgeCount > 0 && (
+                                     <div className="absolute -top-1.5 -right-1.5">
+                                         <NotificationPill count={badgeCount} />
+                                     </div>
+                                )}
+                          </div>
                           
-                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight`}>
+                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5`}>
                              {item.label}
                           </span>
                           
-                          {badgeCount > 0 && (
-                            <div className={`
-                              font-black rounded-full animate-pulse flex items-center justify-center shrink-0
-                              ${isCollapsed ? 'absolute top-2 right-2 w-4 h-4 text-[7px]' : 'px-2 py-0.5 text-[9px] ml-2'}
-                              ${isActive ? 'bg-white text-indigo-600' : 'bg-red-500 text-white'}
-                            `}>
-                              {badgeCount > 99 ? '99+' : badgeCount}
-                            </div>
+                          {/* Expanded Badge (Pill on Right) */}
+                          {!isCollapsed && badgeCount > 0 && (
+                             <div className="sidebar-item-text ml-auto">
+                                <NotificationPill count={badgeCount} color={isActive ? 'bg-white text-indigo-600' : 'bg-red-500'} />
+                             </div>
                           )}
                         </button>
                       );

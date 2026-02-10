@@ -3,21 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ChatMessage, User, Task, Status, Priority } from '../types';
 import { useToast } from '../context/ToastContext';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// Fix: Correct import for GenAI
+import { GoogleGenAI } from "@google/genai";
+import { Type } from "@google/genai";
+
 
 const PAGE_SIZE = 20;
-
-const getGeminiApiKey = () => {
-    if (typeof process !== 'undefined' && process.env?.API_KEY) {
-        return process.env.API_KEY;
-    }
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
-        // @ts-ignore
-        return import.meta.env.VITE_GEMINI_API_KEY;
-    }
-    return '';
-};
 
 export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTask: (task: Task) => void, isBotEnabled: boolean) => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -119,50 +110,52 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
         window.dispatchEvent(new Event('juijui-chat-read'));
     };
 
+    // Fix: Updated to follow GenAI guidelines
     const processAIResponse = async (userMessage: string) => {
         try {
-            const apiKey = getGeminiApiKey();
+            const apiKey = process.env.API_KEY;
             if (!apiKey) {
                 console.warn("API Key Not Found. AI features disabled.");
                 return;
             }
 
-            // Initialization for @google/generative-ai (Legacy/Stable SDK)
-            const genAI = new GoogleGenerativeAI(apiKey);
+            const ai = new GoogleGenAI({ apiKey });
 
             const createTaskFunctionDeclaration = {
-                name: "createTask",
-                description: "Create a new task in the project management system.",
-                parameters: {
-                    type: "OBJECT", // Use string literal for compatibility
-                    properties: {
-                        title: { type: "STRING", description: "The title of the task." },
-                        assignee_name: { type: "STRING", description: "The name of the person to assign the task to." },
-                    },
-                    required: ["title"],
+            name: "createTask",
+            description: "Create a new task in the project management system.",
+            parameters: {
+                type: Type.OBJECT,
+                properties: {
+                title: {
+                    type: Type.STRING,
+                    description: "The title of the task.",
                 },
+                assignee_name: {
+                    type: Type.STRING,
+                    description: "The name of the person to assign the task to.",
+                },
+                },
+                required: ["title"],
+            },
             };
 
-            const modelName = "gemini-1.5-flash"; // Use 1.5 Flash which is stable
+
+
             const teamNames = allUsers.map(u => u.name).join(', ');
-            
             const systemInstruction = `You are 'Juijui Bot', a helpful AI for a creator team. Members: ${teamNames}. Help with chat or call createTask tool if asked.`;
             
-            const model = genAI.getGenerativeModel({
-                model: modelName,
-                // @ts-ignore
-                systemInstruction: systemInstruction,
-                tools: [{
-                    // @ts-ignore
-                    functionDeclarations: [createTaskFunctionDeclaration]
-                }],
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: userMessage,
+                config: {
+                    systemInstruction,
+                    tools: [{ functionDeclarations: [createTaskFunctionDeclaration] }],
+                }
             });
             
-            const result = await model.generateContent(userMessage);
-            const response = result.response;
-            
-            // Check for Function Calls (Legacy SDK Style)
-            const functionCalls = response.functionCalls();
+            // Fix: response.functionCalls is a property
+            const functionCalls = response.functionCalls;
             
             if (functionCalls && functionCalls.length > 0) {
                 for (const call of functionCalls) {
@@ -195,7 +188,8 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
                     }
                 }
             } else {
-                const text = response.text();
+                // Fix: response.text is a property
+                const text = response.text;
                 if (text) {
                     await supabase.from('team_messages').insert({
                         content: text,
@@ -280,6 +274,7 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
 
         } catch (err: any) {
             console.error(err);
+            // Fix: Replaced alert with showToast
             showToast('ส่งไฟล์ไม่สำเร็จ: ' + err.message, 'error');
         }
     };

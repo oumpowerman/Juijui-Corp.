@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Duty, User, DutyConfig, DutySwap } from '../types';
+import { Duty, User, DutyConfig, DutySwap, AnnualHoliday } from '../types';
 import { useToast } from '../context/ToastContext';
 import { addDays, isWeekend, getDay, format } from 'date-fns';
 import { useGamification } from './useGamification'; // Import Engine
@@ -23,6 +23,40 @@ export const useDuty = (currentUser?: User) => {
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { processAction } = useGamification(); // Initialize Engine
+
+    // --- Calendar Context States ---
+    const [annualHolidays, setAnnualHolidays] = useState<AnnualHoliday[]>([]);
+    const [calendarExceptions, setCalendarExceptions] = useState<any[]>([]);
+
+    const fetchCalendarMetadata = async () => {
+        try {
+            const [hRes, eRes] = await Promise.all([
+                supabase.from('annual_holidays').select('*').eq('is_active', true),
+                supabase.from('calendar_exceptions').select('*')
+            ]);
+            if (hRes.data) setAnnualHolidays(hRes.data.map((h: any) => ({
+                id: h.id, name: h.name, day: h.day, month: h.month, typeKey: h.type_key, isActive: h.is_active
+            })));
+            if (eRes.data) setCalendarExceptions(eRes.data);
+        } catch (err) {
+            console.error("Failed to fetch calendar metadata for Duty", err);
+        }
+    };
+
+    const isDayWorking = (date: Date): boolean => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // 1. Check Exceptions (Highest Priority)
+        const exception = calendarExceptions.find(e => e.date === dateStr);
+        if (exception) return exception.type === 'WORK_DAY';
+
+        // 2. Check Annual Holidays
+        const isAnnual = annualHolidays.some(h => h.day === date.getDate() && h.month === (date.getMonth() + 1));
+        if (isAnnual) return false;
+
+        // 3. Default Weekend Check
+        return !isWeekend(date);
+    };
 
     // Fetch Duties from DB
     const fetchDuties = async () => {
@@ -114,12 +148,14 @@ export const useDuty = (currentUser?: User) => {
         fetchDuties();
         fetchConfigs();
         fetchSwapRequests();
+        fetchCalendarMetadata();
 
         const dutyChannel = supabase
             .channel('realtime-duties')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, () => fetchDuties())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_configs' }, () => fetchConfigs())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_swaps' }, () => fetchSwapRequests())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_exceptions' }, () => fetchCalendarMetadata())
             .subscribe();
 
         return () => {
@@ -357,7 +393,7 @@ export const useDuty = (currentUser?: User) => {
         }
     };
 
-    // --- REVISED: Generate Draft (Pure Logic) ---
+    // --- REVISED: Generate Draft (Respect Calendar Logic) ---
     const calculateRandomDuties = (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
         if (activeUsers.length === 0) return [];
 
@@ -394,20 +430,31 @@ export const useDuty = (currentUser?: User) => {
         const draftDuties: Duty[] = [];
         let currentGenDate = new Date(startDate);
         let daysGenerated = 0;
-        const targetDaysForDuration = weeksToGenerate * 5; 
+        
+        // Target is based on WORK DAYS, not calendar days
+        const targetWorkDays = weeksToGenerate * 5; 
 
         while (true) {
             if (mode === 'DURATION') {
-                if (daysGenerated >= targetDaysForDuration) break;
+                if (daysGenerated >= targetWorkDays) break;
             } else if (mode === 'ROTATION') {
-                if (assignedUserIds.size >= activeUsers.length && daysGenerated % 5 === 0) break; // Complete cycle + full weeks
+                if (assignedUserIds.size >= activeUsers.length && daysGenerated % 5 === 0) break;
                 if (daysGenerated > activeUsers.length * 5) break; 
             }
+            
+            // Safety break to prevent infinite loops if misconfigured
+            if (daysGenerated > 60) break; 
 
-            if (!isWeekend(currentGenDate)) {
-                const dayNum = getDay(currentGenDate);
+            // --- KEY CHANGE: Check if this is a working day ---
+            if (isDayWorking(currentGenDate)) {
+                // Determine day of week to get config (0=Sun, 1=Mon...6=Sat)
+                let dayNum = getDay(currentGenDate);
+                
+                // If it's a weekend (Special workday), use Friday's config or default
+                if (dayNum === 0 || dayNum === 6) dayNum = 5; 
+
                 const config = configs.find(c => c.dayOfWeek === dayNum) || { 
-                    dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] 
+                    dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรประจำวัน'] 
                 };
 
                 const peopleNeeded = config.requiredPeople;
@@ -421,7 +468,7 @@ export const useDuty = (currentUser?: User) => {
                     }
                     
                     draftDuties.push({
-                        id: crypto.randomUUID(), // Temp ID for draft
+                        id: crypto.randomUUID(),
                         title,
                         assigneeId: user.id,
                         date: new Date(currentGenDate),
@@ -539,6 +586,7 @@ export const useDuty = (currentUser?: User) => {
         submitProof,
         submitAppeal,
         requestSwap,
-        respondSwap
+        respondSwap,
+        calendarMetadata: { annualHolidays, calendarExceptions }
     };
 };

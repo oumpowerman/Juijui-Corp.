@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Task, Channel, MasterOption, WorkStatus, ViewMode } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -8,7 +9,8 @@ import WelcomeHeader from './member/WelcomeHeader';
 import FocusZone from './member/FocusZone';
 import MyWorkBoard from './member/MyWorkBoard';
 import ItemShopModal from '../gamification/ItemShopModal';
-import WorkloadModal from '../workload/WorkloadModal'; // NEW
+import WorkloadModal from '../workload/WorkloadModal'; 
+import MemberReportModal from './member/MemberReportModal'; // NEW
 
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
@@ -20,7 +22,7 @@ import HallOfFameWidget from './widgets/HallOfFameWidget';
 // Hooks
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
 import { useGoals } from '../../hooks/useGoals';
-import { useTasks } from '../../hooks/useTasks'; // Import useTasks to get save handler
+import { useTasks } from '../../hooks/useTasks'; 
 
 interface MemberDashboardProps {
     currentUser: User;
@@ -35,7 +37,7 @@ interface MemberDashboardProps {
     onEditProfile: () => void;
     onRefreshMasterData?: () => Promise<void>;
     onNavigate: (view: ViewMode) => void;
-    onUpdateTask?: (task: Task) => void; // New prop from parent wrapper
+    onUpdateTask?: (task: Task) => void; 
 }
 
 const MemberDashboard: React.FC<MemberDashboardProps> = ({ 
@@ -51,16 +53,17 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     onEditProfile,
     onNavigate
 }) => {
-    // Local State for UI responsiveness
+    // Local State
     const [localUser, setLocalUser] = useState<User>(currentUser);
     const [isShopOpen, setIsShopOpen] = useState(false);
-    const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); // NEW STATE
+    const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); 
+    const [isReportOpen, setIsReportOpen] = useState(false); // NEW STATE
     const { showToast } = useToast();
 
     // Data Hooks
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
-    const { handleSaveTask } = useTasks(); // Use Internal Hook for DnD updates
+    const { handleSaveTask } = useTasks(); 
 
     // Sync local user
     useEffect(() => {
@@ -116,7 +119,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 onOpenNotifications={onOpenNotifications || onOpenSettings} 
                                 onEditProfile={onEditProfile}
                                 unreadNotifications={unreadCount}
-                                onOpenWorkload={() => setIsWorkloadOpen(true)} // Pass trigger
+                                onOpenWorkload={() => setIsWorkloadOpen(true)}
+                                onOpenReport={() => setIsReportOpen(true)} // NEW Prop
                             />
                          </div>
                         
@@ -143,26 +147,21 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     </div>
                 </div>
 
-                {/* --- ROW 2: SQUAD HUB (NEW) --- */}
+                {/* --- ROW 2: SQUAD HUB --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-6 items-stretch relative z-10">
-                    {/* Quest Widget (Purple Theme) */}
                     <div className="lg:col-span-2 xl:col-span-6 h-full">
                         <QuestOverviewWidget 
                             quests={quests} 
-                            tasks={tasks} // Needs global tasks for counting
+                            tasks={tasks} 
                             onNavigate={onNavigate} 
                         />
                     </div>
-                    
-                    {/* Goal Widget (Green Theme) */}
                     <div className="lg:col-span-1 xl:col-span-3 h-full">
                         <GoalOverviewWidget 
                             goals={goals} 
                             onNavigate={onNavigate} 
                         />
                     </div>
-
-                    {/* Hall of Fame (Gold Theme) */}
                     <div className="lg:col-span-1 xl:col-span-3 h-full">
                         <HallOfFameWidget 
                             users={users} 
@@ -174,8 +173,6 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
                 {/* --- ROW 3: WORKSPACE --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 relative z-10">
-                    
-                    {/* Focus Zone (Left Side - 35% ish on XL) */}
                     <div className="xl:col-span-4 flex flex-col gap-4">
                         <FocusZone 
                             tasks={myTasks} 
@@ -184,8 +181,6 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             onOpenTask={onEditTask} 
                         />
                     </div>
-
-                    {/* My Work Board (Right Side - 65% ish on XL) */}
                     <div className="xl:col-span-8">
                         <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-white/60 shadow-sm p-6 h-full">
                              <MyWorkBoard 
@@ -194,7 +189,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 users={users}
                                 currentUser={currentUser} 
                                 onOpenTask={onEditTask}
-                                onUpdateTask={(t) => handleSaveTask(t, null)} // Handle DnD Updates
+                                onUpdateTask={(t) => handleSaveTask(t, null)} 
                             />
                         </div>
                     </div>
@@ -214,6 +209,14 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 tasks={tasks}
                 users={users}
                 currentUser={currentUser}
+            />
+
+            {/* NEW REPORT MODAL */}
+            <MemberReportModal 
+                isOpen={isReportOpen}
+                onClose={() => setIsReportOpen(false)}
+                user={currentUser}
+                tasks={tasks} // Pass ALL tasks (filtering happens inside)
             />
         </div>
     );

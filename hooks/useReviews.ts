@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ReviewSession, ReviewStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -7,40 +7,33 @@ import { useToast } from '../context/ToastContext';
 export const useReviews = () => {
     const [reviews, setReviews] = useState<ReviewSession[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [highlightedId, setHighlightedId] = useState<string | null>(null);
     const { showToast } = useToast();
+    const isFirstLoad = useRef(true);
 
-    const fetchReviews = async () => {
-        setIsLoading(true);
+    const fetchReviews = useCallback(async (isBackground = false) => {
+        if (isFirstLoad.current) setIsLoading(true);
+        
         try {
-            // Join with BOTH Tasks and Contents to handle both types
-            // Select specific fields to ensure we get caution, importance, etc.
             const { data, error } = await supabase
                 .from('task_reviews')
                 .select(`
                     *,
-                    tasks (
-                        *
-                    ),
-                    contents (
-                        *
-                    )
+                    tasks (*),
+                    contents (*)
                 `)
-                // SORT CHANGE: Ascending (Oldest first) to prioritize overdue tasks
                 .order('scheduled_at', { ascending: true }); 
 
             if (error) throw error;
 
             if (data) {
                 const mappedReviews: ReviewSession[] = data.map((r: any) => {
-                    // Determine which table holds the data
                     const sourceData = r.tasks || r.contents;
-                    
-                    // Default fallback if data is missing (orphaned review)
                     if (!sourceData) return null;
 
                     return {
                         id: r.id,
-                        taskId: r.task_id || r.content_id, // Support both IDs
+                        taskId: r.task_id || r.content_id,
                         round: r.round,
                         scheduledAt: new Date(r.scheduled_at),
                         reviewerId: r.reviewer_id,
@@ -55,44 +48,40 @@ export const useReviews = () => {
                             channelId: sourceData.channel_id,
                             startDate: new Date(sourceData.start_date),
                             endDate: new Date(sourceData.end_date),
-                            // Map People
                             assigneeIds: sourceData.assignee_ids || [],
                             ideaOwnerIds: sourceData.idea_owner_ids || [],
                             editorIds: sourceData.editor_ids || [],
                             assigneeType: sourceData.assignee_type,
-                            type: r.contents ? 'CONTENT' : 'TASK', // Determine type by source
+                            type: r.contents ? 'CONTENT' : 'TASK',
                             assets: sourceData.assets || [],
-                            // Map Details
+                            targetPosition: sourceData.target_position,
                             caution: sourceData.caution,
                             importance: sourceData.importance,
                             difficulty: sourceData.difficulty || 'MEDIUM',
                             estimatedHours: sourceData.estimated_hours || 0
                         } as any
                     };
-                }).filter(Boolean) as ReviewSession[]; // Filter out nulls
+                }).filter(Boolean) as ReviewSession[];
 
                 setReviews(mappedReviews);
             }
         } catch (err: any) {
-            console.error(err);
-            // showToast('โหลดข้อมูลตรวจงานไม่สำเร็จ', 'error');
+            console.error('Fetch reviews error:', err);
         } finally {
             setIsLoading(false);
+            isFirstLoad.current = false;
         }
-    };
+    }, []);
 
     const updateReviewStatus = async (reviewId: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => {
         try {
             const payload: any = { 
                 status, 
                 feedback,
-                is_completed: status === 'PASSED' // Auto complete if passed
+                is_completed: status === 'PASSED'
             };
 
-            // Only update reviewer_id if provided (means someone actually clicked it)
-            if (reviewerId) {
-                payload.reviewer_id = reviewerId;
-            }
+            if (reviewerId) payload.reviewer_id = reviewerId;
 
             const { error } = await supabase
                 .from('task_reviews')
@@ -100,35 +89,47 @@ export const useReviews = () => {
                 .eq('id', reviewId);
 
             if (error) throw error;
-
-            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, ...payload } : r));
+            setHighlightedId(reviewId);
             showToast(status === 'PASSED' ? 'อนุมัติงานแล้ว! ✅' : 'ส่งกลับแก้ไขแล้ว 🛠️', status === 'PASSED' ? 'success' : 'warning');
         } catch (err: any) {
             showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
-    // Realtime
-    useEffect(() => {
-        const channel = supabase
-            .channel('realtime-reviews')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'task_reviews' },
-                () => { fetchReviews(); }
-            )
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, []);
-
+    // --- REALTIME ORCHESTRATOR ---
     useEffect(() => {
         fetchReviews();
-    }, []);
+
+        const channel = supabase
+            .channel('quality-gate-realtime')
+            // Listen to Review Changes (New submissions, Pass/Revise)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                    setHighlightedId(payload.new.id);
+                    // Clear highlight after 5 seconds
+                    setTimeout(() => setHighlightedId(null), 5000);
+                }
+                fetchReviews(true);
+            })
+            // Listen to Task details change (Title, Caution)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, () => {
+                fetchReviews(true);
+            })
+            // Listen to Content details change
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, () => {
+                fetchReviews(true);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchReviews]);
 
     return {
         reviews,
         isLoading,
+        highlightedId,
         updateReviewStatus,
         fetchReviews
     };

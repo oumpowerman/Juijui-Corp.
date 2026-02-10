@@ -1,4 +1,3 @@
-
 import { User, ViewMode } from './core';
 import { TaskAsset, FilterType } from './task';
 
@@ -333,6 +332,7 @@ export interface MenuGroup {
     icon: any; 
     items: { view: ViewMode; label: string; icon: any }[];
     adminOnly?: boolean;
+    totalBadge?: number; // Aggregated badge count
 }
 
 export interface CalendarHighlight {

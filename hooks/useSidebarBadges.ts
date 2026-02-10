@@ -1,86 +1,88 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
-import { isAfter } from 'date-fns';
+import { format } from 'date-fns';
 
-interface SidebarBadges {
+export interface SidebarBadges {
     qualityGate: number;
     feedback: number;
-    meeting: number;
+    memberApproval: number;
+    myDuty: number;
 }
 
 export const useSidebarBadges = (currentUser: User) => {
     const [badges, setBadges] = useState<SidebarBadges>({
         qualityGate: 0,
         feedback: 0,
-        meeting: 0
+        memberApproval: 0,
+        myDuty: 0
     });
-
-    // Keys for LocalStorage
-    const MEETING_VIEW_KEY = `juijui_last_view_meeting_${currentUser.id}`;
 
     const fetchBadges = async () => {
         if (!currentUser) return;
+        const isAdmin = currentUser.role === 'ADMIN';
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
 
         try {
-            // 1. Quality Gate Logic
-            // Admin sees ALL Pending. Users see Pending where they are involved.
-            let query = supabase
-                .from('task_reviews')
-                .select('id, task:tasks!task_reviews_task_id_fkey(assignee_ids, idea_owner_ids)', { count: 'exact', head: false }) // Select count
-                .eq('status', 'PENDING');
-
-            const { data: reviewData, error: reviewError } = await query;
+            // 1. Quality Gate Logic (Pending Reviews)
+            let qgQuery = supabase.from('task_reviews').select('id, task:tasks!inner(assignee_ids, idea_owner_ids, editor_ids)', { count: 'exact', head: false }).eq('status', 'PENDING');
             
-            let qualityCount = 0;
-            if (!reviewError && reviewData) {
-                if (currentUser.role === 'ADMIN') {
-                    qualityCount = reviewData.length;
+            const { data: qgData } = await qgQuery;
+            let qgCount = 0;
+            
+            if (qgData) {
+                if (isAdmin) {
+                    qgCount = qgData.length;
                 } else {
-                    // Filter locally for simplicity (or use complex query)
-                    qualityCount = reviewData.filter((r: any) => {
-                        const t = r.task;
-                        if (!t) return false;
-                        const assignees = t.assignee_ids || [];
-                        const owners = t.idea_owner_ids || [];
-                        return assignees.includes(currentUser.id) || owners.includes(currentUser.id);
+                    // Filter for member involvement
+                    qgCount = qgData.filter((r: any) => {
+                         const t = r.task;
+                         if (!t) return false;
+                         return (t.assignee_ids || []).includes(currentUser.id) || 
+                                (t.idea_owner_ids || []).includes(currentUser.id) ||
+                                (t.editor_ids || []).includes(currentUser.id);
                     }).length;
                 }
             }
 
-            // 2. Feedback Logic
-            // Admin sees Pending. Users see Approved created in last 24h.
-            let feedbackQuery = supabase.from('feedbacks').select('id', { count: 'exact', head: true });
-            
-            if (currentUser.role === 'ADMIN') {
-                feedbackQuery = feedbackQuery.eq('status', 'PENDING');
-            } else {
-                const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                feedbackQuery = feedbackQuery.eq('status', 'APPROVED').gt('created_at', yesterday);
+            // 2. Feedback Logic (Voice of Team)
+            // Admin sees Pending.
+            let fbCount = 0;
+            if (isAdmin) {
+                const { count } = await supabase
+                    .from('feedbacks')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('status', 'PENDING');
+                fbCount = count || 0;
             }
-            const { count: feedbackCount } = await feedbackQuery;
 
-            // 3. Meeting Logic
-            // New meetings created AFTER last view time AND user is attendee
-            const lastViewedMeeting = localStorage.getItem(MEETING_VIEW_KEY);
-            // Default to 7 days ago if never viewed, to avoid notification bomb on first load
-            const checkTime = lastViewedMeeting || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            // 3. Member Approval (Admin Only)
+            let maCount = 0;
+            if (isAdmin) {
+                const { count } = await supabase
+                    .from('profiles')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('is_approved', false);
+                maCount = count || 0;
+            }
 
-            const { count: meetingCount } = await supabase
-                .from('meeting_logs')
+            // 4. My Duty (Today & Not Done)
+            // Shows a badge if I have a duty today that isn't done
+            const { count: dutyCount } = await supabase.from('duties')
                 .select('id', { count: 'exact', head: true })
-                .gt('created_at', checkTime)
-                .contains('attendees', [currentUser.id]); // Check if user ID is in array
+                .eq('assignee_id', currentUser.id)
+                .eq('date', todayStr)
+                .eq('is_done', false);
 
             setBadges({
-                qualityGate: qualityCount,
-                feedback: feedbackCount || 0,
-                meeting: meetingCount || 0
+                qualityGate: qgCount,
+                feedback: fbCount,
+                memberApproval: maCount,
+                myDuty: dutyCount || 0
             });
 
         } catch (err) {
-            console.error("Error fetching badges:", err);
+            console.error("Error fetching sidebar badges:", err);
         }
     };
 
@@ -88,11 +90,11 @@ export const useSidebarBadges = (currentUser: User) => {
     useEffect(() => {
         fetchBadges();
 
-        const channel = supabase
-            .channel('sidebar-badges')
+        const channel = supabase.channel('sidebar-badges-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, fetchBadges)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_logs' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, fetchBadges)
             .subscribe();
 
         return () => {
@@ -100,13 +102,5 @@ export const useSidebarBadges = (currentUser: User) => {
         };
     }, [currentUser.id]);
 
-    // Action to clear badge
-    const markAsViewed = (type: 'MEETING') => {
-        if (type === 'MEETING') {
-            localStorage.setItem(MEETING_VIEW_KEY, new Date().toISOString());
-            setBadges(prev => ({ ...prev, meeting: 0 }));
-        }
-    };
-
-    return { badges, markAsViewed };
-};
+    return { badges };
+};  

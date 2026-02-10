@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Task, Channel, User, MasterOption, ScriptSummary, Script } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
-import { useScripts } from '../../hooks/useScripts';
-import { AlertTriangle, Trash2, Send, Loader2 } from 'lucide-react';
+import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, Search, FileText, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import ScriptEditor from '../script/ScriptEditor'; 
-import TaskAssets from '../TaskAssets';
+import TaskAssets from '../TaskAssets'; 
+import { isTaskCompleted } from '../../constants';
+import { useScripts } from '../../hooks/useScripts'; 
 
 // Import Refactored Parts
 import CFHeader from './content-parts/CFHeader';
@@ -20,6 +19,8 @@ import CFStatusChannel from './content-parts/CFStatusChannel';
 import CFPlatformSelector from './content-parts/CFPlatformSelector';
 import CFCrewSelector from './content-parts/CFCrewSelector';
 import CFBrief from './content-parts/CFBrief';
+
+import ScriptEditor from '../script/ScriptEditor';
 
 interface ContentFormProps {
     initialData?: Task | null;
@@ -54,6 +55,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         endDate, setEndDate,
         isStock, setIsStock,
         status, setStatus,
+        priority, setPriority,
         channelId, setChannelId,
         targetPlatforms, 
         pillar, setPillar,
@@ -143,32 +145,43 @@ const ContentForm: React.FC<ContentFormProps> = ({
     };
 
     const handleSendToQC = async () => {
-        if (!initialData?.id) {
-             await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
-             return;
-        }
-
-        // Check for pending review
-        const pendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
-        if (pendingReview) {
-             await showAlert(
-                 `มีรายการ "Draft ${pendingReview.round}" รอตรวจอยู่แล้ว \nกรุณารอผลการตรวจ หรือยกเลิกรายการเดิมก่อนส่งใหม่`,
-                 '⚠️ ส่งซ้ำไม่ได้'
-             );
+        if (isSendingQC) return; // Prevent double submission
+        
+        if (!isOwnerOrAssignee) {
+             await showAlert('เฉพาะผู้รับผิดชอบงานนี้เท่านั้นที่สามารถส่งงานได้', '🔒 สิทธิ์ไม่เพียงพอ');
              return;
         }
         
+        // Critical: Lock immediate to prevent race condition
+        setIsSendingQC(true);
+
+        if (!initialData?.id) {
+            await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
+            setIsSendingQC(false);
+            return;
+        }
+
+        // Check against current props to be safe, but local lock is primary
+        const existingPendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
+        if (existingPendingReview) {
+             await showAlert(`มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว`, '⚠️ ส่งซ้ำไม่ได้');
+             setIsSendingQC(false);
+             return;
+        }
+
         const currentRoundCount = initialData.reviews?.length || 0;
         const nextRound = currentRoundCount + 1;
         
         const confirmed = await showConfirm(
-            `งานจะถูกส่งเข้าห้องตรวจ และเปลี่ยนสถานะเป็น "Feedback"`,
+            `งานจะถูกเปลี่ยนสถานะเป็น "Waiting" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
             `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}" ?`
         );
 
-        if (!confirmed) return;
+        if (!confirmed) {
+            setIsSendingQC(false);
+            return;
+        }
 
-        setIsSendingQC(true);
         try {
             const { error: reviewError } = await supabase.from('task_reviews').insert({
                 content_id: initialData.id, 
@@ -187,9 +200,50 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 user_id: currentUser?.id
             });
 
-            // Update status to FEEDBACK
-            setStatus('FEEDBACK');
-            await supabase.from('contents').update({ status: 'FEEDBACK' }).eq('id', initialData.id);
+            const targetStatus = 'FEEDBACK'; 
+            
+            // Construct pseudo-review object for immediate UI update (Prevent flickering empty state)
+            const newOptimisticReview = {
+                id: `temp-${Date.now()}`,
+                taskId: initialData.id,
+                round: nextRound,
+                scheduledAt: new Date(),
+                status: 'PENDING',
+                reviewerId: null
+            };
+
+            // 1. Create updatedTask for Optimistic Update
+            const updatedTask: Task = {
+                ...initialData!,
+                title,
+                description,
+                status: targetStatus,
+                priority,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                assigneeIds,
+                // Add new review to array to block duplicate button clicks if re-opened
+                reviews: [...(initialData.reviews || []), newOptimisticReview as any],
+                // ...
+                assigneeType: initialData.assigneeType || 'TEAM',
+                targetPosition: initialData.targetPosition,
+                difficulty: initialData.difficulty || 'MEDIUM',
+                estimatedHours: initialData.estimatedHours || 0,
+                assets,
+                showOnBoard: true 
+            };
+
+            // 2. Update DB
+            const { error: updateError } = await supabase
+                .from('contents')
+                .update({ status: targetStatus })
+                .eq('id', initialData.id);
+
+            if (updateError) throw updateError;
+
+            // 3. Sync to Parent
+            setStatus(targetStatus);
+            onSave(updatedTask);
 
             // --- NOTIFY ADMINS ---
             const admins = users.filter(u => u.role === 'ADMIN');
@@ -212,8 +266,11 @@ const ContentForm: React.FC<ContentFormProps> = ({
         } catch (err: any) {
             console.error(err);
             showToast('ส่งตรวจไม่สำเร็จ: ' + err.message, 'error');
+            setIsSendingQC(false); 
         } finally {
-            setIsSendingQC(false);
+            // Keep loading true if successful to prevent button re-enable before close
+            // If error, we already set false in catch, but safety here:
+            // setIsSendingQC(false); // Only if we didn't close
         }
     };
 
@@ -238,6 +295,13 @@ const ContentForm: React.FC<ContentFormProps> = ({
             />
         );
     }
+    
+    // --- Determine Permission ---
+    const isOwnerOrAssignee = (currentUser && (
+        ideaOwnerIds.includes(currentUser.id) || 
+        editorIds.includes(currentUser.id) || 
+        assigneeIds.includes(currentUser.id)
+    )) || currentUser?.role === 'ADMIN';
 
     return (
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
@@ -323,12 +387,14 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     )}
                 </div>
                 <div className="flex space-x-3">
+                    {/* BUTTON: Send to QC */}
                     {initialData && status !== 'FEEDBACK' && status !== 'DONE' && status !== 'APPROVE' && (
                         <button 
                             type="button" 
                             onClick={handleSendToQC}
-                            disabled={isSendingQC}
-                            className="px-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors flex items-center active:scale-95 disabled:opacity-50"
+                            disabled={isSendingQC || !isOwnerOrAssignee}
+                            className={`px-4 py-3 text-sm font-bold bg-indigo-50 border border-indigo-200 rounded-xl transition-colors flex items-center active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${!isOwnerOrAssignee ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-100'}`}
+                            title={!isOwnerOrAssignee ? "เฉพาะเจ้าของงาน" : "ส่งตรวจ"}
                         >
                             {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                             ส่งตรวจ

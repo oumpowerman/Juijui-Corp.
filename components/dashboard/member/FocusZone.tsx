@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Task, Channel, User } from '../../../types';
 import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone } from 'lucide-react';
@@ -13,14 +12,12 @@ interface CardItemProps {
     channels: Channel[];
     users: User[];
     onOpenTask: (task: Task) => void;
+    today: Date; // รับค่าวันนี้ที่ถูกจัดการมาแล้วจาก Parent
 }
 
-const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, users, onOpenTask }) => {
-    // FIX: Normalize today to 00:00:00 to ensure accurate calendar day comparison
-    const today = startOfDay(new Date());
+const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, users, onOpenTask, today }) => {
     const taskDate = startOfDay(new Date(task.endDate));
-
-    const isOverdue = isPast(task.endDate) && !isToday(task.endDate);
+    const isOverdue = taskDate < today;
     const channel = channels.find(c => c.id === task.channelId);
     
     // Determine Assignee to show
@@ -28,7 +25,6 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
     const assignee = users.find(u => u.id === assigneeId);
 
     const getDeadlineText = (targetDate: Date) => {
-        // FIX: Use differenceInCalendarDays to ignore time components
         const diff = differenceInCalendarDays(targetDate, today);
         
         if (diff < 0) return `${Math.abs(diff)} วันที่แล้ว`;
@@ -120,24 +116,23 @@ interface FocusZoneProps {
 }
 
 const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTask }) => {
-    // FIX: Normalize 'today' to start of day for consistent filtering
+    // กำหนดวันที่ปัจจุบันโดยล้างเวลาออกตั้งแต่ต้นทาง
     const today = startOfDay(new Date());
     
     const [viewAllType, setViewAllType] = useState<'URGENT' | 'REVISE' | null>(null);
 
     // Filter Logic
     const urgentTasks = tasks.filter(t => {
-        // SMART CHECK: Use helper to check if task is completed
         const isDone = isTaskCompleted(t.status as string);
         if (isDone) return false;
         if (t.isUnscheduled) return false;
         
         const taskDate = startOfDay(new Date(t.endDate));
-        const isOverdue = isPast(t.endDate) && !isToday(t.endDate);
-        
-        // FIX: Compare normalized dates for "Due Soon" (Today or Tomorrow or Next Day)
         const diff = differenceInCalendarDays(taskDate, today);
-        const isDueSoon = diff >= 0 && diff <= 2; // Today (0), Tmr (1), Next (2)
+        
+        // เป็นงานด่วนหาก: สายแล้ว (diff < 0), ส่งภายใน 2 วัน (0, 1, 2), หรือตั้ง Priority URGENT
+        const isOverdue = diff < 0;
+        const isDueSoon = diff >= 0 && diff <= 2; 
         
         return isOverdue || isDueSoon || t.priority === 'URGENT';
     }).sort((a,b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
@@ -145,8 +140,6 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
     const reviseTasks = tasks.filter(t => {
         if (t.isUnscheduled) return false;
         const s = t.status as string;
-        
-        // SMART CHECK: Ensure completed tasks aren't in revise list
         if (isTaskCompleted(s)) return false; 
         
         return s === 'FEEDBACK' || s === 'REVISE' || s.includes('EDIT_DRAFT');
@@ -203,6 +196,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
                                     channels={channels} 
                                     users={users}
                                     onOpenTask={onOpenTask} 
+                                    today={today}
                                 />
                             ))}
                         </div>
@@ -225,6 +219,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
                                     channels={channels} 
                                     users={users}
                                     onOpenTask={onOpenTask} 
+                                    today={today}
                                 />
                             ))}
                         </div>

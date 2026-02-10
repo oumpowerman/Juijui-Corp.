@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { GameActionType, ShopItem, UserInventoryItem } from '../types';
@@ -22,7 +21,7 @@ export const useGamification = (currentUser?: any) => {
         try {
             // 1. Calculate Delta using Rule Engine (Pass dynamic config)
             const result = evaluateAction(action, context, config);
-            if (result.xp === 0 && result.hp === 0 && result.coins === 0 && !result.message) return;
+            if (result.xp === 0 && result.hp === 0 && result.coins === 0 && !result.message) return result;
 
             // 2. Fetch Current User State (to ensure atomicity, ideally use RPC, but Client-side is okay for V1)
             const { data: user, error: fetchError } = await supabase
@@ -85,8 +84,10 @@ export const useGamification = (currentUser?: any) => {
                 }, 1000);
             }
 
+            return result;
         } catch (err) {
             console.error("Gamification Error:", err);
+            return null;
         }
     }, [showToast, config]); // Add config to dependency
 

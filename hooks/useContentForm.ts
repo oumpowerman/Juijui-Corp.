@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance } from '../types';
@@ -140,6 +141,13 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             return;
         }
 
+        // Fix Timezone Issue: Explicitly parse as Local Midnight
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        const startObj = new Date(sy, sm - 1, sd);
+        
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        const endObj = new Date(ey, em - 1, ed);
+
         const newTask: Task = {
             id: initialData ? initialData.id : crypto.randomUUID(),
             type: 'CONTENT',
@@ -151,8 +159,8 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             tags,
             
             // Dates
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
+            startDate: startObj,
+            endDate: endObj,
             isUnscheduled: isStock,
 
             // Content Fields

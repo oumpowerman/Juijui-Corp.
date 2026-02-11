@@ -1,7 +1,8 @@
 
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Duty, User } from '../../types';
-import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake, ExternalLink } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { isPast, isToday } from 'date-fns';
 import { compressImage } from '../../lib/imageUtils';
@@ -10,7 +11,7 @@ interface DutyCardProps {
     duty: Duty;
     assignee?: User;
     isCurrentUser: boolean;
-    currentUserName?: string; // Added for Hero Assist
+    currentUserName?: string; 
     onToggle: (id: string) => void;
     onDelete: (id: string) => void;
     onSubmitProof: (dutyId: string, file: File, userName: string) => Promise<boolean>;
@@ -70,7 +71,6 @@ const DutyCard: React.FC<DutyCardProps> = ({
         // If currently unchecked (marking as done), ask for confirmation
         if (!duty.isDone) {
             if (isMissed || isTribunal) {
-                // REDEMPTION FLOW TRIGGERED BY COMPONENT PARENT USUALLY (VIA MODAL)
                 if(isTribunal) {
                     await showAlert('กรุณากดปุ่ม "ขอแก้ตัว" ที่หน้า Dashboard หรือรอ Tribunal Modal เด้งขึ้นมาครับ', 'ใช้ช่องทางพิเศษ');
                     return;
@@ -82,7 +82,6 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 );
                 if (confirmed) onToggle(duty.id);
             } else {
-                // Normal Flow
                 const confirmed = await showConfirm(
                     'ยืนยันว่าทำเวรเสร็จเรียบร้อยแล้วใช่หรือไม่?',
                     'ยืนยันการส่งงาน'
@@ -105,6 +104,20 @@ const DutyCard: React.FC<DutyCardProps> = ({
         if (confirmed) {
             fileInputRef.current?.click();
         }
+    };
+
+    // Helper to transform Google Drive Links to Direct Images
+    const getDisplayImageUrl = (url: string | undefined) => {
+        if (!url) return '';
+        if (url.includes('drive.google.com')) {
+            // Try to extract ID
+            const idPart = url.split('id=')[1] || url.split('/d/')[1]?.split('/')[0];
+            if (idPart) {
+                // Use Googleusercontent proxy for direct image rendering
+                return `https://lh3.googleusercontent.com/d/${idPart}=s2000`; 
+            }
+        }
+        return url;
     };
 
     // Dynamic Styles
@@ -279,21 +292,37 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 onChange={handleFileChange}
             />
 
-            {/* Proof Modal */}
-            {showProof && duty.proofImageUrl && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setShowProof(false)}>
+            {/* Proof Modal - Using Portal */}
+            {showProof && duty.proofImageUrl && createPortal(
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setShowProof(false)}>
                     <div className="relative max-w-lg w-full bg-transparent p-2 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setShowProof(false)} className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors">
                             <X className="w-8 h-8" />
                         </button>
-                        <img src={duty.proofImageUrl} className="w-full h-auto rounded-2xl shadow-2xl border-4 border-white" alt="Proof" />
-                        <div className="mt-4 text-center">
+                        
+                        {/* Display Image with Proxy Logic */}
+                        <img 
+                            src={getDisplayImageUrl(duty.proofImageUrl)} 
+                            className="w-full h-auto rounded-2xl shadow-2xl border-4 border-white bg-black" 
+                            alt="Proof" 
+                        />
+                        
+                        <div className="mt-4 flex flex-col items-center gap-2">
                             <span className="bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm">
                                 📸 หลักฐาน: {duty.title}
                             </span>
+                            <a 
+                                href={duty.proofImageUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="text-white/70 text-xs hover:text-white hover:underline flex items-center gap-1"
+                            >
+                                <ExternalLink className="w-3 h-3" /> เปิดลิงก์ต้นฉบับ
+                            </a>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

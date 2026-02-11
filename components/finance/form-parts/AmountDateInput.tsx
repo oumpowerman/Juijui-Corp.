@@ -9,9 +9,10 @@ interface Props {
     setDate: (val: string) => void;
     netAmount?: number;
     showNet?: boolean;
+    inputRef?: React.RefObject<HTMLInputElement>; // New Prop for UX Focus control
 }
 
-const AmountDateInput: React.FC<Props> = ({ amount, setAmount, date, setDate, netAmount, showNet }) => {
+const AmountDateInput: React.FC<Props> = ({ amount, setAmount, date, setDate, netAmount, showNet, inputRef }) => {
     return (
         <div className="grid grid-cols-2 gap-4">
             <div>
@@ -19,6 +20,7 @@ const AmountDateInput: React.FC<Props> = ({ amount, setAmount, date, setDate, ne
                 <div className="relative group">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">฿</span>
                     <input 
+                        ref={inputRef} // Attached Ref here
                         type="number" step="0.01" 
                         className="w-full pl-8 pr-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-xl font-black text-gray-800 focus:border-indigo-400 transition-all"
                         placeholder="0.00"

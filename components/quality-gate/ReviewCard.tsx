@@ -104,9 +104,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-100">
                             Draft {review.round}
                         </span>
-                        <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-medium">
-                            {getChannelName(review.task?.channelId)}
-                        </span>
+                        {review.task?.channelId && (
+                            <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-medium">
+                                {getChannelName(review.task.channelId)}
+                            </span>
+                        )}
                         <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${statusInfo.color}`}>
                             {statusInfo.label}
                         </span>

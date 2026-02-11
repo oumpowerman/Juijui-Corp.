@@ -12,7 +12,7 @@ export const useReviews = () => {
     const isFirstLoad = useRef(true);
 
     const fetchReviews = useCallback(async (isBackground = false) => {
-        if (isFirstLoad.current) setIsLoading(true);
+        if (isFirstLoad.current && !isBackground) setIsLoading(true);
         
         try {
             const { data, error } = await supabase
@@ -89,6 +89,12 @@ export const useReviews = () => {
                 .eq('id', reviewId);
 
             if (error) throw error;
+            
+            // Optimistic update local state for UI responsiveness
+            setReviews(prev => prev.map(r => 
+                r.id === reviewId ? { ...r, status, feedback, isCompleted: status === 'PASSED', reviewerId: reviewerId || r.reviewerId } : r
+            ));
+
             setHighlightedId(reviewId);
             showToast(status === 'PASSED' ? 'อนุมัติงานแล้ว! ✅' : 'ส่งกลับแก้ไขแล้ว 🛠️', status === 'PASSED' ? 'success' : 'warning');
         } catch (err: any) {
@@ -101,21 +107,14 @@ export const useReviews = () => {
         fetchReviews();
 
         const channel = supabase
-            .channel('quality-gate-realtime')
-            // Listen to Review Changes (New submissions, Pass/Revise)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
-                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                    setHighlightedId(payload.new.id);
-                    // Clear highlight after 5 seconds
-                    setTimeout(() => setHighlightedId(null), 5000);
-                }
+            .channel('quality-gate-realtime-global')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => {
+
                 fetchReviews(true);
             })
-            // Listen to Task details change (Title, Caution)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, () => {
                 fetchReviews(true);
             })
-            // Listen to Content details change
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, () => {
                 fetchReviews(true);
             })
@@ -128,6 +127,7 @@ export const useReviews = () => {
 
     return {
         reviews,
+        setReviews, // Export for optimistic manual updates
         isLoading,
         highlightedId,
         updateReviewStatus,

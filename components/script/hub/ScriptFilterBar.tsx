@@ -30,6 +30,15 @@ interface ScriptFilterBarProps {
     masterOptions: MasterOption[];
 }
 
+// Define correct Script Lifecycle Statuses
+const SCRIPT_STATUS_OPTIONS = [
+    { key: 'DRAFT', label: '📝 Draft (ร่าง)' },
+    { key: 'REVIEW', label: '👀 Review (รอตรวจ)' },
+    { key: 'FINAL', label: '✅ Final (สมบูรณ์)' },
+    { key: 'SHOOTING', label: '🎬 Shooting (ถ่ายทำ)' },
+    { key: 'DONE', label: '🏁 Done (เสร็จสิ้น)' }
+];
+
 const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
     layoutMode, setLayoutMode,
     searchQuery, setSearchQuery,
@@ -49,9 +58,6 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
 
     // Limit Constants
     const VISIBLE_CREATORS_LIMIT = 6;
-
-    // Filter Options derived from MasterData
-    const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
     // Sync local state if parent prop changes externally
     useEffect(() => {
@@ -155,7 +161,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
                             `}
                         >
                             <option value="ALL">ทุกสถานะ (All)</option>
-                            {statusOptions.map(opt => (
+                            {SCRIPT_STATUS_OPTIONS.map(opt => (
                                 <option key={opt.key} value={opt.key}>{opt.label}</option>
                             ))}
                         </select>

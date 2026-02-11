@@ -305,6 +305,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                         masterOptions={masterOptions}
                         onOpenTask={handleEditTask}
                         currentUser={currentUserProfile}
+                        tasks={tasks} // Pass tasks here!
                     />
                 );
             case 'KPI':

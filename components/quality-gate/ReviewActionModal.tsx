@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, Wrench, Check, Send, MessageSquare } from 'lucide-react';
 
 interface ReviewActionModalProps {
@@ -11,6 +11,12 @@ interface ReviewActionModalProps {
 
 const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, actionType, onConfirm }) => {
     const [feedback, setFeedback] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setFeedback('');
+        }
+    }, [isOpen]);
 
     if (!isOpen || !actionType) return null;
 

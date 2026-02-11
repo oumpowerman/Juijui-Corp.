@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { ScriptComment } from '../types';
@@ -63,16 +64,45 @@ export const useScriptComments = (scriptId: string) => {
         selectedText?: string
     ) => {
         try {
-            const { error } = await supabase.from('script_comments').insert({
+            const { data, error } = await supabase.from('script_comments').insert({
                 script_id: scriptId,
                 user_id: userId,
                 content,
                 highlight_id: highlightId || null,
                 selected_text: selectedText || null,
                 status: 'OPEN'
-            });
+            })
+            .select(`
+                *,
+                profiles(full_name, avatar_url)
+            `)
+            .single();
 
             if (error) throw error;
+
+            if (data) {
+                // 2. Manual Update State immediately
+                const newComment: ScriptComment = {
+                    id: data.id,
+                    scriptId: data.script_id,
+                    userId: data.user_id,
+                    content: data.content,
+                    selectedText: data.selected_text,
+                    highlightId: data.highlight_id,
+                    status: data.status,
+                    createdAt: new Date(data.created_at),
+                    user: data.profiles ? {
+                        name: data.profiles.full_name,
+                        avatarUrl: data.profiles.avatar_url
+                    } : undefined
+                };
+                
+                setComments(prev => [...prev, newComment]);
+            }
+            
+            // 3. Optional Refresh to be sure
+            fetchComments();
+            
             return true;
         } catch (err: any) {
             showToast('ส่งคอมเมนต์ไม่สำเร็จ: ' + err.message, 'error');
@@ -81,6 +111,12 @@ export const useScriptComments = (scriptId: string) => {
     };
 
     const resolveComment = async (commentId: string) => {
+        // Optimistic Update: Update local state immediately
+        const previousComments = [...comments];
+        setComments(prev => prev.map(c => 
+            c.id === commentId ? { ...c, status: 'RESOLVED' } : c
+        ));
+
         try {
             const { error } = await supabase
                 .from('script_comments')
@@ -89,18 +125,28 @@ export const useScriptComments = (scriptId: string) => {
 
             if (error) throw error;
             showToast('Marked as resolved', 'success');
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            // Rollback on error
+            setComments(previousComments);
+            showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
     const deleteComment = async (commentId: string) => {
+        // Optimistic Update: Remove from local state immediately
+        const previousComments = [...comments];
+        setComments(prev => prev.filter(c => c.id !== commentId));
+
         try {
             const { error } = await supabase.from('script_comments').delete().eq('id', commentId);
             if (error) throw error;
             showToast('ลบคอมเมนต์แล้ว', 'info');
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            // Rollback on error
+            setComments(previousComments);
+            showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 

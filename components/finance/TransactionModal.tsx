@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check, Users, MapPin } from 'lucide-react';
+import { X, Check, Users, MapPin, Zap, Repeat } from 'lucide-react';
 import { MasterOption, TransactionType, AssetType, Task, User, Channel, ShootTrip } from '../../types';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { format } from 'date-fns';
@@ -15,6 +15,7 @@ import ProjectLinker from './form-parts/ProjectLinker';
 import AssetTypeSelector from './form-parts/AssetTypeSelector';
 import TaxForm from './form-parts/TaxForm';
 import ReceiptUploader from './form-parts/ReceiptUploader';
+import QuickFillSelector from './form-parts/QuickFillSelector'; // Import the new component
 
 interface TransactionModalProps {
     isOpen: boolean;
@@ -50,10 +51,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const [taxId, setTaxId] = useState('');
     const [taxInvoiceNo, setTaxInvoiceNo] = useState('');
 
+    const [isRecurring, setIsRecurring] = useState(false); // NEW: Recurring Checkbox
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [trips, setTrips] = useState<ShootTrip[]>([]);
 
     const { uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    
+    // UX: Ref for Smart Focus
+    const amountInputRef = useRef<HTMLInputElement>(null);
 
     const { vatAmount, whtAmount, netAmount, baseVal } = useMemo(() => {
         const base = parseFloat(amount) || 0;
@@ -83,11 +89,15 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             setEntityName('');
             setTaxId('');
             setTaxInvoiceNo('');
+            setIsRecurring(false);
             
             // Fetch Trips for Dropdown
             supabase.from('shoot_trips').select('id, title, date').order('date', { ascending: false }).limit(20).then(({ data }) => {
                 if (data) setTrips(data as any);
             });
+            
+            // Focus on mount
+            setTimeout(() => amountInputRef.current?.focus(), 100);
         }
     }, [isOpen, defaultTrip]);
 
@@ -106,6 +116,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             }, ['Finance_Receipts', currentMonth]);
         }
     };
+    
+    // UX: Smart Quick Select Handler
+    const handleQuickSelect = (data: { name: string, amount?: string }) => {
+        setName(data.name);
+        if (data.amount && data.amount !== '0') {
+            setAmount(data.amount);
+            // Price is set, user might want to review or just save. We leave focus as is.
+        } else {
+            // Price is 0/Unstable: Clear amount and Force Focus to Input
+            setAmount('');
+            setTimeout(() => {
+                amountInputRef.current?.focus();
+                // Optional: Select text if any, to allow instant typing
+            }, 50);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -115,10 +141,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         }
 
         setIsSubmitting(true);
+        
+        // Append recurring tag to description if checked
+        const finalDescription = isRecurring 
+            ? `[Recurring] ${description}`.trim() 
+            : description;
+
         const success = await onSave({
             type, name, amount: baseVal,
             date: new Date(date),
-            categoryKey, description,
+            categoryKey, 
+            description: finalDescription,
             projectId: projectId || undefined,
             shootTripId: shootTripId || undefined, // Send shoot_trip_id
             assetType, receiptUrl: receiptUrl || undefined,
@@ -138,7 +171,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     if (!isOpen) return null;
 
-    // CHANGED: z-[100] -> z-[200] to appear above TripDetailPanel (which is 150)
     return createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
@@ -146,15 +178,44 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 <TransactionTypeSelector type={type} setType={setType} onResetCategory={() => setCategoryKey('')} onClose={onClose} />
 
                 <form onSubmit={handleSubmit} className="p-8 overflow-y-auto flex-1 space-y-6 bg-[#f8fafc] scrollbar-thin">
-                    <AmountDateInput amount={amount} setAmount={setAmount} date={date} setDate={setDate} netAmount={netAmount} showNet={hasVat || whtRate > 0} />
+                    
+                    {/* Amount Input with Ref for Smart Focus */}
+                    <AmountDateInput 
+                        amount={amount} 
+                        setAmount={setAmount} 
+                        date={date} 
+                        setDate={setDate} 
+                        netAmount={netAmount} 
+                        showNet={hasVat || whtRate > 0} 
+                        inputRef={amountInputRef}
+                    />
 
                     <div className="space-y-4">
+                        <CategorySelector categories={categories} categoryKey={categoryKey} setCategoryKey={setCategoryKey} />
+                        
+                        {/* Quick Presets Area with Smart Handler */}
+                        <QuickFillSelector 
+                            categoryKey={categoryKey} 
+                            onSelect={handleQuickSelect} 
+                        />
+
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">รายการ (Name)</label>
                             <input type="text" className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-800 focus:border-indigo-400 transition-all" placeholder={type === 'INCOME' ? "เช่น ค่าจ้าง Project A..." : "เช่น ค่าอาหาร, ค่ารถ..."} value={name} onChange={e => setName(e.target.value)} />
                         </div>
-
-                        <CategorySelector categories={categories} categoryKey={categoryKey} setCategoryKey={setCategoryKey} />
+                        
+                        {/* Recurring Checkbox */}
+                        {type === 'EXPENSE' && (
+                            <label className="flex items-center gap-2 cursor-pointer w-fit p-1 pr-3 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                                    {isRecurring && <Check className="w-3.5 h-3.5 text-white" />}
+                                </div>
+                                <input type="checkbox" className="hidden" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} />
+                                <span className={`text-xs font-bold flex items-center gap-1 ${isRecurring ? 'text-indigo-600' : 'text-gray-500'}`}>
+                                    <Repeat className="w-3 h-3" /> รายจ่ายประจำ (Recurring)
+                                </span>
+                            </label>
+                        )}
 
                         {isSalary && users.length > 0 && (
                             <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in slide-in-from-top-2">

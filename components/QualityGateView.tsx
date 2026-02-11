@@ -17,12 +17,13 @@ interface QualityGateViewProps {
     users: User[]; 
     masterOptions: MasterOption[]; 
     onOpenTask: (task: Task) => void;
-    currentUser: User; // Ensure we have currentUser
+    currentUser: User;
+    tasks: Task[]; // Use global tasks as source of truth
 }
 
 type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING';
 
-const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser }) => {
+const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser, tasks }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
     const { handleConfirmAction } = useQualityActions();
     
@@ -37,7 +38,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         'CRITICAL': false,
         'REVISE': false,
         'TODAY': false,
-        'UPCOMING': true // Upcoming collapsed by default to focus on now
+        'UPCOMING': true 
     });
 
     // Modal State
@@ -49,41 +50,47 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         task: undefined
     });
 
-    // --- Core Logic: Filtering & Grouping ---
-    const today = new Date();
+    // --- Core Logic: Re-hydrating Review Sessions with Authoritative Task Data ---
+    const enrichedReviews = useMemo(() => {
+        return reviews.map(r => {
+            // Find the most up-to-date version of this task from the global array
+            const authoritativeTask = tasks.find(t => t.id === r.taskId);
+            return {
+                ...r,
+                // Replace the potentially stale task info from useReviews fetch 
+                // with the authoritative one from TaskContext
+                task: authoritativeTask || r.task 
+            };
+        });
+    }, [reviews, tasks]);
 
     // 1. DEDUPLICATION LOGIC: Group by Task ID and keep only the LATEST Round
-    // This prevents showing both Draft 1 (Revise) and Draft 2 (Pending) simultaneously.
     const uniqueReviews = useMemo(() => {
-        const latestReviewsMap = new Map<string, typeof reviews[0]>();
+        const latestReviewsMap = new Map<string, typeof enrichedReviews[0]>();
         
-        reviews.forEach(r => {
+        enrichedReviews.forEach(r => {
             if (!r.task) return;
             const existing = latestReviewsMap.get(r.taskId);
-            
-            // Logic: If new task OR higher round, overwrite
             if (!existing || r.round > existing.round) {
                 latestReviewsMap.set(r.taskId, r);
             }
         });
 
         return Array.from(latestReviewsMap.values());
-    }, [reviews]);
+    }, [enrichedReviews]);
 
-    // 2. Apply Filters to the unique list
+    // 2. Apply Filters
     const filteredReviews = useMemo(() => {
+        const today = new Date();
         return uniqueReviews.filter(r => {
-            // Channel Filter
             if (filterChannel !== 'ALL' && r.task?.channelId !== filterChannel) return false;
             
-            // Search Filter
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
                 const matchTitle = r.task?.title.toLowerCase().includes(searchLower);
                 if (!matchTitle) return false;
             }
 
-            // Main Scope Filter (Date/Status Strategy)
             if (filterDateType === 'TODAY') {
                 return isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
             }
@@ -91,18 +98,18 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 return isPast(r.scheduledAt) && !isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
             }
             
-            // Default: ALL PENDING (Active Workspace)
             return r.status !== 'PASSED';
         });
     }, [uniqueReviews, filterChannel, searchTerm, filterDateType]);
 
     // Grouping Logic
     const groups = useMemo(() => {
+        const today = new Date();
         const result = {
-            critical: [] as typeof reviews,
-            revise: [] as typeof reviews,
-            today: [] as typeof reviews,
-            upcoming: [] as typeof reviews
+            critical: [] as typeof filteredReviews,
+            revise: [] as typeof filteredReviews,
+            today: [] as typeof filteredReviews,
+            upcoming: [] as typeof filteredReviews
         };
 
         filteredReviews.forEach(r => {
@@ -128,7 +135,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     };
 
-    // --- Helpers ---
     const getStatusInfo = (statusKey: string) => {
         const option = masterOptions.find(o => (o.type === 'STATUS' || o.type === 'TASK_STATUS') && o.key === statusKey);
         if (option) {
@@ -151,16 +157,13 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             modalConfig.task,
             feedback,
             updateReviewStatus,
-            currentUser.id // Pass Current User ID here!
+            currentUser.id
         );
         if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };
 
     const totalActiveTasks = groups.critical.length + groups.revise.length + groups.today.length;
-
-    // Permission Check
-    const canReview = currentUser.role === 'ADMIN' || 
-                     ['Senior', 'Manager', 'Head'].some(role => (currentUser.position || '').includes(role));
+    const canReview = currentUser.role === 'ADMIN' || ['Senior', 'Manager', 'Head'].some(role => (currentUser.position || '').includes(role));
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -170,7 +173,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 "กด 'Pass' เพื่ออนุมัติและแจก XP ให้ทีมงานทันที! 🎉"
             ]} />
 
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div className="flex items-start gap-3">
                     <div className="p-3 bg-purple-100 text-purple-600 rounded-2xl shadow-sm">
@@ -190,12 +192,9 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
             </div>
 
-            {/* Stats - Pass uniqueReviews to avoid counting duplicate drafts */}
             <QualityStatsWidget reviews={uniqueReviews} users={users} />
 
-            {/* Main Control Bar */}
             <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row gap-3 sticky top-2 z-30">
-                {/* Search */}
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
@@ -208,7 +207,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
                 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
-                    {/* View Filter */}
                     <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
                         <button onClick={() => setFilterDateType('ALL_PENDING')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterDateType === 'ALL_PENDING' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                             งานรอตรวจ ({totalActiveTasks})
@@ -223,7 +221,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
                     <div className="w-px h-8 bg-gray-200 mx-1"></div>
 
-                    {/* Channel Filter */}
                     <div className="relative shrink-0">
                         <select 
                             className="appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-10 rounded-xl text-xs font-bold cursor-pointer hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
@@ -238,7 +235,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
             </div>
 
-            {/* Content Area */}
             {isLoading ? (
                 <div className="py-20 text-center text-gray-400">กำลังโหลดรายการ...</div>
             ) : filteredReviews.length === 0 ? (
@@ -251,14 +247,9 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
             ) : (
                 <div className="space-y-8">
-                    
-                    {/* GROUP 1: CRITICAL / OVERDUE */}
                     {groups.critical.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500">
-                            <button 
-                                onClick={() => toggleGroup('CRITICAL')}
-                                className="flex items-center justify-between w-full mb-4 group"
-                            >
+                            <button onClick={() => toggleGroup('CRITICAL')} className="flex items-center justify-between w-full mb-4 group">
                                 <h3 className="text-lg font-black text-red-600 flex items-center bg-red-50 px-4 py-2 rounded-xl border border-red-100 shadow-sm">
                                     <AlertTriangle className="w-5 h-5 mr-2 animate-pulse" /> 
                                     ด่วน / เลยกำหนด ({groups.critical.length})
@@ -266,7 +257,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                 <div className="h-px bg-red-100 flex-1 mx-4 group-hover:bg-red-200 transition-colors"></div>
                                 {collapsedGroups['CRITICAL'] ? <ChevronRight className="text-red-300" /> : <ChevronDown className="text-red-300" />}
                             </button>
-                            
                             {!collapsedGroups['CRITICAL'] && (
                                 <div className="grid grid-cols-1 gap-4">
                                     {groups.critical.map(r => (
@@ -274,8 +264,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                             key={r.id} review={r} users={users}
                                             onAction={handleActionClick} onOpenTask={onOpenTask} 
                                             getChannelName={getChannelName} getStatusInfo={getStatusInfo}
-                                            isOverdue={true} // Special flag for styling
-                                            currentUser={currentUser} // Pass currentUser to check permission
+                                            isOverdue={true}
+                                            currentUser={currentUser}
                                             canReview={canReview}
                                         />
                                     ))}
@@ -284,7 +274,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                         </section>
                     )}
 
-                    {/* GROUP 2: REVISE ZONE */}
                     {groups.revise.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500 delay-100">
                             <button onClick={() => toggleGroup('REVISE')} className="flex items-center justify-between w-full mb-4 group">
@@ -295,7 +284,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                 <div className="h-px bg-orange-100 flex-1 mx-4 group-hover:bg-orange-200 transition-colors"></div>
                                 {collapsedGroups['REVISE'] ? <ChevronRight className="text-orange-300" /> : <ChevronDown className="text-orange-300" />}
                             </button>
-
                             {!collapsedGroups['REVISE'] && (
                                 <div className="grid grid-cols-1 gap-4">
                                     {groups.revise.map(r => (
@@ -313,7 +301,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                         </section>
                     )}
 
-                    {/* GROUP 3: TODAY'S QUEUE */}
                     {groups.today.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500 delay-150">
                             <button onClick={() => toggleGroup('TODAY')} className="flex items-center justify-between w-full mb-4 group">
@@ -324,7 +311,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                 <div className="h-px bg-indigo-100 flex-1 mx-4 group-hover:bg-indigo-200 transition-colors"></div>
                                 {collapsedGroups['TODAY'] ? <ChevronRight className="text-indigo-300" /> : <ChevronDown className="text-indigo-300" />}
                             </button>
-
                             {!collapsedGroups['TODAY'] && (
                                 <div className="grid grid-cols-1 gap-4">
                                     {groups.today.map(r => (
@@ -341,7 +327,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                         </section>
                     )}
 
-                    {/* GROUP 4: UPCOMING (Collapsed by default) */}
                     {groups.upcoming.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500 delay-200">
                             <button onClick={() => toggleGroup('UPCOMING')} className="flex items-center justify-between w-full mb-4 group opacity-70 hover:opacity-100 transition-opacity">
@@ -352,7 +337,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                 <div className="h-px bg-gray-200 flex-1 mx-4 border-dashed border-b border-gray-300"></div>
                                 {collapsedGroups['UPCOMING'] ? <ChevronRight className="text-gray-400" /> : <ChevronDown className="text-gray-400" />}
                             </button>
-
                             {!collapsedGroups['UPCOMING'] && (
                                 <div className="grid grid-cols-1 gap-4 opacity-80">
                                     {groups.upcoming.map(r => (
@@ -371,7 +355,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 </div>
             )}
 
-            {/* Action Modal */}
             <ReviewActionModal 
                 isOpen={modalConfig.isOpen}
                 onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
@@ -379,7 +362,6 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 onConfirm={onConfirmModal}
             />
 
-            {/* INFO MODAL */}
             <InfoModal 
                 isOpen={isInfoOpen}
                 onClose={() => setIsInfoOpen(false)}

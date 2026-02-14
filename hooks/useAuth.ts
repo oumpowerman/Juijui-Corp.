@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, WorkStatus } from '../types';
@@ -28,6 +29,8 @@ export const useAuth = (sessionUser: any) => {
         // Map new read timestamps
         lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
         lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
+        // HR Fields
+        workDays: data.work_days || [1, 2, 3, 4, 5], // Default Mon-Fri
         // --- PAYROLL FIELDS ---
         baseSalary: data.base_salary || 0,
         bankAccount: data.bank_account || '',

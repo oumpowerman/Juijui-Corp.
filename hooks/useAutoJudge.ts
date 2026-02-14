@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { User, AnnualHoliday } from '../types';
 import { useGamification } from './useGamification';
 import { useGameConfig } from '../context/GameConfigContext'; // Import Config
-import { addDays, format, isBefore, isWeekend, subDays, differenceInCalendarDays, isSameDay } from 'date-fns';
+import { addDays, format, isBefore, subDays, differenceInCalendarDays, isSameDay } from 'date-fns';
 import { isTaskCompleted } from '../constants';
 
 export const useAutoJudge = (currentUser: User | null) => {
@@ -16,9 +16,9 @@ export const useAutoJudge = (currentUser: User | null) => {
      * เช็ค 3 ระดับ: 
      * 1. Calendar Exception (วันหยุด/ทำงานพิเศษที่แอดมินตั้ง) -> Priority สูงสุด
      * 2. Annual Holiday (วันหยุดประจำปี)
-     * 3. Weekend (เสาร์-อาทิตย์)
+     * 3. User's Personal Schedule (วันทำงานรายบุคคล)
      */
-    const isWorkingDay = (date: Date, holidays: AnnualHoliday[], exceptions: any[]) => {
+    const isWorkingDay = (date: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         
         // 1. Check Exceptions (Highest Priority)
@@ -35,8 +35,10 @@ export const useAutoJudge = (currentUser: User | null) => {
         );
         if (isAnnualHoliday) return false;
 
-        // 3. Check Weekend
-        return !isWeekend(date);
+        // 3. Check User Personal Schedule
+        // Default to Mon-Fri (1-5) if workDays is missing
+        const userWorkDays = user?.workDays || [1, 2, 3, 4, 5];
+        return userWorkDays.includes(date.getDay());
     };
 
     /**
@@ -61,13 +63,13 @@ export const useAutoJudge = (currentUser: User | null) => {
      * 🛠️ HELPER: นับจำนวนวันที่ล่าช้า (เฉพาะวันทำงาน)
      * ใช้สำหรับคำนวณโทษของ "เวร" (Duty) ที่มักจะไม่นับรวมวันหยุด
      */
-    const countWorkingDaysLate = (dutyDate: Date, today: Date, holidays: AnnualHoliday[], exceptions: any[]) => {
+    const countWorkingDaysLate = (dutyDate: Date, today: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
         let count = 0;
         let current = addDays(dutyDate, 1); // เริ่มนับจากวันถัดไป
         
         // วนลูปจนถึงเมื่อวาน (ไม่รวมวันนี้)
         while (isBefore(current, today)) {
-             if (isWorkingDay(current, holidays, exceptions)) {
+             if (isWorkingDay(current, holidays, exceptions, user)) {
                  count++;
              }
              current = addDays(current, 1);
@@ -153,7 +155,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                     }
                     
                     // นับจำนวนวันทำการที่เลยกำหนด
-                    const workingDaysLate = countWorkingDaysLate(dutyDate, today, holidays, exceptions);
+                    const workingDaysLate = countWorkingDaysLate(dutyDate, today, holidays, exceptions, currentUser);
 
                     if (workingDaysLate === 0) {
                         // เลยกำหนดมานิดหน่อย (เช่น เสาร์อาทิตย์) ยังไม่นับ
@@ -230,9 +232,9 @@ export const useAutoJudge = (currentUser: User | null) => {
             // =========================================================
             const yesterday = subDays(today, 1);
             const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-            const wasYesterdayWorkingDay = isWorkingDay(yesterday, holidays, exceptions);
+            const wasYesterdayWorkingDay = isWorkingDay(yesterday, holidays, exceptions, currentUser);
             
-            // เช็คเฉพาะถ้าเมื่อวานเป็นวันทำงาน และไม่ได้ลา และไม่ใช่วันหยุดประจำปี
+            // เช็คเฉพาะถ้าเมื่อวานเป็นวันทำงาน (ของคนๆ นี้) และไม่ได้ลา และไม่ใช่วันหยุดประจำปี
             if (wasYesterdayWorkingDay && !isUserOnLeave(yesterdayStr) && !isHolidayOrException(yesterday, holidays, exceptions)) {
                 // ดูว่ามีการลงเวลาไหม?
                 const { data: attendance } = await supabase.from('attendance_logs').select('id').eq('user_id', currentUser.id).eq('date', yesterdayStr).maybeSingle();

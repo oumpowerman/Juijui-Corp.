@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { X, ShoppingBag, Backpack, Zap, Heart, Shield, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, ShoppingBag, Backpack, Zap, Heart, Shield, Clock, AlertTriangle, Loader2, History } from 'lucide-react';
 import { ShopItem, UserInventoryItem, User } from '../../types';
 import { useGamification } from '../../hooks/useGamification';
+import MemberHistoryModal from './MemberHistoryModal';
 
 interface ItemShopModalProps {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface ItemShopModalProps {
 const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentUser }) => {
     const { shopItems, userInventory, buyItem, useItem, isLoading } = useGamification(currentUser);
     const [activeTab, setActiveTab] = useState<'SHOP' | 'INVENTORY'>('SHOP');
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     if (!isOpen) return null;
 
@@ -48,14 +50,27 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                         </button>
                     </div>
 
-                    <div className="mt-6 flex items-center gap-2 bg-black/20 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
-                        <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center border-4 border-white/20 shadow-inner">
-                            <span className="text-lg">💰</span>
+                    <div className="mt-6 flex items-center justify-between gap-2 bg-black/20 p-3 rounded-xl border border-white/10 backdrop-blur-sm relative z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center border-4 border-white/20 shadow-inner">
+                                <span className="text-lg">💰</span>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-indigo-200 uppercase">My Wallet</p>
+                                <p className="text-xl font-black leading-none">{currentUser.availablePoints.toLocaleString()} JP</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold text-indigo-200 uppercase">My Wallet</p>
-                            <p className="text-xl font-black leading-none">{currentUser.availablePoints.toLocaleString()} JP</p>
-                        </div>
+                        
+                        {/* History Button */}
+                        <button 
+                            onClick={() => setIsHistoryOpen(true)}
+                            className="flex flex-col items-center justify-center text-[9px] font-bold text-indigo-200 hover:text-white transition-colors gap-1 px-2"
+                        >
+                            <div className="p-1.5 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                                <History className="w-4 h-4" />
+                            </div>
+                            HISTORY
+                        </button>
                     </div>
                 </div>
 
@@ -144,6 +159,13 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                     )}
                 </div>
             </div>
+
+            {/* History Modal (Stacked) */}
+            <MemberHistoryModal 
+                isOpen={isHistoryOpen} 
+                onClose={() => setIsHistoryOpen(false)} 
+                currentUser={currentUser} 
+            />
         </div>
     );
 };

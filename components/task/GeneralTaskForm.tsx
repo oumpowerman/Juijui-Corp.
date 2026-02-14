@@ -1,25 +1,10 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Task, User, MasterOption, ScriptSummary } from '../../types';
-import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
-import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, Search, FileText, Check, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useToast } from '../../context/ToastContext';
-import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import TaskAssets from '../TaskAssets'; 
-import { isTaskCompleted } from '../../constants';
-import { useScripts } from '../../hooks/useScripts'; // Use Script Hook
-
-// Import Refactored Parts
-import GTAssigneeSelector from './form-parts/GTAssigneeSelector';
-import GTHeaderInput from './form-parts/GTHeaderInput';
-import GTProjectLinker from './form-parts/GTProjectLinker';
-import GTCoreDetails from './form-parts/GTCoreDetails';
-import GTGuidelines from './form-parts/GTGuidelines';
-import GTGamification from './form-parts/GTGamification';
-import GTDateScheduler from './form-parts/GTDateScheduler';
-import GTScriptLinker from './form-parts/GTScriptLinker'; // NEW
-import CreateScriptModal from '../script/hub/CreateScriptModal'; // Reuse
+import React, { useState } from 'react';
+import { Task, User, MasterOption, Script, Channel } from '../../types';
+import GeneralTaskInputs from './GeneralTaskInputs';
+import ScriptEditor from '../script/ScriptEditor';
+import { useScripts } from '../../hooks/useScripts';
+import { Loader2 } from 'lucide-react';
 
 interface GeneralTaskFormProps {
     initialData?: Task | null;
@@ -31,451 +16,79 @@ interface GeneralTaskFormProps {
     onDelete?: (taskId: string) => void;
     onClose: () => void;
     projects?: Task[]; 
+    channels?: Channel[]; // Add optional channels prop
 }
 
-const GeneralTaskForm: React.FC<GeneralTaskFormProps> = ({ 
-    initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose, projects = []
-}) => {
-    const { showToast } = useToast();
-    const { showConfirm, showAlert } = useGlobalDialog();
-    const [isSendingQC, setIsSendingQC] = useState(false);
-    const isAdmin = currentUser?.role === 'ADMIN';
-    const isCreative = currentUser?.position === 'Creative' || isAdmin;
-
-    const {
-        title, setTitle,
-        description, setDescription,
-        status, setStatus,
-        priority, setPriority,
-        startDate, setStartDate,
-        endDate, setEndDate,
-        assigneeType, setAssigneeType,
-        assigneeIds, setAssigneeIds,
-        targetPosition, setTargetPosition,
-        caution, setCaution,
-        importance, setImportance,
-        difficulty, setDifficulty,
-        estimatedHours, setEstimatedHours,
-        contentId, handleSetParentProject,
-        scriptId, setScriptId, // NEW
-        assets, addAsset, removeAsset,
-        error,
-        taskStatusOptions,
-        handleSubmit,
-        toggleUserSelection
-    } = useGeneralTaskForm({
-        initialData,
-        selectedDate,
-        users,
-        masterOptions,
-        onSave,
-        projects
-    });
-    
-    // --- Script Logic ---
-    const { 
-        scripts, // List for picker
-        fetchScripts,
-        getScriptById, 
-        createScript 
-    } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
-
-    const [linkedScript, setLinkedScript] = useState<ScriptSummary | null>(null);
+const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
+    // State for Overlay Mode
+    const [editorScript, setEditorScript] = useState<Script | null>(null);
     const [isLoadingScript, setIsLoadingScript] = useState(false);
-    const [isScriptPickerOpen, setIsScriptPickerOpen] = useState(false);
-    const [scriptSearchQuery, setScriptSearchQuery] = useState('');
-    const [isCreateScriptModalOpen, setIsCreateScriptModalOpen] = useState(false);
-
-    // Fetch Linked Script Details
-    useEffect(() => {
-        const fetchLinked = async () => {
-            if (scriptId) {
-                setIsLoadingScript(true);
-                const script = await getScriptById(scriptId);
-                if (script) setLinkedScript(script);
-                setIsLoadingScript(false);
-            } else {
-                setLinkedScript(null);
-            }
-        };
-        fetchLinked();
-    }, [scriptId]);
-
-    // Handle Script Selection
-    const handleScriptSelect = (script: ScriptSummary) => {
-        setScriptId(script.id);
-        setIsScriptPickerOpen(false);
-    };
-
-    // Handle Create Script
-    const handleCreateScriptSubmit = async (data: any) => {
-        const newScriptId = await createScript({
-            ...data,
-            // Link back to this task if we could, but task ID might not exist yet.
-            // So we rely on linking the script ID to the task here.
-        });
-        if (newScriptId) {
-            setScriptId(newScriptId);
-            setIsCreateScriptModalOpen(false);
-        }
-    };
     
-    // Ensure scripts are loaded for picker
-    useEffect(() => {
-        if (isScriptPickerOpen) {
-            fetchScripts({ page: 1, pageSize: 50, viewTab: 'LIBRARY', searchQuery: scriptSearchQuery });
-        }
-    }, [isScriptPickerOpen, scriptSearchQuery]);
+    // Script Hook for Fetching
+    const { getScriptById, updateScript, generateScriptWithAI } = useScripts(props.currentUser || { id: '', name: '', role: 'MEMBER' } as User);
 
-    // --- End Script Logic ---
+    // --- Actions ---
 
-    const activeUsers = users.filter(u => u.isActive);
-    const isOwnerOrAssignee = (currentUser && assigneeIds.includes(currentUser.id)) || isAdmin;
-    const isReadOnly = !!initialData && !isOwnerOrAssignee;
-
-    const filteredStatusOptions = useMemo(() => {
-        if (isAdmin) return taskStatusOptions;
-        return taskStatusOptions.filter(opt => !isTaskCompleted(opt.key));
-    }, [taskStatusOptions, isAdmin]);
-
-    const parentProject = useMemo(() => {
-        return contentId ? projects.find(p => p.id === contentId) : null;
-    }, [contentId, projects]);
-
-    const suggestedTasks = useMemo(() => {
-        if (assigneeType !== 'INDIVIDUAL' || assigneeIds.length !== 1) return [];
-        const user = users.find(u => u.id === assigneeIds[0]);
-        if (!user || !user.position) return [];
-        const positionOpt = masterOptions.find(o => o.type === 'POSITION' && o.label === user.position);
-        if (positionOpt) {
-            return masterOptions.filter(o => o.type === 'RESPONSIBILITY' && o.parentKey === positionOpt.key);
-        }
-        return [];
-    }, [assigneeIds, assigneeType, users, masterOptions]);
-
-    const handleSendToQC = async () => {
-        if (isSendingQC) return;
-        if (!isOwnerOrAssignee) {
-             await showAlert('เฉพาะผู้รับผิดชอบงานนี้เท่านั้นที่สามารถส่งงานได้', '🔒 สิทธิ์ไม่เพียงพอ');
-             return;
-        }
-
-        setIsSendingQC(true);
-
-        if (!initialData?.id) {
-            await showAlert('กรุณาบันทึกงานครั้งแรกก่อนส่งตรวจครับ', 'แจ้งเตือน');
-            setIsSendingQC(false);
-            return;
-        }
-
-        const existingPendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
-        if (existingPendingReview) {
-             await showAlert(`มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว`, '⚠️ ส่งซ้ำไม่ได้');
-             setIsSendingQC(false);
-             return;
-        }
-
-        const currentRoundCount = initialData.reviews?.length || 0;
-        const nextRound = currentRoundCount + 1;
-        
-        const confirmed = await showConfirm(
-            `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
-            `🚀 ยืนยันการส่งงาน?`
-        );
-
-        if (!confirmed) {
-            setIsSendingQC(false);
-            return;
-        }
-
+    // 1. Open Editor (Called from Inputs when "Open Script" is clicked)
+    const handleOpenEditor = async (scriptId: string) => {
+        setIsLoadingScript(true);
         try {
-            const { error: reviewError } = await supabase.from('task_reviews').insert({
-                task_id: initialData.id,
-                content_id: null,
-                round: nextRound,
-                scheduled_at: new Date().toISOString(),
-                status: 'PENDING',
-                reviewer_id: null
-            });
-            if (reviewError) throw reviewError;
-
-            await supabase.from('task_logs').insert({
-                task_id: initialData.id,
-                action: 'SENT_TO_QC',
-                details: `ส่งงาน (Submission ${nextRound})`,
-                user_id: currentUser?.id
-            });
-
-            // FIXED: For general tasks table, the DB Enum status is 'WAITING'
-            const targetStatus = 'WAITING'; 
-            
-            // Construct pseudo-review object for immediate UI update
-            const newOptimisticReview = {
-                id: `temp-${Date.now()}`,
-                taskId: initialData.id,
-                round: nextRound,
-                scheduledAt: new Date(),
-                status: 'PENDING',
-                reviewerId: null
-            };
-
-            // 1. Create updatedTask for Optimistic Update
-            const updatedTask: Task = {
-                ...initialData!,
-                title,
-                description,
-                status: targetStatus,
-                priority,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
-                assigneeIds,
-                assigneeType,
-                targetPosition,
-                difficulty,
-                estimatedHours,
-                assets,
-                reviews: [...(initialData.reviews || []), newOptimisticReview as any], // <--- Add Optimistic Review
-                showOnBoard: true 
-            };
-
-            // 2. Update DB
-            const { error: updateError } = await supabase
-                .from('tasks')
-                .update({ 
-                    status: targetStatus,
-                    show_on_board: true
-                })
-                .eq('id', initialData.id);
-
-            if (updateError) throw updateError;
-
-            // 3. Sync to Parent
-            setStatus(targetStatus);
-            onSave(updatedTask);
-            
-            // UX Improvement: Show beautiful modal confirmation before closing
-            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 หัวหน้าจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
-            onClose();
-
-        } catch (err: any) {
-            console.error("Submission error details:", err);
-            showToast('ส่งงานไม่สำเร็จ: ' + (err.message || 'Unknown Error'), 'error');
-            setIsSendingQC(false); 
-        }
-    };
-
-    const handleUserSelectWrapper = (userId: string) => {
-        toggleUserSelection(userId);
-        if (assigneeType === 'INDIVIDUAL') {
-            const isSelecting = !assigneeIds.includes(userId);
-            if (isSelecting) {
-                const user = users.find(u => u.id === userId);
-                if (user && user.position) {
-                    setTargetPosition(user.position);
-                }
+            const script = await getScriptById(scriptId);
+            if (script) {
+                setEditorScript(script);
             } else {
-                setTargetPosition(''); 
+                alert("ไม่สามารถโหลดข้อมูลสคริปต์ได้");
             }
+        } catch (error) {
+            console.error(error);
+            alert("เกิดข้อผิดพลาดในการโหลดสคริปต์");
+        } finally {
+            setIsLoadingScript(false);
         }
     };
 
-    const isTaskDone = isTaskCompleted(status);
+    // 2. Close Editor (Return to Form)
+    const handleCloseEditor = () => {
+        setEditorScript(null);
+    };
 
-    return (
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
-            {isReadOnly && (
-                <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-lg animate-in slide-in-from-top-2">
-                    <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                            <Eye className="h-5 w-5 text-slate-500" />
-                        </div>
-                        <div className="ml-3">
-                            <p className="text-sm text-slate-700">
-                                <span className="font-bold">View Only Mode:</span> คุณไม่มีสิทธิ์แก้ไขงานนี้ (เฉพาะผู้รับผิดชอบหรือ Admin)
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
+    // --- RENDER ---
 
-            {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
-
-            <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
-                
-                <GTAssigneeSelector 
-                    assigneeType={assigneeType}
-                    setAssigneeType={setAssigneeType}
-                    assigneeIds={assigneeIds}
-                    setAssigneeIds={setAssigneeIds}
-                    targetPosition={targetPosition}
-                    setTargetPosition={setTargetPosition}
-                    activeUsers={activeUsers}
-                    toggleUserSelection={handleUserSelectWrapper} 
-                    startDate={startDate}
-                    endDate={endDate}
-                />
-
-                <GTHeaderInput 
-                    title={title}
-                    setTitle={setTitle}
-                    assigneeType={assigneeType}
-                    suggestedTasks={suggestedTasks} 
-                />
-                
-                {/* Script Linker (Only for Creative or Admin) */}
-                {isCreative && (
-                     <GTScriptLinker 
-                        scriptId={scriptId}
-                        linkedScript={linkedScript}
-                        isLoadingScript={isLoadingScript}
-                        onSelectScript={() => setIsScriptPickerOpen(true)}
-                        onCreateScript={() => setIsCreateScriptModalOpen(true)}
-                        onOpenScript={(script) => window.open(`/script/${script.id}`, '_blank')} // Fallback if not handled by TaskModal
-                        onUnlink={() => setScriptId(undefined)}
-                     />
-                )}
-
-                <GTProjectLinker 
-                    parentProject={parentProject}
-                    onSetParentProject={handleSetParentProject}
-                    projects={projects}
-                />
-
-                <GTCoreDetails 
-                    description={description}
-                    setDescription={setDescription}
-                    priority={priority}
-                    setPriority={setPriority}
-                    status={status}
-                    setStatus={setStatus}
-                    taskStatusOptions={filteredStatusOptions} 
-                />
-
-                <GTGuidelines 
-                    caution={caution}
-                    setCaution={setCaution}
-                    importance={importance}
-                    setImportance={setImportance}
-                />
-
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <TaskAssets 
-                        assets={assets}
-                        onAdd={addAsset}
-                        onDelete={removeAsset}
-                    />
-                </div>
-
-                <GTGamification 
-                    difficulty={difficulty}
-                    setDifficulty={setDifficulty}
-                    estimatedHours={estimatedHours}
-                    setEstimatedHours={setEstimatedHours}
-                />
-
-                <GTDateScheduler 
-                    startDate={startDate}
-                    setStartDate={setStartDate}
-                    endDate={endDate}
-                    setEndDate={setEndDate}
-                />
-            </fieldset>
-
-                
-                <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100 pb-10">
-                <div className="flex items-center gap-2">
-                    {!isReadOnly && initialData && onDelete && isAdmin && (
-                        <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
-                        <Trash2 className="w-4 h-4 mr-2" /> ลบ
-                        </button>
-                    )}
-                </div>
-                <div className="flex space-x-3">
-                    {!isReadOnly && initialData && !isTaskDone && status !== 'WAITING' && status !== 'FEEDBACK' && (
-                        <div className="relative group">
-                            <button 
-                                type="button" 
-                                onClick={handleSendToQC}
-                                disabled={isSendingQC || !isOwnerOrAssignee}
-                                className={`px-4 py-3 text-sm font-bold border rounded-xl flex items-center transition-colors shadow-sm active:scale-95 ${isOwnerOrAssignee ? 'text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100' : 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
-                            >
-                                {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                ส่งงาน / แจ้งเสร็จ
-                            </button>
-                            {!isOwnerOrAssignee && (
-                                <div className="absolute bottom-full mb-2 right-0 w-40 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">
-                                    <Lock className="w-3 h-3 inline mr-1"/> เฉพาะผู้รับผิดชอบงาน
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    <button type="button" onClick={onClose} className="px-5 py-3 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-                        {isReadOnly ? 'ปิดหน้าต่าง' : 'ยกเลิก'}
-                    </button>
-                    
-                    {!isReadOnly && (
-                        <button type="submit" className="px-6 py-3 text-sm font-bold text-white rounded-xl shadow-lg bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all">
-                            {initialData ? 'บันทึกการแก้ไข' : 'สร้างงานเลย!'}
-                        </button>
-                    )}
-                </div>
+    // Loading Overlay
+    if (isLoadingScript) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
+                <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
+                <p className="text-gray-500 font-bold">กำลังโหลดสคริปต์...</p>
             </div>
+        );
+    }
 
-            {/* Script Picker Modal */}
-            {isScriptPickerOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 border-4 border-rose-50">
-                        <div className="px-6 py-4 border-b border-gray-100 bg-white flex justify-between items-center shrink-0">
-                            <h3 className="font-bold text-lg text-gray-800">เลือกสคริปต์</h3>
-                            <button onClick={() => setIsScriptPickerOpen(false)}><X className="w-5 h-5 text-gray-400" /></button>
-                        </div>
-                        <div className="p-4 border-b border-gray-100">
-                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input 
-                                    type="text" 
-                                    placeholder="ค้นหาชื่อสคริปต์..." 
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-rose-100 text-sm"
-                                    value={scriptSearchQuery}
-                                    onChange={e => setScriptSearchQuery(e.target.value)}
-                                    autoFocus
-                                />
-                            </div>
-                        </div>
-                        <div className="overflow-y-auto flex-1 p-4 space-y-2">
-                             {scripts.map(script => (
-                                 <div 
-                                    key={script.id} 
-                                    onClick={() => handleScriptSelect(script)}
-                                    className="p-3 bg-white border border-gray-100 rounded-xl hover:border-rose-300 hover:shadow-md cursor-pointer transition-all flex items-center justify-between group"
-                                 >
-                                     <div>
-                                         <p className="font-bold text-gray-800 text-sm">{script.title}</p>
-                                         <div className="flex gap-2 mt-1">
-                                             <span className="text-[10px] bg-gray-100 px-1.5 rounded text-gray-500">{script.scriptType}</span>
-                                             <span className="text-[10px] text-gray-400">{new Date(script.updatedAt).toLocaleDateString()}</span>
-                                         </div>
-                                     </div>
-                                     <div className="opacity-0 group-hover:opacity-100 text-rose-500"><Check className="w-5 h-5" /></div>
-                                 </div>
-                             ))}
-                             {scripts.length === 0 && <div className="text-center text-gray-400 py-10">ไม่พบสคริปต์</div>}
-                        </div>
-                    </div>
-                </div>
-            )}
+    // Editor Overlay Mode
+    if (editorScript && props.currentUser) {
+        return (
+            <div className="absolute inset-0 z-50 bg-white animate-in zoom-in-95 duration-200">
+                <ScriptEditor 
+                    script={editorScript}
+                    users={props.users}
+                    channels={props.channels || []} // Pass channels (fallback to empty)
+                    masterOptions={props.masterOptions}
+                    currentUser={props.currentUser}
+                    onClose={handleCloseEditor}
+                    onSave={updateScript}
+                    onGenerateAI={generateScriptWithAI}
+                    onPromote={() => {}} // General Tasks usually don't promote to content directly here
+                />
+            </div>
+        );
+    }
 
-            {/* Create Script Modal */}
-            <CreateScriptModal 
-                isOpen={isCreateScriptModalOpen}
-                onClose={() => setIsCreateScriptModalOpen(false)}
-                onSubmit={handleCreateScriptSubmit}
-                channels={[]} // Pass empty if unavailable or from props
-                masterOptions={masterOptions}
-            />
-
-        </form>
+    // Default: Form Inputs
+    return (
+        <GeneralTaskInputs 
+            {...props}
+            onEditScript={handleOpenEditor}
+        />
     );
 };
 

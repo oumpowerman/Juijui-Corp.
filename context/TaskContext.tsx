@@ -95,7 +95,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             shootLocation: data.shoot_location || undefined,
             contentId: data.content_id,
             showOnBoard: data.show_on_board,
-            parentContentTitle: data.contents?.title
+            parentContentTitle: data.contents?.title,
+            scriptId: data.script_id // Map script_id correctly here
         };
     }, []);
 
@@ -127,7 +128,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 2. Fetch TASKS
         try {
-            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
+            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)'`);
             if (!isAllLoaded) {
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }

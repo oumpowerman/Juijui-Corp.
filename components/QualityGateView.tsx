@@ -250,7 +250,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     {groups.critical.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500">
                             <button onClick={() => toggleGroup('CRITICAL')} className="flex items-center justify-between w-full mb-4 group">
-                                <h3 className="text-lg font-black text-red-600 flex items-center bg-red-50 px-4 py-2 rounded-xl border border-red-100 shadow-sm">
+                                <h3 className="text-lg font-bold text-red-600 flex items-center bg-red-50 px-4 py-2 rounded-xl border border-red-100 shadow-sm">
                                     <AlertTriangle className="w-5 h-5 mr-2 animate-pulse" /> 
                                     ด่วน / เลยกำหนด ({groups.critical.length})
                                 </h3>
@@ -277,7 +277,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     {groups.revise.length > 0 && (
                         <section className="animate-in slide-in-from-left-4 duration-500 delay-100">
                             <button onClick={() => toggleGroup('REVISE')} className="flex items-center justify-between w-full mb-4 group">
-                                <h3 className="text-lg font-black text-orange-600 flex items-center bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 shadow-sm">
+                                <h3 className="text-lg font-bold text-orange-600 flex items-center bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 shadow-sm">
                                     <LayoutList className="w-5 h-5 mr-2" /> 
                                     กำลังแก้ไข (Revise) ({groups.revise.length})
                                 </h3>

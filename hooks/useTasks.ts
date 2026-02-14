@@ -42,11 +42,12 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             target_position: task.targetPosition,
             caution: task.caution,
             importance: task.importance,
-            assets: task.assets || [], // MOVED HERE: Now General Tasks can save assets too
+            assets: task.assets || [], 
             ...(isContent ? {} : { 
                 type: 'TASK', 
                 content_id: task.contentId || null,
-                show_on_board: task.showOnBoard || false 
+                show_on_board: task.showOnBoard || false,
+                script_id: task.scriptId || null // Ensure script_id is sent
             }) 
         };
 
@@ -60,7 +61,6 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             is_unscheduled: task.isUnscheduled || false,
             idea_owner_ids: task.ideaOwnerIds || [],
             editor_ids: task.editorIds || [],
-            // assets: task.assets || [], // REMOVED FROM HERE
             performance: task.performance || null,
             published_links: task.publishedLinks || null,
             shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
@@ -93,6 +93,18 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             try {
                 const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
+                
+                // --- AUTO AUDIT LOGGING ---
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.from('task_logs').insert({
+                        task_id: isContent ? null : task.id,
+                        content_id: isContent ? task.id : null,
+                        user_id: user.id,
+                        action: 'UPDATED',
+                        details: `แก้ไขข้อมูลงาน: ${task.title}`
+                    });
+                }
                 
                 showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
                 
@@ -128,9 +140,12 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                     if (setIsModalOpen) setIsModalOpen(false);
                 }
 
+                // Log Creation
+                const { data: { user } } = await supabase.auth.getUser();
                 const logPayload: any = {
                      action: 'CREATED',
-                     details: `สร้างใหม่: ${task.title}`
+                     details: `สร้างใหม่: ${task.title}`,
+                     user_id: user?.id
                 };
                 if (isContent) logPayload.content_id = task.id;
                 else logPayload.task_id = task.id;

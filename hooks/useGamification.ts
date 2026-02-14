@@ -1,6 +1,7 @@
+
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { GameActionType, ShopItem, UserInventoryItem } from '../types';
+import { GameActionType, ShopItem, UserInventoryItem, GameLog } from '../types';
 import { useToast } from '../context/ToastContext';
 import { evaluateAction, calculateLevel } from '../lib/gameLogic';
 import { useGameConfig } from '../context/GameConfigContext'; // NEW IMPORT
@@ -339,6 +340,52 @@ export const useGamification = (currentUser?: any) => {
             return false;
         }
     };
+    
+    // NEW: Fetch History with Pagination
+    const fetchGameLogs = async (userId: string, page: number, pageSize: number = 20, filterType: 'ALL' | 'EARNED' | 'SPENT' | 'PENALTY' = 'ALL') => {
+        try {
+            let query = supabase
+                .from('game_logs')
+                .select('*', { count: 'exact' })
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            // Apply Filters
+            if (filterType === 'EARNED') {
+                query = query.or('xp_change.gt.0,jp_change.gt.0');
+            } else if (filterType === 'SPENT') {
+                query = query.lt('jp_change', 0);
+            } else if (filterType === 'PENALTY') {
+                query = query.or('hp_change.lt.0,jp_change.lt.0').not('action_type', 'eq', 'SHOP_PURCHASE');
+            }
+
+            // Pagination
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            
+            const { data, count, error } = await query.range(from, to);
+            
+            if (error) throw error;
+            
+            return {
+                data: (data || []).map((log: any) => ({
+                    id: log.id,
+                    userId: log.user_id,
+                    actionType: log.action_type,
+                    xpChange: log.xp_change,
+                    hpChange: log.hp_change,
+                    jpChange: log.jp_change,
+                    description: log.description,
+                    createdAt: new Date(log.created_at),
+                    relatedId: log.related_id
+                }) as GameLog),
+                count: count || 0
+            };
+        } catch (err) {
+            console.error('Fetch Logs Error:', err);
+            return { data: [], count: 0 };
+        }
+    };
 
     useEffect(() => {
         if (currentUser) {
@@ -354,6 +401,7 @@ export const useGamification = (currentUser?: any) => {
         buyItem,
         useItem,
         adminAdjustStats, // Exported for Admin Usage
+        fetchGameLogs, // New Export
         isLoading
     };
 };

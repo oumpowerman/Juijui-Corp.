@@ -36,6 +36,8 @@ export const useTeam = () => {
         // --- NEW READ FIELDS ---
         lastReadChatAt: u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0),
         lastReadNotificationAt: u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0),
+        // --- HR FIELDS ---
+        workDays: u.work_days || [1, 2, 3, 4, 5],
         // --- PAYROLL FIELDS ---
         baseSalary: u.base_salary || 0,
         bankAccount: u.bank_account || '',
@@ -151,6 +153,7 @@ export const useTeam = () => {
             if (updates.name) payload.full_name = updates.name;
             if (updates.position) payload.position = updates.position;
             if (updates.role) payload.role = updates.role;
+            if (updates.workDays) payload.work_days = updates.workDays;
             
             // Payroll Fields
             if (updates.baseSalary !== undefined) payload.base_salary = updates.baseSalary;

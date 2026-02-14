@@ -32,6 +32,7 @@ export interface User {
     // HR Fields
     employmentType?: EmploymentType;
     startDate?: Date;
+    workDays?: number[]; // [0=Sun, 1=Mon, ..., 6=Sat]
     
     // Payroll V5
     baseSalary?: number;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck, FileText } from 'lucide-react';
 import { Task, Channel, TaskType, User, MasterOption, Script } from '../types';
@@ -190,10 +191,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         }} 
                     />
                 </div>
-            ) : viewMode === 'LOGISTICS' && initialData ? (
+            ) : viewMode === 'LOGISTICS' && initialData && currentUser ? (
                  <LogisticsTab 
                     parentContentId={initialData.id}
                     users={users}
+                    currentUser={currentUser} // Pass currentUser here
                     onUpdate={onUpdate}
                  />
             ) : viewMode === 'WIKI' ? (
@@ -236,7 +238,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         users={users}
                         masterOptions={masterOptions}
                         currentUser={currentUser} 
-                        projects={projects} // Pass Projects here
+                        projects={projects}
+                        channels={channels} // Pass channels here
                         onSave={(task) => { onSave(task); onClose(); }}
                         onDelete={onDelete}
                         onClose={onClose}

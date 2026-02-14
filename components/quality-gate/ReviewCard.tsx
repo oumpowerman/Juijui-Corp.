@@ -2,7 +2,7 @@
 import React from 'react';
 import { ReviewSession, User, Task } from '../../types';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck } from 'lucide-react';
+import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck, CalendarCheck, AlarmClock } from 'lucide-react';
 import { DIFFICULTY_LABELS } from '../../constants';
 
 interface ReviewCardProps {
@@ -61,8 +61,47 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     const bonusXP = Math.floor(estHours * 20);
     const totalXP = baseXP + bonusXP;
 
-    // Overdue Calculation
-    const daysLate = differenceInCalendarDays(today, review.scheduledAt);
+    // Admin Review Overdue Calculation
+    const adminDaysLate = differenceInCalendarDays(today, review.scheduledAt);
+
+    // --- NEW: Task Punctuality Logic (Does the user submit on time?) ---
+    // Compare Submission Time (review.scheduledAt) vs Task Deadline (review.task.endDate)
+    const getPunctualityBadge = () => {
+        if (!review.task?.endDate) return null;
+        
+        const submitDate = new Date(review.scheduledAt);
+        const deadlineDate = new Date(review.task.endDate);
+        
+        // Reset hours to compare dates fairly
+        submitDate.setHours(0,0,0,0);
+        deadlineDate.setHours(0,0,0,0);
+
+        const diff = differenceInCalendarDays(deadlineDate, submitDate);
+
+        if (diff < 0) {
+            // Late
+            const days = Math.abs(diff);
+            return (
+                <span className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100" title={`Deadline was ${format(deadlineDate, 'd MMM')}`}>
+                    <AlarmClock className="w-3 h-3" /> Late {days} Days
+                </span>
+            );
+        } else if (diff >= 1) {
+            // Early Bird
+            return (
+                <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                    <Flame className="w-3 h-3" /> Early Bird (+Bonus)
+                </span>
+            );
+        } else {
+            // On Time (Same Day)
+            return (
+                <span className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                    <CalendarCheck className="w-3 h-3" /> On Time
+                </span>
+            );
+        }
+    };
 
     // Styling Logic
     const borderClass = isOverdue ? 'border-red-200 bg-red-50/20' : highlightRevise ? 'border-orange-200 bg-orange-50/20' : 'border-gray-200 bg-white';
@@ -80,8 +119,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 <span className="text-xs text-gray-400 font-bold uppercase tracking-wide">{format(review.scheduledAt, 'dd MMM')}</span>
                 
                 {isOverdue ? (
-                    <div className="mt-2 px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black w-full border border-red-200">
-                        +{daysLate} วัน
+                    <div className="mt-2 px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black w-full border border-red-200" title="แอดมินดองงาน (Admin Pending)">
+                        +{adminDaysLate} วัน
                     </div>
                 ) : (
                     <div className={`mt-3 px-2.5 py-1 text-[10px] font-black rounded-full border flex items-center justify-center gap-1 w-full ${
@@ -100,18 +139,20 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Header Line */}
                 <div>
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        {isOverdue && <span className="bg-red-500 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center"><AlertTriangle className="w-3 h-3 mr-1"/> OVERDUE</span>}
+                        {isOverdue && <span className="bg-red-500 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center"><AlertTriangle className="w-3 h-3 mr-1"/> ADMIN LATE</span>}
+                        
                         <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-100">
                             Draft {review.round}
                         </span>
+
                         {review.task?.channelId && (
                             <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-medium">
                                 {getChannelName(review.task.channelId)}
                             </span>
                         )}
-                        <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${statusInfo.color}`}>
-                            {statusInfo.label}
-                        </span>
+                        
+                        {/* Punctuality Badge (Dynamic) */}
+                        {getPunctualityBadge()}
                     </div>
                     <h4 
                         className="text-lg font-bold text-gray-800 hover:text-indigo-600 cursor-pointer leading-snug"

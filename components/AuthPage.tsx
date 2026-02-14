@@ -189,7 +189,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     position: position, 
                     phone_number: phone,
                     bio: reason, // ADDED: Save reason to bio field
-                    role: 'MEMBER' 
+                    role: 'MEMBER',
+                    work_days: [1, 2, 3, 4, 5] // Explicitly set default to Mon-Fri
                 })
                 .eq('id', userId);
 

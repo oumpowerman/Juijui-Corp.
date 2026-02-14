@@ -12,8 +12,8 @@ const EditorShell: React.FC<EditorShellProps> = ({ children }) => {
     const { isReadOnly, lockerUser, forceTakeover } = useScriptContext();
 
     return createPortal(
-        // CHANGED: h-screen -> h-[100dvh] to fix mobile browser bottom bar overlap issues
-        <div className="fixed inset-0 z-[100] bg-white flex flex-col h-[100dvh] animate-in slide-in-from-bottom-10 font-sans">
+        // CHANGED: z-[100] -> z-[1000] to overlay above TaskModal (z-200) and other layers
+        <div className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] animate-in slide-in-from-bottom-10 font-sans">
             {/* Lock Notification Banner */}
             {isReadOnly && (
                 <div className="bg-amber-100 px-4 py-2 flex items-center justify-between text-amber-900 border-b border-amber-200 shrink-0">

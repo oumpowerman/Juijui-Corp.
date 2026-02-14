@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Role, MasterOption, Task } from '../types';
-import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban, Trophy, Heart, Coins, Gavel, DollarSign, CreditCard, Layers, AlertCircle } from 'lucide-react';
+import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban, Trophy, Heart, Coins, Gavel, DollarSign, CreditCard, Layers, AlertCircle, Calendar } from 'lucide-react';
 import { useGamification } from '../hooks/useGamification';
 
 interface MemberManagementModalProps {
@@ -17,6 +17,16 @@ interface MemberManagementModalProps {
 }
 
 type TabType = 'ACTIVE' | 'INACTIVE' | 'GAME_MASTER';
+
+const WEEK_DAYS = [
+    { num: 1, label: 'จ' },
+    { num: 2, label: 'อ' },
+    { num: 3, label: 'พ' },
+    { num: 4, label: 'พฤ' },
+    { num: 5, label: 'ศ' },
+    { num: 6, label: 'ส' },
+    { num: 0, label: 'อา' },
+];
 
 const MemberManagementModal: React.FC<MemberManagementModalProps> = ({ 
     isOpen, onClose, users, currentUser, masterOptions, tasks = [], onToggleStatus, onRemoveMember, onUpdateMember 
@@ -35,7 +45,8 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         bankAccount: '',
         bankName: '',
         ssoIncluded: true,
-        taxType: 'WHT_3'
+        taxType: 'WHT_3',
+        workDays: [1, 2, 3, 4, 5] as number[] // Default Mon-Fri
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -93,7 +104,19 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
             bankAccount: user.bankAccount || '',
             bankName: user.bankName || '',
             ssoIncluded: user.ssoIncluded ?? true,
-            taxType: user.taxType || 'WHT_3'
+            taxType: user.taxType || 'WHT_3',
+            workDays: user.workDays || [1, 2, 3, 4, 5]
+        });
+    };
+    
+    const toggleWorkDay = (dayNum: number) => {
+        setEditForm(prev => {
+            const currentDays = prev.workDays;
+            if (currentDays.includes(dayNum)) {
+                return { ...prev, workDays: currentDays.filter(d => d !== dayNum) };
+            } else {
+                return { ...prev, workDays: [...currentDays, dayNum] };
+            }
         });
     };
 
@@ -260,6 +283,33 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                                                             <option value="ADMIN">Admin</option>
                                                         </select>
                                                     </div>
+                                                </div>
+                                                
+                                                {/* Work Days Config */}
+                                                <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                                                    <h5 className="text-xs font-bold text-orange-700 uppercase mb-3 flex items-center">
+                                                        <Calendar className="w-3 h-3 mr-1" /> Work Schedule (วันทำงาน)
+                                                    </h5>
+                                                    <div className="flex gap-2">
+                                                        {WEEK_DAYS.map((day) => {
+                                                            const isWorkDay = editForm.workDays.includes(day.num);
+                                                            return (
+                                                                <button
+                                                                    key={day.num}
+                                                                    type="button"
+                                                                    onClick={() => toggleWorkDay(day.num)}
+                                                                    className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center border transition-all ${
+                                                                        isWorkDay 
+                                                                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm' 
+                                                                        : 'bg-white text-gray-400 border-gray-200 hover:border-orange-300'
+                                                                    }`}
+                                                                >
+                                                                    {day.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <p className="text-[9px] text-orange-400 mt-2">* ระบบจะนับวันขาด/ลา ตามวันที่เลือกเท่านั้น</p>
                                                 </div>
                                                 
                                                 {/* Payroll Info (New) */}

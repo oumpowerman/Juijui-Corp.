@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, User as UserIcon } from 'lucide-react';
+import { Send, MessageSquare, User as UserIcon, Paperclip, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { User } from '../types';
 import { useTaskComments } from '../hooks/useTaskComments';
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { format } from 'date-fns';
 
 interface TaskCommentsProps {
@@ -12,8 +13,12 @@ interface TaskCommentsProps {
 
 const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
     const { comments, isLoading, sendComment } = useTaskComments(taskId, currentUser);
+    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    
     const [input, setInput] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,6 +41,30 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsUploading(true);
+            const currentMonth = format(new Date(), 'yyyy-MM');
+            uploadFileToDrive(
+                file, 
+                (result) => {
+                    const fileUrl = result.thumbnailUrl || result.url;
+                    sendComment(fileUrl); // Send URL as message
+                    setIsUploading(false);
+                }, 
+                ['Task_Comments', currentMonth]
+            );
+            // Reset input
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    // Helper to check if string is image URL
+    const isImageUrl = (url: string) => {
+        return /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || url.includes('googleusercontent.com');
     };
 
     return (
@@ -69,6 +98,9 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
 
                 {comments.map((comment) => {
                     const isMe = comment.userId === currentUser.id;
+                    const isImage = isImageUrl(comment.content);
+                    const isLink = comment.content.startsWith('http');
+
                     return (
                         <div key={comment.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
                             {/* Avatar */}
@@ -88,13 +120,26 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
                                     <span className="text-xs font-bold text-gray-600">{comment.user?.name.split(' ')[0]}</span>
                                     <span className="text-[10px] text-gray-400">{format(comment.createdAt, 'HH:mm')}</span>
                                 </div>
-                                <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
-                                    isMe 
-                                    ? 'bg-indigo-600 text-white rounded-tr-none' 
-                                    : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'
-                                }`}>
-                                    {comment.content}
-                                </div>
+                                
+                                {isImage ? (
+                                    <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm cursor-pointer" onClick={() => window.open(comment.content, '_blank')}>
+                                        <img src={comment.content} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover" />
+                                    </div>
+                                ) : isLink ? (
+                                    <div className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm break-words ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'}`}>
+                                        <a href={comment.content} target="_blank" rel="noreferrer" className="underline flex items-center gap-1">
+                                            <FileText className="w-3 h-3" /> ไฟล์แนบ / ลิงก์
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
+                                        isMe 
+                                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                                        : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'
+                                    }`}>
+                                        {comment.content}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
@@ -105,11 +150,22 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
             {/* Input */}
             <div className="p-3 bg-white border-t border-gray-100">
                 <form onSubmit={handleSend} className="flex gap-2 items-end">
+                    <button 
+                        type="button" 
+                        disabled={!isDriveReady || isUploading}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all disabled:opacity-50"
+                        title="แนบรูปภาพ/ไฟล์"
+                    >
+                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                    </button>
+                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+
                     <textarea 
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="พิมพ์ข้อความ... (Enter เพื่อส่ง)"
+                        placeholder="พิมพ์ข้อความ..."
                         className="flex-1 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-xl px-3 py-2.5 text-sm outline-none transition-all resize-none max-h-24 min-h-[42px]"
                         rows={1}
                     />

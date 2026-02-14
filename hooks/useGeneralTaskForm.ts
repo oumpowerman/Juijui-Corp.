@@ -70,6 +70,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setDifficulty(initialData.difficulty || 'MEDIUM');
             setEstimatedHours(initialData.estimatedHours || 0);
             setAssets(initialData.assets || []);
+            // ⚠️ ต้องเพิ่มบรรทัดนี้ครับ:
+
         } else {
             // Defaults
             setTitle('');

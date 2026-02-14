@@ -112,3 +112,16 @@ export interface GameConfig {
     ATTENDANCE_RULES: Record<string, { xp: number; hp: number; coins: number }>;
     KPI_REWARDS: Record<string, { xp: number; coins: number }>;
 }
+
+// New Interface for Logs
+export interface GameLog {
+    id: string;
+    userId: string;
+    actionType: GameActionType;
+    xpChange: number;
+    hpChange: number;
+    jpChange: number;
+    description: string;
+    createdAt: Date;
+    relatedId?: string;
+}

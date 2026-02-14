@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
@@ -8,6 +9,7 @@ export interface SidebarBadges {
     feedback: number;
     memberApproval: number;
     myDuty: number;
+    attendanceApproval: number;
 }
 
 export const useSidebarBadges = (currentUser: User) => {
@@ -15,7 +17,8 @@ export const useSidebarBadges = (currentUser: User) => {
         qualityGate: 0,
         feedback: 0,
         memberApproval: 0,
-        myDuty: 0
+        myDuty: 0,
+        attendanceApproval: 0
     });
 
     const fetchBadges = async () => {
@@ -74,11 +77,22 @@ export const useSidebarBadges = (currentUser: User) => {
                 .eq('date', todayStr)
                 .eq('is_done', false);
 
+            // 5. Attendance Approval (Leave Requests - Admin Only)
+            let leaveCount = 0;
+            if (isAdmin) {
+                const { count } = await supabase
+                    .from('leave_requests')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('status', 'PENDING');
+                leaveCount = count || 0;
+            }
+
             setBadges({
                 qualityGate: qgCount,
                 feedback: fbCount,
                 memberApproval: maCount,
-                myDuty: dutyCount || 0
+                myDuty: dutyCount || 0,
+                attendanceApproval: leaveCount
             });
 
         } catch (err) {
@@ -95,6 +109,7 @@ export const useSidebarBadges = (currentUser: User) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, fetchBadges)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchBadges)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, fetchBadges)
             .subscribe();
 
         return () => {
@@ -103,4 +118,4 @@ export const useSidebarBadges = (currentUser: User) => {
     }, [currentUser.id]);
 
     return { badges };
-};  
+};

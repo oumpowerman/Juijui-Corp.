@@ -3,10 +3,9 @@ import React, { useState } from 'react';
 import { MasterOption } from '../../types';
 import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
 import { Calendar, Plus, Trash2, CalendarDays, Loader2 } from 'lucide-react';
-// ถ้าจะใช้ Toast (แจ้งเตือนมุมขวาบน หายไปเอง)
-import { useToast } from '../../context/ToastContext'; // เช็ค path ให้ถูกตามโฟลเดอร์นะ
-// ถ้าจะใช้ Dialog (กล่องเด้งตรงกลาง ต้องกดปุ่ม)
-import { useGlobalDialog } from '../../context/GlobalDialogContext'; // เช็ค path ให้ถูกตามโฟลเดอร์นะ
+import { useToast } from '../../context/ToastContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Check path
+
 interface AnnualHolidayManagerProps {
     masterOptions: MasterOption[];
 }
@@ -20,6 +19,7 @@ const MONTHS = [
 
 const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptions }) => {
     const { annualHolidays, isLoading, addHoliday, deleteHoliday } = useAnnualHolidays();
+    const { showAlert } = useGlobalDialog(); // Use showAlert
     
     // Form State
     const [newName, setNewName] = useState('');
@@ -33,7 +33,7 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newName || !newTypeKey) {
-            alert('กรุณากรอกชื่อและเลือกประเภท');
+            await showAlert('กรุณากรอกชื่อและเลือกประเภทวันหยุดครับ', 'ข้อมูลไม่ครบ');
             return;
         }
         setIsSubmitting(true);
@@ -137,7 +137,7 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
                             return (
                                 <div key={holiday.id} className="p-4 flex items-center justify-between hover:bg-gray-50 group">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-xl flex flex-col items-center justify-center border border-gray-200 shrink-0">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200 shrink-0">
                                             <span className="text-[10px] font-bold text-red-500 uppercase">{MONTHS.find(m => m.num === holiday.month)?.name.substring(0,3)}</span>
                                             <span className="text-lg font-black text-gray-800">{holiday.day}</span>
                                         </div>

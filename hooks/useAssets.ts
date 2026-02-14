@@ -216,6 +216,32 @@ export const useAssets = () => {
         }
     };
 
+    // NEW: Import from CSV
+    const importAssets = async (items: any[]) => {
+        try {
+            // Map keys to match DB snake_case
+            const payload = items.map(item => ({
+                name: item.name,
+                description: item.description,
+                category_id: item.categoryId || 'GENERAL', // Default fallback
+                asset_group: item.assetGroup || 'OFFICE', // Default fallback
+                condition: 'GOOD',
+                purchase_price: 0
+            }));
+
+            const { error } = await supabase.from('inventory_items').insert(payload);
+            if (error) throw error;
+
+            showToast(`นำเข้าข้อมูล ${items.length} รายการสำเร็จ!`, 'success');
+            fetchStats();
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            showToast('นำเข้าล้มเหลว: ' + err.message, 'error');
+            return false;
+        }
+    };
+
     return {
         assets,
         totalCount,
@@ -224,6 +250,7 @@ export const useAssets = () => {
         saveAsset,
         deleteAsset,
         cloneAsset,
+        importAssets,
         fetchAssets,
         refreshStats: fetchStats
     };

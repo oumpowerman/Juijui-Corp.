@@ -71,6 +71,29 @@ export const useLeaveRequests = (currentUser?: any) => {
     ) => {
         if (!currentUser) return;
         try {
+            const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+            // --- 1. DUPLICATE CHECK ---
+            // เช็คว่ามีคำขอประเภทเดียวกัน ในวันเดียวกัน ที่สถานะเป็น PENDING หรือ APPROVED อยู่แล้วหรือไม่
+            const { data: existingRequest } = await supabase
+                .from('leave_requests')
+                .select('id, status')
+                .eq('user_id', currentUser.id)
+                .eq('type', type)
+                .eq('start_date', startDateStr)
+                .in('status', ['PENDING', 'APPROVED']) // เช็คทั้งรอและอนุมัติแล้ว
+                .maybeSingle();
+
+            if (existingRequest) {
+                if (existingRequest.status === 'PENDING') {
+                    showToast('คุณได้ส่งคำขอนี้ไปแล้วครับ (รอหัวหน้าอนุมัติอยู่) ⏳', 'warning');
+                } else {
+                    showToast('คำขอนี้ได้รับการอนุมัติไปแล้วครับ ✅', 'info');
+                }
+                return false; // Stop process
+            }
+
+            // --- 2. UPLOAD PROOF ---
             let attachmentUrl = null;
             if (file) {
                 const fileExt = file.name.split('.').pop();
@@ -81,10 +104,11 @@ export const useLeaveRequests = (currentUser?: any) => {
                 attachmentUrl = data.publicUrl;
             }
 
+            // --- 3. INSERT REQUEST ---
             const payload = {
                 user_id: currentUser.id,
                 type,
-                start_date: format(startDate, 'yyyy-MM-dd'),
+                start_date: startDateStr,
                 end_date: format(endDate, 'yyyy-MM-dd'),
                 reason,
                 attachment_url: attachmentUrl,
@@ -102,9 +126,6 @@ export const useLeaveRequests = (currentUser?: any) => {
                 message_type: 'TEXT',
                 user_id: null
             });
-
-            // Note: Admin notifications for 'APPROVAL_REQ' are now handled dynamically via useSystemNotifications
-            // based on PENDING status in leave_requests table, to avoid duplication.
 
             showToast('ส่งคำขอเรียบร้อย รอหัวหน้าอนุมัติครับ 📨', 'success');
             return true;

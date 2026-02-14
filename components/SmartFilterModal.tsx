@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3, MonitorPlay, CheckSquare, Ban, CheckCircle2 } from 'lucide-react';
 import { ChipConfig, FilterType, Channel, MasterOption } from '../types';
 import { COLOR_THEMES } from '../constants';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface SmartFilterModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
     isOpen, onClose, chips, channels, masterOptions = [], onSave, onDelete 
 }) => {
     const [editingChip, setEditingChip] = useState<ChipConfig | null>(null);
+    const { showAlert } = useGlobalDialog();
 
     // Derive Options from Master Data
     const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive);
@@ -42,7 +44,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
             onSave(editingChip);
             setEditingChip(null);
         } else {
-            alert('กรุณาเลือกค่าที่ต้องการกรองด้วยครับ');
+            showAlert('กรุณาเลือกค่าที่ต้องการกรองด้วยครับ', 'ข้อมูลไม่ครบ');
         }
     };
 

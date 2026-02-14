@@ -2,14 +2,15 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
-import { InventoryItem, MasterOption } from '../../types';
+import { InventoryItem, MasterOption, AssetGroup } from '../../types';
 
 interface InventoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     inventoryItems: InventoryItem[];
     onAdd: (text: string, categoryId: string) => void;
-    onAddItem: (name: string, desc: string, catId: string, img?: File) => Promise<boolean>;
+    // Updated: Now accepts optional assetGroup
+    onAddItem: (name: string, desc: string, catId: string, img?: File, assetGroup?: string) => Promise<boolean>;
     onUpdateItem: (id: string, updates: Partial<InventoryItem>, img?: File) => Promise<boolean>;
     onDeleteItem: (id: string) => Promise<void>;
     masterOptions: MasterOption[];
@@ -162,6 +163,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                 name: invName,
                 description: invDesc,
                 categoryId: invL2,
+                assetGroup: (invL1 as AssetGroup) || undefined, // Update group too if changed
                 imageUrl: invImagePreview || undefined
             }, invImage || undefined);
             if (success) {
@@ -169,7 +171,8 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                 setViewingItem(null);
             }
         } else {
-            success = await onAddItem(invName, invDesc, invL2, invImage || undefined);
+            // Pass invL1 as assetGroup
+            success = await onAddItem(invName, invDesc, invL2, invImage || undefined, (invL1 as AssetGroup));
             if (success) {
                 setInvName('');
                 setInvDesc('');

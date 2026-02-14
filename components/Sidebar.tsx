@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
@@ -124,6 +125,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (view === 'QUALITY_GATE') return badges.qualityGate;
       if (view === 'FEEDBACK') return badges.feedback;
       if (view === 'DUTY') return badges.myDuty;
+      // Show Attendance Approval count for Admins
+      if (view === 'ATTENDANCE' && isAdmin) return badges.attendanceApproval;
       // Show Member Approval count on Team menu for Admins
       if (view === 'TEAM' && isAdmin) return badges.memberApproval;
       return 0;

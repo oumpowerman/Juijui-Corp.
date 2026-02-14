@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { MasterOption } from '../../../../types';
 import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair, Clock } from 'lucide-react';
 import { useGameConfig } from '../../../../context/GameConfigContext';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext'; // Added
 
 interface AttendanceRulesViewProps {
     masterOptions: MasterOption[];
@@ -17,6 +18,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
 }) => {
     // Game Config Context (For Syncing Scores)
     const { config, updateConfigValue } = useGameConfig();
+    const { showAlert, showConfirm } = useGlobalDialog(); // Destructure
 
     // Attendance Rules Local State
     const [tempTimeConfig, setTempTimeConfig] = useState<{ start: string, end: string, buffer: string, minHours: string }>({ start: '10:00', end: '19:00', buffer: '15', minHours: '9' });
@@ -71,7 +73,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrSkip('LATE_BUFFER', tempTimeConfig.buffer);
         await updateOrSkip('MIN_HOURS', tempTimeConfig.minHours);
         
-        alert('บันทึกเวลาทำการเรียบร้อย ✅');
+        await showAlert('บันทึกเวลาทำการเรียบร้อย ✅', 'สำเร็จ');
     };
 
     const handleSaveLocationConfig = async () => {
@@ -80,7 +82,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             if (existing) {
                 await onUpdate({ ...existing, label: val });
             } else {
-                alert(`ไม่พบ Config Key: ${key} กรุณาเพิ่มข้อมูล WORK_CONFIG -> ${key} ในหน้ารวมก่อนครับ`);
+                await showAlert(`ไม่พบ Config Key: ${key} กรุณาเพิ่มข้อมูล WORK_CONFIG -> ${key} ในหน้ารวมก่อนครับ`, 'ข้อผิดพลาด');
             }
         };
 
@@ -88,13 +90,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrSkip('OFFICE_LNG', officeConfig.lng);
         await updateOrSkip('OFFICE_RADIUS', officeConfig.radius);
         
-        alert('บันทึกพิกัดเรียบร้อย! 🗺️');
+        await showAlert('บันทึกพิกัดเรียบร้อย! 🗺️', 'สำเร็จ');
     };
 
     const getCurrentLocation = () => {
         setIsLocating(true);
         if (!navigator.geolocation) {
-            alert('Browser ไม่รองรับ Geolocation');
+            showAlert('Browser ไม่รองรับ Geolocation', 'Error');
             setIsLocating(false);
             return;
         }
@@ -108,7 +110,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 setIsLocating(false);
             },
             (err) => {
-                alert('ไม่สามารถระบุตำแหน่งได้: ' + err.message);
+                showAlert('ไม่สามารถระบุตำแหน่งได้: ' + err.message, 'Error');
                 setIsLocating(false);
             },
             { enableHighAccuracy: true }
@@ -182,7 +184,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                         <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button 
-                        onClick={() => { if(confirm('ยืนยันลบรายการนี้?')) onDelete(opt.id); }} 
+                        onClick={async () => { if(await showConfirm('ยืนยันลบรายการนี้?', 'ลบข้อมูล')) onDelete(opt.id); }} 
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-md transition-colors"
                         title="ลบรายการ"
                     >

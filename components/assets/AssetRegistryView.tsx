@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, MasterOption, AssetGroup, InventoryItem } from '../../types';
 import { useAssets } from '../../hooks/useAssets';
 import MentorTip from '../MentorTip';
-import { Box, Plus, Search, Filter, LayoutGrid, List, ChevronLeft, ChevronRight, Loader2, Copy, MoreHorizontal, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Box, Plus, Search, Filter, LayoutGrid, List, ChevronLeft, ChevronRight, Loader2, Copy, MoreHorizontal, AlertTriangle, Upload, Download } from 'lucide-react';
 import AssetFormModal from './AssetFormModal';
 import AssetDashboardStats from './AssetDashboardStats';
 import AssetTreeSidebar from './AssetTreeSidebar';
 import AssetCloneModal from './AssetCloneModal';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { useToast } from '../../context/ToastContext';
 
 interface AssetRegistryViewProps {
     users: User[];
@@ -18,8 +19,9 @@ interface AssetRegistryViewProps {
 const ITEMS_PER_PAGE = 20;
 
 const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOptions }) => {
-    const { assets, totalCount, stats, saveAsset, deleteAsset, cloneAsset, fetchAssets, isLoading } = useAssets();
+    const { assets, totalCount, stats, saveAsset, deleteAsset, cloneAsset, importAssets, fetchAssets, isLoading } = useAssets();
     const { showConfirm } = useGlobalDialog();
+    const { showToast } = useToast();
     
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,6 +36,10 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
     const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('LIST');
     const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Import State
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     // Sync Data
     useEffect(() => {
@@ -88,14 +94,115 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
         setIsCloneModalOpen(true);
     };
 
+    // CSV Parsing Helper
+    const parseCSVLine = (text: string) => {
+        const result = [];
+        let cell = '';
+        let quote = false;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (char === '"' && text[i + 1] === '"') { cell += '"'; i++; } 
+            else if (char === '"') { quote = !quote; } 
+            else if (char === ',' && !quote) { result.push(cell); cell = ''; } 
+            else { cell += char; }
+        }
+        result.push(cell);
+        return result;
+    };
+
+    const handleDownloadTemplate = () => {
+        const headers = ["Name (ชื่อทรัพย์สิน)", "Description (รายละเอียด)", "Group (กลุ่ม: PRODUCTION/OFFICE/IT)", "Category (หมวดหมู่)"];
+        const example1 = [`"กล้อง Sony A7IV"`, `"มีแบต 2 ก้อน"`, `"PRODUCTION"`, `"CAMERA"`];
+        const example2 = [`"โต๊ะทำงานขาขาว"`, `"สภาพดี"`, `"OFFICE"`, `"FURNITURE"`];
+        
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + 
+            [headers.join(","), example1.join(","), example2.join(",")].join("\n");
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `asset_import_template.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        
+        setIsImporting(true);
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rows = text.split(/\r\n|\n/);
+                
+                if (rows.length < 2) { 
+                    showToast('ไฟล์ไม่มีข้อมูล', 'warning'); 
+                    return; 
+                }
+
+                const itemsToImport: any[] = [];
+                
+                // Start from 1 to skip header
+                for (let i = 1; i < rows.length; i++) {
+                    const rowStr = rows[i].trim();
+                    if (!rowStr) continue;
+                    
+                    const cols = parseCSVLine(rowStr);
+                    const name = cols[0]?.trim();
+                    const desc = cols[1]?.trim();
+                    const group = cols[2]?.trim().toUpperCase();
+                    const category = cols[3]?.trim().toUpperCase();
+
+                    if (!name) continue;
+
+                    itemsToImport.push({
+                        name: name,
+                        description: desc || '',
+                        assetGroup: group || 'OFFICE', // Default if missing
+                        categoryId: category || 'GENERAL' // Default if missing
+                    });
+                }
+
+                if (itemsToImport.length > 0) {
+                    const success = await importAssets(itemsToImport);
+                    if (success) {
+                        // Refresh
+                        fetchAssets({
+                            page: currentPage,
+                            pageSize: ITEMS_PER_PAGE,
+                            search,
+                            group: filterGroup,
+                            categoryId: filterCategory,
+                            showIncomplete: showIncompleteOnly
+                        });
+                    }
+                } else {
+                    showToast('ไม่พบข้อมูลที่ถูกต้องในไฟล์', 'warning');
+                }
+
+            } catch (err: any) {
+                console.error(err);
+                showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+            } finally {
+                setIsImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <MentorTip variant="blue" messages={[
-                "ใหม่! มุมมองแบบ Folder Tree ด้านซ้าย ช่วยให้หาของง่ายขึ้นเยอะเลย",
-                "Tip: ใช้ปุ่ม Clone เพื่อก๊อปปี้รายการทรัพย์สินที่เหมือนกัน (เช่น เก้าอี้ 10 ตัว)",
-                "อย่าลืมเช็คกราฟสุขภาพทรัพย์สินด้านบน เพื่อดูว่ามีของเสียเยอะแค่ไหนนะครับ"
+                "Tip: ใช้ปุ่ม Import เพื่อนำเข้าข้อมูลจาก Excel/Google Sheet ได้เลย",
+                "อย่าลืมโหลด Template ไปกรอกข้อมูลก่อนนะ จะได้ฟอร์แมตที่ถูกต้อง",
+                "ถ้าไม่ระบุ Group/Category ระบบจะใส่ค่า Default ให้ก่อน ค่อยมาแก้ทีหลังได้ครับ"
             ]} />
 
             {/* Top Stats */}
@@ -129,14 +236,36 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
                             />
                         </div>
 
-                        {/* Toggles */}
+                        {/* Import / Export / Create */}
                         <div className="flex items-center gap-2 shrink-0">
+                            {/* Import Group */}
+                            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isImporting}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center transition-colors disabled:opacity-50 shadow-sm"
+                                    title="Import CSV"
+                                >
+                                    {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1"/> : <Upload className="w-3.5 h-3.5 mr-1" />} 
+                                    Import
+                                </button>
+                                <div className="w-px h-4 bg-gray-300"></div>
+                                <button 
+                                    onClick={handleDownloadTemplate}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center transition-colors shadow-sm"
+                                    title="Download Template"
+                                >
+                                    <Download className="w-3.5 h-3.5 mr-1" /> Template
+                                </button>
+                            </div>
+
                             <button 
                                 onClick={() => setShowIncompleteOnly(!showIncompleteOnly)}
                                 className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${showIncompleteOnly ? 'bg-orange-50 border-orange-200 text-orange-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
                                 title="แสดงเฉพาะที่ข้อมูลไม่ครบ"
                             >
-                                <AlertTriangle className="w-4 h-4" /> <span className="hidden md:inline">Fix Data</span>
+                                <AlertTriangle className="w-4 h-4" />
                             </button>
 
                             <div className="flex bg-gray-100 p-1 rounded-xl shrink-0 border border-gray-200">

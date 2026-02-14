@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Settings, X, CheckSquare, Trash2 } from 'lucide-react';
 import { ChecklistPreset, InventoryItem } from '../../types';
+import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Added
 
 interface PresetModalProps {
     isOpen: boolean;
@@ -15,10 +16,11 @@ interface PresetModalProps {
 const PresetModal: React.FC<PresetModalProps> = ({ 
     isOpen, onClose, presets, inventoryItems, onAddPreset, onDeletePreset 
 }) => {
-    if (!isOpen) return null;
-
+    const { showAlert, showConfirm } = useGlobalDialog(); // Destructure
     const [newPresetName, setNewPresetName] = useState('');
     const [selectedInvForPreset, setSelectedInvForPreset] = useState<string[]>([]);
+
+    if (!isOpen) return null;
 
     const toggleInvForPreset = (id: string) => {
         setSelectedInvForPreset(prev => 
@@ -28,7 +30,7 @@ const PresetModal: React.FC<PresetModalProps> = ({
 
     const handleCreatePreset = () => {
         if (!newPresetName.trim()) {
-            alert('กรุณาตั้งชื่อ Preset');
+            showAlert('กรุณาตั้งชื่อ Preset', 'แจ้งเตือน');
             return;
         }
         onAddPreset(newPresetName, selectedInvForPreset);
@@ -80,8 +82,8 @@ const PresetModal: React.FC<PresetModalProps> = ({
                                         <h5 className="font-bold text-gray-800">{p.name}</h5>
                                         <button 
                                             onClick={async () => { 
-                                                // @ts-ignore
-                                                if(await window.confirm('ลบ Preset?')) onDeletePreset(p.id) 
+                                                const confirm = await showConfirm('ลบ Preset นี้?', 'ยืนยันลบ');
+                                                if(confirm) onDeletePreset(p.id) 
                                             }} 
                                             className="text-gray-300 hover:text-red-500"
                                         >

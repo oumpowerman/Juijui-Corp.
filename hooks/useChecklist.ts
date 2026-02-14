@@ -1,13 +1,15 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ChecklistItem, ChecklistPreset, InventoryItem } from '../types';
+import { ChecklistItem, ChecklistPreset, InventoryItem, AssetCondition, AssetGroup } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext'; 
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
 export const useChecklist = () => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog(); 
     
     // Data States
     const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
@@ -33,20 +35,28 @@ export const useChecklist = () => {
                 })));
             }
 
-            // Fetch Inventory (With Image URL & Description)
+            // Fetch Inventory (Updated to map ALL fields including asset_group)
             const { data: invData, error: invError } = await supabase
                 .from('inventory_items')
                 .select('*')
-                .order('created_at', { ascending: false }); // Show newest first
+                .order('created_at', { ascending: false }); 
             
             if (invError) console.error("Error fetching inventory:", invError);
             if (invData) {
                 setInventoryItems(invData.map((i: any) => ({
                     id: i.id,
                     name: i.name,
-                    description: i.description, // Mapped
+                    description: i.description, 
                     categoryId: i.category_id,
-                    imageUrl: i.image_url 
+                    imageUrl: i.image_url,
+                    // New Fields Mapping
+                    assetGroup: i.asset_group as AssetGroup,
+                    purchasePrice: i.purchase_price,
+                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
+                    serialNumber: i.serial_number,
+                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
+                    condition: i.condition as AssetCondition,
+                    currentHolderId: i.current_holder_id
                 })));
             }
 
@@ -108,7 +118,6 @@ export const useChecklist = () => {
                 is_checked: false
             });
             if (error) throw error;
-            // Realtime will auto-update, but we can call load to be safe
             loadChecklistData();
         } catch (err) {
             showToast('เพิ่มรายการไม่สำเร็จ', 'error');
@@ -118,16 +127,14 @@ export const useChecklist = () => {
     const handleDeleteChecklistItem = async (id: string) => {
         try {
             await supabase.from('active_checklist_items').delete().eq('id', id);
-            // Optimistic
             setActiveChecklistItems(prev => prev.filter(i => i.id !== id));
         } catch (err) { console.error(err); }
     };
   
     const handleResetChecklist = async () => {
-        // PATCH: Use 'await' with confirm because it is now monkey-patched to be async
-        // @ts-ignore
-        if (await window.confirm('รีเซ็ตสถานะเช็คลิสต์ทั้งหมด?')) {
-            // Optimistic Reset
+        const confirmed = await showConfirm('รีเซ็ตสถานะเช็คลิสต์ทั้งหมด?', 'ยืนยันการรีเซ็ต');
+        
+        if (confirmed) {
             setActiveChecklistItems(prev => prev.map(i => ({ ...i, isChecked: false })));
             
             try {
@@ -138,44 +145,37 @@ export const useChecklist = () => {
         }
     };
 
-    // --- 4. Inventory Logic (Updated with Image & Description) ---
+    // --- 4. Inventory Logic (Enhanced) ---
 
-    const handleAddInventoryItem = async (name: string, description: string, categoryId: string, imageFile?: File) => {
+    // Updated: Accept assetGroup
+    const handleAddInventoryItem = async (name: string, description: string, categoryId: string, imageFile?: File, assetGroup?: string) => {
         try {
             let imageUrl = null;
 
-            // Upload Image if provided
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
                 const fileName = `inventory-${Date.now()}.${fileExt}`;
-                
-                // Using 'avatars' bucket reused for simplicity as requested, 
-                // typically we'd use a separate 'inventory' bucket.
                 const { error: uploadError } = await supabase.storage
                     .from('avatars') 
                     .upload(`inventory/${fileName}`, imageFile);
 
                 if (uploadError) throw uploadError;
-
-                const { data: urlData } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(`inventory/${fileName}`);
-                
+                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
                 imageUrl = urlData.publicUrl;
             }
 
             const { error } = await supabase.from('inventory_items').insert({
                 name,
-                description, // Add description
+                description,
                 category_id: categoryId,
-                image_url: imageUrl
+                asset_group: assetGroup || null, // Save Group
+                image_url: imageUrl,
+                condition: 'GOOD' // Default
             });
             
             if (error) throw error;
             
-            // Force refresh immediately
             await loadChecklistData();
-            
             showToast('เพิ่มเข้าคลังอุปกรณ์แล้ว ✅', 'success');
             return true;
         } catch (err: any) {
@@ -192,26 +192,21 @@ export const useChecklist = () => {
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
                 const fileName = `inventory-${Date.now()}.${fileExt}`;
-                
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars') 
-                    .upload(`inventory/${fileName}`, imageFile);
-
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(`inventory/${fileName}`, imageFile);
                 if (uploadError) throw uploadError;
-
-                const { data: urlData } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(`inventory/${fileName}`);
-                
+                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
                 imageUrl = urlData.publicUrl;
             }
 
+            // Map Partial<InventoryItem> to DB payload (snake_case)
             const payload: any = {
                 name: updates.name,
                 description: updates.description,
                 category_id: updates.categoryId,
             };
             if (imageUrl) payload.image_url = imageUrl;
+            // Add other fields if needed for future proofing
+            if (updates.assetGroup) payload.asset_group = updates.assetGroup;
 
             const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
             
@@ -228,9 +223,9 @@ export const useChecklist = () => {
     };
 
     const handleDeleteInventoryItem = async (id: string) => {
-        // PATCH: await confirm
-        // @ts-ignore
-        if (await window.confirm('ลบจากคลัง?')) {
+        const confirmed = await showConfirm('ลบรายการนี้ออกจากคลังถาวร?', 'ยืนยันการลบ');
+
+        if (confirmed) {
             try {
                 const { error } = await supabase.from('inventory_items').delete().eq('id', id);
                 if (error) throw error;
@@ -241,14 +236,11 @@ export const useChecklist = () => {
         }
     };
 
-    // --- 5. Preset Logic ---
+    // --- 5. Preset Logic (No Changes needed here) ---
     
-    // UPDATED: Support clearFirst to replace items instead of append
     const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
         if (presetId === 'CLEAR') {
-            // Optimistic Clear
             setActiveChecklistItems([]); 
-            
             await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
             showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
             loadChecklistData();
@@ -257,7 +249,6 @@ export const useChecklist = () => {
 
         const preset = checklistPresets.find(p => p.id === presetId);
         if(preset) {
-            // Optimistic Insert (Visual)
             const tempItems: ChecklistItem[] = preset.items.map((i, idx) => ({
                 id: `temp-${Date.now()}-${idx}`,
                 text: i.text,
@@ -266,12 +257,11 @@ export const useChecklist = () => {
             }));
 
             if (clearFirst) {
-                setActiveChecklistItems(tempItems); // Replace
+                setActiveChecklistItems(tempItems); 
             } else {
-                setActiveChecklistItems(prev => [...prev, ...tempItems]); // Append
+                setActiveChecklistItems(prev => [...prev, ...tempItems]); 
             }
 
-            // DB Operations
             try {
                 if (clearFirst) {
                     await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
@@ -286,12 +276,10 @@ export const useChecklist = () => {
                 if (itemsToInsert.length > 0) {
                     await supabase.from('active_checklist_items').insert(itemsToInsert);
                     showToast(`โหลดชุด "${preset.name}" เรียบร้อย`, 'success');
-                    // Finally sync with real data to get proper IDs
                     loadChecklistData();
                 }
             } catch (err) {
                 console.error("Load Preset DB Error", err);
-                // On error, reload to revert to real state
                 loadChecklistData();
             }
         }
@@ -331,10 +319,8 @@ export const useChecklist = () => {
         }
     };
     
-    // NEW: Update Preset (Edit) with Optimistic UI
     const handleUpdatePreset = async (id: string, name: string, items: { text: string; categoryId: string }[]) => {
         try {
-             // Optimistic Update: Update state immediately so user sees change
             setChecklistPresets(prev => prev.map(p => 
                 p.id === id ? { ...p, name, items } : p
             ));
@@ -346,26 +332,25 @@ export const useChecklist = () => {
 
             if (error) throw error;
             
-            // Re-fetch to confirm sync, but UI is already updated
             loadChecklistData();
             showToast('อัปเดต Preset เรียบร้อย ✅', 'success');
         } catch (err) {
             console.error(err);
             showToast('อัปเดตไม่สำเร็จ', 'error');
-            // Rollback could be implemented here if needed by re-fetching
             loadChecklistData(); 
         }
     };
   
     const handleDeletePreset = async (id: string) => {
-        // PATCH: await confirm
-        // @ts-ignore
-        if(!await window.confirm('ยืนยันลบ Preset นี้?')) return;
-        try {
-            await supabase.from('checklist_presets_db').delete().eq('id', id);
-            loadChecklistData();
-            showToast('ลบ Preset เรียบร้อย', 'info');
-        } catch (err) { console.error(err); }
+        const confirmed = await showConfirm('ยืนยันลบ Preset นี้?', 'ลบ Preset');
+
+        if(confirmed) {
+            try {
+                await supabase.from('checklist_presets_db').delete().eq('id', id);
+                loadChecklistData();
+                showToast('ลบ Preset เรียบร้อย', 'info');
+            } catch (err) { console.error(err); }
+        }
     };
 
     return {

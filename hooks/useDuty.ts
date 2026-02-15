@@ -5,6 +5,7 @@ import { Duty, User, DutyConfig, DutySwap, AnnualHoliday } from '../types';
 import { useToast } from '../context/ToastContext';
 import { addDays, isWeekend, getDay, format } from 'date-fns';
 import { useGamification } from './useGamification'; // Import Engine
+import { useGameConfig } from '../context/GameConfigContext';
 
 const DEFAULT_CONFIGS: DutyConfig[] = [
     { dayOfWeek: 1, requiredPeople: 1, taskTitles: ['เวรทั่วไป'] }, 
@@ -14,7 +15,7 @@ const DEFAULT_CONFIGS: DutyConfig[] = [
     { dayOfWeek: 5, requiredPeople: 2, taskTitles: ['เคลียร์ขยะ', 'ถูพื้น'] }, 
 ];
 
-const HISTORY_LOOKBACK_DAYS = 90;
+// Removed constant HISTORY_LOOKBACK_DAYS, used from config instead
 
 export const useDuty = (currentUser?: User) => {
     const [duties, setDuties] = useState<Duty[]>([]);
@@ -23,6 +24,7 @@ export const useDuty = (currentUser?: User) => {
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { processAction } = useGamification(); // Initialize Engine
+    const { config } = useGameConfig(); // NEW: Get config for cleanup
 
     // --- Calendar Context States ---
     const [annualHolidays, setAnnualHolidays] = useState<AnnualHoliday[]>([]);
@@ -78,7 +80,9 @@ export const useDuty = (currentUser?: User) => {
                     isPenalized: d.is_penalized,
                     penaltyStatus: d.penalty_status,
                     appealReason: d.appeal_reason,
-                    appealProofUrl: d.appeal_proof_url
+                    appealProofUrl: d.appeal_proof_url,
+                    abandonedAt: d.abandoned_at ? new Date(d.abandoned_at) : undefined,
+                    clearedBySystem: d.cleared_by_system || false
                 })));
             }
         } catch (err) {
@@ -380,14 +384,17 @@ export const useDuty = (currentUser?: User) => {
     };
 
     const cleanupOldDuties = async () => {
-        const cutoffDate = format(addDays(new Date(), -(HISTORY_LOOKBACK_DAYS * 2)), 'yyyy-MM-dd');
+        // Use Dynamic Config or Default
+        const cleanupDays = config?.SYSTEM_MAINTENANCE?.duty_cleanup_days || 90;
+        const cutoffDate = format(addDays(new Date(), -cleanupDays), 'yyyy-MM-dd');
+        
         try {
             const { error } = await supabase
                 .from('duties')
                 .delete()
                 .lt('date', cutoffDate);
             if (error) throw error;
-            showToast(`ล้างข้อมูลเก่าเรียบร้อย`, 'success');
+            showToast(`ล้างข้อมูลเก่ากว่า ${cleanupDays} วันเรียบร้อย`, 'success');
         } catch (err: any) {
             showToast('ล้างข้อมูลล้มเหลว: ' + err.message, 'error');
         }
@@ -525,6 +532,13 @@ export const useDuty = (currentUser?: User) => {
     const requestSwap = async (ownDutyId: string, targetDutyId: string) => {
         if (!currentUser) return;
         try {
+            // 1. Fetch metadata for notification context
+            const { data: targetDuty } = await supabase.from('duties').select('assignee_id, title, date').eq('id', targetDutyId).single();
+            const { data: ownDuty } = await supabase.from('duties').select('title, date').eq('id', ownDutyId).single();
+
+            if (!targetDuty || !ownDuty) throw new Error("Duty not found");
+
+            // 2. Insert Swap Request
             const { error } = await supabase.from('duty_swaps').insert({
                 requestor_id: currentUser.id,
                 own_duty_id: ownDutyId,
@@ -532,6 +546,17 @@ export const useDuty = (currentUser?: User) => {
                 status: 'PENDING'
             });
             if (error) throw error;
+
+            // 3. Notify Target User
+            await supabase.from('notifications').insert({
+                user_id: targetDuty.assignee_id,
+                type: 'APPROVAL_REQ',
+                title: '🔄 มีคำขอแลกเวร',
+                message: `คุณ ${currentUser.name} ขอแลกเวร "${ownDuty.title}" (${format(new Date(ownDuty.date), 'd MMM')}) กับเวรของคุณ`,
+                is_read: false,
+                link_path: 'DUTY'
+            });
+
             showToast('ส่งคำขอแลกเวรแล้ว รออีกฝั่งตอบรับนะครับ 🔄', 'success');
         } catch (err: any) {
             showToast('ส่งคำขอไม่สำเร็จ: ' + err.message, 'error');
@@ -540,30 +565,51 @@ export const useDuty = (currentUser?: User) => {
 
     const respondSwap = async (swapId: string, accept: boolean) => {
         try {
+            // 1. Fetch Swap Details (Need requestor_id)
+            const { data: swap } = await supabase.from('duty_swaps').select('own_duty_id, target_duty_id, requestor_id').eq('id', swapId).single();
+            if (!swap) return;
+
             if (!accept) {
                 await supabase.from('duty_swaps').update({ status: 'REJECTED' }).eq('id', swapId);
+                
+                // Notify Requestor of Rejection
+                await supabase.from('notifications').insert({
+                    user_id: swap.requestor_id,
+                    type: 'INFO',
+                    title: '❌ คำขอแลกเวรถูกปฏิเสธ',
+                    message: 'เพื่อนไม่สะดวกแลกเวรในครั้งนี้',
+                    is_read: false,
+                    link_path: 'DUTY'
+                });
+
                 showToast('ปฏิเสธการแลกเวรแล้ว', 'info');
                 return;
             }
 
-            // Transaction: Swap Assignees
-            const { data: swap } = await supabase.from('duty_swaps').select('own_duty_id, target_duty_id').eq('id', swapId).single();
-            if (!swap) return;
-
-            // Get current assignees
+            // 2. Fetch current assignees to swap
             const { data: dutiesData } = await supabase.from('duties').select('id, assignee_id').in('id', [swap.own_duty_id, swap.target_duty_id]);
             if (!dutiesData || dutiesData.length !== 2) return;
 
             const duty1 = dutiesData[0];
             const duty2 = dutiesData[1];
 
-            // Perform Swap
+            // 3. Perform Swap
             await supabase.from('duties').update({ assignee_id: duty2.assignee_id }).eq('id', duty1.id);
             await supabase.from('duties').update({ assignee_id: duty1.assignee_id }).eq('id', duty2.id);
 
-            // Update Swap Status
+            // 4. Update Swap Status
             await supabase.from('duty_swaps').update({ status: 'APPROVED' }).eq('id', swapId);
             
+            // 5. Notify Requestor of Success
+            await supabase.from('notifications').insert({
+                user_id: swap.requestor_id,
+                type: 'INFO',
+                title: '✅ คำขอแลกเวรสำเร็จ',
+                message: 'เวรของคุณถูกสลับเรียบร้อยแล้ว',
+                is_read: false,
+                link_path: 'DUTY'
+            });
+
             showToast('แลกเวรสำเร็จ! อัปเดตตารางแล้ว ✅', 'success');
             
         } catch (err: any) {

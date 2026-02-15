@@ -35,7 +35,7 @@ export const useChecklist = () => {
                 })));
             }
 
-            // Fetch Inventory (Updated to map ALL fields including asset_group)
+            // Fetch Inventory (Updated to map ALL fields including asset_group and consumables)
             const { data: invData, error: invError } = await supabase
                 .from('inventory_items')
                 .select('*')
@@ -49,7 +49,16 @@ export const useChecklist = () => {
                     description: i.description, 
                     categoryId: i.category_id,
                     imageUrl: i.image_url,
-                    // New Fields Mapping
+                    
+                    // Fixed: Map Consumable & New Fields
+                    itemType: i.item_type || 'FIXED', 
+                    quantity: i.quantity || 0,
+                    unit: i.unit,
+                    minThreshold: i.min_threshold,
+                    maxCapacity: i.max_capacity,
+                    tags: i.tags || [],
+
+                    // Asset Registry Fields
                     assetGroup: i.asset_group as AssetGroup,
                     purchasePrice: i.purchase_price,
                     purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
@@ -170,7 +179,9 @@ export const useChecklist = () => {
                 category_id: categoryId,
                 asset_group: assetGroup || null, // Save Group
                 image_url: imageUrl,
-                condition: 'GOOD' // Default
+                condition: 'GOOD', // Default
+                item_type: 'FIXED', // Default for basic add, usually AssetRegistry handles full types
+                quantity: 1
             });
             
             if (error) throw error;

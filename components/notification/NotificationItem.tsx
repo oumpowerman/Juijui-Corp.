@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
     AlertTriangle, Clock, ScanEye, FileSignature, Trophy, 
-    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet 
+    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet, Lock, ShieldAlert
 } from 'lucide-react';
 import { AppNotification } from '../../types';
 import { format } from 'date-fns';
@@ -16,14 +16,16 @@ interface NotificationItemProps {
 
 const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onDismiss, onAction }) => {
     const isUnread = !notif.isRead;
-    const isUrgent = notif.type === 'OVERDUE' || notif.type === 'GAME_PENALTY';
+    const isUrgent = notif.type === 'OVERDUE' || notif.type === 'GAME_PENALTY' || notif.type === 'SYSTEM_LOCK_PENALTY';
     const isApproval = notif.type === 'APPROVAL_REQ';
     const isFinance = notif.actionLink === 'FINANCE' || (notif.title && notif.title.includes('เงินเดือน'));
     
     // Dynamic Styles
     let containerStyle = "p-3 cursor-pointer flex gap-3 items-start rounded-xl transition-all duration-200 relative group border";
     
-    if (isFinance) {
+    if (notif.type === 'SYSTEM_LOCK_PENALTY') {
+        containerStyle += " bg-red-50 border-red-200 shadow-sm ring-1 ring-red-100";
+    } else if (isFinance) {
         containerStyle += " bg-emerald-50/50 border-emerald-200 hover:bg-emerald-100/50";
     } else if (isApproval) {
          containerStyle += " bg-amber-50/50 border-amber-200 hover:bg-amber-100/50";
@@ -40,6 +42,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     const getIconBoxStyle = () => {
         if (isFinance) return 'bg-emerald-100 text-emerald-600';
         switch (notif.type) {
+            case 'SYSTEM_LOCK_PENALTY': return 'bg-red-600 text-white animate-pulse shadow-md shadow-red-200';
             case 'OVERDUE': return 'bg-red-100 text-red-600 animate-pulse';
             case 'UPCOMING': return 'bg-orange-100 text-orange-600';
             case 'REVIEW': return 'bg-purple-100 text-purple-600';
@@ -54,6 +57,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     const getIcon = () => {
         if (isFinance) return <Wallet className="w-5 h-5" />;
         switch (notif.type) {
+            case 'SYSTEM_LOCK_PENALTY': return <ShieldAlert className="w-5 h-5" />;
             case 'OVERDUE': return <AlertTriangle className="w-5 h-5" />;
             case 'UPCOMING': return <Clock className="w-5 h-5" />;
             case 'REVIEW': return <ScanEye className="w-5 h-5" />;
@@ -76,7 +80,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
-                        <h4 className={`text-sm font-bold truncate mb-0.5 ${isFinance ? 'text-emerald-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
+                        <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'SYSTEM_LOCK_PENALTY' ? 'text-red-800' : isFinance ? 'text-emerald-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
                             {notif.title}
                         </h4>
                         {isUnread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5 shadow-sm ring-2 ring-white"></span>}

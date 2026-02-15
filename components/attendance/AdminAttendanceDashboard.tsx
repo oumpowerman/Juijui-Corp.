@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { AttendanceLog } from '../../types/attendance';
 import { checkIsLate } from '../../lib/attendanceUtils';
+import { useGameConfig } from '../../context/GameConfigContext';
 
 interface AdminAttendanceDashboardProps {
     users: User[];
@@ -36,6 +37,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     // Config State
     const [startTime, setStartTime] = useState('10:00');
     const [lateBuffer, setLateBuffer] = useState(0);
+
+    const { config } = useGameConfig(); // Hook for dynamic grading
 
     // Load Config
     useEffect(() => {
@@ -149,11 +152,26 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;
 
     const getGrade = (stat: UserStat) => {
-        // Simple Grading Logic (Can be adjusted via Master Data later)
         if (stat.present === 0 && stat.leaves === 0) return { grade: 'N/A', color: 'bg-gray-100 text-gray-400' };
-        if (stat.late === 0) return { grade: 'A+', color: 'bg-green-100 text-green-700' };
-        if (stat.late <= 2) return { grade: 'B', color: 'bg-blue-100 text-blue-700' };
-        if (stat.late <= 4) return { grade: 'C', color: 'bg-yellow-100 text-yellow-700' };
+
+        // Use Dynamic Rules from Config if available
+        const rules = config?.ATTENDANCE_GRADING_RULES || [
+             { grade: "A+", max_late: 0, color: "bg-green-100 text-green-700" },
+             { grade: "B", max_late: 2, color: "bg-blue-100 text-blue-700" },
+             { grade: "C", max_late: 4, color: "bg-yellow-100 text-yellow-700" },
+             { grade: "F", max_late: 999, color: "bg-red-100 text-red-700" }
+        ];
+
+        // Sort rules by strictness (lowest max_late first)
+        const sortedRules = [...rules].sort((a: any, b: any) => a.max_late - b.max_late);
+
+        for (const rule of sortedRules) {
+            if (stat.late <= rule.max_late) {
+                return { grade: rule.grade, color: rule.color };
+            }
+        }
+        
+        // Fallback
         return { grade: 'F', color: 'bg-red-100 text-red-700' };
     };
 

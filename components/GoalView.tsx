@@ -19,7 +19,8 @@ interface GoalViewProps {
 const ITEMS_PER_PAGE = 9;
 
 const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => {
-    const { goals, addGoal, updateGoalValue, deleteGoal, toggleOwner, toggleBoost, isLoading } = useGoals(currentUser);
+    // Destructure updateGoal
+    const { goals, addGoal, updateGoal, updateGoalValue, deleteGoal, toggleOwner, toggleBoost, isLoading } = useGoals(currentUser);
     
     // UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -58,12 +59,18 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     const totalPages = Math.ceil(filteredGoals.length / ITEMS_PER_PAGE);
     const paginatedGoals = filteredGoals.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-    const handleSaveGoal = (data: any) => {
+    const handleSaveGoal = async (data: any) => {
         if (editingGoal) {
-            // In a real implementation, you would call updateGoal here.
-            // For now, we simulate or you might need to add updateGoal to your hook.
-            console.warn("Update not fully implemented in hook, add update logic.");
+            // Update Existing Goal
+            const updatedGoal: Goal = {
+                ...editingGoal,
+                ...data
+            };
+            await updateGoal(updatedGoal);
+            setEditingGoal(null);
+            setIsCreateModalOpen(false); // Close shared modal logic if needed, though usually controlled by props
         } else {
+            // Create New Goal
             addGoal(data);
         }
     };

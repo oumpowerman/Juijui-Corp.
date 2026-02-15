@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Task, Channel, User, MasterOption, ScriptSummary, Script } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
@@ -291,7 +292,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 }}
                 onSave={updateScript}
                 onGenerateAI={generateScriptWithAI}
-                onPromote={() => {}}
+                onPromote={() => {}} // Pass handler
             />
         );
     }
@@ -332,6 +333,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 <CFProductionInfo 
                     shootDate={shootDate} setShootDate={setShootDate}
                     shootLocation={shootLocation} setShootLocation={setShootLocation}
+                    masterOptions={masterOptions} // PASS MASTER OPTIONS
                 />
 
                 {/* 5. Format & Pillar */}

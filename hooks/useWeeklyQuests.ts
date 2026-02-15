@@ -132,6 +132,10 @@ export const useWeeklyQuests = () => {
             if (updates.targetFormat !== undefined) payload.target_format = updates.targetFormat;
             if (updates.targetStatus !== undefined) payload.target_status = updates.targetStatus;
             if (updates.questType !== undefined) payload.quest_type = updates.questType;
+            // FIX: Add date fields to update payload
+            if (updates.weekStartDate !== undefined) payload.week_start_date = updates.weekStartDate.toISOString();
+            if (updates.endDate !== undefined) payload.end_date = updates.endDate.toISOString();
+            
             // Can add group updates later if needed
 
             const { error } = await supabase

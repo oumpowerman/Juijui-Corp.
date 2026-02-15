@@ -278,16 +278,24 @@ export const useScripts = (currentUser: User) => {
             const payload: any = {
                 updated_at: new Date().toISOString()
             };
+            
+            // Map fields to DB columns
             if (updates.title) payload.title = updates.title;
             if (updates.content) payload.content = updates.content;
             if (updates.status) payload.status = updates.status;
-            if (updates.estimatedDuration) payload.estimated_duration = updates.estimatedDuration;
+            if (updates.estimatedDuration !== undefined) payload.estimated_duration = updates.estimatedDuration;
             if (updates.scriptType) payload.script_type = updates.scriptType;
             if (updates.characters) payload.characters = updates.characters;
-            if (updates.ideaOwnerId) payload.idea_owner_id = updates.ideaOwnerId;
+            if (updates.ideaOwnerId !== undefined) payload.idea_owner_id = updates.ideaOwnerId;
             if (updates.isInShootQueue !== undefined) payload.is_in_shoot_queue = updates.isInShootQueue;
             if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
             if (updates.shareToken !== undefined) payload.share_token = updates.shareToken;
+            
+            // --- FIX: Add Missing Metadata Fields ---
+            if (updates.channelId !== undefined) payload.channel_id = updates.channelId;
+            if (updates.category !== undefined) payload.category = updates.category;
+            if (updates.tags !== undefined) payload.tags = updates.tags;
+            if (updates.objective !== undefined) payload.objective = updates.objective;
 
             // Fix: select aliased column name contentId from snake_case content_id to match type
             const { data, error } = await supabase
@@ -305,7 +313,6 @@ export const useScripts = (currentUser: User) => {
 
             // --- TRINITY PHASE 3: SYNC STATUS ---
             // If Status changed to FINAL and there is a linked Content
-            // Fix: data?.content_id corrected to data?.contentId
             if (updates.status === 'FINAL' && data?.contentId) {
                  const confirmSync = await showConfirm(
                     'บทเสร็จสมบูรณ์แล้ว! (FINAL)',
@@ -316,7 +323,6 @@ export const useScripts = (currentUser: User) => {
                      const { error: syncError } = await supabase
                         .from('contents')
                         .update({ status: 'SHOOTING' })
-                        // Fix: data.content_id corrected to data.contentId
                         .eq('id', data.contentId);
                     
                     if (!syncError) {

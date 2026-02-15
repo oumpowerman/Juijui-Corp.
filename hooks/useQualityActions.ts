@@ -1,7 +1,7 @@
+
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, ReviewStatus } from '../types';
-import { DIFFICULTY_LABELS } from '../constants';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from './useGamification';
 
@@ -11,7 +11,7 @@ export const useQualityActions = () => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // XP Distribution Logic (Synced with Engine)
-    const distributeXP = async (task: Task) => {
+    const distributeXP = async (task: Task, manualBonus: number = 0) => {
         try {
             const peopleToReward = new Set([
                 ...(task.assigneeIds || []),
@@ -22,13 +22,29 @@ export const useQualityActions = () => {
             let actualXP = 0;
             const userIds = Array.from(peopleToReward);
 
-            // Execute XP updates via Gamification Engine to ensure game_logs are created
+            // 1. Give Base XP (Engine calculates from task difficulty/hours)
             for (let i = 0; i < userIds.length; i++) {
                 const result = await processAction(userIds[i], 'TASK_COMPLETE', task);
                 if (i === 0 && result) {
                     actualXP = result.xp;
                 }
             }
+
+            // 2. Give Manual Bonus (If any)
+            if (manualBonus !== 0) {
+                for (let i = 0; i < userIds.length; i++) {
+                    await processAction(userIds[i], 'MANUAL_ADJUST', {
+                        xp: manualBonus,
+                        hp: 0,
+                        coins: 0,
+                        message: manualBonus > 0 
+                            ? `👍 Bonus: งานคุณภาพเยี่ยม (${task.title})` 
+                            : `📉 Penalty: ปรับลดคะแนนงาน (${task.title})`
+                    });
+                }
+                actualXP += manualBonus;
+            }
+
             return actualXP;
         } catch (err) {
             console.error("XP Distribution Error:", err);
@@ -44,7 +60,8 @@ export const useQualityActions = () => {
         task: Task | undefined,
         feedback: string | undefined,
         updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => Promise<void>,
-        reviewerId: string 
+        reviewerId: string,
+        manualBonus: number = 0 // New Parameter (8th argument)
     ) => {
         setIsProcessing(true);
         try {
@@ -58,10 +75,10 @@ export const useQualityActions = () => {
             ]);
 
             if (action === 'PASS') {
-                // 1. Trigger Engine for Rewards & Logs FIRST and get actual XP
+                // 1. Trigger Engine for Rewards & Logs FIRST (Include Bonus)
                 let finalXP = 0;
                 if (task) {
-                    finalXP = await distributeXP(task);
+                    finalXP = await distributeXP(task, manualBonus);
                 }
 
                 // 2. Update Review Record
@@ -75,11 +92,11 @@ export const useQualityActions = () => {
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
-                    details: 'Quality Gate: PASSED -> Status set to DONE',
+                    details: `Quality Gate: PASSED (Bonus: ${manualBonus}) -> Status set to DONE`,
                     user_id: reviewerId 
                 });
                 
-                // 5. NOTIFICATION: SUCCESS (With Rich Metadata using engine value)
+                // 5. NOTIFICATION: SUCCESS
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,
@@ -91,13 +108,14 @@ export const useQualityActions = () => {
                          is_read: false,
                          metadata: {
                              xp: finalXP,
-                             title: task?.title
+                             title: task?.title,
+                             bonus: manualBonus
                          }
                     }));
                     await supabase.from('notifications').insert(notifications);
                 }
 
-                showToast(`🎉 อนุมัติงาน "${task?.title}" เรียบร้อย!`, 'success');
+                showToast(`🎉 อนุมัติงาน "${task?.title}" เรียบร้อย! (+${finalXP} XP)`, 'success');
 
             } else {
                 if (!feedback?.trim()) {
@@ -116,7 +134,7 @@ export const useQualityActions = () => {
                     user_id: reviewerId
                 });
 
-                // NOTIFICATION: REVISE (With metadata for clarity)
+                // NOTIFICATION: REVISE
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,

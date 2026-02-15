@@ -8,23 +8,24 @@ interface CharacterManagerProps {
 }
 
 const CharacterManager: React.FC<CharacterManagerProps> = ({ onClose }) => {
-    const { characters, setCharacters } = useScriptContext();
+    // Use saveCharacters instead of setCharacters for persistent sync
+    const { characters, saveCharacters } = useScriptContext();
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleUpdateCharacter = (index: number, val: string) => {
         const newChars = [...characters];
         newChars[index] = val;
-        setCharacters(newChars);
+        saveCharacters(newChars);
     };
 
     const handleRemoveCharacter = (index: number) => {
         const newChars = [...characters];
         newChars.splice(index, 1);
-        setCharacters(newChars);
+        saveCharacters(newChars);
     };
 
     const handleAddCharacter = () => {
-        setCharacters([...characters, `ตัวละคร ${characters.length + 1}`]);
+        saveCharacters([...characters, `ตัวละคร ${characters.length + 1}`]);
         // Focus logic could go here
     };
 

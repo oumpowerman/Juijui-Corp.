@@ -269,6 +269,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
         return (
             <>
                 <ScriptEditor 
+                    key={activeScript.id} // FORCE REMOUNT ON SCRIPT CHANGE
                     script={activeScript} 
                     users={users}
                     channels={channels} // Pass channels

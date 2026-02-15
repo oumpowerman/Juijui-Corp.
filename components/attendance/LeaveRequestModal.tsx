@@ -1,18 +1,40 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FileText, Upload, AlertTriangle, Send, Loader2, Siren, HeartPulse, Palmtree, User, Clock, Briefcase, Moon, History } from 'lucide-react';
 import { LeaveType } from '../../types/attendance';
 import { differenceInDays, format } from 'date-fns';
+import { MasterOption } from '../../types';
 
 interface LeaveRequestModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
+    masterOptions?: MasterOption[]; // New prop
 }
 
-const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit }) => {
-    const [type, setType] = useState<LeaveType>('SICK');
+const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit, masterOptions = [] }) => {
+    // Dynamic Leave Types
+    const leaveTypes = useMemo(() => {
+        const types = masterOptions
+            .filter(o => o.type === 'LEAVE_TYPE' && o.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+            
+        // Fallback if no master data
+        if (types.length === 0) {
+            return [
+                { key: 'SICK', label: 'ลาป่วย', color: 'bg-red-50 text-red-700' },
+                { key: 'VACATION', label: 'พักร้อน', color: 'bg-blue-50 text-blue-700' },
+                { key: 'PERSONAL', label: 'ลากิจ', color: 'bg-gray-50 text-gray-700' },
+                { key: 'LATE_ENTRY', label: 'ขอเข้าสาย', color: 'bg-purple-50 text-purple-700' },
+                { key: 'EMERGENCY', label: 'ฉุกเฉิน', color: 'bg-orange-50 text-orange-700' },
+                { key: 'OVERTIME', label: 'แจ้ง OT', color: 'bg-indigo-50 text-indigo-700' }
+            ];
+        }
+        return types;
+    }, [masterOptions]);
+
+    const [type, setType] = useState<string>(leaveTypes[0]?.key || 'SICK');
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [reason, setReason] = useState('');
@@ -64,7 +86,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
         }
 
         const success = await onSubmit(
-            type, 
+            type as LeaveType, 
             new Date(startDate), 
             new Date(finalEndDate), 
             finalReason, 
@@ -75,29 +97,16 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
         if (success) onClose();
     };
 
-    const getTypeIcon = (t: LeaveType) => {
+    const getTypeIcon = (t: string) => {
         switch(t) {
-            case 'SICK': return <HeartPulse className="w-5 h-5 text-red-500" />;
-            case 'VACATION': return <Palmtree className="w-5 h-5 text-blue-500" />;
-            case 'EMERGENCY': return <Siren className="w-5 h-5 text-orange-500" />;
-            case 'LATE_ENTRY': return <Clock className="w-5 h-5 text-purple-500" />;
-            case 'OVERTIME': return <Moon className="w-5 h-5 text-indigo-500" />;
+            case 'SICK': return <HeartPulse className="w-5 h-5" />;
+            case 'VACATION': return <Palmtree className="w-5 h-5" />;
+            case 'EMERGENCY': return <Siren className="w-5 h-5" />;
+            case 'LATE_ENTRY': return <Clock className="w-5 h-5" />;
+            case 'OVERTIME': return <Moon className="w-5 h-5" />;
             case 'FORGOT_CHECKIN': 
-            case 'FORGOT_CHECKOUT': return <History className="w-5 h-5 text-slate-500" />;
-            default: return <User className="w-5 h-5 text-gray-500" />;
-        }
-    };
-
-    const getTypeLabel = (t: LeaveType) => {
-         switch(t) {
-            case 'SICK': return 'ลาป่วย';
-            case 'VACATION': return 'พักร้อน';
-            case 'EMERGENCY': return 'ฉุกเฉิน';
-            case 'LATE_ENTRY': return 'ขอเข้าสาย';
-            case 'OVERTIME': return 'แจ้ง OT';
-            case 'FORGOT_CHECKIN': return 'ลืมเช็คอิน';
-            case 'FORGOT_CHECKOUT': return 'ลืมเช็คออก';
-            default: return 'ลากิจ';
+            case 'FORGOT_CHECKOUT': return <History className="w-5 h-5" />;
+            default: return <User className="w-5 h-5" />;
         }
     };
 
@@ -116,26 +125,30 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
 
                 <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
                     
-                    {/* Type Selector */}
+                    {/* Type Selector (Dynamic) */}
                     <div>
                         <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">1. ประเภทคำขอ</label>
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {(['SICK', 'VACATION', 'PERSONAL', 'LATE_ENTRY', 'EMERGENCY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'] as LeaveType[]).map(t => (
+                            {leaveTypes.map(item => (
                                 <button
-                                    key={t}
+                                    key={item.key}
                                     type="button"
-                                    onClick={() => setType(t)}
+                                    onClick={() => setType(item.key)}
                                     className={`
                                         flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all min-h-[70px] justify-center
-                                        ${type === t 
+                                        ${type === item.key 
                                             ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200' 
                                             : 'border-gray-100 bg-white hover:border-gray-300'
                                         }
                                     `}
                                 >
-                                    <div className="p-1.5 bg-white rounded-full shadow-sm">{getTypeIcon(t)}</div>
-                                    <span className={`text-[10px] font-bold text-center leading-tight ${type === t ? 'text-indigo-700' : 'text-gray-600'}`}>
-                                        {getTypeLabel(t)}
+                                    <div className={`p-1.5 rounded-full shadow-sm ${type === item.key ? 'bg-white' : 'bg-gray-50'}`}>
+                                        <span className={type === item.key ? 'text-indigo-600' : 'text-gray-400'}>
+                                            {getTypeIcon(item.key)}
+                                        </span>
+                                    </div>
+                                    <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${type === item.key ? 'text-indigo-700' : 'text-gray-600'}`}>
+                                        {item.label}
                                     </span>
                                 </button>
                             ))}

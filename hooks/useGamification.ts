@@ -41,11 +41,9 @@ export const useGamification = (currentUser?: any) => {
             const newLevel = calculateLevel(newXp, config);
             const isLevelUp = newLevel > user.level;
             
-            // LEVEL UP BONUS Logic
-            let bonusCoins = 0;
-            if (isLevelUp) {
-                bonusCoins = 500; // Give 500 coins per level
-            }
+            // LEVEL UP BONUS Logic (Use Config)
+            const levelUpBonus = config.LEVELING_SYSTEM?.level_up_bonus_coins ?? 500;
+            const bonusCoins = isLevelUp ? levelUpBonus : 0;
 
             const newCoins = Math.max(0, user.available_points + result.coins + bonusCoins);
 
@@ -244,9 +242,13 @@ export const useGamification = (currentUser?: any) => {
                      return;
                  }
 
-                 // 2. Refund
-                 const refundHP = Math.abs(lastPenalty.hp_change);
-                 const refundCoin = Math.abs(lastPenalty.jp_change || 0);
+                 // 2. Refund (Dynamic Calc)
+                 const refundCap = config.ITEM_MECHANICS?.time_warp_refund_cap_hp || 20;
+                 const refundPct = config.ITEM_MECHANICS?.time_warp_refund_percent || 100;
+                 
+                 const originalHP = Math.abs(lastPenalty.hp_change);
+                 const refundHP = Math.min(originalHP * (refundPct/100), refundCap);
+                 const refundCoin = Math.abs(lastPenalty.jp_change || 0); // Refunds coin too? Usually yes if fined
 
                  // 3. Update User Profile
                  const { data: user } = await supabase.from('profiles').select('hp, max_hp, available_points').eq('id', currentUser.id).single();

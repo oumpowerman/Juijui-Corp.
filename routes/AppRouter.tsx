@@ -11,6 +11,7 @@ import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useChatUnread } from '../hooks/useChatUnread';
 import { useAutoJudge } from '../hooks/useAutoJudge'; 
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
+import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
 import { Loader2, Search } from 'lucide-react';
 
 // --- LAZY LOAD PAGES ---
@@ -118,6 +119,9 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // --- DETECT LOCK NOTIFICATION ---
+  const lockNotification = notifications.find(n => n.type === 'SYSTEM_LOCK_PENALTY' && !n.isRead);
+
   const handleToggleNotification = () => {
       // Changed: Do NOT mark as viewed immediately upon opening
       // Let the user read it first. Marking happens on Close or explicit 'Read All'
@@ -128,6 +132,12 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   const handleCloseNotification = () => {
       setIsNotificationOpen(false);
       markAsViewed(); // Mark read when closing
+  };
+  
+  // Handler for Lock Modal Acknowledge
+  const handleAcknowledgeLock = async (notifId: string) => {
+      await dismissNotification(notifId); // Remove/Mark Read
+      // Trigger refresh if needed, usually handled by realtime
   };
 
   const handleForceLogout = async () => {
@@ -387,6 +397,12 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
         </button>
 
         {renderContent()}
+        
+        {/* --- SPECIAL LOCK MODAL --- */}
+        <NegligenceLockModal 
+            notification={lockNotification} 
+            onAcknowledge={handleAcknowledgeLock} 
+        />
 
         {/* --- GLOBAL MODALS --- */}
         <Suspense fallback={null}>

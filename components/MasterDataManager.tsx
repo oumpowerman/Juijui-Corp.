@@ -17,9 +17,9 @@ import AttendanceRulesView from './admin/master/views/AttendanceRulesView';
 import InventoryMasterView from './admin/master/views/InventoryMasterView';
 import PositionMasterView from './admin/master/views/PositionMasterView';
 import LocationMasterView from './admin/master/views/LocationMasterView'; 
-import GameConfigManager from './admin/GameConfigManager'; 
+import GameConfigTuner from './admin/GameConfigTuner'; // Updated Import
 import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
-import PayrollRulesView from './admin/master/views/PayrollRulesView'; // New Import
+import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -123,7 +123,7 @@ const MasterDataManager: React.FC = () => {
                         {activeTab === 'MAINTENANCE' ? (
                             <MaintenancePanel />
                         ) : activeTab === 'GAME_TUNING' ? (
-                            <GameConfigManager />
+                            <GameConfigTuner />
                         ) : activeTab === 'PAYROLL_RULES' ? (
                             <PayrollRulesView 
                                 masterOptions={masterOptions}

@@ -54,11 +54,43 @@ export const DEFAULT_GAME_CONFIG = {
         B: { xp: 500, coins: 200 },
         C: { xp: 200, coins: 50 },
         D: { xp: 0, coins: 0 }
-    }
+    },
+
+    // New Dynamic Configs
+    LEVELING_SYSTEM: {
+        formula: "LINEAR",
+        base_xp_per_level: 1000,
+        max_level: 100,
+        level_up_bonus_coins: 500
+    },
+    ITEM_MECHANICS: {
+        time_warp_refund_cap_hp: 20,
+        time_warp_refund_percent: 100,
+        shop_tax_rate: 0
+    },
+    AUTO_JUDGE_CONFIG: {
+        negligence_penalty_hp: 20,
+        lookback_days_check: 60,
+        allow_holiday_penalty: false,
+        negligence_threshold_days: 1
+    },
+    SYSTEM_MAINTENANCE: {
+        duty_cleanup_days: 180,
+        logs_cleanup_days: 365,
+        notification_cleanup_days: 30
+    },
+    ATTENDANCE_GRADING_RULES: [
+        { grade: "A+", max_late: 0, color: "bg-green-100 text-green-700", label: "Excellent" },
+        { grade: "A", max_late: 1, color: "bg-emerald-100 text-emerald-700", label: "Good" },
+        { grade: "B", max_late: 2, color: "bg-blue-100 text-blue-700", label: "Fair" },
+        { grade: "C", max_late: 4, color: "bg-yellow-100 text-yellow-700", label: "Warning" },
+        { grade: "F", max_late: 999, color: "bg-red-100 text-red-700", label: "Critical" }
+    ]
 };
 
 export const calculateLevel = (xp: number, config: any = DEFAULT_GAME_CONFIG): number => {
-    const base = config.GLOBAL_MULTIPLIERS?.BASE_XP_PER_LEVEL || 1000;
+    // Prefer LEVELING_SYSTEM, fallback to GLOBAL_MULTIPLIERS, then default
+    const base = config.LEVELING_SYSTEM?.base_xp_per_level || config.GLOBAL_MULTIPLIERS?.BASE_XP_PER_LEVEL || 1000;
     return Math.floor(xp / base) + 1;
 };
 
@@ -146,12 +178,18 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         case 'DUTY_MISSED': {
             // Update: Show Date in Message
             const dateStr = context.date ? ` (ประจำวันที่ ${format(new Date(context.date), 'd MMM')})` : '';
-            const penalty = penalties.HP_PENALTY_MISSED_DUTY || 10;
+            
+            // FIX: Prioritize customPenalty (from AutoJudge Negligence Protocol)
+            const penalty = context.customPenalty ? Math.abs(context.customPenalty) : (penalties.HP_PENALTY_MISSED_DUTY || 10);
+            
+            // FIX: Use custom description if provided (e.g. "เพิกเฉยต่อหน้าที่")
+            const message = context.description || `ลืมทำเวร!${dateStr} ระวังหลังเดาะนะ`;
+
             return {
                 xp: 0,
                 hp: -penalty,
                 coins: 0,
-                message: `ลืมทำเวร!${dateStr} ระวังหลังเดาะนะ`,
+                message: message,
                 details: `-${penalty} HP`
             };
         }

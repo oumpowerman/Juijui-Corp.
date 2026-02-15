@@ -57,6 +57,8 @@ const EditorToolbar: React.FC = () => {
     const textContent = content.replace(/<[^>]*>?/gm, '');
     const estimatedSeconds = Math.ceil(textContent.length / 12); 
     const formattedDuration = `${Math.floor(estimatedSeconds / 60)}m ${estimatedSeconds % 60}s`;
+    
+    // Find Owner for Print logic
     const owner = users.find(u => u.id === ideaOwnerId);
     
     const magicLink = shareToken ? `${window.location.origin}/s/${shareToken}` : '';
@@ -75,6 +77,46 @@ const EditorToolbar: React.FC = () => {
     };
 
     const handlePrint = () => {
+        // Smart Printing Engine
+        let printBody = '';
+
+        if (scriptType === 'DIALOGUE') {
+             // Simple HTML Parser for Dialogue
+             const parser = new DOMParser();
+             const doc = parser.parseFromString(content, 'text/html');
+             const paragraphs = doc.querySelectorAll('p');
+             
+             let formattedHtml = '';
+             
+             paragraphs.forEach(p => {
+                 const text = p.innerText;
+                 // Match "Name:" or "Name :" at start
+                 const match = text.match(/^(.+?):\s*(.*)/);
+                 
+                 if (match) {
+                     // Dialogue Block
+                     const char = match[1].trim().toUpperCase();
+                     const speech = match[2].trim();
+                     formattedHtml += `
+                        <div class="dialogue-block">
+                            <div class="character">${char}</div>
+                            <div class="speech">${speech}</div>
+                        </div>
+                     `;
+                 } else if (text.trim().startsWith('[') && text.trim().endsWith(']')) {
+                     // Narrator / Instruction Block
+                     formattedHtml += `<div class="action font-bold">${text}</div>`;
+                 } else if (text.trim()) {
+                     // Action / General Text Block
+                     formattedHtml += `<div class="action">${p.innerHTML}</div>`;
+                 }
+             });
+             printBody = formattedHtml || content; // Fallback to content if parsing yields empty
+        } else {
+            // Monologue: Standard document format
+            printBody = `<div class="monologue">${content}</div>`;
+        }
+
         const printWindow = window.open('', '_blank');
         if (printWindow) {
             printWindow.document.write(`
@@ -82,21 +124,64 @@ const EditorToolbar: React.FC = () => {
                 <html>
                 <head>
                     <title>${title} - Juijui Script</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
                     <style>
-                        @page { margin: 2cm; size: A4; }
-                        body { font-family: 'Sarabun', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #000; font-size: 14pt; }
-                        h1.script-title { text-align: center; font-size: 24px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-                        .meta { font-size: 12px; color: #666; margin-bottom: 30px; text-align: center; border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
-                        ul { list-style-type: disc; padding-left: 20px; }
-                        ol { list-style-type: decimal; padding-left: 20px; }
+                        @page { margin: 2.5cm; size: A4; }
+                        body { 
+                            font-family: 'Courier Prime', 'Sarabun', monospace; 
+                            line-height: 1.2; 
+                            color: #000; 
+                            max-width: 210mm;
+                            margin: 0 auto;
+                            -webkit-print-color-adjust: exact;
+                        }
+                        .header { text-align: center; margin-bottom: 50px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+                        .title { font-size: 24pt; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-bottom: 10px; }
+                        .meta { font-size: 10pt; color: #444; font-family: 'Sarabun', sans-serif; }
+                        
+                        /* Screenplay Standard Formatting */
+                        .action {
+                            text-align: left;
+                            width: 100%;
+                            margin-bottom: 1em;
+                        }
+                        .dialogue-block {
+                            display: table;
+                            margin: 0 auto 1.5em auto;
+                            width: 70%; /* Center block */
+                        }
+                        .character {
+                            text-align: center;
+                            font-weight: bold;
+                            margin-bottom: 0.2em;
+                            text-transform: uppercase;
+                        }
+                        .speech {
+                            text-align: left;
+                        }
+                        .font-bold { font-weight: bold; }
+                        
+                        /* Monologue */
+                        .monologue p { margin-bottom: 1em; text-indent: 2em; line-height: 1.6; font-family: 'Sarabun', sans-serif; }
+                        .monologue h1, .monologue h2, .monologue h3 { text-align: center; margin-top: 1.5em; }
                     </style>
-                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                 </head>
                 <body>
-                    <h1 class="script-title">${title}</h1>
-                    <div class="meta">OWNER: ${owner?.name || 'Unknown'} | EST: ${formattedDuration} | STATUS: ${status}</div>
-                    <div class="content">${content}</div>
-                    <script>window.onload = function() { window.print(); }</script>
+                    <div class="header">
+                        <div class="title">${title}</div>
+                        <div class="meta">
+                            Written by: ${owner?.name || 'Unknown'}<br/>
+                            Date: ${new Date().toLocaleDateString()}<br/>
+                            Type: ${scriptType}<br/>
+                            Est. Duration: ${formattedDuration}
+                        </div>
+                    </div>
+                    <div class="script-body">
+                        ${printBody}
+                    </div>
+                    <script>
+                        window.onload = function() { window.print(); }
+                    </script>
                 </body>
                 </html>
             `);
@@ -360,7 +445,7 @@ const EditorToolbar: React.FC = () => {
                         )}
                     </div>
 
-                    <button onClick={handlePrint} className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 shrink-0" title="Print">
+                    <button onClick={handlePrint} className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 shrink-0" title="Print Script">
                         <Printer className="w-4 h-4" />
                     </button>
                 </div>

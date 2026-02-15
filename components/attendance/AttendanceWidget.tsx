@@ -132,6 +132,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 isOpen={isLeaveModalOpen}
                 onClose={() => setIsLeaveModalOpen(false)}
                 onSubmit={handleLeaveSubmit}
+                masterOptions={masterOptions} // PASS MASTER DATA
             />
         </div>
     );

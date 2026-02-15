@@ -84,6 +84,12 @@ export const useAutoJudge = (currentUser: User | null) => {
             const today = new Date();
             const todayStr = format(today, 'yyyy-MM-dd');
 
+            // --- CONFIG VALUES ---
+            // Fallback to default if not set in DB config
+            const negligencePenalty = config?.AUTO_JUDGE_CONFIG?.negligence_penalty_hp || 20;
+            const lookbackDays = config?.AUTO_JUDGE_CONFIG?.lookback_days_check || 60;
+            const negligenceThreshold = config?.AUTO_JUDGE_CONFIG?.negligence_threshold_days || 1;
+
             // =========================================================
             // 1. PRELOAD DATA (โหลดข้อมูลที่จำเป็นครั้งเดียว)
             // =========================================================
@@ -103,7 +109,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .eq('status', 'APPROVED')
-                .gte('end_date', format(addDays(today, -60), 'yyyy-MM-dd')); // ดูย้อนหลัง 60 วัน
+                .gte('end_date', format(addDays(today, -lookbackDays), 'yyyy-MM-dd')); // ดูย้อนหลังตาม Config
 
             // ฟังก์ชันเช็คว่าผู้ใช้อยู่ระหว่างลาหรือไม่ในวันที่ระบุ
             const isUserOnLeave = (dateStr: string) => {
@@ -130,15 +136,61 @@ export const useAutoJudge = (currentUser: User | null) => {
                 .lt('date', todayStr) // เวรที่ผ่านมาแล้ว
                 .eq('is_done', false) // ยังไม่เสร็จ
                 // กรองสถานะที่จัดการไปแล้วออก
-                .neq('penalty_status', 'ABANDONED') 
                 .neq('penalty_status', 'ACCEPTED_FAULT')
                 .neq('penalty_status', 'LATE_COMPLETED')
-                .neq('penalty_status', 'EXCUSED');
+                .neq('penalty_status', 'EXCUSED')
+                // IMPORTANT: We need to process ABANDONED ones for Negligence Check, but not re-process them for initial penalty
+                // So we'll filter carefully inside the loop
+                ;
 
             if (!dutyError && missedDuties && missedDuties.length > 0) {
+                // Check if user has a NEW duty today (to trigger Negligence Protocol)
+                const { data: todayDuty } = await supabase
+                    .from('duties')
+                    .select('id')
+                    .eq('assignee_id', currentUser.id)
+                    .eq('date', todayStr)
+                    .maybeSingle();
+                
+                const hasNewDutyToday = !!todayDuty;
+
                 for (const duty of missedDuties) {
                     const dutyDateStr = duty.date; 
                     const dutyDate = new Date(dutyDateStr);
+
+                    // --- NEGLIGENCE PROTOCOL: CLEAR ABANDONED DUTIES ---
+                    // If user has an ABANDONED duty that hasn't been cleared, AND a new duty arrives today
+                    if (duty.penalty_status === 'ABANDONED' && !duty.cleared_by_system) {
+                         if (hasNewDutyToday) {
+                             console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
+                             
+                             // 1. Penalize (Heavy) - Use Config Value
+                             await processAction(currentUser.id, 'DUTY_MISSED', { 
+                                 ...duty, 
+                                 reason: 'NEGLIGENCE_PROTOCOL', 
+                                 customPenalty: negligencePenalty,
+                                 description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
+                             });
+
+                             // 2. Clear Duty
+                             await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+
+                             // 3. Trigger Lock Screen (via Notification)
+                             await supabase.from('notifications').insert({
+                                 user_id: currentUser.id,
+                                 type: 'SYSTEM_LOCK_PENALTY', // Special Type
+                                 title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
+                                 message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
+                                 is_read: false,
+                                 link_path: 'DUTY',
+                                 metadata: { hp: -negligencePenalty }
+                             });
+                         }
+                         continue; // Skip standard processing for abandoned duties
+                    }
+
+                    // --- STANDARD PROCESSING (If not yet abandoned) ---
+                    if (duty.penalty_status === 'ABANDONED') continue; // Already processed as abandoned (but not cleared yet)
 
                     // ถ้าวันที่ต้องทำเวร เป็นวันหยุด -> ยกประโยชน์ให้ (Excused)
                     if (isHolidayOrException(dutyDate, holidays, exceptions)) {
@@ -163,11 +215,16 @@ export const useAutoJudge = (currentUser: User | null) => {
                             await supabase.from('duties').update({ penalty_status: 'AWAITING_TRIBUNAL' }).eq('id', duty.id);
                         }
                     } 
-                    else if (workingDaysLate >= 1) {
-                        // เลยกำหนดเกิน 1 วันทำการ -> ตัดสินว่า "ละเลยหน้าที่" (ABANDONED)
+                    else if (workingDaysLate >= negligenceThreshold) {
+                        // เลยกำหนดเกิน Threshold (ตาม Config) -> ตัดสินว่า "ละเลยหน้าที่" (ABANDONED)
                         if (duty.penalty_status !== 'ABANDONED') {
-                             await supabase.from('duties').update({ is_penalized: true, penalty_status: 'ABANDONED' }).eq('id', duty.id);
-                            // เรียก Action เพื่อหักคะแนน
+                             await supabase.from('duties').update({ 
+                                 is_penalized: true, 
+                                 penalty_status: 'ABANDONED',
+                                 abandoned_at: new Date().toISOString() // Mark time of abandonment
+                             }).eq('id', duty.id);
+                            
+                            // เรียก Action เพื่อหักคะแนน (Initial Abandon Penalty)
                             await processAction(currentUser.id, 'DUTY_MISSED', { ...duty, reason: 'ABANDONED_DUTY' });
                         }
                     }

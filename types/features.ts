@@ -1,3 +1,4 @@
+
 import { User, ViewMode } from './core';
 import { TaskAsset, FilterType } from './task';
 
@@ -146,6 +147,7 @@ export interface ChecklistPreset {
 
 export type AssetCondition = 'GOOD' | 'REPAIR' | 'DAMAGED' | 'LOST' | 'WRITE_OFF';
 export type AssetGroup = 'PRODUCTION' | 'OFFICE' | 'IT';
+export type InventoryType = 'FIXED' | 'CONSUMABLE'; // NEW TYPE
 
 export interface InventoryItem {
     id: string;
@@ -154,7 +156,10 @@ export interface InventoryItem {
     categoryId: string;
     imageUrl?: string;
     
-    // Extended Asset Registry Fields
+    // Type Distinction
+    itemType: InventoryType;
+
+    // Extended Asset Registry Fields (For Fixed Assets)
     purchasePrice?: number;
     purchaseDate?: Date;
     serialNumber?: string;
@@ -163,6 +168,15 @@ export interface InventoryItem {
     currentHolderId?: string;
     assetGroup?: AssetGroup;
     
+    // New Fields for Supplies (Consumables)
+    quantity: number;
+    unit?: string;
+    minThreshold?: number;
+    maxCapacity?: number;
+    
+    // New Field for Tagging
+    tags?: string[];
+
     // Joined Fields
     holder?: { name: string; avatarUrl: string };
 }
@@ -223,7 +237,11 @@ export interface Duty {
     isPenalized?: boolean; 
     penaltyStatus?: PenaltyStatus;
     appealReason?: string;
-    appealProofUrl?: string; 
+    appealProofUrl?: string;
+    
+    // New fields for Negligence Protocol
+    abandonedAt?: Date; 
+    clearedBySystem?: boolean;
 }
 
 export interface DutyConfig {
@@ -273,7 +291,7 @@ export interface NotificationPreferences {
 
 export interface AppNotification {
     id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY';
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY' | 'SYSTEM_LOCK_PENALTY'; // Added SYSTEM_LOCK_PENALTY
     title: string;
     message: string;
     taskId?: string;

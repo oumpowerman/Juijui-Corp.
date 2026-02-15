@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment } from '../../../types';
 import { supabase } from '../../../lib/supabase';
@@ -19,6 +20,7 @@ interface ScriptContextType {
     setScriptType: (val: ScriptType) => void;
     characters: string[];
     setCharacters: (val: string[]) => void;
+    saveCharacters: (chars: string[]) => Promise<void>; // NEW
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
     
@@ -199,7 +201,21 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
          }, 100);
     };
 
-    // --- NEW LOGIC: EDITOR CLEANUP ---
+    // --- NEW LOGIC: Character Sync ---
+    const saveCharacters = async (newChars: string[]) => {
+        setCharacters(newChars); // Optimistic update
+        try {
+            const { error } = await supabase
+                .from('scripts')
+                .update({ characters: newChars })
+                .eq('id', script.id);
+            if (error) throw error;
+        } catch (err: any) {
+            console.error("Failed to save characters", err);
+            showToast('บันทึกตัวละครไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
     const removeMarkById = (highlightId: string) => {
         if (!editorInstance) return;
         editorInstance.chain().command(({ tr }) => {
@@ -404,7 +420,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             status, setStatus,
             changeStatus, 
             scriptType, setScriptType,
-            characters, setCharacters,
+            characters, setCharacters, saveCharacters, // EXPORTED
             ideaOwnerId, setIdeaOwnerId,
             contentId, channelId, setChannelId,
             category, setCategory,

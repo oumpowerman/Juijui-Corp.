@@ -99,6 +99,36 @@ export const useGoals = (currentUser: User) => {
         }
     };
 
+    // NEW: Full Update Function
+    const updateGoal = async (goal: Goal) => {
+        try {
+            const payload = {
+                title: goal.title,
+                platform: goal.platform,
+                current_value: goal.currentValue,
+                target_value: goal.targetValue,
+                deadline: goal.deadline.toISOString(),
+                channel_id: goal.channelId || null,
+                reward_xp: goal.rewardXp,
+                reward_coin: goal.rewardCoin
+            };
+
+            const { error } = await supabase
+                .from('goals')
+                .update(payload)
+                .eq('id', goal.id);
+
+            if (error) throw error;
+
+            // Optimistic Update
+            setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
+            showToast('แก้ไขเป้าหมายเรียบร้อย ✨', 'success');
+        } catch (err: any) {
+            console.error(err);
+            showToast('แก้ไขไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
     const updateGoalValue = async (id: string, currentValue: number) => {
         try {
             setGoals(prev => prev.map(g => g.id === id ? { ...g, currentValue } : g));
@@ -151,6 +181,7 @@ export const useGoals = (currentUser: User) => {
         goals,
         isLoading,
         addGoal,
+        updateGoal, // Exported
         updateGoalValue,
         deleteGoal,
         toggleOwner,

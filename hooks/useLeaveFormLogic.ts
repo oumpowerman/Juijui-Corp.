@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { LeaveType } from '../../../../types/attendance';
+import { LeaveType } from '../../../types/attendance';
 
 interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;

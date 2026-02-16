@@ -5,10 +5,11 @@ import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests'; // New Import
 import { User, MasterOption, ViewMode } from '../../../types';
 import { WorkLocation, LeaveType } from '../../../types/attendance'; // Import Types
-import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame } from 'lucide-react';
+import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
 import CheckInModal from '../../attendance/CheckInModal';
 import LeaveRequestModal from '../../attendance/LeaveRequestModal'; // New Import
+import StatusCard from '../../../components/attendance/widget/StatusCard';
 
 interface SmartAttendanceProps {
     user: User;
@@ -17,7 +18,7 @@ interface SmartAttendanceProps {
 }
 
 const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, onNavigate }) => {
-    const { todayLog, isLoading, checkIn, checkOut, stats } = useAttendance(user.id);
+    const { todayLog, isLoading, checkIn, checkOut, stats, refresh } = useAttendance(user.id);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
     const { submitRequest, leaveUsage } = useLeaveRequests(user); // New Hook
     
@@ -27,7 +28,9 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
 
     // Live Clock
     useEffect(() => {
-        const timer = setInterval(() => setTime(new Date()), 1000);
+        const timer = setInterval(() => {
+            setTime(new Date()), 1000;
+        });
         return () => clearInterval(timer);
     }, []);
 
@@ -70,8 +73,6 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
-        // Note: locationName is now stored in its own column, so we don't necessarily need to put it in the note text unless preferred.
-        // We pass undefined for 'note' parameter unless we want to add extra text.
         const note = undefined;
         
         // Google Drive Uploader Wrapper
@@ -94,15 +95,48 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
 
     // Handler: Leave Request
     const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        return await submitRequest(type, start, end, reason, file);
+        const result = await submitRequest(type, start, end, reason, file);
+        if (result) {
+            refresh(); // Refresh attendance state immediately to show updates
+        }
+        return result;
     };
 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
 
     const isCheckedIn = !!todayLog;
     const isCheckedOut = !!todayLog?.checkOutTime;
+    
+    // Safety check for Leave logs that have no time
+    const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
 
     // --- RENDER STATES ---
+
+    // 0. ON LEAVE / WFH (Approved without Time)
+    if (isLeaveLog) {
+        return (
+            <div className="bg-blue-50/50 border border-blue-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between shadow-sm relative overflow-hidden w-full">
+                <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-inner">
+                        <Briefcase className="w-7 h-7" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-black text-blue-800 flex items-center gap-2">
+                            อนุมัติแล้ว (On Leave/WFH)
+                        </h3>
+                        <p className="text-sm text-blue-600 mt-0.5 font-medium">
+                            {todayLog?.note ? todayLog.note.replace(/\[.*?\]/g, '').trim() : 'ได้รับอนุญาตวันนี้'}
+                        </p>
+                    </div>
+                </div>
+                <div className="mt-4 md:mt-0 relative z-10">
+                    <span className="px-4 py-2 bg-white text-blue-600 rounded-xl text-xs font-bold border border-blue-100 shadow-sm">
+                        ไม่ต้องลงเวลา
+                    </span>
+                </div>
+            </div>
+        );
+    }
 
     // 1. FINISHED WORK (Pastel Green)
     if (isCheckedOut) {
@@ -131,14 +165,14 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                     <div className="text-right">
                         <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide mb-0.5">เข้างาน</p>
                         <p className="text-sm font-bold text-emerald-700 font-mono bg-white/50 px-2 py-1 rounded-lg">
-                            {format(todayLog.checkInTime!, 'HH:mm')}
+                            {todayLog?.checkInTime ? format(todayLog.checkInTime, 'HH:mm') : '--:--'}
                         </p>
                     </div>
                     <div className="h-8 w-px bg-emerald-200"></div>
                     <div className="text-right">
                         <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide mb-0.5">ออกงาน</p>
                         <p className="text-xl font-black text-emerald-700 font-mono bg-white/80 px-3 py-1 rounded-xl shadow-sm">
-                            {format(todayLog.checkOutTime!, 'HH:mm')}
+                            {todayLog?.checkOutTime ? format(todayLog.checkOutTime, 'HH:mm') : '--:--'}
                         </p>
                     </div>
                 </div>
@@ -168,7 +202,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                         </div>
                         <div>
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
-                                Check-in at {format(todayLog.checkInTime!, 'HH:mm')}
+                                Check-in at {todayLog?.checkInTime ? format(todayLog.checkInTime, 'HH:mm') : '--:--'}
                             </p>
                             <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                 กำลังทำงาน 👨‍💻
@@ -244,8 +278,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 </div>
             </div>
             
-            {/* Modals are hidden here to keep dashboard clean, logic delegates to Attendance View generally */}
-            {/* But since we imported them, we can use them if we want direct action */}
+            {/* Modals */}
             <CheckInModal 
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
@@ -262,6 +295,25 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 onSubmit={handleLeaveSubmit}
                 masterOptions={masterOptions}
                 leaveUsage={leaveUsage} // PASS QUOTA
+            />
+            
+            {/* Status Card is used internally by AttendanceWidget usually, but we expose it here if needed for direct embedding.
+                In this case, SmartAttendance is the widget wrapper. StatusCard is rendered via SmartAttendance.
+                We need to pass onNavigateToHistory here.
+            */}
+             <StatusCard 
+                user={user}
+                todayLog={todayLog}
+                stats={stats}
+                todayPendingLeave={null} // Simplified for this view, or pass if needed
+                onCheckOut={checkOut}
+                onCheckOutRequest={handleLeaveSubmit}
+                onOpenCheckIn={() => setIsCheckInModalOpen(true)}
+                onOpenLeave={() => setIsLeaveModalOpen(true)}
+                isDriveReady={isDriveReady}
+                onRefresh={refresh}
+                availableLocations={availableLocations}
+                onNavigateToHistory={() => onNavigate('ATTENDANCE')}
             />
         </div>
     );

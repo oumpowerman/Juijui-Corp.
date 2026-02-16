@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
@@ -19,12 +20,13 @@ interface CheckInModalProps {
     startTime?: string;
     lateBuffer?: number;
     onSwitchToLeave?: () => void;
+    approvedWFH?: boolean; // NEW PROP
 }
 
 type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
-    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH 
 }) => {
     const [step, setStep] = useState<Step>('LOCATION');
     
@@ -55,6 +57,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             setChallenge(getRandomPose());
             setCapturedFile(null);
             setShowLateIntervention(false);
+            
+            // If WFH is approved, we can pre-set type or just handle it in steps
+            // We still check location to record it, but UI will change
             checkLocation();
         }
     }, [isOpen]);
@@ -100,11 +105,17 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     };
 
     const handleTypeSelect = (type: WorkLocation) => {
-        const isNearAnyOffice = !!locationState.matchedLocation;
-        if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS') {
-            alert(`คุณไม่ได้อยู่ในพื้นที่ออฟฟิศครับ (ห่าง ${locationState.distance?.toFixed(0)} ม.)`);
-            return;
+        // If approved WFH, allow skipping location check for WFH type
+        if (type === 'WFH' && approvedWFH) {
+             // Allowed by approval
+        } else {
+             const isNearAnyOffice = !!locationState.matchedLocation;
+             if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS') {
+                alert(`คุณไม่ได้อยู่ในพื้นที่ออฟฟิศครับ (ห่าง ${locationState.distance?.toFixed(0)} ม.)`);
+                return;
+            }
         }
+
         setSelectedType(type);
         setStep('CAMERA');
     };
@@ -138,8 +149,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             // COMPRESSION LOGIC
             const compressedFile = await compressImage(capturedFile);
             
-            // Pass Location Name if available, otherwise just coords
-            const locName = locationState.matchedLocation ? locationState.matchedLocation.name : (selectedType === 'WFH' ? 'WFH' : 'On Site');
+            // Pass Location Name
+            let locName = locationState.matchedLocation ? locationState.matchedLocation.name : 'On Site';
+            if (selectedType === 'WFH') locName = 'Home (WFH)';
             
             await onConfirm(selectedType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
             onClose();
@@ -213,6 +225,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                 lng={locationState.lng} 
                                 matchedLocation={locationState.matchedLocation}
                                 onRetry={checkLocation}
+                                approvedWFH={approvedWFH} // Display "WFH Approved" badge
                             />
                         </div>
                     )}
@@ -221,6 +234,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                         <WorkTypeStep 
                             matchedLocation={locationState.matchedLocation} 
                             onSelect={handleTypeSelect} 
+                            approvedWFH={approvedWFH} // Enable WFH button even if location is off
                         />
                     )}
 

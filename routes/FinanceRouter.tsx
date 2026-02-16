@@ -42,7 +42,8 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
         refreshAll, 
         addTransaction, deleteTransaction,
         pagination,
-        isLoading
+        isLoading,
+        potentialTrips // Use potentialTrips for badge
     } = useFinance(currentUser);
     
     const { masterOptions } = useMasterData();
@@ -99,6 +100,9 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
         setActivePayrollCycle(cycle);
         await fetchSlips(cycle.id);
     };
+
+    // If Member (not Senior HR), auto-open their slip if they click a cycle in "WAITING_REVIEW" or "PAID"
+    // Or we provide a button "View My Slip"
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -189,9 +193,15 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                         </button>
                         <button 
                             onClick={() => setCurrentTab('TRIPS')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRIPS' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`relative px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRIPS' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <MapPin className="w-4 h-4" /> จัดการออกกอง
+                            {/* Notification Badge */}
+                            {potentialTrips.length > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white ring-2 ring-white">
+                                    {potentialTrips.length}
+                                </span>
+                            )}
                         </button>
                         <button 
                             onClick={() => setCurrentTab('SALARY')}

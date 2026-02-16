@@ -1,15 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AttendanceLog, LeaveType, LocationDef, AttendanceStats, LeaveRequest } from '../../../types/attendance';
 import { User } from '../../../types';
-import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Hourglass, AlertTriangle, AlertCircle, ShieldCheck, ArrowRight, Palmtree } from 'lucide-react';
+import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Hourglass, AlertTriangle, AlertCircle, ShieldCheck, ArrowRight, Palmtree, ArrowUpRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import th from 'date-fns/locale/th';
 import LeaveRequestModal from '../LeaveRequestModal';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext'; // NEW IMPORT
 import { CheckOutModal } from '../CheckOutModal';
+import { useAttendance } from '../../../hooks/useAttendance'; 
 
 interface StatusCardProps {
     user: User;
@@ -17,17 +19,21 @@ interface StatusCardProps {
     stats: AttendanceStats;
     todayPendingLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
-    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; // ADDED
+    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; 
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
     onRefresh?: () => void;
     availableLocations: LocationDef[];
+    onNavigateToHistory?: () => void; 
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, stats, todayPendingLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations
+    user, todayLog, stats, todayPendingLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory
 }) => {
+    const { actionRequiredLog } = useAttendance(user.id);
+    const { showAlert } = useGlobalDialog(); // Hook usage
+    
     const isCheckedOut = !!todayLog?.checkOutTime;
     const isCheckedIn = !!todayLog;
     const { showToast } = useToast();
@@ -78,7 +84,27 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 return false;
             }
         } else {
-            return await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
+            // Standard User Flow: Request + Instant Feedback
+            const success = await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
+            
+            if (success) {
+                setIsRecoveryModalOpen(false); // Close Modal immediately
+                
+                // Show Reassuring Dialog
+                await showAlert(
+                    'ระบบได้รับข้อมูลเวลาออกงานของคุณแล้ว สถานะของวันนี้จะเปลี่ยนเป็น "รอตรวจสอบ (Pending)" กรุณารอ Admin อนุมัติครับ',
+                    'ส่งคำขอเรียบร้อยแล้ว! ✅'
+                );
+
+                // Refresh Data to update UI state
+                if (onRefresh) onRefresh();
+
+                // Navigate to History to see the pending status
+                if (onNavigateToHistory) {
+                    onNavigateToHistory();
+                }
+            }
+            return success;
         }
     };
 
@@ -136,7 +162,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         );
     }
 
-    // State 1: Forgot Check-out
+    // State 1: Forgot Check-out (Blocking) - STILL BLOCKS UNTIL RESOLVED
     if (isSessionOutdated) {
         return (
             <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5 relative z-10 animate-in slide-in-from-bottom-2">
@@ -167,6 +193,9 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onClose={() => setIsRecoveryModalOpen(false)}
                     onSubmit={handleRecoverySubmit}
                     leaveUsage={leaveUsage}
+                    // NEW: Pass fixed props for recovery flow
+                    fixedType="FORGOT_CHECKOUT"
+                    initialDate={new Date(todayLog!.date)}
                 />
             </div>
         );
@@ -180,11 +209,11 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 <div className="flex justify-center gap-4 mt-2 text-xs text-green-600">
                     <div>
                         <span className="block opacity-70">เข้างาน</span>
-                        <span className="font-mono font-bold">{format(todayLog!.checkInTime!, 'HH:mm')}</span>
+                        <span className="font-mono font-bold">{todayLog?.checkInTime ? format(todayLog.checkInTime, 'HH:mm') : '--:--'}</span>
                     </div>
                     <div>
                         <span className="block opacity-70">ออกงาน</span>
-                        <span className="font-mono font-bold">{format(todayLog!.checkOutTime!, 'HH:mm')}</span>
+                        <span className="font-mono font-bold">{todayLog?.checkOutTime ? format(todayLog.checkOutTime, 'HH:mm') : '--:--'}</span>
                     </div>
                 </div>
             </div>
@@ -200,7 +229,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         <MapPin className="w-3 h-3 mr-1" /> {todayLog?.workType}
                     </span>
                     <span className="text-xs text-indigo-400">
-                        เข้าเมื่อ: <span className="font-mono font-bold text-indigo-600">{format(todayLog!.checkInTime!, 'HH:mm')}</span>
+                        เข้าเมื่อ: <span className="font-mono font-bold text-indigo-600">{todayLog?.checkInTime ? format(todayLog.checkInTime, 'HH:mm') : '--:--'}</span>
                     </span>
                 </div>
                 <button 
@@ -216,7 +245,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onConfirm={onCheckOut}
                     onRequest={handleCheckOutRequest}
                     availableLocations={availableLocations}
-                    checkInTime={todayLog!.checkInTime!}
+                    checkInTime={todayLog!.checkInTime || new Date()} // Fallback if null, though checkInTime should ideally exist here or we handle in Modal
                 />
             </div>
         );
@@ -225,6 +254,20 @@ const StatusCard: React.FC<StatusCardProps> = ({
     // State 4: Not Checked In (Idle)
     return (
         <div className="space-y-3 relative z-10">
+            {/* ACTION REQUIRED ALERT */}
+            {actionRequiredLog && (
+                <div 
+                    onClick={onNavigateToHistory}
+                    className="bg-red-100 border border-red-200 rounded-xl p-3 flex items-center justify-between text-red-800 cursor-pointer hover:bg-red-200 transition-colors animate-pulse"
+                >
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-xs font-bold">มีรายการถูกปฏิเสธ! แก้ไขด่วน</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4" />
+                </div>
+            )}
+            
             {stats.currentStreak > 0 && (
                 <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 py-1.5 rounded-xl border border-orange-200/50 mb-2 animate-pulse-slow">
                     <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-bounce" />

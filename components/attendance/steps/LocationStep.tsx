@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AlertTriangle, MapPin, CheckCircle2, Navigation } from 'lucide-react';
+import { AlertTriangle, MapPin, CheckCircle2, Navigation, Home } from 'lucide-react';
 import { LocationDef } from '../../../types/attendance';
 
 interface LocationStepProps {
@@ -10,9 +10,10 @@ interface LocationStepProps {
     lng: number;
     matchedLocation?: LocationDef;
     onRetry: () => void;
+    approvedWFH?: boolean;
 }
 
-const LocationStep: React.FC<LocationStepProps> = ({ status, distance, lat, lng, matchedLocation, onRetry }) => {
+const LocationStep: React.FC<LocationStepProps> = ({ status, distance, lat, lng, matchedLocation, onRetry, approvedWFH }) => {
     return (
         <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 animate-in fade-in zoom-in-95">
             {status === 'LOADING' ? (
@@ -26,6 +27,7 @@ const LocationStep: React.FC<LocationStepProps> = ({ status, distance, lat, lng,
                     <p className="text-red-600 font-bold">ไม่สามารถระบุตำแหน่งได้</p>
                     <p className="text-xs text-gray-400">กรุณาเปิด GPS / อนุญาต Browser แล้วลองใหม่</p>
                     <button onClick={onRetry} className="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors">ลองใหม่</button>
+                    {approvedWFH && <p className="text-xs text-green-600 font-bold mt-2">แต่คุณมีสิทธิ์ WFH! (รอสักครู่..)</p>}
                 </>
             ) : (
                 <>
@@ -34,6 +36,13 @@ const LocationStep: React.FC<LocationStepProps> = ({ status, distance, lat, lng,
                     </div>
                     <div className="space-y-1">
                         <p className="text-gray-800 font-bold text-lg">ระบุตำแหน่งสำเร็จ</p>
+                        
+                        {approvedWFH && (
+                             <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-xl text-xs font-bold border border-blue-100 inline-flex items-center gap-1 mb-1">
+                                 <Home className="w-3 h-3" /> WFH Approved
+                             </div>
+                        )}
+
                         {matchedLocation ? (
                             <>
                                 <p className="text-sm text-green-600 font-medium flex items-center justify-center gap-1">

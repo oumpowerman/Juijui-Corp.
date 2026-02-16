@@ -34,12 +34,22 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
         const today = new Date();
         return requests.find(req => {
             if (req.status !== 'PENDING') return false;
-            
-            // Check if today falls within start and end date
             const start = startOfDay(new Date(req.startDate));
             const end = endOfDay(new Date(req.endDate));
             return isWithinInterval(today, { start, end });
         }) || null;
+    }, [requests]);
+
+    // Logic: Check if there is an APPROVED WFH request for TODAY
+    const todayApprovedWFH = useMemo(() => {
+        const today = new Date();
+        return requests.some(req => {
+            if (req.status !== 'APPROVED') return false;
+            if (req.type !== 'WFH') return false;
+            const start = startOfDay(new Date(req.startDate));
+            const end = endOfDay(new Date(req.endDate));
+            return isWithinInterval(today, { start, end });
+        });
     }, [requests]);
 
     // Logic: Prepare Locations
@@ -103,7 +113,11 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
     
     // Handler: Leave Request
     const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        return await submitRequest(type, start, end, reason, file);
+        const result = await submitRequest(type, start, end, reason, file);
+        if (result) {
+            refresh(); // Refresh to update status instantly
+        }
+        return result;
     };
 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
@@ -121,7 +135,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 user={user}
                 todayLog={todayLog}
                 stats={stats} // Pass Stats
-                todayPendingLeave={todayPendingLeave} // NEW: Pass pending leave
+                todayPendingLeave={todayPendingLeave} // Pass pending leave
                 onCheckOut={checkOut}
                 onCheckOutRequest={handleLeaveSubmit}
                 onOpenCheckIn={() => setIsCheckInModalOpen(true)}
@@ -129,6 +143,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 isDriveReady={isDriveReady}
                 onRefresh={refresh}
                 availableLocations={availableLocations}
+                // No navigation needed here as we are already in Attendance view
             />
 
             {/* Modals */}
@@ -140,6 +155,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 startTime={startTime}
                 lateBuffer={lateBuffer}
                 onSwitchToLeave={() => { setIsCheckInModalOpen(false); setIsLeaveModalOpen(true); }}
+                approvedWFH={todayApprovedWFH} // NEW: Pass approval state
             />
             
             <LeaveRequestModal 

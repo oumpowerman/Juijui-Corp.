@@ -1,6 +1,7 @@
 
 import { GameActionType, GameActionResult, Difficulty, GameConfig } from '../types';
 import { differenceInDays, isBefore, format } from 'date-fns';
+import th from 'date-fns/locale/th';
 
 // --- DEFAULT FALLBACK CONFIGURATION ---
 // Used when DB is offline or loading
@@ -14,7 +15,8 @@ export const DEFAULT_GAME_CONFIG = {
         // New Flexible Keys
         XP_BONUS_EARLY: 50,
         XP_DUTY_COMPLETE: 20,
-        XP_DUTY_LATE_SUBMIT: 5
+        XP_DUTY_LATE_SUBMIT: 5,
+        P_DUTY_ASSIST: 10,
     },
 
     // XP Calculation
@@ -94,6 +96,16 @@ export const calculateLevel = (xp: number, config: any = DEFAULT_GAME_CONFIG): n
     return Math.floor(xp / base) + 1;
 };
 
+// Helper for date formatting
+const formatDate = (date: Date | string) => {
+    if (!date) return '';
+    try {
+        return format(new Date(date), 'd MMM', { locale: th });
+    } catch (e) {
+        return '';
+    }
+};
+
 export const evaluateAction = (action: GameActionType, context: any, config: any = DEFAULT_GAME_CONFIG): GameActionResult => {
     // Ensure config exists, else fallback
     const cfg = config || DEFAULT_GAME_CONFIG;
@@ -105,8 +117,8 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
     switch (action) {
         case 'TASK_COMPLETE': {
-            const { difficulty, estimatedHours, endDate } = context;
-            
+            const { difficulty, estimatedHours, endDate, title } = context;
+            const taskName = title || 'งาน';
             // 1. Base XP
             let xp = diffXP[difficulty as Difficulty] || diffXP.MEDIUM;
             
@@ -127,7 +139,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 xp,
                 hp: 0,
                 coins,
-                message: isEarly ? 'ปิดงานไวสุดยอด! (Early Bird)' : 'ปิดงานเรียบร้อย!',
+                message: isEarly ? `🚀 ส่งงานไวสุดยอด!: ${taskName}` : `✅ ปิดงานสำเร็จ: ${taskName}`,
                 details: `+${xp} XP, +${coins} JP`
             };
         }
@@ -153,11 +165,13 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         case 'DUTY_COMPLETE': {
             const xpReward = globals.XP_DUTY_COMPLETE || 20;
             const coinReward = globals.COIN_DUTY || 5;
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            
             return {
                 xp: xpReward, 
                 hp: 0,
                 coins: coinReward,
-                message: 'ทำเวรเสร็จสิ้น เยี่ยมมาก!',
+                message: `ทำเวรเสร็จสิ้น${dateStr} เยี่ยมมาก!`,
                 details: `+${xpReward} XP, +${coinReward} JP`
             };
         }
@@ -177,7 +191,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'DUTY_MISSED': {
             // Update: Show Date in Message
-            const dateStr = context.date ? ` (ประจำวันที่ ${format(new Date(context.date), 'd MMM')})` : '';
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
             
             // FIX: Prioritize customPenalty (from AutoJudge Negligence Protocol)
             const penalty = context.customPenalty ? Math.abs(context.customPenalty) : (penalties.HP_PENALTY_MISSED_DUTY || 10);
@@ -197,11 +211,13 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         case 'DUTY_LATE_SUBMIT': {
             const lateXp = globals.XP_DUTY_LATE_SUBMIT || 5;
             const lateHpPenalty = penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 3;
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+
             return {
                 xp: lateXp, 
                 hp: -lateHpPenalty, 
                 coins: 0,
-                message: 'ส่งเวรย้อนหลัง (Late Submit)',
+                message: `ส่งเวรย้อนหลัง${dateStr}`,
                 details: `-${lateHpPenalty} HP, +${lateXp} XP`
             };
         }
@@ -210,7 +226,12 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             const status = context.status; // 'ON_TIME' | 'LATE'
             const rule = attendanceRules[status] || attendanceRules.ON_TIME;
             
-            let msg = status === 'LATE' ? 'เข้างานสาย' : 'เข้างานตรงเวลา';
+            const timeStr = context.time ? ` @ ${context.time}` : '';
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            
+            let msg = status === 'LATE' 
+                ? `เข้างานสาย${timeStr}${dateStr}` 
+                : `เข้างานตรงเวลา${timeStr}`;
             
             return {
                 xp: rule.xp,
@@ -223,7 +244,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'ATTENDANCE_ABSENT': {
             const rule = attendanceRules.ABSENT;
-            const dateStr = context.date ? ` (วันที่ ${format(new Date(context.date), 'd MMM')})` : '';
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
             return {
                 xp: rule.xp,
                 hp: rule.hp,
@@ -235,11 +256,12 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'ATTENDANCE_NO_SHOW': {
              const rule = attendanceRules.NO_SHOW;
+             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
              return {
                  xp: rule.xp,
                  hp: rule.hp,
                  coins: rule.coins,
-                 message: 'หายตัวไปเลย (No Show)!',
+                 message: `หายตัวไปเลย (No Show)${dateStr}`,
                  details: 'CRITICAL PENALTY'
              };
         }
@@ -250,12 +272,13 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
              const rate = penalties.HP_PENALTY_EARLY_LEAVE_RATE || 1;
              
              const penalty = Math.ceil((context.missingMinutes || 0) / interval) * rate;
-             
+             const missingStr = context.missingMinutes ? ` (ขาด ${context.missingMinutes} นาที)` : '';
+
              return {
                  xp: 0,
                  hp: -penalty,
                  coins: 0,
-                 message: 'กลับก่อนเวลา',
+                 message: `กลับก่อนเวลา${missingStr}`,
                  details: `-${penalty} HP`
              };
         }

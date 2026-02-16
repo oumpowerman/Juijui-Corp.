@@ -125,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (view === 'QUALITY_GATE') return badges.qualityGate;
       if (view === 'FEEDBACK') return badges.feedback;
       if (view === 'DUTY') return badges.myDuty;
+      if (view === 'FINANCE' && isAdmin) return badges.financeTrip; // NEW: Finance Trip Badge
       // Show Attendance Approval count for Admins
       if (view === 'ATTENDANCE' && isAdmin) return badges.attendanceApproval;
       // Show Member Approval count on Team menu for Admins

@@ -18,13 +18,14 @@ export interface AttendanceFilters {
 
 export const useAttendance = (userId: string) => {
     const [todayLog, setTodayLog] = useState<AttendanceLog | null>(null);
+    const [actionRequiredLog, setActionRequiredLog] = useState<AttendanceLog | null>(null); // NEW: Track blocked items
     const [stats, setStats] = useState<AttendanceStats>({
         totalDays: 0,
         lateDays: 0,
         onTimeDays: 0,
         absentDays: 0,
         totalHours: 0,
-        currentStreak: 0 // NEW
+        currentStreak: 0 
     });
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -61,9 +62,10 @@ export const useAttendance = (userId: string) => {
         };
     };
 
-    // 1. Fetch Today's Status (Modified to find LATEST ACTIVE status)
+    // 1. Fetch Today's Status AND Action Required items
     const fetchTodayStatus = useCallback(async () => {
         try {
+            // A. Get Working Log (Active Session)
             const { data: workingLog } = await supabase
                 .from('attendance_logs')
                 .select('*')
@@ -90,6 +92,19 @@ export const useAttendance = (userId: string) => {
                     setTodayLog(null); // Not checked in yet
                 }
             }
+
+            // B. Get Action Required Log (Rejected items that need fixing)
+            const { data: actionLog } = await supabase
+                .from('attendance_logs')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('status', 'ACTION_REQUIRED')
+                .order('date', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            
+            setActionRequiredLog(actionLog ? mapAttendanceLog(actionLog) : null);
+
         } catch (err) {
             console.error("Error fetching attendance:", err);
         } finally {
@@ -337,8 +352,10 @@ export const useAttendance = (userId: string) => {
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
             // --- TRIGGER GAME EVENT ---
+            // Pass Date and Time to Engine for better messaging
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
                 status: isLate ? 'LATE' : 'ON_TIME',
+                date: now,
                 time: format(now, 'HH:mm')
             });
 
@@ -413,12 +430,14 @@ export const useAttendance = (userId: string) => {
             if (calcResult.status === 'COMPLETED') {
                 showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
                 await processAction(userId, 'DUTY_COMPLETE', {
-                    reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`
+                    reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`,
+                    date: now // Pass Date
                 });
             } else {
                 showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');
                 await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
-                    missingMinutes: Math.round(calcResult.missingMinutes)
+                    missingMinutes: Math.round(calcResult.missingMinutes),
+                    date: now // Pass Date
                 });
             }
 
@@ -441,6 +460,7 @@ export const useAttendance = (userId: string) => {
 
     return {
         todayLog,
+        actionRequiredLog, // Exported
         stats,
         isLoading,
         checkIn,

@@ -1,14 +1,15 @@
 
 import React from 'react';
-import { Building2, Home, Briefcase, ChevronRight } from 'lucide-react';
+import { Building2, Home, Briefcase, ChevronRight, Check } from 'lucide-react';
 import { WorkLocation, LocationDef } from '../../../types/attendance';
 
 interface WorkTypeStepProps {
     matchedLocation?: LocationDef;
     onSelect: (type: WorkLocation) => void;
+    approvedWFH?: boolean;
 }
 
-const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect }) => {
+const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect, approvedWFH }) => {
     
     const handleSelectOffice = () => {
         if (!matchedLocation) {
@@ -17,6 +18,9 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect }
         }
         onSelect('OFFICE');
     };
+
+    // Auto-suggest logic: If WFH is approved, we can highlight it. 
+    // The user still clicks to confirm.
 
     return (
         <div className="space-y-3 animate-in slide-in-from-right-8 duration-300">
@@ -44,16 +48,25 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect }
 
             <button 
                 onClick={() => onSelect('WFH')}
-                className="w-full p-4 rounded-2xl border-2 border-blue-100 bg-blue-50 hover:border-blue-300 cursor-pointer flex items-center justify-between transition-all"
+                className={`w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group ${
+                    approvedWFH 
+                    ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-200' 
+                    : 'border-blue-100 bg-blue-50 hover:border-blue-300'
+                }`}
             >
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-xl text-blue-600 shadow-sm"><Home className="w-6 h-6"/></div>
+                    <div className={`p-2 rounded-xl shadow-sm ${approvedWFH ? 'bg-blue-500 text-white' : 'bg-white text-blue-600'}`}>
+                        <Home className="w-6 h-6"/>
+                    </div>
                     <div className="text-left">
-                        <h4 className="font-bold text-gray-800">Work From Home</h4>
+                        <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                            Work From Home 
+                            {approvedWFH && <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">APPROVED</span>}
+                        </h4>
                         <p className="text-xs text-gray-500">ทำงานที่บ้าน</p>
                     </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300" />
+                {approvedWFH ? <Check className="w-6 h-6 text-blue-600" /> : <ChevronRight className="w-5 h-5 text-gray-300" />}
             </button>
 
             <button 

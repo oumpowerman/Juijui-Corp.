@@ -185,7 +185,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                         ...(task.ideaOwnerIds || []),
                         ...(task.editorIds || [])
                     ]);
-                    peopleToReward.forEach(uid => processAction(uid, 'TASK_COMPLETE', task));
+                    peopleToReward.forEach(uid => processAction(uid, 'TASK_COMPLETE', { ...task, id: task.id }));
                 }
 
             } catch (dbError: any) {

@@ -1,16 +1,20 @@
 
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLeaveRequests } from '../../hooks/useLeaveRequests';
 import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
+import { LeaveRequest } from '../../types/attendance';
 
 interface LeaveApprovalListProps {
-    currentUser: any;
+    requests: LeaveRequest[];
+    isLoading: boolean;
+    onApprove: (req: LeaveRequest) => Promise<void>;
+    onReject: (id: string, reason: string) => Promise<void>;
 }
 
-const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) => {
-    const { requests, isLoading, approveRequest, rejectRequest } = useLeaveRequests(currentUser);
+const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ 
+    requests, isLoading, onApprove, onReject 
+}) => {
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     
     // New State for Rejection Modal
@@ -34,7 +38,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) =>
             return;
         }
         setIsSubmitting(true);
-        await rejectRequest(rejectingId, rejectionReason);
+        await onReject(rejectingId, rejectionReason);
         setIsSubmitting(false);
         setRejectingId(null);
     };
@@ -144,7 +148,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) =>
                                 {req.status === 'PENDING' && (
                                     <div className="flex flex-row md:flex-col gap-2 shrink-0 md:justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4 mt-2 md:mt-0">
                                         <button 
-                                            onClick={() => { if(confirm('อนุมัติคำขอนี้?')) approveRequest(req); }}
+                                            onClick={() => { if(confirm('อนุมัติคำขอนี้?')) onApprove(req); }}
                                             className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1"
                                         >
                                             <CheckCircle2 className="w-4 h-4" /> อนุมัติ

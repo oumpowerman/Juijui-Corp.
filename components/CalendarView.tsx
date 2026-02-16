@@ -12,6 +12,9 @@ import BoardView from './BoardView';
 import CalendarGrid from './calendar/CalendarGrid';
 import { useCalendarHighlights } from '../hooks/useCalendarHightlights';
 import DayHighlightModal from './calendar/DayHightlightModal';
+import StockSidePanel from './StockSidePanel';
+
+export type TaskDisplayMode = 'MINIMAL' | 'DOT' | 'EMOJI' | 'FULL';
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -24,7 +27,7 @@ interface CalendarViewProps {
   onDelayTask?: (taskId: string, newDate: Date, reason: string) => void;
   onOpenSettings: () => void;
   onOpenNotifications?: () => void;
-  unreadCount?: number; // Added
+  unreadCount?: number; 
   onAddTask: (status: Status, type?: TaskType) => void;
   onUpdateStatus: (task: Task, newStatus: Status) => void;
   onRangeChange?: (targetDate: Date) => void; 
@@ -73,6 +76,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedDayTasks, setSelectedDayTasks] = useState<Task[]>([]);
   const [selectedDayDate, setSelectedDayDate] = useState<Date>(new Date());
 
+  // --- View Density State ---
+  const [taskDisplayMode, setTaskDisplayMode] = useState<TaskDisplayMode>('EMOJI');
+
+  // --- Stock Panel State ---
+  const [isStockOpen, setIsStockOpen] = useState(false);
+
   // Trigger Range Change when month changes
   useEffect(() => {
       if (onRangeChange) {
@@ -108,7 +117,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   ];
 
   const containerClasses = isExpanded 
-    ? "fixed inset-0 z-50 bg-[#f8fafc] p-2 md:p-6 overflow-y-auto" 
+    ? "fixed inset-0 z-50 bg-[#f8fafc] p-2 md:p-6 overflow-y-auto animate-in zoom-in-95 duration-300" 
     : "space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20 md:pb-24";
 
   return (
@@ -132,11 +141,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       {!isExpanded && <MentorTip variant="green" messages={CALENDAR_TIPS} />}
       
-      <div className={`relative ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto' : ''}`}>
+      <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto' : ''}`}>
          {!isExpanded && displayMode === 'CALENDAR' && (
              <>
-                <div className="absolute -top-10 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply"></div>
-                <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply"></div>
+                <div className="absolute -top-10 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
+                <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
              </>
          )}
 
@@ -166,50 +175,98 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             }}
             displayMode={displayMode}
             setDisplayMode={setDisplayMode}
+            taskDisplayMode={taskDisplayMode}
+            setTaskDisplayMode={setTaskDisplayMode}
+            isStockOpen={isStockOpen}
+            onToggleStock={() => setIsStockOpen(!isStockOpen)}
          />
       </div>
 
-      <div className={`relative transition-all duration-300 ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
-        {displayMode === 'CALENDAR' ? (
-            <CalendarGrid 
-                startDate={startDate}
-                endDate={endDate}
-                currentDate={currentDate || new Date()}
-                isExpanded={isExpanded}
-                dragOverDate={dragOverDate}
-                viewMode={viewMode}
-                activeChipIds={activeChipIds}
-                customChips={customChips || []}
-                highlights={highlights}
-                masterOptions={masterOptions}
-                getTasksForDay={getTasksForDay}
-                filterTasks={filterTasks}
-                onDayClick={handleDayClick}
-                onDayContextMenu={handleDayContextMenu}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onTaskDragStart={handleDragStart}
-                onTaskClick={onSelectTask}
-            />
-        ) : (
-            <div 
-                key="board-view" 
-                className={`animate-slide-in-right ${isExpanded ? 'h-[90vh]' : ''}`}
-            >
-                <BoardView 
-                    tasks={filteredTasksForView}
+      <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
+        
+        {/* Main Content Area */}
+        <div className={`flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${isStockOpen ? 'mr-4' : 'mr-0'}`}>
+            <div key={`${displayMode}-${viewMode}`} className="animate-in fade-in zoom-in-[0.98] duration-300 h-full">
+                {displayMode === 'CALENDAR' ? (
+                    <CalendarGrid 
+                        startDate={startDate}
+                        endDate={endDate}
+                        currentDate={currentDate || new Date()}
+                        isExpanded={isExpanded}
+                        dragOverDate={dragOverDate}
+                        viewMode={viewMode}
+                        taskDisplayMode={taskDisplayMode}
+                        activeChipIds={activeChipIds}
+                        customChips={customChips || []}
+                        highlights={highlights}
+                        masterOptions={masterOptions}
+                        getTasksForDay={getTasksForDay}
+                        filterTasks={filterTasks}
+                        onDayClick={handleDayClick}
+                        onDayContextMenu={handleDayContextMenu}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onTaskDragStart={handleDragStart}
+                        onTaskClick={onSelectTask}
+                    />
+                ) : (
+                    <div 
+                        key="board-view" 
+                        className={`animate-in slide-in-from-right-8 duration-300 ${isExpanded ? 'h-[90vh]' : ''}`}
+                    >
+                        <BoardView 
+                            tasks={filteredTasksForView}
+                            channels={channels}
+                            users={users}
+                            masterOptions={masterOptions}
+                            viewMode={viewMode}
+                            onEditTask={onSelectTask}
+                            onAddTask={(status) => onAddTask(status, viewMode)} 
+                            onUpdateStatus={onUpdateStatus}
+                            onOpenSettings={onOpenSettings}
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {/* Stock Side Panel (Animated Slide) */}
+        <div 
+            className={`
+                shrink-0 hidden lg:block sticky top-24 self-start h-[calc(100vh-120px)]
+                transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
+                ${isStockOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10'}
+            `}
+        >
+             <div className="w-80 h-full">
+                 <StockSidePanel 
+                    isOpen={true} // Always render internal logic, control visibility via wrapper
+                    onClose={() => setIsStockOpen(false)}
+                    tasks={tasks}
                     channels={channels}
-                    users={users}
                     masterOptions={masterOptions}
                     onEditTask={onSelectTask}
-                    onAddTask={(status) => onAddTask(status, viewMode)} 
-                    onUpdateStatus={onUpdateStatus}
-                    onOpenSettings={onOpenSettings}
-                />
-            </div>
-        )}
+                 />
+             </div>
+        </div>
       </div>
+
+      {/* Mobile Stock Panel Overlay (If Open on Mobile) */}
+      {isStockOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsStockOpen(false)}>
+               <div className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-2xl animate-in slide-in-from-right duration-300" onClick={e => e.stopPropagation()}>
+                    <StockSidePanel 
+                        isOpen={true}
+                        onClose={() => setIsStockOpen(false)}
+                        tasks={tasks}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        onEditTask={onSelectTask}
+                    />
+               </div>
+          </div>
+      )}
 
       {/* Modals */}
       <TaskCategoryModal 

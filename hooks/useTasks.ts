@@ -6,6 +6,63 @@ import { useToast } from '../context/ToastContext';
 import { isTaskCompleted } from '../constants';
 import { useGamification } from './useGamification';
 import { useTaskContext } from '../context/TaskContext';
+import { format } from 'date-fns';
+
+// --- SMART DIFFING ENGINE V10 HELPER ---
+const arraysEqual = (a: any[], b: any[]) => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const sortedA = [...a].sort();
+    const sortedB = [...b].sort();
+    return sortedA.every((val, index) => val === sortedB[index]);
+};
+
+// Helper to sanitize null/undefined to empty string for consistent comparison
+const safeStr = (val: any) => (val === null || val === undefined) ? '' : String(val);
+
+const generateTaskDiff = (oldTask: Task, newTask: Task) => {
+    const changes: string[] = [];
+
+    // 1. Core Info (Common)
+    if (safeStr(oldTask.title) !== safeStr(newTask.title)) changes.push(`ชื่อ: "${oldTask.title}" -> "${newTask.title}"`);
+    if (safeStr(oldTask.description) !== safeStr(newTask.description)) changes.push(`รายละเอียดมีการแก้ไข`);
+    
+    // 2. Workflow (Common)
+    if (safeStr(oldTask.status) !== safeStr(newTask.status)) changes.push(`สถานะ: ${oldTask.status} -> ${newTask.status}`);
+    if (safeStr(oldTask.priority) !== safeStr(newTask.priority)) changes.push(`ความสำคัญ: ${oldTask.priority} -> ${newTask.priority}`);
+
+    // 3. Scheduling (Common)
+    const oldStart = new Date(oldTask.startDate).getTime();
+    const newStart = new Date(newTask.startDate).getTime();
+    const oldEnd = new Date(oldTask.endDate).getTime();
+    const newEnd = new Date(newTask.endDate).getTime();
+
+    if (oldStart !== newStart) changes.push(`วันเริ่ม: ${format(new Date(oldTask.startDate), 'dd/MM')} -> ${format(new Date(newTask.startDate), 'dd/MM')}`);
+    if (oldEnd !== newEnd) changes.push(`กำหนดส่ง: ${format(new Date(oldTask.endDate), 'dd/MM')} -> ${format(new Date(newTask.endDate), 'dd/MM')}`);
+
+    // 4. People & Assignment (Common)
+    if (!arraysEqual(oldTask.assigneeIds || [], newTask.assigneeIds || [])) changes.push(`ผู้รับผิดชอบเปลี่ยน`);
+    
+    // 5. Content Specific Metadata (CHECK TYPE FIRST)
+    if (newTask.type === 'CONTENT') {
+        if (!arraysEqual(oldTask.ideaOwnerIds || [], newTask.ideaOwnerIds || [])) changes.push(`Idea Owner เปลี่ยน`);
+        if (!arraysEqual(oldTask.editorIds || [], newTask.editorIds || [])) changes.push(`Editor เปลี่ยน`);
+
+        if (safeStr(oldTask.channelId) !== safeStr(newTask.channelId)) changes.push(`Channel เปลี่ยน`);
+        if (safeStr(oldTask.contentFormat) !== safeStr(newTask.contentFormat)) changes.push(`Format เปลี่ยน`);
+        if (safeStr(oldTask.pillar) !== safeStr(newTask.pillar)) changes.push(`Pillar เปลี่ยน`);
+        if (safeStr(oldTask.category) !== safeStr(newTask.category)) changes.push(`Category เปลี่ยน`);
+        
+        // Check Platform changes if relevant
+        if (!arraysEqual(oldTask.targetPlatforms || [], newTask.targetPlatforms || [])) changes.push(`Platform เปลี่ยน`);
+    }
+
+    // 6. Remark (Common)
+    if (safeStr(oldTask.remark) !== safeStr(newTask.remark)) changes.push(`Remark มีการแก้ไข`);
+
+    return changes;
+};
 
 export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     // Consume state and fetchers from Context
@@ -25,7 +82,10 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     const handleSaveTask = async (task: Task, editingTask: Task | null) => {
         const isContent = task.type === 'CONTENT';
         const table = isContent ? 'contents' : 'tasks';
-        const isUpdate = !!editingTask || tasks.some(t => t.id === task.id);
+        
+        // Check update based on ID existence in current list, or explicit editingTask passed
+        const existingTask = editingTask || tasks.find(t => t.id === task.id);
+        const isUpdate = !!existingTask;
 
         const basePayload = {
             title: task.title,
@@ -94,23 +154,31 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
                 
-                // --- AUTO AUDIT LOGGING ---
+                // --- SMART AUDIT LOGGING (V10) ---
                 const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    await supabase.from('task_logs').insert({
-                        task_id: isContent ? null : task.id,
-                        content_id: isContent ? task.id : null,
-                        user_id: user.id,
-                        action: 'UPDATED',
-                        details: `แก้ไขข้อมูลงาน: ${task.title}`
-                    });
+                if (user && existingTask) {
+                    // Compare old vs new
+                    const diffs = generateTaskDiff(existingTask, task);
+                    
+                    if (diffs.length > 0) {
+                        // Only insert if there are actual changes
+                        await supabase.from('task_logs').insert({
+                            task_id: isContent ? null : task.id,
+                            content_id: isContent ? task.id : null,
+                            user_id: user.id,
+                            action: 'UPDATED',
+                            details: `แก้ไข: ${diffs.join(', ')}`
+                        });
+                    } else {
+                        console.log('Smart Diff: No significant changes detected. Log skipped.');
+                    }
                 }
                 
                 showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
                 
                 // Gamification
-                const isCompleted = isTaskCompleted(task.status);
-                const wasCompleted = editingTask && isTaskCompleted(editingTask.status);
+                const isCompleted = isTaskCompleted(task.status as string);
+                const wasCompleted = existingTask && isTaskCompleted(existingTask.status as string);
                 if (isCompleted && !wasCompleted) {
                     const peopleToReward = new Set([
                         ...(task.assigneeIds || []),
@@ -140,7 +208,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                     if (setIsModalOpen) setIsModalOpen(false);
                 }
 
-                // Log Creation
+                // Log Creation (Always log creations)
                 const { data: { user } } = await supabase.auth.getUser();
                 const logPayload: any = {
                      action: 'CREATED',
@@ -185,6 +253,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             
             if (taskError) throw taskError;
 
+            // Delayed tasks are significant, always log
             const logPayload: any = {
                 user_id: userId,
                 action: 'DELAYED',

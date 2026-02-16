@@ -13,7 +13,7 @@ export const useMaintenance = () => {
     const [hasBackedUp, setHasBackedUp] = useState(false);
     const [backupData, setBackupData] = useState<any>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisResult, setAnalysisResult] = useState<{chatCount: number, taskCount: number} | null>(null);
+    const [analysisResult, setAnalysisResult] = useState<{chatCount: number, taskCount: number, logCount: number} | null>(null);
     const [isCleaning, setIsCleaning] = useState(false);
     
     // Storage States
@@ -97,9 +97,16 @@ export const useMaintenance = () => {
                 .lt('end_date', cutoffDate)
                 .in('status', targetStatuses); 
 
+            // Count old audit logs
+            const { count: logCount } = await supabase
+                .from('task_logs')
+                .select('*', { count: 'exact', head: true })
+                .lt('created_at', cutoffDate);
+
             setAnalysisResult({
                 chatCount: chatCount || 0,
-                taskCount: taskCount || 0
+                taskCount: taskCount || 0,
+                logCount: logCount || 0
             });
             return true;
         } catch (err: any) {
@@ -114,8 +121,11 @@ export const useMaintenance = () => {
         setIsCleaning(true);
         try {
             const cutoffDate = addMonths(new Date(), -months).toISOString();
+            
             await supabase.from('team_messages').delete().lt('created_at', cutoffDate);
             await supabase.from('contents').delete().lt('end_date', cutoffDate).in('status', targetStatuses);
+            await supabase.from('task_logs').delete().lt('created_at', cutoffDate);
+
             showToast(`ล้างข้อมูลสำเร็จ!`, 'success');
             setAnalysisResult(null);
             

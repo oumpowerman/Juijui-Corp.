@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Image as ImageIcon, Loader2, Calendar, DollarSign, Tag, User, AlertTriangle, Layers, Box, Trash2, Hash, Package, Monitor, CheckCircle2 } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader2, Calendar, DollarSign, Tag, User, AlertTriangle, Layers, Box, Trash2, Hash, Package, Monitor, CheckCircle2, Copy, Check, Plus, Info } from 'lucide-react';
 import { InventoryItem, MasterOption, User as AppUser, AssetCondition, AssetGroup, InventoryType } from '../../types';
 import { format } from 'date-fns';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
@@ -15,10 +15,11 @@ interface AssetFormModalProps {
     masterOptions: MasterOption[];
     users: AppUser[];
     existingTags?: string[]; 
+    existingGroups?: string[]; // NEW PROP
 }
 
 const AssetFormModal: React.FC<AssetFormModalProps> = ({ 
-    isOpen, onClose, initialData, onSave, onDelete, masterOptions, users, existingTags = [] 
+    isOpen, onClose, initialData, onSave, onDelete, masterOptions, users, existingTags = [], existingGroups = []
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
 
@@ -28,6 +29,11 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
     const [description, setDescription] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [group, setGroup] = useState<string>(''); 
+    const [groupLabel, setGroupLabel] = useState(''); 
+    
+    // Group Combobox & Toggle State
+    const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+    const [isGroupingEnabled, setIsGroupingEnabled] = useState(false);
     
     // Fixed Asset Fields
     const [price, setPrice] = useState('');
@@ -57,6 +63,7 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const tagInputRef = useRef<HTMLInputElement>(null);
+    const groupInputRef = useRef<HTMLDivElement>(null);
 
     // --- Dynamic Options Logic ---
     const groupOptions = useMemo(() => 
@@ -97,6 +104,19 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
         };
     }, [isOpen]);
 
+    // Click Outside for Group Dropdown
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (groupInputRef.current && !groupInputRef.current.contains(event.target as Node)) {
+                setShowGroupDropdown(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [groupInputRef]);
+
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
@@ -105,6 +125,8 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 setDescription(initialData.description || '');
                 setGroup(initialData.assetGroup || ''); 
                 setCategoryId(initialData.categoryId); 
+                setGroupLabel(initialData.groupLabel || ''); 
+                setIsGroupingEnabled(!!initialData.groupLabel); // Auto-open if data exists
                 
                 // Fixed Fields
                 setPrice(initialData.purchasePrice?.toString() || '');
@@ -136,6 +158,8 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 setName(''); setDescription(''); 
                 setGroup(''); 
                 setCategoryId(''); 
+                setGroupLabel('');
+                setIsGroupingEnabled(false); // Reset to closed
                 setPrice(''); setBuyDate(''); setSerial(''); setWarranty('');
                 setCondition('GOOD'); setHolderId(''); setPreviewUrl('');
                 setQuantity(1); setUnit('ชิ้น'); setMinThreshold(5); setMaxCapacity(50);
@@ -143,6 +167,7 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
             }
             setCurrentTag('');
             setImageFile(null);
+            setShowGroupDropdown(false);
         }
     }, [isOpen, initialData, masterOptions]); 
 
@@ -159,6 +184,12 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
             setIsTagDropdownOpen(false);
         }
     }, [currentTag, existingTags, tags]);
+    
+    // Filtered Groups for Autocomplete
+    const filteredGroups = useMemo(() => {
+        if (!groupLabel) return existingGroups;
+        return existingGroups.filter(g => g.toLowerCase().includes(groupLabel.toLowerCase()));
+    }, [groupLabel, existingGroups]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -205,7 +236,8 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
             name,
             description,
             categoryId,
-            assetGroup: group as AssetGroup, 
+            assetGroup: group as AssetGroup,
+            groupLabel: groupLabel || undefined, // Save new field
             imageUrl: previewUrl, 
             tags,
             // Conditional Fields
@@ -277,23 +309,37 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                         
                         {/* LEFT COLUMN: Image & Type */}
                         <div className="lg:col-span-4 flex flex-col gap-6">
-                             {/* Type Switcher */}
-                             <div className="bg-gray-100 p-1 rounded-2xl flex">
-                                <button
-                                    type="button"
-                                    onClick={() => setItemType('FIXED')}
-                                    className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${itemType === 'FIXED' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    <Monitor className="w-4 h-4" /> ทรัพย์สินถาวร
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setItemType('CONSUMABLE')}
-                                    className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${itemType === 'CONSUMABLE' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    <Package className="w-4 h-4" /> วัสดุสิ้นเปลือง
-                                </button>
-                             </div>
+                             
+                             {/* Type Switcher (CONDITIONAL) */}
+                             {!initialData ? (
+                                 <div className="bg-gray-100 p-1 rounded-2xl flex">
+                                    <button
+                                        type="button"
+                                        onClick={() => setItemType('FIXED')}
+                                        className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${itemType === 'FIXED' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        <Monitor className="w-4 h-4" /> ทรัพย์สินถาวร
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setItemType('CONSUMABLE')}
+                                        className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${itemType === 'CONSUMABLE' ? 'bg-white shadow text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        <Package className="w-4 h-4" /> วัสดุสิ้นเปลือง
+                                    </button>
+                                 </div>
+                             ) : (
+                                 // Edit Mode: Static Badge
+                                 <div className={`p-4 rounded-2xl border flex items-center justify-center gap-3 ${itemType === 'FIXED' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-orange-50 border-orange-100 text-orange-700'}`}>
+                                     {itemType === 'FIXED' ? <Monitor className="w-6 h-6" /> : <Package className="w-6 h-6" />}
+                                     <div>
+                                         <p className="text-[10px] font-bold uppercase opacity-60">ITEM TYPE</p>
+                                         <p className="font-black text-sm">
+                                             {itemType === 'FIXED' ? 'ทรัพย์สินถาวร (Fixed)' : 'วัสดุสิ้นเปลือง (Supplies)'}
+                                         </p>
+                                     </div>
+                                 </div>
+                             )}
 
                             {/* Image Uploader */}
                             <div className="group relative">
@@ -318,6 +364,71 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-2">ชื่อรายการ <span className="text-red-400">*</span></label>
                                 <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-5 py-4 bg-white border-none rounded-2xl shadow-sm text-lg font-bold text-slate-700 placeholder:text-slate-300 focus:ring-4 focus:ring-indigo-100 transition-all outline-none" placeholder={itemType === 'FIXED' ? "เช่น กล้อง Sony A7IV" : "เช่น ทิชชู่, ถ่าน AA"} required />
+                            </div>
+                            
+                            {/* Group Label Input (Toggle & Reveal UI) */}
+                            <div className="relative" ref={groupInputRef}>
+                                {!isGroupingEnabled ? (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { setIsGroupingEnabled(true); setTimeout(() => groupInputRef.current?.querySelector('input')?.focus(), 100); }}
+                                        className="text-xs font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 ml-2 py-2 transition-all hover:translate-x-1"
+                                    >
+                                        <Plus className="w-4 h-4" /> จัดกลุ่ม/รวมกอง (Add to Stack)
+                                    </button>
+                                ) : (
+                                    <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 animate-in slide-in-from-top-2 fade-in duration-300">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="text-xs font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                                                <Layers className="w-3 h-3" /> ชื่อกลุ่ม/รุ่น (Grouping)
+                                            </label>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setIsGroupingEnabled(false); setGroupLabel(''); }}
+                                                className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-white transition-colors"
+                                                title="ยกเลิกการรวมกลุ่ม"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                value={groupLabel} 
+                                                onChange={e => {
+                                                    setGroupLabel(e.target.value);
+                                                    setShowGroupDropdown(true);
+                                                }} 
+                                                onFocus={() => setShowGroupDropdown(true)}
+                                                className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl shadow-sm text-sm font-bold text-indigo-900 placeholder:text-indigo-200 focus:ring-2 focus:ring-indigo-200 outline-none transition-all" 
+                                                placeholder="ตั้งชื่อกลุ่ม (เช่น โต๊ะทำงาน A)" 
+                                            />
+                                            {showGroupDropdown && filteredGroups.length > 0 && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-1 animate-in fade-in zoom-in-95 max-h-[200px] overflow-y-auto">
+                                                    <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider bg-gray-50/50">เลือกที่มีอยู่หรือพิมพ์ใหม่</div>
+                                                    {filteredGroups.map(g => (
+                                                        <button
+                                                            key={g}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setGroupLabel(g);
+                                                                setShowGroupDropdown(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors flex items-center justify-between group"
+                                                        >
+                                                            {g}
+                                                            <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-indigo-500" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] text-indigo-400 mt-2 ml-1 flex items-center gap-1 font-medium">
+                                            <Info className="w-3 h-3" /> ใส่ชื่อเดียวกันเพื่อรวมการ์ดหน้าแรก (Stack)
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">

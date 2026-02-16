@@ -175,7 +175,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                 <TaskHistory task={initialData} currentUser={currentUser} onSaveTask={onSave} />
             ) : viewMode === 'COMMENTS' && initialData && currentUser ? (
                 <div className="flex-1 overflow-hidden p-0 bg-gray-50">
-                    <TaskComments taskId={initialData.id} currentUser={currentUser} />
+                    <TaskComments taskId={initialData.id} taskType={initialData.type} currentUser={currentUser} />
                 </div>
             ) : viewMode === 'ASSETS' && initialData ? (
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50">

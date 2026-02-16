@@ -3,9 +3,6 @@ import { Status, Priority } from '../types';
 
 // Updated Colors for 10-step workflow
 export const STATUS_COLORS: Record<Status, string> = {
-  'TODO': 'bg-gray-100 text-gray-600 border-gray-200',
-  'DOING': 'bg-blue-100 text-blue-600 border-blue-200',
-  'BLOCKED': 'bg-red-100 text-red-600 border-red-200',
   'IDEA': 'bg-gray-100 text-gray-600 border-gray-200',
   'SCRIPT': 'bg-yellow-50 text-yellow-600 border-yellow-200',
   'SHOOTING': 'bg-orange-50 text-orange-600 border-orange-200',
@@ -16,25 +13,20 @@ export const STATUS_COLORS: Record<Status, string> = {
   'EDIT_DRAFT_2': 'bg-cyan-50 text-cyan-600 border-cyan-200',
   'APPROVE': 'bg-emerald-50 text-emerald-600 border-emerald-200',
   'DONE': 'bg-green-100 text-green-700 border-green-300 ring-1 ring-green-300',
-  'WAITING': 'bg-orange-50 text-orange-600 border-orange-200'
 };
 
 // Updated Labels for 10-step workflow
 export const STATUS_LABELS: Record<Status, string> = {
-  'TODO': 'To Do 📝',
-  'DOING': 'Doing 🔨',
-  'BLOCKED': 'Blocked 🚫',
-  'IDEA': '01 Idea/Draft 💡',
-  'SCRIPT': '02 Script ✍️',
-  'SHOOTING': '03 Shooting 🎥',
-  'EDIT_CLIP': '04 Edit Clip ✂️',
-  'FEEDBACK': '05 Feedback 💬',
-  'EDIT_DRAFT_1': '06 Edit Draft1 🛠️',
-  'FEEDBACK_1': '07 Feedback 1 🗣️',
-  'EDIT_DRAFT_2': '08 Edit Draft 2 🔧',
-  'APPROVE': '09 Approve 👍',
-  'DONE': '10 Done ✅',
-  'WAITING': 'Waiting ✋'
+  'IDEA': 'Idea/Draft 💡',
+  'SCRIPT': 'Script ✍️',
+  'SHOOTING': 'Shooting 🎥',
+  'EDIT_CLIP': 'Edit Clip ✂️',
+  'FEEDBACK': 'Feedback 💬',
+  'EDIT_DRAFT_1': 'Edit Draft1 🛠️',
+  'FEEDBACK_1': 'Feedback 1 🗣️',
+  'EDIT_DRAFT_2': 'Edit Draft 2 🔧',
+  'APPROVE': 'Approve 👍',
+  'DONE': 'Done ✅',
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {

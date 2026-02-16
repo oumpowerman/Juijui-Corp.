@@ -16,6 +16,7 @@ interface LogisticsTabProps {
 }
 
 const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, currentUser, onUpdate }) => {
+    // We reuse useTasks, which fetches by content_id correctly
     const { fetchSubTasks, handleSaveTask, handleDeleteTask } = useTasks(() => {});
     const [subTasks, setSubTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +41,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
 
     const loadSubTasks = async () => {
         setIsLoading(true);
+        // This function handles the query logic
         const data = await fetchSubTasks(parentContentId);
         setSubTasks(data);
         setIsLoading(false);
@@ -70,7 +72,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                 assigneeType: 'INDIVIDUAL',
                 difficulty: 'EASY',
                 estimatedHours: 0,
-                contentId: parentContentId, 
+                contentId: parentContentId, // CRITICAL: Link to parent content
                 showOnBoard: false,
                 assets: [],
                 reviews: [],
@@ -125,7 +127,6 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
         const updatedTask = { ...task, status: 'TODO' };
         setSubTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
         await handleSaveTask(updatedTask, task);
-        // FIX: Removed onUpdate to prevent double submission/toast
     };
 
     // --- ACTIONS ---
@@ -146,7 +147,6 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                 action: 'SENT_TO_QC',
                 details: 'ส่งตรวจงานย่อย (Logistics)'
             });
-            // FIX: Removed onUpdate call to prevent double processing
             
             showToast('ส่งตรวจเรียบร้อย รอหัวหน้าอนุมัติ ⏳', 'success');
             setActionTask(null);
@@ -192,7 +192,6 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                     is_read: false
                 });
             }
-            // FIX: Removed onUpdate call to prevent double processing
 
             showToast('อนุมัติด่วนเรียบร้อย (แจกแต้มแล้ว) 🎉', 'success');
             setActionTask(null);
@@ -210,7 +209,6 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
         setSubTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
         
         await handleSaveTask(updatedTask, task);
-        // FIX: Removed onUpdate to prevent double toast/submission
         showToast(newValue ? 'แสดงงานบนบอร์ดหลักแล้ว 👀' : 'ซ่อนงานจากบอร์ดหลักแล้ว 🙈', 'info');
     };
 

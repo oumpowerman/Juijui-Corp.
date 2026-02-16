@@ -16,8 +16,15 @@ export const useTripManagement = (trips: ShootTrip[]) => {
 
     // --- DERIVED DATA ---
     const uniqueLocations = useMemo(() => {
-        const locs = new Set(trips.map(t => t.locationName));
-        return Array.from(locs).sort();
+        // Normalize for uniqueness, but store display name
+        const locMap = new Map<string, string>();
+        trips.forEach(t => {
+            const normalized = t.locationName.trim().toLowerCase();
+            if (!locMap.has(normalized)) {
+                locMap.set(normalized, t.locationName);
+            }
+        });
+        return Array.from(locMap.values()).sort();
     }, [trips]);
 
     // --- FILTERING LOGIC ---
@@ -40,9 +47,10 @@ export const useTripManagement = (trips: ShootTrip[]) => {
             );
         }
 
-        // 3. Location Filter
+        // 3. Location Filter (Normalized Check)
         if (locationFilter !== 'ALL') {
-            result = result.filter(t => t.locationName === locationFilter);
+            const target = locationFilter.trim().toLowerCase();
+            result = result.filter(t => t.locationName.trim().toLowerCase() === target);
         }
 
         // 4. Sorting
@@ -59,7 +67,8 @@ export const useTripManagement = (trips: ShootTrip[]) => {
 
     // --- ANALYTICS LOGIC ---
     const analytics = useMemo(() => {
-        const locStats: Record<string, { count: number, cost: number, clips: number, trips: ShootTrip[] }> = {};
+        // Key by Normalized Name to group "Studio A" and "studio a"
+        const locStats: Record<string, { displayName: string, count: number, cost: number, clips: number, trips: ShootTrip[] }> = {};
         let totalC = 0;
         let totalV = 0;
 
@@ -67,19 +76,27 @@ export const useTripManagement = (trips: ShootTrip[]) => {
             totalC += t.totalCost || 0;
             totalV += t.clipCount || 0;
 
-            if (!locStats[t.locationName]) {
-                locStats[t.locationName] = { count: 0, cost: 0, clips: 0, trips: [] };
+            const normalizedKey = t.locationName.trim().toLowerCase();
+
+            if (!locStats[normalizedKey]) {
+                locStats[normalizedKey] = { displayName: t.locationName, count: 0, cost: 0, clips: 0, trips: [] };
             }
-            locStats[t.locationName].count += 1;
-            locStats[t.locationName].cost += t.totalCost || 0;
-            locStats[t.locationName].clips += t.clipCount || 0;
-            locStats[t.locationName].trips.push(t);
+            
+            // Keep the casing of the first encountered variant, or most frequent if we wanted to be fancy
+            // For now, first wins for display name
+            
+            locStats[normalizedKey].count += 1;
+            locStats[normalizedKey].cost += t.totalCost || 0;
+            locStats[normalizedKey].clips += t.clipCount || 0;
+            locStats[normalizedKey].trips.push(t);
         });
 
-        const locationSummaries = Object.entries(locStats)
-            .map(([name, val]) => ({ 
-                name, 
-                ...val, 
+        const locationSummaries = Object.values(locStats)
+            .map((val) => ({ 
+                name: val.displayName, 
+                count: val.count,
+                cost: val.cost,
+                clips: val.clips,
                 avgPerClip: val.clips > 0 ? val.cost / val.clips : 0,
                 efficiency: val.clips > 0 ? (val.clips / val.count) : 0 
             }))

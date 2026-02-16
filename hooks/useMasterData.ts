@@ -20,8 +20,8 @@ const DEFAULT_OPTIONS = [
     // --- TASK STATUS (ใหม่! สำหรับงานทั่วไป) ---
     { type: 'TASK_STATUS', key: 'TODO', label: 'To Do (รอทำ) 📥', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
     { type: 'TASK_STATUS', key: 'DOING', label: 'Doing (กำลังทำ) 🔨', color: 'bg-blue-50 text-blue-600', sort_order: 2 },
-    // FIX: Change key from 'WAITING' to 'FEEDBACK' to match DB Enum
-    { type: 'TASK_STATUS', key: 'FEEDBACK', label: 'Waiting (รอตรวจ/รอผล) ✋', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
+    // SEPARATED: Use 'WAITING' for General Tasks, distinct from Content's 'FEEDBACK'
+    { type: 'TASK_STATUS', key: 'WAITING', label: 'Waiting (รอตรวจ/รอผล) ✋', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
     { type: 'TASK_STATUS', key: 'DONE', label: 'Done (เสร็จแล้ว) ✅', color: 'bg-green-100 text-green-700', sort_order: 4 },
 
     // --- FORMAT ---

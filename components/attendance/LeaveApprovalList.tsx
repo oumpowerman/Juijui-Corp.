@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests';
 import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
@@ -11,10 +12,32 @@ interface LeaveApprovalListProps {
 const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) => {
     const { requests, isLoading, approveRequest, rejectRequest } = useLeaveRequests(currentUser);
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
+    
+    // New State for Rejection Modal
+    const [rejectingId, setRejectingId] = useState<string | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const filteredRequests = requests.filter(r => 
         filterStatus === 'PENDING' ? r.status === 'PENDING' : r.status !== 'PENDING'
     );
+
+    const handleRejectClick = (id: string) => {
+        setRejectingId(id);
+        setRejectionReason('');
+    };
+
+    const handleConfirmReject = async () => {
+        if (!rejectingId) return;
+        if (!rejectionReason.trim()) {
+            alert('กรุณาระบุเหตุผลในการปฏิเสธ');
+            return;
+        }
+        setIsSubmitting(true);
+        await rejectRequest(rejectingId, rejectionReason);
+        setIsSubmitting(false);
+        setRejectingId(null);
+    };
 
     const getTypeBadge = (type: string) => {
         const styles: any = {
@@ -103,6 +126,13 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) =>
                                             "{req.reason}"
                                         </p>
                                         
+                                        {/* Display Rejection Reason in History */}
+                                        {req.status === 'REJECTED' && req.rejectionReason && (
+                                            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                                                <span className="font-bold">เหตุผลที่ปฏิเสธ:</span> {req.rejectionReason}
+                                            </div>
+                                        )}
+                                        
                                         {req.attachmentUrl && (
                                             <a href={req.attachmentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-500 font-bold mt-2 hover:underline">
                                                 <ExternalLink className="w-3 h-3" /> ดูหลักฐานแนบ
@@ -120,7 +150,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) =>
                                             <CheckCircle2 className="w-4 h-4" /> อนุมัติ
                                         </button>
                                         <button 
-                                            onClick={() => { if(confirm('ปฏิเสธคำขอนี้?')) rejectRequest(req.id); }}
+                                            onClick={() => handleRejectClick(req.id)}
                                             className="flex-1 px-4 py-2 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1"
                                         >
                                             <XCircle className="w-4 h-4" /> ปฏิเสธ
@@ -132,6 +162,40 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ currentUser }) =>
                     ))
                 )}
             </div>
+
+            {/* Rejection Reason Modal */}
+            {rejectingId && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 border-2 border-red-100">
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">ระบุเหตุผลการปฏิเสธ</h3>
+                        <p className="text-xs text-gray-500 mb-4">เพื่อให้พนักงานทราบเหตุผลและปรับปรุงแก้ไข</p>
+                        <textarea 
+                            className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-100 outline-none resize-none mb-4"
+                            rows={3}
+                            placeholder="เช่น เอกสารไม่ครบ, วันลาหมด..."
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setRejectingId(null)}
+                                className="flex-1 py-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-bold transition-colors"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button 
+                                onClick={handleConfirmReject}
+                                disabled={isSubmitting}
+                                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold shadow-md transition-colors"
+                            >
+                                {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

@@ -1,18 +1,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, User as UserIcon, Paperclip, Loader2, FileText, ExternalLink } from 'lucide-react';
-import { User } from '../types';
+import { User, TaskType } from '../types';
 import { useTaskComments } from '../hooks/useTaskComments';
 import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { format } from 'date-fns';
 
 interface TaskCommentsProps {
     taskId: string;
+    taskType: TaskType; // Added Type
     currentUser: User;
 }
 
-const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
-    const { comments, isLoading, sendComment } = useTaskComments(taskId, currentUser);
+const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUser }) => {
+    // Pass taskType to the hook
+    const { comments, isLoading, sendComment } = useTaskComments(taskId, taskType, currentUser);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
     
     const [input, setInput] = useState('');
@@ -76,7 +78,7 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, currentUser }) => {
                 </div>
                 <div>
                     <h3 className="text-sm font-bold text-gray-800">ความคิดเห็น (Comments)</h3>
-                    <p className="text-[10px] text-gray-400">คุยงานเฉพาะคลิปนี้</p>
+                    <p className="text-[10px] text-gray-400">คุยงานเฉพาะรายการนี้</p>
                 </div>
             </div>
 

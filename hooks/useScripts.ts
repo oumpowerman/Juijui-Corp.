@@ -297,6 +297,9 @@ export const useScripts = (currentUser: User) => {
             if (updates.tags !== undefined) payload.tags = updates.tags;
             if (updates.objective !== undefined) payload.objective = updates.objective;
 
+            // --- CRITICAL FIX: MAP contentId for linking ---
+            if (updates.contentId !== undefined) payload.content_id = updates.contentId;
+
             // Fix: select aliased column name contentId from snake_case content_id to match type
             const { data, error } = await supabase
                 .from('scripts')

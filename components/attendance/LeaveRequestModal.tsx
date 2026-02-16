@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileText, Upload, AlertTriangle, Send, Loader2, Siren, HeartPulse, Palmtree, User, Clock, Briefcase, Moon, History } from 'lucide-react';
-import { LeaveType } from '../../types/attendance';
+import { X, FileText, Upload, AlertTriangle, Send, Loader2, Siren, HeartPulse, Palmtree, User, Clock, Briefcase, Moon, History, PieChart } from 'lucide-react';
+import { LeaveType, LeaveUsage } from '../../types/attendance';
 import { differenceInDays, format } from 'date-fns';
 import { MasterOption } from '../../types';
 
@@ -10,10 +10,19 @@ interface LeaveRequestModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
-    masterOptions?: MasterOption[]; // New prop
+    masterOptions?: MasterOption[];
+    leaveUsage?: LeaveUsage; // NEW: Receive Usage Stats
 }
 
-const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit, masterOptions = [] }) => {
+// Config for Default Quotas (If not in MasterData yet)
+const DEFAULT_QUOTAS: Record<string, number> = {
+    'SICK': 30,
+    'VACATION': 6,
+    'PERSONAL': 6,
+    'EMERGENCY': 99 // Unlimited
+};
+
+const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit, masterOptions = [], leaveUsage }) => {
     // Dynamic Leave Types
     const leaveTypes = useMemo(() => {
         const types = masterOptions
@@ -51,7 +60,6 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
 
     const daysCount = differenceInDays(new Date(endDate), new Date(startDate)) + 1;
     const isSickMoreThan2Days = type === 'SICK' && daysCount > 2;
-    const isEmergency = type === 'EMERGENCY';
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(type);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -110,6 +118,37 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
         }
     };
 
+    // Render Quota Bar
+    const renderQuota = (typeKey: string, label: string, color: string) => {
+        if (!leaveUsage) return null;
+        
+        const used = leaveUsage[typeKey as LeaveType] || 0;
+        const limit = DEFAULT_QUOTAS[typeKey];
+        if (!limit) return null; // No quota for this type
+
+        const remaining = Math.max(0, limit - used);
+        const percent = Math.min(100, (used / limit) * 100);
+        const isCritical = remaining <= 0;
+
+        return (
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 mb-2">
+                <div className="flex justify-between items-end mb-1">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">{label}</span>
+                    <span className={`text-xs font-black ${isCritical ? 'text-red-500' : 'text-gray-700'}`}>
+                        {remaining} <span className="text-[9px] font-normal text-gray-400">/ {limit} วัน</span>
+                    </span>
+                </div>
+                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                        className={`h-full ${color} transition-all duration-500`} 
+                        style={{ width: `${percent}%` }}
+                    />
+                </div>
+                {isCritical && <p className="text-[9px] text-red-500 mt-1 font-bold">* วันลาหมดแล้ว (อาจถูกหักเงิน)</p>}
+            </div>
+        );
+    };
+
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-indigo-50">
@@ -123,135 +162,150 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+                <div className="p-6 overflow-y-auto space-y-5 flex-1">
                     
-                    {/* Type Selector (Dynamic) */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">1. ประเภทคำขอ</label>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                            {leaveTypes.map(item => (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => setType(item.key)}
-                                    className={`
-                                        flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all min-h-[70px] justify-center
-                                        ${type === item.key 
-                                            ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200' 
-                                            : 'border-gray-100 bg-white hover:border-gray-300'
-                                        }
-                                    `}
-                                >
-                                    <div className={`p-1.5 rounded-full shadow-sm ${type === item.key ? 'bg-white' : 'bg-gray-50'}`}>
-                                        <span className={type === item.key ? 'text-indigo-600' : 'text-gray-400'}>
-                                            {getTypeIcon(item.key)}
-                                        </span>
-                                    </div>
-                                    <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${type === item.key ? 'text-indigo-700' : 'text-gray-600'}`}>
-                                        {item.label}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Dynamic Inputs based on Type */}
-                    {isTimeSpecific ? (
-                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-in slide-in-from-top-2">
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-purple-700 mb-1">วันที่ (Date)</label>
-                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-gray-700" />
-                                </div>
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-purple-700 mb-1">เวลา (Time)</label>
-                                    <input type="time" value={targetTime} onChange={e => setTargetTime(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-indigo-600" />
-                                </div>
+                    {/* NEW: Leave Quota Dashboard */}
+                    {leaveUsage && !isTimeSpecific && type !== 'OVERTIME' && (
+                        <div className="animate-in slide-in-from-top-2">
+                            <h4 className="text-xs font-bold text-indigo-900 uppercase mb-2 flex items-center gap-1">
+                                <PieChart className="w-3 h-3"/> สิทธิ์วันลาคงเหลือ (Quota)
+                            </h4>
+                            <div className="grid grid-cols-2 gap-3">
+                                {renderQuota('SICK', 'ลาป่วย', 'bg-red-400')}
+                                {renderQuota('VACATION', 'พักร้อน', 'bg-blue-400')}
+                                {renderQuota('PERSONAL', 'ลากิจ', 'bg-gray-400')}
                             </div>
-                            <p className="text-[10px] text-purple-600 mt-2">* ระบบจะบันทึกเวลานี้ให้หลังจากได้รับอนุมัติ</p>
-                         </div>
-                    ) : type === 'OVERTIME' ? (
-                        <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-in slide-in-from-top-2">
-                            <div className="flex gap-4">
-                                <div className="flex-[2]">
-                                    <label className="block text-xs font-bold text-indigo-700 mb-1">วันที่ทำ OT</label>
-                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 rounded-lg border border-indigo-200 text-sm font-bold text-gray-700" />
-                                </div>
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-indigo-700 mb-1">จำนวน (ชม.)</label>
-                                    <input type="number" min={0.5} step={0.5} value={otHours} onChange={e => setOtHours(Number(e.target.value))} className="w-full p-2 rounded-lg border border-indigo-200 text-sm font-bold text-indigo-600 text-center" />
-                                </div>
-                            </div>
-                         </div>
-                    ) : (
-                        // Standard Date Range for other leaves
-                        <div>
-                             <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">2. วันที่ลา ({daysCount} วัน)</label>
-                             <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 bg-white p-2 rounded-lg border border-gray-200 text-sm font-bold text-gray-700" />
-                                 <span className="text-gray-400">ถึง</span>
-                                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 bg-white p-2 rounded-lg border border-gray-200 text-sm font-bold text-gray-700" />
-                             </div>
                         </div>
                     )}
-
-                    {/* Reason */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">3. เหตุผล / รายละเอียด</label>
-                        <textarea 
-                            value={reason} 
-                            onChange={e => setReason(e.target.value)}
-                            placeholder={
-                                type === 'LATE_ENTRY' ? "เช่น เมื่อคืนตัดต่องานลูกค้า A เสร็จตี 4..." : 
-                                type === 'OVERTIME' ? "ระบุโปรเจกต์ที่ทำ เช่น เร่งปิดงานลูกค้า B..." : 
-                                type === 'FORGOT_CHECKIN' ? "เช่น แบตหมด, รีบเข้าประชุม..." :
-                                "ระบุอาการ หรือเหตุผลการลา..."
-                            }
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none text-sm resize-none h-24"
-                        />
-                    </div>
-
-                    {/* File Upload (Only show if needed or generic) */}
-                    <div className={`p-4 rounded-xl border-2 border-dashed transition-all ${isSickMoreThan2Days || isEmergency ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                             <label className={`text-xs font-bold uppercase flex items-center gap-1 ${isSickMoreThan2Days ? 'text-red-600' : 'text-gray-500'}`}>
-                                 {isSickMoreThan2Days ? <AlertTriangle className="w-4 h-4"/> : <Upload className="w-4 h-4"/>} 
-                                 หลักฐาน / ใบรับรองแพทย์ {isSickMoreThan2Days && '(จำเป็น)'}
-                             </label>
-                             {file && <button type="button" onClick={() => setFile(null)} className="text-red-500 text-xs underline">ลบไฟล์</button>}
+                    
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Type Selector (Dynamic) */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">1. ประเภทคำขอ</label>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {leaveTypes.map(item => (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => setType(item.key)}
+                                        className={`
+                                            flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all min-h-[70px] justify-center
+                                            ${type === item.key 
+                                                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200' 
+                                                : 'border-gray-100 bg-white hover:border-gray-300'
+                                            }
+                                        `}
+                                    >
+                                        <div className={`p-1.5 rounded-full shadow-sm ${type === item.key ? 'bg-white' : 'bg-gray-50'}`}>
+                                            <span className={type === item.key ? 'text-indigo-600' : 'text-gray-400'}>
+                                                {getTypeIcon(item.key)}
+                                            </span>
+                                        </div>
+                                        <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${type === item.key ? 'text-indigo-700' : 'text-gray-600'}`}>
+                                            {item.label}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            onChange={e => setFile(e.target.files?.[0] || null)} 
-                            accept="image/*,.pdf"
-                        />
-                        
+
+                        {/* Dynamic Inputs based on Type */}
+                        {isTimeSpecific ? (
+                             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-in slide-in-from-top-2">
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-purple-700 mb-1">วันที่ (Date)</label>
+                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-gray-700" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-purple-700 mb-1">เวลา (Time)</label>
+                                        <input type="time" value={targetTime} onChange={e => setTargetTime(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-indigo-600" />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-purple-600 mt-2">* ระบบจะบันทึกเวลานี้ให้หลังจากได้รับอนุมัติ</p>
+                             </div>
+                        ) : type === 'OVERTIME' ? (
+                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-in slide-in-from-top-2">
+                                <div className="flex gap-4">
+                                    <div className="flex-[2]">
+                                        <label className="block text-xs font-bold text-indigo-700 mb-1">วันที่ทำ OT</label>
+                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 rounded-lg border border-indigo-200 text-sm font-bold text-gray-700" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-indigo-700 mb-1">จำนวน (ชม.)</label>
+                                        <input type="number" min={0.5} step={0.5} value={otHours} onChange={e => setOtHours(Number(e.target.value))} className="w-full p-2 rounded-lg border border-indigo-200 text-sm font-bold text-indigo-600 text-center" />
+                                    </div>
+                                </div>
+                             </div>
+                        ) : (
+                            // Standard Date Range for other leaves
+                            <div>
+                                 <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">2. วันที่ลา ({daysCount} วัน)</label>
+                                 <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                     <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 bg-white p-2 rounded-lg border border-gray-200 text-sm font-bold text-gray-700" />
+                                     <span className="text-gray-400">ถึง</span>
+                                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 bg-white p-2 rounded-lg border border-gray-200 text-sm font-bold text-gray-700" />
+                                 </div>
+                            </div>
+                        )}
+
+                        {/* Reason */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">3. เหตุผล / รายละเอียด</label>
+                            <textarea 
+                                value={reason} 
+                                onChange={e => setReason(e.target.value)}
+                                placeholder={
+                                    type === 'LATE_ENTRY' ? "เช่น เมื่อคืนตัดต่องานลูกค้า A เสร็จตี 4..." : 
+                                    type === 'OVERTIME' ? "ระบุโปรเจกต์ที่ทำ เช่น เร่งปิดงานลูกค้า B..." : 
+                                    type === 'FORGOT_CHECKIN' ? "เช่น แบตหมด, รีบเข้าประชุม..." :
+                                    "ระบุอาการ หรือเหตุผลการลา..."
+                                }
+                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none text-sm resize-none h-24"
+                            />
+                        </div>
+
+                        {/* File Upload (Only show if needed or generic) */}
+                        <div className={`p-4 rounded-xl border-2 border-dashed transition-all ${isSickMoreThan2Days ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="flex justify-between items-start mb-2">
+                                 <label className={`text-xs font-bold uppercase flex items-center gap-1 ${isSickMoreThan2Days ? 'text-red-600' : 'text-gray-500'}`}>
+                                     {isSickMoreThan2Days ? <AlertTriangle className="w-4 h-4"/> : <Upload className="w-4 h-4"/>} 
+                                     หลักฐาน / ใบรับรองแพทย์ {isSickMoreThan2Days && '(จำเป็น)'}
+                                 </label>
+                                 {file && <button type="button" onClick={() => setFile(null)} className="text-red-500 text-xs underline">ลบไฟล์</button>}
+                            </div>
+                            
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                className="hidden" 
+                                onChange={e => setFile(e.target.files?.[0] || null)} 
+                                accept="image/*,.pdf"
+                            />
+                            
+                            <button 
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full py-3 bg-white rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {file ? (
+                                    <span className="text-green-600 font-bold">{file.name}</span>
+                                ) : (
+                                    <span>คลิกเพื่ออัปโหลดรูปภาพ/PDF</span>
+                                )}
+                            </button>
+                        </div>
+
                         <button 
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-full py-3 bg-white rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-colors flex items-center justify-center gap-2"
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {file ? (
-                                <span className="text-green-600 font-bold">{file.name}</span>
-                            ) : (
-                                <span>คลิกเพื่ออัปโหลดรูปภาพ/PDF</span>
-                            )}
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
+                            ส่งคำขอ
                         </button>
-                    </div>
-
-                    <button 
-                        type="submit" 
-                        disabled={isSubmitting}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
-                        ส่งคำขอ
-                    </button>
-
-                </form>
+                    </form>
+                </div>
             </div>
         </div>,
         document.body

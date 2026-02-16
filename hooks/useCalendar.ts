@@ -161,14 +161,23 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
         if (!taskId) return;
 
         const taskToMove = tasks.find(t => t.id === taskId);
-        if (taskToMove && !isSameDay(taskToMove.endDate, targetDate)) {
-            const updatedTask = { 
-                ...taskToMove, 
-                startDate: targetDate, 
-                endDate: targetDate,
-                isUnscheduled: false
-            };
-            onMoveTask(updatedTask);
+        
+        // ALLOW DROP IF: 
+        // 1. Task exists AND
+        // 2. Dates are different OR Task was Unscheduled (Stock)
+        if (taskToMove) {
+             const isDifferentDate = !isSameDay(taskToMove.endDate, targetDate);
+             const wasUnscheduled = taskToMove.isUnscheduled;
+
+             if (isDifferentDate || wasUnscheduled) {
+                const updatedTask = { 
+                    ...taskToMove, 
+                    startDate: targetDate, 
+                    endDate: targetDate,
+                    isUnscheduled: false // IMPORTANT: Always schedule it upon drop
+                };
+                onMoveTask(updatedTask);
+             }
         }
     }, [tasks, onMoveTask]);
 

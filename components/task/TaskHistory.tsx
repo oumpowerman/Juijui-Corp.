@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Task, TaskLog, User } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
-import { History, Loader2, FileCheck, Calendar, Clock } from 'lucide-react';
+import { History, Loader2, FileCheck, Calendar, Clock, Activity } from 'lucide-react';
 
 interface TaskHistoryProps {
     task: Task;
@@ -25,6 +25,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
         const fetchLogs = async () => {
             setIsLoadingLogs(true);
             try {
+                // Correctly switch filter column based on type
                 const filterCol = task.type === 'CONTENT' ? 'content_id' : 'task_id';
                 const { data, error } = await supabase
                     .from('task_logs')
@@ -36,16 +37,20 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                     .order('created_at', { ascending: false });
                 
                 if (!error && data) {
-                    const mappedLogs: TaskLog[] = data.map((l: any) => ({
-                        id: l.id,
-                        taskId: task.id,
-                        userId: l.user_id,
-                        action: l.action,
-                        details: l.details,
-                        reason: l.reason,
-                        createdAt: new Date(l.created_at),
-                        user: l.profiles ? { name: l.profiles.full_name, avatarUrl: l.profiles.avatar_url } : undefined
-                    }));
+                    const mappedLogs: TaskLog[] = data.map((l: any) => {
+                        // Handle profiles being an array or object depending on Supabase version/types
+                        const profile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
+                        return {
+                            id: l.id,
+                            taskId: task.id,
+                            userId: l.user_id,
+                            action: l.action,
+                            details: l.details,
+                            reason: l.reason,
+                            createdAt: new Date(l.created_at),
+                            user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
+                        };
+                    });
                     setLogs(mappedLogs);
                 }
             } catch (e) {
@@ -56,7 +61,48 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
         };
 
         if (task.id) fetchLogs();
-    }, [task.id]);
+        
+        // --- REALTIME SUBSCRIPTION FOR LOGS ---
+        // Dynamically listen to correct column
+        const filterCol = task.type === 'CONTENT' ? `content_id=eq.${task.id}` : `task_id=eq.${task.id}`;
+        const channel = supabase
+            .channel(`logs-${task.id}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'task_logs', filter: filterCol },
+                (payload) => {
+                    // Fetch full detail for new log to get user profile
+                    supabase
+                        .from('task_logs')
+                        .select(`id, user_id, action, details, reason, created_at, profiles(full_name, avatar_url)`)
+                        .eq('id', payload.new.id)
+                        .single()
+                        .then(({ data }) => {
+                            if (data) {
+                                const logData = data as any; // Cast to any to handle type mismatch
+                                const profile = Array.isArray(logData.profiles) ? logData.profiles[0] : logData.profiles;
+
+                                const newLog: TaskLog = {
+                                    id: logData.id,
+                                    taskId: task.id,
+                                    userId: logData.user_id,
+                                    action: logData.action,
+                                    details: logData.details,
+                                    reason: logData.reason,
+                                    createdAt: new Date(logData.created_at),
+                                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
+                                };
+                                setLogs(prev => [newLog, ...prev]);
+                            }
+                        });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [task.id, task.type]);
 
     const handleBookReview = async () => {
         if (!task || !bookingDate || !bookingTime) return;
@@ -64,7 +110,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
         
         try {
             const { error } = await supabase.from('task_reviews').insert({
-                task_id: task.id,
+                [task.type === 'CONTENT' ? 'content_id' : 'task_id']: task.id, // Correct FK
                 round: bookingRound,
                 scheduled_at: scheduledAt.toISOString(),
                 status: 'PENDING'
@@ -72,7 +118,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
             if (error) throw error;
             
             await supabase.from('task_logs').insert({
-                task_id: task.id,
+                [task.type === 'CONTENT' ? 'content_id' : 'task_id']: task.id,
                 action: 'REVIEW_BOOKED',
                 details: `จองคิวตรวจ Draft ${bookingRound} วันที่ ${format(scheduledAt, 'dd MMM HH:mm')}`,
                 user_id: currentUser?.id
@@ -204,32 +250,36 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                 ) : (
                     <div className="relative pl-4 border-l-2 border-gray-100 space-y-6">
                         {logs.map((log) => (
-                            <div key={log.id} className="relative group">
+                            <div key={log.id} className="relative group animate-in slide-in-from-left-2 duration-300">
                                 <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-white ring-1 ring-gray-100 ${
                                     log.action === 'DELAYED' ? 'bg-orange-400' : 
                                     log.action === 'SENT_TO_QC' ? 'bg-purple-400' :
                                     log.action === 'STATUS_CHANGE' ? 'bg-blue-400' :
+                                    log.action === 'UPDATED' ? 'bg-indigo-400' :
                                     'bg-gray-300'
                                 }`}></div>
                                 
                                 <div className="flex justify-between items-start mb-1">
-                                    <span className="text-xs font-bold text-gray-700">{log.action.replace('_', ' ')}</span>
+                                    <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
+                                        {log.action === 'UPDATED' && <Activity className="w-3 h-3 text-indigo-400"/>}
+                                        {log.action.replace('_', ' ')}
+                                    </span>
                                     <span className="text-[10px] text-gray-400 font-mono">{format(log.createdAt, 'dd/MM HH:mm')}</span>
                                 </div>
                                 
-                                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-2 rounded-lg border border-gray-100 group-hover:bg-white group-hover:shadow-sm transition-all">
+                                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100 group-hover:bg-white group-hover:shadow-sm transition-all whitespace-pre-wrap">
                                     {log.details}
                                 </p>
                                 
                                 {log.reason && (
-                                    <div className="mt-1 text-xs text-red-500 bg-red-50 px-2 py-1 rounded w-fit border border-red-100">
+                                    <div className="mt-1 text-xs text-red-500 bg-red-50 px-2 py-1 rounded w-fit border border-red-100 font-medium">
                                         Note: {log.reason}
                                     </div>
                                 )}
                                 
                                 <div className="flex items-center gap-1.5 mt-2">
                                     {log.user?.avatarUrl ? (
-                                        <img src={log.user.avatarUrl} className="w-4 h-4 rounded-full object-cover" />
+                                        <img src={log.user.avatarUrl} className="w-4 h-4 rounded-full object-cover shadow-sm" />
                                     ) : (
                                         <div className="w-4 h-4 bg-gray-200 rounded-full flex items-center justify-center text-[8px] text-gray-500 font-bold">
                                             {log.user?.name?.charAt(0)}

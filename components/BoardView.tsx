@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Task, Channel, User, Status, MasterOption } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
 import { STATUS_LABELS, STATUS_COLORS, PLATFORM_ICONS } from '../constants';
 import { Plus, MoreHorizontal, Calendar, User as UserIcon, Filter, Check, AlertCircle, ArrowRight, CornerDownRight } from 'lucide-react';
 import { format } from 'date-fns';
@@ -10,7 +10,8 @@ interface BoardViewProps {
     tasks: Task[];
     channels: Channel[];
     users: User[];
-    masterOptions: MasterOption[]; // New Prop
+    masterOptions: MasterOption[];
+    viewMode: 'CONTENT' | 'TASK'; // Added prop
     onEditTask: (task: Task) => void;
     onAddTask: (status: Status) => void;
     onUpdateStatus: (task: Task, newStatus: Status) => void;
@@ -22,6 +23,7 @@ const BoardView: React.FC<BoardViewProps> = ({
     channels, 
     users, 
     masterOptions,
+    viewMode,
     onEditTask, 
     onAddTask, 
     onUpdateStatus 
@@ -30,13 +32,16 @@ const BoardView: React.FC<BoardViewProps> = ({
     const [selectedChannelId, setSelectedChannelId] = useState<string>('ALL');
 
     // --- Dynamic Columns Logic ---
-    // 1. Get Status Options from Master Data
-    const statusOptions = masterOptions
-        .filter(o => o.type === 'STATUS' && o.isActive)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
+    // Correctly select status type based on view mode
+    const statusTypeToCheck = viewMode === 'CONTENT' ? 'STATUS' : 'TASK_STATUS';
 
-    // 2. If no statuses defined, use fallback logic or empty state
-    // For now, we will show an empty state guiding user to settings if empty.
+    const statusOptions = useMemo(() => {
+        return masterOptions
+            .filter(o => o.type === statusTypeToCheck && o.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+    }, [masterOptions, statusTypeToCheck]);
+
+    // Fallback/Empty State Logic
     const hasStatuses = statusOptions.length > 0;
 
     const handleDragStart = (e: React.DragEvent, taskId: string) => {
@@ -76,16 +81,13 @@ const BoardView: React.FC<BoardViewProps> = ({
             <div className="h-full flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
                 <div className="bg-red-50 p-6 rounded-3xl border-2 border-red-100 max-w-md">
                     <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-red-900 mb-2">ยังไม่ได้ตั้งค่าสถานะงาน (Status)</h3>
+                    <h3 className="text-xl font-bold text-red-900 mb-2">
+                        ไม่พบสถานะงาน ({viewMode === 'CONTENT' ? 'Content Status' : 'Task Status'})
+                    </h3>
                     <p className="text-red-600 mb-6 text-sm">
-                        ระบบต้องการข้อมูล Status เพื่อสร้างกระดานบอร์ด<br/>
-                        กรุณาไปที่เมนู <span className="font-bold">Admin {'>'} ตั้งค่าระบบ {'>'} Status</span>
+                        ระบบไม่พบข้อมูล Master Data สำหรับ {statusTypeToCheck}<br/>
+                        กรุณาไปที่เมนู <span className="font-bold">Admin {'>'} ตั้งค่าระบบ</span> เพื่อเพิ่มสถานะ
                     </p>
-                    <div className="flex justify-center">
-                        <span className="text-xs text-gray-400 bg-white px-3 py-2 rounded-lg border border-gray-200">
-                            หรือติดต่อ Admin ให้ตั้งค่า
-                        </span>
-                    </div>
                 </div>
             </div>
         );
@@ -141,7 +143,7 @@ const BoardView: React.FC<BoardViewProps> = ({
             <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
                 <div className="flex h-full gap-4 min-w-max px-2">
                     {statusOptions.map((option) => {
-                        const statusKey = option.key; // e.g. "TODO", "SCRIPT"
+                        const statusKey = option.key; 
                         const statusLabel = option.label;
                         const statusColor = option.color || 'bg-gray-100 text-gray-600';
 
@@ -159,13 +161,13 @@ const BoardView: React.FC<BoardViewProps> = ({
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, statusKey)}
                             >
-                                {/* Column Header (Increased Font Size) */}
+                                {/* Column Header */}
                                 <div className="p-4 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl border-b border-gray-100 sticky top-0 z-10">
                                     <div className="flex items-center gap-2 max-w-[80%]">
-                                        <span className={`px-3 py-1 rounded-lg text-base font-bold border truncate ${statusColor}`}>
+                                        <span className={`px-3 py-1 rounded-lg text-sm font-bold border truncate ${statusColor}`}>
                                             {statusLabel}
                                         </span>
-                                        <span className="text-sm text-gray-400 font-bold bg-white px-2 py-0.5 rounded-md border border-gray-100">
+                                        <span className="text-xs text-gray-400 font-bold bg-white px-2 py-0.5 rounded-md border border-gray-100">
                                             {columnTasks.length}
                                         </span>
                                     </div>
@@ -187,8 +189,7 @@ const BoardView: React.FC<BoardViewProps> = ({
                                     {columnTasks.map(task => {
                                         const channel = getChannelInfo(task.channelId);
                                         const avatar = getAssigneeAvatar(task.assigneeIds.length > 0 ? task.assigneeIds : task.ideaOwnerIds);
-                                        const channelColorClass = (channel?.color || '').split(' ')[0] || 'bg-gray-100';
-
+                                        
                                         return (
                                             <div
                                                 key={task.id}
@@ -208,29 +209,33 @@ const BoardView: React.FC<BoardViewProps> = ({
                                                     </div>
                                                 )}
 
-                                                {/* Cover/Tag Line (Increased Font Size) */}
+                                                {/* Cover/Tag Line */}
                                                 <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                                                     {channel && (
-                                                        <span className={`text-xs px-2 py-1 rounded border font-bold truncate max-w-[120px] ${channel.color}`}>
+                                                        <span className={`text-[10px] px-2 py-1 rounded border font-bold truncate max-w-[120px] ${channel.color}`}>
                                                             {channel.name}
                                                         </span>
                                                     )}
                                                     {task.contentFormat && (
-                                                        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded border border-purple-100 font-bold">
+                                                        <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded border border-purple-100 font-bold">
                                                             {task.contentFormat}
                                                         </span>
                                                     )}
+                                                    {/* Show 'General Task' badge if no channel/format */}
+                                                    {viewMode === 'TASK' && !channel && (
+                                                        <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 font-bold">General Task</span>
+                                                    )}
                                                 </div>
 
-                                                {/* Title (Increased Font Size) */}
-                                                <h4 className="text-lg font-bold text-gray-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors">
+                                                {/* Title */}
+                                                <h4 className="text-sm font-bold text-gray-800 leading-snug mb-3 group-hover:text-indigo-600 transition-colors line-clamp-2">
                                                     {task.title}
                                                 </h4>
 
                                                 {/* Footer Info */}
                                                 <div className="flex justify-between items-end pt-2 border-t border-gray-50">
-                                                    <div className="flex items-center text-xs font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
-                                                        <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                                                    <div className="flex items-center text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
+                                                        <Calendar className="w-3 h-3 mr-1.5" />
                                                         {task.isUnscheduled ? 'No Date' : format(task.endDate, 'd MMM')}
                                                     </div>
                                                     

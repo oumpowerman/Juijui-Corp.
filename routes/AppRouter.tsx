@@ -1,5 +1,5 @@
 
-import React, { useState, Suspense, lazy, useEffect } from 'react';
+import React, { useState, Suspense, lazy, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { ViewMode } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
@@ -58,11 +58,40 @@ interface AppRouterProps {
 }
 
 const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
-  const [currentView, setCurrentView] = useState<ViewMode>('DASHBOARD');
+  // Initialize view from URL or default to DASHBOARD
+  const [currentView, setCurrentView] = useState<ViewMode>(() => {
+      if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const viewParam = params.get('view');
+          if (viewParam) return viewParam as ViewMode;
+      }
+      return 'DASHBOARD';
+  });
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
+
+  // --- NAVIGATION HANDLER (Sync with URL) ---
+  const handleNavigate = useCallback((view: ViewMode) => {
+      setCurrentView(view);
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', view);
+      window.history.pushState({}, '', url);
+  }, []);
+
+  // Handle Browser Back/Forward Buttons
+  useEffect(() => {
+      const handlePopState = () => {
+          const params = new URLSearchParams(window.location.search);
+          const view = params.get('view') as ViewMode;
+          setCurrentView(view || 'DASHBOARD');
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // --- MAIN LOGIC HOOK (Orchestrator) ---
   const {
@@ -185,8 +214,8 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                   users={allUsers}
                   currentUser={currentUserProfile}
                   onEditTask={handleEditTask}
-                  onNavigateToCalendar={() => setCurrentView('CALENDAR')}
-                  onNavigate={(view) => setCurrentView(view)} 
+                  onNavigateToCalendar={() => handleNavigate('CALENDAR')}
+                  onNavigate={(view) => handleNavigate(view)} 
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onOpenNotifications={handleToggleNotification}
                   unreadCount={sysUnread}
@@ -379,7 +408,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
     <AppShell
         currentUser={currentUserProfile}
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onNavigate={handleNavigate}
         onLogout={handleForceLogout}
         onEditProfile={() => setIsProfileModalOpen(true)}
         onAddTask={handleAddTask}
@@ -410,7 +439,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                 <CommandPalette 
                     isOpen={isCommandPaletteOpen}
                     onClose={() => setIsCommandPaletteOpen(false)}
-                    onNavigate={setCurrentView}
+                    onNavigate={handleNavigate}
                     tasks={tasks}
                     users={allUsers}
                     onOpenTask={(task) => { handleEditTask(task); setIsCommandPaletteOpen(false); }}
@@ -464,7 +493,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
             onOpenSettings={() => setIsNotifSettingsOpen(true)}
             onDismiss={dismissNotification}
             onMarkAllRead={markAllAsRead}
-            onNavigate={setCurrentView} 
+            onNavigate={handleNavigate} 
         />
 
     </AppShell>

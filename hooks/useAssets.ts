@@ -94,7 +94,7 @@ export const useAssets = () => {
 
             // Apply Search
             if (params.search) {
-                query = query.or(`name.ilike.%${params.search}%,serial_number.ilike.%${params.search}%`);
+                query = query.or(`name.ilike.%${params.search}%,serial_number.ilike.%${params.search}%,group_label.ilike.%${params.search}%`);
             }
 
             // Apply Tag Filter (New)
@@ -126,6 +126,7 @@ export const useAssets = () => {
                     imageUrl: i.image_url,
                     
                     itemType: i.item_type || 'FIXED', // Default
+                    groupLabel: i.group_label, // Map group_label
                     
                     // Fixed Asset Fields
                     purchasePrice: Number(i.purchase_price || 0),
@@ -143,7 +144,8 @@ export const useAssets = () => {
                     minThreshold: i.min_threshold || 0,
                     maxCapacity: i.max_capacity || 0,
 
-                    tags: i.tags || []
+                    tags: i.tags || [],
+                    createdAt: i.created_at ? new Date(i.created_at) : undefined
                 })));
                 setTotalCount(count || 0);
             }
@@ -191,7 +193,8 @@ export const useAssets = () => {
                 image_url: imageUrl,
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
-                tags: asset.tags || []
+                tags: asset.tags || [],
+                group_label: asset.groupLabel || null // Save group_label
             };
 
             // Conditionally add fields based on Type
@@ -238,17 +241,54 @@ export const useAssets = () => {
         }
     };
 
+    // New: Batch Update for Grouping
+    const batchGroupAssets = async (ids: string[], groupLabel: string) => {
+        try {
+            const { error } = await supabase
+                .from('inventory_items')
+                .update({ group_label: groupLabel })
+                .in('id', ids);
+
+            if (error) throw error;
+            
+            showToast(`รวมกลุ่ม ${ids.length} รายการเรียบร้อย ✅`, 'success');
+            // No need to manually fetch if realtime is on, but we can return true
+            return true;
+        } catch (err: any) {
+             showToast('รวมกลุ่มไม่สำเร็จ: ' + err.message, 'error');
+             return false;
+        }
+    };
+    
+    // New: Batch Ungroup
+    const batchUngroupAssets = async (ids: string[]) => {
+         try {
+            const { error } = await supabase
+                .from('inventory_items')
+                .update({ group_label: null })
+                .in('id', ids);
+
+            if (error) throw error;
+            showToast(`ยกเลิกกลุ่ม ${ids.length} รายการแล้ว`, 'info');
+            return true;
+        } catch (err: any) {
+             showToast('ยกเลิกไม่สำเร็จ: ' + err.message, 'error');
+             return false;
+        }
+    };
+
     // Clone Function
     const cloneAsset = async (asset: InventoryItem, amount: number) => {
         try {
             // Only Fixed Assets should use Clone in this way usually, but let's allow it
             const copies = Array.from({ length: amount }).map((_, i) => ({
-                name: `${asset.name} (Copy ${i+1})`,
+                name: asset.name, // Use same name for easier grouping, or append Copy
                 description: asset.description,
                 category_id: asset.categoryId,
                 image_url: asset.imageUrl,
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
+                group_label: asset.groupLabel || asset.name, // If no group label, use name as group
                 tags: asset.tags || [],
                 
                 // Copy conditional fields
@@ -336,6 +376,8 @@ export const useAssets = () => {
         importAssets,
         fetchAssets,
         updateStock,
+        batchGroupAssets, // Export
+        batchUngroupAssets, // Export
         refreshStats: fetchStats
     };
 };

@@ -5,10 +5,11 @@ import {
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
     Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock,
-    Maximize2, Minimize2
+    Maximize2, Minimize2, Monitor, DollarSign, Briefcase, Clapperboard, Building2, ShieldCheck
 } from 'lucide-react';
-import { User, ViewMode, TaskType } from '../types';
+import { User, ViewMode, TaskType, MenuGroup } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
+import { useSidebarBadges } from '../hooks/useSidebarBadges'; // Import Badge Hook
 
 interface MobileNavigationProps {
     currentUser: User;
@@ -20,31 +21,94 @@ interface MobileNavigationProps {
     unreadChatCount: number;
 }
 
-const MobileMenuButton = ({ 
+// --- Menu Configuration (Synced with Sidebar) ---
+const MOBILE_MENU_GROUPS: MenuGroup[] = [
+  {
+    id: 'WORKSPACE',
+    title: 'Workspace',
+    icon: Briefcase,
+    items: [
+      { view: 'DASHBOARD', label: 'ภาพรวม', icon: LayoutGrid },
+      { view: 'CALENDAR', label: 'ปฏิทิน', icon: CalendarIcon },
+      { view: 'CHAT', label: 'แชททีม', icon: MessageCircle },
+      { view: 'TEAM', label: 'ทีมงาน', icon: Users },
+      { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
+      { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp },
+    ]
+  },
+  {
+    id: 'PRODUCTION',
+    title: 'Production',
+    icon: Clapperboard,
+    items: [
+      { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
+      { view: 'MEETINGS', label: 'ประชุม', icon: Presentation },
+      { view: 'STOCK', label: 'คลังคลิป', icon: Film },
+      { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
+    ]
+  },
+  {
+    id: 'OFFICE',
+    title: 'Office',
+    icon: Building2,
+    items: [
+      { view: 'ATTENDANCE', label: 'ลงเวลา', icon: Clock },
+      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown },
+      { view: 'DUTY', label: 'เวรวันนี้', icon: Coffee },
+      { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 },
+      { view: 'FEEDBACK', label: 'Voice', icon: Megaphone },
+      { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
+      { view: 'ASSETS', label: 'ทรัพย์สิน', icon: Monitor }, // Added
+      { view: 'FINANCE', label: 'บัญชี', icon: DollarSign }, // Added
+    ]
+  },
+  {
+    id: 'ADMIN',
+    title: 'Admin Zone',
+    icon: ShieldCheck,
+    adminOnly: true,
+    items: [
+      { view: 'QUALITY_GATE', label: 'ห้องตรวจ', icon: ScanEye },
+      { view: 'CHANNELS', label: 'ช่องทาง', icon: Settings2 },
+      { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
+      { view: 'SYSTEM_GUIDE', label: 'Logic', icon: Terminal },
+    ]
+  }
+];
+
+interface MobileMenuButtonProps {
+    view: ViewMode;
+    icon: any;
+    label: string;
+    color: string;
+    currentView: ViewMode;
+    onNavigate: (v: ViewMode) => void;
+    badge?: number;
+}
+
+const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({ 
     view, icon: Icon, label, color, currentView, onNavigate, badge 
-}: { 
-    view: ViewMode, icon: any, label: string, color: string, currentView: ViewMode, onNavigate: (v: ViewMode) => void, badge?: number 
 }) => {
     const isActive = currentView === view;
     return (
         <button
             onClick={() => onNavigate(view)}
             className={`
-                flex flex-col items-center justify-center p-3 rounded-2xl border transition-all relative group active:scale-95
+                flex flex-col items-center justify-center p-2 rounded-2xl border transition-all relative group active:scale-95 h-20
                 ${isActive 
                     ? 'bg-indigo-50 border-indigo-200 shadow-sm' 
                     : 'bg-white border-gray-100 hover:border-indigo-100 hover:shadow-md'}
             `}
         >
-            <div className={`p-2.5 rounded-xl mb-2 transition-colors ${isActive ? 'bg-white text-indigo-600 shadow-sm' : `${color} bg-opacity-10`}`}>
-                <Icon className={`w-6 h-6 ${isActive ? 'text-indigo-600' : color.replace('bg-', 'text-').replace('/10', '')}`} />
+            <div className={`p-2 rounded-xl mb-1.5 transition-colors ${isActive ? 'bg-white text-indigo-600 shadow-sm' : `${color} bg-opacity-10`}`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : color.replace('bg-', 'text-').replace('/10', '')}`} />
             </div>
-            <span className={`text-[10px] font-bold text-center leading-tight ${isActive ? 'text-indigo-700' : 'text-gray-600'}`}>{label}</span>
+            <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${isActive ? 'text-indigo-700' : 'text-gray-500'}`}>{label}</span>
             
-            {/* Badge */}
-            {badge && badge > 0 && (
-                <div className="absolute top-2 right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white">
-                    {badge > 99 ? '99+' : badge}
+            {/* Badge - Fixed Logic: Check explicit greater than 0 with fallback */}
+            {(badge || 0) > 0 && (
+                <div className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
+                    {badge! > 99 ? '99+' : badge}
                 </div>
             )}
         </button>
@@ -55,16 +119,15 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
-
-    // Integrate the back button handler
+    
+    // Hooks
+    const { badges } = useSidebarBadges(currentUser);
     useMobileBackHandler(isMenuOpen, () => setIsMenuOpen(false));
 
     useEffect(() => {
-        // Check if iOS to conditionally hide/show feature
         const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
         setIsIOS(isIOSDevice);
 
-        // Listener for external fullscreen changes (e.g. user presses ESC or swipes)
         const handleFullscreenChange = () => {
             const isFull = !!document.fullscreenElement || 
                            !!(document as any).webkitFullscreenElement || 
@@ -109,28 +172,35 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
             }
         } catch (err) {
             console.warn("Fullscreen toggle error:", err);
-            // Fail safely without crashing
-            if (isIOS) {
-                alert("บน iOS กรุณาใช้เมนู Share > 'Add to Home Screen' เพื่อใช้งานเต็มจอครับ");
-            }
+            if (isIOS) alert("บน iOS กรุณาใช้เมนู Share > 'Add to Home Screen' เพื่อใช้งานเต็มจอครับ");
         }
     };
 
     // Calculate Level Progress
     const nextLevelXP = currentUser.level * 1000;
-    const progressPercent = Math.min(((currentUser.xp  % 1000) / 1000) * 100, 100);
+    const progressPercent = Math.min(((currentUser.xp % 1000) / 1000) * 100, 100);
+
+    // Helper to map badge count
+    const getBadgeCount = (view: ViewMode) => {
+        if (view === 'CHAT') return unreadChatCount;
+        if (view === 'QUALITY_GATE') return badges.qualityGate;
+        if (view === 'FEEDBACK') return badges.feedback;
+        if (view === 'DUTY') return badges.myDuty;
+        if (view === 'ATTENDANCE' && currentUser.role === 'ADMIN') return badges.attendanceApproval;
+        if (view === 'TEAM' && currentUser.role === 'ADMIN') return badges.memberApproval;
+        return 0;
+    };
 
     return (
         <>
-            {/* --- BOTTOM DOCK (Floating Glass) --- */}
-            {/* Added lg:hidden to hide on desktop */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none flex justify-center pb-safe-area lg:hidden">
-                <div className="bg-white/90 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[2rem] px-2 py-2 flex items-center justify-between pointer-events-auto gap-1 w-full max-w-md ring-1 ring-gray-200/50">
+            {/* --- BOTTOM DOCK (Floating) --- */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 p-3 pb-safe-area lg:hidden pointer-events-none">
+                <div className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ring-black/5">
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
-                        { view: 'CALENDAR', icon: CalendarIcon, label: 'Calendar' },
+                        { view: 'CALENDAR', icon: CalendarIcon, label: 'Plan' },
                         { view: 'CHAT', icon: MessageCircle, label: 'Chat', badge: unreadChatCount },
-                        { view: 'TEAM', icon: Users, label: 'Team' }, // Added Team to Dock
+                        { view: 'TEAM', icon: Users, label: 'Team', badge: currentUser.role === 'ADMIN' ? badges.memberApproval : 0 },
                     ].map((item) => {
                         const Icon = item.icon;
                         const isActive = currentView === item.view;
@@ -142,12 +212,12 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                 key={item.view}
                                 onClick={() => onNavigate(item.view as ViewMode)}
                                 className={`
-                                    relative flex-1 flex flex-col items-center justify-center h-[60px] rounded-[1.5rem] transition-all duration-300
-                                    ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}
+                                    relative flex-1 flex flex-col items-center justify-center h-[56px] rounded-[1.5rem] transition-all duration-300
+                                    ${isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}
                                 `}
                             >
                                 <Icon className={`w-6 h-6 mb-0.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
-                                <span className="text-[9px] font-bold">{item.label}</span>
+                                <span className="text-[9px] font-bold tracking-tight">{item.label}</span>
                                 {badge > 0 && (
                                     <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                                 )}
@@ -160,74 +230,77 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     <button
                         onClick={() => setIsMenuOpen(true)}
                         className={`
-                            relative flex-1 flex flex-col items-center justify-center h-[60px] rounded-[1.5rem] transition-all duration-300
-                            ${isMenuOpen ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}
+                            relative flex-1 flex flex-col items-center justify-center h-[56px] rounded-[1.5rem] transition-all duration-300
+                            ${isMenuOpen ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}
                         `}
                     >
                         <Menu className="w-6 h-6 mb-0.5" />
                         <span className="text-[9px] font-bold">Menu</span>
+                        
+                        {/* Summary Badge for other menu items */}
+                        {(badges.qualityGate + badges.feedback + badges.myDuty + badges.attendanceApproval) > 0 && (
+                             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white"></span>
+                        )}
                     </button>
                 </div>
             </div>
 
-            {/* --- FULL SCREEN DRAWER --- */}
+            {/* --- FULL SCREEN MENU DRAWER --- */}
             {isMenuOpen && (
-                <div className="fixed inset-0 z-[9999] bg-white lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[100dvh]">
+                <div className="fixed inset-0 z-[9999] bg-[#f8fafc] lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[100dvh]">
                     
                     {/* Header: User Profile & Stats */}
-                    <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[2.5rem] shadow-xl relative overflow-hidden shrink-0">
-                        {/* Background Effects */}
+                    <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden shrink-0">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
 
                         <div className="relative z-10">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="flex items-center gap-4" onClick={onEditProfile}>
+                                <div className="flex items-center gap-4 active:opacity-80 transition-opacity" onClick={onEditProfile}>
                                     <div className="relative">
                                         <img src={currentUser.avatarUrl} className="w-14 h-14 rounded-full border-2 border-white/20 shadow-md object-cover" />
                                         <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-slate-900"></div>
                                     </div>
                                     <div>
-                                        <h2 className="text-xl font-black">{currentUser.name}</h2>
-                                        <p className="text-xs text-slate-400 font-medium bg-white/10 px-2 py-0.5 rounded-lg w-fit mt-1 backdrop-blur-sm">
-                                            {currentUser.position}
-                                        </p>
+                                        <h2 className="text-xl font-black tracking-tight">{currentUser.name}</h2>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-xs text-slate-300 font-bold bg-white/10 px-2 py-0.5 rounded-lg backdrop-blur-sm border border-white/5">
+                                                {currentUser.position}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {/* Fullscreen Button - Conditionally styled for iOS vs Android */}
                                     <button 
                                         onClick={toggleFullScreen}
-                                        className={`p-2 rounded-full transition-colors text-white/70 hover:text-white ${isIOS ? 'bg-white/5 opacity-50 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
-                                        title={isIOS ? "iOS does not support button fullscreen" : "Full Screen Mode"}
+                                        className={`p-2 rounded-full transition-colors text-white/70 hover:text-white ${isIOS ? 'bg-white/5 opacity-30 cursor-not-allowed' : 'bg-white/10'}`}
                                     >
-                                        {isFullscreen ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
+                                        {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                                     </button>
-                                    
                                     <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white/70 hover:text-white">
-                                        <X className="w-6 h-6" />
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
 
                             {/* Mini Stats Bar */}
                             <div className="flex gap-3">
-                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5 shadow-inner">
                                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-300 mb-1">
                                         <span className="flex items-center"><Heart className="w-3 h-3 mr-1 text-red-400 fill-red-400"/> HP</span>
                                         <span>{currentUser.hp}/{currentUser.maxHp}</span>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${(currentUser.hp/currentUser.maxHp)*100}%` }}></div>
+                                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-red-500 rounded-full transition-all duration-500" style={{ width: `${(currentUser.hp/currentUser.maxHp)*100}%` }}></div>
                                     </div>
                                 </div>
-                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5 shadow-inner">
                                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-300 mb-1">
                                         <span className="flex items-center"><Trophy className="w-3 h-3 mr-1 text-yellow-400 fill-yellow-400"/> Lv.{currentUser.level}</span>
                                         <span>{progressPercent.toFixed(0)}%</span>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${progressPercent}%` }}></div>
+                                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-yellow-400 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
                                     </div>
                                 </div>
                             </div>
@@ -235,69 +308,50 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     </div>
 
                     {/* Menu Grid */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide pb-32">
-                        
-                        {/* 1. Workspace */}
-                        <div>
-                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
-                                Workspace <div className="h-px bg-gray-200 flex-1 ml-3"></div>
-                            </h4>
-                            <div className="grid grid-cols-3 gap-3">
-                                <MobileMenuButton view="WEEKLY" icon={Target} label="ภารกิจ" color="bg-orange-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="GOALS" icon={TrendingUp} label="เป้าหมาย" color="bg-green-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="TEAM" icon={Users} label="ทีมงาน" color="bg-blue-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                            </div>
-                        </div>
+                    <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-8 scrollbar-hide">
+                        {MOBILE_MENU_GROUPS.map((group) => {
+                            if (group.adminOnly && currentUser.role !== 'ADMIN') return null;
 
-                        {/* 2. Production */}
-                        <div>
-                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
-                                Production <div className="h-px bg-gray-200 flex-1 ml-3"></div>
-                            </h4>
-                            <div className="grid grid-cols-3 gap-3">
-                                <MobileMenuButton view="SCRIPT_HUB" icon={FileText} label="เขียนบท" color="bg-rose-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="MEETINGS" icon={Presentation} label="ห้องประชุม" color="bg-indigo-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="STOCK" icon={Film} label="คลังคลิป" color="bg-violet-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="CHECKLIST" icon={ClipboardList} label="จัดเป๋า" color="bg-teal-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                            </div>
-                        </div>
+                            return (
+                                <div key={group.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 pl-1 flex items-center gap-2">
+                                        {React.createElement(group.icon, { className: "w-3.5 h-3.5" })}
+                                        {group.title}
+                                        <div className="h-px bg-gray-200 flex-1 ml-2"></div>
+                                    </h4>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {group.items.map((item) => {
+                                            // Assign Colors based on Group ID
+                                            let color = 'bg-gray-200';
+                                            if (group.id === 'WORKSPACE') color = 'bg-blue-500';
+                                            if (group.id === 'PRODUCTION') color = 'bg-pink-500';
+                                            if (group.id === 'OFFICE') color = 'bg-emerald-500';
+                                            if (group.id === 'ADMIN') color = 'bg-slate-600';
 
-                        {/* 3. Office */}
-                        <div>
-                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
-                                Office <div className="h-px bg-gray-200 flex-1 ml-3"></div>
-                            </h4>
-                            <div className="grid grid-cols-3 gap-3">
-                                <MobileMenuButton view="ATTENDANCE" icon={Clock} label="ลงเวลา" color="bg-emerald-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="LEADERBOARD" icon={Crown} label="Hall of Fame" color="bg-yellow-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="DUTY" icon={Coffee} label="ตารางเวร" color="bg-amber-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="QUALITY_GATE" icon={ScanEye} label="ตรวจงาน" color="bg-purple-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="KPI" icon={BarChart3} label="KPI" color="bg-lime-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="FEEDBACK" icon={Megaphone} label="Feedback" color="bg-pink-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                <MobileMenuButton view="WIKI" icon={BookOpen} label="คู่มือ" color="bg-sky-500" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                            </div>
-                        </div>
-
-                        {/* 4. Admin (Conditional) */}
-                        {currentUser.role === 'ADMIN' && (
-                            <div>
-                                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 pl-1 flex items-center">
-                                    <Shield className="w-3 h-3 mr-1" /> Admin Only <div className="h-px bg-gray-200 flex-1 ml-3"></div>
-                                </h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <MobileMenuButton view="CHANNELS" icon={Settings2} label="จัดการช่อง" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="MASTER_DATA" icon={Database} label="ตั้งค่าระบบ" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
-                                    <MobileMenuButton view="SYSTEM_GUIDE" icon={Terminal} label="Logic Guide" color="bg-slate-600" currentView={currentView} onNavigate={handleNavigateAndClose} />
+                                            return (
+                                                <MobileMenuButton 
+                                                    key={item.view}
+                                                    view={item.view} 
+                                                    icon={item.icon} 
+                                                    label={item.label} 
+                                                    color={color}
+                                                    currentView={currentView} 
+                                                    onNavigate={handleNavigateAndClose}
+                                                    badge={getBadgeCount(item.view)}
+                                                />
+                                            )
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })}
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="p-4 bg-white border-t border-gray-100">
+                    <div className="p-4 bg-white border-t border-gray-100 flex items-center justify-center pb-safe-area">
                         <button 
                             onClick={onLogout}
-                            className="w-full py-3.5 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                            className="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm border border-red-100"
                         >
                             <LogOut className="w-5 h-5" /> ลงชื่อออก (Logout)
                         </button>

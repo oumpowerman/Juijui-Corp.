@@ -3,6 +3,7 @@ import React from 'react';
 import { eachDayOfInterval, isSameDay } from 'date-fns';
 import { Task, ChipConfig, CalendarHighlight, MasterOption } from '../../types';
 import CalendarDayCell from './CalendarDayCell';
+import { TaskDisplayMode } from '../CalendarView';
 
 interface CalendarGridProps {
     startDate: Date;
@@ -11,6 +12,7 @@ interface CalendarGridProps {
     isExpanded: boolean;
     dragOverDate: Date | null;
     viewMode: 'CONTENT' | 'TASK';
+    taskDisplayMode: TaskDisplayMode; // Added
     activeChipIds: string[];
     customChips: ChipConfig[];
     
@@ -39,6 +41,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     isExpanded,
     dragOverDate,
     viewMode,
+    taskDisplayMode,
     activeChipIds,
     customChips,
     highlights,
@@ -93,6 +96,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                             isExpanded={isExpanded}
                             dragOverDate={dragOverDate}
                             viewMode={viewMode}
+                            taskDisplayMode={taskDisplayMode}
                             activeChipIds={activeChipIds}
                             customChips={customChips}
                             highlight={dayHighlight}

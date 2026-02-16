@@ -3,6 +3,7 @@ import React, { memo } from 'react';
 import { format, isSameMonth, isToday, isSameDay, isSameWeek } from 'date-fns';
 import { Task, ChipConfig, CalendarHighlight, MasterOption } from '../../types';
 import CalendarTaskPill from './CalendarTaskPill';
+import { TaskDisplayMode } from '../CalendarView';
 
 interface CalendarDayCellProps {
     day: Date;
@@ -11,6 +12,7 @@ interface CalendarDayCellProps {
     isExpanded: boolean;
     dragOverDate: Date | null;
     viewMode: 'CONTENT' | 'TASK';
+    taskDisplayMode: TaskDisplayMode;
     activeChipIds: string[];
     customChips: ChipConfig[];
     
@@ -34,6 +36,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     isExpanded,
     dragOverDate,
     viewMode,
+    taskDisplayMode,
     activeChipIds,
     customChips,
     highlight,
@@ -155,9 +158,11 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                             task={task}
                             index={index}
                             viewMode={viewMode}
+                            displayMode={taskDisplayMode}
                             isExpanded={isExpanded}
                             activeChipIds={activeChipIds}
                             customChips={customChips}
+                            masterOptions={masterOptions}
                             onDragStart={onTaskDragStart}
                             onClick={onTaskClick}
                         />
@@ -184,9 +189,11 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 task={task}
                                 index={index}
                                 viewMode={viewMode}
+                                displayMode={taskDisplayMode}
                                 isExpanded={false}
                                 activeChipIds={activeChipIds}
                                 customChips={customChips}
+                                masterOptions={masterOptions}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
                             />

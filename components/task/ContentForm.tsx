@@ -71,7 +71,8 @@ const ContentForm: React.FC<ContentFormProps> = ({
         assets, addAsset, removeAsset, // Assets from hook
         error,
         formatOptions, pillarOptions, statusOptions,
-        handleSubmit, togglePlatform, toggleUserSelection
+        handleSubmit, togglePlatform, toggleUserSelection,
+        scriptId, setScriptId // From Hook
     } = useContentForm({
         initialData,
         selectedDate,
@@ -88,7 +89,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
             if (initialData?.id) {
                 setIsLoadingScript(true);
                 const script = await getScriptByContentId(initialData.id);
-                setLinkedScript(script);
+                if (script) {
+                    setLinkedScript(script);
+                    setScriptId(script.id); // Sync hook state
+                }
                 setIsLoadingScript(false);
             }
         };
@@ -105,21 +109,70 @@ const ContentForm: React.FC<ContentFormProps> = ({
         
         if (confirmed) {
             setIsLoadingScript(true);
-            const scriptId = await createScript({
+            const newScriptId = await createScript({
                 title: title || 'Untitled Script',
                 contentId: initialData.id,
                 channelId: channelId || null,
                 category: category || null
             });
-            if (scriptId) {
+            if (newScriptId) {
                 // Refresh link
                 const script = await getScriptByContentId(initialData.id);
                 setLinkedScript(script);
+                setScriptId(newScriptId); // Update Hook
                 
                 // Optional: Open Editor Immediately
-                const fullData = await getScriptById(scriptId);
+                const fullData = await getScriptById(newScriptId);
                 if (fullData) setScriptToEdit(fullData);
             }
+            setIsLoadingScript(false);
+        }
+    };
+    
+    // NEW: Handle Link Existing Script
+    const handleLinkScript = async (targetScriptId: string) => {
+        if (!initialData?.id) return;
+        
+        setIsLoadingScript(true);
+        try {
+            // 1. Link script to this content in DB
+            await updateScript(targetScriptId, { contentId: initialData.id });
+            
+            // 2. Fetch updated details to refresh UI
+            const script = await getScriptByContentId(initialData.id);
+            setLinkedScript(script);
+            setScriptId(targetScriptId);
+            
+            showToast('เชื่อมโยงสคริปต์เรียบร้อย ✅', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('เชื่อมโยงไม่สำเร็จ', 'error');
+        } finally {
+            setIsLoadingScript(false);
+        }
+    };
+
+    // NEW: Handle Unlink Script
+    const handleUnlinkScript = async () => {
+        if (!linkedScript) return;
+        
+        const confirmed = await showConfirm('ต้องการยกเลิกการเชื่อมโยงสคริปต์นี้ใช่หรือไม่?', 'Unlink Script');
+        if (!confirmed) return;
+
+        setIsLoadingScript(true);
+        try {
+            // 1. Remove content_id from script
+            // Note: updateScript expects Partial<Script> which maps keys to snake_case in hook.
+            // But checking useScripts hook, it maps contentId -> content_id correctly.
+            await updateScript(linkedScript.id, { contentId: null as any }); 
+            
+            setLinkedScript(null);
+            setScriptId(undefined);
+            showToast('ยกเลิกการเชื่อมโยงแล้ว', 'info');
+        } catch (err) {
+            console.error(err);
+            showToast('ยกเลิกไม่สำเร็จ', 'error');
+        } finally {
             setIsLoadingScript(false);
         }
     };
@@ -312,42 +365,45 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 
                 {/* 1. Title Input */}
                 <CFHeader title={title} setTitle={setTitle} />
+                
+                {/* 2. Status & Channel (Command Bar) - MOVED TO TOP */}
+                <CFStatusChannel 
+                    status={status} setStatus={setStatus}
+                    channelId={channelId} setChannelId={setChannelId}
+                    statusOptions={statusOptions} channels={channels}
+                />
 
-                {/* 2. Script Integration */}
+                {/* 3. Script Integration - Updated for Linking */}
                 <CFScriptLinker 
                     hasContentId={!!initialData?.id}
                     linkedScript={linkedScript}
                     isLoadingScript={isLoadingScript}
                     onOpenScript={handleOpenScript}
                     onCreateScript={handleCreateScript}
+                    onLinkScript={handleLinkScript} // NEW
+                    onUnlinkScript={handleUnlinkScript} // NEW
+                    currentUser={currentUser} // NEW
                 />
 
-                {/* 3. Date & Stock */}
+                {/* 4. Date & Stock */}
                 <CFDateAndStock 
                     startDate={startDate} setStartDate={setStartDate}
                     endDate={endDate} setEndDate={setEndDate}
                     isStock={isStock} setIsStock={setIsStock}
                 />
 
-                {/* 4. Production Info */}
+                {/* 5. Production Info */}
                 <CFProductionInfo 
                     shootDate={shootDate} setShootDate={setShootDate}
                     shootLocation={shootLocation} setShootLocation={setShootLocation}
                     masterOptions={masterOptions} // PASS MASTER OPTIONS
                 />
 
-                {/* 5. Format & Pillar */}
+                {/* 6. Format & Pillar */}
                 <CFCategorization 
                     contentFormat={contentFormat} setContentFormat={setContentFormat}
                     pillar={pillar} setPillar={setPillar}
                     formatOptions={formatOptions} pillarOptions={pillarOptions}
-                />
-
-                {/* 6. Status & Channel */}
-                <CFStatusChannel 
-                    status={status} setStatus={setStatus}
-                    channelId={channelId} setChannelId={setChannelId}
-                    statusOptions={statusOptions} channels={channels}
                 />
 
                 {/* 7. Platforms & Links */}

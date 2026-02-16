@@ -158,6 +158,9 @@ export interface InventoryItem {
     
     // Type Distinction
     itemType: InventoryType;
+    
+    // Grouping for Stacks (New)
+    groupLabel?: string; 
 
     // Extended Asset Registry Fields (For Fixed Assets)
     purchasePrice?: number;
@@ -179,6 +182,9 @@ export interface InventoryItem {
 
     // Joined Fields
     holder?: { name: string; avatarUrl: string };
+
+    // Metadata
+    createdAt?: Date;
 }
 
 // --- MEETING ---

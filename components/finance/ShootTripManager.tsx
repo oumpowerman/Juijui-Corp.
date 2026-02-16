@@ -27,7 +27,7 @@ type ViewType = 'LIST' | 'GRID';
 
 const ShootTripManager: React.FC<ShootTripManagerProps> = ({ masterOptions, tasks, currentUser }) => {
     const { showToast } = useToast();
-    const { trips, potentialTrips, fetchTrips, convertGroupToTrip } = useFinance(currentUser);
+    const { trips, potentialTrips, fetchTrips, convertGroupToTrip, updateTrip, deleteTrip } = useFinance(currentUser);
     
     // UI State
     const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -147,6 +147,8 @@ const ShootTripManager: React.FC<ShootTripManagerProps> = ({ masterOptions, task
                     trip={trips.find(t => t.id === selectedTripId)!}
                     onClose={() => setSelectedTripId(null)}
                     onRefresh={fetchTrips}
+                    onUpdate={updateTrip} // Pass Update
+                    onDelete={deleteTrip} // Pass Delete
                     masterOptions={masterOptions}
                     tasks={tasks}
                 />

@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAttendance } from '../../../hooks/useAttendance';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests'; // New Import
 import { User, MasterOption, ViewMode } from '../../../types';
 import { WorkLocation, LeaveType } from '../../../types/attendance'; // Import Types
-import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar } from 'lucide-react';
+import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame } from 'lucide-react';
 import { format } from 'date-fns';
 import CheckInModal from '../../attendance/CheckInModal';
 import LeaveRequestModal from '../../attendance/LeaveRequestModal'; // New Import
@@ -16,9 +17,9 @@ interface SmartAttendanceProps {
 }
 
 const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, onNavigate }) => {
-    const { todayLog, isLoading, checkIn, checkOut } = useAttendance(user.id);
+    const { todayLog, isLoading, checkIn, checkOut, stats } = useAttendance(user.id);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
-    const { submitRequest } = useLeaveRequests(user); // New Hook
+    const { submitRequest, leaveUsage } = useLeaveRequests(user); // New Hook
     
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false); // New State
@@ -201,6 +202,16 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500 opacity-20 rounded-full blur-2xl"></div>
                 
+                {/* NEW: STREAK INDICATOR */}
+                {stats.currentStreak > 0 && (
+                    <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md border border-white/30 rounded-full px-3 py-1 flex items-center gap-1.5 animate-pulse">
+                        <Flame className="w-3.5 h-3.5 text-orange-300 fill-orange-300" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-white">
+                            {stats.currentStreak} Day Streak!
+                        </span>
+                    </div>
+                )}
+
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                     <div className="flex-1 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
@@ -232,9 +243,9 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                     </button>
                 </div>
             </div>
-
-            {/* Modals are commented out here to simplify the Dashboard flow as requested */}
-            {/* 
+            
+            {/* Modals are hidden here to keep dashboard clean, logic delegates to Attendance View generally */}
+            {/* But since we imported them, we can use them if we want direct action */}
             <CheckInModal 
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
@@ -249,8 +260,9 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 isOpen={isLeaveModalOpen}
                 onClose={() => setIsLeaveModalOpen(false)}
                 onSubmit={handleLeaveSubmit}
+                masterOptions={masterOptions}
+                leaveUsage={leaveUsage} // PASS QUOTA
             />
-            */}
         </div>
     );
 };

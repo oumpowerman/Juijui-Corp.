@@ -1,16 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ShootTrip, Task, MasterOption } from '../../../types';
 import { 
     X, Receipt, Film, Plus, Trash2, Calculator, 
     ArrowRight, Target, Layout, Check, Info, DollarSign,
     TrendingUp, BarChart3, Calendar, MapPin, ExternalLink,
-    Sparkles, Video, Link as LinkIcon
+    Sparkles, Video, Link as LinkIcon, Edit2, Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import TransactionModal from '../TransactionModal';
 import ContentPickerModal from './ContentPickerModal'; // Import New Component
 
@@ -18,17 +19,36 @@ interface Props {
     trip: ShootTrip;
     onClose: () => void;
     onRefresh: () => void;
+    onUpdate: (id: string, updates: Partial<ShootTrip>) => Promise<boolean>;
+    onDelete: (id: string) => Promise<boolean>;
     masterOptions: MasterOption[];
     tasks: Task[];
 }
 
-const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, masterOptions, tasks }) => {
+const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, onDelete, masterOptions, tasks }) => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
+    
+    // UI State
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isQuickCreateMode, setIsQuickCreateMode] = useState(false);
     const [isPickerOpen, setIsPickerOpen] = useState(false); // Picker State
     const [newClipTitle, setNewClipTitle] = useState('');
     
+    // Editing State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(trip.title);
+    const [editLocation, setEditLocation] = useState(trip.locationName);
+    const [editDate, setEditDate] = useState(format(trip.date, 'yyyy-MM-dd'));
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+    // Sync state when trip prop changes
+    useEffect(() => {
+        setEditTitle(trip.title);
+        setEditLocation(trip.locationName);
+        setEditDate(format(trip.date, 'yyyy-MM-dd'));
+    }, [trip]);
+
     // Updated Logic to support Bulk Linking
     const handleBulkLinkContent = async (contentIds: string[]) => {
         if (contentIds.length === 0) return;
@@ -108,6 +128,28 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, masterOpti
         } catch (err) { return false; }
     };
 
+    const handleSaveChanges = async () => {
+        setIsSavingEdit(true);
+        const success = await onUpdate(trip.id, {
+            title: editTitle,
+            locationName: editLocation,
+            date: new Date(editDate)
+        });
+        setIsSavingEdit(false);
+        if (success) setIsEditing(false);
+    };
+
+    const handleDeleteTrip = async () => {
+        const confirmed = await showConfirm(
+            `ต้องการลบกองถ่าย "${trip.title}" ใช่หรือไม่? \nข้อมูลการเงินที่ผูกไว้จะถูกลบไปด้วย`,
+            'ยืนยันการลบ'
+        );
+        if (confirmed) {
+            const success = await onDelete(trip.id);
+            if (success) onClose();
+        }
+    };
+
     // Available contents to link (Filter out items already assigned to this or any other trip)
     const availableContents = tasks.filter(t => t.type === 'CONTENT' && !(t as any).shoot_trip_id);
 
@@ -123,25 +165,93 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, masterOpti
                     
                     <div className="relative z-10">
                         <div className="flex justify-between items-start mb-8">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner">
+                            <div className="flex items-center gap-4 w-full">
+                                <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner shrink-0">
                                     <Target className="w-8 h-8 text-white" />
                                 </div>
-                                <div>
-                                    <h3 className="text-3xl font-bold tracking-tight">{trip.title}</h3>
-                                    <div className="flex items-center gap-4 mt-2 text-sky-50 font-medium">
-                                        <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {trip.locationName}</span>
-                                        <span className="opacity-40">|</span>
-                                        <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {format(trip.date, 'd MMMM yyyy')}</span>
-                                    </div>
+                                <div className="min-w-0 flex-1">
+                                    {isEditing ? (
+                                        <div className="space-y-3 animate-in fade-in slide-in-from-left-2">
+                                            <input 
+                                                type="text" 
+                                                value={editTitle}
+                                                onChange={e => setEditTitle(e.target.value)}
+                                                className="w-full bg-white/20 border border-white/30 rounded-xl px-4 py-2 text-2xl font-bold text-white placeholder:text-white/50 outline-none focus:bg-white/30"
+                                                placeholder="Trip Title"
+                                            />
+                                            <div className="flex gap-3">
+                                                <input 
+                                                    type="text" 
+                                                    value={editLocation}
+                                                    onChange={e => setEditLocation(e.target.value)}
+                                                    className="flex-1 bg-white/20 border border-white/30 rounded-xl px-3 py-1.5 text-sm font-bold text-white placeholder:text-white/50 outline-none focus:bg-white/30"
+                                                    placeholder="Location"
+                                                />
+                                                <input 
+                                                    type="date" 
+                                                    value={editDate}
+                                                    onChange={e => setEditDate(e.target.value)}
+                                                    className="w-40 bg-white/20 border border-white/30 rounded-xl px-3 py-1.5 text-sm font-bold text-white outline-none focus:bg-white/30 cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <h3 className="text-3xl font-bold tracking-tight truncate pr-4">{trip.title}</h3>
+                                            <div className="flex items-center gap-4 mt-2 text-sky-50 font-medium">
+                                                <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {trip.locationName}</span>
+                                                <span className="opacity-40">|</span>
+                                                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {format(trip.date, 'd MMMM yyyy')}</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
-                            <button 
-                                onClick={onClose} 
-                                className="p-3 bg-white/10 hover:bg-white/30 rounded-full transition-all hover:rotate-90 active:scale-90 border border-white/10"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
+
+                            <div className="flex gap-2 shrink-0 ml-4">
+                                {isEditing ? (
+                                    <>
+                                        <button 
+                                            onClick={handleDeleteTrip}
+                                            className="p-3 bg-red-500/80 hover:bg-red-600 rounded-full transition-all text-white border border-white/20 shadow-lg"
+                                            title="ลบกองถ่าย"
+                                        >
+                                            <Trash2 className="w-6 h-6" />
+                                        </button>
+                                        <button 
+                                            onClick={handleSaveChanges}
+                                            disabled={isSavingEdit}
+                                            className="p-3 bg-green-500 hover:bg-green-600 rounded-full transition-all text-white border border-white/20 shadow-lg"
+                                            title="บันทึก"
+                                        >
+                                            <Check className="w-6 h-6 stroke-[3px]" />
+                                        </button>
+                                        <button 
+                                            onClick={() => { setIsEditing(false); setEditTitle(trip.title); }} // Cancel
+                                            className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all text-white border border-white/10"
+                                            title="ยกเลิก"
+                                        >
+                                            <X className="w-6 h-6" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button 
+                                            onClick={() => setIsEditing(true)} 
+                                            className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-all text-white border border-white/10"
+                                            title="แก้ไขข้อมูล"
+                                        >
+                                            <Edit2 className="w-6 h-6" />
+                                        </button>
+                                        <button 
+                                            onClick={onClose} 
+                                            className="p-3 bg-white/10 hover:bg-white/30 rounded-full transition-all hover:rotate-90 active:scale-90 border border-white/10"
+                                        >
+                                            <X className="w-6 h-6" />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                         
                         {/* Stats Dashboard */}

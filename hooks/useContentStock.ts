@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task } from '../types';
@@ -139,12 +140,22 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'contents' },
-                (payload) => {
+                async (payload) => {
                     if (payload.eventType === 'UPDATE') {
-                        // Optimistic update: Update only the specific item in the list directly
-                        setContents(prev => prev.map(item => 
-                            item.id === payload.new.id ? mapSupabaseToTask(payload.new) : item
-                        ));
+                        // Strategy 2 (Performance): Fetch specific ID with necessary joins
+                        // to ensure data consistency without refetching the whole list
+                        const { data, error } = await supabase
+                            .from('contents')
+                            .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`)
+                            .eq('id', payload.new.id)
+                            .single();
+
+                        if (!error && data) {
+                            const updatedTask = mapSupabaseToTask(data);
+                            setContents(prev => prev.map(item => 
+                                item.id === payload.new.id ? updatedTask : item
+                            ));
+                        }
                     } else {
                         // For INSERT or DELETE, refetch to maintain pagination/sort integrity
                         fetchContents();

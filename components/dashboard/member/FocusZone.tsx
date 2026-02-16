@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Task, Channel, User } from '../../../types';
 import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone } from 'lucide-react';
@@ -33,6 +34,15 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
         return `อีก ${diff} วัน`;
     };
 
+    // Helper for Status Badge (Small pill)
+    const getStatusBadge = () => {
+        const s = task.status;
+        if (s === 'WAITING' || s === 'FEEDBACK') return { text: 'รอตรวจ', color: 'bg-yellow-100 text-yellow-700' };
+        if (s === 'REVISE' || s.includes('EDIT')) return { text: 'แก้ด่วน', color: 'bg-red-100 text-red-700' };
+        return { text: 'ติดตาม', color: 'bg-gray-100 text-gray-600' };
+    };
+    const badge = getStatusBadge();
+
     return (
         <div 
             onClick={() => onOpenTask(task)}
@@ -46,15 +56,15 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
         >
             {/* Header: Status Pill */}
             <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {channel && (
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border bg-white/80 ${channel.color}`}>
                             {channel.name}
                         </span>
                     )}
                     {isRevise && (
-                         <span className="flex items-center text-[9px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-md">
-                            <Wrench className="w-3 h-3 mr-1" /> แก้ไข
+                         <span className={`flex items-center text-[9px] font-bold px-2 py-0.5 rounded-md ${badge.color}`}>
+                            <Wrench className="w-3 h-3 mr-1" /> {badge.text}
                         </span>
                     )}
                     {!isRevise && isOverdue && (
@@ -142,7 +152,8 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
         const s = t.status as string;
         if (isTaskCompleted(s)) return false; 
         
-        return s === 'FEEDBACK' || s === 'REVISE' || s.includes('EDIT_DRAFT');
+        // Include BOTH Content (FEEDBACK) and General Task (WAITING) + explicit Revise statuses
+        return s === 'FEEDBACK' || s === 'WAITING' || s === 'REVISE' || s.includes('EDIT_DRAFT');
     });
 
     if (urgentTasks.length === 0 && reviseTasks.length === 0) {
@@ -184,7 +195,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
                     <div className="flex flex-col gap-2">
                         <div className="flex justify-between items-center px-2">
                             <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider flex items-center">
-                                <Wrench className="w-3 h-3 mr-1" /> ต้องแก้ (Revise)
+                                <Wrench className="w-3 h-3 mr-1" /> ต้องแก้ / รอตรวจ (Revise/Wait)
                             </span>
                         </div>
                         <div className="space-y-2">

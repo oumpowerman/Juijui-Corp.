@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance } from '../types';
+import { format, isValid } from 'date-fns';
+import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType } from '../types';
 
 interface UseContentFormProps {
     initialData?: Task | null;
@@ -46,6 +46,9 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
     const [assets, setAssets] = useState<TaskAsset[]>([]);
     const [performance, setPerformance] = useState<TaskPerformance | undefined>(undefined);
     
+    // Script Integration
+    const [scriptId, setScriptId] = useState<string | undefined>(undefined);
+    
     const [error, setError] = useState('');
 
     // --- Options from Master Data ---
@@ -68,13 +71,15 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setTags(initialData.tags || []);
             
             setChannelId(initialData.channelId || '');
-            setTargetPlatforms(initialData.targetPlatforms || []);
+            // Ensure array consistency for platforms
+            setTargetPlatforms(Array.isArray(initialData.targetPlatforms) ? initialData.targetPlatforms : []);
             setPillar(initialData.pillar || '');
             setContentFormat(initialData.contentFormat || '');
             setCategory(initialData.category || '');
             setPublishedLinks(initialData.publishedLinks || {});
 
-            setShootDate(initialData.shootDate ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
+            // Production Info Safety Check
+            setShootDate(initialData.shootDate && isValid(new Date(initialData.shootDate)) ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
             setShootLocation(initialData.shootLocation || '');
 
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
@@ -83,6 +88,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             
             setAssets(initialData.assets || []);
             setPerformance(initialData.performance);
+            setScriptId(initialData.scriptId); // Link script
         } else {
             // Defaults for New Content
             setTitle('');
@@ -93,14 +99,12 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setEndDate(defaultDate);
             setIsStock(false);
             
-            // Set Default Status
             const defaultStatus = statusOptions.find(o => o.isDefault)?.key || (statusOptions.length > 0 ? statusOptions[0].key : 'TODO');
             setStatus(defaultStatus);
             
             setPriority('MEDIUM');
             setTags([]);
             
-            // Default Channel
             if (channels.length > 0) setChannelId(channels[0].id);
             else setChannelId('');
 
@@ -120,9 +124,10 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setAssets([]);
             setPerformance(undefined);
             setPublishedLinks({});
+            setScriptId(undefined);
         }
         setError('');
-    }, [initialData, selectedDate, channels, masterOptions]); // Re-run when these change
+    }, [initialData, selectedDate, channels, masterOptions]); 
 
     // --- Handlers ---
     const handleSubmit = (e: React.FormEvent) => {
@@ -141,12 +146,19 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             return;
         }
 
-        // Fix Timezone Issue: Explicitly parse as Local Midnight
+        // 1. Date Conversion (Fix Timezone issues by using explicit construction)
         const [sy, sm, sd] = startDate.split('-').map(Number);
         const startObj = new Date(sy, sm - 1, sd);
         
         const [ey, em, ed] = endDate.split('-').map(Number);
         const endObj = new Date(ey, em - 1, ed);
+
+        // 2. Production Date Conversion (Must be precise for Trip Grouping)
+        let finalShootDate = undefined;
+        if (shootDate) {
+            const [shy, shm, shd] = shootDate.split('-').map(Number);
+            finalShootDate = new Date(shy, shm - 1, shd);
+        }
 
         const newTask: Task = {
             id: initialData ? initialData.id : crypto.randomUUID(),
@@ -163,16 +175,16 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             endDate: endObj,
             isUnscheduled: isStock,
 
-            // Content Fields
+            // Content Fields (Crucial for Weekly Quests)
             channelId,
-            targetPlatforms,
+            targetPlatforms: targetPlatforms, // Array format is key for Quest Matching
             pillar: pillar as ContentPillar,
             contentFormat: contentFormat as ContentFormat,
             category,
             publishedLinks,
 
-            // Production Info
-            shootDate: shootDate ? new Date(shootDate) : undefined,
+            // Production Info (Crucial for Trip Manager)
+            shootDate: finalShootDate,
             shootLocation: shootLocation.trim() || undefined,
 
             // People
@@ -180,11 +192,12 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             editorIds,
             assigneeIds, // Support
 
-            // Assets & Metrics
+            // Assets & Script
             assets,
             performance,
+            scriptId, // Linkage
             
-            // Defaults for Gamification (Hidden in Content Form)
+            // Defaults
             difficulty: 'MEDIUM',
             estimatedHours: 0,
             assigneeType: 'TEAM'
@@ -234,6 +247,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
         assigneeIds, setAssigneeIds,
         assets, 
         performance,
+        scriptId, setScriptId,
 
         error,
         

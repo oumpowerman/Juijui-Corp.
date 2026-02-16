@@ -1,9 +1,9 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { LeaveRequest, LeaveType } from '../types/attendance';
+import { LeaveRequest, LeaveType, LeaveUsage } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
-import { eachDayOfInterval, format } from 'date-fns';
+import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
 import { useGamification } from './useGamification';
 
 export const useLeaveRequests = (currentUser?: any) => {
@@ -16,13 +16,18 @@ export const useLeaveRequests = (currentUser?: any) => {
         setIsLoading(true);
         try {
             // Specify foreign key explicitly to resolve ambiguity between user_id and approver_id
-            const { data, error } = await supabase
+            let query = supabase
                 .from('leave_requests')
                 .select(`
                     *,
                     profiles:profiles!leave_requests_user_id_fkey (id, full_name, avatar_url, position)
                 `)
                 .order('created_at', { ascending: false });
+            
+            // If just fetching for calculating usage (called via hook in dashboard), 
+            // we could optimize by filtering for current user, but for now fetch all is fine for admin view too
+            
+            const { data, error } = await query;
 
             if (error) throw error;
 
@@ -38,6 +43,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                     status: r.status,
                     approverId: r.approver_id,
                     createdAt: new Date(r.created_at),
+                    rejectionReason: r.rejection_reason, // Map from DB
                     user: r.profiles ? {
                         id: r.profiles.id,
                         name: r.profiles.full_name,
@@ -61,6 +67,31 @@ export const useLeaveRequests = (currentUser?: any) => {
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, []);
+
+    // --- NEW: Calculate Leave Usage ---
+    const leaveUsage: LeaveUsage = useMemo(() => {
+        const usage: LeaveUsage = {
+            SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0
+        };
+
+        if (!currentUser) return usage;
+
+        requests.forEach(req => {
+            if (req.userId === currentUser.id && req.status === 'APPROVED') {
+                // For day-based leaves, count days
+                if (['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY'].includes(req.type)) {
+                    const days = differenceInDays(new Date(req.endDate), new Date(req.startDate)) + 1;
+                    usage[req.type] += days;
+                } else {
+                    // For incident-based (Late, OT, Forgot), count incidents
+                    usage[req.type] += 1;
+                }
+            }
+        });
+
+        return usage;
+    }, [requests, currentUser?.id]);
 
     const submitRequest = async (
         type: LeaveType, 
@@ -251,11 +282,16 @@ export const useLeaveRequests = (currentUser?: any) => {
         }
     };
 
-    const rejectRequest = async (id: string) => {
+    // Update: Accept reason
+    const rejectRequest = async (id: string, reason: string) => {
         try {
             await supabase
                 .from('leave_requests')
-                .update({ status: 'REJECTED', approver_id: currentUser.id })
+                .update({ 
+                    status: 'REJECTED', 
+                    approver_id: currentUser.id,
+                    rejection_reason: reason // Save to DB
+                })
                 .eq('id', id);
             
             // Fetch request details to notify user
@@ -265,7 +301,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                      user_id: req.user_id,
                      type: 'INFO',
                      title: '❌ คำขอถูกปฏิเสธ',
-                     message: `คำขอ ${req.type} ของคุณไม่ผ่านการอนุมัติ`,
+                     message: `คำขอ ${req.type} ของคุณไม่ผ่านการอนุมัติ เนื่องจาก: ${reason}`,
                      is_read: false,
                      link_path: 'ATTENDANCE'
                 });
@@ -279,6 +315,7 @@ export const useLeaveRequests = (currentUser?: any) => {
 
     return {
         requests,
+        leaveUsage, // Exported
         isLoading,
         submitRequest,
         approveRequest,

@@ -105,7 +105,7 @@ export const useFinance = (currentUser?: any) => {
 
                 setStats({
                     totalIncome: data.total_income,
-                    totalExpense: data.total_expense,
+                    totalExpense: data.total_expense, // Fixed: total_expense -> totalExpense
                     netProfit: data.net_profit,
                     chartData
                 });
@@ -193,14 +193,15 @@ export const useFinance = (currentUser?: any) => {
                     if (!c.shoot_date || !c.shoot_location) return;
                     
                     const dateStr = format(new Date(c.shoot_date), 'yyyy-MM-dd');
+                    // NORMALIZE: Trim and lowercase for better grouping match
                     const loc = c.shoot_location.trim();
-                    const key = `${dateStr}_${loc}`;
+                    const key = `${dateStr}_${loc.toLowerCase()}`;
 
                     if (!grouped[key]) {
                         grouped[key] = {
                             key,
                             date: new Date(c.shoot_date),
-                            locationName: loc,
+                            locationName: loc, // Keep original casing for display
                             contents: [],
                             suggestedTitle: `ออกกอง ${loc}`
                         };
@@ -267,6 +268,46 @@ export const useFinance = (currentUser?: any) => {
             return true;
         } catch (err: any) {
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+            return false;
+        }
+    };
+
+    const updateTrip = async (id: string, updates: Partial<ShootTrip>) => {
+        try {
+            const payload: any = {};
+            if (updates.title) payload.title = updates.title;
+            if (updates.locationName) payload.location_name = updates.locationName;
+            if (updates.date) payload.date = format(updates.date, 'yyyy-MM-dd');
+            if (updates.status) payload.status = updates.status;
+
+            const { error } = await supabase
+                .from('shoot_trips')
+                .update(payload)
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast('อัปเดตข้อมูลกองถ่ายเรียบร้อย ✅', 'success');
+            fetchTrips();
+            return true;
+        } catch (err: any) {
+            showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
+
+    const deleteTrip = async (id: string) => {
+        try {
+            const { error } = await supabase
+                .from('shoot_trips')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast('ลบกองถ่ายเรียบร้อย 🗑️', 'info');
+            fetchTrips();
+            return true;
+        } catch (err: any) {
+            showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
             return false;
         }
     };
@@ -340,6 +381,8 @@ export const useFinance = (currentUser?: any) => {
         },
         refreshAll,
         fetchTrips,
+        updateTrip, // Added
+        deleteTrip, // Added
         addTransaction,
         deleteTransaction
     };

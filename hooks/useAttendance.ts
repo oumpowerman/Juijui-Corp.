@@ -23,7 +23,8 @@ export const useAttendance = (userId: string) => {
         lateDays: 0,
         onTimeDays: 0,
         absentDays: 0,
-        totalHours: 0
+        totalHours: 0,
+        currentStreak: 0 // NEW
     });
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -96,7 +97,7 @@ export const useAttendance = (userId: string) => {
         }
     }, [userId, todayDateStr]);
 
-    // 2. Fetch Stats (Overview for Dashboard) - Scoped to Month
+    // 2. Fetch Stats (Overview for Dashboard) - Scoped to Month + Streak Calculation
     const fetchStats = useCallback(async (targetDate: Date = new Date()) => {
         try {
             const start = format(startOfMonth(targetDate), 'yyyy-MM-dd');
@@ -105,7 +106,7 @@ export const useAttendance = (userId: string) => {
             // Select minimal fields for performance
             const { data, error } = await supabase
                 .from('attendance_logs')
-                .select('check_in_time, check_out_time') 
+                .select('date, check_in_time, check_out_time, status') 
                 .eq('user_id', userId)
                 .gte('date', start)
                 .lte('date', end);
@@ -117,11 +118,11 @@ export const useAttendance = (userId: string) => {
 
             if (error) throw error;
 
-            if (data) {
-                let lateCount = 0;
-                let onTimeCount = 0;
-                let totalHours = 0;
+            let lateCount = 0;
+            let onTimeCount = 0;
+            let totalHours = 0;
 
+            if (data) {
                 data.forEach((log: any) => {
                     if (log.check_in_time) {
                         const checkIn = new Date(log.check_in_time);
@@ -141,15 +142,79 @@ export const useAttendance = (userId: string) => {
                         }
                     }
                 });
-
-                setStats({
-                    totalDays: data.length,
-                    lateDays: lateCount,
-                    onTimeDays: onTimeCount,
-                    absentDays: 0, 
-                    totalHours: Math.round(totalHours)
-                });
             }
+
+            // --- STREAK CALCULATION (Independent of Month) ---
+            // Fetch last 20 logs to check for streak
+            const { data: streakLogs } = await supabase
+                .from('attendance_logs')
+                .select('date, check_in_time, status')
+                .eq('user_id', userId)
+                .order('date', { ascending: false })
+                .limit(20);
+
+            let currentStreak = 0;
+            if (streakLogs) {
+                // Find if today is already counted
+                let skipToday = false;
+                const todayRecord = streakLogs.find((l:any) => l.date === todayDateStr);
+                
+                // If checked in today and NOT late, count it. If late, streak is 0.
+                if (todayRecord) {
+                    if (todayRecord.status === 'LATE') {
+                        // Broken streak today
+                        currentStreak = 0;
+                        skipToday = true; // Stop loop immediately
+                    } else if (todayRecord.check_in_time) {
+                        const checkIn = new Date(todayRecord.check_in_time);
+                        if (checkIsLate(checkIn, startTimeStr, buffer)) {
+                             currentStreak = 0;
+                             skipToday = true;
+                        } else {
+                             // Good today, start counting
+                             currentStreak = 1;
+                             skipToday = true;
+                        }
+                    }
+                }
+
+                if (currentStreak !== 0 || !todayRecord) {
+                    // Continue checking past days
+                    for (const log of streakLogs) {
+                        if (skipToday && log.date === todayDateStr) continue;
+                        
+                        // Ignore LEAVE (doesn't break streak, but doesn't add)
+                        if (log.status === 'LEAVE') continue;
+
+                        if (log.status === 'ABSENT' || log.status === 'LATE') {
+                            break; // Streak broken
+                        }
+
+                        // Check time strictly
+                        if (log.check_in_time) {
+                            const checkIn = new Date(log.check_in_time);
+                            if (checkIsLate(checkIn, startTimeStr, buffer)) {
+                                break;
+                            }
+                            // If clean, add to streak
+                            currentStreak++;
+                        } else {
+                             // No check-in time but not absent/late/leave? Weird data, break.
+                             break;
+                        }
+                    }
+                }
+            }
+
+            setStats({
+                totalDays: data?.length || 0,
+                lateDays: lateCount,
+                onTimeDays: onTimeCount,
+                absentDays: 0, 
+                totalHours: Math.round(totalHours),
+                currentStreak
+            });
+            
         } catch (err) {
             console.error("Fetch stats failed", err);
         }

@@ -38,6 +38,7 @@ export interface AttendanceStats {
     onTimeDays: number;
     absentDays: number;
     totalHours: number;
+    currentStreak: number; // NEW: Track consecutive on-time days
 }
 
 // --- NEW: Leave Request Types (Updated) ---
@@ -55,5 +56,9 @@ export interface LeaveRequest {
     status: RequestStatus;
     approverId?: string;
     createdAt: Date;
+    rejectionReason?: string; // NEW: Added rejection reason
     user?: User;
 }
+
+// NEW: Helper type for Quota
+export type LeaveUsage = Record<LeaveType, number>;

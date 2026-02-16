@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AnnualHoliday } from '../types';
 import { useGamification } from './useGamification';
@@ -10,6 +10,9 @@ import { isTaskCompleted } from '../constants';
 export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
     const { config } = useGameConfig(); // Use Game Config from DB
+    
+    // Ref to track items currently being processed to prevent duplicate penalties in the same session
+    const isProcessingRef = useRef<Set<string>>(new Set());
 
     /**
      * 🛠️ HELPER: ตรวจสอบว่าเป็นวันทำงานหรือไม่?
@@ -155,6 +158,9 @@ export const useAutoJudge = (currentUser: User | null) => {
                 const hasNewDutyToday = !!todayDuty;
 
                 for (const duty of missedDuties) {
+                    // Skip if currently being processed in this session
+                    if (isProcessingRef.current.has(duty.id)) continue;
+
                     const dutyDateStr = duty.date; 
                     const dutyDate = new Date(dutyDateStr);
 
@@ -162,6 +168,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                     // If user has an ABANDONED duty that hasn't been cleared, AND a new duty arrives today
                     if (duty.penalty_status === 'ABANDONED' && !duty.cleared_by_system) {
                          if (hasNewDutyToday) {
+                             isProcessingRef.current.add(duty.id);
                              console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
                              
                              // 1. Penalize (Heavy) - Use Config Value
@@ -185,6 +192,8 @@ export const useAutoJudge = (currentUser: User | null) => {
                                  link_path: 'DUTY',
                                  metadata: { hp: -negligencePenalty }
                              });
+                             
+                             isProcessingRef.current.delete(duty.id);
                          }
                          continue; // Skip standard processing for abandoned duties
                     }
@@ -218,6 +227,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                     else if (workingDaysLate >= negligenceThreshold) {
                         // เลยกำหนดเกิน Threshold (ตาม Config) -> ตัดสินว่า "ละเลยหน้าที่" (ABANDONED)
                         if (duty.penalty_status !== 'ABANDONED') {
+                             isProcessingRef.current.add(duty.id);
                              await supabase.from('duties').update({ 
                                  is_penalized: true, 
                                  penalty_status: 'ABANDONED',
@@ -226,6 +236,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                             
                             // เรียก Action เพื่อหักคะแนน (Initial Abandon Penalty)
                             await processAction(currentUser.id, 'DUTY_MISSED', { ...duty, reason: 'ABANDONED_DUTY' });
+                            isProcessingRef.current.delete(duty.id);
                         }
                     }
                 }
@@ -243,8 +254,8 @@ export const useAutoJudge = (currentUser: User | null) => {
 
             if (overdueTasks) {
                 for (const task of overdueTasks) {
-                    // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled ข้ามไป
-                    if (isTaskCompleted(task.status) || task.is_unscheduled) continue;
+                    // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled หรือกำลังประมวลผล ข้ามไป
+                    if (isTaskCompleted(task.status) || task.is_unscheduled || isProcessingRef.current.has(task.id)) continue;
                     
                     // 2. เช็คว่า "วันนี้" โดนหักคะแนนไปหรือยัง?
                     const lastPenalized = task.last_penalized_at ? new Date(task.last_penalized_at) : null;
@@ -265,6 +276,9 @@ export const useAutoJudge = (currentUser: User | null) => {
                     
                     if (daysLate <= 0) continue; 
 
+                    // Lock task
+                    isProcessingRef.current.add(task.id);
+
                     // DYNAMIC FORMULA: Base + (Days * Multiplier)
                     const basePenalty = config?.PENALTY_RATES?.HP_PENALTY_LATE || 5; 
                     const multiplier = config?.PENALTY_RATES?.HP_PENALTY_LATE_MULTIPLIER || 2;
@@ -281,6 +295,9 @@ export const useAutoJudge = (currentUser: User | null) => {
                         customPenalty: progressiveDamage, // ส่งค่าดาเมจแบบคำนวณเองให้ Engine
                         daysLate: daysLate
                     });
+
+                    // Unlock
+                    isProcessingRef.current.delete(task.id);
                 }
             }
 
@@ -300,7 +317,12 @@ export const useAutoJudge = (currentUser: User | null) => {
                      // ถ้าไม่มี -> เช็คว่าเคยโดนหักคะแนน Absent ของเมื่อวานไปหรือยัง (กันหักซ้ำ)
                      const { data: existingPenalty } = await supabase.from('game_logs').select('id').eq('user_id', currentUser.id).eq('action_type', 'ATTENDANCE_ABSENT').ilike('description', `%${yesterdayStr}%`).maybeSingle();
                      
-                     if (!existingPenalty) {
+                     // Using a composite key for absent lock to be safe
+                     const absentLockKey = `absent-${yesterdayStr}`;
+
+                     if (!existingPenalty && !isProcessingRef.current.has(absentLockKey)) {
+                         isProcessingRef.current.add(absentLockKey);
+
                          // Insert Absent Log
                          await supabase.from('attendance_logs').insert({
                              user_id: currentUser.id,
@@ -313,6 +335,8 @@ export const useAutoJudge = (currentUser: User | null) => {
                          // หักคะแนนขาดงาน
                          await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { date: yesterdayStr });
                          console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${yesterdayStr}`);
+                         
+                         isProcessingRef.current.delete(absentLockKey);
                      }
                 }
             }

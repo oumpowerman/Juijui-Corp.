@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileText, Upload, AlertTriangle, Send, Loader2, Siren, HeartPulse, Palmtree, User, Clock, Briefcase, Moon, History, PieChart } from 'lucide-react';
-import { LeaveType, LeaveUsage } from '../../types/attendance';
+import { X, FileText, Upload, AlertTriangle, Send, Loader2, Siren, HeartPulse, Palmtree, User, Clock, Briefcase, Moon, History, PieChart, Lock } from 'lucide-react';
+import { LeaveType, LeaveUsage, LeaveRequest } from '../../types/attendance';
 import { differenceInDays, format } from 'date-fns';
 import { MasterOption } from '../../types';
 
@@ -11,7 +11,8 @@ interface LeaveRequestModalProps {
     onClose: () => void;
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
     masterOptions?: MasterOption[];
-    leaveUsage?: LeaveUsage; // NEW: Receive Usage Stats
+    leaveUsage?: LeaveUsage; // Receive Usage Stats
+    requests?: LeaveRequest[]; // NEW: Receive existing requests for duplicate check
 }
 
 // Config for Default Quotas (If not in MasterData yet)
@@ -22,7 +23,7 @@ const DEFAULT_QUOTAS: Record<string, number> = {
     'EMERGENCY': 99 // Unlimited
 };
 
-const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit, masterOptions = [], leaveUsage }) => {
+const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSubmit, masterOptions = [], leaveUsage, requests = [] }) => {
     // Dynamic Leave Types
     const leaveTypes = useMemo(() => {
         const types = masterOptions
@@ -50,11 +51,21 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     const [file, setFile] = useState<File | null>(null);
     
     // New State for Flexible Time / Correction
-    const [targetTime, setTargetTime] = useState('09:00'); // Used for Late, Forgot In, Forgot Out
+    const [targetTime, setTargetTime] = useState('18:00'); // Used for Late, Forgot In, Forgot Out
     const [otHours, setOtHours] = useState(2);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- NEW: Real-time Duplicate Check Logic ---
+    const existingReq = useMemo(() => {
+        if (!requests || requests.length === 0) return null;
+        return requests.find(r => 
+            r.type === type && 
+            format(new Date(r.startDate), 'yyyy-MM-dd') === startDate &&
+            (r.status === 'PENDING' || r.status === 'APPROVED')
+        );
+    }, [requests, type, startDate]);
 
     if (!isOpen) return null;
 
@@ -64,6 +75,8 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (existingReq) return; // Guard
+        
         if (!reason.trim()) {
             alert('กรุณาระบุเหตุผล');
             return;
@@ -89,6 +102,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
              finalReason = `[TIME:${targetTime}] (Forgot In) ${reason}`;
              finalEndDate = startDate;
         } else if (type === 'FORGOT_CHECKOUT') {
+             // For Forgot Checkout, startDate is the Shift Date
              finalReason = `[TIME:${targetTime}] (Forgot Out) ${reason}`;
              finalEndDate = startDate;
         }
@@ -148,6 +162,10 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
             </div>
         );
     };
+
+    // Label logic for Forgot Checkout
+    const dateLabel = type === 'FORGOT_CHECKOUT' ? 'วันที่เข้างาน (Shift Date)' : 'วันที่ (Date)';
+    const timeLabel = type === 'FORGOT_CHECKOUT' ? 'เวลาที่ออกจริง (Actual Out)' : 'เวลา (Time)';
 
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
@@ -214,15 +232,22 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-in slide-in-from-top-2">
                                 <div className="flex gap-4">
                                     <div className="flex-1">
-                                        <label className="block text-xs font-bold text-purple-700 mb-1">วันที่ (Date)</label>
+                                        <label className="block text-xs font-bold text-purple-700 mb-1">{dateLabel}</label>
                                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-gray-700" />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="block text-xs font-bold text-purple-700 mb-1">เวลา (Time)</label>
+                                        <label className="block text-xs font-bold text-purple-700 mb-1">{timeLabel}</label>
                                         <input type="time" value={targetTime} onChange={e => setTargetTime(e.target.value)} className="w-full p-2 rounded-lg border border-purple-200 text-sm font-bold text-indigo-600" />
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-purple-600 mt-2">* ระบบจะบันทึกเวลานี้ให้หลังจากได้รับอนุมัติ</p>
+                                {type === 'FORGOT_CHECKOUT' ? (
+                                    <p className="text-[10px] text-purple-600 mt-2 font-bold bg-white/50 p-2 rounded border border-purple-100">
+                                        * กรุณาเลือกวันที่คุณ<b>เข้างาน</b> (Shift Date) <br/>
+                                        ระบบจะคำนวณวันออกให้เอง แม้จะออกข้ามวัน (เช่น ตี 2)
+                                    </p>
+                                ) : (
+                                    <p className="text-[10px] text-purple-600 mt-2">* ระบบจะบันทึกเวลานี้ให้หลังจากได้รับอนุมัติ</p>
+                                )}
                              </div>
                         ) : type === 'OVERTIME' ? (
                             <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-in slide-in-from-top-2">
@@ -296,13 +321,29 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                             </button>
                         </div>
 
+                        {/* NEW: Duplicate Warning UI */}
+                        {existingReq && (
+                            <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3 animate-in shake">
+                                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-black text-red-800">มีคำขอนี้ในระบบแล้ว!</p>
+                                    <p className="text-xs text-red-600 font-medium">คุณเคยส่งคำขอ {itemTypeLabel(type)} สำหรับวันที่ {format(new Date(startDate), 'd MMM')} ไปแล้ว กรุณาตรวจสอบในแท็บ "ประวัติ"</p>
+                                </div>
+                            </div>
+                        )}
+
                         <button 
                             type="submit" 
-                            disabled={isSubmitting}
-                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isSubmitting || !!existingReq}
+                            className={`w-full py-4 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${!!existingReq ? 'bg-gray-400 shadow-none' : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700'}`}
                         >
-                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5" />}
-                            ส่งคำขอ
+                            {isSubmitting ? (
+                                <Loader2 className="w-5 h-5 animate-spin"/>
+                            ) : !!existingReq ? (
+                                <><Lock className="w-5 h-5" /> ตรวจพบข้อมูลซ้ำ</>
+                            ) : (
+                                <><Send className="w-5 h-5" /> ส่งคำขอ</>
+                            )}
                         </button>
                     </form>
                 </div>
@@ -310,6 +351,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
         </div>,
         document.body
     );
+};
+
+// Helper to label type
+const itemTypeLabel = (t: string) => {
+    switch(t) {
+        case 'LATE_ENTRY': return 'ขอเข้าสาย';
+        case 'FORGOT_CHECKIN': return 'ลืมเช็คอิน';
+        case 'FORGOT_CHECKOUT': return 'ลืมเช็คออก';
+        case 'OVERTIME': return 'แจ้ง OT';
+        default: return 'การลา';
+    }
 };
 
 export default LeaveRequestModal;

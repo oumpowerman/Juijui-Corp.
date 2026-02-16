@@ -24,9 +24,6 @@ export const useLeaveRequests = (currentUser?: any) => {
                 `)
                 .order('created_at', { ascending: false });
             
-            // If just fetching for calculating usage (called via hook in dashboard), 
-            // we could optimize by filtering for current user, but for now fetch all is fine for admin view too
-            
             const { data, error } = await query;
 
             if (error) throw error;
@@ -182,54 +179,67 @@ export const useLeaveRequests = (currentUser?: any) => {
                 const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '00:00';
                 
-                // Construct Date Object
-                const logDate = format(request.startDate, 'yyyy-MM-dd'); // Target Date
-                const fullDateTimeStr = `${logDate}T${timeStr}:00`; 
+                // IMPORTANT: Shift Date (The date the shift started)
+                const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
                 
                 if (request.type === 'FORGOT_CHECKIN') {
-                     // Upsert logic
+                     const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+
                      const payload = {
                          user_id: request.userId,
-                         date: logDate,
-                         check_in_time: new Date(fullDateTimeStr).toISOString(),
+                         date: shiftDateStr,
+                         check_in_time: checkInDateTime.toISOString(),
                          work_type: 'OFFICE', 
                          status: 'WORKING',
                          note: `[APPROVED CORRECTION] ${request.reason}`
                      };
                      await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
 
-                     // **GAMIFICATION TRIGGER**: Re-calculate score as if checked in now (Retroactive)
-                     // Will deduct LATE penalty if timeStr is late, or award ON_TIME if okay.
+                     // **GAMIFICATION TRIGGER**
                      await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
-                         status: 'ON_TIME', // Assuming forgiveness if approved, or check logic?
-                         // Let's rely on strict logic: Calculate late status based on approved time
+                         status: 'ON_TIME', 
                          time: timeStr
                      });
 
                 } else if (request.type === 'FORGOT_CHECKOUT') {
-                     // Update existing log
-                     const { data: log } = await supabase.from('attendance_logs').select('id').eq('user_id', request.userId).eq('date', logDate).single();
+                     // Smart Cross-Day Logic
+                     const [hours, minutes] = timeStr.split(':').map(Number);
+                     const checkOutDateTime = new Date(request.startDate); // Start from Shift Date
+                     checkOutDateTime.setHours(hours, minutes, 0, 0);
+
+                     // If check-out time is in early morning (e.g. < 5 AM), assume it's next day
+                     if (hours < 5) {
+                         checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
+                     }
+
+                     // Try to update existing log for the SHIFT DATE
+                     const { data: log } = await supabase.from('attendance_logs')
+                        .select('id')
+                        .eq('user_id', request.userId)
+                        .eq('date', shiftDateStr) // Key is Shift Date
+                        .single();
                      
                      if (log) {
                         await supabase.from('attendance_logs').update({
-                             check_out_time: new Date(fullDateTimeStr).toISOString(),
+                             check_out_time: checkOutDateTime.toISOString(),
                              status: 'COMPLETED',
                              note: `[APPROVED CORRECTION] ${request.reason}`
                         }).eq('id', log.id);
                         
-                        // Award completion points
                         await processAction(request.userId, 'DUTY_COMPLETE', { 
                             reason: 'Manual Checkout Approved' 
                         });
 
                      } else {
-                         // Fallback create
-                         const defaultStart = `${logDate}T10:00:00`;
+                         // Fallback create (Ensure date is Shift Date)
+                         const defaultStart = new Date(request.startDate);
+                         defaultStart.setHours(10, 0, 0, 0);
+
                          await supabase.from('attendance_logs').insert({
                              user_id: request.userId,
-                             date: logDate,
-                             check_in_time: new Date(defaultStart).toISOString(),
-                             check_out_time: new Date(fullDateTimeStr).toISOString(),
+                             date: shiftDateStr, // Keep Shift Date as key
+                             check_in_time: defaultStart.toISOString(),
+                             check_out_time: checkOutDateTime.toISOString(),
                              work_type: 'OFFICE',
                              status: 'COMPLETED',
                              note: `[AUTO-CREATED FOR CHECKOUT] ${request.reason}`
@@ -258,7 +268,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                 await processAction(request.userId, 'ATTENDANCE_LEAVE', { type: request.type });
             }
 
-            // 3. Notify User (Chat + Persistent Notification)
+            // 3. Notify User
             await supabase.from('team_messages').insert({
                 content: `✅ คำขอของ **${request.user?.name}** (${request.type}) ได้รับการอนุมัติแล้ว`,
                 is_bot: true,
@@ -266,7 +276,6 @@ export const useLeaveRequests = (currentUser?: any) => {
                 user_id: null
             });
             
-            // Persistent Notification
             await supabase.from('notifications').insert({
                  user_id: request.userId,
                  type: 'INFO',

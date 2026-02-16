@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -7,6 +8,9 @@ import { User } from '../types';
 export const useGameEventListener = (currentUser: User | null) => {
     const { showToast } = useToast();
     const { showAlert } = useGlobalDialog();
+    
+    // Ref to store last notification timestamps to prevent duplicates
+    const lastNotifiedRef = useRef<Map<string, number>>(new Map());
 
     // 1. Request Notification Permission on mount
     useEffect(() => {
@@ -31,6 +35,31 @@ export const useGameEventListener = (currentUser: User | null) => {
                 (payload) => {
                     const log = payload.new;
                     
+                    // --- Deduplication Logic ---
+                    // Key consists of action type and the related item ID (or description if no ID)
+                    const dedupKey = `${log.action_type}_${log.related_id || log.description}`;
+                    const now = Date.now();
+                    const lastSeen = lastNotifiedRef.current.get(dedupKey) || 0;
+                    
+                    // If the same event happened within 5 seconds, ignore it.
+                    if (now - lastSeen < 5000) {
+                        console.log(`[GameListener] Skipped duplicate notification: ${dedupKey}`);
+                        return;
+                    }
+                    
+                    // Update timestamp
+                    lastNotifiedRef.current.set(dedupKey, now);
+
+                    // Optional: Cleanup old keys from map to prevent memory leak over long sessions
+                    if (lastNotifiedRef.current.size > 100) {
+                        // Clear items older than 1 minute
+                        for (const [key, timestamp] of lastNotifiedRef.current.entries()) {
+                            if (now - timestamp > 60000) {
+                                lastNotifiedRef.current.delete(key);
+                            }
+                        }
+                    }
+
                     // --- 1. PENALTY HANDLING ---
                     if (log.hp_change < 0) {
                         // Severe penalties (e.g. Absent, No Show, or heavy damage)

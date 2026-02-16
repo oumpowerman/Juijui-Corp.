@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '../types';
 import AttendanceWidget from '../components/attendance/AttendanceWidget';
 import AttendanceHistory from '../components/attendance/AttendanceHistory'; 
@@ -26,7 +26,13 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     const { stats } = useAttendance(currentUser.id);
     const { requests } = useLeaveRequests(currentUser);
     
-    const pendingCount = requests.filter(r => r.status === 'PENDING').length;
+    // Admin pending count (for approval list)
+    const adminPendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
+    
+    // My personal pending count (for history badge)
+    const myPendingCount = useMemo(() => 
+        requests.filter(r => r.userId === currentUser.id && r.status === 'PENDING').length, 
+    [requests, currentUser.id]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -55,12 +61,20 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 >
                     <Clock className="w-4 h-4" /> ลงเวลา
                 </button>
+                
+                {/* Updated HISTORY Tab with Badge */}
                 <button 
                     onClick={() => setCurrentTab('HISTORY')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <Calendar className="w-4 h-4" /> ประวัติ
+                    {myPendingCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-bounce shadow-sm ring-2 ring-white">
+                            {myPendingCount}
+                        </span>
+                    )}
                 </button>
+
                 {/* Only Admin see these tabs */}
                 {currentUser.role === 'ADMIN' && (
                     <>
@@ -76,9 +90,9 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                             className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'APPROVALS' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <FileCheck className="w-4 h-4" /> คำขออนุมัติ
-                            {pendingCount > 0 && (
+                            {adminPendingCount > 0 && (
                                 <span className="ml-1 bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
-                                    {pendingCount}
+                                    {adminPendingCount}
                                 </span>
                             )}
                         </button>

@@ -4,6 +4,7 @@ import { MasterOption } from '../../../../types';
 import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair, Clock } from 'lucide-react';
 import { useGameConfig } from '../../../../context/GameConfigContext';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext'; // Added
+import { supabase } from '../../../../lib/supabase'; // Needed for direct inserts
 
 interface AttendanceRulesViewProps {
     masterOptions: MasterOption[];
@@ -12,6 +13,50 @@ interface AttendanceRulesViewProps {
     onEdit: (option: MasterOption) => void;
     onDelete: (id: string) => void;
 }
+
+// Internal Component for Score Input to handle focus and local state
+const ScoreInput = ({ 
+    initialValue, 
+    onSave 
+}: { 
+    initialValue: number; 
+    onSave: (val: number) => void;
+}) => {
+    const [val, setVal] = useState(initialValue.toString());
+
+    useEffect(() => {
+        setVal(initialValue.toString());
+    }, [initialValue]);
+
+    const handleBlur = () => {
+        const num = parseInt(val);
+        if (!isNaN(num) && num !== initialValue) {
+            onSave(num);
+        } else if (isNaN(num)) {
+            setVal(initialValue.toString()); // Revert if invalid
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+        }
+    };
+
+    const isNegative = parseInt(val) < 0;
+
+    return (
+        <input 
+            type="number" 
+            className={`w-14 px-1 py-1 text-center rounded-md border text-xs font-black focus:outline-none focus:border-indigo-400 transition-colors ${isNegative ? 'text-red-500 bg-white border-red-200' : 'text-green-600 bg-white border-green-200'}`}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            title="คะแนนที่จะบวก/ลบ (ลบ = หัก HP, บวก = เพิ่ม XP)"
+        />
+    );
+};
 
 const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({ 
     masterOptions, onUpdate, onCreate, onEdit, onDelete 
@@ -59,36 +104,50 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
     }, [masterOptions]);
 
     const handleSaveTimeConfig = async () => {
-        const updateOrSkip = async (key: string, val: string) => {
+        const updateOrInsert = async (key: string, val: string) => {
             const existing = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === key);
             if (existing) {
                 await onUpdate({ ...existing, label: val });
             } else {
-                 console.warn(`Config ${key} missing, please add via Master Data if not seeded.`);
+                 // Insert new if missing
+                 await supabase.from('master_options').insert({
+                    type: 'WORK_CONFIG',
+                    key: key,
+                    label: val,
+                    is_active: true,
+                    sort_order: 0
+                });
             }
         };
 
-        await updateOrSkip('START_TIME', tempTimeConfig.start);
-        await updateOrSkip('END_TIME', tempTimeConfig.end);
-        await updateOrSkip('LATE_BUFFER', tempTimeConfig.buffer);
-        await updateOrSkip('MIN_HOURS', tempTimeConfig.minHours);
+        await updateOrInsert('START_TIME', tempTimeConfig.start);
+        await updateOrInsert('END_TIME', tempTimeConfig.end);
+        await updateOrInsert('LATE_BUFFER', tempTimeConfig.buffer);
+        await updateOrInsert('MIN_HOURS', tempTimeConfig.minHours);
         
         await showAlert('บันทึกเวลาทำการเรียบร้อย ✅', 'สำเร็จ');
     };
 
     const handleSaveLocationConfig = async () => {
-         const updateOrSkip = async (key: string, val: string) => {
+         const updateOrInsert = async (key: string, val: string) => {
             const existing = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === key);
             if (existing) {
                 await onUpdate({ ...existing, label: val });
             } else {
-                await showAlert(`ไม่พบ Config Key: ${key} กรุณาเพิ่มข้อมูล WORK_CONFIG -> ${key} ในหน้ารวมก่อนครับ`, 'ข้อผิดพลาด');
+                // Insert new if missing
+                await supabase.from('master_options').insert({
+                    type: 'WORK_CONFIG',
+                    key: key,
+                    label: val,
+                    is_active: true,
+                    sort_order: 0
+                });
             }
         };
 
-        await updateOrSkip('OFFICE_LAT', officeConfig.lat);
-        await updateOrSkip('OFFICE_LNG', officeConfig.lng);
-        await updateOrSkip('OFFICE_RADIUS', officeConfig.radius);
+        await updateOrInsert('OFFICE_LAT', officeConfig.lat);
+        await updateOrInsert('OFFICE_LNG', officeConfig.lng);
+        await updateOrInsert('OFFICE_RADIUS', officeConfig.radius);
         
         await showAlert('บันทึกพิกัดเรียบร้อย! 🗺️', 'สำเร็จ');
     };
@@ -165,12 +224,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Score (HP/XP)</span>
-                    <input 
-                        type="number" 
-                        className={`w-14 px-1 py-1 text-center rounded-md border text-xs font-black focus:outline-none focus:border-indigo-400 transition-colors ${getDisplayScore(opt) < 0 ? 'text-red-500 bg-white border-red-200' : 'text-green-600 bg-white border-green-200'}`}
-                        value={getDisplayScore(opt)}
-                        onChange={(e) => handleScoreChange(opt, parseInt(e.target.value))}
-                        title="คะแนนที่จะบวก/ลบ (ลบ = หัก HP, บวก = เพิ่ม XP)"
+                    <ScoreInput 
+                        initialValue={getDisplayScore(opt)}
+                        onSave={(val) => handleScoreChange(opt, val)}
                     />
                 </div>
                 

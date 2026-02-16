@@ -15,8 +15,9 @@ interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
     stats: AttendanceStats;
-    todayPendingLeave: LeaveRequest | null; // NEW Prop
+    todayPendingLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
+    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; // ADDED
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
@@ -25,7 +26,7 @@ interface StatusCardProps {
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, stats, todayPendingLeave, onCheckOut, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations
+    user, todayLog, stats, todayPendingLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations
 }) => {
     const isCheckedOut = !!todayLog?.checkOutTime;
     const isCheckedIn = !!todayLog;
@@ -46,7 +47,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
     // Check-out Verification Logic
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
-    const { submitRequest, leaveUsage } = useLeaveRequests(user); 
+    const { leaveUsage } = useLeaveRequests(user); 
 
     const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
         if (isAdmin && todayLog) {
@@ -77,7 +78,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 return false;
             }
         } else {
-            return await submitRequest('FORGOT_CHECKOUT', start, end, reason, file);
+            return await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
         }
     };
 
@@ -88,7 +89,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         checkoutDate.setHours(hours, minutes, 0, 0);
         
         const formattedReason = `[TIME:${timeStr}] ${reason} (Location Mismatch)`;
-        return await submitRequest('FORGOT_CHECKOUT', now, now, formattedReason);
+        return await onCheckOutRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
 
     // State 0: ON APPROVED LEAVE

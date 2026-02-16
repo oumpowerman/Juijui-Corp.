@@ -123,6 +123,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 stats={stats} // Pass Stats
                 todayPendingLeave={todayPendingLeave} // NEW: Pass pending leave
                 onCheckOut={checkOut}
+                onCheckOutRequest={handleLeaveSubmit}
                 onOpenCheckIn={() => setIsCheckInModalOpen(true)}
                 onOpenLeave={() => setIsLeaveModalOpen(true)}
                 isDriveReady={isDriveReady}
@@ -147,6 +148,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 onSubmit={handleLeaveSubmit}
                 masterOptions={masterOptions}
                 leaveUsage={leaveUsage} // PASS QUOTA
+                requests={requests} // PASS REQUESTS FOR DUP CHECK
             />
         </div>
     );

@@ -1,15 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AttendanceLog, LeaveType, LocationDef, AttendanceStats, LeaveRequest } from '../../../types/attendance';
 import { User } from '../../../types';
-import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Hourglass, AlertTriangle, AlertCircle, ShieldCheck, ArrowRight, Palmtree, ArrowUpRight } from 'lucide-react';
+import { MapPin, Clock, LogIn, LogOut, Camera, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Briefcase, AlertTriangle, Palmtree, Hourglass, AlertCircle, ShieldCheck, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import th from 'date-fns/locale/th';
 import LeaveRequestModal from '../LeaveRequestModal';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
-import { useGlobalDialog } from '../../../context/GlobalDialogContext'; // NEW IMPORT
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { CheckOutModal } from '../CheckOutModal';
 import { useAttendance } from '../../../hooks/useAttendance'; 
 
@@ -17,7 +16,7 @@ interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
     stats: AttendanceStats;
-    todayPendingLeave: LeaveRequest | null;
+    todayActiveLeave: LeaveRequest | null; // RENAMED from todayPendingLeave
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
     onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; 
     onOpenCheckIn: () => void;
@@ -25,19 +24,26 @@ interface StatusCardProps {
     isDriveReady: boolean;
     onRefresh?: () => void;
     availableLocations: LocationDef[];
-    onNavigateToHistory?: () => void; 
+    onNavigateToHistory?: () => void;
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, stats, todayPendingLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory
+    user, todayLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory
 }) => {
     const { actionRequiredLog } = useAttendance(user.id);
-    const { showAlert } = useGlobalDialog(); // Hook usage
-    
-    const isCheckedOut = !!todayLog?.checkOutTime;
-    const isCheckedIn = !!todayLog;
+    const { showAlert } = useGlobalDialog(); 
     const { showToast } = useToast();
 
+    // Check if user is checked in AND not on leave
+    // 1. Is there a log saying LEAVE?
+    const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
+    
+    // 2. Is there an APPROVED request for TODAY? (Fallback if log not created yet)
+    const isApprovedLeaveToday = todayActiveLeave?.status === 'APPROVED';
+
+    const isCheckedOut = !!todayLog?.checkOutTime;
+    const isCheckedIn = !!todayLog && !isLeaveLog; 
+    
     // --- OVERNIGHT LOGIC FIX ---
     const checkInTime = todayLog?.checkInTime ? new Date(todayLog.checkInTime) : null;
     const hoursSinceCheckIn = checkInTime ? (new Date().getTime() - checkInTime.getTime()) / (1000 * 60 * 60) : 0;
@@ -84,25 +90,14 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 return false;
             }
         } else {
-            // Standard User Flow: Request + Instant Feedback
             const success = await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
-            
             if (success) {
-                setIsRecoveryModalOpen(false); // Close Modal immediately
-                
-                // Show Reassuring Dialog
+                setIsRecoveryModalOpen(false); 
                 await showAlert(
                     'ระบบได้รับข้อมูลเวลาออกงานของคุณแล้ว สถานะของวันนี้จะเปลี่ยนเป็น "รอตรวจสอบ (Pending)" กรุณารอ Admin อนุมัติครับ',
                     'ส่งคำขอเรียบร้อยแล้ว! ✅'
                 );
-
-                // Refresh Data to update UI state
                 if (onRefresh) onRefresh();
-
-                // Navigate to History to see the pending status
-                if (onNavigateToHistory) {
-                    onNavigateToHistory();
-                }
             }
             return success;
         }
@@ -118,31 +113,38 @@ const StatusCard: React.FC<StatusCardProps> = ({
         return await onCheckOutRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
 
-    // State 0: ON APPROVED LEAVE
-    if (user.workStatus === 'SICK' || user.workStatus === 'VACATION') {
+    // --- STATE MACHINE UI ---
+
+    // State 1: ON LEAVE (Verified by Log OR Approved Request)
+    // Note: WFH is technically a leave request but user still needs to check in, so we exclude WFH from blocking unless logic demands
+    if ((isLeaveLog || isApprovedLeaveToday) && todayActiveLeave?.type !== 'WFH') {
+         // If approved but no log yet, use request data
+         const leaveTitle = todayLog?.note 
+            ? todayLog.note.replace(/\[.*?\]/g, '').trim().substring(0, 30) 
+            : (todayActiveLeave ? todayActiveLeave.type : 'ลางาน (Leave)');
+
          return (
             <div className={`
                 p-5 rounded-2xl border-2 relative z-10 animate-in slide-in-from-bottom-2 text-center
-                ${user.workStatus === 'SICK' ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}
+                ${todayActiveLeave?.type === 'SICK' ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}
             `}>
-                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm ${user.workStatus === 'SICK' ? 'bg-orange-100 text-orange-500' : 'bg-blue-100 text-blue-500'}`}>
-                    {user.workStatus === 'SICK' ? <AlertTriangle className="w-8 h-8" /> : <Palmtree className="w-8 h-8" />}
+                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm ${todayActiveLeave?.type === 'SICK' ? 'bg-orange-100 text-orange-500' : 'bg-blue-100 text-blue-500'}`}>
+                    {todayActiveLeave?.type === 'SICK' ? <AlertTriangle className="w-8 h-8" /> : <Palmtree className="w-8 h-8" />}
                 </div>
-                <h3 className="font-bold text-lg">
-                    {user.workStatus === 'SICK' ? 'ลาป่วย (Sick Leave)' : 'พักร้อน (Vacation)'}
-                </h3>
+                <h3 className="font-bold text-lg">{leaveTitle}</h3>
                 <p className="text-sm opacity-80 mt-1 mb-4">
-                    วันนี้ไม่ต้องลงเวลานะครับ พักผ่อนให้เต็มที่!
+                    วันนี้ได้รับอนุมัติให้ลาแล้ว พักผ่อนให้เต็มที่!
                 </p>
-                <button onClick={onOpenCheckIn} className="text-xs underline opacity-60 hover:opacity-100">
-                    ต้องการเช็คอินทำงาน? (ยกเลิกการลา)
-                </button>
+                {/* Only show cancel option if it's based on a request and not a hard log */}
+                {!todayLog && (
+                     <p className="text-xs opacity-60">* ระบบจะสร้างประวัติการลาให้อัตโนมัติ</p>
+                )}
             </div>
          );
     }
     
-    // State 0.5: PENDING LEAVE (Sudden Leave Feedback)
-    if (todayPendingLeave && !todayLog) {
+    // State 2: PENDING LEAVE FOR TODAY (Blocking)
+    if (todayActiveLeave && todayActiveLeave.status === 'PENDING' && !todayLog && todayActiveLeave.type !== 'LATE_ENTRY') {
         return (
             <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5 relative z-10 animate-in slide-in-from-bottom-2 text-center">
                 <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-3 text-yellow-600 shadow-sm animate-pulse">
@@ -150,19 +152,22 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 </div>
                 <h3 className="font-bold text-lg text-yellow-900">รออนุมัติการลา...</h3>
                 <p className="text-sm text-yellow-700 mt-1 mb-2">
-                    คุณได้ส่งคำขอ "{todayPendingLeave.type}" ไปแล้ว
+                    คุณได้ส่งคำขอ "{todayActiveLeave.type}" สำหรับวันนี้
                 </p>
                 <div className="text-xs text-yellow-600/70 italic bg-white/50 px-3 py-2 rounded-lg border border-yellow-100">
-                    "{todayPendingLeave.reason}"
+                    "{todayActiveLeave.reason}"
                 </div>
                 <p className="text-[10px] text-yellow-500 mt-3 font-bold">
-                    * ไม่ต้อง Check-in ซ้ำ ระบบกำลังรอหัวหน้าอนุมัติ
+                    * กรุณารอหัวหน้าอนุมัติก่อน (หรือกด Check-in เพื่อยกเลิกการลา)
                 </p>
+                <button onClick={onOpenCheckIn} className="mt-2 text-xs underline text-yellow-600 hover:text-yellow-800">
+                    เปลี่ยนใจ? กด Check-in เพื่อมาทำงาน
+                </button>
             </div>
         );
     }
 
-    // State 1: Forgot Check-out (Blocking) - STILL BLOCKS UNTIL RESOLVED
+    // State 3: Session Outdated (Blocking)
     if (isSessionOutdated) {
         return (
             <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5 relative z-10 animate-in slide-in-from-bottom-2">
@@ -193,7 +198,6 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onClose={() => setIsRecoveryModalOpen(false)}
                     onSubmit={handleRecoverySubmit}
                     leaveUsage={leaveUsage}
-                    // NEW: Pass fixed props for recovery flow
                     fixedType="FORGOT_CHECKOUT"
                     initialDate={new Date(todayLog!.date)}
                 />
@@ -201,7 +205,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         );
     }
 
-    // State 2: Finished Work Today
+    // State 4: Finished Work Today
     if (isCheckedOut) {
         return (
             <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center relative z-10">
@@ -220,7 +224,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         );
     }
 
-    // State 3: Working Now
+    // State 5: Working Now
     if (isCheckedIn) {
         return (
             <div className="flex flex-col gap-3 relative z-10">
@@ -232,6 +236,12 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         เข้าเมื่อ: <span className="font-mono font-bold text-indigo-600">{todayLog?.checkInTime ? format(todayLog.checkInTime, 'HH:mm') : '--:--'}</span>
                     </span>
                 </div>
+                {todayLog?.note?.includes('[APPEAL_PENDING]') && (
+                     <div className="bg-orange-50 px-4 py-2 rounded-xl border border-orange-100 flex items-center gap-2">
+                        <Hourglass className="w-4 h-4 text-orange-500 animate-pulse" />
+                        <span className="text-xs text-orange-700 font-bold">รออนุมัติการเข้าสาย (Appeal Pending)</span>
+                    </div>
+                )}
                 <button 
                     onClick={() => setIsCheckOutModalOpen(true)}
                     className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -245,13 +255,13 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onConfirm={onCheckOut}
                     onRequest={handleCheckOutRequest}
                     availableLocations={availableLocations}
-                    checkInTime={todayLog!.checkInTime || new Date()} // Fallback if null, though checkInTime should ideally exist here or we handle in Modal
+                    checkInTime={todayLog!.checkInTime || new Date()} 
                 />
             </div>
         );
     }
 
-    // State 4: Not Checked In (Idle)
+    // State 6: Not Checked In (Idle) - Default
     return (
         <div className="space-y-3 relative z-10">
             {/* ACTION REQUIRED ALERT */}
@@ -265,6 +275,14 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         <span className="text-xs font-bold">มีรายการถูกปฏิเสธ! แก้ไขด่วน</span>
                     </div>
                     <ArrowUpRight className="w-4 h-4" />
+                </div>
+            )}
+
+            {/* Appeal Pending Banner (For when waiting to check in but request exists) */}
+            {todayActiveLeave?.type === 'LATE_ENTRY' && todayActiveLeave.status === 'PENDING' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-2 flex items-center justify-center gap-2 mb-2 animate-in slide-in-from-top-2">
+                     <Hourglass className="w-4 h-4 text-orange-500" />
+                     <span className="text-xs font-bold text-orange-700">รออนุมัติ: ขอเข้าสาย (Late Entry)</span>
                 </div>
             )}
             

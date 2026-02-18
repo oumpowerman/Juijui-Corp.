@@ -283,14 +283,15 @@ export const useAttendance = (userId: string) => {
         }
     }, [userId]);
 
-    // 4. Check In Action (Updated for Structured Data)
+    // 4. Check In Action (Updated for Structured Data and Appeals)
     const checkIn = async (
         workType: WorkLocation, 
         file?: File, 
         location?: { lat: number, lng: number },
         locationName?: string, // Added explicitly
         note?: string, // Additional note
-        externalUploadFn?: (file: File) => Promise<string | null>
+        externalUploadFn?: (file: File) => Promise<string | null>,
+        isAppeal: boolean = false // NEW Parameter for Appeal
     ) => {
         setIsLoading(true);
         try {
@@ -328,8 +329,9 @@ export const useAttendance = (userId: string) => {
             let finalNote = note || '';
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
-            // LOC is now in its own column, so we remove [LOC:...] from note to keep it clean
-            // if (location) meta.push(`[LOC:${location.lat.toFixed(6)},${location.lng.toFixed(6)}]`); 
+            // Add APPEAL tag if needed
+            if (isAppeal) meta.push(`[APPEAL_PENDING]`);
+
             if (meta.length > 0) finalNote = `${finalNote} ${meta.join(' ')}`.trim();
 
             const payload: any = {
@@ -348,13 +350,14 @@ export const useAttendance = (userId: string) => {
             const { error } = await supabase.from('attendance_logs').insert(payload);
             if (error) throw error;
 
-            showToast(isLate ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', isLate ? 'warning' : 'success');
+            showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
             // --- TRIGGER GAME EVENT ---
             // Pass Date and Time to Engine for better messaging
+            // If Appeal, send 'APPEAL' status to avoid penalty logic in gameLogic
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
-                status: isLate ? 'LATE' : 'ON_TIME',
+                status: isAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
                 time: format(now, 'HH:mm')
             });

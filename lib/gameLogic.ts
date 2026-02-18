@@ -42,6 +42,7 @@ export const DEFAULT_GAME_CONFIG = {
     ATTENDANCE_RULES: {
         ON_TIME: { xp: 15, hp: 0, coins: 5 },
         LATE: { xp: 0, hp: -5, coins: 0 },
+        APPEAL: { xp: 0, hp: 0, coins: 0 }, // New: Pending Appeal (Neutral)
         ABSENT: { xp: 0, hp: -20, coins: -50 },
         NO_SHOW: { xp: 0, hp: -100, coins: -100 },
         LEAVE: { xp: 0, hp: 0, coins: 0 },
@@ -223,15 +224,16 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         }
 
         case 'ATTENDANCE_CHECK_IN': {
-            const status = context.status; // 'ON_TIME' | 'LATE'
+            const status = context.status; // 'ON_TIME' | 'LATE' | 'APPEAL'
             const rule = attendanceRules[status] || attendanceRules.ON_TIME;
             
             const timeStr = context.time ? ` @ ${context.time}` : '';
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
             
-            let msg = status === 'LATE' 
-                ? `เข้างานสาย${timeStr}${dateStr}` 
-                : `เข้างานตรงเวลา${timeStr}`;
+            let msg = '';
+            if (status === 'LATE') msg = `เข้างานสาย${timeStr}${dateStr}`;
+            else if (status === 'APPEAL') msg = `เข้างาน (รออนุมัติสาย)${timeStr}`;
+            else msg = `เข้างานตรงเวลา${timeStr}`;
             
             return {
                 xp: rule.xp,
@@ -250,6 +252,19 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 hp: rule.hp,
                 coins: rule.coins,
                 message: `ขาดงาน!${dateStr}`,
+                details: `${rule.hp} HP`
+            };
+        }
+        
+        case 'ATTENDANCE_LATE': {
+            // Explicit penalty call (e.g. from rejection)
+            const rule = attendanceRules.LATE;
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: `มาสาย (คำขอถูกปฏิเสธ)${dateStr}`,
                 details: `${rule.hp} HP`
             };
         }
@@ -283,39 +298,68 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
              };
         }
 
+        case 'ATTENDANCE_LEAVE': {
+             // context: { type: string (e.g. 'SICK', 'VACATION') }
+             const leaveTypeMap: Record<string, string> = {
+                 'SICK': 'ลาป่วย',
+                 'VACATION': 'ลาพักร้อน',
+                 'PERSONAL': 'ลากิจ',
+                 'EMERGENCY': 'เหตุฉุกเฉิน',
+                 'LATE_ENTRY': 'ขอเข้าสาย',
+                 'OVERTIME': 'ขอ OT',
+                 'FORGOT_CHECKIN': 'ลืมเช็คอิน',
+                 'FORGOT_CHECKOUT': 'ลืมเช็คออก',
+                 'WFH': 'Work From Home'
+             };
+             const typeLabel = leaveTypeMap[context.type] || context.type;
+             return {
+                 xp: 0,
+                 hp: 0,
+                 coins: 0,
+                 message: `ใช้วันลา: ${typeLabel}`,
+                 details: ''
+             };
+        }
+
         case 'SHOP_PURCHASE':
             return {
                 xp: 0,
                 hp: 0,
-                coins: context.cost ? -context.cost : 0, // Handled in component usually, but for logging
-                message: 'ซื้อไอเทมสำเร็จ',
-                details: ''
+                coins: context.cost ? -context.cost : 0,
+                message: `ซื้อไอเทม: ${context.itemName || 'สินค้า'}`,
+                details: `-${context.cost} JP`
             };
             
-        case 'ITEM_USE':
+        case 'ITEM_USE': {
+            let effectDesc = '';
+            if (context.effectValue) {
+                if (context.effectType === 'HEAL_HP') effectDesc = ` (HP +${context.effectValue})`;
+                // Add other effect types if needed
+            }
             return {
                 xp: 0,
-                hp: 0,
+                hp: 0, 
                 coins: 0,
-                message: 'ใช้ไอเทมสำเร็จ',
+                message: `ใช้ไอเทม: ${context.itemName}${effectDesc}`,
                 details: ''
             };
+        }
             
         case 'MANUAL_ADJUST':
             return {
                 xp: context.xp || 0,
                 hp: context.hp || 0,
                 coins: context.coins || 0,
-                message: 'Admin ปรับค่าพลัง',
+                message: `👑 GM ${context.adminName || 'Admin'} ปรับค่า: ${context.reason || 'No Reason'}`,
                 details: 'Manual Adjustment'
             };
             
         case 'TIME_WARP_REFUND':
              return {
                  xp: 0,
-                 hp: 0, // Logic handles update directly
-                 coins: 0,
-                 message: 'Time Warp! คืนค่าพลังแล้ว',
+                 hp: context.hp || 0,
+                 coins: context.coins || 0,
+                 message: `⏰ Time Warp: ย้อนเวลาล้างโทษ "${context.originalDescription || 'Unknown'}"`,
                  details: 'Refunded'
              };
 

@@ -21,12 +21,13 @@ interface CheckInModalProps {
     lateBuffer?: number;
     onSwitchToLeave?: () => void;
     approvedWFH?: boolean; // NEW PROP
+    hasLateRequest?: boolean; // NEW PROP
 }
 
 type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
-    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest 
 }) => {
     const [step, setStep] = useState<Step>('LOCATION');
     
@@ -129,7 +130,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         if (!selectedType || !capturedFile) return;
 
         // --- Late Intervention Logic ---
-        if (startTime && !forceCheckIn && !showLateIntervention) {
+        // Skip check if force checkin OR already shown OR approved WFH OR has pending late request
+        if (startTime && !forceCheckIn && !showLateIntervention && !approvedWFH && !hasLateRequest) {
             const now = new Date();
             const [h, m] = startTime.split(':').map(Number);
             const limit = new Date();

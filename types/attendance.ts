@@ -2,7 +2,7 @@
 import { User } from './core';
 
 export type WorkLocation = 'OFFICE' | 'WFH' | 'SITE' | 'LEAVE';
-export type AttendanceStatus = 'WORKING' | 'COMPLETED' | 'ABSENT' | 'LATE' | 'LEAVE' | 'EARLY_LEAVE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED';
+export type AttendanceStatus = 'WORKING' | 'COMPLETED' | 'ABSENT' | 'LATE' | 'LEAVE' | 'EARLY_LEAVE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED' | 'ON_TIME' | 'NO_SHOW';
 
 export interface LocationDef {
     id: string;

@@ -1,53 +1,60 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { GameActionType, ShopItem, UserInventoryItem, GameLog } from '../types';
-import { useToast } from '../context/ToastContext';
 import { evaluateAction, calculateLevel } from '../lib/gameLogic';
-import { useGameConfig } from '../context/GameConfigContext'; // NEW IMPORT
+import { useGameConfig } from '../context/GameConfigContext';
 
+/**
+ * 🎮 useGamification (The Engine)
+ * หน้าที่: คำนวณ Logic เกม, ตัดแต้ม, เพิ่มแต้ม, และ "บันทึก" ลง Database
+ * 
+ * ⚠️ สำคัญ: ไฟล์นี้จะไม่เรียก useToast() หรือ showToast() เด็ดขาด!
+ * เพื่อป้องกันปัญหา Notification เด้งซ้ำซ้อน
+ * หน้าที่การแจ้งเตือนถูกย้ายไปที่ `useGameEventListener` (The Watcher)
+ */
 export const useGamification = (currentUser?: any) => {
-    const { showToast } = useToast();
-    const { config } = useGameConfig(); // NEW: Get config from context
+    const { config } = useGameConfig();
     const [shopItems, setShopItems] = useState<ShopItem[]>([]);
     const [userInventory, setUserInventory] = useState<UserInventoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // --- Core Engine ---
+    // --- Core Engine: Process Any Action ---
     const processAction = useCallback(async (
         userId: string, 
         action: GameActionType, 
         context: any = {}
     ) => {
         try {
-            // 1. Calculate Delta using Rule Engine (Pass dynamic config)
+            // 1. 📐 Rule Engine: คำนวณหาค่า XP/HP ที่ควรได้
             const result = evaluateAction(action, context, config);
+            
+            // ถ้าไม่มีการเปลี่ยนแปลงค่าใดๆ เลย ให้จบการทำงาน
             if (result.xp === 0 && result.hp === 0 && result.coins === 0 && !result.message) return result;
 
-            // 2. Fetch Current User State (to ensure atomicity, ideally use RPC, but Client-side is okay for V1)
+            // 2. 📥 Fetch: ดึงค่าปัจจุบันของผู้ใช้
             const { data: user, error: fetchError } = await supabase
                 .from('profiles')
                 .select('xp, hp, available_points, level')
                 .eq('id', userId)
                 .single();
 
-            if (fetchError || !user) throw new Error('User not found');
+            if (fetchError || !user) throw new Error('User not found for gamification update');
 
-            // 3. Apply Changes
+            // 3. 🧮 Calculate: คำนวณค่าใหม่
             const newXp = Math.max(0, user.xp + result.xp);
-            const newHp = Math.min(100, Math.max(0, user.hp + result.hp)); // Clamp 0-100
+            const newHp = Math.min(100, Math.max(0, user.hp + result.hp)); // HP ห้ามเกิน 100 และห้ามติดลบ
             
-            // Check Level Up (Pass dynamic config)
+            // 4. 🆙 Check Level Up: ตรวจสอบว่าเลเวลอัปไหม
             const newLevel = calculateLevel(newXp, config);
             const isLevelUp = newLevel > user.level;
             
-            // LEVEL UP BONUS Logic (Use Config)
+            // ให้โบนัสพิเศษเมื่อเลเวลอัป
             const levelUpBonus = config.LEVELING_SYSTEM?.level_up_bonus_coins ?? 500;
             const bonusCoins = isLevelUp ? levelUpBonus : 0;
 
             const newCoins = Math.max(0, user.available_points + result.coins + bonusCoins);
 
-            // 4. Update Database
+            // 5. 💾 Update DB: บันทึกค่าใหม่ลง Profile
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({ 
@@ -60,7 +67,8 @@ export const useGamification = (currentUser?: any) => {
 
             if (updateError) throw updateError;
 
-            // 5. Log Transaction
+            // 6. 📝 Log: บันทึกประวัติการทำรายการ (สำคัญมาก! ตัวนี้จะไปกระตุ้น Toast ให้เด้ง)
+            // เราบันทึก `result.message` ลงใน description เลย เพื่อให้ Listener อ่านไปแสดงผลได้ทันที
             await supabase.from('game_logs').insert({
                 user_id: userId,
                 action_type: action,
@@ -71,16 +79,16 @@ export const useGamification = (currentUser?: any) => {
                 related_id: context.id || null
             });
 
-            // 6. UI Feedback
-            if (result.message) {
-                showToast(result.message + (result.details ? ` (${result.details})` : ''), result.hp < 0 ? 'penalty' : 'success');
-            }
-
+            // 7. 🎉 Explicit Level Up Event: ถ้าเลเวลอัป ให้สร้าง Log แยกอีกบรรทัดเพื่อความอลังการ
             if (isLevelUp) {
-                setTimeout(() => {
-                    showToast(`🎉 LEVEL UP! เลื่อนเป็น Lv.${newLevel} (รับโบนัส +${bonusCoins} JP)`, 'success');
-                    // Optional: Trigger confetti effect via global event
-                }, 1000);
+                await supabase.from('game_logs').insert({
+                    user_id: userId,
+                    action_type: 'LEVEL_UP',
+                    xp_change: 0,
+                    hp_change: 0,
+                    jp_change: bonusCoins, 
+                    description: `🎉 LEVEL UP! เลื่อนเป็น Lv.${newLevel} (รับโบนัส +${bonusCoins} JP)`
+                });
             }
 
             return result;
@@ -88,7 +96,7 @@ export const useGamification = (currentUser?: any) => {
             console.error("Gamification Error:", err);
             return null;
         }
-    }, [showToast, config]); // Add config to dependency
+    }, [config]);
 
 
     // --- Shop & Inventory System ---
@@ -104,7 +112,7 @@ export const useGamification = (currentUser?: any) => {
                 icon: i.icon,
                 effectType: i.effect_type,
                 effectValue: i.effect_value,
-                isActive: i.is_active // Added missing property
+                isActive: i.is_active
             })));
         }
     };
@@ -130,22 +138,23 @@ export const useGamification = (currentUser?: any) => {
                     id: i.shop_items.id,
                     name: i.shop_items.name,
                     description: i.shop_items.description,
-                    price: 0, // Owned items don't show price
+                    price: 0,
                     icon: i.shop_items.icon,
                     effectType: i.shop_items.effect_type,
                     effectValue: i.shop_items.effect_value,
-                    isActive: i.shop_items.is_active // Added missing property
+                    isActive: i.shop_items.is_active
                 } : undefined
             })));
         }
     };
 
+    // 🛍️ Buy Item Logic
     const buyItem = async (item: ShopItem) => {
-        if (!currentUser) return;
+        if (!currentUser) return { success: false, message: 'User not found' };
         setIsLoading(true);
 
         try {
-            // 1. Check Points
+            // Check Points Balance
             const { data: user } = await supabase
                 .from('profiles')
                 .select('available_points')
@@ -153,14 +162,11 @@ export const useGamification = (currentUser?: any) => {
                 .single();
             
             if (!user || user.available_points < item.price) {
-                showToast('เงินไม่พอครับ! ไปทำงานเก็บเงินก่อนนะ 💸', 'error');
-                setIsLoading(false);
-                return;
+                return { success: false, message: 'เงินไม่พอครับ! ไปทำงานเก็บเงินก่อนนะ 💸' };
             }
 
-            // 2. Deduct Points & Add Item (Transaction)
+            // Deduct & Add Item
             const newBalance = user.available_points - item.price;
-            
             await supabase.from('profiles').update({ available_points: newBalance }).eq('id', currentUser.id);
             
             await supabase.from('user_inventory').insert({
@@ -169,88 +175,84 @@ export const useGamification = (currentUser?: any) => {
                 is_used: false
             });
 
+            // Log Transaction - Use evaluateAction to generate standard message
+            const logResult = evaluateAction('SHOP_PURCHASE', { itemName: item.name, cost: item.price }, config);
+            
             await supabase.from('game_logs').insert({
                 user_id: currentUser.id,
                 action_type: 'SHOP_PURCHASE',
-                jp_change: -item.price,
-                description: `ซื้อไอเทม: ${item.name}`
+                jp_change: logResult.coins,
+                description: logResult.message
             });
 
-            showToast(`ซื้อ ${item.name} เรียบร้อย! 🎒`, 'success');
-            
-            // Refresh
             fetchUserInventory();
-            // Trigger profile refresh in parent if possible, or expect realtime
+            return { success: true, message: `ซื้อ ${item.name} เรียบร้อย!` };
 
         } catch (err: any) {
-            showToast('ซื้อไม่สำเร็จ: ' + err.message, 'error');
+            return { success: false, message: 'ซื้อไม่สำเร็จ: ' + err.message };
         } finally {
             setIsLoading(false);
         }
     };
 
+    // 🧪 Use Item Logic
     const useItem = async (inventoryId: string, item: ShopItem) => {
-        if (!currentUser) return;
+        if (!currentUser) return { success: false };
         setIsLoading(true);
 
         try {
-            // 1. Apply Effect Logic
-            
+            // Apply Effect based on Type
             if (item.effectType === 'HEAL_HP') {
-                // --- HEAL POTION ---
                 const { data: user } = await supabase.from('profiles').select('hp, max_hp').eq('id', currentUser.id).single();
                 if (user) {
                     const newHp = Math.min(user.max_hp, user.hp + item.effectValue);
                     await supabase.from('profiles').update({ hp: newHp }).eq('id', currentUser.id);
                     
-                    // Consume
+                    // Mark as used
                     await supabase.from('user_inventory').update({ is_used: true, used_at: new Date().toISOString() }).eq('id', inventoryId);
                     
-                    // Log
+                    // Log -> Use evaluateAction
+                    const logResult = evaluateAction('ITEM_USE', { 
+                        itemName: item.name, 
+                        effectType: item.effectType, 
+                        effectValue: item.effectValue 
+                    }, config);
+
                     await supabase.from('game_logs').insert({
                         user_id: currentUser.id,
                         action_type: 'ITEM_USE',
-                        description: `ใช้ไอเทม: ${item.name} (HP +${item.effectValue})`
+                        description: logResult.message
                     });
-
-                    showToast(`ฟื้นฟูพลัง! HP +${item.effectValue} ❤️`, 'success');
                 }
             } 
             else if (item.effectType === 'SKIP_DUTY') {
-                 // --- DUTY SHIELD (PASSIVE) ---
-                 // Not meant to be clicked manually. Alert user.
-                 showToast('ℹ️ ไอเทมนี้เป็นแบบ Passive (พกไว้กันเหนียว) จะทำงานอัตโนมัติเมื่อลืมทำเวรครับ ไม่ต้องกดใช้', 'info');
-                 setIsLoading(false);
-                 return; // Exit without consuming
+                 // Passive item: Just notify user
+                 return { success: false, message: 'ℹ️ ไอเทมนี้เป็นแบบ Passive (พกไว้กันเหนียว) จะทำงานอัตโนมัติเมื่อลืมทำเวรครับ ไม่ต้องกดใช้' };
             }
             else if (item.effectType === 'REMOVE_LATE') {
-                 // --- TIME WARP ---
-                 // 1. Find the latest penalty transaction (Negative HP)
+                 // Time Warp Logic: Find last penalty and refund it
                  const { data: lastPenalty } = await supabase
                     .from('game_logs')
                     .select('*')
                     .eq('user_id', currentUser.id)
-                    .lt('hp_change', 0) // Look for damage
-                    .in('action_type', ['TASK_LATE', 'DUTY_MISSED']) // Valid penalty types
+                    .lt('hp_change', 0)
+                    .in('action_type', ['TASK_LATE', 'DUTY_MISSED'])
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .maybeSingle();
 
                  if (!lastPenalty) {
-                     showToast('ไม่พบประวัติการโดนหักคะแนนล่าสุด (คุณยังเป็นเด็กดีอยู่!)', 'warning');
-                     setIsLoading(false);
-                     return;
+                     return { success: false, message: 'ไม่พบประวัติการโดนหักคะแนนล่าสุด (คุณยังเป็นเด็กดีอยู่!)' };
                  }
 
-                 // 2. Refund (Dynamic Calc)
+                 // Configurable Refund
                  const refundCap = config.ITEM_MECHANICS?.time_warp_refund_cap_hp || 20;
                  const refundPct = config.ITEM_MECHANICS?.time_warp_refund_percent || 100;
                  
                  const originalHP = Math.abs(lastPenalty.hp_change);
                  const refundHP = Math.min(originalHP * (refundPct/100), refundCap);
-                 const refundCoin = Math.abs(lastPenalty.jp_change || 0); // Refunds coin too? Usually yes if fined
+                 const refundCoin = Math.abs(lastPenalty.jp_change || 0);
 
-                 // 3. Update User Profile
                  const { data: user } = await supabase.from('profiles').select('hp, max_hp, available_points').eq('id', currentUser.id).single();
                  
                  if (user) {
@@ -259,41 +261,41 @@ export const useGamification = (currentUser?: any) => {
                      await supabase.from('profiles').update({ hp: newHp, available_points: newPoints }).eq('id', currentUser.id);
                  }
 
-                 // 4. Consume Item
                  await supabase.from('user_inventory').update({ is_used: true, used_at: new Date().toISOString() }).eq('id', inventoryId);
 
-                 // 5. Log Action
+                 // Log -> Use evaluateAction
+                 const logResult = evaluateAction('TIME_WARP_REFUND', { 
+                    hp: refundHP, 
+                    coins: refundCoin, 
+                    originalDescription: lastPenalty.description 
+                 }, config);
+                 
                  await supabase.from('game_logs').insert({
                     user_id: currentUser.id,
                     action_type: 'TIME_WARP_REFUND',
                     hp_change: refundHP,
                     jp_change: refundCoin,
-                    description: `⏰ Time Warp: ย้อนเวลาล้างโทษ "${lastPenalty.description}"`,
+                    description: logResult.message,
                     related_id: lastPenalty.id
                  });
-
-                 showToast(`ย้อนเวลาสำเร็จ! คืนค่า ${refundHP} HP และ ${refundCoin} Coins แล้ว ✨`, 'success');
             }
             else {
-                 showToast('ไอเทมนี้ยังไม่มีผลในระบบ Beta', 'warning');
-                 setIsLoading(false);
-                 return;
+                 return { success: false, message: 'ไอเทมนี้ยังไม่มีผลในระบบ Beta' };
             }
 
-            // Refresh Inventory after consumption
             fetchUserInventory();
+            return { success: true };
 
         } catch (err: any) {
-            showToast('ใช้ไอเทมไม่สำเร็จ: ' + err.message, 'error');
+            return { success: false, message: 'ใช้ไอเทมไม่สำเร็จ: ' + err.message };
         } finally {
             setIsLoading(false);
         }
     };
     
-    // NEW: ADMIN ADJUSTMENT (Game Master) (Pass config to calculateLevel)
+    // 👑 Admin Adjustment Logic
     const adminAdjustStats = async (targetUserId: string, adjustments: { hp?: number, xp?: number, points?: number }, reason: string) => {
         try {
-            // 1. Fetch Target User Data
             const { data: user } = await supabase
                 .from('profiles')
                 .select('hp, xp, available_points, level, max_hp')
@@ -302,7 +304,6 @@ export const useGamification = (currentUser?: any) => {
             
             if (!user) throw new Error("User not found");
 
-            // 2. Calculate New Values
             let newHp = user.hp;
             let newXp = user.xp;
             let newPoints = user.available_points;
@@ -311,39 +312,40 @@ export const useGamification = (currentUser?: any) => {
             if (adjustments.hp !== undefined) newHp = Math.min(user.max_hp, Math.max(0, user.hp + adjustments.hp));
             if (adjustments.xp !== undefined) {
                 newXp = Math.max(0, user.xp + adjustments.xp);
-                newLevel = calculateLevel(newXp, config); // Pass Config for level calculation
+                newLevel = calculateLevel(newXp, config);
             }
             if (adjustments.points !== undefined) newPoints = Math.max(0, user.available_points + adjustments.points);
 
-            // 3. Update DB
             await supabase
                 .from('profiles')
                 .update({ hp: newHp, xp: newXp, available_points: newPoints, level: newLevel })
                 .eq('id', targetUserId);
 
-            // 4. Log the action linked to the TARGET USER so they see it
-            // We append Admin's name to description for traceability
-            const adminName = currentUser?.name || 'Admin';
+            // Log -> Use evaluateAction
+            const logResult = evaluateAction('MANUAL_ADJUST', {
+                xp: adjustments.xp,
+                hp: adjustments.hp,
+                coins: adjustments.points,
+                adminName: currentUser?.name || 'Admin',
+                reason: reason
+            }, config);
 
             await supabase.from('game_logs').insert({
-                user_id: targetUserId, // IMPORTANT: Log for the target user
+                user_id: targetUserId,
                 action_type: 'MANUAL_ADJUST',
                 hp_change: adjustments.hp || 0,
                 xp_change: adjustments.xp || 0,
                 jp_change: adjustments.points || 0,
-                description: `👑 GM ${adminName} ปรับค่า: ${reason}`
+                description: logResult.message
             });
 
-            showToast('ปรับสถานะเรียบร้อย (GM Action) ⚡', 'success');
-            return true;
+            return { success: true };
         } catch (err: any) {
             console.error(err);
-            showToast('ปรับค่าไม่สำเร็จ: ' + err.message, 'error');
-            return false;
+            return { success: false, message: err.message };
         }
     };
     
-    // NEW: Fetch History with Pagination
     const fetchGameLogs = async (userId: string, page: number, pageSize: number = 20, filterType: 'ALL' | 'EARNED' | 'SPENT' | 'PENALTY' = 'ALL') => {
         try {
             let query = supabase
@@ -352,7 +354,6 @@ export const useGamification = (currentUser?: any) => {
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
-            // Apply Filters
             if (filterType === 'EARNED') {
                 query = query.or('xp_change.gt.0,jp_change.gt.0');
             } else if (filterType === 'SPENT') {
@@ -361,7 +362,6 @@ export const useGamification = (currentUser?: any) => {
                 query = query.or('hp_change.lt.0,jp_change.lt.0').not('action_type', 'eq', 'SHOP_PURCHASE');
             }
 
-            // Pagination
             const from = (page - 1) * pageSize;
             const to = from + pageSize - 1;
             
@@ -402,8 +402,8 @@ export const useGamification = (currentUser?: any) => {
         userInventory,
         buyItem,
         useItem,
-        adminAdjustStats, // Exported for Admin Usage
-        fetchGameLogs, // New Export
+        adminAdjustStats,
+        fetchGameLogs,
         isLoading
     };
 };

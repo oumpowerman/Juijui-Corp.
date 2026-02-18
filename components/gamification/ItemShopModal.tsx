@@ -1,23 +1,40 @@
-
 import React, { useState } from 'react';
 import { X, ShoppingBag, Backpack, Zap, Heart, Shield, Clock, AlertTriangle, Loader2, History } from 'lucide-react';
 import { ShopItem, UserInventoryItem, User } from '../../types';
 import { useGamification } from '../../hooks/useGamification';
 import MemberHistoryModal from './MemberHistoryModal';
+import { useToast } from '../../context/ToastContext';
 
 interface ItemShopModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentUser: User;
-    // Pass hook methods from parent to keep state synced or use internal hook
 }
 
 const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentUser }) => {
     const { shopItems, userInventory, buyItem, useItem, isLoading } = useGamification(currentUser);
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'SHOP' | 'INVENTORY'>('SHOP');
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     if (!isOpen) return null;
+
+    const handleBuy = async (item: ShopItem) => {
+        const result = await buyItem(item);
+        if (!result.success && result.message) {
+            showToast(result.message, 'error');
+        }
+        // Success toasts are handled by global listener
+    };
+
+    const handleUse = async (id: string, item: ShopItem) => {
+        const result = await useItem(id, item);
+        if (!result.success && result.message) {
+            // Check if it's an info message (like passive item) or error
+            const type = item.effectType === 'SKIP_DUTY' ? 'info' : 'error';
+            showToast(result.message, type);
+        }
+    };
 
     const getEffectIcon = (type: string) => {
         switch (type) {
@@ -114,7 +131,7 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                                         </div>
                                     </div>
                                     <button 
-                                        onClick={() => buyItem(item)}
+                                        onClick={() => handleBuy(item)}
                                         disabled={currentUser.availablePoints < item.price}
                                         className={`px-4 py-2 rounded-xl text-sm font-bold flex flex-col items-center min-w-[80px] transition-all active:scale-95 ${
                                             currentUser.availablePoints >= item.price 
@@ -147,7 +164,7 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                                             <p className="text-xs text-gray-500">{inv.item?.description}</p>
                                         </div>
                                         <button 
-                                            onClick={() => inv.item && useItem(inv.id, inv.item)}
+                                            onClick={() => inv.item && handleUse(inv.id, inv.item)}
                                             className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-md shadow-green-200 transition-all active:scale-95 whitespace-nowrap"
                                         >
                                             ใช้ทันที

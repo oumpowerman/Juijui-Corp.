@@ -2,18 +2,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AttendanceLog, LeaveType } from '../../types/attendance';
 import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; 
-import { useLeaveRequests } from '../../hooks/useLeaveRequests'; // Import Hook
-import { format, isSameDay, differenceInDays } from 'date-fns';
+import { useLeaveRequests } from '../../hooks/useLeaveRequests'; 
+import { format, isSameDay } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
 import th from 'date-fns/locale/th';
 import { 
-    Clock, Calendar, CheckCircle2, MapPin, XCircle, Image as ImageIcon, 
+    Calendar, MapPin, XCircle, Image as ImageIcon, 
     ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight,
-    Hourglass, FileText, AlertTriangle, ChevronDown, ChevronUp, Bell
+    AlertTriangle, Clock, CheckCircle2, HelpCircle
 } from 'lucide-react';
 import { parseAttendanceMetadata } from '../../lib/attendanceUtils';
-import LeaveRequestModal from './LeaveRequestModal'; // Reuse modal for re-submit
+import LeaveRequestModal from './LeaveRequestModal'; 
+import MyRequestHistory from './MyRequestHistory'; 
 
 interface AttendanceHistoryProps {
     userId: string;
@@ -22,7 +23,7 @@ interface AttendanceHistoryProps {
 const PAGE_SIZE = 15;
 
 const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
-    const { getAttendanceLogs, isLoading } = useAttendance(userId);
+    const { getAttendanceLogs } = useAttendance(userId);
     const { requests, submitRequest } = useLeaveRequests({ id: userId } as any);
 
     // Data State
@@ -44,42 +45,17 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     const [resubmitLog, setResubmitLog] = useState<AttendanceLog | null>(null);
     const [isResubmitOpen, setIsResubmitOpen] = useState(false);
 
-    // UI State: Collapsible Requests
-    const [isRequestsExpanded, setIsRequestsExpanded] = useState(false);
-
-    // Filter MY requests: Pending + Recent Rejected (Last 7 Days)
+    // Filter MY requests for the separate component
     const myRequests = useMemo(() => {
-        const today = new Date();
-        return requests.filter(r => {
-             if (r.userId !== userId) return false;
-             
-             // 1. Show all PENDING
-             if (r.status === 'PENDING') return true;
-             
-             // 2. Show REJECTED only if within 7 days
-             if (r.status === 'REJECTED') {
-                 const daysDiff = differenceInDays(today, new Date(r.createdAt));
-                 return daysDiff <= 7;
-             }
-             
-             return false;
-        })
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) // Newest first
-        .slice(0, 5); // Limit to 5 most recent
+        return requests
+            .filter(r => r.userId === userId)
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }, [requests, userId]);
 
     // Initial Fetch & Filter Change
     useEffect(() => {
         fetchData();
     }, [page, filters]); 
-    
-    // Auto-expand if there are requests initially (Optional: set to true if you want auto-open)
-    useEffect(() => {
-        if (myRequests.length > 0) {
-             // We keep it collapsed by default as requested to show the notification badge logic, 
-             // or you can set setIsRequestsExpanded(true) here if you prefer auto-open.
-        }
-    }, [myRequests.length]);
 
     const fetchData = async () => {
         setIsFetching(true);
@@ -133,26 +109,29 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
         const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         return `${hrs}h ${mins}m`;
     };
-
-    const getLeaveLabel = (type: string) => {
-        switch(type) {
-            case 'LATE_ENTRY': return 'ขอเข้าสาย';
-            case 'FORGOT_CHECKIN': return 'ลืมเช็คอิน';
-            case 'FORGOT_CHECKOUT': return 'ลืมเช็คออก';
-            case 'SICK': return 'ลาป่วย';
-            case 'VACATION': return 'ลาพักร้อน';
-            case 'OVERTIME': return 'ขอ OT';
-            case 'WFH': return 'Work From Home';
-            default: return type;
-        }
-    };
     
-    // Determine status badge color
-    const getStatusStyle = (log: AttendanceLog) => {
-        if (log.status === 'PENDING_VERIFY') return 'bg-orange-100 text-orange-700 border-orange-200';
-        if (log.status === 'ACTION_REQUIRED') return 'bg-red-100 text-red-700 border-red-200 animate-pulse';
-        if (log.status === 'WORKING') return 'bg-blue-100 text-blue-700 border-blue-200';
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+    // --- STATUS BADGE LOGIC (Updated for 100% Coverage) ---
+    const getStatusConfig = (log: AttendanceLog) => {
+        switch (log.status) {
+            case 'COMPLETED':
+            case 'ON_TIME': // In case we use specific status
+                return { label: 'ปกติ', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 };
+            case 'LATE':
+                return { label: 'สาย', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Clock };
+            case 'ABSENT':
+            case 'NO_SHOW':
+                return { label: 'ขาดงาน', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle };
+            case 'LEAVE':
+                return { label: 'ลา', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Calendar };
+            case 'PENDING_VERIFY':
+                return { label: 'รอตรวจสอบ', color: 'bg-orange-100 text-orange-700 border-orange-200 animate-pulse', icon: HelpCircle };
+            case 'ACTION_REQUIRED':
+                return { label: 'แก้ไขด่วน', color: 'bg-red-500 text-white border-red-600 animate-bounce', icon: AlertTriangle };
+            case 'WORKING':
+                return { label: 'กำลังทำงาน', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: Loader2 };
+            default:
+                return { label: log.status, color: 'bg-gray-100 text-gray-600 border-gray-200', icon: Calendar };
+        }
     };
 
     const handleResubmit = (log: AttendanceLog) => {
@@ -161,110 +140,26 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     };
     
     const handleResubmitSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        // Reuse existing submit logic which handles updates
         const success = await submitRequest(type, start, end, reason, file);
         if (success) {
-            fetchData(); // Refresh list to see status change
+            fetchData(); 
         }
         return success;
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             
-            {/* --- SECTION 1: REQUEST STATUS (Collapsible) --- */}
-            {myRequests.length > 0 && (
-                <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm overflow-hidden animate-in slide-in-from-top-2">
-                    <button 
-                        onClick={() => setIsRequestsExpanded(!isRequestsExpanded)}
-                        className={`w-full flex items-center justify-between px-5 py-4 transition-colors ${isRequestsExpanded ? 'bg-indigo-50/50' : 'bg-white hover:bg-gray-50'}`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${isRequestsExpanded ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
-                                <FileText className="w-5 h-5" />
-                            </div>
-                            <div className="text-left">
-                                <h3 className="font-bold text-gray-800 text-sm">สถานะคำขอ (Requests)</h3>
-                                <p className="text-[10px] text-gray-400">รายการที่รอดำเนินการหรือเพิ่งอัปเดต</p>
-                            </div>
-                        </div>
+            {/* --- SECTION 1: REQUESTS (คำขอต่างๆ) --- */}
+            <div className="animate-in fade-in slide-in-from-top-4">
+                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 ml-1">รายการคำขอ (Requests)</h3>
+                 <MyRequestHistory requests={myRequests} />
+            </div>
 
-                        <div className="flex items-center gap-3">
-                            {/* Notification Badge: Show ONLY when collapsed */}
-                            {!isRequestsExpanded && (
-                                <div className="flex items-center gap-1.5 bg-red-500 text-white px-3 py-1 rounded-full shadow-md shadow-red-200 animate-pulse">
-                                    <Bell className="w-3 h-3 fill-white" />
-                                    <span className="text-xs font-black">{myRequests.length}</span>
-                                </div>
-                            )}
-                            
-                            <div className="text-gray-400">
-                                {isRequestsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                            </div>
-                        </div>
-                    </button>
-
-                    {/* Expandable Content */}
-                    {isRequestsExpanded && (
-                        <div className="p-4 space-y-3 bg-indigo-50/30 border-t border-indigo-100">
-                            {myRequests.map(req => (
-                                <div 
-                                    key={req.id} 
-                                    className={`
-                                        border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between shadow-sm relative overflow-hidden gap-3 bg-white
-                                        ${req.status === 'PENDING' ? 'border-orange-200' : 'border-red-200'}
-                                    `}
-                                >
-                                    {/* Status Strip */}
-                                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${req.status === 'PENDING' ? 'bg-orange-400' : 'bg-red-500'}`}></div>
-                                    
-                                    <div className="flex items-center gap-3 pl-2">
-                                        <div className={`p-2 rounded-full shadow-sm shrink-0 ${req.status === 'PENDING' ? 'bg-orange-50 text-orange-500' : 'bg-red-50 text-red-500'}`}>
-                                            {req.status === 'PENDING' ? <Hourglass className="w-5 h-5 animate-spin-slow" /> : <XCircle className="w-5 h-5" />}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <p className="font-bold text-gray-800 text-sm">{getLeaveLabel(req.type)}</p>
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                                    req.status === 'PENDING' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'
-                                                }`}>
-                                                    {req.status}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                                                <Calendar className="w-3 h-3" /> 
-                                                {format(new Date(req.startDate), 'd MMM')} 
-                                                {req.startDate !== req.endDate && ` - ${format(new Date(req.endDate), 'd MMM')}`}
-                                            </div>
-                                            
-                                            {req.status === 'REJECTED' && req.rejectionReason && (
-                                                <div className="mt-2 text-xs bg-red-50 p-2 rounded-lg border border-red-100 text-red-800 font-medium">
-                                                    <span className="font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> เหตุผลที่ปฏิเสธ:</span> "{req.rejectionReason}"
-                                                </div>
-                                            )}
-                                            {req.status === 'PENDING' && (
-                                                 <p className="text-[10px] text-gray-400 mt-1 italic max-w-[200px] truncate">
-                                                    Note: "{req.reason}"
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Date Submitted */}
-                                    <div className="text-right pl-4 border-l border-gray-100 hidden md:block">
-                                         <p className="text-[10px] text-gray-400 uppercase font-bold">Submitted</p>
-                                         <p className="text-xs font-medium text-gray-600">{format(req.createdAt, 'd MMM HH:mm')}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* --- SECTION 2: HISTORY LOGS --- */}
+            {/* --- SECTION 2: ATTENDANCE LOGS (ประวัติเวลา) --- */}
             <div className="space-y-4">
-                
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest ml-1">บันทึกเวลา (Time Logs)</h3>
+
                 {/* --- Filter Bar --- */}
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -297,6 +192,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                 <option value="OFFICE">เข้าออฟฟิศ</option>
                                 <option value="WFH">Work From Home</option>
                                 <option value="SITE">On Site (ข้างนอก)</option>
+                                <option value="LEAVE">การลา (Leaves)</option>
                             </select>
                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         </div>
@@ -355,7 +251,10 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                     historyLogs.map(log => {
                                         const late = isLate(log);
                                         const proof = getProofUrl(log);
-                                        const statusStyle = getStatusStyle(log);
+                                        const statusConfig = getStatusConfig(log);
+                                        const StatusIcon = statusConfig.icon;
+                                        const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
+                                        const isPending = log.status === 'PENDING_VERIFY';
                                         
                                         return (
                                             <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors group">
@@ -372,13 +271,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                     {log.status === 'ACTION_REQUIRED' ? (
                                                         <button 
                                                             onClick={() => handleResubmit(log)}
-                                                            className="flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold border border-red-200 hover:bg-red-200 transition-colors shadow-sm"
+                                                            className="flex items-center gap-1 bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-bold border border-red-700 hover:bg-red-700 transition-colors shadow-sm animate-pulse"
                                                         >
-                                                            <AlertTriangle className="w-3 h-3" /> แก้ไขด่วน
+                                                            <AlertTriangle className="w-3 h-3" /> แก้ไขด่วน!
                                                         </button>
                                                     ) : (
-                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide ${statusStyle}`}>
-                                                            {log.status.replace('_', ' ')}
+                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide flex items-center w-fit gap-1.5 ${statusConfig.color}`}>
+                                                            <StatusIcon className="w-3 h-3" />
+                                                            {statusConfig.label}
                                                         </span>
                                                     )}
                                                 </td>
@@ -388,13 +288,15 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                             {format(log.checkInTime, 'HH:mm')}
                                                             {late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
                                                         </span>
-                                                    ) : '-'}
+                                                    ) : isLeave ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {log.checkOutTime ? (
                                                         <span className="font-mono font-bold text-sm text-gray-600">{format(log.checkOutTime, 'HH:mm')}</span>
-                                                    ) : log.status === 'PENDING_VERIFY' ? (
-                                                        <span className="text-orange-400 italic text-xs">Waiting Approval</span>
+                                                    ) : isPending ? (
+                                                        <span className="text-orange-500 italic text-xs font-bold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> รออนุมัติ</span>
+                                                    ) : isLeave ? (
+                                                        <span className="text-xs text-gray-400">-</span>
                                                     ) : (
                                                         <span className="text-gray-300 italic text-xs">Working...</span>
                                                     )}
@@ -404,17 +306,22 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                         <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide w-fit ${
                                                             log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                                             log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                            log.workType === 'LEAVE' ? 'bg-sky-50 text-sky-600 border-sky-100' :
                                                             'bg-orange-50 text-orange-600 border-orange-100'
                                                         }`}>
                                                             {log.workType}
                                                         </span>
-                                                        <span className="text-xs text-gray-500 truncate max-w-[120px]" title={getLocationDisplay(log)}>
-                                                            {getLocationDisplay(log)}
-                                                        </span>
+                                                        {!isLeave && (
+                                                            <span className="text-xs text-gray-500 truncate max-w-[120px]" title={getLocationDisplay(log)}>
+                                                                {getLocationDisplay(log)}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">{getWorkHours(log)}</span>
+                                                    <span className="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                        {isLeave ? '8h' : getWorkHours(log)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     {proof ? (
@@ -478,7 +385,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                     </div>
                 )}
                 
-                {/* Resubmit Modal (Reusing LeaveRequestModal logic essentially) */}
+                {/* Resubmit Modal */}
                 <LeaveRequestModal 
                     isOpen={isResubmitOpen}
                     onClose={() => { setIsResubmitOpen(false); setResubmitLog(null); }}

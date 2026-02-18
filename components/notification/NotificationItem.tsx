@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
     AlertTriangle, Clock, ScanEye, FileSignature, Trophy, 
-    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet, Lock, ShieldAlert
+    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet, Lock, ShieldAlert, CheckCircle2, XCircle
 } from 'lucide-react';
 import { AppNotification } from '../../types';
 import { format } from 'date-fns';
@@ -20,6 +20,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     const isApproval = notif.type === 'APPROVAL_REQ';
     const isFinance = notif.actionLink === 'FINANCE' || (notif.title && notif.title.includes('เงินเดือน'));
     
+    // --- SMART STYLING FOR GENERIC 'INFO' TYPE ---
+    const isSuccess = notif.type === 'INFO' && (notif.title.includes('อนุมัติ') || notif.title.includes('สำเร็จ') || notif.title.includes('Approved'));
+    const isFailure = notif.type === 'INFO' && (notif.title.includes('ปฏิเสธ') || notif.title.includes('ไม่ผ่าน') || notif.title.includes('Rejected'));
+
     // Dynamic Styles
     let containerStyle = "p-3 cursor-pointer flex gap-3 items-start rounded-xl transition-all duration-200 relative group border";
     
@@ -29,6 +33,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
         containerStyle += " bg-emerald-50/50 border-emerald-200 hover:bg-emerald-100/50";
     } else if (isApproval) {
          containerStyle += " bg-amber-50/50 border-amber-200 hover:bg-amber-100/50";
+    } else if (isSuccess) {
+         containerStyle += " bg-green-50/50 border-green-200 hover:bg-green-100/50";
+    } else if (isFailure) {
+         containerStyle += " bg-red-50/50 border-red-200 hover:bg-red-100/50";
     } else if (isUnread) {
         if (isUrgent) {
             containerStyle += " bg-red-50 border-l-4 border-l-red-500 border-y-red-100 border-r-red-100 shadow-sm";
@@ -41,6 +49,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
 
     const getIconBoxStyle = () => {
         if (isFinance) return 'bg-emerald-100 text-emerald-600';
+        if (isSuccess) return 'bg-green-100 text-green-600';
+        if (isFailure) return 'bg-red-100 text-red-600';
+
         switch (notif.type) {
             case 'SYSTEM_LOCK_PENALTY': return 'bg-red-600 text-white animate-pulse shadow-md shadow-red-200';
             case 'OVERDUE': return 'bg-red-100 text-red-600 animate-pulse';
@@ -56,6 +67,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
 
     const getIcon = () => {
         if (isFinance) return <Wallet className="w-5 h-5" />;
+        if (isSuccess) return <CheckCircle2 className="w-5 h-5" />;
+        if (isFailure) return <XCircle className="w-5 h-5" />;
+
         switch (notif.type) {
             case 'SYSTEM_LOCK_PENALTY': return <ShieldAlert className="w-5 h-5" />;
             case 'OVERDUE': return <AlertTriangle className="w-5 h-5" />;
@@ -80,7 +94,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
-                        <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'SYSTEM_LOCK_PENALTY' ? 'text-red-800' : isFinance ? 'text-emerald-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
+                        <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'SYSTEM_LOCK_PENALTY' ? 'text-red-800' : isFinance ? 'text-emerald-800' : isSuccess ? 'text-green-800' : isFailure ? 'text-red-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
                             {notif.title}
                         </h4>
                         {isUnread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5 shadow-sm ring-2 ring-white"></span>}

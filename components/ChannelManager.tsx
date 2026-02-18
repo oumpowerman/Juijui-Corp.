@@ -374,7 +374,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
                     
                     {/* Logo Overlay */}
                     <div className="absolute top-12 left-5">
-                         <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
+                         <div className="w-20 h-20 rounded-full border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
                              {channel.logoUrl ? (
                                  <img src={channel.logoUrl} className="w-full h-full object-cover" alt="logo" />
                              ) : (

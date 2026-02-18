@@ -305,7 +305,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 user={user}
                 todayLog={todayLog}
                 stats={stats}
-                todayPendingLeave={null} // Simplified for this view, or pass if needed
+                todayActiveLeave={null} // Simplified for this view, or pass if needed
                 onCheckOut={checkOut}
                 onCheckOutRequest={handleLeaveSubmit}
                 onOpenCheckIn={() => setIsCheckInModalOpen(true)}

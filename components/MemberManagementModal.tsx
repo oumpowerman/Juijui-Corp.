@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Role, MasterOption, Task } from '../types';
 import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban, Trophy, Heart, Coins, Gavel, DollarSign, CreditCard, Layers, AlertCircle, Calendar } from 'lucide-react';
 import { useGamification } from '../hooks/useGamification';
+import { useToast } from '../context/ToastContext';
 
 interface MemberManagementModalProps {
     isOpen: boolean;
@@ -56,6 +56,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     const [selectedGmUser, setSelectedGmUser] = useState<User | null>(null);
     
     const { adminAdjustStats } = useGamification(currentUser);
+    const { showToast } = useToast();
 
     // Get Positions from Master Options
     const positionOptions = masterOptions
@@ -134,15 +135,19 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
             return;
         }
         setIsSaving(true);
-        const success = await adminAdjustStats(selectedGmUser.id, {
+        const result = await adminAdjustStats(selectedGmUser.id, {
             hp: Number(adjustForm.hp),
             xp: Number(adjustForm.xp),
             points: Number(adjustForm.points)
         }, adjustForm.reason);
+        
         setIsSaving(false);
-        if (success) {
+        if (result.success) {
+            // Success toast is handled by global listener since adminAdjustStats inserts a log
             setSelectedGmUser(null);
             setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
+        } else {
+            showToast(result.message || 'ปรับค่าไม่สำเร็จ', 'error');
         }
     };
 

@@ -72,7 +72,7 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                         </div>
                         <div className="flex flex-col items-start text-left min-w-0">
                             <span className="text-[10px] font-bold opacity-80 uppercase tracking-wider">Current Status</span>
-                            <span className="text-lg font-black truncate w-full leading-none">
+                            <span className="text-lg font-black truncate w-full leading-none py-0.5 pb-1">
                                 {currentStatusOpt?.label || 'Select Status'}
                             </span>
                         </div>
@@ -121,7 +121,7 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                 >
                     <div className="flex items-center gap-3 overflow-hidden">
                         {/* Logo / Icon */}
-                        <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
                             {currentChannel?.logoUrl ? (
                                 <img src={currentChannel.logoUrl} alt={currentChannel.name} className="w-full h-full object-cover" />
                             ) : (

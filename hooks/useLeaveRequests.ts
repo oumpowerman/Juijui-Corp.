@@ -91,8 +91,8 @@ export const useLeaveRequests = (currentUser?: any) => {
         endDate: Date, 
         reason: string, 
         file?: File
-    ) => {
-        if (!currentUser) return;
+    ): Promise<boolean> => {
+        if (!currentUser) return false;
         try {
             const startDateStr = format(startDate, 'yyyy-MM-dd');
             const { data: existingRequest } = await supabase
@@ -168,6 +168,21 @@ export const useLeaveRequests = (currentUser?: any) => {
             
             if (updateError) throw updateError;
 
+            // --- 1. NOTIFY USER (NEW DETAILED MSG) ---
+            const dateDisplay = format(request.startDate, 'd MMM yyyy');
+            const fullDateDisplay = request.startDate.getTime() === request.endDate.getTime() 
+                ? dateDisplay 
+                : `${dateDisplay} - ${format(request.endDate, 'd MMM yyyy')}`;
+
+            await supabase.from('notifications').insert({
+                user_id: request.userId,
+                type: 'INFO',
+                title: '✅ คำขอได้รับการอนุมัติ',
+                message: `รายการ: ${request.type}\nวันที่: ${fullDateDisplay}\nรายละเอียด: ${request.reason || '-'}`,
+                is_read: false,
+                link_path: 'ATTENDANCE'
+            });
+
             // --- SPECIAL LOGIC FOR WFH ---
             // WFH is a "Permission", NOT a "Leave Log". 
             // We DO NOT insert into attendance_logs here. 
@@ -182,6 +197,27 @@ export const useLeaveRequests = (currentUser?: any) => {
                 
                 showToast('อนุมัติ WFH แล้ว (พนักงานต้องกดเช็คอินเอง)', 'success');
                 return; // STOP HERE
+            }
+            
+            // --- IF APPROVING LATE ENTRY ---
+            if (request.type === 'LATE_ENTRY') {
+                // Find existing log if they already checked in (as [APPEAL_PENDING])
+                const dateStr = format(request.startDate, 'yyyy-MM-dd');
+                const { data: existingLog } = await supabase.from('attendance_logs')
+                    .select('id, note')
+                    .eq('user_id', request.userId)
+                    .eq('date', dateStr)
+                    .maybeSingle();
+
+                if (existingLog) {
+                    // Update note to remove [APPEAL_PENDING] and add [APPROVED]
+                    const newNote = (existingLog.note || '').replace('[APPEAL_PENDING]', '[LATE APPROVED]').trim();
+                    await supabase.from('attendance_logs').update({ note: newNote }).eq('id', existingLog.id);
+                } else {
+                     // If they haven't checked in yet (unlikely if flow is followed, but possible if approved pre-arrival)
+                     // We don't create log, just let them check in later. 
+                     // When they check in, they might check in normally.
+                }
             }
 
             // --- Logic for Corrections (Forgot In/Out) ---
@@ -232,7 +268,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                          });
                      }
                 }
-            } else {
+            } else if (request.type !== 'LATE_ENTRY') { // Skip log creation for LATE_ENTRY as it's just permission
                 // --- Logic for Actual Leaves (Sick, Vacation) ---
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
                 const logs = days.map(day => ({
@@ -263,6 +299,8 @@ export const useLeaveRequests = (currentUser?: any) => {
     };
 
     const rejectRequest = async (id: string, reason: string) => {
+        // Optimistic Update
+        const targetReq = requests.find(r => r.id === id);
         setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));
 
         try {
@@ -277,12 +315,38 @@ export const useLeaveRequests = (currentUser?: any) => {
                  await supabase.from('attendance_logs').update({ status: 'ACTION_REQUIRED' }).eq('user_id', req.user_id).eq('date', req.start_date);
             }
             
+            // --- NEW: Handle LATE_ENTRY Rejection Penalty ---
+            if (req && req.type === 'LATE_ENTRY') {
+                const dateStr = req.start_date;
+                // If they checked in (APPEAL PENDING), now update log to LATE and penalize
+                const { data: log } = await supabase.from('attendance_logs')
+                    .select('id, note')
+                    .eq('user_id', req.user_id)
+                    .eq('date', dateStr)
+                    .maybeSingle();
+
+                if (log) {
+                    const newNote = (log.note || '').replace('[APPEAL_PENDING]', '[APPEAL REJECTED]').trim();
+                    await supabase.from('attendance_logs').update({ note: newNote, status: 'LATE' }).eq('id', log.id);
+                }
+                
+                // Trigger Penalty Game Event
+                await processAction(req.user_id, 'ATTENDANCE_LATE', { date: dateStr });
+            }
+            
             if (req) {
+                 const startDate = new Date(req.start_date);
+                 const endDate = new Date(req.end_date);
+                 const dateDisplay = format(startDate, 'd MMM yyyy');
+                 const fullDateDisplay = startDate.getTime() === endDate.getTime() 
+                    ? dateDisplay 
+                    : `${dateDisplay} - ${format(endDate, 'd MMM yyyy')}`;
+
                  await supabase.from('notifications').insert({
                      user_id: req.user_id,
                      type: 'INFO',
                      title: '❌ คำขอถูกปฏิเสธ',
-                     message: `คำขอ ${req.type} ของคุณไม่ผ่านการอนุมัติ เนื่องจาก: ${reason}`,
+                     message: `รายการ: ${req.type}\nวันที่: ${fullDateDisplay}\nเหตุผล: ${reason}`,
                      is_read: false,
                      link_path: 'ATTENDANCE'
                 });

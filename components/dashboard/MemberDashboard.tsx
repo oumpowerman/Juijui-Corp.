@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Task, Channel, MasterOption, WorkStatus, ViewMode } from '../../types';
+import { User, Task, Channel, MasterOption, WorkStatus, ViewMode, Duty, AppNotification } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 
@@ -10,7 +10,8 @@ import FocusZone from './member/FocusZone';
 import MyWorkBoard from './member/MyWorkBoard';
 import ItemShopModal from '../gamification/ItemShopModal';
 import WorkloadModal from '../workload/WorkloadModal'; 
-import MemberReportModal from './member/MemberReportModal'; // NEW
+import MemberReportModal from './member/MemberReportModal'; 
+import NegligenceLockModal from '../duty/NegligenceLockModal'; // Import the Modal
 
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
@@ -18,11 +19,13 @@ import DailyMission from './widgets/DailyMission';
 import QuestOverviewWidget from './widgets/QuestOverviewWidget';
 import GoalOverviewWidget from './widgets/GoalOverviewWidget';
 import HallOfFameWidget from './widgets/HallOfFameWidget';
+import MyDutyWidget from './member/MyDutyWidget'; // Make sure this is imported if used directly or ensure DailyMission passes props correctly (it wraps it)
 
 // Hooks
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
 import { useGoals } from '../../hooks/useGoals';
 import { useTasks } from '../../hooks/useTasks'; 
+import { useDuty } from '../../hooks/useDuty'; // To pass duties to MyDutyWidget manually if we skip DailyMission or customize it
 
 interface MemberDashboardProps {
     currentUser: User;
@@ -57,13 +60,18 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const [localUser, setLocalUser] = useState<User>(currentUser);
     const [isShopOpen, setIsShopOpen] = useState(false);
     const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); 
-    const [isReportOpen, setIsReportOpen] = useState(false); // NEW STATE
+    const [isReportOpen, setIsReportOpen] = useState(false); 
+    
+    // Negligence Logic
+    const [negligenceDuty, setNegligenceDuty] = useState<Duty | null>(null);
+
     const { showToast } = useToast();
 
     // Data Hooks
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
     const { handleSaveTask } = useTasks(); 
+    const { duties } = useDuty(currentUser); // Direct fetch for custom passing
 
     // Sync local user
     useEffect(() => {
@@ -95,6 +103,24 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         t.editorIds?.includes(currentUser.id)
     );
 
+    const handleAcknowledgeNegligence = async () => {
+        if (!negligenceDuty) return;
+        try {
+            // Update DB to clear from screen
+            const { error } = await supabase.from('duties')
+                .update({ cleared_by_system: true })
+                .eq('id', negligenceDuty.id);
+            
+            if (error) throw error;
+            
+            showToast('รับทราบความผิดแล้ว (Cleared from screen)', 'success');
+            setNegligenceDuty(null);
+        } catch (err) {
+            console.error(err);
+            showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+        }
+    };
+
     return (
         <div className="min-h-full bg-[#FDFBF7] pb-24 relative overflow-hidden">
             
@@ -120,7 +146,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 onEditProfile={onEditProfile}
                                 unreadNotifications={unreadCount}
                                 onOpenWorkload={() => setIsWorkloadOpen(true)}
-                                onOpenReport={() => setIsReportOpen(true)} // NEW Prop
+                                onOpenReport={() => setIsReportOpen(true)} 
                             />
                          </div>
                         
@@ -134,14 +160,17 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         </div>
                     </div>
 
-                    {/* Right: Daily Mission */}
+                    {/* Right: Daily Mission (Customized to pass onFixNegligence) */}
                     <div className="xl:col-span-4 flex flex-col h-full relative z-10">
                         <div className="h-full bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-[2.5rem] border border-orange-100 shadow-sm p-1 relative overflow-hidden group min-h-[200px]">
                              <div className="absolute top-0 right-0 w-40 h-40 bg-white/40 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
-                             <DailyMission 
-                                currentUser={currentUser}
-                                onNavigate={onNavigate}
+                             {/* Manually rendering MyDutyWidget here to pass the new prop easily, instead of DailyMission wrapper */}
+                             <MyDutyWidget 
+                                duties={duties} 
+                                currentUser={currentUser} 
                                 users={users}
+                                onNavigate={onNavigate}
+                                onFixNegligence={setNegligenceDuty}
                             />
                         </div>
                     </div>
@@ -211,13 +240,28 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 currentUser={currentUser}
             />
 
-            {/* NEW REPORT MODAL */}
             <MemberReportModal 
                 isOpen={isReportOpen}
                 onClose={() => setIsReportOpen(false)}
                 user={currentUser}
-                tasks={tasks} // Pass ALL tasks (filtering happens inside)
+                tasks={tasks}
             />
+
+            {/* Negligence Lock Modal */}
+            {negligenceDuty && (
+                <NegligenceLockModal 
+                    notification={{
+                        id: 'manual_lock_trigger',
+                        type: 'SYSTEM_LOCK_PENALTY',
+                        title: '⚠️ ละเลยหน้าที่ (Negligence)',
+                        message: `คุณได้ปล่อยปละละเลยเวร "${negligenceDuty.title}" จนเกินกำหนด ระบบจำเป็นต้องบันทึกประวัติความผิด (ABANDONED)`,
+                        date: new Date(),
+                        isRead: false,
+                        metadata: { hp: -20 } // Visual feedback
+                    } as AppNotification}
+                    onAcknowledge={handleAcknowledgeNegligence}
+                />
+            )}
         </div>
     );
 };

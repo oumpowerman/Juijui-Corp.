@@ -10,9 +10,10 @@ interface MyDutyWidgetProps {
     currentUser: User;
     users: User[];
     onNavigate: (view: ViewMode) => void;
+    onFixNegligence?: (duty: Duty) => void; // New Prop for handling locks
 }
 
-const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users, onNavigate }) => {
+const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users, onNavigate, onFixNegligence }) => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -83,10 +84,10 @@ const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users,
                     </div>
 
                     <button 
-                        onClick={() => onNavigate('DUTY')}
+                        onClick={() => onFixNegligence ? onFixNegligence(abandonedDuties[0]) : onNavigate('DUTY')}
                         className="flex items-center justify-center gap-2 px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-sm shadow-xl shadow-red-900/20 transition-all active:scale-95 w-full md:w-auto whitespace-nowrap border-t border-red-400"
                     >
-                        ไปจัดการเดี๋ยวนี้ <ArrowRight className="w-4 h-4"/>
+                        ยอมรับผิดและเคลียร์ <ArrowRight className="w-4 h-4"/>
                     </button>
                 </div>
             </div>

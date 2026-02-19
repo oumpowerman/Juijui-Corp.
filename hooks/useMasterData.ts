@@ -107,7 +107,8 @@ export const useMasterData = () => {
                     sortOrder: item.sort_order,
                     isActive: item.is_active,
                     isDefault: item.is_default,
-                    parentKey: item.parent_key // Ensure this is mapped from snake_case
+                    parentKey: item.parent_key,
+                    description: item.description // Map description
                 })));
             }
         } catch (err: any) {
@@ -119,6 +120,17 @@ export const useMasterData = () => {
 
     const handleAddOption = async (option: Omit<MasterOption, 'id'>) => {
         try {
+            // Check for Duplicates (Case-Insensitive)
+            const exists = options.some(o => 
+                o.type === option.type && 
+                (o.key === option.key || o.label.toLowerCase().trim() === option.label.toLowerCase().trim())
+            );
+
+            if (exists) {
+                showToast(`ข้อมูล "${option.label}" มีอยู่แล้วในระบบ`, 'warning');
+                return false;
+            }
+
             const payload = {
                 type: option.type,
                 key: option.key,
@@ -127,7 +139,8 @@ export const useMasterData = () => {
                 sort_order: option.sortOrder,
                 is_active: option.isActive,
                 is_default: option.isDefault,
-                parent_key: option.parentKey || null // IMPORTANT: Send null if empty to keep DB clean
+                parent_key: option.parentKey || null,
+                description: option.description || null // Add description
             };
 
             const { data, error } = await supabase.from('master_options').insert(payload).select().single();
@@ -142,7 +155,8 @@ export const useMasterData = () => {
                 sortOrder: data.sort_order,
                 isActive: data.is_active,
                 isDefault: data.is_default,
-                parentKey: data.parent_key
+                parentKey: data.parent_key,
+                description: data.description
             };
 
             setOptions(prev => [...prev, newOption]);
@@ -165,7 +179,8 @@ export const useMasterData = () => {
                 sort_order: option.sortOrder,
                 is_active: option.isActive,
                 is_default: option.isDefault,
-                parent_key: option.parentKey || null // IMPORTANT: Update with null if cleared
+                parent_key: option.parentKey || null,
+                description: option.description || null // Add description
             };
 
             const { error } = await supabase.from('master_options').update(payload).eq('id', option.id);

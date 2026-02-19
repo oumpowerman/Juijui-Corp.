@@ -124,10 +124,6 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         return taskStatusOptions.filter(opt => !isTaskCompleted(opt.key));
     }, [taskStatusOptions, isAdmin]);
 
-    const parentProject = React.useMemo(() => {
-        return contentId ? projects.find(p => p.id === contentId) : null;
-    }, [contentId, projects]);
-
     const suggestedTasks = React.useMemo(() => {
         if (assigneeType !== 'INDIVIDUAL' || assigneeIds.length !== 1) return [];
         const user = users.find(u => u.id === assigneeIds[0]);
@@ -319,10 +315,13 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                         />
                     )}
 
+                    {/* Updated Project Linker props */}
                     <GTProjectLinker 
-                        parentProject={parentProject}
-                        onSetParentProject={handleSetParentProject}
+                        projectId={contentId || ''}
+                        setProjectId={(id) => handleSetParentProject(id || null)}
                         projects={projects}
+                        channels={channels}
+                        masterOptions={masterOptions}
                     />
 
                     <GTCoreDetails 

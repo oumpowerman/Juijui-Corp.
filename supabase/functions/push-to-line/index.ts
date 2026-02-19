@@ -1,10 +1,9 @@
+
 // Follow this setup guide to integrate the Deno runtime into your editor:
 // https://deno.land/manual/getting_started/setup_your_environment
 // This code runs on Supabase Edge Functions.
 
-// ลบ URL ยาวๆ ออก แล้วใช้ตัวย่อที่ตั้งไว้ใน import_map
 import { createClient } from '@supabase/supabase-js'
-
 
 declare const Deno: any;
 
@@ -22,38 +21,44 @@ const TYPE_CONFIG: Record<string, { color: string, emoji: string, label: string 
 };
 
 Deno.serve(async (req: any) => {
+  // Initialize Supabase Admin Client inside the handler to ensure fresh context
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
   try {
-    // 1. Check Auth (Optional but recommended for Webhooks)
-    // For raw database webhooks, we might skip strict auth header checks 
-    // but ensure the payload structure is correct.
-
     const payload = await req.json();
-    const { record } = payload; // 'record' is the new row from the 'notifications' table
+    const { record } = payload; // 'record' is the row from 'notifications' table
 
-    if (!record || !record.user_id) {
+    // Validate Payload
+    if (!record || !record.id || !record.user_id) {
       return new Response(JSON.stringify({ error: 'Invalid Payload' }), { status: 400 });
     }
 
-    // 2. Initialize Supabase Admin Client
-    // We need Service Role Key to bypass RLS and read user's line_user_id
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log(`Processing notification ${record.id} for user ${record.user_id}`);
 
-    // 3. Get User's LINE ID
+    // 1. Get User's LINE ID
     const { data: userProfile, error: userError } = await supabaseAdmin
       .from('profiles')
       .select('line_user_id, full_name')
       .eq('id', record.user_id)
       .single();
 
+    // CASE: No LINE ID Linked
     if (userError || !userProfile || !userProfile.line_user_id) {
-      console.log(`User ${record.user_id} has no LINE ID linked. Skipping.`);
-      return new Response(JSON.stringify({ message: 'No LINE ID linked' }), { status: 200 });
+      console.log(`User ${record.user_id} has no LINE ID linked.`);
+      
+      // Update DB: Abandoned
+      await supabaseAdmin.from('notifications').update({
+          line_status: 'ABANDONED',
+          last_error: 'No LINE ID linked in profile'
+      }).eq('id', record.id);
+
+      return new Response(JSON.stringify({ message: 'No LINE ID linked, marked as ABANDONED' }), { status: 200 });
     }
 
-    // 4. Construct LINE Message (Flex Message)
+    // 2. Construct LINE Message (Flex Message)
     const config = TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO'];
     const lineAccessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
 
@@ -164,7 +169,7 @@ Deno.serve(async (req: any) => {
       ]
     };
 
-    // 5. Send to LINE API
+    // 3. Send to LINE API
     const lineResponse = await fetch(LINE_MESSAGING_API, {
       method: 'POST',
       headers: {
@@ -176,16 +181,46 @@ Deno.serve(async (req: any) => {
 
     if (!lineResponse.ok) {
       const errorText = await lineResponse.text();
-      console.error('LINE API Error:', errorText);
-      return new Response(JSON.stringify({ error: 'Failed to send to LINE', details: errorText }), { status: 500 });
+      throw new Error(`LINE API Error (${lineResponse.status}): ${errorText}`);
     }
+
+    // CASE: Success
+    // Update DB: SUCCESS
+    await supabaseAdmin.from('notifications').update({
+        line_status: 'SUCCESS',
+        sent_at: new Date().toISOString(),
+        last_error: null
+    }).eq('id', record.id);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (err: any) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("Error in push-to-line:", err);
+
+    // CASE: Failed
+    // We catch errors here to update the DB status instead of letting the function crash entirely.
+    // This allows us to track failures.
+    try {
+        const payload = await req.clone().json(); // Clone req to read body again if needed
+        const { record } = payload;
+        
+        if (record && record.id) {
+             const currentRetry = record.retry_count || 0;
+             await supabaseAdmin.from('notifications').update({
+                line_status: 'FAILED',
+                retry_count: currentRetry + 1,
+                last_error: err.message?.substring(0, 500) // Truncate error if too long
+            }).eq('id', record.id);
+        }
+    } catch (e) {
+        // Fallback if we can't even read the record ID
+        console.error("Critical failure updating DB status:", e);
+    }
+
+    // Return 200 OK to the Webhook even on logical error to prevent the Database Webhook from retrying indefinitely on its own.
+    // We handle our own retries via the `line_status` column logic.
+    return new Response(JSON.stringify({ error: err.message }), { status: 200 });
   }
 });

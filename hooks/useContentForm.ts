@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format, isValid } from 'date-fns';
 import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType } from '../types';
@@ -50,6 +49,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
     const [scriptId, setScriptId] = useState<string | undefined>(undefined);
     
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false); // NEW: Track saving state
 
     // --- Options from Master Data ---
     const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
@@ -127,10 +127,11 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setScriptId(undefined);
         }
         setError('');
+        setIsSaving(false);
     }, [initialData, selectedDate, channels, masterOptions]); 
 
     // --- Handlers ---
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (!title.trim()) {
@@ -146,64 +147,73 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             return;
         }
 
-        // 1. Date Conversion (Fix Timezone issues by using explicit construction)
-        const [sy, sm, sd] = startDate.split('-').map(Number);
-        const startObj = new Date(sy, sm - 1, sd);
-        
-        const [ey, em, ed] = endDate.split('-').map(Number);
-        const endObj = new Date(ey, em - 1, ed);
+        setIsSaving(true); // Start loading
 
-        // 2. Production Date Conversion (Must be precise for Trip Grouping)
-        let finalShootDate = undefined;
-        if (shootDate) {
-            const [shy, shm, shd] = shootDate.split('-').map(Number);
-            finalShootDate = new Date(shy, shm - 1, shd);
+        try {
+            // 1. Date Conversion (Fix Timezone issues by using explicit construction)
+            const [sy, sm, sd] = startDate.split('-').map(Number);
+            const startObj = new Date(sy, sm - 1, sd);
+            
+            const [ey, em, ed] = endDate.split('-').map(Number);
+            const endObj = new Date(ey, em - 1, ed);
+
+            // 2. Production Date Conversion (Must be precise for Trip Grouping)
+            let finalShootDate = undefined;
+            if (shootDate) {
+                const [shy, shm, shd] = shootDate.split('-').map(Number);
+                finalShootDate = new Date(shy, shm - 1, shd);
+            }
+
+            const newTask: Task = {
+                id: initialData ? initialData.id : crypto.randomUUID(),
+                type: 'CONTENT',
+                title,
+                description,
+                remark,
+                status: status as Status,
+                priority,
+                tags,
+                
+                // Dates
+                startDate: startObj,
+                endDate: endObj,
+                isUnscheduled: isStock,
+
+                // Content Fields (Crucial for Weekly Quests)
+                channelId,
+                targetPlatforms: targetPlatforms, // Array format is key for Quest Matching
+                pillar: pillar as ContentPillar,
+                contentFormat: contentFormat as ContentFormat,
+                category,
+                publishedLinks,
+
+                // Production Info (Crucial for Trip Manager)
+                shootDate: finalShootDate,
+                shootLocation: shootLocation.trim() || undefined,
+
+                // People
+                ideaOwnerIds,
+                editorIds,
+                assigneeIds, // Support
+
+                // Assets & Script
+                assets,
+                performance,
+                scriptId, // Linkage
+                
+                // Defaults
+                difficulty: 'MEDIUM',
+                estimatedHours: 0,
+                assigneeType: 'TEAM'
+            };
+
+            await onSave(newTask); // Wait for save (usually async in parent wrapper)
+        } catch (err) {
+            console.error(err);
+            setError('Save failed');
+        } finally {
+            setIsSaving(false); // Stop loading
         }
-
-        const newTask: Task = {
-            id: initialData ? initialData.id : crypto.randomUUID(),
-            type: 'CONTENT',
-            title,
-            description,
-            remark,
-            status: status as Status,
-            priority,
-            tags,
-            
-            // Dates
-            startDate: startObj,
-            endDate: endObj,
-            isUnscheduled: isStock,
-
-            // Content Fields (Crucial for Weekly Quests)
-            channelId,
-            targetPlatforms: targetPlatforms, // Array format is key for Quest Matching
-            pillar: pillar as ContentPillar,
-            contentFormat: contentFormat as ContentFormat,
-            category,
-            publishedLinks,
-
-            // Production Info (Crucial for Trip Manager)
-            shootDate: finalShootDate,
-            shootLocation: shootLocation.trim() || undefined,
-
-            // People
-            ideaOwnerIds,
-            editorIds,
-            assigneeIds, // Support
-
-            // Assets & Script
-            assets,
-            performance,
-            scriptId, // Linkage
-            
-            // Defaults
-            difficulty: 'MEDIUM',
-            estimatedHours: 0,
-            assigneeType: 'TEAM'
-        };
-
-        onSave(newTask);
     };
 
     const togglePlatform = (p: Platform) => {
@@ -250,6 +260,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
         scriptId, setScriptId,
 
         error,
+        isSaving, // EXPORTED
         
         // Options
         formatOptions,

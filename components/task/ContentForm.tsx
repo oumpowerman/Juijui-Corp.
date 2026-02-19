@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Task, Channel, User, MasterOption, ScriptSummary, Script } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
@@ -20,6 +19,7 @@ import CFStatusChannel from './content-parts/CFStatusChannel';
 import CFPlatformSelector from './content-parts/CFPlatformSelector';
 import CFCrewSelector from './content-parts/CFCrewSelector';
 import CFBrief from './content-parts/CFBrief';
+import ContentActionFooter from './content-parts/ContentActionFooter'; // NEW
 
 import ScriptEditor from '../script/ScriptEditor';
 
@@ -70,9 +70,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
         assigneeIds, setAssigneeIds,
         assets, addAsset, removeAsset, // Assets from hook
         error,
-        formatOptions, pillarOptions, statusOptions,
+        formatOptions, pillarOptions, categoryOptions, statusOptions,
         handleSubmit, togglePlatform, toggleUserSelection,
-        scriptId, setScriptId // From Hook
+        scriptId, setScriptId, // From Hook
+        isSaving // Added from hook to show loading state on save button
     } = useContentForm({
         initialData,
         selectedDate,
@@ -357,115 +358,103 @@ const ContentForm: React.FC<ContentFormProps> = ({
         assigneeIds.includes(currentUser.id)
     )) || currentUser?.role === 'ADMIN';
 
+    // Show QC Button Condition
+    const shouldShowSendQC = initialData && status !== 'FEEDBACK' && status !== 'DONE' && status !== 'APPROVE';
+
     return (
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
-            {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
+                {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                
-                {/* 1. Title Input */}
-                <CFHeader title={title} setTitle={setTitle} />
-                
-                {/* 2. Status & Channel (Command Bar) - MOVED TO TOP */}
-                <CFStatusChannel 
-                    status={status} setStatus={setStatus}
-                    channelId={channelId} setChannelId={setChannelId}
-                    statusOptions={statusOptions} channels={channels}
-                />
-
-                {/* 3. Script Integration - Updated for Linking */}
-                <CFScriptLinker 
-                    hasContentId={!!initialData?.id}
-                    linkedScript={linkedScript}
-                    isLoadingScript={isLoadingScript}
-                    onOpenScript={handleOpenScript}
-                    onCreateScript={handleCreateScript}
-                    onLinkScript={handleLinkScript} // NEW
-                    onUnlinkScript={handleUnlinkScript} // NEW
-                    currentUser={currentUser} // NEW
-                />
-
-                {/* 4. Date & Stock */}
-                <CFDateAndStock 
-                    startDate={startDate} setStartDate={setStartDate}
-                    endDate={endDate} setEndDate={setEndDate}
-                    isStock={isStock} setIsStock={setIsStock}
-                />
-
-                {/* 5. Production Info */}
-                <CFProductionInfo 
-                    shootDate={shootDate} setShootDate={setShootDate}
-                    shootLocation={shootLocation} setShootLocation={setShootLocation}
-                    masterOptions={masterOptions} // PASS MASTER OPTIONS
-                />
-
-                {/* 6. Format & Pillar */}
-                <CFCategorization 
-                    contentFormat={contentFormat} setContentFormat={setContentFormat}
-                    pillar={pillar} setPillar={setPillar}
-                    formatOptions={formatOptions} pillarOptions={pillarOptions}
-                />
-
-                {/* 7. Platforms & Links */}
-                <CFPlatformSelector 
-                    targetPlatforms={targetPlatforms}
-                    togglePlatform={togglePlatform}
-                    publishedLinks={publishedLinks}
-                    handleLinkChange={handleLinkChange}
-                />
-
-                {/* 8. Crew Selection */}
-                <CFCrewSelector 
-                    users={activeUsers}
-                    ideaOwnerIds={ideaOwnerIds} editorIds={editorIds} assigneeIds={assigneeIds}
-                    setIdeaOwnerIds={setIdeaOwnerIds} setEditorIds={setEditorIds} setAssigneeIds={setAssigneeIds}
-                    toggleUserSelection={toggleUserSelection}
-                />
-
-                {/* 9. Description */}
-                <CFBrief description={description} setDescription={setDescription} />
-
-                {/* 10. Assets */}
-                 <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <TaskAssets 
-                        assets={assets}
-                        onAdd={addAsset}
-                        onDelete={removeAsset}
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    
+                    {/* 1. Title Input */}
+                    <CFHeader title={title} setTitle={setTitle} />
+                    
+                    {/* 2. Status & Channel (Command Bar) - MOVED TO TOP */}
+                    <CFStatusChannel 
+                        status={status} setStatus={setStatus}
+                        channelId={channelId} setChannelId={setChannelId}
+                        statusOptions={statusOptions} channels={channels}
                     />
+
+                    {/* 3. Script Integration - Updated for Linking */}
+                    <CFScriptLinker 
+                        hasContentId={!!initialData?.id}
+                        linkedScript={linkedScript}
+                        isLoadingScript={isLoadingScript}
+                        onOpenScript={handleOpenScript}
+                        onCreateScript={handleCreateScript}
+                        onLinkScript={handleLinkScript} 
+                        onUnlinkScript={handleUnlinkScript}
+                        currentUser={currentUser} 
+                    />
+
+                    {/* 4. Date & Stock */}
+                    <CFDateAndStock 
+                        startDate={startDate} setStartDate={setStartDate}
+                        endDate={endDate} setEndDate={setEndDate}
+                        isStock={isStock} setIsStock={setIsStock}
+                    />
+
+                    {/* 5. Production Info */}
+                    <CFProductionInfo 
+                        shootDate={shootDate} setShootDate={setShootDate}
+                        shootLocation={shootLocation} setShootLocation={setShootLocation}
+                        masterOptions={masterOptions} 
+                    />
+
+                    {/* 6. Format & Pillar */}
+                    <CFCategorization 
+                        contentFormat={contentFormat} setContentFormat={setContentFormat}
+                        pillar={pillar} setPillar={setPillar}
+                        category={category} setCategory={setCategory}
+                        formatOptions={formatOptions} pillarOptions={pillarOptions} categoryOptions={categoryOptions}
+                    />
+
+                    {/* 7. Platforms & Links */}
+                    <CFPlatformSelector 
+                        targetPlatforms={targetPlatforms}
+                        togglePlatform={togglePlatform}
+                        publishedLinks={publishedLinks}
+                        handleLinkChange={handleLinkChange}
+                    />
+
+                    {/* 8. Crew Selection */}
+                    <CFCrewSelector 
+                        users={activeUsers}
+                        ideaOwnerIds={ideaOwnerIds} editorIds={editorIds} assigneeIds={assigneeIds}
+                        setIdeaOwnerIds={setIdeaOwnerIds} setEditorIds={setEditorIds} setAssigneeIds={setAssigneeIds}
+                        toggleUserSelection={toggleUserSelection}
+                    />
+
+                    {/* 9. Description */}
+                    <CFBrief description={description} setDescription={setDescription} />
+
+                    {/* 10. Assets */}
+                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                        <TaskAssets 
+                            assets={assets}
+                            onAdd={addAsset}
+                            onDelete={removeAsset}
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-between items-center pt-6 mt-8 border-t border-gray-100 bg-white pb-safe-area">
-                <div className="flex items-center gap-2">
-                    {initialData && onDelete && (
-                        <button type="button" onClick={handleDeleteTask} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
-                        <Trash2 className="w-4 h-4 mr-2" /> ลบ
-                        </button>
-                    )}
-                </div>
-                <div className="flex space-x-3">
-                    {/* BUTTON: Send to QC */}
-                    {initialData && status !== 'FEEDBACK' && status !== 'DONE' && status !== 'APPROVE' && (
-                        <button 
-                            type="button" 
-                            onClick={handleSendToQC}
-                            disabled={isSendingQC || !isOwnerOrAssignee}
-                            className={`px-4 py-3 text-sm font-bold bg-indigo-50 border border-indigo-200 rounded-xl transition-colors flex items-center active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${!isOwnerOrAssignee ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-100'}`}
-                            title={!isOwnerOrAssignee ? "เฉพาะเจ้าของงาน" : "ส่งตรวจ"}
-                        >
-                            {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                            ส่งตรวจ
-                        </button>
-                    )}
-
-                    <button type="button" onClick={onClose} className="px-5 py-3 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-                        ยกเลิก
-                    </button>
-                    <button type="submit" className="px-6 py-3 text-sm font-bold text-white rounded-xl shadow-lg bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all">
-                    {initialData ? 'บันทึกการแก้ไข' : 'สร้างคอนเทนต์!'}
-                    </button>
-                </div>
+            {/* NEW FOOTER COMPONENT - IN FLOW */}
+            <div className="bg-white shrink-0 z-30 px-6 pb-6 pt-2 border-t border-gray-100">
+                <ContentActionFooter 
+                    mode={initialData ? 'EDIT' : 'CREATE'}
+                    onCancel={onClose}
+                    onDelete={handleDeleteTask}
+                    onSendQC={handleSendToQC}
+                    isSaving={Boolean(isSaving)} // Cast or check undefined from hook
+                    isSendingQC={isSendingQC}
+                    canSendQC={isOwnerOrAssignee}
+                    showSendQC={Boolean(shouldShowSendQC)}
+                    showDelete={Boolean(initialData && onDelete)}
+                />
             </div>
         </form>
     );

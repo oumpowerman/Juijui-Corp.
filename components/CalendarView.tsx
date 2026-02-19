@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, isSameDay } from 'date-fns';
-import { Minimize2, Loader2 } from 'lucide-react';
+import { Minimize2, Loader2, RotateCcw } from 'lucide-react';
 import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
 import MentorTip from './MentorTip';
 import TaskCategoryModal from './TaskCategoryModal';
@@ -81,6 +81,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // --- Stock Panel State ---
   const [isStockOpen, setIsStockOpen] = useState(false);
+
+  // --- Mobile Landscape State ---
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false);
 
   // Trigger Range Change when month changes
   useEffect(() => {
@@ -179,20 +182,37 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             setTaskDisplayMode={setTaskDisplayMode}
             isStockOpen={isStockOpen}
             onToggleStock={() => setIsStockOpen(!isStockOpen)}
+            isMobileLandscape={isMobileLandscape}
+            onToggleMobileLandscape={() => setIsMobileLandscape(!isMobileLandscape)}
          />
       </div>
 
       <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
         
         {/* Main Content Area */}
-        <div className={`flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${isStockOpen ? 'mr-4' : 'mr-0'}`}>
+        <div className={`
+            flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] 
+            ${isStockOpen ? 'mr-4' : 'mr-0'}
+            ${isMobileLandscape ? 'fixed inset-0 z-[100] bg-white w-[100vh] h-[100vw] origin-top-left rotate-90 translate-x-[100%] overflow-auto' : ''}
+        `}>
+            {/* Close Landscape Button (Mobile Only) */}
+            {isMobileLandscape && (
+                <button 
+                    onClick={() => setIsMobileLandscape(false)}
+                    className="fixed top-4 right-4 z-[110] bg-black/60 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md shadow-lg transition-all animate-in zoom-in"
+                    title="หมุนกลับ"
+                >
+                    <RotateCcw className="w-6 h-6" />
+                </button>
+            )}
+
             <div key={`${displayMode}-${viewMode}`} className="animate-in fade-in zoom-in-[0.98] duration-300 h-full">
                 {displayMode === 'CALENDAR' ? (
                     <CalendarGrid 
                         startDate={startDate}
                         endDate={endDate}
                         currentDate={currentDate || new Date()}
-                        isExpanded={isExpanded}
+                        isExpanded={isExpanded || isMobileLandscape} // Force expanded mode in landscape
                         dragOverDate={dragOverDate}
                         viewMode={viewMode}
                         taskDisplayMode={taskDisplayMode}
@@ -231,29 +251,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
         </div>
 
-        {/* Stock Side Panel (Animated Slide) */}
-        <div 
-            className={`
-                shrink-0 hidden lg:block sticky top-24 self-start h-[calc(100vh-120px)]
-                transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
-                ${isStockOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10'}
-            `}
-        >
-             <div className="w-80 h-full">
-                 <StockSidePanel 
-                    isOpen={true} // Always render internal logic, control visibility via wrapper
-                    onClose={() => setIsStockOpen(false)}
-                    tasks={tasks}
-                    channels={channels}
-                    masterOptions={masterOptions}
-                    onEditTask={onSelectTask}
-                 />
-             </div>
-        </div>
+        {/* Stock Side Panel (Animated Slide) - Hidden in Mobile Landscape to save space */}
+        {!isMobileLandscape && (
+            <div 
+                className={`
+                    shrink-0 hidden lg:block sticky top-24 self-start h-[calc(100vh-120px)]
+                    transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
+                    ${isStockOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10'}
+                `}
+            >
+                 <div className="w-80 h-full">
+                     <StockSidePanel 
+                        isOpen={true} // Always render internal logic, control visibility via wrapper
+                        onClose={() => setIsStockOpen(false)}
+                        tasks={tasks}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        onEditTask={onSelectTask}
+                     />
+                 </div>
+            </div>
+        )}
       </div>
 
-      {/* Mobile Stock Panel Overlay (If Open on Mobile) */}
-      {isStockOpen && (
+      {/* Mobile Stock Panel Overlay (If Open on Mobile & Not Landscape) */}
+      {isStockOpen && !isMobileLandscape && (
           <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsStockOpen(false)}>
                <div className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-2xl animate-in slide-in-from-right duration-300" onClick={e => e.stopPropagation()}>
                     <StockSidePanel 

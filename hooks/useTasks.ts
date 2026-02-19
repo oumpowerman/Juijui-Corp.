@@ -1,68 +1,177 @@
 
 import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Task, TaskLog } from '../types';
+import { Task, TaskLog, User, MasterOption, Channel } from '../types';
 import { useToast } from '../context/ToastContext';
 import { isTaskCompleted } from '../constants';
 import { useGamification } from './useGamification';
 import { useTaskContext } from '../context/TaskContext';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
-// --- SMART DIFFING ENGINE V10 HELPER ---
-const arraysEqual = (a: any[], b: any[]) => {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    const sortedA = [...a].sort();
-    const sortedB = [...b].sort();
-    return sortedA.every((val, index) => val === sortedB[index]);
+// --- 1. SMART DIFF CONFIGURATION ---
+
+interface SmartDiffContext {
+    users: User[];
+    masterOptions: MasterOption[];
+    channels: Channel[];
+}
+
+const TASK_FIELD_META: Record<string, { label: string; type: 'TEXT' | 'DATE' | 'USER_ARRAY' | 'ARRAY' | 'STATUS' | 'MASTER' | 'CHANNEL' | 'MONEY' }> = {
+    // Core
+    title: { label: 'ชื่องาน', type: 'TEXT' },
+    description: { label: 'รายละเอียด', type: 'TEXT' },
+    status: { label: 'สถานะ', type: 'STATUS' },
+    priority: { label: 'ความสำคัญ', type: 'TEXT' },
+    remark: { label: 'หมายเหตุ', type: 'TEXT' },
+    
+    // Dates
+    startDate: { label: 'วันเริ่ม', type: 'DATE' },
+    endDate: { label: 'กำหนดส่ง', type: 'DATE' },
+    
+    // People
+    assigneeIds: { label: 'ผู้รับผิดชอบ', type: 'USER_ARRAY' },
+    ideaOwnerIds: { label: 'เจ้าของไอเดีย', type: 'USER_ARRAY' },
+    editorIds: { label: 'คนตัดต่อ', type: 'USER_ARRAY' },
+
+    // Content Specific
+    channelId: { label: 'ช่องทาง', type: 'CHANNEL' },
+    contentFormat: { label: 'รูปแบบ', type: 'MASTER' },
+    pillar: { label: 'แกนเนื้อหา', type: 'MASTER' },
+    category: { label: 'หมวดหมู่', type: 'MASTER' },
+    targetPlatforms: { label: 'แพลตฟอร์ม', type: 'ARRAY' },
+    
+    // Production
+    shootDate: { label: 'วันถ่ายทำ', type: 'DATE' },
+    shootLocation: { label: 'สถานที่ถ่าย', type: 'TEXT' },
+    
+    // Gamification
+    difficulty: { label: 'ความยาก', type: 'TEXT' },
+    estimatedHours: { label: 'เวลาที่ประเมิน', type: 'TEXT' }
 };
 
-// Helper to sanitize null/undefined to empty string for consistent comparison
-const safeStr = (val: any) => (val === null || val === undefined) ? '' : String(val);
+// --- 2. HELPER FUNCTIONS ---
 
-const generateTaskDiff = (oldTask: Task, newTask: Task) => {
+const formatDateVal = (date: Date | string | undefined) => {
+    if (!date) return '-';
+    const d = new Date(date);
+    return isValid(d) ? format(d, 'dd/MM/yyyy') : '-';
+};
+
+const getMasterLabel = (key: string | undefined, options: MasterOption[]) => {
+    if (!key) return '-';
+    return options.find(o => o.key === key)?.label || key;
+};
+
+const getChannelName = (id: string | undefined, channels: Channel[]) => {
+    if (!id) return '-';
+    return channels.find(c => c.id === id)?.name || 'Unknown Channel';
+};
+
+const getUserNames = (ids: string[], users: User[]) => {
+    return ids.map(id => users.find(u => u.id === id)?.name || 'Unknown');
+};
+
+const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffContext) => {
     const changes: string[] = [];
+    const users = context?.users || [];
+    const masterOptions = context?.masterOptions || [];
+    const channels = context?.channels || [];
 
-    // 1. Core Info (Common)
-    if (safeStr(oldTask.title) !== safeStr(newTask.title)) changes.push(`ชื่อ: "${oldTask.title}" -> "${newTask.title}"`);
-    if (safeStr(oldTask.description) !== safeStr(newTask.description)) changes.push(`รายละเอียดมีการแก้ไข`);
-    
-    // 2. Workflow (Common)
-    if (safeStr(oldTask.status) !== safeStr(newTask.status)) changes.push(`สถานะ: ${oldTask.status} -> ${newTask.status}`);
-    if (safeStr(oldTask.priority) !== safeStr(newTask.priority)) changes.push(`ความสำคัญ: ${oldTask.priority} -> ${newTask.priority}`);
+    Object.entries(TASK_FIELD_META).forEach(([key, config]) => {
+        const oldVal = (oldTask as any)[key];
+        const newVal = (newTask as any)[key];
 
-    // 3. Scheduling (Common)
-    const oldStart = new Date(oldTask.startDate).getTime();
-    const newStart = new Date(newTask.startDate).getTime();
-    const oldEnd = new Date(oldTask.endDate).getTime();
-    const newEnd = new Date(newTask.endDate).getTime();
+        // Skip if both are empty/null/undefined
+        if ((!oldVal && !newVal) || (Array.isArray(oldVal) && oldVal.length === 0 && (!newVal || newVal.length === 0))) {
+            return;
+        }
 
-    if (oldStart !== newStart) changes.push(`วันเริ่ม: ${format(new Date(oldTask.startDate), 'dd/MM')} -> ${format(new Date(newTask.startDate), 'dd/MM')}`);
-    if (oldEnd !== newEnd) changes.push(`กำหนดส่ง: ${format(new Date(oldTask.endDate), 'dd/MM')} -> ${format(new Date(newTask.endDate), 'dd/MM')}`);
+        // Compare based on Type
+        let isDifferent = false;
+        let changeText = '';
 
-    // 4. People & Assignment (Common)
-    if (!arraysEqual(oldTask.assigneeIds || [], newTask.assigneeIds || [])) changes.push(`ผู้รับผิดชอบเปลี่ยน`);
-    
-    // 5. Content Specific Metadata (CHECK TYPE FIRST)
-    if (newTask.type === 'CONTENT') {
-        if (!arraysEqual(oldTask.ideaOwnerIds || [], newTask.ideaOwnerIds || [])) changes.push(`Idea Owner เปลี่ยน`);
-        if (!arraysEqual(oldTask.editorIds || [], newTask.editorIds || [])) changes.push(`Editor เปลี่ยน`);
+        switch (config.type) {
+            case 'TEXT':
+            case 'STATUS': // Status uses label lookup but simple compare first
+            case 'MASTER': // Master uses label lookup but simple compare first
+            case 'CHANNEL':
+                if (String(oldVal || '') !== String(newVal || '')) {
+                    isDifferent = true;
+                    
+                    let displayOld = String(oldVal || '-');
+                    let displayNew = String(newVal || '-');
 
-        if (safeStr(oldTask.channelId) !== safeStr(newTask.channelId)) changes.push(`Channel เปลี่ยน`);
-        if (safeStr(oldTask.contentFormat) !== safeStr(newTask.contentFormat)) changes.push(`Format เปลี่ยน`);
-        if (safeStr(oldTask.pillar) !== safeStr(newTask.pillar)) changes.push(`Pillar เปลี่ยน`);
-        if (safeStr(oldTask.category) !== safeStr(newTask.category)) changes.push(`Category เปลี่ยน`);
-        
-        // Check Platform changes if relevant
-        if (!arraysEqual(oldTask.targetPlatforms || [], newTask.targetPlatforms || [])) changes.push(`Platform เปลี่ยน`);
-    }
+                    if (config.type === 'STATUS') {
+                        displayOld = getMasterLabel(oldVal, masterOptions);
+                        displayNew = getMasterLabel(newVal, masterOptions);
+                    } else if (config.type === 'MASTER') {
+                        displayOld = getMasterLabel(oldVal, masterOptions);
+                        displayNew = getMasterLabel(newVal, masterOptions);
+                    } else if (config.type === 'CHANNEL') {
+                        displayOld = getChannelName(oldVal, channels);
+                        displayNew = getChannelName(newVal, channels);
+                    }
 
-    // 6. Remark (Common)
-    if (safeStr(oldTask.remark) !== safeStr(newTask.remark)) changes.push(`Remark มีการแก้ไข`);
+                    // Special case for Description (Too long)
+                    if (key === 'description') {
+                        changeText = `${config.label}มีการแก้ไข`;
+                    } else {
+                        changeText = `${config.label}: ${displayOld} -> ${displayNew}`;
+                    }
+                }
+                break;
+
+            case 'DATE':
+                const tOld = oldVal ? new Date(oldVal).getTime() : 0;
+                const tNew = newVal ? new Date(newVal).getTime() : 0;
+                // Ignore minimal time diffs (e.g. seconds) if logic dictates, but here exact check
+                // However, dates from DB might be strings, dates from Form might be Date objects.
+                if (tOld !== tNew) {
+                    isDifferent = true;
+                    changeText = `${config.label}: ${formatDateVal(oldVal)} -> ${formatDateVal(newVal)}`;
+                }
+                break;
+
+            case 'USER_ARRAY':
+            case 'ARRAY':
+                const arrOld = Array.isArray(oldVal) ? oldVal : [];
+                const arrNew = Array.isArray(newVal) ? newVal : [];
+                
+                // Sort for comparison
+                const sortedOld = [...arrOld].sort();
+                const sortedNew = [...arrNew].sort();
+                
+                if (JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
+                    isDifferent = true;
+                    
+                    // Calculate Added/Removed
+                    const added = arrNew.filter((x: any) => !arrOld.includes(x));
+                    const removed = arrOld.filter((x: any) => !arrNew.includes(x));
+                    
+                    let diffParts = [];
+                    
+                    if (config.type === 'USER_ARRAY') {
+                        if (added.length > 0) diffParts.push(`+${getUserNames(added, users).join(', ')}`);
+                        if (removed.length > 0) diffParts.push(`-${getUserNames(removed, users).join(', ')}`);
+                    } else {
+                        if (added.length > 0) diffParts.push(`+${added.join(', ')}`);
+                        if (removed.length > 0) diffParts.push(`-${removed.join(', ')}`);
+                    }
+
+                    changeText = `${config.label}: ${diffParts.join(' | ')}`;
+                }
+                break;
+        }
+
+        if (isDifferent && changeText) {
+            changes.push(changeText);
+        }
+    });
 
     return changes;
 };
+
+// --- END SMART DIFF ENGINE ---
 
 export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     // Consume state and fetchers from Context
@@ -77,9 +186,12 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     const { processAction } = useGamification();
 
     // --- ACTIONS (Write Operations) ---
-    // Kept here to separate concerns: Context = State/Read, Hook = Actions/Write
-
-    const handleSaveTask = async (task: Task, editingTask: Task | null) => {
+    // Updated signature to accept Context Data for Diffing
+    const handleSaveTask = async (
+        task: Task, 
+        editingTask: Task | null, 
+        contextData?: SmartDiffContext
+    ) => {
         const isContent = task.type === 'CONTENT';
         const table = isContent ? 'contents' : 'tasks';
         
@@ -107,7 +219,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 type: 'TASK', 
                 content_id: task.contentId || null,
                 show_on_board: task.showOnBoard || false,
-                script_id: task.scriptId || null // Ensure script_id is sent
+                script_id: task.scriptId || null 
             }) 
         };
 
@@ -157,11 +269,10 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 // --- SMART AUDIT LOGGING (V10) ---
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user && existingTask) {
-                    // Compare old vs new
-                    const diffs = generateTaskDiff(existingTask, task);
+                    // Compare old vs new with Smart Engine
+                    const diffs = generateSmartDiff(existingTask, task, contextData);
                     
                     if (diffs.length > 0) {
-                        // Only insert if there are actual changes
                         await supabase.from('task_logs').insert({
                             task_id: isContent ? null : task.id,
                             content_id: isContent ? task.id : null,
@@ -169,8 +280,6 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                             action: 'UPDATED',
                             details: `แก้ไข: ${diffs.join(', ')}`
                         });
-                    } else {
-                        console.log('Smart Diff: No significant changes detected. Log skipped.');
                     }
                 }
                 
@@ -257,7 +366,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             const logPayload: any = {
                 user_id: userId,
                 action: 'DELAYED',
-                details: `เลื่อนกำหนดส่งเป็น ${newDate.toLocaleDateString('th-TH')}`,
+                details: `เลื่อนกำหนดส่งเป็น ${format(newDate, 'dd/MM/yyyy')}`,
                 reason: reason
             };
             if (targetTask.type === 'CONTENT') logPayload.content_id = taskId;

@@ -36,14 +36,15 @@ export const useMasterDataView = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     
-    // Extended Form Data to support parentKey
+    // Extended Form Data to support parentKey and description
     const [formData, setFormData] = useState({ 
         key: '', 
         label: '', 
         color: 'bg-gray-100 text-gray-700', 
         sortOrder: 0, 
         isActive: true,
-        parentKey: '' // Added for nested relations
+        parentKey: '', 
+        description: '' // Added description field
     });
     
     const [rewardFormData, setRewardFormData] = useState<Partial<Reward>>({ title: '', description: '', cost: 100, icon: '🎁', isActive: true });
@@ -76,7 +77,8 @@ export const useMasterDataView = () => {
             color: option.color || 'bg-gray-100 text-gray-700', 
             sortOrder: option.sortOrder, 
             isActive: option.isActive, 
-            parentKey: option.parentKey || ''
+            parentKey: option.parentKey || '',
+            description: option.description || '' // Map description
         });
         setIsEditing(true);
     };
@@ -92,7 +94,8 @@ export const useMasterDataView = () => {
             color: 'bg-gray-100 text-gray-700', 
             sortOrder: currentCount + 1, 
             isActive: true,
-            parentKey: defaultParentKey || ''
+            parentKey: defaultParentKey || '',
+            description: '' // Default description empty
         });
         setIsEditing(true);
     };
@@ -116,7 +119,8 @@ export const useMasterDataView = () => {
                     color: formData.color, 
                     sortOrder: formData.sortOrder, 
                     isActive: formData.isActive, 
-                    parentKey: formData.parentKey || undefined
+                    parentKey: formData.parentKey || undefined,
+                    description: formData.description || undefined // Include description
                 };
                 
                 if (editingId) await updateMasterOption({ id: editingId, ...payload });

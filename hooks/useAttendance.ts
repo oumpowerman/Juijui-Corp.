@@ -70,7 +70,8 @@ export const useAttendance = (userId: string) => {
                 .from('attendance_logs')
                 .select('*')
                 .eq('user_id', userId)
-                .eq('status', 'WORKING')
+                .in('status', ['WORKING', 'PENDING_VERIFY']) // Updated: Include PENDING_VERIFY
+                .is('check_out_time', null) // Ensure it's not checked out yet
                 .order('date', { ascending: false }) // Get latest
                 .limit(1)
                 .maybeSingle();
@@ -373,6 +374,65 @@ export const useAttendance = (userId: string) => {
         }
     };
 
+    // 4.1 Manual Check In (For Forgotten Check-in)
+    const manualCheckIn = async (
+        checkInTime: Date,
+        reason: string,
+        file?: File,
+        externalUploadFn?: (file: File) => Promise<string | null>
+    ) => {
+        setIsLoading(true);
+        try {
+            const dateStr = format(checkInTime, 'yyyy-MM-dd');
+            
+            let proofUrl = null;
+            if (file) {
+                 if (externalUploadFn) {
+                     proofUrl = await externalUploadFn(file);
+                 }
+                 if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    if (!uploadError) {
+                         const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                         proofUrl = urlData.publicUrl;
+                    }
+                 }
+            }
+
+            let note = reason;
+            if (proofUrl) note += ` [PROOF:${proofUrl}]`;
+
+            const payload = {
+                user_id: userId,
+                date: dateStr,
+                check_in_time: checkInTime.toISOString(),
+                work_type: 'OFFICE', // Default assumption
+                status: 'PENDING_VERIFY',
+                note: `[MANUAL_ENTRY] ${note}`,
+                location_name: 'Manual Entry'
+            };
+
+            const { error } = await supabase.from('attendance_logs').insert(payload);
+            if (error) throw error;
+
+            showToast('บันทึกเวลาเข้างานแบบ Manual แล้ว (รอตรวจสอบ) ✅', 'success');
+            
+            // Set status to ONLINE? 
+            await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            fetchTodayStatus();
+            fetchStats();
+            return true;
+        } catch(err: any) {
+            showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // 5. Check Out Action (Updated for Structured Data)
     const checkOut = async (
         location?: { lat: number, lng: number },
@@ -402,7 +462,6 @@ export const useAttendance = (userId: string) => {
 
             // Audit Note
             let noteAppend = '';
-            // We store OUT_LOC in dedicated columns now, so removed from note
             if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += ` [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
                  if (reason) noteAppend += ` [REASON: ${reason}]`;
@@ -410,11 +469,13 @@ export const useAttendance = (userId: string) => {
                  noteAppend += ` [OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
             }
 
+            // Preserve PENDING_VERIFY if it was manual, otherwise COMPLETED
+            const newStatus = todayLog.status === 'PENDING_VERIFY' ? 'PENDING_VERIFY' : 'COMPLETED';
+
             const updatePayload: any = {
                 check_out_time: now.toISOString(),
-                status: 'COMPLETED',
+                status: newStatus,
                 note: (todayLog.note || '') + noteAppend,
-                // New Structured Columns
                 check_out_lat: location?.lat,
                 check_out_lng: location?.lng,
                 check_out_location_name: locationName
@@ -430,17 +491,19 @@ export const useAttendance = (userId: string) => {
             await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
 
             // --- TRIGGER GAME EVENT (Conditional) ---
-            if (calcResult.status === 'COMPLETED') {
+            if (calcResult.status === 'COMPLETED' || newStatus === 'PENDING_VERIFY') {
                 showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+                // Even if pending verify, we give benefit of doubt for now or wait for admin?
+                // Let's record DUTY_COMPLETE for game log purposes
                 await processAction(userId, 'DUTY_COMPLETE', {
                     reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`,
-                    date: now // Pass Date
+                    date: now 
                 });
             } else {
                 showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');
                 await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
                     missingMinutes: Math.round(calcResult.missingMinutes),
-                    date: now // Pass Date
+                    date: now 
                 });
             }
 
@@ -467,6 +530,7 @@ export const useAttendance = (userId: string) => {
         stats,
         isLoading,
         checkIn,
+        manualCheckIn, // Exported
         checkOut,
         getAttendanceLogs, 
         refresh: fetchTodayStatus

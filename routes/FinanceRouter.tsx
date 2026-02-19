@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, PayrollCycle, PayrollSlip } from '../types';
 import MentorTip from '../components/MentorTip';
-import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { useFinance } from '../hooks/useFinance';
 import { useMasterData } from '../hooks/useMasterData';
 import { useTasks } from '../hooks/useTasks'; 
@@ -12,6 +11,7 @@ import FinanceDashboard from '../components/finance/FinanceDashboard';
 import TransactionList from '../components/finance/TransactionList';
 import TransactionModal from '../components/finance/TransactionModal';
 import ShootTripManager from '../components/finance/ShootTripManager'; 
+import LocationIntelligence from '../components/finance/location/LocationIntelligence'; // NEW IMPORT
 
 // Payroll Imports
 import { usePayroll } from '../hooks/usePayroll';
@@ -23,7 +23,7 @@ interface FinanceRouterProps {
     users?: User[]; // Accept users list
 }
 
-type FinanceTab = 'DASHBOARD' | 'TRANSACTIONS' | 'TRIPS' | 'SALARY';
+type FinanceTab = 'DASHBOARD' | 'TRANSACTIONS' | 'TRIPS' | 'LOCATIONS' | 'SALARY';
 
 const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }) => {
     // Default tab logic: Admin -> Dashboard, Member -> Salary
@@ -101,9 +101,6 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
         await fetchSlips(cycle.id);
     };
 
-    // If Member (not Senior HR), auto-open their slip if they click a cycle in "WAITING_REVIEW" or "PAID"
-    // Or we provide a button "View My Slip"
-
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             
@@ -112,23 +109,23 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                 <>
                 <MentorTip variant="green" messages={[
                     "ระบบบัญชีรองรับการเลือกช่วงเวลาแบบกำหนดเองแล้วนะ!",
-                    "เวลาจ่ายเงินเดือน อย่าลืมตรวจสอบยอดรวมก่อนกด Finalize นะครับ",
-                    "ใช้ตัวกรอง Channel ในหน้าบันทึก เพื่อหางานโปรเจกต์ได้ง่ายขึ้น"
+                    "ใช้ Location Intelligence เพื่อดูประวัติการถ่ายทำแยกตามสถานที่ได้เลย",
+                    "เวลาจ่ายเงินเดือน อย่าลืมตรวจสอบยอดรวมก่อนกด Finalize นะครับ"
                 ]} />
 
                 <div className="flex flex-col xl:flex-row justify-between items-end gap-4">
                     <div>
                         <h1 className="text-3xl font-black text-gray-800 flex items-center tracking-tight">
                             <span className="text-4xl mr-2">💰</span>
-                            {isAdmin ? 'ระบบบัญชี (Finance)' : 'ข้อมูลเงินเดือน (My Salary)'}
+                            {isAdmin ? 'ระบบบัญชี & ทรัพยากร' : 'ข้อมูลเงินเดือน (My Salary)'}
                         </h1>
                         <p className="text-gray-500 text-sm mt-1 font-medium">
-                            {isAdmin ? 'จัดการรายรับ รายจ่าย และเงินเดือน' : 'ตรวจสอบสลิปเงินเดือนและประวัติการจ่ายเงิน'}
+                            {isAdmin ? 'จัดการรายรับ รายจ่าย การออกกอง และเงินเดือน' : 'ตรวจสอบสลิปเงินเดือนและประวัติการจ่ายเงิน'}
                         </p>
                     </div>
                     
                     {/* Date Picker & Add Button (Admin Only for Transaction Tab) */}
-                    {isAdmin && currentTab !== 'SALARY' && (
+                    {isAdmin && currentTab === 'TRANSACTIONS' && (
                         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
                             <div className="flex items-center bg-white p-1 rounded-xl border border-gray-200 shadow-sm w-full sm:w-auto">
                                 <button onClick={() => handleMonthQuickChange(-1)} className="p-2 hover:bg-gray-50 rounded-lg text-gray-400 hover:text-indigo-600 transition-colors hidden sm:block">
@@ -176,9 +173,9 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                     )}
                 </div>
 
-                {/* Navigation Tabs (Admin Only - Members see only Salary by default) */}
+                {/* Navigation Tabs (Admin Only) */}
                 {isAdmin && (
-                    <div className="flex p-1 bg-white rounded-xl border border-gray-200 w-fit overflow-x-auto">
+                    <div className="flex p-1 bg-white rounded-xl border border-gray-200 w-fit overflow-x-auto max-w-full">
                         <button 
                             onClick={() => setCurrentTab('DASHBOARD')}
                             className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'DASHBOARD' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -191,11 +188,12 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                         >
                             <FileText className="w-4 h-4" /> รายการ
                         </button>
+                        <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
                         <button 
                             onClick={() => setCurrentTab('TRIPS')}
                             className={`relative px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRIPS' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                            <MapPin className="w-4 h-4" /> จัดการออกกอง
+                            <MapPin className="w-4 h-4" /> จัดการกองถ่าย
                             {/* Notification Badge */}
                             {potentialTrips.length > 0 && (
                                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white ring-2 ring-white">
@@ -204,8 +202,15 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                             )}
                         </button>
                         <button 
+                            onClick={() => setCurrentTab('LOCATIONS')}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'LOCATIONS' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Globe className="w-4 h-4" /> แผนที่การถ่าย (Loc Intel)
+                        </button>
+                        <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
+                        <button 
                             onClick={() => setCurrentTab('SALARY')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SALARY' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SALARY' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             <Wallet className="w-4 h-4" /> เงินเดือน
                         </button>
@@ -234,6 +239,10 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                         masterOptions={masterOptions}
                         tasks={tasks}
                     />
+                )}
+
+                {isAdmin && currentTab === 'LOCATIONS' && !activePayrollCycle && (
+                    <LocationIntelligence />
                 )}
 
                 {currentTab === 'SALARY' && (

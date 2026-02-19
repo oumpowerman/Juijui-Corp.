@@ -71,7 +71,12 @@ export const useTaskManager = (sessionUser: any) => {
   }, [sessionUser?.id]); 
 
   // Wrapper for handleSaveTask to match original signature expected by App.tsx
-  const handleSaveTask = (task: any) => saveTaskInternal(task, editingTask);
+  // UPDATED: Pass context data (users, masterOptions, channels) for Smart Diffing
+  const handleSaveTask = (task: any) => saveTaskInternal(task, editingTask, {
+      users: allUsers,
+      masterOptions: masterOptions,
+      channels: channels
+  });
 
   return {
     isLoading: isLoading || (tasks.length === 0 && isFetching), // Show load on initial empty

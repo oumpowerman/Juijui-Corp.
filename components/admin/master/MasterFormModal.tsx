@@ -56,6 +56,18 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                 <input type="text" value={formData.label} onChange={e => setFormData({...formData, label: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm font-bold" required autoFocus />
                             </div>
                             
+                            {/* New Description Field */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">คำอธิบาย (Description)</label>
+                                <textarea 
+                                    rows={3}
+                                    value={formData.description || ''} 
+                                    onChange={e => setFormData({...formData, description: e.target.value})} 
+                                    className="w-full px-3 py-2 border rounded-lg outline-none text-sm resize-none" 
+                                    placeholder="คำอธิบายเพิ่มเติมสำหรับตัวเลือกนี้..."
+                                />
+                            </div>
+                            
                             {/* Don't show Key input for Sub-items if it's meant to be auto-generated or if Key is not user-friendly */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">Key (รหัสอ้างอิง - ENG)</label>

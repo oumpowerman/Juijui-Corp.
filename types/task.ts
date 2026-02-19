@@ -1,3 +1,4 @@
+
 import { User } from './core';
 
 export type TaskType = 'CONTENT' | 'TASK';
@@ -139,6 +140,7 @@ export interface MasterOption {
     isActive: boolean;
     isDefault?: boolean;
     parentKey?: string;
+    description?: string; // Added description field
 }
 
 export interface TaskComment {

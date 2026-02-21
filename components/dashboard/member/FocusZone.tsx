@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Task, Channel, User } from '../../../types';
+import { Task, Channel, User, MasterOption } from '../../../types';
 import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone } from 'lucide-react';
 import { isPast, isToday, addDays, isBefore, differenceInCalendarDays, startOfDay } from 'date-fns';
 import TaskCategoryModal from '../../TaskCategoryModal';
-import { isTaskCompleted } from '../../../constants';
+import { isTaskCompleted, STATUS_LABELS } from '../../../constants';
 
 // --- Card Component (Mission Alert Style) ---
 interface CardItemProps {
@@ -12,11 +12,12 @@ interface CardItemProps {
     isRevise?: boolean;
     channels: Channel[];
     users: User[];
+    masterOptions: MasterOption[];
     onOpenTask: (task: Task) => void;
     today: Date; // รับค่าวันนี้ที่ถูกจัดการมาแล้วจาก Parent
 }
 
-const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, users, onOpenTask, today }) => {
+const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, users, masterOptions, onOpenTask, today }) => {
     const taskDate = startOfDay(new Date(task.endDate));
     const isOverdue = taskDate < today;
     const channel = channels.find(c => c.id === task.channelId);
@@ -37,11 +38,21 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
     // Helper for Status Badge (Small pill)
     const getStatusBadge = () => {
         const s = task.status;
-        if (s === 'WAITING' || s === 'FEEDBACK') return { text: 'รอตรวจ', color: 'bg-yellow-100 text-yellow-700' };
-        if (s === 'REVISE' || s.includes('EDIT')) return { text: 'แก้ด่วน', color: 'bg-red-100 text-red-700' };
-        return { text: 'ติดตาม', color: 'bg-gray-100 text-gray-600' };
+        
+        // 1. Try to find label from Master Options
+        const masterStatus = masterOptions.find(opt => 
+            (opt.type === 'CONTENT_STATUS' || opt.type === 'TASK_STATUS') && 
+            opt.key === s
+        );
+        
+        const label = masterStatus?.label || STATUS_LABELS[s as any] || s;
+
+        if (s === 'WAITING' || s === 'FEEDBACK') return { text: label, color: 'bg-yellow-100 text-yellow-700' };
+        if (s === 'REVISE' || s.includes('EDIT')) return { text: label, color: 'bg-red-100 text-red-700' };
+        return { text: label, color: 'bg-gray-100 text-gray-600' };
     };
     const badge = getStatusBadge();
+    const isContent = task.type === 'CONTENT';
 
     return (
         <div 
@@ -57,6 +68,12 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
             {/* Header: Status Pill */}
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2 flex-wrap">
+                    {/* Type Badge */}
+                    <span className={`flex items-center text-[9px] font-black px-1.5 py-0.5 rounded-md border shadow-sm ${isContent ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-blue-100 text-blue-600 border-blue-200'}`}>
+                        {isContent ? <Megaphone className="w-3 h-3 mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                        {isContent ? 'Content' : 'Task'}
+                    </span>
+
                     {channel && (
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border bg-white/80 ${channel.color}`}>
                             {channel.name}
@@ -122,17 +139,24 @@ interface FocusZoneProps {
     tasks: Task[];
     channels: Channel[]; 
     users: User[];
+    masterOptions: MasterOption[]; // Add Prop
     onOpenTask: (task: Task) => void;
 }
 
-const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTask }) => {
+const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOptions, onOpenTask }) => {
     // กำหนดวันที่ปัจจุบันโดยล้างเวลาออกตั้งแต่ต้นทาง
     const today = startOfDay(new Date());
     
     const [viewAllType, setViewAllType] = useState<'URGENT' | 'REVISE' | null>(null);
+    const [activeTab, setActiveTab] = useState<'ALL' | 'TASK' | 'CONTENT'>('ALL'); // New State
 
     // Filter Logic
-    const urgentTasks = tasks.filter(t => {
+    const filteredTasks = tasks.filter(t => {
+        if (activeTab === 'ALL') return true;
+        return t.type === activeTab;
+    });
+
+    const urgentTasks = filteredTasks.filter(t => {
         const isDone = isTaskCompleted(t.status as string);
         if (isDone) return false;
         if (t.isUnscheduled) return false;
@@ -147,7 +171,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
         return isOverdue || isDueSoon || t.priority === 'URGENT';
     }).sort((a,b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-    const reviseTasks = tasks.filter(t => {
+    const reviseTasks = filteredTasks.filter(t => {
         if (t.isUnscheduled) return false;
         const s = t.status as string;
         if (isTaskCompleted(s)) return false; 
@@ -178,16 +202,51 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
             {/* Background Blob */}
             <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-20 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
 
-            {/* Title */}
-            <h3 className="text-lg font-black text-slate-700 px-1 flex items-center relative z-10">
-                <div className="p-2 bg-white rounded-xl shadow-sm mr-3 text-red-500 animate-pulse">
-                     <Siren className="w-5 h-5" />
+            {/* Title & Tabs */}
+            <div className="flex flex-col gap-4 relative z-10 px-1">
+                <h3 className="text-lg font-black text-slate-700 flex items-center">
+                    <div className="p-2 bg-white rounded-xl shadow-sm mr-3 text-red-500 animate-pulse">
+                         <Siren className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">EMERGENCY</span>
+                        <span>งานเข้า! (Mission)</span>
+                    </div>
+                </h3>
+
+                {/* Modern Sliding Tab Switch */}
+                <div className="relative flex bg-white/40 p-1.5 rounded-2xl border border-white/60 backdrop-blur-sm">
+                    {/* Sliding Background */}
+                    <div 
+                        className="absolute top-1.5 bottom-1.5 bg-white rounded-xl shadow-sm transition-all duration-300 ease-out border border-white/50"
+                        style={{
+                            left: activeTab === 'ALL' ? '6px' : activeTab === 'TASK' ? '33.33%' : '66.66%',
+                            width: 'calc(33.33% - 4px)',
+                            transform: activeTab === 'TASK' ? 'translateX(2px)' : activeTab === 'CONTENT' ? 'translateX(-2px)' : 'translateX(0)'
+                        }}
+                    ></div>
+
+                    {/* Tab Buttons */}
+                    <button 
+                        onClick={() => setActiveTab('ALL')}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'ALL' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <List className="w-3.5 h-3.5" /> ทั้งหมด
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('TASK')}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'TASK' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> ทั่วไป
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('CONTENT')}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'CONTENT' ? 'text-purple-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <Megaphone className="w-3.5 h-3.5" /> คอนเทนต์
+                    </button>
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">EMERGENCY</span>
-                    <span>งานเข้า! (Mission)</span>
-                </div>
-            </h3>
+            </div>
 
             <div className="flex flex-col gap-4 relative z-10 overflow-y-auto pr-1 flex-1">
                 {/* 1. REVISE ZONE (Top Priority) */}
@@ -206,6 +265,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
                                     isRevise={true} 
                                     channels={channels} 
                                     users={users}
+                                    masterOptions={masterOptions}
                                     onOpenTask={onOpenTask} 
                                     today={today}
                                 />
@@ -229,6 +289,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, onOpenTas
                                     task={task} 
                                     channels={channels} 
                                     users={users}
+                                    masterOptions={masterOptions}
                                     onOpenTask={onOpenTask} 
                                     today={today}
                                 />

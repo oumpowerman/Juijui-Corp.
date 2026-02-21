@@ -19,19 +19,20 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
 
         const lines = cleanContent.split('\n');
         
-        const bubbles: { speaker: string, text: string }[] = [];
+        const bubbles: { speaker: string, text: string, lineIndex: number }[] = [];
         let currentSpeaker = '';
         let currentText = '';
+        let currentLineIndex = 0;
 
         const pushCurrentBubble = () => {
             if (currentSpeaker && currentText) {
-                bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
+                bubbles.push({ speaker: currentSpeaker, text: currentText.trim(), lineIndex: currentLineIndex });
                 currentSpeaker = '';
                 currentText = '';
             }
         };
 
-        lines.forEach(line => {
+        lines.forEach((line, idx) => {
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
 
@@ -40,7 +41,7 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                 pushCurrentBubble();
                 // Strip [ and ] for display
                 const displayText = trimmedLine.replace(/^\[|\]$/g, '');
-                bubbles.push({ speaker: 'NARRATOR', text: displayText });
+                bubbles.push({ speaker: 'NARRATOR', text: displayText, lineIndex: idx + 1 });
                 return;
             }
 
@@ -50,11 +51,12 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                 pushCurrentBubble();
                 currentSpeaker = match[1].trim();
                 currentText = match[2];
+                currentLineIndex = idx + 1;
             } else {
                 if (currentSpeaker) {
                     currentText += '\n' + trimmedLine;
                 } else {
-                    bubbles.push({ speaker: 'NARRATOR', text: trimmedLine });
+                    bubbles.push({ speaker: 'NARRATOR', text: trimmedLine, lineIndex: idx + 1 });
                 }
             }
         });
@@ -90,7 +92,8 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                     
                     if (isNarrator) {
                         return (
-                            <div key={idx} className="flex justify-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
+                            <div key={idx} className="flex flex-col items-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
+                                <span className="text-[9px] text-gray-400 font-mono mb-1">#{bubble.lineIndex}</span>
                                 <span className="text-xs font-bold text-gray-500 italic bg-gray-200/50 backdrop-blur-sm px-4 py-1.5 rounded-full border border-gray-200 shadow-sm">
                                     {bubble.text}
                                 </span>
@@ -109,7 +112,11 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                             </div>
 
                             <div className={`flex flex-col ${isRight ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                                <span className="text-[10px] text-gray-400 font-bold mb-1 px-1 uppercase tracking-wide">{bubble.speaker}</span>
+                                <div className="flex items-center gap-2 mb-1 px-1">
+                                    {!isRight && <span className="text-[9px] text-gray-300 font-mono">#{bubble.lineIndex}</span>}
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{bubble.speaker}</span>
+                                    {isRight && <span className="text-[9px] text-gray-300 font-mono">#{bubble.lineIndex}</span>}
+                                </div>
                                 <div className={`
                                     px-4 py-3 text-sm shadow-sm whitespace-pre-wrap leading-relaxed
                                     ${isRight 

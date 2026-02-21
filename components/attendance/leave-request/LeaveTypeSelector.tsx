@@ -2,7 +2,7 @@
 import React from 'react';
 import { MasterOption } from '../../../types';
 import { LEAVE_THEMES } from './constants';
-import { Clock, Moon, Home } from 'lucide-react';
+import { Clock, Moon, Home, History } from 'lucide-react';
 
 interface Props {
     masterOptions: MasterOption[];
@@ -56,14 +56,21 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                 <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
                     <Clock className="w-6 h-6" />
                 </div>
-                <span className="font-bold text-gray-700 text-xs group-hover:text-amber-600">แจ้งเข้าสาย</span>
+                <span className="font-bold text-gray-700 text-xs group-hover:text-amber-600 text-center">แจ้งเข้าสาย</span>
             </button>
             
             <button onClick={() => onSelect('OVERTIME')} className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95">
                 <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
                     <Moon className="w-6 h-6" />
                 </div>
-                <span className="font-bold text-gray-700 text-xs group-hover:text-indigo-600">ขอทำ OT</span>
+                <span className="font-bold text-gray-700 text-xs group-hover:text-indigo-600 text-center">ขอทำ OT</span>
+            </button>
+
+            <button onClick={() => onSelect('FORGOT_CHECKIN')} className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-rose-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95">
+                <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2">
+                    <History className="w-6 h-6" />
+                </div>
+                <span className="font-bold text-gray-700 text-xs group-hover:text-rose-600 text-center leading-tight">ลืมลงเวลา /<br/>ย้อนหลัง</span>
             </button>
         </div>
     );

@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useLocationAnalytics, LocationStat } from '../../../hooks/useLocationAnalytics';
+import { useLocationAnalytics } from '../../../hooks/useLocationAnalytics';
+import { LocationStat } from '../../../types';
 import { MapPin, BarChart3, X, Maximize2 } from 'lucide-react';
 
 // Import sub-components
@@ -23,7 +24,7 @@ const LocationIntelligence: React.FC = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<SortOption>('MOST_VISITED');
-    const [selectedLocation, setSelectedLocation] = useState<LocationStat | null>(null);
+    const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
     const [viewType, setViewType] = useState<ViewType>('AUTO');
 
     // Convert string dates to Date objects
@@ -55,15 +56,22 @@ const LocationIntelligence: React.FC = () => {
         return result;
     }, [locationStats, searchQuery, visitFilter, sortBy]);
 
+    // Find the currently selected location object from the LATEST processed data
+    // This ensures that when filters change, the detail panel updates immediately
+    const activeLocationData = useMemo(() => {
+        if (!selectedLocationName) return null;
+        return processedLocations.find(loc => loc.name === selectedLocationName) || null;
+    }, [processedLocations, selectedLocationName]);
+
     const handleReset = () => {
-        setSelectedLocation(null);
+        setSelectedLocationName(null);
         setDateFilter({ type: 'THIS_MONTH', customStart: '', customEnd: '' });
         setVisitFilter({ min: 0, max: null });
         setSearchQuery('');
     };
 
     // --- Layout Logic ---
-    const isDetailOpen = !!selectedLocation;
+    const isDetailOpen = !!selectedLocationName;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 h-[calc(100vh-140px)] flex flex-col pb-6">
@@ -129,8 +137,8 @@ const LocationIntelligence: React.FC = () => {
                     {/* List Component with Compact Prop */}
                     <LocationList 
                         locations={processedLocations}
-                        selectedLocation={selectedLocation}
-                        onSelect={setSelectedLocation}
+                        selectedLocation={activeLocationData}
+                        onSelect={(loc) => setSelectedLocationName(loc.name)}
                         isLoading={isLoading}
                         viewMode={viewType}
                         isCompact={isDetailOpen} // Pass this prop!
@@ -152,7 +160,7 @@ const LocationIntelligence: React.FC = () => {
                         {/* Close Button (Mobile/Desktop Context) */}
                         <div className="absolute top-4 right-4 z-50">
                             <button 
-                                onClick={() => setSelectedLocation(null)}
+                                onClick={() => setSelectedLocationName(null)}
                                 className="p-2 bg-black/10 hover:bg-black/20 text-white backdrop-blur-md rounded-full transition-all"
                                 title="Close Detail"
                             >
@@ -161,7 +169,7 @@ const LocationIntelligence: React.FC = () => {
                         </div>
 
                         <LocationDetailPanel 
-                            location={selectedLocation}
+                            location={activeLocationData}
                         />
                      </div>
                 </div>

@@ -128,3 +128,18 @@ export interface PayrollSlip {
     // Virtual
     user?: { name: string; avatarUrl: string; position: string; bankAccount?: string; bankName?: string };
 }
+
+export interface LocationStat {
+    name: string;
+    color?: string; // NEW: Color from Master Data
+    totalVisits: number;
+    totalClips: number;
+    lastVisit: Date | null;
+    freshnessScore: number; // 0 (Burned out) - 100 (Fresh)
+    saturationLevel: 'FRESH' | 'USED' | 'OVERUSED' | 'BURNOUT';
+    isRegistered: boolean; // NEW: True if exists in Master Data
+    visits: Record<string, {
+        date: Date;
+        clips: { id: string; title: string; status: string; format: string }[];
+    }>;
+}

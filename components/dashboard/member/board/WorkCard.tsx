@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Task, User, Status } from '../../../../types';
+import { Task, User, Status, MasterOption } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
 import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
@@ -8,13 +8,14 @@ import { format } from 'date-fns';
 interface WorkCardProps {
     task: Task;
     users: User[];
+    masterOptions: MasterOption[]; // Add Prop
     isDraggable: boolean;
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
     columnType: 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 }
 
-const WorkCard: React.FC<WorkCardProps> = ({ task, users, isDraggable, onDragStart, onClick, columnType }) => {
+const WorkCard: React.FC<WorkCardProps> = ({ task, users, masterOptions, isDraggable, onDragStart, onClick, columnType }) => {
     const assigneeId = task.assigneeIds?.[0] || task.ideaOwnerIds?.[0];
     const user = users.find(u => u.id === assigneeId);
 
@@ -29,6 +30,20 @@ const WorkCard: React.FC<WorkCardProps> = ({ task, users, isDraggable, onDragSta
         icon: <CheckSquare className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />,
         badgeTheme: 'text-blue-600 bg-blue-50 border-blue-100'
     };
+
+    // --- Status Label Helper ---
+    const getStatusLabel = (status: string) => {
+        // 1. Try to find label from Master Options
+        const masterStatus = masterOptions.find(opt => 
+            (opt.type === 'CONTENT_STATUS' || opt.type === 'TASK_STATUS') && 
+            opt.key === status
+        );
+        
+        // 2. Fallback to STATUS_LABELS or raw status
+        return masterStatus?.label || STATUS_LABELS[status as Status] || status;
+    };
+
+    const statusLabel = getStatusLabel(task.status);
 
     // Visual styles based on column
     let cardStyle = 'bg-white border-y border-r border-gray-200'; // Remove default border-l to avoid conflict
@@ -59,7 +74,7 @@ const WorkCard: React.FC<WorkCardProps> = ({ task, users, isDraggable, onDragSta
         >
             <div className="flex justify-between items-start">
                 <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold border truncate max-w-[120px] ${STATUS_COLORS[task.status as Status] || 'bg-gray-100'}`}>
-                    {STATUS_LABELS[task.status as Status] || task.status}
+                    {statusLabel}
                 </span>
                 
                 {/* Icons based on state */}

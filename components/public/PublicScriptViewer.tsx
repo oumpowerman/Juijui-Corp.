@@ -72,19 +72,20 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
 
         const lines = cleanContent.split('\n');
         
-        const bubbles: { speaker: string, text: string }[] = [];
+        const bubbles: { speaker: string, text: string, lineIndex: number }[] = [];
         let currentSpeaker = '';
         let currentText = '';
+        let currentLineIndex = 0;
 
         const pushCurrentBubble = () => {
             if (currentSpeaker && currentText) {
-                bubbles.push({ speaker: currentSpeaker, text: currentText.trim() });
+                bubbles.push({ speaker: currentSpeaker, text: currentText.trim(), lineIndex: currentLineIndex });
                 currentSpeaker = '';
                 currentText = '';
             }
         };
 
-        lines.forEach(line => {
+        lines.forEach((line, idx) => {
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
 
@@ -93,7 +94,7 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                 pushCurrentBubble();
                 // Strip [ and ] for display
                 const displayText = trimmedLine.replace(/^\[|\]$/g, '');
-                bubbles.push({ speaker: 'NARRATOR', text: displayText });
+                bubbles.push({ speaker: 'NARRATOR', text: displayText, lineIndex: idx + 1 });
                 return;
             }
 
@@ -102,11 +103,12 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                 pushCurrentBubble();
                 currentSpeaker = match[1].trim();
                 currentText = match[2];
+                currentLineIndex = idx + 1;
             } else {
                 if (currentSpeaker) {
                     currentText += '\n' + trimmedLine;
                 } else {
-                    bubbles.push({ speaker: 'NARRATOR', text: trimmedLine });
+                    bubbles.push({ speaker: 'NARRATOR', text: trimmedLine, lineIndex: idx + 1 });
                 }
             }
         });
@@ -209,7 +211,8 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
 
                                 if (isNarrator) {
                                     return (
-                                        <div key={idx} className="flex justify-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
+                                        <div key={idx} className="flex flex-col items-center my-6 opacity-80 animate-in fade-in zoom-in-95 duration-500">
+                                            <span className={`text-[10px] font-bold font-mono mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>#{bubble.lineIndex}</span>
                                             <span className={`text-xs font-bold italic px-4 py-1.5 rounded-full border shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white/60 text-gray-500 border-gray-200'}`}>
                                                 {bubble.text}
                                             </span>
@@ -224,7 +227,11 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                                         </div>
 
                                         <div className={`flex flex-col ${isRight ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                                            <span className={`text-[10px] font-bold mb-1 px-1 uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{bubble.speaker}</span>
+                                            <div className="flex items-center gap-2 mb-1 px-1">
+                                                {isRight && <span className={`text-[10px] font-bold font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>#{bubble.lineIndex}</span>}
+                                                <span className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>{bubble.speaker}</span>
+                                                {!isRight && <span className={`text-[10px] font-bold font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>#{bubble.lineIndex}</span>}
+                                            </div>
                                             <div 
                                                 className={`px-4 py-3 shadow-sm whitespace-pre-wrap leading-relaxed ${isRight 
                                                     ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-none' 

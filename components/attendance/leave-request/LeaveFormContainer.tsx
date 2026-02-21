@@ -21,18 +21,19 @@ interface Props {
     masterOptions: MasterOption[];
     leaveUsage?: LeaveUsage;
     initialDate?: Date;
+    initialReason?: string; // Add Prop
     fixedType?: boolean;
 }
 
 const LeaveFormContainer: React.FC<Props> = ({ 
-    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, initialDate, fixedType
+    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, initialDate, initialReason, fixedType
 }) => {
     const { 
         startDate, setStartDate, endDate, setEndDate, 
         reason, setReason, file, setFile, 
         targetTime, setTargetTime, otHours, setOtHours, 
         isSubmitting, handleSubmit 
-    } = useLeaveFormLogic({ onSubmit, onClose, initialDate });
+    } = useLeaveFormLogic({ onSubmit, onClose, initialDate, initialReason }); // Pass initialReason
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const theme = LEAVE_THEMES[selectedType] || LEAVE_THEMES['DEFAULT'];

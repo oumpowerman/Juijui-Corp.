@@ -7,12 +7,13 @@ interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
     onClose: () => void;
     initialDate?: Date;
+    initialReason?: string; // Add Prop
 }
 
-export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate }: UseLeaveFormLogicProps) => {
+export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReason }: UseLeaveFormLogicProps) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [reason, setReason] = useState('');
+    const [reason, setReason] = useState(initialReason || ''); // Use initialReason
     const [file, setFile] = useState<File | null>(null);
     const [targetTime, setTargetTime] = useState('09:00');
     const [otHours, setOtHours] = useState(2);
@@ -22,11 +23,11 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate }: UseLeaveFo
         const d = initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
         setStartDate(d);
         setEndDate(d);
-        setReason('');
+        setReason(initialReason || ''); // Reset with initialReason
         setFile(null);
         setTargetTime('18:00');
         setOtHours(2);
-    }, [initialDate]);
+    }, [initialDate, initialReason]);
 
     const handleSubmit = async (selectedType: string) => {
         if (!selectedType) return;

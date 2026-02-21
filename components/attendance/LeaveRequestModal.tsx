@@ -15,11 +15,12 @@ interface LeaveRequestModalProps {
     leaveUsage?: LeaveUsage; 
     requests?: LeaveRequest[];
     initialDate?: Date;
+    initialReason?: string; // Add Prop
     fixedType?: LeaveType;
 }
 
 const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ 
-    isOpen, onClose, onSubmit, masterOptions = [], leaveUsage, initialDate, fixedType
+    isOpen, onClose, onSubmit, masterOptions = [], leaveUsage, initialDate, initialReason, fixedType
 }) => {
     const [step, setStep] = useState<'SELECT' | 'FORM'>('SELECT');
     const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -79,6 +80,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({
                         masterOptions={masterOptions}
                         leaveUsage={leaveUsage}
                         initialDate={initialDate}
+                        initialReason={initialReason}
                         fixedType={!!fixedType}
                     />
                 )}

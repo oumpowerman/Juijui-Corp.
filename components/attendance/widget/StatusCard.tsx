@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AttendanceLog, LeaveType, LocationDef, AttendanceStats, LeaveRequest } from '../../../types/attendance';
 import { User } from '../../../types';
 import { MapPin, LogOut, LogIn, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Briefcase, AlertTriangle, Palmtree, Hourglass, AlertCircle, ShieldCheck, ArrowRight, ArrowUpRight } from 'lucide-react';
@@ -13,10 +13,13 @@ import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { CheckOutModal } from '../CheckOutModal';
 import { useAttendance } from '../../../hooks/useAttendance'; 
 import ForgotCheckInControl from './ForgotCheckInControl';
+import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
+import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 
 interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
+    outdatedLog: AttendanceLog | null; // NEW
     stats: AttendanceStats;
     todayActiveLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
@@ -34,12 +37,54 @@ interface StatusCardProps {
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onManualCheckIn, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory,
+    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onManualCheckIn, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory,
     startTime, lateBuffer
 }) => {
     const { actionRequiredLog } = useAttendance(user.id);
     const { showAlert } = useGlobalDialog(); 
     const { showToast } = useToast();
+
+    // --- HOLIDAY LOGIC HOOKS ---
+    const { exceptions } = useCalendarExceptions();
+    const { annualHolidays } = useAnnualHolidays();
+    const [time, setTime] = useState(new Date());
+
+    // Live Clock for accurate day check
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // --- CHECK HOLIDAY & SPECIAL WORK STATUS ---
+    const dayStatus = useMemo(() => {
+        const currentCheckDate = time; 
+        const todayStr = format(currentCheckDate, 'yyyy-MM-dd');
+        const dayOfWeek = currentCheckDate.getDay(); // 0 = Sun, 6 = Sat
+        
+        // 1. Check Exception (Highest Priority)
+        const exception = exceptions.find(e => e.date === todayStr);
+        if (exception) {
+            if (exception.type === 'HOLIDAY') {
+                return { mode: 'HOLIDAY', name: exception.description || 'วันหยุดพิเศษ' };
+            }
+            if (exception.type === 'WORK_DAY') {
+                return { mode: 'SPECIAL_WORK', name: exception.description || 'วันทำงานพิเศษ' };
+            }
+        }
+
+        // 2. Check Annual Holiday
+        const annual = annualHolidays.find(h => h.isActive && h.day === currentCheckDate.getDate() && h.month === (currentCheckDate.getMonth() + 1));
+        if (annual) {
+            return { mode: 'HOLIDAY', name: annual.name };
+        }
+
+        // 3. Check Weekend (Sat/Sun)
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            return { mode: 'HOLIDAY', name: dayOfWeek === 0 ? 'วันอาทิตย์' : 'วันเสาร์' };
+        }
+
+        return { mode: 'NORMAL', name: '' };
+    }, [exceptions, annualHolidays, time]);
 
     // Check if user is checked in AND not on leave
     const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
@@ -48,13 +93,8 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const isCheckedOut = !!todayLog?.checkOutTime;
     const isCheckedIn = !!todayLog && !isLeaveLog; 
     
-    // --- OVERNIGHT LOGIC FIX ---
-    const checkInTime = todayLog?.checkInTime ? new Date(todayLog.checkInTime) : null;
-    const hoursSinceCheckIn = checkInTime ? (new Date().getTime() - checkInTime.getTime()) / (1000 * 60 * 60) : 0;
-    
-    const isSessionOutdated = todayLog && (todayLog.status === 'WORKING' || todayLog.status === 'PENDING_VERIFY') && 
-                              !isToday(new Date(todayLog.date)) && 
-                              hoursSinceCheckIn > 18;
+    // --- OUTDATED SESSION CHECK ---
+    const isSessionOutdated = !!outdatedLog;
 
     const isAdmin = user.role === 'ADMIN';
     
@@ -66,21 +106,21 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const { leaveUsage } = useLeaveRequests(user); 
 
     const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        if (isAdmin && todayLog) {
+        if (isAdmin && outdatedLog) {
             try {
                 const timeMatch = reason.match(/\[TIME:(\d{2}:\d{2})\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '18:00'; 
                 
-                const logDate = format(new Date(todayLog.date), 'yyyy-MM-dd');
+                const logDate = format(new Date(outdatedLog.date), 'yyyy-MM-dd');
                 const fullDateTimeStr = `${logDate}T${timeStr}:00`;
                 
                 const { error } = await supabase.from('attendance_logs')
                     .update({
                         check_out_time: new Date(fullDateTimeStr).toISOString(),
                         status: 'COMPLETED',
-                        note: `${todayLog.note || ''} [ADMIN FIXED: ${reason}]`.trim()
+                        note: `${outdatedLog.note || ''} [ADMIN FIXED: ${reason}]`.trim()
                     })
-                    .eq('id', todayLog.id);
+                    .eq('id', outdatedLog.id);
 
                 if (error) throw error;
                 
@@ -109,99 +149,11 @@ const StatusCard: React.FC<StatusCardProps> = ({
 
     const handleCheckOutRequest = async (timeStr: string, reason: string) => {
         const now = new Date();
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const checkoutDate = new Date(now);
-        checkoutDate.setHours(hours, minutes, 0, 0);
-        
         const formattedReason = `[TIME:${timeStr}] ${reason} (Location Mismatch)`;
         return await onCheckOutRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
 
     // --- STATE MACHINE UI ---
-
-    // State 1: ON LEAVE (Verified by Log OR Approved Request)
-    if ((isLeaveLog || isApprovedLeaveToday) && todayActiveLeave?.type !== 'WFH') {
-         const leaveTitle = todayLog?.note 
-            ? todayLog.note.replace(/\[.*?\]/g, '').trim().substring(0, 30) 
-            : (todayActiveLeave ? todayActiveLeave.type : 'ลางาน (Leave)');
-
-         return (
-            <div className={`
-                p-5 rounded-2xl border-2 relative z-10 animate-in slide-in-from-bottom-2 text-center
-                ${todayActiveLeave?.type === 'SICK' ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-blue-50 border-blue-200 text-blue-800'}
-            `}>
-                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm ${todayActiveLeave?.type === 'SICK' ? 'bg-orange-100 text-orange-500' : 'bg-blue-100 text-blue-500'}`}>
-                    {todayActiveLeave?.type === 'SICK' ? <AlertTriangle className="w-8 h-8" /> : <Palmtree className="w-8 h-8" />}
-                </div>
-                <h3 className="font-bold text-lg">{leaveTitle}</h3>
-                <p className="text-sm opacity-80 mt-1 mb-4">
-                    วันนี้ได้รับอนุมัติให้ลาแล้ว พักผ่อนให้เต็มที่!
-                </p>
-                {!todayLog && (
-                     <p className="text-xs opacity-60">* ระบบจะสร้างประวัติการลาให้อัตโนมัติ</p>
-                )}
-            </div>
-         );
-    }
-    
-    // State 2: PENDING LEAVE (Blocking)
-    if (todayActiveLeave && todayActiveLeave.status === 'PENDING' && !todayLog && todayActiveLeave.type !== 'LATE_ENTRY' && todayActiveLeave.type !== 'FORGOT_CHECKIN') {
-        return (
-            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5 relative z-10 animate-in slide-in-from-bottom-2 text-center">
-                <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-3 text-yellow-600 shadow-sm animate-pulse">
-                    <Hourglass className="w-8 h-8" />
-                </div>
-                <h3 className="font-bold text-lg text-yellow-900">
-                    รออนุมัติการลา...
-                </h3>
-                <p className="text-sm text-yellow-700 mt-1 mb-2">
-                    คุณได้ส่งคำขอ "{todayActiveLeave.type}" สำหรับวันนี้
-                </p>
-                
-                <button onClick={onOpenCheckIn} className="mt-2 text-xs underline text-yellow-600 hover:text-yellow-800">
-                    เปลี่ยนใจ? กด Check-in เพื่อมาทำงาน
-                </button>
-            </div>
-        );
-    }
-
-    // State 3: Session Outdated (Blocking)
-    if (isSessionOutdated) {
-        return (
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5 relative z-10 animate-in slide-in-from-bottom-2">
-                <div className="flex items-start gap-3 mb-3">
-                    <div className="bg-orange-100 p-2 rounded-full text-orange-600">
-                        <AlertCircle className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-orange-900 text-lg">ลืมตอกบัตรออก? 😱</h3>
-                        <p className="text-sm text-orange-700">
-                            ดูเหมือนคุณลืม Check-out เมื่อ <span className="font-bold underline">{format(new Date(todayLog!.date), 'd MMM', { locale: th })}</span>
-                        </p>
-                    </div>
-                </div>
-                
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => setIsRecoveryModalOpen(true)}
-                        className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
-                    >
-                        {isAdmin ? <ShieldCheck className="w-4 h-4"/> : <ArrowRight className="w-4 h-4" />}
-                        {isAdmin ? 'บันทึกเวลาออกทันที' : 'แจ้งเวลาออก'}
-                    </button>
-                </div>
-
-                <LeaveRequestModal 
-                    isOpen={isRecoveryModalOpen}
-                    onClose={() => setIsRecoveryModalOpen(false)}
-                    onSubmit={handleRecoverySubmit}
-                    leaveUsage={leaveUsage}
-                    fixedType="FORGOT_CHECKOUT"
-                    initialDate={new Date(todayLog!.date)}
-                />
-            </div>
-        );
-    }
 
     // State 4: Finished Work Today
     if (isCheckedOut) {
@@ -268,6 +220,62 @@ const StatusCard: React.FC<StatusCardProps> = ({
     // State 6: Not Checked In (Idle) - Default
     return (
         <div className="space-y-3 relative z-10">
+            {/* OUTDATED SESSION BANNER (Non-Blocking) */}
+            {isSessionOutdated && (
+                <div className="bg-orange-100 border border-orange-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-orange-600" />
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-orange-800">ลืมตอกบัตรออกเมื่อวาน!</p>
+                            <p className="text-[10px] text-orange-600">กรุณาแจ้งเวลาออกย้อนหลังด้วยครับ</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setIsRecoveryModalOpen(true)}
+                        className="bg-orange-500 text-white px-3 py-1 rounded-lg text-[10px] font-bold shadow-sm hover:bg-orange-600 transition-colors"
+                    >
+                        แจ้งเวลาออก
+                    </button>
+                    
+                    <LeaveRequestModal 
+                        isOpen={isRecoveryModalOpen}
+                        onClose={() => setIsRecoveryModalOpen(false)}
+                        onSubmit={handleRecoverySubmit}
+                        leaveUsage={leaveUsage}
+                        fixedType="FORGOT_CHECKOUT"
+                        initialDate={new Date(outdatedLog!.date)}
+                    />
+                </div>
+            )}
+
+            {/* HOLIDAY WARNING BANNER */}
+            {dayStatus.mode === 'HOLIDAY' && (
+                <div className="bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-xl p-3 flex items-center justify-between animate-pulse-slow mb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white p-1.5 rounded-full shadow-sm text-pink-500">
+                            <Palmtree className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-pink-700">วันนี้ {dayStatus.name}</h4>
+                            <p className="text-[10px] text-pink-600 font-medium">วันหยุดพักผ่อน ไม่ต้องลงเวลาก็ได้นะ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ON LEAVE BANNER (Non-Blocking) */}
+            {(isLeaveLog || isApprovedLeaveToday) && todayActiveLeave?.type !== 'WFH' && (
+                <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                        <Palmtree className="w-4 h-4 text-blue-600" />
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-blue-800">วันนี้คุณลางาน: {todayActiveLeave?.type || 'Leave'}</p>
+                            <p className="text-[10px] text-blue-600">หากต้องการทำงาน สามารถ Check-in ได้ปกติ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ACTION REQUIRED ALERT */}
             {actionRequiredLog && (
                 <div 
@@ -289,6 +297,19 @@ const StatusCard: React.FC<StatusCardProps> = ({
                      <span className="text-xs font-bold text-orange-700">รออนุมัติ: ขอเข้าสาย (Late Entry)</span>
                 </div>
             )}
+
+            {/* General Pending Leave Banner (Non-Blocking) */}
+            {todayActiveLeave && todayActiveLeave.status === 'PENDING' && todayActiveLeave.type !== 'LATE_ENTRY' && todayActiveLeave.type !== 'FORGOT_CHECKIN' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between gap-2 mb-2 animate-in slide-in-from-top-2">
+                     <div className="flex items-center gap-2">
+                        <Hourglass className="w-4 h-4 text-yellow-600 animate-pulse" />
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-yellow-800">รออนุมัติ: {todayActiveLeave.type}</p>
+                            <p className="text-[10px] text-yellow-600">คุณสามารถ Check-in เพื่อยกเลิกการลาได้</p>
+                        </div>
+                     </div>
+                </div>
+            )}
             
             {/* Streak */}
             {stats.currentStreak > 0 && (
@@ -300,14 +321,21 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 </div>
             )}
 
-            <div className="bg-gray-50 rounded-xl p-4 text-center border-2 border-dashed border-gray-200">
-                <p className="text-sm text-gray-500 font-medium mb-3">พร้อมเริ่มงานรึยัง?</p>
+            <div className={`rounded-xl p-4 text-center border-2 border-dashed ${dayStatus.mode === 'HOLIDAY' ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
+                <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-pink-600' : 'text-gray-500'}`}>
+                    {dayStatus.mode === 'HOLIDAY' ? 'แต่ถ้าจะทำงาน ก็กดได้เลย!' : 'พร้อมเริ่มงานรึยัง?'}
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                     <button 
                         onClick={onOpenCheckIn}
-                        className="col-span-2 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className={`col-span-2 py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2
+                            ${dayStatus.mode === 'HOLIDAY' 
+                                ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-pink-200' 
+                                : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200'
+                            }
+                        `}
                     >
-                        <LogIn className="w-5 h-5" /> กดเพื่อลงเวลา (Check-in)
+                        <LogIn className="w-5 h-5" /> {dayStatus.mode === 'HOLIDAY' ? 'ยืนยันลงเวลา (วันหยุด)' : 'กดเพื่อลงเวลา (Check-in)'}
                     </button>
                     
                     <button 

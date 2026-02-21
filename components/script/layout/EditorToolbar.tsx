@@ -8,6 +8,7 @@ import CharacterManager from '../tools/config/CharacterManager';
 import ScriptMetadataModal from '../tools/ScriptMetadataModal';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { handlePrintScript } from '../core/printUtils';
 
 const STATUS_CONFIG: Record<ScriptStatus, { label: string, color: string, icon: string }> = {
     DRAFT: { label: 'Draft', color: 'bg-gray-100 text-gray-600 border-gray-200', icon: '📝' },
@@ -77,116 +78,13 @@ const EditorToolbar: React.FC = () => {
     };
 
     const handlePrint = () => {
-        // Smart Printing Engine
-        let printBody = '';
-
-        if (scriptType === 'DIALOGUE') {
-             // Simple HTML Parser for Dialogue
-             const parser = new DOMParser();
-             const doc = parser.parseFromString(content, 'text/html');
-             const paragraphs = doc.querySelectorAll('p');
-             
-             let formattedHtml = '';
-             
-             paragraphs.forEach(p => {
-                 const text = p.innerText;
-                 // Match "Name:" or "Name :" at start
-                 const match = text.match(/^(.+?):\s*(.*)/);
-                 
-                 if (match) {
-                     // Dialogue Block
-                     const char = match[1].trim().toUpperCase();
-                     const speech = match[2].trim();
-                     formattedHtml += `
-                        <div class="dialogue-block">
-                            <div class="character">${char}</div>
-                            <div class="speech">${speech}</div>
-                        </div>
-                     `;
-                 } else if (text.trim().startsWith('[') && text.trim().endsWith(']')) {
-                     // Narrator / Instruction Block
-                     formattedHtml += `<div class="action font-bold">${text}</div>`;
-                 } else if (text.trim()) {
-                     // Action / General Text Block
-                     formattedHtml += `<div class="action">${p.innerHTML}</div>`;
-                 }
-             });
-             printBody = formattedHtml || content; // Fallback to content if parsing yields empty
-        } else {
-            // Monologue: Standard document format
-            printBody = `<div class="monologue">${content}</div>`;
-        }
-
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>${title} - Juijui Script</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-                    <style>
-                        @page { margin: 2.5cm; size: A4; }
-                        body { 
-                            font-family: 'Courier Prime', 'Sarabun', monospace; 
-                            line-height: 1.2; 
-                            color: #000; 
-                            max-width: 210mm;
-                            margin: 0 auto;
-                            -webkit-print-color-adjust: exact;
-                        }
-                        .header { text-align: center; margin-bottom: 50px; border-bottom: 2px solid #000; padding-bottom: 20px; }
-                        .title { font-size: 24pt; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-bottom: 10px; }
-                        .meta { font-size: 10pt; color: #444; font-family: 'Sarabun', sans-serif; }
-                        
-                        /* Screenplay Standard Formatting */
-                        .action {
-                            text-align: left;
-                            width: 100%;
-                            margin-bottom: 1em;
-                        }
-                        .dialogue-block {
-                            display: table;
-                            margin: 0 auto 1.5em auto;
-                            width: 70%; /* Center block */
-                        }
-                        .character {
-                            text-align: center;
-                            font-weight: bold;
-                            margin-bottom: 0.2em;
-                            text-transform: uppercase;
-                        }
-                        .speech {
-                            text-align: left;
-                        }
-                        .font-bold { font-weight: bold; }
-                        
-                        /* Monologue */
-                        .monologue p { margin-bottom: 1em; text-indent: 2em; line-height: 1.6; font-family: 'Sarabun', sans-serif; }
-                        .monologue h1, .monologue h2, .monologue h3 { text-align: center; margin-top: 1.5em; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <div class="title">${title}</div>
-                        <div class="meta">
-                            Written by: ${owner?.name || 'Unknown'}<br/>
-                            Date: ${new Date().toLocaleDateString()}<br/>
-                            Type: ${scriptType}<br/>
-                            Est. Duration: ${formattedDuration}
-                        </div>
-                    </div>
-                    <div class="script-body">
-                        ${printBody}
-                    </div>
-                    <script>
-                        window.onload = function() { window.print(); }
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        }
+        handlePrintScript({
+            title,
+            content,
+            scriptType: scriptType as 'MONOLOGUE' | 'DIALOGUE',
+            ownerName: owner?.name,
+            formattedDuration
+        });
     };
 
     const handleSelectTemplate = async (tplContent: string) => {

@@ -24,6 +24,7 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
     // Local state to store newly created options instantly without page reload
     const [newlyCreatedOptions, setNewlyCreatedOptions] = useState<MasterOption[]>([]);
     const [isCreating, setIsCreating] = useState(false);
+    const [isInteractingWithDropdown, setIsInteractingWithDropdown] = useState(false);
 
     // Combine props options with locally created ones
     const locationOptions = useMemo(() => {
@@ -58,8 +59,18 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
 
     // --- STRICT VALIDATION ON BLUR (UPDATED) ---
     const handleInputBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
-        // If the focus moved to something INSIDE the dropdown (like "Create New" button), don't clear it yet.
-        if (dropdownRef.current && dropdownRef.current.contains(e.relatedTarget as Node)) {
+        const relatedTarget = e.relatedTarget;
+
+        // 1. Immediate check for dropdown elements
+        if (dropdownRef.current && dropdownRef.current.contains(relatedTarget as Node)) {
+            return;
+        }
+
+        // 2. Small delay to allow 'isCreating' or 'isInteractingWithDropdown' to sync
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        // 3. Guard: If we are creating or interacting, skip validation
+        if (isInteractingWithDropdown || isCreating) {
             return;
         }
 
@@ -100,16 +111,21 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
         const trimmedName = shootLocation.trim();
         if (!trimmedName) return;
 
-        // Global Dialog Confirmation
-        const confirmed = await showConfirm(
-            `ต้องการเพิ่มสถานที่ใหม่ "${trimmedName}" เข้าสู่ระบบหรือไม่? \nทีมงานคนอื่นจะสามารถเลือกสถานที่นี้ได้ในอนาคต`,
-            '✨ สร้าง Location ใหม่'
-        );
-
-        if (!confirmed) return;
-
+        // Set creating state early to block the blur validation
         setIsCreating(true);
+
         try {
+            // Global Dialog Confirmation
+            const confirmed = await showConfirm(
+                `ต้องการเพิ่มสถานที่ใหม่ "${trimmedName}" เข้าสู่ระบบหรือไม่? \nทีมงานคนอื่นจะสามารถเลือกสถานที่นี้ได้ในอนาคต`,
+                '✨ สร้าง Location ใหม่'
+            );
+
+            if (!confirmed) {
+                setIsCreating(false);
+                return;
+            }
+            
             // Generate Key (e.g. "SIAM_PARAGON")
             const generatedKey = trimmedName.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
             
@@ -270,6 +286,8 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
                                                 e.preventDefault(); 
                                                 handleCreateNewLocation();
                                             }}
+                                            onMouseEnter={() => setIsInteractingWithDropdown(true)}
+                                            onMouseLeave={() => setIsInteractingWithDropdown(false)}
                                             disabled={isCreating}
                                             className="w-full text-left px-4 py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-200 active:scale-95 group/btn"
                                         >

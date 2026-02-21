@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Task, User } from '../../../../types';
+import { Task, User, MasterOption } from '../../../../types';
 import { Backpack, Play, Coffee, CheckCircle2, Zap } from 'lucide-react';
 import WorkCard from './WorkCard';
 
@@ -10,6 +10,7 @@ interface WorkColumnProps {
     type: ColumnType;
     tasks: Task[];
     users: User[];
+    masterOptions: MasterOption[]; // Add Prop
     isDroppable: boolean;
     onDropTask: (taskId: string, targetType: ColumnType) => void;
     onOpenTask: (task: Task) => void;
@@ -17,7 +18,7 @@ interface WorkColumnProps {
 }
 
 const WorkColumn: React.FC<WorkColumnProps> = ({ 
-    type, tasks, users, isDroppable, onDropTask, onOpenTask, onViewAll 
+    type, tasks, users, masterOptions, isDroppable, onDropTask, onOpenTask, onViewAll 
 }) => {
     
     // Header Config
@@ -117,6 +118,7 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
                             key={task.id}
                             task={task}
                             users={users}
+                            masterOptions={masterOptions}
                             columnType={type}
                             isDraggable={type === 'TODO' || type === 'DOING'}
                             onDragStart={(e, id) => {

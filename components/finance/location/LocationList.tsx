@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LocationStat } from '../../../hooks/useLocationAnalytics';
+import { LocationStat } from '../../../types';
 import { TrendingUp, MapPin, Crown, Zap, ThermometerSnowflake, Flame, ArrowRight, ChevronRight, HelpCircle, ChevronLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { th } from 'date-fns/locale';

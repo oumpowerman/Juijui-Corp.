@@ -33,8 +33,10 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
 
     // --- CHECK HOLIDAY & SPECIAL WORK STATUS ---
     const dayStatus = useMemo(() => {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const todayDate = new Date();
+        // Use 'time' state instead of new Date() to ensure sync with UI clock
+        const currentCheckDate = time; 
+        const todayStr = format(currentCheckDate, 'yyyy-MM-dd');
+        const dayOfWeek = currentCheckDate.getDay(); // 0 = Sun, 6 = Sat
         
         // 1. Check Exception (Highest Priority)
         const exception = exceptions.find(e => e.date === todayStr);
@@ -48,14 +50,19 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
             }
         }
 
-        // 2. Check Annual
-        const annual = annualHolidays.find(h => h.isActive && h.day === todayDate.getDate() && h.month === (todayDate.getMonth() + 1));
+        // 2. Check Annual Holiday
+        const annual = annualHolidays.find(h => h.isActive && h.day === currentCheckDate.getDate() && h.month === (currentCheckDate.getMonth() + 1));
         if (annual) {
             return { mode: 'HOLIDAY', name: annual.name };
         }
 
+        // 3. Check Weekend (Sat/Sun)
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            return { mode: 'HOLIDAY', name: dayOfWeek === 0 ? 'วันอาทิตย์' : 'วันเสาร์' };
+        }
+
         return { mode: 'NORMAL', name: '' };
-    }, [exceptions, annualHolidays]);
+    }, [exceptions, annualHolidays, time]); // Add time to dependency
 
 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;

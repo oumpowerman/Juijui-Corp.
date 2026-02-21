@@ -207,6 +207,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             tasks={myTasks} 
                             channels={channels}
                             users={users}
+                            masterOptions={masterOptions} // Pass Master Options
                             onOpenTask={onEditTask} 
                         />
                     </div>

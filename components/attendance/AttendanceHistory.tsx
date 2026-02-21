@@ -297,8 +297,16 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                         <span className="text-orange-500 italic text-xs font-bold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> รออนุมัติ</span>
                                                     ) : isLeave ? (
                                                         <span className="text-xs text-gray-400">-</span>
+                                                    ) : (log.status === 'ABSENT' || log.status === 'NO_SHOW' || !log.checkInTime) ? (
+                                                        <span className="text-red-400 text-xs font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100 opacity-70">
+                                                            <XCircle className="w-3 h-3" /> ขาดงาน
+                                                        </span>
+                                                    ) : isSameDay(new Date(log.date), new Date()) ? (
+                                                        <span className="text-indigo-500 italic text-xs font-bold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Working...</span>
                                                     ) : (
-                                                        <span className="text-gray-300 italic text-xs">Working...</span>
+                                                        <span className="text-red-500 text-xs font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100">
+                                                            <AlertTriangle className="w-3 h-3" /> ลืมลงออก
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -390,6 +398,9 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                     isOpen={isResubmitOpen}
                     onClose={() => { setIsResubmitOpen(false); setResubmitLog(null); }}
                     onSubmit={handleResubmitSubmit}
+                    initialDate={resubmitLog ? new Date(resubmitLog.date) : undefined}
+                    initialReason={resubmitLog?.note ? resubmitLog.note.replace(/\[.*?\]/g, '').trim() : ''}
+                    fixedType={resubmitLog?.workType as LeaveType} // Try to fix type if possible
                 />
             </div>
         </div>

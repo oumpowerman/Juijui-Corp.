@@ -44,7 +44,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
 
     // Optimize filtering with useMemo
     const { todoTasks, doingTasks, waitingTasks, doneTasks, allDoneTasks } = useMemo(() => {
-        const activeTasks = tasks.filter(t => !t.isUnscheduled);
+        // Filter out Unscheduled AND CONTENT tasks (Show only General Tasks)
+        const activeTasks = tasks.filter(t => !t.isUnscheduled && t.type !== 'CONTENT');
         
         // Define Cutoff for DONE tasks (e.g., show only last 7 days)
         const doneCutoffDate = subDays(new Date(), 7);
@@ -130,6 +131,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     type="TODO" 
                     tasks={todoTasks} 
                     users={users}
+                    masterOptions={masterOptions}
                     isDroppable={true}
                     onDropTask={handleDropTask}
                     onOpenTask={onOpenTask}
@@ -140,6 +142,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     type="DOING" 
                     tasks={doingTasks} 
                     users={users}
+                    masterOptions={masterOptions}
                     isDroppable={true}
                     onDropTask={handleDropTask}
                     onOpenTask={onOpenTask}
@@ -150,6 +153,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     type="WAITING" 
                     tasks={waitingTasks} 
                     users={users}
+                    masterOptions={masterOptions}
                     isDroppable={false} // READ ONLY
                     onDropTask={() => {}}
                     onOpenTask={onOpenTask}
@@ -160,6 +164,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                     type="DONE" 
                     tasks={doneTasks} 
                     users={users}
+                    masterOptions={masterOptions}
                     isDroppable={isAdmin} // READ ONLY for members, Droppable for Admin
                     onDropTask={handleDropTask}
                     onOpenTask={onOpenTask}

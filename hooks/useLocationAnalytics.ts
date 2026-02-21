@@ -2,26 +2,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, isWithinInterval, subDays, differenceInCalendarDays } from 'date-fns';
-
-export interface LocationStat {
-    name: string;
-    totalVisits: number;
-    totalClips: number;
-    lastVisit: Date | null;
-    freshnessScore: number; // 0 (Burned out) - 100 (Fresh)
-    saturationLevel: 'FRESH' | 'USED' | 'OVERUSED' | 'BURNOUT';
-    isRegistered: boolean; // NEW: True if exists in Master Data
-    visits: Record<string, {
-        date: Date;
-        clips: { id: string; title: string; status: string; format: string }[];
-    }>;
-}
+import { LocationStat } from '../types';
 
 export type DateRangeType = 'THIS_MONTH' | 'LAST_3_MONTHS' | 'THIS_YEAR' | 'ALL_TIME' | 'CUSTOM';
 
 export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Date, customEnd?: Date) => {
     const [rawData, setRawData] = useState<any[]>([]);
-    const [masterLocations, setMasterLocations] = useState<string[]>([]); // Store Master Location Names
+    const [masterLocations, setMasterLocations] = useState<{label: string, color: string}[]>([]); // Store Master Location Data
     const [isLoading, setIsLoading] = useState(true);
 
     // Calculate effective date range
@@ -57,7 +44,7 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
             // 2. Fetch Master Data Locations (To show 0-visit locations)
             const masterPromise = supabase
                 .from('master_options')
-                .select('label')
+                .select('label, color')
                 .eq('type', 'SHOOT_LOCATION')
                 .eq('is_active', true);
 
@@ -66,7 +53,7 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
             if (contentRes.error) throw contentRes.error;
             
             setRawData(contentRes.data || []);
-            setMasterLocations(masterRes.data?.map((m: any) => m.label) || []);
+            setMasterLocations(masterRes.data?.map((m: any) => ({ label: m.label, color: m.color })) || []);
 
         } catch (err) {
             console.error("Fetch location stats failed", err);
@@ -89,10 +76,11 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
         const now = new Date();
 
         // 1. Initialize with Master Locations
-        masterLocations.forEach(name => {
-            const normalizeKey = name.trim().toLowerCase();
+        masterLocations.forEach(loc => {
+            const normalizeKey = loc.label.trim().toLowerCase();
             stats[normalizeKey] = {
-                name: name, // Keep original casing from Master
+                name: loc.label, // Keep original casing from Master
+                color: loc.color,
                 totalVisits: 0,
                 totalClips: 0,
                 lastVisit: null,

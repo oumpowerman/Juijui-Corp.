@@ -21,7 +21,7 @@ interface AttendanceWidgetProps {
 
 const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
     // Hooks
-    const { todayLog, isLoading, checkIn, manualCheckIn, checkOut, refresh, stats } = useAttendance(user.id);
+    const { todayLog, outdatedLog, isLoading, checkIn, manualCheckIn, checkOut, refresh, stats } = useAttendance(user.id);
     const { masterOptions } = useMasterData(); 
     const { submitRequest, leaveUsage, requests } = useLeaveRequests(user);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
@@ -46,7 +46,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
             // STRICT CHECK: Is today inside the range?
             return isWithinInterval(today, { start, end });
         }) || null;
-    }, [requests]);
+    }, [requests, today]); // Added today to deps
 
     // 2. "Future Requests" (For Upcoming UI - Non-blocking)
     // Requests that start *after* today
@@ -58,7 +58,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
             })
             .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()) // Sort nearest first
             .slice(0, 3); // Show top 3
-    }, [requests]);
+    }, [requests, today]); // Added today to deps
 
     // 3. Approved WFH Check (Specific for Check-in Modal logic)
     const todayApprovedWFH = useMemo(() => {
@@ -162,6 +162,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                 <StatusCard 
                     user={user}
                     todayLog={todayLog}
+                    outdatedLog={outdatedLog} // NEW PROP
                     stats={stats}
                     todayActiveLeave={todayActiveLeave} // RENAMED: Covers Pending & Approved for TODAY
                     onCheckOut={checkOut}

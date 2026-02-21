@@ -18,7 +18,8 @@ export interface AttendanceFilters {
 
 export const useAttendance = (userId: string) => {
     const [todayLog, setTodayLog] = useState<AttendanceLog | null>(null);
-    const [actionRequiredLog, setActionRequiredLog] = useState<AttendanceLog | null>(null); // NEW: Track blocked items
+    const [outdatedLog, setOutdatedLog] = useState<AttendanceLog | null>(null); // NEW: Track forgotten check-outs
+    const [actionRequiredLog, setActionRequiredLog] = useState<AttendanceLog | null>(null);
     const [stats, setStats] = useState<AttendanceStats>({
         totalDays: 0,
         lateDays: 0,
@@ -54,8 +55,8 @@ export const useAttendance = (userId: string) => {
             note: data.note,
             // Prioritize new columns, fallback to parsed note for legacy compatibility
             locationLat: data.location_lat ?? meta.location?.lat,
-            locationLng: data.location_lng ?? meta.location?.lng,
             locationName: data.location_name ?? meta.locationName,
+            locationLng: data.location_lng ?? meta.location?.lng,
             checkOutLat: data.check_out_lat,
             checkOutLng: data.check_out_lng,
             checkOutLocationName: data.check_out_location_name
@@ -65,36 +66,47 @@ export const useAttendance = (userId: string) => {
     // 1. Fetch Today's Status AND Action Required items
     const fetchTodayStatus = useCallback(async () => {
         try {
-            // A. Get Working Log (Active Session)
-            const { data: workingLog } = await supabase
+            // A. Get LATEST Active Session (Could be today or past)
+            const { data: activeLog } = await supabase
                 .from('attendance_logs')
                 .select('*')
                 .eq('user_id', userId)
-                .in('status', ['WORKING', 'PENDING_VERIFY']) // Updated: Include PENDING_VERIFY
-                .is('check_out_time', null) // Ensure it's not checked out yet
-                .order('date', { ascending: false }) // Get latest
+                .in('status', ['WORKING', 'PENDING_VERIFY'])
+                .is('check_out_time', null)
+                .order('date', { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
-            if (workingLog) {
-                setTodayLog(mapAttendanceLog(workingLog));
+            if (activeLog) {
+                const mapped = mapAttendanceLog(activeLog);
+                if (mapped.date === todayDateStr) {
+                    setTodayLog(mapped);
+                    setOutdatedLog(null);
+                } else {
+                    // It's from the past!
+                    setOutdatedLog(mapped);
+                    // Still need to check if there's a separate record for TODAY (e.g. already checked in today)
+                    const { data: todayRecord } = await supabase
+                        .from('attendance_logs')
+                        .select('*')
+                        .eq('user_id', userId)
+                        .eq('date', todayDateStr)
+                        .maybeSingle();
+                    setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
+                }
             } else {
-                // If no active working session, check if we have a record for TODAY
+                // No active session, just check today
                 const { data: todayRecord } = await supabase
                     .from('attendance_logs')
                     .select('*')
                     .eq('user_id', userId)
                     .eq('date', todayDateStr)
-                    .maybeSingle(); 
-
-                if (todayRecord) {
-                    setTodayLog(mapAttendanceLog(todayRecord));
-                } else {
-                    setTodayLog(null); // Not checked in yet
-                }
+                    .maybeSingle();
+                setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
+                setOutdatedLog(null);
             }
 
-            // B. Get Action Required Log (Rejected items that need fixing)
+            // B. Get Action Required Log
             const { data: actionLog } = await supabase
                 .from('attendance_logs')
                 .select('*')
@@ -526,6 +538,7 @@ export const useAttendance = (userId: string) => {
 
     return {
         todayLog,
+        outdatedLog, // Exported
         actionRequiredLog, // Exported
         stats,
         isLoading,

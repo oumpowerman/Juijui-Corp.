@@ -1,10 +1,17 @@
 
-import React from 'react';
-import { X, AlertCircle, CheckCircle2, HelpCircle, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, AlertCircle, CheckCircle2, HelpCircle, Info, MessageSquare } from 'lucide-react';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 const GlobalDialog: React.FC = () => {
     const { dialogState, closeDialog } = useGlobalDialog();
+    const [inputValue, setInputValue] = useState('');
+
+    useEffect(() => {
+        if (dialogState.isOpen && dialogState.type === 'prompt') {
+            setInputValue(dialogState.defaultValue || '');
+        }
+    }, [dialogState.isOpen, dialogState.type, dialogState.defaultValue]);
 
     if (!dialogState.isOpen) return null;
 
@@ -14,6 +21,7 @@ const GlobalDialog: React.FC = () => {
     const getIcon = () => {
         switch (type) {
             case 'confirm': return <HelpCircle className="w-10 h-10 text-indigo-500" />;
+            case 'prompt': return <MessageSquare className="w-10 h-10 text-blue-500" />;
             case 'success': return <CheckCircle2 className="w-10 h-10 text-green-500" />;
             case 'error': return <AlertCircle className="w-10 h-10 text-red-500" />;
             default: return <Info className="w-10 h-10 text-blue-500" />;
@@ -23,6 +31,7 @@ const GlobalDialog: React.FC = () => {
     const getColors = () => {
         switch (type) {
             case 'confirm': return 'border-indigo-100 bg-indigo-50/50';
+            case 'prompt': return 'border-blue-100 bg-blue-50/50';
             case 'success': return 'border-green-100 bg-green-50/50';
             case 'error': return 'border-red-100 bg-red-50/50';
             default: return 'border-blue-100 bg-blue-50/50';
@@ -47,8 +56,26 @@ const GlobalDialog: React.FC = () => {
                     </p>
                 </div>
 
+                {type === 'prompt' && (
+                    <div className="mb-6">
+                        <input 
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            className="w-full p-3 border-2 border-blue-100 rounded-xl outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-all font-medium text-gray-800"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    if (onConfirm) onConfirm(inputValue);
+                                    else closeDialog();
+                                }
+                            }}
+                        />
+                    </div>
+                )}
+
                 <div className="flex gap-3">
-                    {type === 'confirm' ? (
+                    {type === 'confirm' || type === 'prompt' ? (
                         <>
                             <button 
                                 onClick={() => { if(onCancel) onCancel(); else closeDialog(); }}
@@ -57,7 +84,7 @@ const GlobalDialog: React.FC = () => {
                                 ยกเลิก
                             </button>
                             <button 
-                                onClick={() => { if(onConfirm) onConfirm(); else closeDialog(); }}
+                                onClick={() => { if(onConfirm) onConfirm(inputValue); else closeDialog(); }}
                                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
                             >
                                 ตกลง

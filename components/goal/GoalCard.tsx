@@ -47,6 +47,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
     return (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col h-full group relative overflow-hidden">
+            {/* Watermark Icon - Background */}
+            <div className="absolute -right-6 -bottom-6 opacity-[0.03] group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-700 pointer-events-none">
+                <PlatformIcon className="w-32 h-32" />
+            </div>
             
             {/* Top Bar Status Line */}
             <div className={`h-1 w-full ${progressBarColor}`}></div>

@@ -4,6 +4,7 @@ import { Task, TaskLog, User } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { History, Loader2, FileCheck, Calendar, Clock, Activity } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface TaskHistoryProps {
     task: Task;
@@ -12,6 +13,7 @@ interface TaskHistoryProps {
 }
 
 const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask }) => {
+    const { showAlert } = useGlobalDialog();
     const [logs, setLogs] = useState<TaskLog[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
     
@@ -125,9 +127,9 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
             });
 
             onSaveTask({ ...task, status: 'FEEDBACK' });
-            alert('จองคิวตรวจเรียบร้อย!');
+            showAlert('จองคิวตรวจเรียบร้อย!', 'สำเร็จ');
         } catch (e) {
-            alert('จองคิวไม่สำเร็จ');
+            showAlert('จองคิวไม่สำเร็จ', 'ข้อผิดพลาด');
         }
     };
 

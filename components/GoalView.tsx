@@ -6,9 +6,10 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 import GoalStatsHeader from './goal/GoalStatsHeader';
 import GoalCard from './goal/GoalCard';
 import { GoalFormModal, UpdateProgressModal } from './goal/GoalActionModals';
-import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target } from 'lucide-react';
-import { format, isSameMonth, addMonths, startOfMonth } from 'date-fns';
+import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target, X, CalendarDays } from 'lucide-react';
+import { format, isSameMonth, addMonths, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, subDays, eachDayOfInterval, isSameDay, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import th from 'date-fns/locale/th';
+import { motion, AnimatePresence } from "framer-motion";
 
 interface GoalViewProps {
     channels: Channel[];
@@ -30,7 +31,12 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     // Filter State
     const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
-    const [filterMonth, setFilterMonth] = useState<Date | null>(null); // Null = All Time
+    const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ 
+        start: startOfMonth(new Date()), 
+        end: endOfMonth(new Date()) 
+    });
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+    const [viewMonth, setViewMonth] = useState(new Date());
     
     // Pagination
     const [page, setPage] = useState(1);
@@ -46,14 +52,18 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
             // 2. Channel Filter
             if (filterChannel !== 'ALL' && g.channelId !== filterChannel) return false;
 
-            // 3. Month Filter (Based on Deadline)
-            if (filterMonth) {
-                if (!isSameMonth(new Date(g.deadline), filterMonth)) return false;
+            // 3. Date Range Filter (Based on Deadline)
+            if (dateRange.start && dateRange.end) {
+                const deadline = new Date(g.deadline);
+                if (!isWithinInterval(deadline, { 
+                    start: startOfDay(dateRange.start), 
+                    end: endOfDay(dateRange.end) 
+                })) return false;
             }
 
             return true;
         }).sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-    }, [goals, filterTab, filterChannel, filterMonth]);
+    }, [goals, filterTab, filterChannel, dateRange]);
 
     // --- Pagination Logic ---
     const totalPages = Math.ceil(filteredGoals.length / ITEMS_PER_PAGE);
@@ -78,15 +88,48 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     // Reset page when filters change
     useMemo(() => {
         setPage(1);
-    }, [filterTab, filterChannel, filterMonth]);
+    }, [filterTab, filterChannel, dateRange]);
 
-    const handleMonthChange = (direction: 'PREV' | 'NEXT') => {
-        if (!filterMonth) {
-            setFilterMonth(new Date()); // Initialize to today if null
+    const handleQuickDateSelect = (type: 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_90' | 'ALL') => {
+        const now = new Date();
+        switch (type) {
+            case 'THIS_MONTH':
+                setDateRange({ start: startOfMonth(now), end: endOfMonth(now) });
+                setViewMonth(now);
+                break;
+            case 'LAST_MONTH':
+                const lastMonth = addMonths(now, -1);
+                setDateRange({ start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) });
+                setViewMonth(lastMonth);
+                break;
+            case 'LAST_90':
+                setDateRange({ start: subDays(now, 90), end: now });
+                setViewMonth(now);
+                break;
+            case 'ALL':
+                setDateRange({ start: null, end: null });
+                break;
+        }
+        setIsDatePickerOpen(false);
+    };
+
+    const handleDateClick = (date: Date) => {
+        if (!dateRange.start || (dateRange.start && dateRange.end)) {
+            setDateRange({ start: date, end: null });
         } else {
-            setFilterMonth(prev => addMonths(prev!, direction === 'NEXT' ? 1 : -1));
+            if (date < dateRange.start) {
+                setDateRange({ start: date, end: dateRange.start });
+            } else {
+                setDateRange({ start: dateRange.start, end: date });
+            }
         }
     };
+
+    const calendarDays = useMemo(() => {
+        const start = startOfWeek(startOfMonth(viewMonth));
+        const end = endOfWeek(endOfMonth(viewMonth));
+        return eachDayOfInterval({ start, end });
+    }, [viewMonth]);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24">
@@ -109,29 +152,97 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                     </button>
                 </div>
                 
-                <GoalStatsHeader goals={goals} />
+                <GoalStatsHeader goals={filteredGoals} />
             </div>
 
             {/* 2. Controls & Filters */}
-            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-4 z-30 backdrop-blur-md bg-white/90">
+            <div className="bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-indigo-50/50 flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-4 z-40 backdrop-blur-md bg-white/90">
                 
-                {/* Left: Tab & Month */}
+                {/* Left: Tab & Date Range */}
                 <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
                     {/* Tabs */}
                     <div className="flex bg-gray-100 p-1 rounded-2xl w-full md:w-auto">
-                        <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all ${filterTab === 'ACTIVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Active</button>
-                        <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all ${filterTab === 'COMPLETED' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Completed</button>
-                        <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all ${filterTab === 'ALL' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>All History</button>
+                        <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'ACTIVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>กำลังทำ</button>
+                        <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'COMPLETED' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>สำเร็จแล้ว</button>
+                        <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'ALL' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>ทั้งหมด</button>
                     </div>
 
-                    {/* Month Picker */}
-                    <div className="flex items-center bg-white border border-gray-200 rounded-2xl p-1 shadow-sm w-full md:w-auto justify-between md:justify-start">
-                        <button onClick={() => handleMonthChange('PREV')} className="p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                        <button onClick={() => setFilterMonth(filterMonth ? null : new Date())} className="px-3 text-xs font-bold text-gray-700 min-w-[120px] text-center hover:bg-gray-50 py-1.5 rounded-lg transition-colors flex items-center justify-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-                            {filterMonth ? format(filterMonth, 'MMMM yyyy', { locale: th }) : 'ทุกช่วงเวลา (All Time)'}
+                    {/* Date Range Picker UI */}
+                    <div className="relative w-full md:w-auto">
+                        <button 
+                            onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                            className={`flex items-center justify-between gap-3 px-5 py-2.5 rounded-2xl border transition-all w-full md:w-auto min-w-[220px] ${isDatePickerOpen ? 'border-indigo-500 ring-4 ring-indigo-50 bg-white' : 'border-gray-200 bg-white hover:border-indigo-300 shadow-sm'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <CalendarDays className={`w-4 h-4 ${dateRange.start ? 'text-indigo-500' : 'text-gray-400'}`} />
+                                <span className="text-xs font-bold text-gray-700">
+                                    {dateRange.start && dateRange.end 
+                                        ? `${format(dateRange.start, 'd MMM', { locale: th })} - ${format(dateRange.end, 'd MMM yy', { locale: th })}`
+                                        : 'ทุกช่วงเวลา (All Time)'}
+                                </span>
+                            </div>
+                            <Filter className={`w-3.5 h-3.5 transition-transform ${isDatePickerOpen ? 'rotate-180 text-indigo-500' : 'text-gray-400'}`} />
                         </button>
-                        <button onClick={() => handleMonthChange('NEXT')} className="p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+
+                        <AnimatePresence>
+                            {isDatePickerOpen && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    className="absolute top-full left-0 mt-2 w-full md:w-[320px] bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 p-6 z-50"
+                                >
+                                    <div className="flex justify-between items-center mb-6 px-1">
+                                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">เลือกช่วงเวลา</span>
+                                        <button onClick={() => setIsDatePickerOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400"><X className="w-4 h-4" /></button>
+                                    </div>
+                                    
+                                    {/* Calendar Header */}
+                                    <div className="flex items-center justify-between mb-4 px-1">
+                                        <button onClick={() => setViewMonth(prev => addMonths(prev, -1))} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-400"><ChevronLeft className="w-4 h-4" /></button>
+                                        <span className="text-sm font-black text-gray-700">{format(viewMonth, 'MMMM yyyy', { locale: th })}</span>
+                                        <button onClick={() => setViewMonth(prev => addMonths(prev, 1))} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-400"><ChevronRight className="w-4 h-4" /></button>
+                                    </div>
+
+                                    {/* Calendar Grid */}
+                                    <div className="grid grid-cols-7 gap-1 mb-6">
+                                        {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(day => (
+                                            <div key={day} className="text-[10px] font-black text-gray-300 text-center py-1 uppercase">{day}</div>
+                                        ))}
+                                        {calendarDays.map((date, i) => {
+                                            const isSelected = (dateRange.start && isSameDay(date, dateRange.start)) || (dateRange.end && isSameDay(date, dateRange.end));
+                                            const isInRange = dateRange.start && dateRange.end && isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+                                            const isCurrentMonth = isSameMonth(date, viewMonth);
+
+                                            return (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => handleDateClick(date)}
+                                                    className={`
+                                                        relative h-9 w-full flex items-center justify-center text-xs font-bold rounded-xl transition-all
+                                                        ${!isCurrentMonth ? 'text-gray-200' : 'text-gray-600 hover:bg-indigo-50'}
+                                                        ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md z-10' : ''}
+                                                        ${isInRange && !isSelected ? 'bg-indigo-50 text-indigo-600 rounded-none first:rounded-l-xl last:rounded-r-xl' : ''}
+                                                    `}
+                                                >
+                                                    {format(date, 'd')}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="h-px bg-gray-100 mb-4"></div>
+
+                                    {/* Quick Selects */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => handleQuickDateSelect('THIS_MONTH')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">เดือนนี้</button>
+                                        <button onClick={() => handleQuickDateSelect('LAST_MONTH')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">เดือนที่แล้ว</button>
+                                        <button onClick={() => handleQuickDateSelect('LAST_90')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">90 วันล่าสุด</button>
+                                        <button onClick={() => handleQuickDateSelect('ALL')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-[10px] font-black text-gray-400 hover:text-gray-700 transition-colors text-center uppercase tracking-wider">ทั้งหมด</button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
 

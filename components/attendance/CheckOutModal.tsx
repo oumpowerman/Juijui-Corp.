@@ -6,6 +6,7 @@ import { calculateDistance } from '../../lib/locationUtils';
 import { format } from 'date-fns';
 import { calculateCheckOutStatus } from '../../lib/attendanceUtils';
 import { useMasterData } from '../../hooks/useMasterData';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface CheckOutModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface CheckOutModalProps {
 export const CheckOutModal: React.FC<CheckOutModalProps> = ({ 
     isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime
 }) => {
+    const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData(); // Fetch latest config
     
     const [status, setStatus] = useState<'LOADING' | 'SUCCESS' | 'OUT_OF_RANGE' | 'ERROR'>('LOADING');
@@ -95,7 +97,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
 
     const handleNormalSubmit = async () => {
         if (checkOutStatus === 'EARLY_LEAVE' && !earlyReason.trim()) {
-            alert('กรุณาระบุเหตุผลที่กลับก่อนเวลาด้วยครับ');
+            showAlert('กรุณาระบุเหตุผลที่กลับก่อนเวลาด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
         

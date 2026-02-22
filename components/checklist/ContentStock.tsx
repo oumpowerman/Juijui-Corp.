@@ -42,6 +42,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   
   // Updated: Range Filter
+  const [filterHasShootDate, setFilterHasShootDate] = useState(false);
   const [filterShootDateStart, setFilterShootDateStart] = useState('');
   const [filterShootDateEnd, setFilterShootDateEnd] = useState('');
   
@@ -60,7 +61,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   // Reset pagination when filters change
   useEffect(() => {
       setCurrentPage(1);
-  }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig]);
+  }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig]);
 
   // --- MEMOIZED FILTERS (Fixes Infinite Loop) ---
   const filters = useMemo(() => ({
@@ -69,10 +70,11 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       pillar: filterPillar,
       category: filterCategory,
       statuses: filterStatuses,
+      hasShootDate: filterHasShootDate, // Added
       shootDateStart: filterShootDateStart, // Added
       shootDateEnd: filterShootDateEnd,     // Added
       showStockOnly: showStockOnly
-  }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterShootDateStart, filterShootDateEnd, showStockOnly]);
+  }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly]);
 
   // --- SERVER SIDE HOOK ---
   const { contents: paginatedTasks, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem } = useContentStock({
@@ -106,6 +108,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
     setFilterFormat('ALL');
     setFilterPillar('ALL');
     setFilterCategory('ALL');
+    setFilterHasShootDate(false);
     setFilterShootDateStart(''); 
     setFilterShootDateEnd('');
     setFilterStatuses([]);
@@ -250,6 +253,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
         filterStatuses={filterStatuses}
         setFilterStatuses={setFilterStatuses}
         
+        filterHasShootDate={filterHasShootDate}
+        setFilterHasShootDate={setFilterHasShootDate}
         filterShootDateStart={filterShootDateStart}
         setFilterShootDateStart={setFilterShootDateStart}
         filterShootDateEnd={filterShootDateEnd}

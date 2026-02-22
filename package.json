@@ -20,6 +20,7 @@
     "@tiptap/react": "^3.17.1",
     "@tiptap/starter-kit": "^3.17.1",
     "date-fns": "^2.30.0",
+    "framer-motion": "^12.34.3",
     "heic2any": "^0.0.4",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.292.0",

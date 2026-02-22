@@ -6,6 +6,7 @@ import { Scale, AlertTriangle, Camera, Loader2, Skull, ArrowRight, MessageCircle
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { compressImage } from '../../lib/imageUtils';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface DutyTribunalModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ interface DutyTribunalModalProps {
 const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({ 
     isOpen, pendingDuty, onAcceptPenalty, onRedeem, onAppeal 
 }) => {
+    const { showAlert } = useGlobalDialog();
     const [step, setStep] = useState<'DECISION' | 'PROOF' | 'APPEAL'>('DECISION');
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,7 @@ const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({
                 await onRedeem(pendingDuty, compressed);
             } catch (error) {
                 console.error(error);
-                alert('เกิดข้อผิดพลาดในการอัปโหลด');
+                showAlert('เกิดข้อผิดพลาดในการอัปโหลด', 'ข้อผิดพลาด');
             } finally {
                 setIsProcessing(false);
             }
@@ -51,7 +53,7 @@ const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({
 
     const handleSubmitAppeal = async () => {
         if(!appealReason.trim()) {
-            alert('กรุณาระบุเหตุผลด้วยครับ');
+            showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
         setIsProcessing(true);

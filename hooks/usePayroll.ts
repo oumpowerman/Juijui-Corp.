@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase';
 import { PayrollCycle, PayrollSlip, User, DeductionItem } from '../types';
 import { useToast } from '../context/ToastContext';
 import { endOfMonth, format } from 'date-fns';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const usePayroll = (currentUser: User) => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
     const [cycles, setCycles] = useState<PayrollCycle[]>([]);
     const [currentSlips, setCurrentSlips] = useState<PayrollSlip[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -332,7 +334,7 @@ export const usePayroll = (currentUser: User) => {
     // --- 5. FINALIZE PAYMENT ---
     const finalizeCycle = async (cycleId: string) => {
         if (!isSeniorHR) return;
-        if (!confirm('ยืนยันการจ่ายเงินและปิดรอบ? ข้อมูลจะถูกล็อกถาวร')) return;
+        if (!await showConfirm('ยืนยันการจ่ายเงินและปิดรอบ? ข้อมูลจะถูกล็อกถาวร', 'ยืนยันการจ่ายเงิน')) return;
         
         try {
             const totalPayout = currentSlips.reduce((sum, s) => sum + s.netTotal, 0);

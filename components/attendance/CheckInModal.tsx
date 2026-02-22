@@ -6,6 +6,7 @@ import { calculateDistance, OFFICE_COORDS, getRandomPose } from '../../lib/locat
 import { WorkLocation, LocationDef } from '../../types/attendance';
 import CameraView from './CameraView';
 import { compressImage } from '../../lib/imageUtils';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 // Sub-steps components
 import LocationStep from './steps/LocationStep';
@@ -29,6 +30,7 @@ type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
     isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest 
 }) => {
+    const { showAlert } = useGlobalDialog();
     const [step, setStep] = useState<Step>('LOCATION');
     
     const [locationState, setLocationState] = useState<{ 
@@ -112,7 +114,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         } else {
              const isNearAnyOffice = !!locationState.matchedLocation;
              if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS') {
-                alert(`คุณไม่ได้อยู่ในพื้นที่ออฟฟิศครับ (ห่าง ${locationState.distance?.toFixed(0)} ม.)`);
+                showAlert(`คุณไม่ได้อยู่ในพื้นที่ออฟฟิศครับ (ห่าง ${locationState.distance?.toFixed(0)} ม.)`, 'อยู่นอกพื้นที่');
                 return;
             }
         }
@@ -159,7 +161,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             onClose();
         } catch (error) {
             console.error("Submission error:", error);
-            alert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่");
+            showAlert("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่", "เกิดข้อผิดพลาด");
         } finally {
             setCompressing(false);
             setIsSubmitting(false);

@@ -6,6 +6,7 @@ import { MasterOption, TransactionType, AssetType, Task, User, Channel, ShootTri
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 // Import Parts
 import TransactionTypeSelector from './form-parts/TransactionTypeSelector';
@@ -31,6 +32,7 @@ interface TransactionModalProps {
 const TransactionModal: React.FC<TransactionModalProps> = ({ 
     isOpen, onClose, onSave, masterOptions, projects, users = [], channels = [], defaultTrip
 }) => {
+    const { showAlert } = useGlobalDialog();
     // Basic Form State
     const [type, setType] = useState<TransactionType>('EXPENSE');
     const [name, setName] = useState('');
@@ -136,7 +138,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !amount || !categoryKey) {
-            alert('กรุณากรอกข้อมูลสำคัญให้ครบ (ชื่อ, จำนวนเงิน, หมวดหมู่)');
+            showAlert('กรุณากรอกข้อมูลสำคัญให้ครบ (ชื่อ, จำนวนเงิน, หมวดหมู่)', 'ข้อมูลไม่ครบ');
             return;
         }
 

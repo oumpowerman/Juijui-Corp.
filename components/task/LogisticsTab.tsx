@@ -7,6 +7,7 @@ import { Plus, CheckCircle2, Circle, Trash2, Calendar, User as UserIcon, Loader2
 import { format } from 'date-fns';
 import { useToast } from '../../context/ToastContext';
 import { supabase } from '../../lib/supabase';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface LogisticsTabProps {
     parentContentId: string;
@@ -18,6 +19,7 @@ interface LogisticsTabProps {
 const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, currentUser, onUpdate }) => {
     // We reuse useTasks, which fetches by content_id correctly
     const { fetchSubTasks, handleSaveTask, handleDeleteTask } = useTasks(() => {});
+    const { showAlert, showConfirm } = useGlobalDialog();
     const [subTasks, setSubTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -103,7 +105,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
     const selectedAssigneeUser = activeUsers.find(u => u.id === newTaskAssignee);
 
     // --- NEW LOGIC: CLICK HANDLER ---
-    const handleItemClick = (task: Task) => {
+    const handleItemClick = async (task: Task) => {
         if (task.status === 'FEEDBACK') {
             // Blocked
             showToast('รายการนี้อยู่ระหว่างการตรวจสอบ (Under Review)', 'warning');
@@ -112,7 +114,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
 
         if (task.status === 'DONE') {
             // Toggle Back to TODO (Simple Undo)
-            if (confirm('ต้องการยกเลิกสถานะเสร็จสิ้นหรือไม่?')) {
+            if (await showConfirm('ต้องการยกเลิกสถานะเสร็จสิ้นหรือไม่?', 'ยกเลิกสถานะเสร็จสิ้น')) {
                 toggleToTodo(task);
             }
             return;
@@ -161,7 +163,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
     const handleAdminQuickPass = async () => {
         if (!actionTask) return;
         if (!adminPassReason.trim()) {
-            alert('กรุณาระบุเหตุผลในการอนุมัติด่วน');
+            showAlert('กรุณาระบุเหตุผลในการอนุมัติด่วน', 'ข้อมูลไม่ครบ');
             return;
         }
 
@@ -213,7 +215,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
     };
 
     const handleDelete = async (id: string) => {
-        if(confirm('ลบงานย่อยนี้?')) {
+        if(await showConfirm('ลบงานย่อยนี้?', 'ยืนยันการลบ')) {
              setSubTasks(prev => prev.filter(t => t.id !== id));
              await handleDeleteTask(id);
         }

@@ -11,7 +11,7 @@ interface UseAssetSelectionProps {
 export const useAssetSelection = ({ batchGroupAssets, batchUngroupAssets }: UseAssetSelectionProps) => {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showPrompt } = useGlobalDialog();
 
     const toggleSelection = (id: string) => {
         setSelectedIds(prev => {
@@ -33,7 +33,7 @@ export const useAssetSelection = ({ batchGroupAssets, batchUngroupAssets }: UseA
     const handleBatchGroup = async () => {
         if (selectedIds.length === 0) return;
         
-        const groupName = prompt("ตั้งชื่อกลุ่มใหม่ (เช่น จานชุดงานแต่ง):");
+        const groupName = await showPrompt("ตั้งชื่อกลุ่มใหม่ (เช่น จานชุดงานแต่ง):", "", "สร้างกลุ่มใหม่");
         if (groupName && groupName.trim()) {
             const success = await batchGroupAssets(selectedIds, groupName.trim());
             if (success) {

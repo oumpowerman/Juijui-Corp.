@@ -1,14 +1,15 @@
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
-type DialogType = 'alert' | 'confirm' | 'success' | 'error';
+type DialogType = 'alert' | 'confirm' | 'success' | 'error' | 'prompt';
 
 interface DialogState {
     isOpen: boolean;
     type: DialogType;
     title?: string;
     message: string;
-    onConfirm?: () => void;
+    defaultValue?: string;
+    onConfirm?: (value?: string) => void;
     onCancel?: () => void;
 }
 
@@ -16,6 +17,7 @@ interface GlobalDialogContextType {
     dialogState: DialogState;
     showAlert: (message: string, title?: string) => Promise<void>;
     showConfirm: (message: string, title?: string) => Promise<boolean>;
+    showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
     closeDialog: () => void;
 }
 
@@ -66,8 +68,28 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
+    const showPrompt = useCallback((message: string, defaultValue?: string, title?: string) => {
+        return new Promise<string | null>((resolve) => {
+            setDialogState({
+                isOpen: true,
+                type: 'prompt',
+                title: title || 'ระบุข้อมูล',
+                message,
+                defaultValue: defaultValue || '',
+                onConfirm: (value) => {
+                    resolve(value || null);
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
+                onCancel: () => {
+                    resolve(null);
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
+            });
+        });
+    }, []);
+
     return (
-        <GlobalDialogContext.Provider value={{ dialogState, showAlert, showConfirm, closeDialog }}>
+        <GlobalDialogContext.Provider value={{ dialogState, showAlert, showConfirm, showPrompt, closeDialog }}>
             {children}
         </GlobalDialogContext.Provider>
     );

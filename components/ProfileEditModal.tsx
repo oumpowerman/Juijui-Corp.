@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import heic2any from 'heic2any';
 import ImageCropper from './ImageCropper';
 import { format } from 'date-fns';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const FUNNY_FEELINGS = [
 ];
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, user, onSave }) => {
+  const { showAlert } = useGlobalDialog();
   const [name, setName] = useState(user.name);
   const [position, setPosition] = useState(user.position);
   const [phone, setPhone] = useState(user.phoneNumber || '');
@@ -94,7 +96,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
           let file = e.target.files[0];
           
           if (file.size > 5 * 1024 * 1024) {
-              alert("ไฟล์ใหญ่เกินไป (จำกัด 5MB)");
+              showAlert("ไฟล์ใหญ่เกินไป (จำกัด 5MB)", "ไฟล์ใหญ่เกินไป");
               return;
           }
 
@@ -112,7 +114,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                   file = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
               } catch (err) {
                   console.error("HEIC Conversion error:", err);
-                  alert("ไม่สามารถแปลงไฟล์ HEIC ได้ กรุณาลองใช้รูปอื่น");
+                  showAlert("ไม่สามารถแปลงไฟล์ HEIC ได้ กรุณาลองใช้รูปอื่น", "ข้อผิดพลาดในการแปลงไฟล์");
                   setIsConvertingImg(false);
                   return;
               } finally {

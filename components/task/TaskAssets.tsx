@@ -5,6 +5,7 @@ import { TaskAsset, AssetCategory } from '../../types';
 import { ASSET_CATEGORIES } from '../../constants';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { format } from 'date-fns';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface TaskAssetsProps {
     assets: TaskAsset[];
@@ -13,6 +14,7 @@ interface TaskAssetsProps {
 }
 
 const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
+    const { showConfirm } = useGlobalDialog();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
@@ -82,8 +84,8 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         );
     };
 
-    const handleDelete = (id: string) => {
-        if(confirm('ลบไฟล์นี้ใช่ไหม?')) {
+    const handleDelete = async (id: string) => {
+        if(await showConfirm('ลบไฟล์นี้ใช่ไหม?', 'ยืนยันการลบ')) {
             onDelete(id);
         }
     };

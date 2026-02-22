@@ -2,6 +2,7 @@
 import React from 'react';
 import { Building2, Home, Briefcase, ChevronRight, Check } from 'lucide-react';
 import { WorkLocation, LocationDef } from '../../../types/attendance';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface WorkTypeStepProps {
     matchedLocation?: LocationDef;
@@ -10,10 +11,11 @@ interface WorkTypeStepProps {
 }
 
 const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect, approvedWFH }) => {
+    const { showAlert } = useGlobalDialog();
     
     const handleSelectOffice = () => {
         if (!matchedLocation) {
-            alert(`คุณไม่ได้อยู่ในพื้นที่ Office หรือ Site งานที่กำหนดไว้ครับ \n\nกรุณาเลือก "On Site" หากออกกองนอกสถานที่ หรือ "WFH"`);
+            showAlert(`คุณไม่ได้อยู่ในพื้นที่ Office หรือ Site งานที่กำหนดไว้ครับ \n\nกรุณาเลือก "On Site" หากออกกองนอกสถานที่ หรือ "WFH"`, 'อยู่นอกพื้นที่');
             return;
         }
         onSelect('OFFICE');

@@ -4,6 +4,7 @@ import { FinanceTransaction } from '../../types';
 import { format } from 'date-fns';
 import { ArrowUpRight, ArrowDownLeft, FileText, Trash2, LayoutTemplate, Box } from 'lucide-react';
 import th from 'date-fns/locale/th';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface PaginationProps {
   page: number;
@@ -21,6 +22,7 @@ interface TransactionListProps {
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelete }) => {
+    const { showConfirm } = useGlobalDialog();
     return (
         <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
@@ -72,7 +74,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                     )}
                                 </div>
                                 <button 
-                                    onClick={() => { if(confirm('ลบรายการนี้?')) onDelete(t.id); }}
+                                    onClick={async () => { if(await showConfirm('ลบรายการนี้?')) onDelete(t.id); }}
                                     className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                 >
                                     <Trash2 className="w-5 h-5" />

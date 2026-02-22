@@ -14,6 +14,7 @@ interface UseContentStockProps {
         category: string;
         statuses: string[];
         showStockOnly: boolean;
+        hasShootDate?: boolean;
         shootDateStart?: string; // Changed to Start
         shootDateEnd?: string;   // Changed to End
     };
@@ -100,6 +101,9 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             if (filters.statuses.length > 0) query = query.in('status', filters.statuses);
             
             // 2.1 Shoot Date Range Filter
+            if (filters.hasShootDate) {
+                query = query.not('shoot_date', 'is', null);
+            }
             if (filters.shootDateStart) {
                 query = query.gte('shoot_date', filters.shootDateStart);
             }
@@ -176,6 +180,9 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(task.status as any)) return false;
         if (currentFilters.showStockOnly && !task.isUnscheduled) return false;
         
+        // Shoot Date Filter
+        if (currentFilters.hasShootDate && !task.shootDate) return false;
+
         // Shoot Date Range Match
         if (task.shootDate) {
              const taskShootStr = task.shootDate.toISOString().split('T')[0];

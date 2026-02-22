@@ -5,6 +5,7 @@ import { Crown, BatteryFull, BatteryCharging, Battery, BatteryWarning, Users, Br
 import { STATUS_COLORS, WORK_STATUS_CONFIG, PRIORITY_COLORS } from '../../constants';
 import { isToday, differenceInCalendarDays, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ColorLensMode } from '../TeamView';
+import FeelingBubble, { BUBBLE_THEMES } from '../common/FeelingBubble';
 
 // DnD Wrappers
 import DraggableTask from './dnd/DraggableTask';
@@ -26,18 +27,6 @@ interface TeamMemberRowProps {
     colorLens?: ColorLensMode;
     isFocused?: boolean;
 }
-
-// 🎨 Cute Color Palettes for Bubbles
-const BUBBLE_THEMES = [
-    { name: 'Pink', bg: 'from-pink-50 via-white to-rose-50', border: 'border-pink-200', text: 'text-pink-600', icon: 'text-pink-400 fill-pink-100', shadow: 'rgba(236, 72, 153, 0.2)' },
-    { name: 'Blue', bg: 'from-sky-50 via-white to-blue-50', border: 'border-sky-200', text: 'text-sky-600', icon: 'text-sky-400 fill-sky-100', shadow: 'rgba(14, 165, 233, 0.2)' },
-    { name: 'Purple', bg: 'from-purple-50 via-white to-violet-50', border: 'border-purple-200', text: 'text-purple-600', icon: 'text-purple-400 fill-purple-100', shadow: 'rgba(168, 85, 247, 0.2)' },
-    { name: 'Orange', bg: 'from-orange-50 via-white to-amber-50', border: 'border-orange-200', text: 'text-orange-600', icon: 'text-orange-400 fill-orange-100', shadow: 'rgba(249, 115, 22, 0.2)' },
-    { name: 'Green', bg: 'from-emerald-50 via-white to-green-50', border: 'border-emerald-200', text: 'text-emerald-600', icon: 'text-emerald-400 fill-emerald-100', shadow: 'rgba(16, 185, 129, 0.2)' },
-    { name: 'Teal', bg: 'from-teal-50 via-white to-cyan-50', border: 'border-teal-200', text: 'text-teal-600', icon: 'text-teal-400 fill-teal-100', shadow: 'rgba(20, 184, 166, 0.2)' },
-    { name: 'Rose', bg: 'from-rose-50 via-white to-red-50', border: 'border-rose-200', text: 'text-rose-600', icon: 'text-rose-400 fill-rose-100', shadow: 'rgba(225, 29, 72, 0.2)' },
-    { name: 'Indigo', bg: 'from-indigo-50 via-white to-violet-50', border: 'border-indigo-200', text: 'text-indigo-600', icon: 'text-indigo-400 fill-indigo-100', shadow: 'rgba(79, 70, 229, 0.2)' },
-];
 
 // 7-Level Color Scale for Workload (Matching Modal)
 const WORKLOAD_LEVELS = [
@@ -208,45 +197,49 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
 
     return (
         <div className={`grid grid-cols-8 group transition-all duration-500 relative ${isMe ? 'bg-indigo-50/10' : 'hover:bg-gray-50/30'}`}>
-             <style>{`
-                @keyframes wiggle-float {
-                    0%, 100% { transform: translateY(0) rotate(-3deg); }
-                    50% { transform: translateY(-6px) rotate(3deg); }
-                }
-                .animate-wiggle-float {
-                    animation: wiggle-float 3.5s ease-in-out infinite;
-                }
-            `}</style>
-
-            {/* Member Profile Column */}
-            <div 
-                className={`col-span-1 p-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-4 ${isFocused ? 'z-20 border-r-indigo-100' : 'z-10'}`}
-                onClick={() => onSelectUser(user)}
-            >
-                {/* NEW: Weekly Workload Bar */}
-                <div className="w-full px-2 mb-3">
-                    <div className="flex justify-between items-center text-[9px] font-bold mb-1">
-                       <span className="text-gray-400 uppercase">Wk Load</span>
-                       <span className={weeklyHours > 45 ? 'text-red-500 animate-pulse' : 'text-slate-600'}>{weeklyHours}h</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                        <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${workloadLevel.color}`} 
-                            style={{ width: `${Math.min((weeklyHours / 40) * 100, 100)}%` }} // Cap visual at 100% (40h)
-                        />
-                    </div>
+            {/* Vertical Status Rail (Mood & Workload Gain) */}
+            <div className="absolute left-0 top-0 bottom-0 w-2 flex flex-col z-30 border-r border-gray-100/50">
+                {/* Workload Gain Meter (Segmented) */}
+                <div className="flex-1 w-full flex flex-col-reverse gap-[1px] p-[1px] bg-gray-50">
+                    {[...Array(12)].map((_, i) => {
+                        const threshold = (i + 1) * (40 / 12); // 40h is standard max
+                        const isActive = weeklyHours >= threshold;
+                        return (
+                            <div 
+                                key={i} 
+                                className={`flex-1 w-full rounded-[1px] transition-all duration-700 ${
+                                    isActive ? workloadLevel.color : 'bg-gray-200/30'
+                                } ${isActive && weeklyHours > 45 ? 'animate-pulse' : ''}`}
+                            />
+                        );
+                    })}
                 </div>
-
-                {/* Avatar & Status */}
-                <div className="relative mb-2">
+                {/* Feeling Base Indicator */}
+                <div 
+                    className={`h-4 w-full bg-gradient-to-t ${bubbleTheme.bg} border-t ${bubbleTheme.border} relative group/mood`}
+                >
                     {user.feeling && (
-                        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-30 animate-wiggle-float w-max max-w-[160px] origin-bottom-center">
-                            <div className={`relative bg-gradient-to-r ${bubbleTheme.bg} border-2 ${bubbleTheme.border} ${bubbleTheme.text} font-bold text-[10px] px-3 py-1.5 rounded-2xl rounded-bl-none flex items-center gap-1.5`} style={{ boxShadow: `3px 3px 0px ${bubbleTheme.shadow}` }}>
-                                <Sparkles className={`w-3 h-3 ${bubbleTheme.icon} shrink-0`} />
-                                <span className="truncate italic">"{user.feeling}"</span>
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover/mood:block z-50">
+                            <div className={`whitespace-nowrap bg-white border-2 ${bubbleTheme.border} ${bubbleTheme.text} px-3 py-1.5 rounded-xl shadow-xl text-[10px] font-bold italic animate-in fade-in zoom-in-95`}>
+                                "{user.feeling}"
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Member Profile Column */}
+            <div 
+                className={`col-span-1 pl-5 pr-3 py-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-4 ${isFocused ? 'z-20 border-r-indigo-100' : 'z-10'}`}
+                onClick={() => onSelectUser(user)}
+            >
+                {/* Avatar & Status */}
+                <div className="relative mb-2">
+                    <FeelingBubble 
+                        userId={user.id} 
+                        feeling={user.feeling} 
+                        className="-top-7 left-1/2 -translate-x-1/2" 
+                    />
                     <div className="relative">
                         <div className={`rounded-full border-2 transition-transform duration-300 ${isMe ? 'border-indigo-200' : 'border-gray-100'} ${isFocused ? 'scale-110 p-1.5 ring-4 ring-indigo-50' : 'hover:scale-105 p-1'}`}>
                             <img src={user.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt={user.name} />
@@ -258,7 +251,16 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                 </div>
                 
                 <p className={`text-xs font-bold truncate w-full mb-0.5 ${isMe ? 'text-indigo-700' : 'text-gray-800'}`}>{(user.name || 'Unknown').split(' ')[0]}</p>
-                <p className="text-[9px] text-gray-400 font-medium mb-2">{user.position || 'Member'}</p>
+                <p className="text-[9px] text-gray-400 font-medium mb-1">{user.position || 'Member'}</p>
+                
+                {/* Mood Subtitle */}
+                {user.feeling && (
+                    <div className={`mb-2 px-2 py-0.5 rounded-md text-[8px] font-bold italic border ${bubbleTheme.border} ${bubbleTheme.text} bg-white/50 max-w-full truncate flex items-center gap-1`}>
+                        <Sparkles className="w-2 h-2 shrink-0" />
+                        <span>{user.feeling}</span>
+                    </div>
+                )}
+
                 <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden mb-2"><div className="bg-indigo-500 h-full rounded-full" style={{ width: `${levelProgress}%` }}></div></div>
                 <div className={`text-[9px] px-2 py-0.5 rounded-md font-bold flex items-center justify-center gap-1 w-full border ${statusInfo.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ')} bg-white text-gray-600`}>{statusInfo.icon} {workloadCount} Tasks</div>
             </div>

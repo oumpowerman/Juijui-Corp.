@@ -5,39 +5,42 @@ import { useFeedback } from '../../hooks/useFeedback';
 import FeedbackCard from './FeedbackCard';
 import FeedbackForm from './FeedbackForm';
 import FeedbackStats from './FeedbackStats';
-import FeedbackControls, { FilterOption, SortOption } from './FeedbackControls'; // New Import
-import FeedbackPagination from './FeedbackPagination'; // New Import
+import FeedbackControls, { FilterOption, SortOption } from './FeedbackControls';
+import FeedbackPagination from './FeedbackPagination';
 import MentorTip from '../MentorTip';
-import { Inbox, ShieldCheck, Info } from 'lucide-react';
+import { Inbox, ShieldCheck, Info, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import Skeleton from '../ui/Skeleton';
 import InfoModal from '../ui/InfoModal';
 import FeedbackGuide from './FeedbackGuide';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface FeedbackViewProps {
     currentUser: User;
 }
 
-const ITEMS_PER_PAGE = 6; // Configurable: How many items per page
+const ITEMS_PER_PAGE = 6;
 
 const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
-    const { feedbacks, isLoading, submitFeedback, toggleVote, updateStatus, deleteFeedback } = useFeedback(currentUser);
+    const { 
+        feedbacks, isLoading, submitFeedback, toggleVote, 
+        updateStatus, deleteFeedback, fetchComments, submitComment, toggleRepost 
+    } = useFeedback(currentUser);
+    
     const [tab, setTab] = useState<'BOARD' | 'ADMIN'>('BOARD');
     const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
     const isAdmin = currentUser.role === 'ADMIN';
 
-    // --- NEW STATE: Filter & Pagination ---
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterOption>('ALL');
     const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
     const [currentPage, setCurrentPage] = useState(1);
 
-    // --- Data Processing Logic ---
     const approvedFeedbacks = feedbacks.filter(f => f.status === 'APPROVED');
     const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING' || f.status === 'REJECTED');
 
     const sourceData = tab === 'BOARD' ? approvedFeedbacks : pendingFeedbacks;
 
-    // 1. Filtering
     const filteredData = useMemo(() => {
         return sourceData.filter(item => {
             const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -47,7 +50,6 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
         });
     }, [sourceData, searchQuery, activeFilter]);
 
-    // 2. Sorting
     const sortedData = useMemo(() => {
         return [...filteredData].sort((a, b) => {
             if (sortBy === 'VOTES') {
@@ -55,20 +57,17 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
             } else if (sortBy === 'OLDEST') {
                 return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             } else {
-                // NEWEST (Default)
                 return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             }
         });
     }, [filteredData, sortBy]);
 
-    // 3. Pagination
     const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
     const paginatedData = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         return sortedData.slice(start, start + ITEMS_PER_PAGE);
     }, [sortedData, currentPage]);
 
-    // Reset page when filter changes
     useMemo(() => {
         setCurrentPage(1);
     }, [activeFilter, searchQuery, sortBy, tab]);
@@ -100,42 +99,59 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                     </button>
                 </div>
 
-                {isAdmin && (
-                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 flex shadow-sm relative overflow-visible">
+                <div className="flex items-center gap-3">
+                    {tab === 'BOARD' && (
                         <button 
-                            onClick={() => setTab('BOARD')}
-                            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab === 'BOARD' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-gray-500 hover:bg-gray-50'}`}
-                        >
-                            Public Board
-                        </button>
-                        
-                        <button 
-                            onClick={() => setTab('ADMIN')}
+                            onClick={() => setIsFormOpen(!isFormOpen)}
                             className={`
-                                relative px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 overflow-hidden
-                                ${tab === 'ADMIN' 
-                                    ? 'bg-orange-50 text-orange-700 shadow-inner ring-1 ring-orange-100' 
-                                    : pendingFeedbacks.length > 0 
-                                        ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-200 hover:scale-105 hover:-translate-y-0.5' 
-                                        : 'text-gray-500 hover:bg-gray-50'
+                                flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-lg
+                                ${isFormOpen 
+                                    ? 'bg-gray-100 text-gray-600 shadow-none' 
+                                    : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5'
                                 }
                             `}
                         >
-                            <ShieldCheck className={`w-4 h-4 ${pendingFeedbacks.length > 0 && tab !== 'ADMIN' ? 'animate-bounce' : ''}`} /> 
-                            <span>Inbox</span>
-                            
-                            {/* Counter Badge */}
-                            {pendingFeedbacks.length > 0 && (
-                                <span className={`
-                                    ml-1 px-1.5 py-0.5 rounded-md text-[10px] min-w-[20px] text-center shadow-sm
-                                    ${tab === 'ADMIN' ? 'bg-orange-200 text-orange-800' : 'bg-white text-rose-600 font-black'}
-                                `}>
-                                    {pendingFeedbacks.length}
-                                </span>
-                            )}
+                            {isFormOpen ? <ChevronUp className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                            {isFormOpen ? 'ปิดฟอร์ม' : 'เขียน Feedback'}
                         </button>
-                    </div>
-                )}
+                    )}
+
+                    {isAdmin && (
+                        <div className="bg-white p-1.5 rounded-2xl border border-gray-200 flex shadow-sm relative overflow-visible">
+                            <button 
+                                onClick={() => setTab('BOARD')}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab === 'BOARD' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'text-gray-500 hover:bg-gray-50'}`}
+                            >
+                                Public Board
+                            </button>
+                            
+                            <button 
+                                onClick={() => setTab('ADMIN')}
+                                className={`
+                                    relative px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 overflow-hidden
+                                    ${tab === 'ADMIN' 
+                                        ? 'bg-orange-50 text-orange-700 shadow-inner ring-1 ring-orange-100' 
+                                        : pendingFeedbacks.length > 0 
+                                            ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-200 hover:scale-105 hover:-translate-y-0.5' 
+                                            : 'text-gray-500 hover:bg-gray-50'
+                                    }
+                                `}
+                            >
+                                <ShieldCheck className={`w-4 h-4 ${pendingFeedbacks.length > 0 && tab !== 'ADMIN' ? 'animate-bounce' : ''}`} /> 
+                                <span>Inbox</span>
+                                
+                                {pendingFeedbacks.length > 0 && (
+                                    <span className={`
+                                        ml-1 px-1.5 py-0.5 rounded-md text-[10px] min-w-[20px] text-center shadow-sm
+                                        ${tab === 'ADMIN' ? 'bg-orange-200 text-orange-800' : 'bg-white text-rose-600 font-black'}
+                                    `}>
+                                        {pendingFeedbacks.length}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -143,10 +159,22 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                 {/* Left: Feed */}
                 <div className="lg:col-span-2 space-y-6">
                     
-                    {/* 1. Input Form (Only show on Public Board) */}
-                    {tab === 'BOARD' && (
-                        <FeedbackForm onSubmit={submitFeedback} />
-                    )}
+                    {/* 1. Input Form (Collapsible) */}
+                    <AnimatePresence>
+                        {tab === 'BOARD' && isFormOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                                animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+                                exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <FeedbackForm onSubmit={(content, type, isAnon) => {
+                                    submitFeedback(content, type, isAnon);
+                                    setIsFormOpen(false);
+                                }} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {/* 2. Controls (Search & Filter) */}
                     <FeedbackControls 
@@ -163,7 +191,7 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                         <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider pl-1 flex items-center justify-between">
                             <span className="flex items-center">
                                 {tab === 'BOARD' ? (
-                                    <>🔥 ล่าสุด (Latest Updates)</>
+                                    <>🔥 ฟีดล่าสุด (Community Feed)</>
                                 ) : (
                                     <>🛡️ รอการตรวจสอบ (Moderation Queue)</>
                                 )}
@@ -176,17 +204,19 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                         {isLoading ? (
                              <div className="space-y-4">
                                 {Array.from({length: 3}).map((_, i) => (
-                                     <div key={i} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                                     <div key={i} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
                                          <div className="flex items-start gap-4">
-                                             <Skeleton className="w-12 h-12 rounded-2xl shrink-0" />
-                                             <div className="flex-1 space-y-2">
+                                             <Skeleton className="w-14 h-14 rounded-2xl shrink-0" />
+                                             <div className="flex-1 space-y-3">
                                                  <div className="flex justify-between">
-                                                     <Skeleton className="w-32 h-4 rounded" />
-                                                     <Skeleton className="w-16 h-3 rounded" />
+                                                     <Skeleton className="w-40 h-5 rounded" />
+                                                     <Skeleton className="w-20 h-3 rounded" />
                                                  </div>
-                                                 <Skeleton className="w-full h-16 rounded-xl" />
-                                                 <div className="flex justify-between pt-2">
-                                                     <Skeleton className="w-20 h-6 rounded-full" />
+                                                 <Skeleton className="w-full h-20 rounded-2xl" />
+                                                 <div className="flex gap-4 pt-2">
+                                                     <Skeleton className="w-16 h-8 rounded-full" />
+                                                     <Skeleton className="w-16 h-8 rounded-full" />
+                                                     <Skeleton className="w-16 h-8 rounded-full" />
                                                  </div>
                                              </div>
                                          </div>
@@ -196,11 +226,11 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                         ) : (
                             <>
                                 {paginatedData.length === 0 ? (
-                                    <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-3xl bg-white/50">
-                                        <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">ไม่พบข้อมูลที่ตรงกับเงื่อนไข</p>
-                                        <button onClick={() => { setSearchQuery(''); setActiveFilter('ALL'); }} className="text-indigo-500 text-sm font-bold mt-2 hover:underline">
-                                            ล้างตัวกรอง
+                                    <div className="text-center py-24 border-2 border-dashed border-gray-200 rounded-[40px] bg-white/50">
+                                        <Inbox className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                        <p className="text-gray-400 font-bold text-lg">ไม่พบข้อมูลที่ตรงกับเงื่อนไข</p>
+                                        <button onClick={() => { setSearchQuery(''); setActiveFilter('ALL'); }} className="text-indigo-500 text-sm font-black mt-3 hover:underline">
+                                            ล้างตัวกรองทั้งหมด
                                         </button>
                                     </div>
                                 ) : (
@@ -213,6 +243,9 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                                                 onVote={toggleVote}
                                                 onUpdateStatus={updateStatus}
                                                 onDelete={deleteFeedback}
+                                                onFetchComments={fetchComments}
+                                                onSubmitComment={submitComment}
+                                                onToggleRepost={toggleRepost}
                                             />
                                         ))}
                                     </div>
@@ -233,13 +266,32 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
 
                 {/* Right: Stats & Info */}
                 <div className="hidden lg:block">
-                    <div className="sticky top-6">
+                    <div className="sticky top-6 space-y-6">
                         <FeedbackStats items={feedbacks} />
+                        
+                        {/* Twitter-like Trending/Community Card */}
+                        <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+                            <h4 className="font-black text-gray-800 mb-4 flex items-center gap-2">
+                                <Plus className="w-4 h-4 text-indigo-500" />
+                                Community Rules
+                            </h4>
+                            <ul className="space-y-3">
+                                {[
+                                    { text: "สุภาพและให้เกียรติกัน", icon: "🤝" },
+                                    { text: "เน้นการแก้ปัญหา (Solution)", icon: "💡" },
+                                    { text: "Anonymous ไม่ใช่ที่ระบายอารมณ์", icon: "🛡️" }
+                                ].map((rule, i) => (
+                                    <li key={i} className="flex items-center gap-3 text-xs text-gray-600 font-medium bg-gray-50 p-3 rounded-2xl border border-gray-50">
+                                        <span>{rule.icon}</span>
+                                        {rule.text}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* INFO MODAL */}
             <InfoModal 
                 isOpen={isInfoOpen}
                 onClose={() => setIsInfoOpen(false)}

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FeedbackItem, FeedbackType, FeedbackStatus, User } from '../types';
+import { FeedbackItem, FeedbackType, FeedbackStatus, User, FeedbackComment } from '../types';
 import { useToast } from '../context/ToastContext';
 
 export const useFeedback = (currentUser: User) => {
@@ -20,7 +20,9 @@ export const useFeedback = (currentUser: User) => {
                 .select(`
                     *,
                     profiles (full_name, avatar_url),
-                    feedback_votes (user_id)
+                    feedback_votes (user_id),
+                    feedback_comments (id),
+                    feedback_reposts (user_id)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -30,7 +32,11 @@ export const useFeedback = (currentUser: User) => {
                 // Map and Calculate Votes/Ownership
                 const mapped: FeedbackItem[] = data.map((item: any) => {
                     const votes = item.feedback_votes || [];
+                    const comments = item.feedback_comments || [];
+                    const reposts = item.feedback_reposts || [];
+                    
                     const hasVoted = votes.some((v: any) => v.user_id === currentUser.id);
+                    const hasReposted = reposts.some((r: any) => r.user_id === currentUser.id);
                     
                     return {
                         id: item.id,
@@ -39,8 +45,11 @@ export const useFeedback = (currentUser: User) => {
                         status: item.status as FeedbackStatus,
                         isAnonymous: item.is_anonymous,
                         createdAt: new Date(item.created_at),
-                        voteCount: votes.length, // Use actual count from relation
+                        voteCount: votes.length,
                         hasVoted: hasVoted,
+                        commentCount: comments.length,
+                        repostCount: reposts.length,
+                        hasReposted: hasReposted,
                         creatorName: !item.is_anonymous && item.profiles ? item.profiles.full_name : undefined,
                         creatorAvatar: !item.is_anonymous && item.profiles ? item.profiles.avatar_url : undefined
                     };
@@ -60,6 +69,8 @@ export const useFeedback = (currentUser: User) => {
         const channel = supabase.channel('realtime-feedbacks')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, () => fetchFeedbacks())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'feedback_votes' }, () => fetchFeedbacks())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'feedback_comments' }, () => fetchFeedbacks())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'feedback_reposts' }, () => fetchFeedbacks())
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, []);
@@ -155,25 +166,105 @@ export const useFeedback = (currentUser: User) => {
     };
 
     const updateStatus = async (id: string, status: FeedbackStatus) => {
+        // 1. Optimistic Update
+        const previousFeedbacks = [...feedbacks];
+        setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
+
         try {
-            await supabase.from('feedbacks').update({ status }).eq('id', id);
-            showToast(`อัปเดตสถานะเป็น ${status} แล้ว`, 'info');
-            // Optimistic update for status
-            setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
-        } catch (err) {
-            showToast('อัปเดตไม่สำเร็จ', 'error');
+            const { error } = await supabase.from('feedbacks').update({ status }).eq('id', id);
+            if (error) throw error;
+            
+            showToast(`อัปเดตสถานะเป็น ${status} แล้ว`, 'success');
+        } catch (err: any) {
+            console.error('Update status failed:', err);
+            setFeedbacks(previousFeedbacks); // Rollback
+            showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
     const deleteFeedback = async (id: string) => {
-        if(!confirm('ลบข้อความนี้?')) return;
+        // 1. Optimistic Delete
+        const previousFeedbacks = [...feedbacks];
+        setFeedbacks(prev => prev.filter(f => f.id !== id));
+
         try {
-            await supabase.from('feedbacks').delete().eq('id', id);
+            const { error } = await supabase.from('feedbacks').delete().eq('id', id);
+            if (error) throw error;
+            
             showToast('ลบเรียบร้อย', 'info');
-            // Optimistic delete
-            setFeedbacks(prev => prev.filter(f => f.id !== id));
+        } catch (err: any) {
+            console.error('Delete feedback failed:', err);
+            setFeedbacks(previousFeedbacks); // Rollback
+            showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const fetchComments = async (feedbackId: string): Promise<FeedbackComment[]> => {
+        try {
+            const { data, error } = await supabase
+                .from('feedback_comments')
+                .select(`
+                    *,
+                    profiles (full_name, avatar_url)
+                `)
+                .eq('feedback_id', feedbackId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            return (data || []).map((c: any) => ({
+                id: c.id,
+                feedbackId: c.feedback_id,
+                userId: c.user_id,
+                content: c.content,
+                createdAt: new Date(c.created_at),
+                user: c.profiles ? { name: c.profiles.full_name, avatarUrl: c.profiles.avatar_url } : undefined
+            }));
         } catch (err) {
-            showToast('ลบไม่สำเร็จ', 'error');
+            console.error('Fetch comments failed:', err);
+            return [];
+        }
+    };
+
+    const submitComment = async (feedbackId: string, content: string) => {
+        try {
+            const { error } = await supabase.from('feedback_comments').insert({
+                feedback_id: feedbackId,
+                user_id: currentUser.id,
+                content
+            });
+
+            if (error) throw error;
+            showToast('ส่งคอมเมนต์แล้ว!', 'success');
+            return true;
+        } catch (err: any) {
+            showToast('ส่งคอมเมนต์ไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
+
+    const toggleRepost = async (id: string, currentStatus: boolean) => {
+        // Optimistic
+        setFeedbacks(prev => prev.map(f => {
+            if (f.id === id) {
+                return {
+                    ...f,
+                    hasReposted: !currentStatus,
+                    repostCount: currentStatus ? f.repostCount - 1 : f.repostCount + 1
+                };
+            }
+            return f;
+        }));
+
+        try {
+            if (currentStatus) {
+                await supabase.from('feedback_reposts').delete().eq('feedback_id', id).eq('user_id', currentUser.id);
+            } else {
+                await supabase.from('feedback_reposts').insert({ feedback_id: id, user_id: currentUser.id });
+            }
+        } catch (err) {
+            console.error('Toggle repost failed:', err);
+            fetchFeedbacks(); // Revert
         }
     };
 
@@ -183,6 +274,9 @@ export const useFeedback = (currentUser: User) => {
         submitFeedback,
         toggleVote,
         updateStatus,
-        deleteFeedback
+        deleteFeedback,
+        fetchComments,
+        submitComment,
+        toggleRepost
     };
 };

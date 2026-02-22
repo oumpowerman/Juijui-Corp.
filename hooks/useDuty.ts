@@ -400,9 +400,23 @@ export const useDuty = (currentUser?: User) => {
         }
     };
 
-    // --- REVISED: Generate Draft (Respect Calendar Logic) ---
-    const calculateRandomDuties = (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
+    const calculateRandomDuties = async (startDate: Date, mode: 'ROTATION' | 'DURATION', weeksToGenerate: number, activeUsers: User[]) => {
         if (activeUsers.length === 0) return [];
+
+        // Fetch leaves for the generation period to avoid assigning to people on leave
+        const endDate = addDays(startDate, weeksToGenerate * 7);
+        const { data: leaves } = await supabase
+            .from('leave_requests')
+            .select('user_id, start_date, end_date')
+            .eq('status', 'APPROVED')
+            .gte('end_date', format(startDate, 'yyyy-MM-dd'))
+            .lte('start_date', format(endDate, 'yyyy-MM-dd'));
+
+        const isUserOnLeaveOnDate = (userId: string, date: Date) => {
+            if (!leaves) return false;
+            const d = format(date, 'yyyy-MM-dd');
+            return leaves.some(l => l.user_id === userId && d >= l.start_date && d <= l.end_date);
+        };
 
         const shuffle = (array: User[]) => {
             let currentIndex = array.length, randomIndex;
@@ -418,18 +432,38 @@ export const useDuty = (currentUser?: User) => {
         let userQueue = shuffle(activeUsers); 
         const assignedUserIds = new Set<string>();
         
-        const getNextUsers = (count: number): User[] => {
+        const getNextUsers = (count: number, date: Date): User[] => {
             const selected: User[] = [];
-            for (let i = 0; i < count; i++) {
+            let attempts = 0;
+            const maxAttempts = userQueue.length * 2;
+
+            while (selected.length < count && attempts < maxAttempts) {
+                attempts++;
                 if (userQueue.length === 0) {
                     userQueue = shuffle(activeUsers);
-                    if (activeUsers.length > 1 && userQueue[0].id === selected[selected.length - 1]?.id) {
-                         userQueue.push(userQueue.shift()!); 
-                    }
                 }
-                const user = userQueue.shift()!;
-                selected.push(user);
+                
+                const user = userQueue[0];
+                // Check if user is on leave
+                if (isUserOnLeaveOnDate(user.id, date)) {
+                    // Move to back of queue and try next
+                    userQueue.push(userQueue.shift()!);
+                    continue;
+                }
+
+                selected.push(userQueue.shift()!);
                 assignedUserIds.add(user.id);
+            }
+
+            // Fallback if everyone is on leave (rare)
+            if (selected.length < count) {
+                const remainingNeeded = count - selected.length;
+                for (let i = 0; i < remainingNeeded; i++) {
+                    if (userQueue.length === 0) userQueue = shuffle(activeUsers);
+                    const user = userQueue.shift()!;
+                    selected.push(user);
+                    assignedUserIds.add(user.id);
+                }
             }
             return selected;
         };
@@ -465,7 +499,7 @@ export const useDuty = (currentUser?: User) => {
                 };
 
                 const peopleNeeded = config.requiredPeople;
-                const assignedUsers = getNextUsers(peopleNeeded);
+                const assignedUsers = getNextUsers(peopleNeeded, currentGenDate);
 
                 assignedUsers.forEach((user, idx) => {
                     let title = config.taskTitles[idx];
@@ -532,11 +566,19 @@ export const useDuty = (currentUser?: User) => {
     const requestSwap = async (ownDutyId: string, targetDutyId: string) => {
         if (!currentUser) return;
         try {
-            // 1. Fetch metadata for notification context
-            const { data: targetDuty } = await supabase.from('duties').select('assignee_id, title, date').eq('id', targetDutyId).single();
-            const { data: ownDuty } = await supabase.from('duties').select('title, date').eq('id', ownDutyId).single();
+            // 1. Validation
+            const ownDuty = duties.find(d => d.id === ownDutyId);
+            const targetDuty = duties.find(d => d.id === targetDutyId);
 
-            if (!targetDuty || !ownDuty) throw new Error("Duty not found");
+            if (!ownDuty || !targetDuty) throw new Error("ไม่พบข้อมูลเวร");
+            if (ownDuty.isDone) throw new Error("เวรของคุณทำเสร็จแล้ว ไม่สามารถแลกได้");
+            if (targetDuty.isDone) throw new Error("เวรเป้าหมายทำเสร็จแล้ว ไม่สามารถแลกได้");
+            if (ownDuty.assigneeId === targetDuty.assigneeId) throw new Error("ไม่สามารถแลกเวรกับตัวเองได้");
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (new Date(ownDuty.date) < today) throw new Error("ไม่สามารถแลกเวรที่ผ่านมาแล้วได้");
+            if (new Date(targetDuty.date) < today) throw new Error("ไม่สามารถแลกเวรเป้าหมายที่ผ่านมาแล้วได้");
 
             // 2. Insert Swap Request
             const { error } = await supabase.from('duty_swaps').insert({
@@ -549,7 +591,7 @@ export const useDuty = (currentUser?: User) => {
 
             // 3. Notify Target User
             await supabase.from('notifications').insert({
-                user_id: targetDuty.assignee_id,
+                user_id: targetDuty.assigneeId,
                 type: 'APPROVAL_REQ',
                 title: '🔄 มีคำขอแลกเวร',
                 message: `คุณ ${currentUser.name} ขอแลกเวร "${ownDuty.title}" (${format(new Date(ownDuty.date), 'd MMM')}) กับเวรของคุณ`,
@@ -617,6 +659,23 @@ export const useDuty = (currentUser?: User) => {
         }
     };
 
+    const clearFutureDutiesForUser = async (userId: string) => {
+        try {
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const { error } = await supabase
+                .from('duties')
+                .delete()
+                .eq('assignee_id', userId)
+                .gte('date', todayStr)
+                .eq('is_done', false);
+            
+            if (error) throw error;
+            showToast('เคลียร์ตารางเวรในอนาคตของพนักงานคนนี้เรียบร้อย', 'info');
+        } catch (err: any) {
+            showToast('เคลียร์ตารางเวรไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
     return {
         duties,
         configs,
@@ -633,6 +692,7 @@ export const useDuty = (currentUser?: User) => {
         submitAppeal,
         requestSwap,
         respondSwap,
+        clearFutureDutiesForUser,
         calendarMetadata: { annualHolidays, calendarExceptions }
     };
 };

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
-import { Loader2, Upload, Download, Plus } from 'lucide-react';
+import { Loader2, Upload, Download, Plus, PackageSearch } from 'lucide-react';
 import MentorTip from '../MentorTip';
 import { useToast } from '../../context/ToastContext';
 import { useContentStock } from '../../hooks/useContentStock';
@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 // Sub-Components
 import StockFilterBar from './stock/StockFilterBar';
 import StockTable from './stock/StockTable';
+import StockInventoryModal from './stock/inventory/StockInventoryModal';
 
 interface ContentStockProps {
   tasks: Task[]; // Sync Source
@@ -37,8 +38,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChannel, setFilterChannel] = useState<string>('ALL');
   const [filterFormat, setFilterFormat] = useState<string>('ALL');
-  const [filterPillar, setFilterPillar] = useState<string>('ALL');
-  const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [filterPillar, setFilterPillar] = useState<string[]>([]);
+  const [filterCategory, setFilterCategory] = useState<string[]>([]);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   
   // Updated: Range Filter
@@ -47,6 +48,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [filterShootDateEnd, setFilterShootDateEnd] = useState('');
   
   const [showStockOnly, setShowStockOnly] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
   // --- Sort States ---
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'date', direction: 'desc' });
@@ -75,6 +78,13 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       shootDateEnd: filterShootDateEnd,     // Added
       showStockOnly: showStockOnly
   }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly]);
+
+  // Transition Effect
+  useEffect(() => {
+      setIsFiltering(true);
+      const timer = setTimeout(() => setIsFiltering(false), 500);
+      return () => clearTimeout(timer);
+  }, [filters]);
 
   // --- SERVER SIDE HOOK ---
   const { contents: paginatedTasks, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem } = useContentStock({
@@ -106,8 +116,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
     setSearchQuery('');
     setFilterChannel('ALL');
     setFilterFormat('ALL');
-    setFilterPillar('ALL');
-    setFilterCategory('ALL');
+    setFilterPillar([]);
+    setFilterCategory([]);
     setFilterHasShootDate(false);
     setFilterShootDateStart(''); 
     setFilterShootDateEnd('');
@@ -193,6 +203,15 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
             </div>
 
             <div className="flex items-center gap-2 self-start md:self-center">
+                {/* Inventory Analysis Button */}
+                <button
+                    onClick={() => setIsInventoryModalOpen(true)}
+                    className="p-3 bg-white border border-gray-200 rounded-2xl text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm group"
+                    title="วิเคราะห์คลังคอนเทนต์"
+                >
+                    <PackageSearch className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </button>
+
                 {/* Import Buttons */}
                 <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-sm mr-2">
                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
@@ -270,6 +289,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       {/* Table */}
       <StockTable
         isLoading={isLoading}
+        isFiltering={isFiltering}
         tasks={paginatedTasks}
         channels={channels}
         users={users}
@@ -282,6 +302,13 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
         itemsPerPage={ITEMS_PER_PAGE}
         onEdit={onEdit}
         onSchedule={onSchedule}
+      />
+
+      <StockInventoryModal 
+        isOpen={isInventoryModalOpen}
+        onClose={() => setIsInventoryModalOpen(false)}
+        masterOptions={masterOptions}
+        channels={channels}
       />
     </div>
   );

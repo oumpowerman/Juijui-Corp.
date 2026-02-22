@@ -4,8 +4,10 @@ import { createPortal } from 'react-dom';
 import { Duty, User } from '../../types';
 import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake, ExternalLink } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import { isPast, isToday } from 'date-fns';
+import { isPast, isToday, isSameDay, subDays } from 'date-fns';
 import { compressImage } from '../../lib/imageUtils';
+
+import { useGameConfig } from '../../context/GameConfigContext';
 
 interface DutyCardProps {
     duty: Duty;
@@ -25,9 +27,16 @@ const DutyCard: React.FC<DutyCardProps> = ({
     const [isUploading, setIsUploading] = useState(false);
     const [showProof, setShowProof] = useState(false);
     const { showConfirm, showAlert } = useGlobalDialog();
+    const { config } = useGameConfig();
 
     // Logic Checks
-    const isMissed = !duty.isDone && isPast(new Date(duty.date)) && !isToday(new Date(duty.date));
+    const today = new Date();
+    const dutyDate = new Date(duty.date);
+    const isYesterday = isSameDay(dutyDate, subDays(today, 1));
+    const graceHour = config?.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10;
+    const isGracePeriod = isYesterday && today.getHours() < graceHour;
+
+    const isMissed = !duty.isDone && isPast(dutyDate) && !isToday(dutyDate) && !isGracePeriod;
     const isAbandoned = duty.penaltyStatus === 'ABANDONED';
     const isTribunal = duty.penaltyStatus === 'AWAITING_TRIBUNAL';
     const isLateDone = duty.penaltyStatus === 'LATE_COMPLETED';
@@ -136,6 +145,8 @@ const DutyCard: React.FC<DutyCardProps> = ({
         cardStyle = 'bg-yellow-50 border-yellow-300 border-dashed shadow-md ring-2 ring-yellow-100 animate-pulse';
     } else if (isMissed) {
         cardStyle = 'bg-red-50 border-red-300 border-dashed opacity-90';
+    } else if (isGracePeriod) {
+        cardStyle = 'bg-blue-50 border-blue-200 border-dashed animate-pulse';
     } else if (isCurrentUser) {
         cardStyle = 'bg-white border-indigo-200 shadow-md ring-2 ring-indigo-50 transform scale-[1.02]';
     }
@@ -192,6 +203,8 @@ const DutyCard: React.FC<DutyCardProps> = ({
                          <p className="text-[9px] text-gray-500 font-black mt-0.5">ABANDONED (ละเลย)</p>
                     ) : isTribunal ? (
                          <p className="text-[9px] text-yellow-600 font-black mt-0.5 animate-bounce">WAITING TRIBUNAL</p>
+                    ) : isGracePeriod ? (
+                         <p className="text-[9px] text-blue-600 font-black mt-0.5">GRACE PERIOD (รอตรวจ)</p>
                     ) : isMissed ? (
                         <p className="text-[9px] text-red-500 font-bold mt-0.5">Missed</p>
                     ) : null}
@@ -212,8 +225,8 @@ const DutyCard: React.FC<DutyCardProps> = ({
                         }`}
                         disabled={!isCurrentUser || isUploading || isAbandoned}
                     >
-                        {duty.isDone ? <CheckCircle2 className="w-4 h-4" /> : (isMissed || isTribunal) ? <AlertCircle className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                        {duty.isDone ? 'เรียบร้อย' : isTribunal ? 'รอแก้ตัว' : isAbandoned ? 'ถูกล็อค' : isMissed ? 'ขาด' : 'รอทำ'}
+                        {duty.isDone ? <CheckCircle2 className="w-4 h-4" /> : (isMissed || isTribunal) ? <AlertCircle className="w-4 h-4" /> : isGracePeriod ? <Loader2 className="w-4 h-4 animate-spin" /> : <Circle className="w-4 h-4" />}
+                        {duty.isDone ? 'เรียบร้อย' : isTribunal ? 'รอแก้ตัว' : isAbandoned ? 'ถูกล็อค' : isGracePeriod ? 'รอตรวจ' : isMissed ? 'ขาด' : 'รอทำ'}
                     </button>
                 </div>
 

@@ -4,7 +4,7 @@ import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
 import { useGoogleDrive } from '../hooks/useGoogleDrive'; // New Import
 import { format, endOfWeek, eachDayOfInterval, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays, Info } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useGamification } from '../hooks/useGamification';
@@ -19,6 +19,7 @@ import SwapInbox from './duty/SwapInbox';
 import SwapRequestModal from './duty/SwapRequestModal';
 import MobileDutyAction from './duty/MobileDutyAction';
 import DutyTribunalModal from './duty/DutyTribunalModal'; // Import Tribunal
+import DutyGuideModal from './duty/DutyGuideModal';
 
 interface DutyViewProps {
     users: User[];
@@ -64,6 +65,9 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     // --- Swap Request State ---
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [sourceDutyForSwap, setSourceDutyForSwap] = useState<Duty | null>(null);
+
+    // --- Guide Modal State ---
+    const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
     // --- Tribunal State ---
     const [pendingRedemptionDuty, setPendingRedemptionDuty] = useState<Duty | null>(null);
@@ -308,6 +312,13 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2">
                     <button 
+                        onClick={() => setIsGuideModalOpen(true)}
+                        className="p-2.5 bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
+                        title="คู่มือการใช้งาน"
+                    >
+                        <Info className="w-5 h-5" />
+                    </button>
+                    <button 
                         onClick={() => setIsRandomModalOpen(true)}
                         className="flex items-center px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
                     >
@@ -386,6 +397,11 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     onAppeal={handleAppeal}
                 />
             )}
+
+            <DutyGuideModal 
+                isOpen={isGuideModalOpen}
+                onClose={() => setIsGuideModalOpen(false)}
+            />
         </div>
     );
 };

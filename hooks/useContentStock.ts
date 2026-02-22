@@ -10,8 +10,8 @@ interface UseContentStockProps {
     filters: {
         channelId: string;
         format: string;
-        pillar: string;
-        category: string;
+        pillar: string[];
+        category: string[];
         statuses: string[];
         showStockOnly: boolean;
         hasShootDate?: boolean;
@@ -96,8 +96,8 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             // 2. Filters
             if (filters.channelId !== 'ALL') query = query.eq('channel_id', filters.channelId);
             if (filters.format !== 'ALL') query = query.eq('content_format', filters.format);
-            if (filters.pillar !== 'ALL') query = query.eq('pillar', filters.pillar);
-            if (filters.category !== 'ALL') query = query.eq('category', filters.category);
+            if (filters.pillar.length > 0) query = query.in('pillar', filters.pillar);
+            if (filters.category.length > 0) query = query.in('category', filters.category);
             if (filters.statuses.length > 0) query = query.in('status', filters.statuses);
             
             // 2.1 Shoot Date Range Filter
@@ -175,8 +175,8 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         // Filter Match
         if (currentFilters.channelId !== 'ALL' && task.channelId !== currentFilters.channelId) return false;
         if (currentFilters.format !== 'ALL' && task.contentFormat !== currentFilters.format) return false;
-        if (currentFilters.pillar !== 'ALL' && task.pillar !== currentFilters.pillar) return false;
-        if (currentFilters.category !== 'ALL' && task.category !== currentFilters.category) return false;
+        if (currentFilters.pillar.length > 0 && (!task.pillar || !currentFilters.pillar.includes(task.pillar))) return false;
+        if (currentFilters.category.length > 0 && (!task.category || !currentFilters.category.includes(task.category))) return false;
         if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(task.status as any)) return false;
         if (currentFilters.showStockOnly && !task.isUnscheduled) return false;
         

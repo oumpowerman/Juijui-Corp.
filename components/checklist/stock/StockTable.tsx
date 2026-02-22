@@ -4,9 +4,11 @@ import { Task, Channel, User, MasterOption } from '../../../types';
 import { StickyNote, MoreHorizontal, CalendarPlus, Tag, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Search, Loader2, Video, Calendar, Users } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import th from 'date-fns/locale/th';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface StockTableProps {
     isLoading: boolean;
+    isFiltering?: boolean;
     tasks: Task[];
     channels: Channel[];
     users: User[];
@@ -28,7 +30,7 @@ interface StockTableProps {
 }
 
 const StockTable: React.FC<StockTableProps> = ({ 
-    isLoading, tasks, channels, users, masterOptions,
+    isLoading, isFiltering, tasks, channels, users, masterOptions,
     sortConfig, onSort,
     totalCount, currentPage, onPageChange, itemsPerPage,
     onEdit, onSchedule
@@ -114,11 +116,24 @@ const StockTable: React.FC<StockTableProps> = ({
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-    if (isLoading) {
+    if (isLoading || isFiltering) {
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px] p-16 flex flex-col items-center justify-center text-gray-400">
-                <Loader2 className="w-10 h-10 animate-spin mb-2 text-indigo-500" />
-                <p>กำลังโหลดข้อมูล...</p>
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-200 overflow-hidden min-h-[400px] p-16 flex flex-col items-center justify-center text-gray-400">
+                <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.3, type: 'spring' }}
+                    className="flex flex-col items-center"
+                >
+                    <div className="relative mb-4">
+                        <div className="w-16 h-16 bg-indigo-100 rounded-full animate-ping absolute opacity-20"></div>
+                        <div className="w-16 h-16 bg-white rounded-full border-4 border-indigo-100 flex items-center justify-center relative z-10 shadow-sm">
+                            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                        </div>
+                    </div>
+                    <p className="font-bold text-gray-400 animate-pulse">กำลังโหลดข้อมูล...</p>
+                </motion.div>
             </div>
         );
     }
@@ -135,16 +150,6 @@ const StockTable: React.FC<StockTableProps> = ({
 
     return (
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-200 overflow-hidden min-h-[400px] flex flex-col">
-            <style>{`
-                @keyframes row-flash {
-                    0% { background-color: rgba(99, 102, 241, 0.1); }
-                    100% { background-color: transparent; }
-                }
-                .animate-row-update {
-                    animation: row-flash 1.5s ease-out;
-                }
-            `}</style>
-            
             <div className="overflow-x-auto flex-1 scrollbar-hide">
                 <table className="w-full text-left border-collapse min-w-[1200px]">
                     <thead>
@@ -184,20 +189,26 @@ const StockTable: React.FC<StockTableProps> = ({
                             <th className="px-4 py-4 text-center sticky right-0 z-20 bg-gray-50/95 w-[80px]">จัดการ ⚙️</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 text-sm">
+                    <tbody className="divide-y divide-gray-100 text-sm relative">
+                        <AnimatePresence mode='popLayout'>
                         {tasks.map((task) => {
                             const channel = getChannel(task.channelId);
                             const channelStyle = channel ? channel.color : 'bg-gray-100 text-gray-500 border-gray-200';
                             const statusInfo = getStatusInfo(task.status as string);
 
                             return (
-                                <tr 
+                                <motion.tr 
+                                    layout
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
+                                    transition={{ duration: 0.2 }}
                                     key={task.id} 
                                     onClick={() => onEdit(task)} 
-                                    className="hover:bg-indigo-50/30 transition-colors group cursor-pointer relative animate-row-update"
+                                    className="hover:bg-indigo-50 transition-colors group cursor-pointer relative"
                                 >
                                     {/* 1. Title */}
-                                    <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-indigo-50/30 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top border-r border-transparent group-hover:border-indigo-100">
+                                    <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top border-r border-transparent group-hover:border-indigo-100 transition-colors">
                                         <div className="font-bold text-gray-800 group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug mb-1.5" title={task.title}>
                                             {task.title}
                                         </div>
@@ -264,7 +275,7 @@ const StockTable: React.FC<StockTableProps> = ({
                                     </td>
 
                                     {/* 7. Actions */}
-                                    <td className="px-4 py-4 text-right sticky right-0 bg-white group-hover:bg-indigo-50/30 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle border-l border-transparent group-hover:border-indigo-100">
+                                    <td className="px-4 py-4 text-right sticky right-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle border-l border-transparent group-hover:border-indigo-100 transition-colors">
                                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm">
                                                 <MoreHorizontal className="w-4 h-4" />
@@ -274,9 +285,10 @@ const StockTable: React.FC<StockTableProps> = ({
                                             </button>
                                         </div>
                                     </td>
-                                </tr>
+                                </motion.tr>
                             );
                         })}
+                        </AnimatePresence>
                     </tbody>
                 </table>
             </div>

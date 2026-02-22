@@ -13,7 +13,7 @@ interface RandomizerModalProps {
     onClose: () => void;
     users: User[];
     configs: DutyConfig[];
-    calculateDuties: (start: Date, mode: 'ROTATION' | 'DURATION', weeks: number, selectedUsers: User[]) => Duty[];
+    calculateDuties: (start: Date, mode: 'ROTATION' | 'DURATION', weeks: number, selectedUsers: User[]) => Promise<Duty[]>;
     onSaveToDB: (duties: Duty[]) => Promise<void>;
 }
 
@@ -50,14 +50,17 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
             return;
         }
         setIsShuffling(true);
-        // Simulate loading for effect
-        setTimeout(() => {
+        try {
             const selectedUsers = users.filter(u => selectedIds.includes(u.id));
-            const results = calculateDuties(startDate, mode, durationWeeks, selectedUsers);
+            const results = await calculateDuties(startDate, mode, durationWeeks, selectedUsers);
             setDraftDuties(results);
             setStage('DRAFT');
+        } catch (error) {
+            console.error(error);
+            await showAlert('เกิดข้อผิดพลาดในการสุ่มตารางเวร', 'ผิดพลาด ❌');
+        } finally {
             setIsShuffling(false);
-        }, 800);
+        }
     };
 
     const handleReset = () => {

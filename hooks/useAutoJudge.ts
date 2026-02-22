@@ -132,19 +132,21 @@ export const useAutoJudge = (currentUser: User | null) => {
             // =========================================================
             // SECTION A: DUTIES (เวรทำความสะอาด)
             // =========================================================
+            
+            // GRACE PERIOD CHECK: 
+            // Only judge yesterday's duty if current time is past the grace hour (e.g., 10:00 AM)
+            const graceHour = config?.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10;
+            const currentHour = today.getHours();
+            
             const { data: missedDuties, error: dutyError } = await supabase
                 .from('duties')
                 .select('*')
                 .eq('assignee_id', currentUser.id)
                 .lt('date', todayStr) // เวรที่ผ่านมาแล้ว
                 .eq('is_done', false) // ยังไม่เสร็จ
-                // กรองสถานะที่จัดการไปแล้วออก
                 .neq('penalty_status', 'ACCEPTED_FAULT')
                 .neq('penalty_status', 'LATE_COMPLETED')
-                .neq('penalty_status', 'EXCUSED')
-                // IMPORTANT: We need to process ABANDONED ones for Negligence Check, but not re-process them for initial penalty
-                // So we'll filter carefully inside the loop
-                ;
+                .neq('penalty_status', 'EXCUSED');
 
             if (!dutyError && missedDuties && missedDuties.length > 0) {
                 // Check if user has a NEW duty today (to trigger Negligence Protocol)
@@ -158,11 +160,17 @@ export const useAutoJudge = (currentUser: User | null) => {
                 const hasNewDutyToday = !!todayDuty;
 
                 for (const duty of missedDuties) {
-                    // Skip if currently being processed in this session
                     if (isProcessingRef.current.has(duty.id)) continue;
 
                     const dutyDateStr = duty.date; 
                     const dutyDate = new Date(dutyDateStr);
+                    
+                    // 1. GRACE PERIOD: If duty was yesterday and it's before grace hour, skip judging
+                    const isYesterday = isSameDay(dutyDate, subDays(today, 1));
+                    if (isYesterday && currentHour < graceHour) {
+                        console.log(`[AutoJudge] Skipping duty ${duty.id} (Yesterday) - Waiting for grace period until ${graceHour}:00`);
+                        continue;
+                    }
 
                     // --- NEGLIGENCE PROTOCOL: CLEAR ABANDONED DUTIES ---
                     // If user has an ABANDONED duty that hasn't been cleared, AND a new duty arrives today
@@ -255,7 +263,12 @@ export const useAutoJudge = (currentUser: User | null) => {
             if (overdueTasks) {
                 for (const task of overdueTasks) {
                     // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled หรือกำลังประมวลผล ข้ามไป
-                    if (isTaskCompleted(task.status) || task.is_unscheduled || isProcessingRef.current.has(task.id)) continue;
+                    if (
+                        isTaskCompleted(task.status) || 
+                        task.is_unscheduled || 
+                        task.status === 'WAITING' || // ✅ เพิ่มเงื่อนไขนี้
+                        isProcessingRef.current.has(task.id)
+                    ) continue;
                     
                     // 2. เช็คว่า "วันนี้" โดนหักคะแนนไปหรือยัง?
                     const lastPenalized = task.last_penalized_at ? new Date(task.last_penalized_at) : null;

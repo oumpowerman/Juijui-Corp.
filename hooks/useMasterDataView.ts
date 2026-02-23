@@ -44,7 +44,8 @@ export const useMasterDataView = () => {
         sortOrder: 0, 
         isActive: true,
         parentKey: '', 
-        description: '' // Added description field
+        description: '', // Added description field
+        progressValue: 0
     });
     
     const [rewardFormData, setRewardFormData] = useState<Partial<Reward>>({ title: '', description: '', cost: 100, icon: '🎁', isActive: true });
@@ -78,7 +79,8 @@ export const useMasterDataView = () => {
             sortOrder: option.sortOrder, 
             isActive: option.isActive, 
             parentKey: option.parentKey || '',
-            description: option.description || '' // Map description
+            description: option.description || '', // Map description
+            progressValue: option.progressValue || 0
         });
         setIsEditing(true);
     };
@@ -95,7 +97,8 @@ export const useMasterDataView = () => {
             sortOrder: currentCount + 1, 
             isActive: true,
             parentKey: defaultParentKey || '',
-            description: '' // Default description empty
+            description: '', // Default description empty
+            progressValue: 0
         });
         setIsEditing(true);
     };
@@ -120,7 +123,8 @@ export const useMasterDataView = () => {
                     sortOrder: formData.sortOrder, 
                     isActive: formData.isActive, 
                     parentKey: formData.parentKey || undefined,
-                    description: formData.description || undefined // Include description
+                    description: formData.description || undefined, // Include description
+                    progressValue: formData.progressValue
                 };
                 
                 if (editingId) await updateMasterOption({ id: editingId, ...payload });

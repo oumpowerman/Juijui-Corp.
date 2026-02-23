@@ -68,11 +68,31 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                 />
                             </div>
                             
-                            {/* Don't show Key input for Sub-items if it's meant to be auto-generated or if Key is not user-friendly */}
+                            {/* Key (Reference) */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">Key (รหัสอ้างอิง - ENG)</label>
                                 <input type="text" value={formData.key} onChange={e => setFormData({...formData, key: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm font-mono uppercase bg-gray-50" required disabled={isEditing} />
                             </div>
+
+                            {/* Progress Value for Status */}
+                            {activeTab === 'STATUS' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Progress Value (0-100%)</label>
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="range" 
+                                            min="0" 
+                                            max="100" 
+                                            step="5"
+                                            value={formData.progressValue || 0} 
+                                            onChange={e => setFormData({...formData, progressValue: parseInt(e.target.value)})} 
+                                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" 
+                                        />
+                                        <span className="w-12 text-right text-sm font-black text-indigo-600">{formData.progressValue || 0}%</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1 italic">* ใช้สำหรับแสดงผล Progress Bar ในหน้าตาราง Stock</p>
+                                </div>
+                            )}
                             
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-2">Color Theme</label>

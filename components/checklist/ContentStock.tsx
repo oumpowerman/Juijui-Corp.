@@ -24,6 +24,7 @@ interface ContentStockProps {
   onEdit: (task: Task) => void;
   onAdd: () => void;
   onOpenSettings: () => void;
+  onAddToWorkbox?: (task: Task) => void;
 }
 
 type SortKey = 'title' | 'status' | 'date' | 'remark';
@@ -31,7 +32,7 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 20;
 
-const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channels, users, masterOptions, onSchedule, onEdit, onAdd, onOpenSettings }) => {
+const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channels, users, masterOptions, onSchedule, onEdit, onAdd, onOpenSettings, onAddToWorkbox }) => {
   const { showToast } = useToast();
 
   // --- Filter States ---
@@ -302,6 +303,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
         itemsPerPage={ITEMS_PER_PAGE}
         onEdit={onEdit}
         onSchedule={onSchedule}
+        onAddToWorkbox={onAddToWorkbox}
       />
 
       <StockInventoryModal 

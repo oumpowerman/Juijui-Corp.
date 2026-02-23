@@ -7,12 +7,16 @@ import InactiveScreen from '../components/InactiveScreen';
 import AppShell from '../components/layout/AppShell';
 import NotificationPopover from '../components/NotificationPopover';
 import { useTaskManager } from '../hooks/useTaskManager';
+import { useAuth } from '../hooks/useAuth';
 import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useChatUnread } from '../hooks/useChatUnread';
 import { useAutoJudge } from '../hooks/useAutoJudge'; 
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Inbox } from 'lucide-react';
+import { WorkboxProvider, useWorkboxContext } from '../context/WorkboxContext';
+import WorkboxPanel from '../components/workbox/WorkboxPanel';
+import WorkboxTrigger from '../components/workbox/WorkboxTrigger';
 
 // --- LAZY LOAD PAGES ---
 const Dashboard = lazy(() => import('../components/Dashboard'));
@@ -57,7 +61,7 @@ interface AppRouterProps {
     user: any; // Session User from Supabase Auth
 }
 
-const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
+const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // Initialize view from URL or default to DASHBOARD
   const [currentView, setCurrentView] = useState<ViewMode>(() => {
       if (typeof window !== 'undefined') {
@@ -72,6 +76,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
+  const [isWorkboxOpen, setIsWorkboxOpen] = useState(false);
 
   // --- NAVIGATION HANDLER (Sync with URL) ---
   const handleNavigate = useCallback((view: ViewMode) => {
@@ -125,6 +130,9 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
 
     updateProfile
   } = useTaskManager(user);
+
+  // --- WORKBOX CONTEXT ---
+  const { items: workboxItems, addItem: addToWorkbox, setIsDragging } = useWorkboxContext();
 
   // --- SUB-HOOKS ---
   const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
@@ -284,6 +292,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
                   onEdit={handleEditTask}
                   onAdd={() => handleAddTask('CONTENT')}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                  onAddToWorkbox={(task) => addToWorkbox({ title: task.title, content_id: task.id, type: 'CONTENT' })}
                 />
               );
             case 'CHECKLIST':
@@ -406,97 +415,119 @@ const AppRouter: React.FC<AppRouterProps> = ({ user }) => {
 
   return (
     <AppShell
-        currentUser={currentUserProfile}
-        currentView={currentView}
-        onNavigate={handleNavigate}
-        onLogout={handleForceLogout}
-        onEditProfile={() => setIsProfileModalOpen(true)}
-        onAddTask={handleAddTask}
-        chatUnreadCount={chatUnread}
-        systemUnreadCount={sysUnread}
-        isNotificationOpen={isNotificationOpen}
-        onToggleNotification={handleToggleNotification}
-    >
-        {/* --- GLOBAL SEARCH BUTTON (FLOATING) --- */}
-        <button 
-            onClick={() => setIsCommandPaletteOpen(true)}
-            className="fixed bottom-6 right-6 z-40 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
-        >
-            <Search className="w-6 h-6" />
-        </button>
+          currentUser={currentUserProfile}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          onLogout={handleForceLogout}
+          onEditProfile={() => setIsProfileModalOpen(true)}
+          onAddTask={handleAddTask}
+          chatUnreadCount={chatUnread}
+          systemUnreadCount={sysUnread}
+          isNotificationOpen={isNotificationOpen}
+          onToggleNotification={handleToggleNotification}
+      >
+          {/* --- GLOBAL SEARCH BUTTON (FLOATING) --- */}
+          <button 
+              onClick={() => setIsCommandPaletteOpen(true)}
+              className="fixed bottom-6 right-6 z-40 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
+          >
+              <Search className="w-6 h-6" />
+          </button>
+  
+          {renderContent()}
+  
+          {/* --- WORKBOX TRIGGER & PANEL --- */}
+          <WorkboxTrigger 
+              onClick={() => setIsWorkboxOpen(true)} 
+              itemCount={workboxItems.length} 
+              onDrop={(data) => addToWorkbox(data)}
+          />
+          <WorkboxPanel 
+              isOpen={isWorkboxOpen} 
+              onClose={() => setIsWorkboxOpen(false)} 
+              currentUser={currentUserProfile} 
+          />
+          
+          {/* --- SPECIAL LOCK MODAL --- */}
+          <NegligenceLockModal 
+              notification={lockNotification} 
+              onAcknowledge={handleAcknowledgeLock} 
+          />
+  
+          {/* --- GLOBAL MODALS --- */}
+          <Suspense fallback={null}>
+              {isCommandPaletteOpen && (
+                  <CommandPalette 
+                      isOpen={isCommandPaletteOpen}
+                      onClose={() => setIsCommandPaletteOpen(false)}
+                      onNavigate={handleNavigate}
+                      tasks={tasks}
+                      users={allUsers}
+                      onOpenTask={(task) => { handleEditTask(task); setIsCommandPaletteOpen(false); }}
+                      onOpenProfile={() => { setIsProfileModalOpen(true); setIsCommandPaletteOpen(false); }}
+                  />
+              )}
+  
+              {isModalOpen && (
+                  <TaskModal
+                      isOpen={isModalOpen}
+                      onClose={closeModal}
+                      onSave={(t) => handleSaveTask(t)}
+                      onUpdate={(t) => handleSaveTask(t)} 
+                      onDelete={handleDeleteTask}
+                      initialData={editingTask}
+                      selectedDate={selectedDate}
+                      channels={channels}
+                      users={allUsers}
+                      lockedType={lockedTaskType}
+                      masterOptions={masterOptions}
+                      currentUser={currentUserProfile}
+                      projects={tasks.filter(t => t.type === 'CONTENT')} 
+                  />
+              )}
+  
+              {isProfileModalOpen && (
+                  <ProfileEditModal 
+                      isOpen={isProfileModalOpen}
+                      onClose={() => setIsProfileModalOpen(false)}
+                      user={currentUserProfile}
+                      onSave={updateProfile}
+                  />
+              )}
+  
+              {isNotifSettingsOpen && (
+                  <NotificationSettingsModal 
+                      isOpen={isNotifSettingsOpen}
+                      onClose={() => setIsNotifSettingsOpen(false)}
+                      preferences={notificationSettings}
+                      onUpdate={updateNotificationSettings}
+                  />
+              )}
+          </Suspense>
+          
+          <NotificationPopover 
+              isOpen={isNotificationOpen}
+              onClose={handleCloseNotification} // Changed to new handler
+              notifications={notifications}
+              tasks={tasks}
+              onOpenTask={handleEditTask}
+              onOpenSettings={() => setIsNotifSettingsOpen(true)}
+              onDismiss={dismissNotification}
+              onMarkAllRead={markAllAsRead}
+              onNavigate={handleNavigate} 
+          />
+  
+      </AppShell>
+  );
+};
 
-        {renderContent()}
-        
-        {/* --- SPECIAL LOCK MODAL --- */}
-        <NegligenceLockModal 
-            notification={lockNotification} 
-            onAcknowledge={handleAcknowledgeLock} 
-        />
+const AppRouter: React.FC<{ user: any }> = ({ user }) => {
+  const { currentUserProfile } = useAuth(user);
 
-        {/* --- GLOBAL MODALS --- */}
-        <Suspense fallback={null}>
-            {isCommandPaletteOpen && (
-                <CommandPalette 
-                    isOpen={isCommandPaletteOpen}
-                    onClose={() => setIsCommandPaletteOpen(false)}
-                    onNavigate={handleNavigate}
-                    tasks={tasks}
-                    users={allUsers}
-                    onOpenTask={(task) => { handleEditTask(task); setIsCommandPaletteOpen(false); }}
-                    onOpenProfile={() => { setIsProfileModalOpen(true); setIsCommandPaletteOpen(false); }}
-                />
-            )}
-
-            {isModalOpen && (
-                <TaskModal
-                    isOpen={isModalOpen}
-                    onClose={closeModal}
-                    onSave={(t) => handleSaveTask(t)}
-                    onUpdate={(t) => handleSaveTask(t)} 
-                    onDelete={handleDeleteTask}
-                    initialData={editingTask}
-                    selectedDate={selectedDate}
-                    channels={channels}
-                    users={allUsers}
-                    lockedType={lockedTaskType}
-                    masterOptions={masterOptions}
-                    currentUser={currentUserProfile}
-                    projects={tasks.filter(t => t.type === 'CONTENT')} 
-                />
-            )}
-
-            {isProfileModalOpen && (
-                <ProfileEditModal 
-                    isOpen={isProfileModalOpen}
-                    onClose={() => setIsProfileModalOpen(false)}
-                    user={currentUserProfile}
-                    onSave={updateProfile}
-                />
-            )}
-
-            {isNotifSettingsOpen && (
-                <NotificationSettingsModal 
-                    isOpen={isNotifSettingsOpen}
-                    onClose={() => setIsNotifSettingsOpen(false)}
-                    preferences={notificationSettings}
-                    onUpdate={updateNotificationSettings}
-                />
-            )}
-        </Suspense>
-        
-        <NotificationPopover 
-            isOpen={isNotificationOpen}
-            onClose={handleCloseNotification} // Changed to new handler
-            notifications={notifications}
-            tasks={tasks}
-            onOpenTask={handleEditTask}
-            onOpenSettings={() => setIsNotifSettingsOpen(true)}
-            onDismiss={dismissNotification}
-            onMarkAllRead={markAllAsRead}
-            onNavigate={handleNavigate} 
-        />
-
-    </AppShell>
+  return (
+    <WorkboxProvider currentUser={currentUserProfile}>
+      <AppRouterInner user={user} />
+    </WorkboxProvider>
   );
 };
 

@@ -8,14 +8,14 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 // Default Data for seeding
 const DEFAULT_OPTIONS = [
     // --- CONTENT STATUS (เดิม) ---
-    { type: 'STATUS', key: 'TODO', label: 'To Do 📝', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
-    { type: 'STATUS', key: 'IDEA', label: 'Idea / Draft 💡', color: 'bg-yellow-50 text-yellow-600', sort_order: 2 },
-    { type: 'STATUS', key: 'SCRIPT', label: 'Scripting ✍️', color: 'bg-orange-50 text-orange-600', sort_order: 3 },
-    { type: 'STATUS', key: 'SHOOTING', label: 'Shooting 🎥', color: 'bg-purple-50 text-purple-600', sort_order: 4 },
-    { type: 'STATUS', key: 'EDIT_CLIP', label: 'Editing ✂️', color: 'bg-indigo-50 text-indigo-600', sort_order: 5 },
-    { type: 'STATUS', key: 'FEEDBACK', label: 'Review / Feedback 👀', color: 'bg-pink-50 text-pink-600', sort_order: 6 },
-    { type: 'STATUS', key: 'APPROVE', label: 'Approved 👍', color: 'bg-emerald-50 text-emerald-600', sort_order: 7 },
-    { type: 'STATUS', key: 'DONE', label: 'Done ✅', color: 'bg-green-100 text-green-700', sort_order: 8 },
+    { type: 'STATUS', key: 'TODO', label: 'To Do 📝', color: 'bg-gray-100 text-gray-600', sort_order: 1, progress_value: 0 },
+    { type: 'STATUS', key: 'IDEA', label: 'Idea / Draft 💡', color: 'bg-yellow-50 text-yellow-600', sort_order: 2, progress_value: 15 },
+    { type: 'STATUS', key: 'SCRIPT', label: 'Scripting ✍️', color: 'bg-orange-50 text-orange-600', sort_order: 3, progress_value: 30 },
+    { type: 'STATUS', key: 'SHOOTING', label: 'Shooting 🎥', color: 'bg-purple-50 text-purple-600', sort_order: 4, progress_value: 50 },
+    { type: 'STATUS', key: 'EDIT_CLIP', label: 'Editing ✂️', color: 'bg-indigo-50 text-indigo-600', sort_order: 5, progress_value: 70 },
+    { type: 'STATUS', key: 'FEEDBACK', label: 'Review / Feedback 👀', color: 'bg-pink-50 text-pink-600', sort_order: 6, progress_value: 85 },
+    { type: 'STATUS', key: 'APPROVE', label: 'Approved 👍', color: 'bg-emerald-50 text-emerald-600', sort_order: 7, progress_value: 95 },
+    { type: 'STATUS', key: 'DONE', label: 'Done ✅', color: 'bg-green-100 text-green-700', sort_order: 8, progress_value: 100 },
 
     // --- TASK STATUS (ใหม่! สำหรับงานทั่วไป) ---
     { type: 'TASK_STATUS', key: 'TODO', label: 'To Do (รอทำ) 📥', color: 'bg-gray-100 text-gray-600', sort_order: 1 },
@@ -108,7 +108,8 @@ export const useMasterData = () => {
                     isActive: item.is_active,
                     isDefault: item.is_default,
                     parentKey: item.parent_key,
-                    description: item.description // Map description
+                    description: item.description, // Map description
+                    progressValue: item.progress_value // Map progress_value
                 })));
             }
         } catch (err: any) {
@@ -140,7 +141,8 @@ export const useMasterData = () => {
                 is_active: option.isActive,
                 is_default: option.isDefault,
                 parent_key: option.parentKey || null,
-                description: option.description || null // Add description
+                description: option.description || null, // Add description
+                progress_value: option.progressValue || 0 // Add progress_value
             };
 
             const { data, error } = await supabase.from('master_options').insert(payload).select().single();
@@ -156,7 +158,8 @@ export const useMasterData = () => {
                 isActive: data.is_active,
                 isDefault: data.is_default,
                 parentKey: data.parent_key,
-                description: data.description
+                description: data.description,
+                progressValue: data.progress_value
             };
 
             setOptions(prev => [...prev, newOption]);
@@ -180,7 +183,8 @@ export const useMasterData = () => {
                 is_active: option.isActive,
                 is_default: option.isDefault,
                 parent_key: option.parentKey || null,
-                description: option.description || null // Add description
+                description: option.description || null, // Add description
+                progress_value: option.progressValue || 0 // Add progress_value
             };
 
             const { error } = await supabase.from('master_options').update(payload).eq('id', option.id);

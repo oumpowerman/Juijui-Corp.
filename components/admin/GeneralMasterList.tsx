@@ -30,6 +30,14 @@ const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, option
                                 <div className="flex items-center gap-4">
                                     <div className={`w-2 h-2 rounded-full ${option.isActive ? 'bg-green-500' : 'bg-gray-300'}`} />
                                     <div className={`px-3 py-1 rounded-md text-sm font-bold border border-transparent ${option.color}`}>{option.label}</div>
+                                    {option.type === 'STATUS' && option.progressValue !== undefined && (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                                                <div className="h-full bg-indigo-500" style={{ width: `${option.progressValue}%` }} />
+                                            </div>
+                                            <span className="text-[10px] font-black text-indigo-600">{option.progressValue}%</span>
+                                        </div>
+                                    )}
                                     <span className="text-xs text-gray-400 font-mono hidden md:block">{option.key}</span>
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -141,6 +141,7 @@ export interface MasterOption {
     isDefault?: boolean;
     parentKey?: string;
     description?: string; // Added description field
+    progressValue?: number;
 }
 
 export interface TaskComment {

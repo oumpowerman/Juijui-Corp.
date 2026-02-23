@@ -387,6 +387,26 @@ export interface AnnualHoliday {
     isActive: boolean;
 }
 
+// --- WORKBOX ---
+export interface WorkboxItem {
+    id: string;
+    user_id: string;
+    content_id?: string; // Reference to ContentStock if applicable
+    title: string;
+    description?: string;
+    type: 'CONTENT' | 'CHECKLIST';
+    is_completed: boolean;
+    order_index: number;
+    created_at: string;
+    // New fields for details
+    progress?: number; 
+    notes?: string;
+    meta?: {
+        assignees?: { userId: string; name: string; progress: number }[];
+        [key: string]: any;
+    };
+}
+
 export interface Greeting {
     id: string;
     text: string;

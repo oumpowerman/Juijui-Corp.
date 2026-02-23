@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban, Eye, LayoutList, AlignLeft, Circle, Package, Sparkles, Smartphone, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban, Eye, LayoutList, AlignLeft, Circle, Package, Sparkles, Smartphone, RotateCcw, Inbox } from 'lucide-react';
 import { Channel, ChipConfig, TaskType } from '../types';
 import { COLOR_THEMES } from '../constants';
 import NotificationBellBtn from './NotificationBellBtn';
@@ -44,6 +44,8 @@ interface CalendarHeaderProps {
     
     isStockOpen: boolean;
     onToggleStock: () => void;
+    onToggleWorkbox?: () => void;
+    isWorkboxOpen?: boolean;
 
     // Mobile Landscape
     isMobileLandscape: boolean;
@@ -68,6 +70,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     unreadCount = 0,
     taskDisplayMode, setTaskDisplayMode,
     isStockOpen, onToggleStock,
+    onToggleWorkbox,
+    isWorkboxOpen,
     isMobileLandscape, onToggleMobileLandscape
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
@@ -241,6 +245,22 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                             unreadCount={unreadCount}
                             className="hidden md:flex"
                         />
+
+                        {/* Workbox Toggle */}
+                        {onToggleWorkbox && (
+                            <button 
+                                onClick={onToggleWorkbox}
+                                className={`
+                                    p-2.5 rounded-xl border transition-all duration-300 shadow-sm active:scale-95 group
+                                    ${isWorkboxOpen 
+                                        ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white border-transparent shadow-lg shadow-indigo-200 ring-2 ring-indigo-100 ring-offset-1' 
+                                        : 'bg-white text-slate-400 border-slate-200 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50'}
+                                `}
+                                title="เปิด WorkBox"
+                            >
+                                <Inbox className={`w-4 h-4 ${isWorkboxOpen ? 'animate-bounce-slow' : 'group-hover:scale-110 transition-transform'}`} />
+                            </button>
+                        )}
 
                         {/* Stock Panel Toggle */}
                         <button 

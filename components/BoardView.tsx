@@ -48,6 +48,17 @@ const BoardView: React.FC<BoardViewProps> = ({
         setDraggedTaskId(taskId);
         e.dataTransfer.setData('taskId', taskId);
         e.dataTransfer.effectAllowed = 'move';
+
+        // Set JSON data for Workbox
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            const dragData = {
+                title: task.title,
+                type: task.type, // 'CONTENT' or 'TASK'
+                content_id: task.id
+            };
+            e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+        }
     };
 
     const handleDragOver = (e: React.DragEvent) => {

@@ -394,7 +394,7 @@ export interface WorkboxItem {
     content_id?: string; // Reference to ContentStock if applicable
     title: string;
     description?: string;
-    type: 'CONTENT' | 'CHECKLIST';
+    type: 'CONTENT' | 'CHECKLIST' | 'TASK';
     is_completed: boolean;
     order_index: number;
     created_at: string;

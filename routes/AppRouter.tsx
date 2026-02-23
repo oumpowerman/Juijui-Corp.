@@ -255,6 +255,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   onUpdateStatus={(t, s) => handleSaveTask({ ...t, status: s })}
                   onRangeChange={checkAndExpandRange}
                   isFetching={isTaskFetching}
+                  onToggleWorkbox={() => setIsWorkboxOpen(!isWorkboxOpen)}
+                  isWorkboxOpen={isWorkboxOpen}
                 />
               );
             case 'TEAM':

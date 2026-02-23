@@ -144,7 +144,18 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
         e.dataTransfer.setData("taskId", taskId);
         e.dataTransfer.effectAllowed = "move";
-    }, []);
+
+        // Set JSON data for Workbox
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            const dragData = {
+                title: task.title,
+                type: task.type, // 'CONTENT' or 'TASK'
+                content_id: task.id
+            };
+            e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+        }
+    }, [tasks]);
 
     const handleDragOver = useCallback((e: React.DragEvent, day: Date) => {
         e.preventDefault(); 

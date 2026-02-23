@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from  'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, 
     Trash2, 
@@ -15,7 +15,8 @@ import {
     BarChart3,
     Users2,
     Save,
-    ArrowLeft
+    ArrowLeft,
+    CheckSquare
 } from 'lucide-react';
 import { WorkboxItem } from '../../types/features';
 import { User } from '../../types/core';
@@ -107,7 +108,13 @@ const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUse
                                     {/* Item Title Card */}
                                     <div className="p-5 bg-indigo-600 rounded-[2rem] text-white shadow-xl shadow-indigo-100">
                                         <div className="flex items-center gap-2 mb-2 opacity-80">
-                                            {selectedItem.type === 'CONTENT' ? <Package className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
+                                            {selectedItem.type === 'CONTENT' ? (
+                                                <Package className="w-4 h-4" />
+                                            ) : selectedItem.type === 'TASK' ? (
+                                                <CheckSquare className="w-4 h-4" />
+                                            ) : (
+                                                <ClipboardList className="w-4 h-4" />
+                                            )}
                                             <span className="text-[10px] font-black uppercase tracking-widest">{selectedItem.type}</span>
                                         </div>
                                         <h3 className="text-lg font-black leading-tight">{selectedItem.title}</h3>
@@ -276,6 +283,8 @@ const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUse
                                                         <div className="flex items-center gap-2 mb-0.5">
                                                             {item.type === 'CONTENT' ? (
                                                                 <Package className="w-3 h-3 text-indigo-400" />
+                                                            ) : item.type === 'TASK' ? (
+                                                                <CheckSquare className="w-3 h-3 text-emerald-400" />
                                                             ) : (
                                                                 <ClipboardList className="w-3 h-3 text-amber-400" />
                                                             )}

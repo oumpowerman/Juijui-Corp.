@@ -32,6 +32,8 @@ interface CalendarViewProps {
   onUpdateStatus: (task: Task, newStatus: Status) => void;
   onRangeChange?: (targetDate: Date) => void; 
   isFetching?: boolean; 
+  onToggleWorkbox?: () => void;
+  isWorkboxOpen?: boolean;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
@@ -49,7 +51,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onAddTask,
     onUpdateStatus,
     onRangeChange,
-    isFetching = false
+    isFetching = false,
+    onToggleWorkbox,
+    isWorkboxOpen
 }) => {
   const {
       currentDate,
@@ -184,6 +188,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onToggleStock={() => setIsStockOpen(!isStockOpen)}
             isMobileLandscape={isMobileLandscape}
             onToggleMobileLandscape={() => setIsMobileLandscape(!isMobileLandscape)}
+            onToggleWorkbox={onToggleWorkbox}
+            isWorkboxOpen={isWorkboxOpen}
          />
       </div>
 

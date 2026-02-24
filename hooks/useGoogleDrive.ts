@@ -24,6 +24,7 @@ export const useGoogleDrive = () => {
     const [isReady, setIsReady] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [tokenClient, setTokenClient] = useState<any>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const { showToast } = useToast();
 
     // Refs to store state between token callback
@@ -90,13 +91,22 @@ export const useGoogleDrive = () => {
             return;
         }
         
-        const accessToken = response.access_token;
+        const token = response.access_token;
+        setAccessToken(token);
+        showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
 
         if (pendingAction.current === 'PICK') {
-            createPicker(accessToken, pendingCallback.current);
+            createPicker(token, pendingCallback.current);
+            pendingAction.current = null;
         } else if (pendingAction.current === 'UPLOAD' && pendingFile.current) {
-            performUpload(accessToken, pendingFile.current, pendingCallback.current, pendingFolderPath.current);
+            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current);
+            pendingAction.current = null;
         }
+    };
+
+    const login = () => {
+        if (!tokenClient) return;
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
     };
 
     // --- HELPER: Find or Create Folder (Recursive-ready) ---
@@ -149,6 +159,12 @@ export const useGoogleDrive = () => {
             showToast('Google Drive API ยังไม่พร้อม', 'error');
             return;
         }
+
+        if (accessToken) {
+            createPicker(accessToken, onSelect);
+            return;
+        }
+
         pendingAction.current = 'PICK';
         pendingCallback.current = onSelect;
         tokenClient.requestAccessToken({ prompt: '' });
@@ -189,6 +205,13 @@ export const useGoogleDrive = () => {
             showToast('Google Drive API ยังไม่พร้อม', 'error');
             return;
         }
+
+        if (accessToken) {
+            setIsUploading(true);
+            performUpload(accessToken, file, onComplete, folderPath);
+            return;
+        }
+
         pendingAction.current = 'UPLOAD';
         pendingFile.current = file;
         pendingCallback.current = onComplete;
@@ -288,7 +311,9 @@ export const useGoogleDrive = () => {
     return {
         openDrivePicker,
         uploadFileToDrive,
+        login,
         isReady,
-        isUploading
+        isUploading,
+        isAuthenticated: !!accessToken
     };
 };

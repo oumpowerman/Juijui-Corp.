@@ -29,7 +29,7 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
     const driveUploadInputRef = useRef<HTMLInputElement>(null);
     
     // Google Drive Hook
-    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { openDrivePicker, uploadFileToDrive, login, isReady: isDriveReady, isUploading, isAuthenticated } = useGoogleDrive();
 
     // --- Actions ---
 
@@ -141,10 +141,24 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                 </h3>
 
                 {/* Drive Status Indicator */}
-                {!isDriveReady && (
+                {!isDriveReady ? (
                     <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold border border-orange-100 animate-pulse">
                         <CloudOff className="w-3 h-3" />
-                        <span>Drive Disconnected</span>
+                        <span>Drive API Loading...</span>
+                    </div>
+                ) : !isAuthenticated ? (
+                    <button 
+                        type="button"
+                        onClick={login}
+                        className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 hover:bg-blue-100 transition-all"
+                    >
+                        <Cloud className="w-3 h-3" />
+                        <span>Connect Drive</span>
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">
+                        <Check className="w-3 h-3" />
+                        <span>Drive Connected</span>
                     </div>
                 )}
             </div>

@@ -24,7 +24,6 @@ interface StatusCardProps {
     todayActiveLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
     onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; 
-    onManualCheckIn: (time: Date, reason: string, file?: File) => Promise<boolean>;
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
@@ -37,7 +36,7 @@ interface StatusCardProps {
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onManualCheckIn, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory,
+    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory,
     startTime, lateBuffer
 }) => {
     const { actionRequiredLog } = useAttendance(user.id);
@@ -350,7 +349,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         startTime={startTime}
                         lateBuffer={lateBuffer}
                         isCheckedIn={!!todayLog}
-                        onManualCheckIn={onManualCheckIn}
+                        onSubmit={onCheckOutRequest}
                         leaveUsage={leaveUsage}
                     />
                 </div>

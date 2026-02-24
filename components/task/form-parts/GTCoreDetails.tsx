@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Flag, Activity, FileText, ChevronDown, Check, Zap, Coffee, Leaf, Flame } from 'lucide-react';
-import { Priority, MasterOption } from '../../../types';
+import { Priority, MasterOption, User } from '../../../types';
 
 interface GTCoreDetailsProps {
     description: string;
@@ -11,6 +11,7 @@ interface GTCoreDetailsProps {
     status: string;
     setStatus: (val: string) => void;
     taskStatusOptions: MasterOption[];
+    currentUser?: User;
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string, color: string, icon: any, ring: string }> = {
@@ -21,7 +22,7 @@ const PRIORITY_CONFIG: Record<string, { label: string, color: string, icon: any,
 };
 
 const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({ 
-    description, setDescription, priority, setPriority, status, setStatus, taskStatusOptions 
+    description, setDescription, priority, setPriority, status, setStatus, taskStatusOptions, currentUser 
 }) => {
     
     const [isPriorityOpen, setIsPriorityOpen] = useState(false);
@@ -77,19 +78,18 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                  
                 {/* 1. Priority Custom Dropdown */}
                 <div className="relative z-30" ref={priorityRef}>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">ความเร่งด่วน</label>
+                    <label className="block text-[13px] font-black text-slate-600 uppercase mb-2 ml-1 tracking-tight">ความเร่งด่วน</label>
                     <button
                         type="button"
                         onClick={() => setIsPriorityOpen(!isPriorityOpen)}
-                        className={`w-full flex items-center justify-between p-2 pl-3 rounded-2xl border-2 transition-all duration-300 active:scale-95 group ${isPriorityOpen ? `border-transparent ring-4 ${currentPrio.ring}` : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                        className={`w-full flex items-center justify-between p-2.5 pl-3 rounded-2xl border-2 transition-all duration-300 active:scale-95 group ${isPriorityOpen ? `border-transparent ring-4 ${currentPrio.ring}` : 'border-gray-100 hover:border-gray-200 bg-white'}`}
                     >
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${currentPrio.color}`}>
-                                <PrioIcon className="w-5 h-5" />
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${currentPrio.color}`}>
+                                <PrioIcon className="w-6 h-6" />
                             </div>
                             <div className="text-left">
-                                <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Priority</span>
-                                <span className={`font-black text-sm ${currentPrio.color.split(' ')[1]}`}>{currentPrio.label.split('(')[0]}</span>
+                                <span className={`font-black text-base ${currentPrio.color.split(' ')[1]}`}>{currentPrio.label.split('(')[0]}</span>
                             </div>
                         </div>
                         <div className="pr-3 text-gray-300 group-hover:text-gray-500 transition-colors">
@@ -126,26 +126,25 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
 
                 {/* 2. Status Custom Dropdown */}
                 <div className="relative z-20" ref={statusRef}>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">สถานะงาน</label>
+                    <label className="block text-[13px] font-black text-slate-600 uppercase mb-2 ml-1 tracking-tight">สถานะงาน</label>
                     <button
                         type="button"
                         onClick={() => setIsStatusOpen(!isStatusOpen)}
-                        className={`w-full flex items-center justify-between p-2 pl-3 rounded-2xl border-2 transition-all duration-300 active:scale-95 group ${isStatusOpen ? 'border-indigo-200 ring-4 ring-indigo-50 bg-indigo-50/30' : 'border-gray-100 hover:border-indigo-100 bg-white'}`}
+                        className={`w-full flex items-center justify-between p-2 pl-3 rounded-2xl border-2 transition-all duration-300 active:scale-95 group shadow-sm ${isStatusOpen ? 'border-indigo-400 ring-4 ring-indigo-50 bg-white' : 'border-indigo-100 hover:border-indigo-300 bg-indigo-50/30'}`}
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100">
-                                <Activity className="w-5 h-5" />
+                            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-white text-indigo-600 shadow-md border border-indigo-50 group-hover:animate-wiggle transition-transform">
+                                <Activity className="w-6 h-6" />
                             </div>
                             <div className="text-left overflow-hidden">
-                                <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Status</span>
                                 <div className="flex items-center gap-2">
                                      {/* Status Dot */}
-                                     <div className={`w-2 h-2 rounded-full ${statusColorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
-                                     <span className="font-bold text-sm text-slate-700 truncate">{currentStatusOpt?.label || status}</span>
+                                     <div className={`w-3 h-3 rounded-full shadow-inner animate-pulse ${statusColorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
+                                     <span className="font-black text-base text-slate-900 truncate tracking-tight">{currentStatusOpt?.label || status}</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="pr-3 text-gray-300 group-hover:text-indigo-400 transition-colors">
+                        <div className="pr-3 text-indigo-300 group-hover:text-indigo-500 transition-colors">
                             <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isStatusOpen ? 'rotate-180' : ''}`} />
                         </div>
                     </button>
@@ -160,14 +159,14 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                                         key={opt.key}
                                         type="button"
                                         onClick={() => { setStatus(opt.key); setIsStatusOpen(false); }}
-                                        className={`w-full flex items-center justify-between p-2.5 rounded-xl mb-1 transition-all ${isSelected ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-100' : 'hover:bg-gray-50 text-gray-600'}`}
+                                        className={`w-full flex items-center justify-between p-3 rounded-xl mb-1 transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'hover:bg-gray-50 text-gray-600'}`}
                                     >
                                         <div className="flex items-center gap-3">
                                             {/* Color Pill */}
-                                            <div className={`w-3 h-8 rounded-full ${opt.color.split(' ')[0].replace('bg-', 'bg-')}`}></div>
-                                            <span className="text-sm font-bold">{opt.label}</span>
+                                            <div className={`w-3 h-8 rounded-full ${isSelected ? 'bg-white/40' : opt.color.split(' ')[0].replace('bg-', 'bg-')}`}></div>
+                                            <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-slate-700'}`}>{opt.label}</span>
                                         </div>
-                                        {isSelected && <Check className="w-4 h-4 text-indigo-600" />}
+                                        {isSelected && <Check className="w-5 h-5 text-white" />}
                                     </button>
                                 );
                             })}

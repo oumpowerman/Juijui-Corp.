@@ -21,7 +21,7 @@ interface AttendanceWidgetProps {
 
 const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
     // Hooks
-    const { todayLog, outdatedLog, isLoading, checkIn, manualCheckIn, checkOut, refresh, stats } = useAttendance(user.id);
+    const { todayLog, outdatedLog, isLoading, checkIn, checkOut, refresh, stats } = useAttendance(user.id);
     const { masterOptions } = useMasterData(); 
     const { submitRequest, leaveUsage, requests } = useLeaveRequests(user);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
@@ -122,24 +122,6 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
 
         await checkIn(type, file, location, locationName, note, googleDriveUploader, isAppeal);
     };
-
-    const handleManualCheckIn = async (time: Date, reason: string, file?: File): Promise<boolean> => {
-        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
-            const currentMonthFolder = format(new Date(), 'yyyy-MM');
-            return new Promise((resolve) => {
-                uploadFileToDrive(
-                    fileToUpload, 
-                    (result) => {
-                        const finalUrl = result.thumbnailUrl || result.url;
-                        resolve(finalUrl);
-                    },
-                    ['Attendance_Manual', currentMonthFolder]
-                );
-            });
-        } : undefined;
-
-        return await manualCheckIn(time, reason, file, googleDriveUploader);
-    };
     
     const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File): Promise<boolean> => {
         const result = await submitRequest(type, start, end, reason, file);
@@ -167,7 +149,6 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
                     todayActiveLeave={todayActiveLeave} // RENAMED: Covers Pending & Approved for TODAY
                     onCheckOut={checkOut}
                     onCheckOutRequest={handleLeaveSubmit}
-                    onManualCheckIn={handleManualCheckIn} // NEW PROP
                     onOpenCheckIn={() => setIsCheckInModalOpen(true)}
                     onOpenLeave={() => setIsLeaveModalOpen(true)}
                     isDriveReady={isDriveReady}

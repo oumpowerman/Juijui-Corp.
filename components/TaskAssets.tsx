@@ -29,9 +29,24 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
     const driveUploadInputRef = useRef<HTMLInputElement>(null);
     
     // Google Drive Hook
-    const { uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
 
     // --- Actions ---
+
+    const handleDriveSelect = () => {
+        openDrivePicker((file) => {
+            const newAsset: TaskAsset = {
+                id: crypto.randomUUID(),
+                name: file.name,
+                url: file.url,
+                type: 'LINK', 
+                category: 'OTHER', 
+                createdAt: new Date()
+            };
+            onAdd(newAsset);
+            resetForm();
+        });
+    };
 
     const handleAddLink = () => {
         if (!name.trim() || !url.trim()) return;
@@ -276,26 +291,34 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                     )}
 
                     {inputType === 'DRIVE' && (
-                        <div className="text-center py-8 bg-blue-50/50 rounded-2xl border-2 border-dashed border-blue-100">
-                            {isDriveReady ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <button 
                                     type="button"
                                     onClick={() => driveUploadInputRef.current?.click()}
-                                    className="group flex flex-col items-center gap-3 transition-all active:scale-95"
+                                    className="flex flex-col items-center justify-center gap-2 p-4 bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl hover:bg-blue-100 transition-all group"
                                 >
-                                    <div className="p-4 bg-white rounded-full shadow-md group-hover:scale-110 transition-transform">
-                                        <Cloud className="w-8 h-8 text-blue-500" />
+                                    <div className="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                                        <Plus className="w-6 h-6 text-blue-500" />
                                     </div>
-                                    <span className="text-sm font-bold text-blue-600">คลิกเพื่อเลือกไฟล์จากเครื่อง</span>
-                                    <span className="text-xs text-blue-400">อัปโหลดขึ้น Google Drive อัตโนมัติ</span>
+                                    <span className="text-xs font-bold text-blue-700">อัปโหลดไฟล์ใหม่</span>
                                 </button>
-                            ) : (
-                                <div className="flex flex-col items-center text-orange-500">
-                                    <span className="text-3xl mb-2">😴</span>
-                                    <p className="font-bold text-sm">Google Drive is sleeping...</p>
-                                    <p className="text-xs opacity-80 mt-1">ยังเชื่อมต่อไม่ได้ ลองใหม่ภายหลังนะ</p>
-                                </div>
-                            )}
+
+                                <button 
+                                    type="button"
+                                    onClick={handleDriveSelect}
+                                    className="flex flex-col items-center justify-center gap-2 p-4 bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl hover:bg-indigo-100 transition-all group"
+                                >
+                                    <div className="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                                        <FolderOpen className="w-6 h-6 text-indigo-500" />
+                                    </div>
+                                    <span className="text-xs font-bold text-indigo-700">เลือกจาก Drive</span>
+                                </button>
+                            </div>
+
+                            <div className="text-center">
+                                <p className="text-[10px] text-gray-400 font-medium">ไฟล์จะถูกเก็บไว้ใน Google Drive ของทีมโดยอัตโนมัติ</p>
+                            </div>
                         </div>
                     )}
                 </div>

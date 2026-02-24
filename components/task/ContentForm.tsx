@@ -113,8 +113,8 @@ const ContentForm: React.FC<ContentFormProps> = ({
             const newScriptId = await createScript({
                 title: title || 'Untitled Script',
                 contentId: initialData.id,
-                channelId: channelId || null,
-                category: category || null
+                channelId: channelId || undefined,
+                category: category || undefined
             });
             if (newScriptId) {
                 // Refresh link
@@ -345,7 +345,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     }
                 }}
                 onSave={updateScript}
-                onGenerateAI={generateScriptWithAI}
+                onGenerateAI={async (prompt, type) => {
+                    const result = await generateScriptWithAI(prompt, type);
+                    return result ?? null;
+                }}
                 onPromote={() => {}} // Pass handler
             />
         );

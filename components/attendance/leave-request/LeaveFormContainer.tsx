@@ -33,7 +33,7 @@ const LeaveFormContainer: React.FC<Props> = ({
         reason, setReason, file, setFile, 
         targetTime, setTargetTime, otHours, setOtHours, 
         isSubmitting, handleSubmit 
-    } = useLeaveFormLogic({ onSubmit, onClose, initialDate, initialReason }); // Pass initialReason
+    } = useLeaveFormLogic({ onSubmit, onClose, initialDate, initialReason, selectedType }); // Pass initialReason and selectedType
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const theme = LEAVE_THEMES[selectedType] || LEAVE_THEMES['DEFAULT'];

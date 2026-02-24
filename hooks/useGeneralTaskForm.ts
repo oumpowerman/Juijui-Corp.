@@ -43,6 +43,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     const [assets, setAssets] = useState<TaskAsset[]>([]);
 
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const taskStatusOptions = masterOptions.filter(o => o.type === 'TASK_STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
@@ -103,7 +104,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     }, [initialData, selectedDate, masterOptions]);
 
     // --- Handlers ---
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (!title.trim()) {
@@ -115,54 +116,62 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             return;
         }
 
-        // Fix Timezone Issue: Explicitly parse as Local Midnight
-        const [sy, sm, sd] = startDate.split('-').map(Number);
-        const startObj = new Date(sy, sm - 1, sd);
-        
-        const [ey, em, ed] = endDate.split('-').map(Number);
-        const endObj = new Date(ey, em - 1, ed);
+        setIsSaving(true);
+        try {
+            // Fix Timezone Issue: Explicitly parse as Local Midnight
+            const [sy, sm, sd] = startDate.split('-').map(Number);
+            const startObj = new Date(sy, sm - 1, sd);
+            
+            const [ey, em, ed] = endDate.split('-').map(Number);
+            const endObj = new Date(ey, em - 1, ed);
 
-        const newTask: Task = {
-            id: initialData ? initialData.id : crypto.randomUUID(),
-            type: 'TASK',
-            title,
-            description,
-            status: status as Status, 
-            priority,
-            tags: initialData?.tags || [], // Preserve Tags
-            
-            // Dates
-            startDate: startObj,
-            endDate: endObj,
-            isUnscheduled: false,
+            const newTask: Task = {
+                id: initialData ? initialData.id : crypto.randomUUID(),
+                type: 'TASK',
+                title,
+                description,
+                status: status as Status, 
+                priority,
+                tags: initialData?.tags || [], // Preserve Tags
+                
+                // Dates
+                startDate: startObj,
+                endDate: endObj,
+                isUnscheduled: false,
 
-            // People & Type
-            assigneeType,
-            assigneeIds,
-            targetPosition: assigneeType === 'INDIVIDUAL' ? targetPosition : undefined,
-            
-            // Details
-            caution,
-            importance,
-            
-            // Context / Parent Link (CRITICAL FIX)
-            contentId: contentId,
-            showOnBoard: showOnBoard,
-            
-            // Script Link
-            scriptId: scriptId,
+                // People & Type
+                assigneeType,
+                assigneeIds,
+                targetPosition: assigneeType === 'INDIVIDUAL' ? targetPosition : undefined,
+                
+                // Details
+                caution,
+                importance,
+                
+                // Context / Parent Link (CRITICAL FIX)
+                contentId: contentId,
+                showOnBoard: showOnBoard,
+                
+                // Script Link
+                scriptId: scriptId,
 
-            // Gamification & Assets
-            difficulty,
-            estimatedHours,
-            assets,
-            
-            // Empty Content Fields
-            reviews: initialData?.reviews || [],
-            logs: []
-        };
+                // Gamification & Assets
+                difficulty,
+                estimatedHours,
+                assets,
+                
+                // Empty Content Fields
+                reviews: initialData?.reviews || [],
+                logs: []
+            };
 
-        onSave(newTask);
+            await onSave(newTask);
+        } catch (err) {
+            console.error(err);
+            setError('เกิดข้อผิดพลาดในการบันทึก');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const toggleUserSelection = (userId: string) => {
@@ -202,6 +211,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         assets, addAsset, removeAsset,
         
         error,
+        isSaving,
         taskStatusOptions,
         handleSubmit,
         toggleUserSelection

@@ -7,10 +7,11 @@ interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
     onClose: () => void;
     initialDate?: Date;
-    initialReason?: string; // Add Prop
+    initialReason?: string;
+    selectedType?: string;
 }
 
-export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReason }: UseLeaveFormLogicProps) => {
+export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReason, selectedType }: UseLeaveFormLogicProps) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
@@ -25,9 +26,18 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         setEndDate(d);
         setReason(initialReason || ''); // Reset with initialReason
         setFile(null);
-        setTargetTime('18:00');
+        
+        // Set sensible defaults based on type
+        if (selectedType === 'FORGOT_CHECKOUT') {
+            setTargetTime('18:00');
+        } else if (selectedType === 'FORGOT_CHECKIN' || selectedType === 'LATE_ENTRY') {
+            setTargetTime('09:00');
+        } else {
+            setTargetTime('09:00');
+        }
+        
         setOtHours(2);
-    }, [initialDate, initialReason]);
+    }, [initialDate, initialReason, selectedType]);
 
     const handleSubmit = async (selectedType: string) => {
         if (!selectedType) return;
@@ -39,21 +49,27 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
 
         setIsSubmitting(true);
 
+        let finalStartDate = new Date(startDate);
+        let finalEndDate = new Date(endDate);
         let finalReason = reason;
-        let finalEndDate = endDate;
 
         if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+            // Combine date and time correctly to avoid midnight issue
+            const [year, month, day] = startDate.split('-').map(Number);
+            const [hours, minutes] = targetTime.split(':').map(Number);
+            finalStartDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+            
             finalReason = `[TIME:${targetTime}] ${reason}`;
-            finalEndDate = startDate; 
+            finalEndDate = finalStartDate; 
         } else if (selectedType === 'OVERTIME') {
             finalReason = `[OT:${otHours}hr] ${reason}`;
-            finalEndDate = startDate;
+            finalEndDate = finalStartDate;
         }
 
         const success = await onSubmit(
             selectedType as LeaveType,
-            new Date(startDate),
-            new Date(finalEndDate),
+            finalStartDate,
+            finalEndDate,
             finalReason,
             file || undefined
         );

@@ -2,17 +2,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { format, isSameDay } from 'date-fns';
-import startOfMonth from 'date-fns/startOfMonth';
-import endOfMonth from 'date-fns/endOfMonth';
-import th from 'date-fns/locale/th';
-import { 
-    Users, Clock, AlertTriangle, Calendar, Download, 
-    ChevronLeft, ChevronRight, Search, BarChart3, HeartPulse 
-} from 'lucide-react';
+import { format } from 'date-fns';
+import { Download } from 'lucide-react';
 import { AttendanceLog } from '../../types/attendance';
 import { checkIsLate } from '../../lib/attendanceUtils';
 import { useGameConfig } from '../../context/GameConfigContext';
+import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
+import { useCalendarExceptions } from '../../hooks/useCalendarExceptions';
+import { eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
+
+// Import Separated Components
+import DashboardHeader from './dashboard/DashboardHeader';
+import DashboardStats from './dashboard/DashboardStats';
+import DashboardTable from './dashboard/DashboardTable';
+import DashboardUserDetailModal from './dashboard/DashboardUserDetailModal';
 
 interface AdminAttendanceDashboardProps {
     users: User[];
@@ -23,6 +26,7 @@ interface UserStat {
     present: number;
     late: number;
     leaves: number;
+    absent: number;
     totalHours: number;
     avgCheckIn: string;
     logs: AttendanceLog[];
@@ -34,11 +38,39 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
+    // Modal State
+    const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
+    
     // Config State
     const [startTime, setStartTime] = useState('10:00');
     const [lateBuffer, setLateBuffer] = useState(0);
 
     const { config } = useGameConfig(); // Hook for dynamic grading
+    const { annualHolidays } = useAnnualHolidays();
+    const { exceptions } = useCalendarExceptions();
+
+    // Helper: Get Effective Status for a Day
+    const getEffectiveDayStatus = (date: Date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const exception = exceptions.find(e => e.date === dateStr);
+        if (exception) return { status: exception.type, source: 'EXCEPTION' };
+        const holiday = annualHolidays.find(h => h.day === date.getDate() && h.month === date.getMonth() + 1 && h.isActive);
+        if (holiday) return { status: 'HOLIDAY' as const, source: 'ANNUAL' };
+        if (isWeekend(date)) return { status: 'HOLIDAY' as const, source: 'WEEKEND' };
+        return { status: 'WORK_DAY' as const, source: 'DEFAULT' };
+    };
+
+    // Calculate Working Days in current month
+    const monthDays = useMemo(() => {
+        return eachDayOfInterval({
+            start: startOfMonth(currentMonth),
+            end: endOfMonth(currentMonth)
+        });
+    }, [currentMonth]);
+
+    const workingDaysInMonth = useMemo(() => {
+        return monthDays.filter(day => getEffectiveDayStatus(day).status === 'WORK_DAY');
+    }, [monthDays, annualHolidays, exceptions]);
 
     // Load Config
     useEffect(() => {
@@ -95,6 +127,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     // Calculate Stats per User
     const userStats = useMemo(() => {
         const statsMap: Record<string, UserStat> = {};
+        const today = new Date();
 
         // Initialize for all active users
         users.filter(u => u.isActive).forEach(u => {
@@ -103,6 +136,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 present: 0,
                 late: 0,
                 leaves: 0,
+                absent: 0,
                 totalHours: 0,
                 avgCheckIn: '-',
                 logs: []
@@ -118,16 +152,14 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
                     stat.leaves++;
                 } else {
-                    stat.present++; // Only count working days as present
+                    stat.present++;
 
-                    // Dynamic Late Check
                     if (log.checkInTime) {
                         if (checkIsLate(log.checkInTime, startTime, lateBuffer)) {
                             stat.late++;
                         }
                     }
 
-                    // Hours Check
                     if (log.checkInTime && log.checkOutTime) {
                         const diffMs = log.checkOutTime.getTime() - log.checkInTime.getTime();
                         stat.totalHours += diffMs / (1000 * 60 * 60);
@@ -136,8 +168,24 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
             }
         });
 
+        // Calculate Absents
+        Object.values(statsMap).forEach(stat => {
+            workingDaysInMonth.forEach(day => {
+                // Only count past days or today if it's already late
+                if (day > today) return;
+                
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const hasLog = stat.logs.some(l => l.date === dateStr);
+                const isLeave = stat.logs.some(l => l.date === dateStr && (l.status === 'LEAVE' || l.workType === 'LEAVE'));
+                
+                if (!hasLog && !isLeave) {
+                    stat.absent++;
+                }
+            });
+        });
+
         return Object.values(statsMap);
-    }, [users, logs, startTime, lateBuffer]);
+    }, [users, logs, startTime, lateBuffer, workingDaysInMonth]);
 
     // Filtering
     const filteredStats = userStats.filter(stat => {
@@ -149,6 +197,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const totalCheckins = logs.filter(l => l.status !== 'LEAVE').length;
     const totalLeaves = logs.filter(l => l.status === 'LEAVE').length;
     const totalLates = userStats.reduce((sum, s) => sum + s.late, 0);
+    const totalAbsents = userStats.reduce((sum, s) => sum + s.absent, 0);
     const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;
 
     const getGrade = (stat: UserStat) => {
@@ -211,129 +260,40 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             
-            {/* Header Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl">
-                    <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"><ChevronLeft className="w-5 h-5"/></button>
-                    <div className="px-4 font-bold text-gray-700 min-w-[140px] text-center capitalize">
-                        {format(currentMonth, 'MMMM yyyy')}
-                    </div>
-                    <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"><ChevronRight className="w-5 h-5"/></button>
-                </div>
+            <DashboardHeader 
+                currentMonth={currentMonth}
+                setCurrentMonth={setCurrentMonth}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+            />
 
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="text" 
-                        placeholder="ค้นหาพนักงาน..." 
-                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 text-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
+            <DashboardStats 
+                totalCheckins={totalCheckins}
+                totalLates={totalLates}
+                lateRate={lateRate}
+                totalAbsents={totalAbsents}
+                totalLeaves={totalLeaves}
+                activeUsersCount={users.filter(u => u.isActive).length}
+            />
 
-            {/* Overview Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Total Check-ins</p>
-                        <h3 className="text-3xl font-black text-indigo-900">{totalCheckins}</h3>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl text-indigo-500 shadow-sm"><Users className="w-6 h-6"/></div>
-                </div>
-                <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-orange-400 uppercase">Late Arrivals</p>
-                        <h3 className="text-3xl font-black text-orange-900">{totalLates} <span className="text-xs text-orange-400 font-bold">({lateRate}%)</span></h3>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl text-orange-500 shadow-sm"><Clock className="w-6 h-6"/></div>
-                </div>
-                <div className="bg-pink-50 p-5 rounded-2xl border border-pink-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-pink-400 uppercase">Total Leaves</p>
-                        <h3 className="text-3xl font-black text-pink-900">{totalLeaves}</h3>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl text-pink-500 shadow-sm"><HeartPulse className="w-6 h-6"/></div>
-                </div>
-                <div className="bg-green-50 p-5 rounded-2xl border border-green-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-bold text-green-600 uppercase">Active Users</p>
-                        <h3 className="text-3xl font-black text-green-900">{users.filter(u => u.isActive).length}</h3>
-                    </div>
-                    <div className="p-3 bg-white rounded-xl text-green-600 shadow-sm"><BarChart3 className="w-6 h-6"/></div>
-                </div>
-            </div>
-
-            {/* Main Table */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-gray-50/80 border-b border-gray-100 text-xs text-gray-500 uppercase">
-                                <th className="px-6 py-4 font-bold">Employee</th>
-                                <th className="px-6 py-4 font-bold text-center">Days Present</th>
-                                <th className="px-6 py-4 font-bold text-center">Late Count</th>
-                                <th className="px-6 py-4 font-bold text-center">Leaves</th>
-                                <th className="px-6 py-4 font-bold text-center">Total Hours</th>
-                                <th className="px-6 py-4 font-bold text-center">Grade</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {isLoading ? (
-                                <tr><td colSpan={6} className="py-20 text-center text-gray-400">Loading Report...</td></tr>
-                            ) : filteredStats.length === 0 ? (
-                                <tr><td colSpan={6} className="py-20 text-center text-gray-400">No data found</td></tr>
-                            ) : (
-                                filteredStats.map(stat => {
-                                    const user = users.find(u => u.id === stat.userId);
-                                    if (!user) return null;
-                                    const grade = getGrade(stat);
-
-                                    return (
-                                        <tr key={stat.userId} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <img src={user.avatarUrl} className="w-10 h-10 rounded-full bg-gray-200 object-cover border border-gray-100" />
-                                                    <div>
-                                                        <p className="text-sm font-bold text-gray-800">{user.name}</p>
-                                                        <p className="text-xs text-gray-500">{user.position}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="inline-block px-3 py-1 bg-gray-100 rounded-lg text-sm font-bold text-gray-700">
-                                                    {stat.present}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${stat.late > 0 ? 'bg-red-50 text-red-600' : 'text-gray-400'}`}>
-                                                    {stat.late}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${stat.leaves > 0 ? 'bg-pink-50 text-pink-600' : 'text-gray-400'}`}>
-                                                    {stat.leaves}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-mono text-gray-600">
-                                                    {stat.totalHours.toFixed(1)} h
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-block w-10 py-1 rounded-lg text-xs font-black ${grade.color}`}>
-                                                    {grade.grade}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <DashboardTable 
+                isLoading={isLoading}
+                filteredStats={filteredStats}
+                users={users}
+                getGrade={getGrade}
+                onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+            />
+            
+            {selectedUser && (
+                <DashboardUserDetailModal 
+                    user={selectedUser.user}
+                    stat={selectedUser.stat}
+                    workingDaysInMonth={workingDaysInMonth}
+                    startTime={startTime}
+                    lateBuffer={lateBuffer}
+                    onClose={() => setSelectedUser(null)}
+                />
+            )}
             
             <div className="flex justify-end">
                 <button 

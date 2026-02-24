@@ -1,408 +1,551 @@
 
-import { User, ViewMode } from './core';
-import { TaskAsset, FilterType } from './task';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../lib/supabase';
+import { AttendanceLog, WorkLocation, AttendanceStats } from '../types/attendance';
+import { useToast } from '../context/ToastContext';
+import { format } from 'date-fns';
+import startOfMonth from 'date-fns/startOfMonth';
+import endOfMonth from 'date-fns/endOfMonth';
+import { useGamification } from './useGamification';
+import { calculateCheckOutStatus, checkIsLate, parseAttendanceMetadata } from '../lib/attendanceUtils';
 
-// --- KPI TYPES ---
-export interface IndividualGoal {
-    id: string;
-    userId: string;
-    monthKey: string;
-    title: string;
-    targetValue: number;
-    actualValue: number;
-    unit: string;
+export interface AttendanceFilters {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    workType?: string;
 }
 
-export interface KPIConfig {
-    id: string;
-    roleTarget: string;
-    weightOkr: number;
-    weightBehavior: number;
-    weightAttendance: number;
-    penaltyLate: number;
-    penaltyAbsent: number;
-    penaltyMissedDuty: number;
-    isActive: boolean;
-}
+export const useAttendance = (userId: string) => {
+    const [todayLog, setTodayLog] = useState<AttendanceLog | null>(null);
+    const [outdatedLog, setOutdatedLog] = useState<AttendanceLog | null>(null); // NEW: Track forgotten check-outs
+    const [actionRequiredLog, setActionRequiredLog] = useState<AttendanceLog | null>(null);
+    const [stats, setStats] = useState<AttendanceStats>({
+        totalDays: 0,
+        lateDays: 0,
+        onTimeDays: 0,
+        absentDays: 0,
+        totalHours: 0,
+        currentStreak: 0 
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const { showToast } = useToast();
+    
+    // Connect to Game Engine
+    const { processAction } = useGamification();
+    
+    // Refs for AbortController to cancel stale requests
+    const abortControllerRef = useRef<AbortController | null>(null);
 
-export interface KPIStats {
-    taskCompleted: number;
-    taskOverdue: number;
-    attendanceLate: number;
-    attendanceAbsent: number;
-    dutyAssigned: number;
-    dutyMissed: number; // Abandoned or Penalized
-}
+    const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
-export interface KPIRecord {
-    id: string;
-    userId: string;
-    evaluatorId: string;
-    monthKey: string;
-    scores: Record<string, number>; // Manager Scores
-    selfScores?: Record<string, number>; // Self Scores
-    feedback: string; // Legacy
-    managerFeedback?: string;
-    selfFeedback?: string;
-    developmentPlan?: string;
-    status: 'DRAFT' | 'WAITING_SELF' | 'FINAL' | 'PAID';
-    totalScore: number;
-    maxScore: number;
-    updatedAt: Date;
-    statsSnapshot?: KPIStats;
-    finalScoreBreakdown?: {
-        okrScore: number;     // Weighted
-        behaviorScore: number; // Weighted
-        attendanceScore: number; // Weighted
+    // Helper to map DB response to AttendanceLog type
+    const mapAttendanceLog = (data: any): AttendanceLog => {
+        // Fallback for legacy data: try to parse from note if columns are empty
+        const meta = parseAttendanceMetadata(data.note);
+        
+        return {
+            id: data.id,
+            userId: data.user_id,
+            date: data.date,
+            checkInTime: data.check_in_time ? new Date(data.check_in_time) : null,
+            checkOutTime: data.check_out_time ? new Date(data.check_out_time) : null,
+            workType: data.work_type,
+            status: data.status,
+            note: data.note,
+            // Prioritize new columns, fallback to parsed note for legacy compatibility
+            locationLat: data.location_lat ?? meta.location?.lat,
+            locationName: data.location_name ?? meta.locationName,
+            locationLng: data.location_lng ?? meta.location?.lng,
+            checkOutLat: data.check_out_lat,
+            checkOutLng: data.check_out_lng,
+            checkOutLocationName: data.check_out_location_name
+        };
     };
-}
 
-// --- IDP ---
-export interface IDPItem {
-    id: string;
-    userId: string;
-    monthKey: string;
-    topic: string;
-    actionPlan: string;
-    status: 'TODO' | 'DONE';
-}
+    // 1. Fetch Today's Status AND Action Required items
+    const fetchTodayStatus = useCallback(async () => {
+        try {
+            // A. Get LATEST Active Session (Could be today or past)
+            const { data: activeLog } = await supabase
+                .from('attendance_logs')
+                .select('*')
+                .eq('user_id', userId)
+                .in('status', ['WORKING', 'PENDING_VERIFY'])
+                .is('check_out_time', null)
+                .order('date', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-// --- PEER REVIEW ---
-export interface PeerReview {
-    id: string;
-    fromUserId: string;
-    toUserId: string;
-    monthKey: string;
-    message: string;
-    badge: 'TEAMWORK' | 'HELPFUL' | 'CREATIVE' | 'LEADERSHIP' | 'FUN';
-    createdAt: Date;
-    fromUser?: { name: string; avatarUrl: string };
-}
+            if (activeLog) {
+                const mapped = mapAttendanceLog(activeLog);
+                if (mapped.date === todayDateStr) {
+                    setTodayLog(mapped);
+                    setOutdatedLog(null);
+                } else {
+                    // It's from the past!
+                    setOutdatedLog(mapped);
+                    // Still need to check if there's a separate record for TODAY (e.g. already checked in today)
+                    const { data: todayRecord } = await supabase
+                        .from('attendance_logs')
+                        .select('*')
+                        .eq('user_id', userId)
+                        .eq('date', todayDateStr)
+                        .maybeSingle();
+                    setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
+                }
+            } else {
+                // No active session, just check today
+                const { data: todayRecord } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .eq('date', todayDateStr)
+                    .maybeSingle();
+                setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
+                setOutdatedLog(null);
+            }
 
-// ... (Existing types below: SCRIPT, CHECKLIST, etc.) ...
-// --- SCRIPT ---
-export type ScriptType = 'MONOLOGUE' | 'DIALOGUE';
-export type ScriptStatus = 'DRAFT' | 'REVIEW' | 'FINAL' | 'SHOOTING' | 'DONE';
+            // B. Get Action Required Log
+            const { data: actionLog } = await supabase
+                .from('attendance_logs')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('status', 'ACTION_REQUIRED')
+                .order('date', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            
+            setActionRequiredLog(actionLog ? mapAttendanceLog(actionLog) : null);
 
-export interface ScriptSummary {
-    id: string;
-    title: string;
-    status: ScriptStatus;
-    version: number;
-    authorId: string;
-    contentId?: string;
-    createdAt: Date;
-    updatedAt: Date;
-    author?: { name: string; avatarUrl: string };
-    ideaOwnerId?: string;
-    ideaOwner?: { name: string; avatarUrl: string };
-    linkedTaskTitle?: string;
-    estimatedDuration: number;
-    scriptType: ScriptType;
-    isInShootQueue: boolean;
-    channelId?: string;
-    category?: string;
-    tags: string[];
-    objective?: string;
-    lockedBy?: string;
-    lockedAt?: Date;
-    locker?: { name: string; avatarUrl: string };
-    shareToken?: string;
-    isPublic?: boolean;
-}
+        } catch (err) {
+            console.error("Error fetching attendance:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId, todayDateStr]);
 
-export interface Script extends ScriptSummary {
-    content: string;
-    characters?: string[];
-}
+    // 2. Fetch Stats (Overview for Dashboard) - Scoped to Month + Streak Calculation
+    const fetchStats = useCallback(async (targetDate: Date = new Date()) => {
+        try {
+            const start = format(startOfMonth(targetDate), 'yyyy-MM-dd');
+            const end = format(endOfMonth(targetDate), 'yyyy-MM-dd');
 
-export interface ScriptComment {
-    id: string;
-    scriptId: string;
-    userId: string;
-    content: string;
-    selectedText?: string;
-    highlightId?: string;
-    status: 'OPEN' | 'RESOLVED';
-    createdAt: Date;
-    user?: {
-        name: string;
-        avatarUrl: string;
+            // Select minimal fields for performance
+            const { data, error } = await supabase
+                .from('attendance_logs')
+                .select('date, check_in_time, check_out_time, status') 
+                .eq('user_id', userId)
+                .gte('date', start)
+                .lte('date', end);
+
+            // Fetch Config
+            const { data: configData } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '0');
+
+            if (error) throw error;
+
+            let lateCount = 0;
+            let onTimeCount = 0;
+            let totalHours = 0;
+
+            if (data) {
+                data.forEach((log: any) => {
+                    if (log.check_in_time) {
+                        const checkIn = new Date(log.check_in_time);
+                        // Dynamic Check
+                        if (checkIsLate(checkIn, startTimeStr, buffer)) {
+                            lateCount++;
+                        } else {
+                            onTimeCount++;
+                        }
+
+                        // Hours Calc
+                        if (log.check_out_time) {
+                            const checkOut = new Date(log.check_out_time);
+                            const diffMs = checkOut.getTime() - checkIn.getTime();
+                            const hours = diffMs / (1000 * 60 * 60);
+                            totalHours += hours;
+                        }
+                    }
+                });
+            }
+
+            // --- STREAK CALCULATION (Independent of Month) ---
+            // Fetch last 20 logs to check for streak
+            const { data: streakLogs } = await supabase
+                .from('attendance_logs')
+                .select('date, check_in_time, status')
+                .eq('user_id', userId)
+                .order('date', { ascending: false })
+                .limit(20);
+
+            let currentStreak = 0;
+            if (streakLogs) {
+                // Find if today is already counted
+                let skipToday = false;
+                const todayRecord = streakLogs.find((l:any) => l.date === todayDateStr);
+                
+                // If checked in today and NOT late, count it. If late, streak is 0.
+                if (todayRecord) {
+                    if (todayRecord.status === 'LATE') {
+                        // Broken streak today
+                        currentStreak = 0;
+                        skipToday = true; // Stop loop immediately
+                    } else if (todayRecord.check_in_time) {
+                        const checkIn = new Date(todayRecord.check_in_time);
+                        if (checkIsLate(checkIn, startTimeStr, buffer)) {
+                             currentStreak = 0;
+                             skipToday = true;
+                        } else {
+                             // Good today, start counting
+                             currentStreak = 1;
+                             skipToday = true;
+                        }
+                    }
+                }
+
+                if (currentStreak !== 0 || !todayRecord) {
+                    // Continue checking past days
+                    for (const log of streakLogs) {
+                        if (skipToday && log.date === todayDateStr) continue;
+                        
+                        // Ignore LEAVE (doesn't break streak, but doesn't add)
+                        if (log.status === 'LEAVE') continue;
+
+                        if (log.status === 'ABSENT' || log.status === 'LATE') {
+                            break; // Streak broken
+                        }
+
+                        // Check time strictly
+                        if (log.check_in_time) {
+                            const checkIn = new Date(log.check_in_time);
+                            if (checkIsLate(checkIn, startTimeStr, buffer)) {
+                                break;
+                            }
+                            // If clean, add to streak
+                            currentStreak++;
+                        } else {
+                             // No check-in time but not absent/late/leave? Weird data, break.
+                             break;
+                        }
+                    }
+                }
+            }
+
+            setStats({
+                totalDays: data?.length || 0,
+                lateDays: lateCount,
+                onTimeDays: onTimeCount,
+                absentDays: 0, 
+                totalHours: Math.round(totalHours),
+                currentStreak
+            });
+            
+        } catch (err) {
+            console.error("Fetch stats failed", err);
+        }
+    }, [userId]);
+
+    // 3. NEW: Fetch Paginated Logs with Filters & Abort Signal
+    const getAttendanceLogs = useCallback(async (page: number, pageSize: number, filters: AttendanceFilters) => {
+        // Cancel previous request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
+        setIsLoading(true);
+        try {
+            let query = supabase
+                .from('attendance_logs')
+                .select('*', { count: 'exact' })
+                .eq('user_id', userId)
+                .order('date', { ascending: false });
+
+            // Apply Filters
+            if (filters.startDate) query = query.gte('date', filters.startDate);
+            if (filters.endDate) query = query.lte('date', filters.endDate);
+            if (filters.workType && filters.workType !== 'ALL') query = query.eq('work_type', filters.workType);
+            
+            // Pagination
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            query = query.range(from, to).abortSignal(abortControllerRef.current.signal);
+
+            const { data, count, error } = await query;
+            
+            if (error) {
+                if (error.code !== '20') throw error; // Ignore abort error
+            }
+
+            const mappedLogs: AttendanceLog[] = (data || []).map(mapAttendanceLog);
+
+            return { data: mappedLogs, count: count || 0 };
+
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                 console.log('Fetch aborted');
+                 return { data: [], count: 0 };
+            }
+            console.error("Fetch logs failed", err);
+            return { data: [], count: 0 };
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId]);
+
+    // 4. Check In Action (Updated for Structured Data and Appeals)
+    const checkIn = async (
+        workType: WorkLocation, 
+        file?: File, 
+        location?: { lat: number, lng: number },
+        locationName?: string, // Added explicitly
+        note?: string, // Additional note
+        externalUploadFn?: (file: File) => Promise<string | null>,
+        isAppeal: boolean = false // NEW Parameter for Appeal
+    ) => {
+        setIsLoading(true);
+        try {
+            const now = new Date();
+            
+            // Fetch Config
+            const { data: configData } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+            
+            const isLate = checkIsLate(now, startTimeStr, buffer);
+
+            // Upload Logic
+            let proofUrl = null;
+            if (file) {
+                if (externalUploadFn) {
+                    try {
+                        proofUrl = await externalUploadFn(file);
+                    } catch (extErr) {
+                        console.warn("External upload failed", extErr);
+                    }
+                }
+                if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    if (!uploadError) {
+                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        proofUrl = urlData.publicUrl;
+                    }
+                }
+            }
+
+            // Note Construction (Only specific tags + user note)
+            let finalNote = note || '';
+            const meta = [];
+            if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
+            // Add APPEAL tag if needed
+            if (isAppeal) meta.push(`[APPEAL_PENDING]`);
+
+            if (meta.length > 0) finalNote = `${finalNote} ${meta.join(' ')}`.trim();
+
+            const payload: any = {
+                user_id: userId,
+                date: todayDateStr,
+                check_in_time: now.toISOString(),
+                work_type: workType,
+                status: 'WORKING',
+                note: finalNote,
+                // New Structured Columns
+                location_lat: location?.lat,
+                location_lng: location?.lng,
+                location_name: locationName || 'Unknown Location'
+            };
+
+            const { error } = await supabase.from('attendance_logs').insert(payload);
+            if (error) throw error;
+
+            showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
+            await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            // --- TRIGGER GAME EVENT ---
+            // Pass Date and Time to Engine for better messaging
+            // If Appeal, send 'APPEAL' status to avoid penalty logic in gameLogic
+            await processAction(userId, 'ATTENDANCE_CHECK_IN', {
+                status: isAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
+                date: now,
+                time: format(now, 'HH:mm')
+            });
+
+            fetchTodayStatus();
+            fetchStats();
+
+        } catch (err: any) {
+            console.error(err);
+            showToast('Check-in ไม่สำเร็จ: ' + err.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
     };
-}
 
-// --- CHECKLIST & ASSETS ---
-export interface ChecklistItem {
-    id: string;
-    text: string;
-    isChecked: boolean;
-    categoryId: string;
-}
+    // 4.1 Manual Check In (For Forgotten Check-in)
+    const manualCheckIn = async (
+        checkInTime: Date,
+        reason: string,
+        file?: File,
+        externalUploadFn?: (file: File) => Promise<string | null>
+    ) => {
+        setIsLoading(true);
+        try {
+            const dateStr = format(checkInTime, 'yyyy-MM-dd');
+            
+            let proofUrl = null;
+            if (file) {
+                 if (externalUploadFn) {
+                     proofUrl = await externalUploadFn(file);
+                 }
+                 if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    if (!uploadError) {
+                         const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                         proofUrl = urlData.publicUrl;
+                    }
+                 }
+            }
 
-export interface ChecklistPreset {
-    id: string;
-    name: string;
-    items: { text: string; categoryId: string }[];
-}
+            let note = reason;
+            if (proofUrl) note += ` [PROOF:${proofUrl}]`;
 
-export type AssetCondition = 'GOOD' | 'REPAIR' | 'DAMAGED' | 'LOST' | 'WRITE_OFF';
-export type AssetGroup = 'PRODUCTION' | 'OFFICE' | 'IT';
-export type InventoryType = 'FIXED' | 'CONSUMABLE'; // NEW TYPE
+            const payload = {
+                user_id: userId,
+                date: dateStr,
+                check_in_time: checkInTime.toISOString(),
+                work_type: 'OFFICE', // Default assumption
+                status: 'PENDING_VERIFY',
+                note: `[MANUAL_ENTRY] ${note}`,
+                location_name: 'Manual Entry'
+            };
 
-export interface InventoryItem {
-    id: string;
-    name: string;
-    description?: string;
-    categoryId: string;
-    imageUrl?: string;
-    
-    // Type Distinction
-    itemType: InventoryType;
-    
-    // Grouping for Stacks (New)
-    groupLabel?: string; 
+            const { error } = await supabase.from('attendance_logs').insert(payload);
+            if (error) throw error;
 
-    // Extended Asset Registry Fields (For Fixed Assets)
-    purchasePrice?: number;
-    purchaseDate?: Date;
-    serialNumber?: string;
-    warrantyExpire?: Date;
-    condition?: AssetCondition;
-    currentHolderId?: string;
-    assetGroup?: AssetGroup;
-    
-    // New Fields for Supplies (Consumables)
-    quantity: number;
-    unit?: string;
-    minThreshold?: number;
-    maxCapacity?: number;
-    
-    // New Field for Tagging
-    tags?: string[];
-
-    // Joined Fields
-    holder?: { name: string; avatarUrl: string };
-
-    // Metadata
-    createdAt?: Date;
-}
-
-// --- MEETING ---
-export type MeetingCategory = 'GENERAL' | 'PROJECT' | 'CRISIS' | 'CREATIVE' | 'HR';
-
-export interface MeetingAgendaItem {
-    id: string;
-    topic: string;
-    duration?: number;
-    isCompleted: boolean;
-}
-
-export interface MeetingLog {
-    id: string;
-    title: string;
-    date: Date;
-    content: string;
-    decisions?: string; 
-    category: MeetingCategory; 
-    attendees: string[];
-    tags: string[];
-    createdAt: Date;
-    updatedAt: Date;
-    authorId: string;
-    agenda?: MeetingAgendaItem[];
-    assets?: TaskAsset[];
-}
-
-// --- FEEDBACK ---
-export type FeedbackType = 'IDEA' | 'ISSUE' | 'SHOUTOUT';
-export type FeedbackStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-
-export interface FeedbackComment {
-    id: string;
-    feedbackId: string;
-    userId: string;
-    content: string;
-    createdAt: Date;
-    user?: { name: string; avatarUrl: string };
-}
-
-export interface FeedbackItem {
-    id: string;
-    type: FeedbackType;
-    content: string;
-    status: FeedbackStatus;
-    isAnonymous: boolean;
-    createdAt: Date;
-    voteCount: number;
-    hasVoted: boolean;
-    creatorName?: string;
-    creatorAvatar?: string;
-    commentCount: number;
-    repostCount: number;
-    hasReposted: boolean;
-}
-
-// --- DUTY ---
-export type PenaltyStatus = 'NONE' | 'AWAITING_TRIBUNAL' | 'LATE_COMPLETED' | 'ACCEPTED_FAULT' | 'ABANDONED' | 'EXCUSED' | 'UNDER_REVIEW';
-
-export interface Duty {
-    id: string;
-    title: string;
-    assigneeId: string;
-    date: Date;
-    isDone: boolean;
-    proofImageUrl?: string;
-    isPenalized?: boolean; 
-    penaltyStatus?: PenaltyStatus;
-    appealReason?: string;
-    appealProofUrl?: string;
-    
-    // New fields for Negligence Protocol
-    abandonedAt?: Date; 
-    clearedBySystem?: boolean;
-}
-
-export interface DutyConfig {
-    dayOfWeek: number;
-    requiredPeople: number;
-    taskTitles: string[];
-}
-
-export interface DutySwap {
-    id: string;
-    requestorId: string;
-    targetDutyId: string;
-    ownDutyId: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    createdAt: Date;
-    requestor?: { name: string; avatarUrl: string };
-    targetDuty?: { title: string; date: string; assigneeId: string };
-    ownDuty?: { title: string; date: string; assigneeId: string };
-}
-
-// --- WIKI ---
-export interface WikiArticle {
-    id: string;
-    title: string;
-    category: string;
-    content: string;
-    targetRoles?: string[];
-    createdAt: Date;
-    lastUpdated: Date;
-    isPinned: boolean;
-    coverImage?: string;
-    helpfulCount?: number;
-    createdBy?: string;
-    updatedBy?: string;
-    author?: { name: string; avatarUrl: string };
-    lastEditor?: { name: string; avatarUrl: string };
-}
-
-// --- SYSTEM ---
-export interface NotificationPreferences {
-    newAssignments: boolean;
-    upcomingDeadlines: boolean;
-    taskCompletions: boolean;
-    systemUpdates: boolean;
-    emailAlerts: boolean;
-}
-
-export interface AppNotification {
-    id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY' | 'SYSTEM_LOCK_PENALTY'; // Added SYSTEM_LOCK_PENALTY
-    title: string;
-    message: string;
-    taskId?: string;
-    date: Date;
-    isRead: boolean;
-    actionLink?: string; // Optional link for navigation
-    // This Metadata field is CRITICAL for the new Popover design
-    metadata?: {
-        hp?: number;
-        xp?: number;
-        coins?: number;
-        badge?: string;
-        [key: string]: any;
+            showToast('บันทึกเวลาเข้างานแบบ Manual แล้ว (รอตรวจสอบ) ✅', 'success');
+            
+            // Set status to ONLINE? 
+            await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            fetchTodayStatus();
+            fetchStats();
+            return true;
+        } catch(err: any) {
+            showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
     };
-}
 
-export interface ChatMessage {
-    id: string;
-    content: string;
-    userId: string | null;
-    isBot: boolean;
-    messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'TASK_CREATED';
-    createdAt: Date;
-    user?: User;
-}
+    // 5. Check Out Action (Updated for Structured Data)
+    const checkOut = async (
+        location?: { lat: number, lng: number },
+        locationName?: string,
+        reason?: string
+    ) => {
+        if (!todayLog || !todayLog.checkInTime) return;
+        setIsLoading(true);
+        try {
+            const now = new Date();
+            
+            // --- FETCH LATEST CONFIG ---
+            const { data: configData } = await supabase
+                .from('master_options')
+                .select('key, label')
+                .eq('type', 'WORK_CONFIG');
+                
+            const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
+            const minHours = parseFloat(minHoursStr) || 9;
 
-export interface DashboardConfig {
-    id: string;
-    key: string;
-    label: string;
-    icon?: string;
-    colorTheme?: string;
-    statusKeys?: string[];
-    filterType?: FilterType;
-    sortOrder: number;
-}
+            // --- CALCULATE STATUS ---
+            const calcResult = calculateCheckOutStatus(
+                todayLog.checkInTime,
+                now,
+                minHours
+            );
 
-export interface BackupOptions {
-    tasks: boolean;
-    contents: boolean;
-    chats: boolean;
-    profiles: boolean;
-}
+            // Audit Note
+            let noteAppend = '';
+            if (calcResult.status === 'EARLY_LEAVE') {
+                 noteAppend += ` [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
+                 if (reason) noteAppend += ` [REASON: ${reason}]`;
+            } else {
+                 noteAppend += ` [OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+            }
 
-export interface StorageStats {
-    usedBytes: number;
-    fileBytes: number; 
-    dbBytes: number;   
-    fileCount: number;
-    limitBytes: number;
-}
+            // Preserve PENDING_VERIFY if it was manual, otherwise COMPLETED
+            const newStatus = todayLog.status === 'PENDING_VERIFY' ? 'PENDING_VERIFY' : 'COMPLETED';
 
-export interface MenuGroup {
-    id: string;
-    title: string;
-    icon: any; 
-    items: { view: ViewMode; label: string; icon: any }[];
-    adminOnly?: boolean;
-    totalBadge?: number; // Aggregated badge count
-}
+            const updatePayload: any = {
+                check_out_time: now.toISOString(),
+                status: newStatus,
+                note: (todayLog.note || '') + noteAppend,
+                check_out_lat: location?.lat,
+                check_out_lng: location?.lng,
+                check_out_location_name: locationName
+            };
 
-export interface CalendarHighlight {
-    id: string;
-    date: Date;
-    typeKey: string;
-    note?: string;
-}
+            const { error } = await supabase
+                .from('attendance_logs')
+                .update(updatePayload)
+                .eq('id', todayLog.id);
 
-export interface AnnualHoliday {
-    id: string;
-    name: string;
-    day: number;
-    month: number;
-    typeKey: string;
-    isActive: boolean;
-}
+            if (error) throw error;
+            
+            await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
 
-// --- WORKBOX ---
-export interface WorkboxItem {
-    id: string;
-    user_id: string;
-    content_id?: string; // Reference to ContentStock if applicable
-    title: string;
-    description?: string;
-    type: 'CONTENT' | 'CHECKLIST';
-    is_completed: boolean;
-    order_index: number;
-    created_at: string;
-}
+            // --- TRIGGER GAME EVENT (Conditional) ---
+            if (calcResult.status === 'COMPLETED' || newStatus === 'PENDING_VERIFY') {
+                showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+                // Even if pending verify, we give benefit of doubt for now or wait for admin?
+                // Let's record DUTY_COMPLETE for game log purposes
+                await processAction(userId, 'DUTY_COMPLETE', {
+                    reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`,
+                    date: now 
+                });
+            } else {
+                showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');
+                await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
+                    missingMinutes: Math.round(calcResult.missingMinutes),
+                    date: now 
+                });
+            }
 
-export interface Greeting {
-    id: string;
-    text: string;
-    category?: string;
-    isActive: boolean;
-}
+            fetchTodayStatus();
+            fetchStats();
+
+        } catch (err: any) {
+            showToast('Check-out ไม่สำเร็จ: ' + err.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (userId) {
+            fetchTodayStatus();
+            fetchStats();
+        }
+    }, [userId, fetchTodayStatus, fetchStats]);
+
+    return {
+        todayLog,
+        outdatedLog, // Exported
+        actionRequiredLog, // Exported
+        stats,
+        isLoading,
+        checkIn,
+        manualCheckIn, // Exported
+        checkOut,
+        getAttendanceLogs, 
+        refresh: fetchTodayStatus
+    };
+};

@@ -20,6 +20,7 @@ import GTGamification from './form-parts/GTGamification';
 import GTDateScheduler from './form-parts/GTDateScheduler';
 import GTScriptLinker from './form-parts/GTScriptLinker'; 
 import CreateScriptModal from '../script/hub/CreateScriptModal';
+import ContentActionFooter from './content-parts/ContentActionFooter';
 
 interface GeneralTaskInputsProps {
     initialData?: Task | null;
@@ -63,6 +64,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         scriptId, setScriptId, 
         assets, addAsset, removeAsset,
         error,
+        isSaving,
         taskStatusOptions,
         handleSubmit,
         toggleUserSelection
@@ -121,7 +123,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
     const filteredStatusOptions = React.useMemo(() => {
         if (isAdmin) return taskStatusOptions;
-        return taskStatusOptions.filter(opt => !isTaskCompleted(opt.key));
+        // Member only Todo and Doing as requested
+        return taskStatusOptions.filter(opt => opt.key === 'TODO' || opt.key === 'DOING');
     }, [taskStatusOptions, isAdmin]);
 
     const suggestedTasks = React.useMemo(() => {
@@ -259,150 +262,126 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
     return (
         <>
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
-                {isReadOnly && (
-                    <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-lg animate-in slide-in-from-top-2">
-                        <div className="flex items-center">
-                            <div className="flex-shrink-0">
-                                <Eye className="h-5 w-5 text-slate-500" />
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-slate-700">
-                                    <span className="font-bold">View Only Mode:</span> คุณไม่มีสิทธิ์แก้ไขงานนี้ (เฉพาะผู้รับผิดชอบหรือ Admin)
-                                </p>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
+                    {isReadOnly && (
+                        <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-lg animate-in slide-in-from-top-2">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <Eye className="h-5 w-5 text-slate-500" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm text-slate-700">
+                                        <span className="font-bold">View Only Mode:</span> คุณไม่มีสิทธิ์แก้ไขงานนี้ (เฉพาะผู้รับผิดชอบหรือ Admin)
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
-
-                {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
-
-                <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
-                    
-                    <GTAssigneeSelector 
-                        assigneeType={assigneeType}
-                        setAssigneeType={setAssigneeType}
-                        assigneeIds={assigneeIds}
-                        setAssigneeIds={setAssigneeIds}
-                        targetPosition={targetPosition}
-                        setTargetPosition={setTargetPosition}
-                        activeUsers={activeUsers}
-                        toggleUserSelection={handleUserSelectWrapper} 
-                        startDate={startDate}
-                        endDate={endDate}
-                    />
-
-                    <GTHeaderInput 
-                        title={title}
-                        setTitle={setTitle}
-                        assigneeType={assigneeType}
-                        suggestedTasks={suggestedTasks} 
-                    />
-                    
-                    {/* Script Linker with Bridge to Parent */}
-                    {isCreative && (
-                        <GTScriptLinker 
-                            scriptId={scriptId}
-                            linkedScript={linkedScript}
-                            isLoadingScript={isLoadingScript}
-                            onSelectScript={(id) => {
-                                setScriptId(id);
-                            }}
-                            onCreateScript={() => setIsCreateScriptModalOpen(true)}
-                            onOpenScript={(script) => onEditScript(script.id)} // BRIDGE: Call Parent to Open Editor
-                            onUnlink={() => setScriptId(undefined)}
-                            currentUser={currentUser}
-                        />
                     )}
 
-                    {/* Updated Project Linker props */}
-                    <GTProjectLinker 
-                        projectId={contentId || ''}
-                        setProjectId={(id) => handleSetParentProject(id || null)}
-                        projects={projects}
-                        channels={channels}
-                        masterOptions={masterOptions}
-                    />
+                    {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
-                    <GTCoreDetails 
-                        description={description}
-                        setDescription={setDescription}
-                        priority={priority}
-                        setPriority={setPriority}
-                        status={status}
-                        setStatus={setStatus}
-                        taskStatusOptions={filteredStatusOptions} 
-                    />
-
-                    <GTGuidelines 
-                        caution={caution}
-                        setCaution={setCaution}
-                        importance={importance}
-                        setImportance={setImportance}
-                    />
-
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <TaskAssets 
-                            assets={assets}
-                            onAdd={addAsset}
-                            onDelete={removeAsset}
-                        />
-                    </div>
-
-                    <GTGamification 
-                        difficulty={difficulty}
-                        setDifficulty={setDifficulty}
-                        estimatedHours={estimatedHours}
-                        setEstimatedHours={setEstimatedHours}
-                    />
-
-                    <GTDateScheduler 
-                        startDate={startDate}
-                        setStartDate={setStartDate}
-                        endDate={endDate}
-                        setEndDate={setEndDate}
-                    />
-                </fieldset>
-                    
-                <div className="flex justify-between items-center pt-8 mt-4 border-t border-gray-100 pb-10">
-                    <div className="flex items-center gap-2">
-                        {!isReadOnly && initialData && onDelete && isAdmin && (
-                            <button type="button" onClick={async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }} className="text-red-400 text-sm hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl flex items-center transition-colors">
-                            <Trash2 className="w-4 h-4 mr-2" /> ลบ
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex space-x-3">
-                        {!isReadOnly && initialData && !isTaskDone && status !== 'WAITING' && status !== 'FEEDBACK' && (
-                            <div className="relative group">
-                                <button 
-                                    type="button" 
-                                    onClick={handleSendToQC}
-                                    disabled={isSendingQC || !isOwnerOrAssignee}
-                                    className={`px-4 py-3 text-sm font-bold border rounded-xl flex items-center transition-colors shadow-sm active:scale-95 ${isOwnerOrAssignee ? 'text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100' : 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed'}`}
-                                    title={!isOwnerOrAssignee ? "เฉพาะเจ้าของงาน" : "ส่งตรวจ"}
-                                >
-                                    {isSendingQC ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                    ส่งงาน / แจ้งเสร็จ
-                                </button>
-                                {!isOwnerOrAssignee && (
-                                    <div className="absolute bottom-full mb-2 right-0 w-40 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center">
-                                        <Lock className="w-3 h-3 inline mr-1"/> เฉพาะผู้รับผิดชอบงาน
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <button type="button" onClick={onClose} className="px-5 py-3 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
-                            {isReadOnly ? 'ปิดหน้าต่าง' : 'ยกเลิก'}
-                        </button>
+                    <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
                         
-                        {!isReadOnly && (
-                            <button type="submit" className="px-6 py-3 text-sm font-bold text-white rounded-xl shadow-lg bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700 hover:-translate-y-0.5 active:translate-y-0 transition-all">
-                                {initialData ? 'บันทึกการแก้ไข' : 'สร้างงานเลย!'}
-                            </button>
+                        <GTAssigneeSelector 
+                            assigneeType={assigneeType}
+                            setAssigneeType={setAssigneeType}
+                            assigneeIds={assigneeIds}
+                            setAssigneeIds={setAssigneeIds}
+                            targetPosition={targetPosition}
+                            setTargetPosition={setTargetPosition}
+                            activeUsers={activeUsers}
+                            toggleUserSelection={handleUserSelectWrapper} 
+                            startDate={startDate}
+                            endDate={endDate}
+                        />
+
+                        <GTHeaderInput 
+                            title={title}
+                            setTitle={setTitle}
+                            assigneeType={assigneeType}
+                            suggestedTasks={suggestedTasks} 
+                        />
+                        
+                        {/* Script Linker with Bridge to Parent */}
+                        {isCreative && (
+                            <GTScriptLinker 
+                                scriptId={scriptId}
+                                linkedScript={linkedScript}
+                                isLoadingScript={isLoadingScript}
+                                onSelectScript={(id) => {
+                                    setScriptId(id);
+                                }}
+                                onCreateScript={() => setIsCreateScriptModalOpen(true)}
+                                onOpenScript={(script) => onEditScript(script.id)} // BRIDGE: Call Parent to Open Editor
+                                onUnlink={() => setScriptId(undefined)}
+                                currentUser={currentUser}
+                            />
                         )}
-                    </div>
+
+                        {/* Updated Project Linker props */}
+                        <GTProjectLinker 
+                            projectId={contentId || ''}
+                            setProjectId={(id) => handleSetParentProject(id || null)}
+                            projects={projects}
+                            channels={channels}
+                            masterOptions={masterOptions}
+                        />
+
+                        <GTCoreDetails 
+                            description={description}
+                            setDescription={setDescription}
+                            priority={priority}
+                            setPriority={setPriority}
+                            status={status}
+                            setStatus={setStatus}
+                            taskStatusOptions={filteredStatusOptions} 
+                            currentUser={currentUser}
+                        />
+
+                        <GTGuidelines 
+                            caution={caution}
+                            setCaution={setCaution}
+                            importance={importance}
+                            setImportance={setImportance}
+                        />
+
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                            <TaskAssets 
+                                assets={assets}
+                                onAdd={addAsset}
+                                onDelete={removeAsset}
+                            />
+                        </div>
+
+                        <GTGamification 
+                            difficulty={difficulty}
+                            setDifficulty={setDifficulty}
+                            estimatedHours={estimatedHours}
+                            setEstimatedHours={setEstimatedHours}
+                        />
+
+                        <GTDateScheduler 
+                            startDate={startDate}
+                            setStartDate={setStartDate}
+                            endDate={endDate}
+                            setEndDate={setEndDate}
+                        />
+                    </fieldset>
+                </div>
+                    
+                <div className="bg-white shrink-0 z-30 px-6 pb-6 pt-2 border-t border-gray-100">
+                    <ContentActionFooter 
+                        mode={initialData ? 'EDIT' : 'CREATE'}
+                        onCancel={onClose}
+                        onDelete={initialData && onDelete && isAdmin ? (async () => { if(await showConfirm('แน่ใจนะว่าจะลบงานนี้?', 'ยืนยันการลบ')) { onDelete(initialData.id); onClose(); } }) : undefined}
+                        onSendQC={handleSendToQC}
+                        isSaving={Boolean(isSaving)}
+                        isSendingQC={isSendingQC}
+                        canSendQC={isOwnerOrAssignee}
+                        showSendQC={Boolean(initialData && !isTaskDone && status !== 'WAITING' && status !== 'FEEDBACK')}
+                        showDelete={Boolean(initialData && onDelete && isAdmin)}
+                    />
                 </div>
             </form>
 

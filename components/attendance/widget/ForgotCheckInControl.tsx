@@ -9,7 +9,7 @@ interface ForgotCheckInControlProps {
     startTime: string; // "HH:mm" from MasterData
     lateBuffer: number; // Minutes
     isCheckedIn: boolean;
-    onManualCheckIn: (time: Date, reason: string, file?: File) => Promise<boolean>;
+    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
     leaveUsage?: LeaveUsage;
 }
 
@@ -17,7 +17,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
     startTime,
     lateBuffer,
     isCheckedIn,
-    onManualCheckIn,
+    onSubmit,
     leaveUsage
 }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -64,7 +64,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
     }, [startTime, lateBuffer, isCheckedIn]);
 
     const handleSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        const success = await onManualCheckIn(start, reason, file);
+        const success = await onSubmit(type, start, end, reason, file);
         if (success) {
             setIsModalOpen(false);
         }

@@ -4,10 +4,12 @@ import { supabase } from '../lib/supabase';
 import { Task, ReviewStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from './useGamification';
+import { useTaskContext } from '../context/TaskContext';
 
 export const useQualityActions = () => {
     const { showToast } = useToast();
     const { processAction } = useGamification();
+    const { setTasks } = useTaskContext();
     const [isProcessing, setIsProcessing] = useState(false);
 
     // XP Distribution Logic (Synced with Engine)
@@ -64,6 +66,16 @@ export const useQualityActions = () => {
         manualBonus: number = 0 // New Parameter (8th argument)
     ) => {
         setIsProcessing(true);
+
+        // --- OPTIMISTIC UI: Update Local State Immediately ---
+        const previousTasks: Task[] = []; // For Rollback
+        if (task) {
+            setTasks(prev => {
+                previousTasks.push(...prev);
+                return prev.map(t => t.id === taskId ? { ...t, status: action === 'PASS' ? 'DONE' : 'DOING' } : t);
+            });
+        }
+
         try {
             const tableName = task?.type === 'CONTENT' ? 'contents' : 'tasks';
             
@@ -85,7 +97,8 @@ export const useQualityActions = () => {
                 await updateReviewStatus(reviewId, 'PASSED', undefined, reviewerId);
                 
                 // 3. Update Task Status to DONE
-                await supabase.from(tableName).update({ status: 'DONE' }).eq('id', taskId);
+                const { error: updateError } = await supabase.from(tableName).update({ status: 'DONE' }).eq('id', taskId);
+                if (updateError) throw updateError;
                 
                 // 4. Log the system change
                 await supabase.from('task_logs').insert({
@@ -124,7 +137,8 @@ export const useQualityActions = () => {
                 
                 await updateReviewStatus(reviewId, 'REVISE', feedback, reviewerId);
                 
-                await supabase.from(tableName).update({ status: 'DOING' }).eq('id', taskId);
+                const { error: updateError } = await supabase.from(tableName).update({ status: 'DOING' }).eq('id', taskId);
+                if (updateError) throw updateError;
                 
                 await supabase.from('task_logs').insert({
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
@@ -155,6 +169,10 @@ export const useQualityActions = () => {
             return true;
         } catch (err: any) {
             console.error(err);
+            // ROLLBACK on error
+            if (previousTasks.length > 0) {
+                setTasks(previousTasks);
+            }
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
             return false;
         } finally {

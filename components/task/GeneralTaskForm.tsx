@@ -76,7 +76,10 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
                     currentUser={props.currentUser}
                     onClose={handleCloseEditor}
                     onSave={updateScript}
-                    onGenerateAI={generateScriptWithAI}
+                    onGenerateAI={async (prompt, type) => {
+                        const result = await generateScriptWithAI(prompt, type);
+                        return result ?? null;
+                    }}
                     onPromote={() => {}} // General Tasks usually don't promote to content directly here
                 />
             </div>

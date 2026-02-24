@@ -174,7 +174,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             >
                                 <tab.icon className={`w-3.5 h-3.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
                                 {tab.label}
-                                {tab.count && tab.count > 0 && (
+                                {!!tab.count && tab.count > 0 && (
                                     <span className={`
                                         absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white
                                         ${isActive ? `bg-${config.color}-500` : 'bg-slate-400'}

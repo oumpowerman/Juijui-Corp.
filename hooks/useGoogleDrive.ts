@@ -40,15 +40,24 @@ export const useGoogleDrive = () => {
 
         const loadScript = (src: string) => {
             return new Promise((resolve, reject) => {
-                if (document.querySelector(`script[src="${src}"]`)) {
-                    resolve(true);
+                const existingScript = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement;
+                if (existingScript) {
+                    if (existingScript.dataset.loaded === 'true') {
+                        resolve(true);
+                    } else {
+                        existingScript.addEventListener('load', () => resolve(true));
+                        existingScript.addEventListener('error', reject);
+                    }
                     return;
                 }
                 const script = document.createElement('script');
                 script.src = src;
                 script.async = true;
                 script.defer = true;
-                script.onload = resolve;
+                script.onload = () => {
+                    script.dataset.loaded = 'true';
+                    resolve(true);
+                };
                 script.onerror = reject;
                 document.body.appendChild(script);
             });

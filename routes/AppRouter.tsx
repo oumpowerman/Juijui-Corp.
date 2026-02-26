@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useChatUnread } from '../hooks/useChatUnread';
 import { useAutoJudge } from '../hooks/useAutoJudge'; 
+import { useLeaveRequests } from '../hooks/useLeaveRequests';
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
 import { Loader2, Search, Inbox } from 'lucide-react';
@@ -137,6 +138,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // --- SUB-HOOKS ---
   const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
+  const { requests: leaveRequests, approveRequest, rejectRequest } = useLeaveRequests(currentUserProfile);
   
   // --- BACKGROUND SERVICES ---
   useAutoJudge(currentUserProfile); 
@@ -517,6 +519,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               onDismiss={dismissNotification}
               onMarkAllRead={markAllAsRead}
               onNavigate={handleNavigate} 
+              onApproveLeave={approveRequest}
+              onRejectLeave={rejectRequest}
+              leaveRequests={leaveRequests}
           />
   
       </AppShell>

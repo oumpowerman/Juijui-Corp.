@@ -20,7 +20,8 @@ interface ScriptContextType {
     setScriptType: (val: ScriptType) => void;
     characters: string[];
     setCharacters: (val: string[]) => void;
-    saveCharacters: (chars: string[]) => Promise<void>; // NEW
+    saveCharacters: (chars: string[]) => Promise<void>;
+    renameCharacter: (oldName: string, newName: string) => Promise<void>; // NEW
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
     
@@ -222,6 +223,46 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         } catch (err: any) {
             console.error("Failed to save characters", err);
             showToast('บันทึกตัวละครไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const renameCharacter = async (oldName: string, newName: string) => {
+        if (!oldName || !newName || oldName === newName) return;
+
+        // 1. Update characters list
+        const newChars = characters.map(c => c === oldName ? newName : c);
+        setCharacters(newChars);
+
+        // 2. Update content
+        // Look for <strong>Name:</strong> or <strong>Name: </strong>
+        const escapedOldName = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match <strong>Name:</strong> with optional space after colon
+        const regex = new RegExp(`<strong>${escapedOldName}:\\s*</strong>`, 'g');
+        const newContent = content.replace(regex, `<strong>${newName}: </strong>`);
+
+        if (newContent !== content) {
+            setContent(newContent);
+            if (editorInstance) {
+                // Get current scroll/selection if possible, but setContent usually resets it.
+                // Since this is triggered from a popup, it's acceptable.
+                editorInstance.commands.setContent(newContent, { emitUpdate: true });
+            }
+            isDirtyRef.current = true;
+        }
+
+        // 3. Save to DB
+        try {
+            const { error } = await supabase
+                .from('scripts')
+                .update({ 
+                    characters: newChars,
+                    content: newContent
+                })
+                .eq('id', script.id);
+            if (error) throw error;
+        } catch (err: any) {
+            console.error("Failed to rename character", err);
+            showToast('เปลี่ยนชื่อตัวละครในบทไม่สำเร็จ', 'error');
         }
     };
 
@@ -429,7 +470,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             status, setStatus,
             changeStatus, 
             scriptType, setScriptType,
-            characters, setCharacters, saveCharacters, // EXPORTED
+            characters, setCharacters, saveCharacters, renameCharacter, // EXPORTED
             ideaOwnerId, setIdeaOwnerId,
             contentId, channelId, setChannelId,
             category, setCategory,

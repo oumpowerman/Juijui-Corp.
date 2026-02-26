@@ -7,16 +7,55 @@ interface CharacterManagerProps {
     onClose: () => void;
 }
 
-const CharacterManager: React.FC<CharacterManagerProps> = ({ onClose }) => {
-    // Use saveCharacters instead of setCharacters for persistent sync
-    const { characters, saveCharacters } = useScriptContext();
-    const inputRef = useRef<HTMLInputElement>(null);
+const CharacterRow: React.FC<{ 
+    name: string; 
+    index: number; 
+    onRename: (oldName: string, newName: string) => void;
+    onRemove: (index: number) => void;
+}> = ({ name, index, onRename, onRemove }) => {
+    const [localName, setLocalName] = React.useState(name);
 
-    const handleUpdateCharacter = (index: number, val: string) => {
-        const newChars = [...characters];
-        newChars[index] = val;
-        saveCharacters(newChars);
+    useEffect(() => {
+        setLocalName(name);
+    }, [name]);
+
+    const handleBlur = () => {
+        if (localName.trim() !== name) {
+            onRename(name, localName.trim());
+        }
     };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+        }
+    };
+
+    return (
+        <div className="flex gap-2 group">
+            <div className="flex-1 flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 transition-all">
+                <span className="text-[10px] text-gray-400 font-bold mr-2 w-4">{index + 1}.</span>
+                <input 
+                    type="text" 
+                    className="flex-1 bg-transparent py-1.5 text-sm font-bold text-gray-700 outline-none" 
+                    value={localName} 
+                    onChange={(e) => setLocalName(e.target.value)} 
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                />
+            </div>
+            <button 
+                onClick={() => onRemove(index)} 
+                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+                <Trash2 className="w-4 h-4" />
+            </button>
+        </div>
+    );
+};
+
+const CharacterManager: React.FC<CharacterManagerProps> = ({ onClose }) => {
+    const { characters, saveCharacters, renameCharacter } = useScriptContext();
 
     const handleRemoveCharacter = (index: number) => {
         const newChars = [...characters];
@@ -26,7 +65,6 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({ onClose }) => {
 
     const handleAddCharacter = () => {
         saveCharacters([...characters, `ตัวละคร ${characters.length + 1}`]);
-        // Focus logic could go here
     };
 
     // Close on Escape key
@@ -56,23 +94,13 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({ onClose }) => {
                 
                 <div className="space-y-2 max-h-60 overflow-y-auto mb-3 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
                     {characters.map((char, idx) => (
-                        <div key={idx} className="flex gap-2 group">
-                            <div className="flex-1 flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 transition-all">
-                                <span className="text-[10px] text-gray-400 font-bold mr-2 w-4">{idx + 1}.</span>
-                                <input 
-                                    type="text" 
-                                    className="flex-1 bg-transparent py-1.5 text-sm font-bold text-gray-700 outline-none" 
-                                    value={char} 
-                                    onChange={(e) => handleUpdateCharacter(idx, e.target.value)} 
-                                />
-                            </div>
-                            <button 
-                                onClick={() => handleRemoveCharacter(idx)} 
-                                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
+                        <CharacterRow 
+                            key={idx} 
+                            name={char} 
+                            index={idx} 
+                            onRename={renameCharacter} 
+                            onRemove={handleRemoveCharacter} 
+                        />
                     ))}
                 </div>
                 

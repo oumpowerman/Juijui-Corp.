@@ -71,13 +71,16 @@ export const useLeaveRequests = (currentUser?: any) => {
 
         if (!currentUser) return usage;
 
+        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY'];
+
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
-                if (['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'WFH'].includes(req.type)) {
+                if (LEAVE_TYPES.includes(req.type)) {
                     const days = differenceInDays(new Date(req.endDate), new Date(req.startDate)) + 1;
-                    usage[req.type] += days;
+                    usage[req.type as keyof LeaveUsage] += days;
                 } else {
-                    usage[req.type] += 1;
+                    // For non-leave types, we just count the occurrences
+                    usage[req.type as keyof LeaveUsage] += 1;
                 }
             }
         });
@@ -160,6 +163,10 @@ export const useLeaveRequests = (currentUser?: any) => {
     };
 
     const approveRequest = async (request: LeaveRequest) => {
+        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY'];
+        const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'];
+        const SPECIAL_TYPES = ['WFH', 'OVERTIME'];
+
         setRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'APPROVED' } : r));
 
         try {
@@ -170,7 +177,11 @@ export const useLeaveRequests = (currentUser?: any) => {
             
             if (updateError) throw updateError;
 
-            // --- 1. NOTIFY USER (NEW DETAILED MSG) ---
+            // --- 1. NOTIFY USER WITH SPECIFIC TITLES ---
+            let notifTitle = '✅ คำขอได้รับการอนุมัติ';
+            if (CORRECTION_TYPES.includes(request.type)) notifTitle = '🛠️ อนุมัติการแก้ไขเวลา';
+            if (SPECIAL_TYPES.includes(request.type)) notifTitle = '✨ อนุมัติคำขอพิเศษ';
+
             const dateDisplay = format(request.startDate, 'd MMM yyyy');
             const fullDateDisplay = request.startDate.getTime() === request.endDate.getTime() 
                 ? dateDisplay 
@@ -179,42 +190,32 @@ export const useLeaveRequests = (currentUser?: any) => {
             await supabase.from('notifications').insert({
                 user_id: request.userId,
                 type: 'INFO',
-                title: '✅ คำขอได้รับการอนุมัติ',
+                title: notifTitle,
                 message: `รายการ: ${request.type}\nวันที่: ${fullDateDisplay}\nรายละเอียด: ${request.reason || '-'}`,
                 is_read: false,
                 link_path: 'ATTENDANCE'
             });
 
-            // --- SPECIAL LOGIC FOR WFH ---
-            if (request.type === 'WFH') {
-                 await supabase.from('team_messages').insert({
-                    content: `✅ คำขอ WFH ของ **${request.user?.name}** ได้รับการอนุมัติแล้ว (อย่าลืม Check-in นะ!)`,
-                    is_bot: true,
-                    message_type: 'TEXT',
-                    user_id: null
-                });
-                
-                showToast('อนุมัติ WFH แล้ว (พนักงานต้องกดเช็คอินเอง)', 'success');
-                return; // STOP HERE
+            // --- 2. GROUP BEHAVIOR LOGIC ---
+
+            // A. SPECIAL WORK (WFH, OVERTIME)
+            if (SPECIAL_TYPES.includes(request.type)) {
+                if (request.type === 'WFH') {
+                    await supabase.from('team_messages').insert({
+                        content: `🏠 **${request.user?.name}** ได้รับอนุมัติ WFH (อย่าลืม Check-in เมื่อเริ่มงานนะ!)`,
+                        is_bot: true,
+                        message_type: 'TEXT',
+                        user_id: null
+                    });
+                    showToast('อนุมัติ WFH เรียบร้อย', 'success');
+                } else if (request.type === 'OVERTIME') {
+                    showToast('อนุมัติการทำ OT เรียบร้อย', 'success');
+                }
+                return; // No log creation for special types here
             }
             
-            // --- IF APPROVING LATE ENTRY ---
-            if (request.type === 'LATE_ENTRY') {
-                const dateStr = format(request.startDate, 'yyyy-MM-dd');
-                const { data: existingLog } = await supabase.from('attendance_logs')
-                    .select('id, note')
-                    .eq('user_id', request.userId)
-                    .eq('date', dateStr)
-                    .maybeSingle();
-
-                if (existingLog) {
-                    const newNote = (existingLog.note || '').replace('[APPEAL_PENDING]', '[LATE APPROVED]').trim();
-                    await supabase.from('attendance_logs').update({ note: newNote }).eq('id', existingLog.id);
-                }
-            }
-
-            // --- Logic for Corrections (Forgot In/Out, Late Entry) ---
-            if (request.type === 'FORGOT_CHECKIN' || request.type === 'FORGOT_CHECKOUT' || request.type === 'LATE_ENTRY') {
+            // B. CORRECTIONS (Forgot In/Out, Late Entry)
+            if (CORRECTION_TYPES.includes(request.type)) {
                 const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '00:00';
                 const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
@@ -222,21 +223,16 @@ export const useLeaveRequests = (currentUser?: any) => {
                 if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
                      const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
                      
-                     // 1. Create or Update Log to allow Check-out
-                     // Important: Status MUST be 'WORKING' to enable the "Check Out" button in StatusCard
                      const payload = {
                          user_id: request.userId,
                          date: shiftDateStr,
                          check_in_time: checkInDateTime.toISOString(),
-                         work_type: 'OFFICE', // Default
-                         status: 'WORKING',   // KEY: Enables Check-out button
+                         work_type: 'OFFICE', // Default to office for correction if unknown
+                         status: 'WORKING',   
                          note: `[APPROVED ${request.type}] ${request.reason}`
                      };
                      
-                     // Upsert to handle if a log exists but was empty/invalid
                      await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                     
-                     // Update Profile Status to ONLINE
                      await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
 
                      await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
@@ -260,7 +256,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                         }).eq('id', log.id);
                         await processAction(request.userId, 'DUTY_COMPLETE', { reason: 'Manual Checkout Approved' });
                      } else {
-                         // Fallback if no check-in log exists (rare but possible if forgot BOTH)
+                         // Fallback: Create a full log if missing
                          const defaultStart = new Date(request.startDate);
                          defaultStart.setHours(10, 0, 0, 0);
                          await supabase.from('attendance_logs').insert({
@@ -274,8 +270,11 @@ export const useLeaveRequests = (currentUser?: any) => {
                          });
                      }
                 }
-            } else if (request.type !== 'OVERTIME') { 
-                // --- Logic for Actual Leaves (Sick, Vacation) ---
+                showToast('ปรับปรุงข้อมูลเวลาให้เรียบร้อยแล้ว ✅', 'success');
+            } 
+            
+            // C. LEAVES (Sick, Vacation, etc.)
+            else if (LEAVE_TYPES.includes(request.type)) {
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
                 const logs = days.map(day => ({
                     user_id: request.userId,
@@ -287,9 +286,12 @@ export const useLeaveRequests = (currentUser?: any) => {
 
                 const { error: logError } = await supabase.from('attendance_logs').upsert(logs, { onConflict: 'user_id, date' });
                 if (logError) throw logError;
+                
                 await processAction(request.userId, 'ATTENDANCE_LEAVE', { type: request.type });
+                showToast(`อนุมัติวันลา (${request.type}) และลงบันทึกแล้ว ✅`, 'success');
             }
 
+            // Global Team Message
             await supabase.from('team_messages').insert({
                 content: `✅ คำขอของ **${request.user?.name}** (${request.type}) ได้รับการอนุมัติแล้ว`,
                 is_bot: true,
@@ -297,7 +299,6 @@ export const useLeaveRequests = (currentUser?: any) => {
                 user_id: null
             });
             
-            showToast('อนุมัติและปรับปรุงข้อมูลเวลาให้แล้ว ✅', 'success');
         } catch (err: any) {
             setRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'PENDING' } : r));
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');

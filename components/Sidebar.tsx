@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
-import { useSidebarBadges } from '../hooks/useSidebarBadges';
+import SidebarBadge from './SidebarBadge.tsx';
+import NotificationPill from './NotificationPill';
 
 interface SidebarProps {
   currentUser: User;
@@ -17,18 +18,6 @@ interface SidebarProps {
   onToggleCollapse: (val: boolean) => void;
 }
 
-// Notification Pill Component
-const NotificationPill = ({ count, color = 'bg-red-500' }: { count: number, color?: string }) => {
-    if (count <= 0) return null;
-    return (
-        <span className={`
-            min-w-[18px] h-[18px] flex items-center justify-center 
-            text-[9px] font-black text-white rounded-full border-2 border-white shadow-sm z-20 ${color} animate-pulse
-        `}>
-            {count > 99 ? '99+' : count}
-        </span>
-    );
-};
 
 // Menu Groups Definition
 export const MENU_GROUPS: MenuGroup[] = [
@@ -97,7 +86,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
-  const { badges } = useSidebarBadges(currentUser);
 
   // State for Accordion
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -116,26 +104,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleMenuItemClick = (view: ViewMode) => {
       onNavigate(view);
-  };
-
-  // Helper to get badge count for a specific view
-  const getBadgeForView = (view: ViewMode) => {
-      if (view === 'CHAT') return unreadChatCount;
-      if (view === 'DASHBOARD') return systemUnreadCount;
-      if (view === 'QUALITY_GATE') return badges.qualityGate;
-      if (view === 'FEEDBACK') return badges.feedback;
-      if (view === 'DUTY') return badges.myDuty;
-      if (view === 'FINANCE' && isAdmin) return badges.financeTrip; // NEW: Finance Trip Badge
-      // Show Attendance Approval count for Admins
-      if (view === 'ATTENDANCE' && isAdmin) return badges.attendanceApproval;
-      // Show Member Approval count on Team menu for Admins
-      if (view === 'TEAM' && isAdmin) return badges.memberApproval;
-      return 0;
-  };
-
-  // Helper to get total badge count for a group
-  const getGroupBadgeTotal = (groupItems: { view: ViewMode }[]) => {
-      return groupItems.reduce((acc, item) => acc + getBadgeForView(item.view), 0);
   };
 
   return (
@@ -168,7 +136,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           
           const isExpanded = expandedGroups[group.id];
           const GroupIcon = group.icon;
-          const groupTotalBadge = getGroupBadgeTotal(group.items);
 
           return (
             <div key={group.id} className="mb-6">
@@ -185,10 +152,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </h3>
                     </div>
                     <div className="flex items-center gap-2 sidebar-item-text">
-                        {/* Show aggregated badge on group header if collapsed */}
-                        {!isExpanded && groupTotalBadge > 0 && (
-                             <NotificationPill count={groupTotalBadge} color="bg-indigo-500" />
-                        )}
                         {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                     </div>
                 </button>
@@ -210,7 +173,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {group.items.map((item) => {
                       const isActive = currentView === item.view;
                       const Icon = item.icon;
-                      const badgeCount = getBadgeForView(item.view);
 
                       return (
                         <button
@@ -229,9 +191,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
                                 
                                 {/* Collapsed Badge (Attached to Icon) */}
-                                {isCollapsed && badgeCount > 0 && (
+                                {isCollapsed && (
                                      <div className="absolute -top-1.5 -right-1.5">
-                                         <NotificationPill count={badgeCount} />
+                                         <SidebarBadge 
+                                            view={item.view as ViewMode} 
+                                            currentUser={currentUser} 
+                                            collapsed={true} 
+                                            count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                         />
                                      </div>
                                 )}
                           </div>
@@ -241,9 +208,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                           </span>
                           
                           {/* Expanded Badge (Pill on Right) */}
-                          {!isCollapsed && badgeCount > 0 && (
+                          {!isCollapsed && (
                              <div className="sidebar-item-text ml-auto">
-                                <NotificationPill count={badgeCount} color={isActive ? 'bg-white text-indigo-600' : 'bg-red-500'} />
+                                <SidebarBadge 
+                                    view={item.view as ViewMode} 
+                                    currentUser={currentUser} 
+                                    count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                />
                              </div>
                           )}
                         </button>

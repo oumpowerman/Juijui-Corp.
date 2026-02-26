@@ -13,7 +13,7 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
     const [error, setError] = useState<string | null>(null);
     const [fontSize, setFontSize] = useState(16);
     const [isDarkMode, setIsDarkMode] = useState(false);
-    const [isMirrorLayout, setIsMirrorLayout] = useState(false); // NEW: Toggle layout sides
+    const [activeRightChar, setActiveRightChar] = useState<string | null>(null); // Changed from isMirrorLayout to track specific character
 
     useEffect(() => {
         const fetchScript = async () => {
@@ -118,6 +118,29 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
         return bubbles;
     }, [script]);
 
+    // --- Unique Speakers for Cycling ---
+    const uniqueSpeakers = useMemo(() => {
+        const speakers = new Set<string>();
+        chatBubbles.forEach(b => {
+            if (b.speaker !== 'NARRATOR') speakers.add(b.speaker.trim());
+        });
+        return Array.from(speakers);
+    }, [chatBubbles]);
+
+    // Set initial active right character if not set
+    useEffect(() => {
+        if (!activeRightChar && uniqueSpeakers.length > 0) {
+            setActiveRightChar(uniqueSpeakers[0]);
+        }
+    }, [uniqueSpeakers, activeRightChar]);
+
+    const cycleRightChar = () => {
+        if (uniqueSpeakers.length === 0) return;
+        const currentIndex = activeRightChar ? uniqueSpeakers.indexOf(activeRightChar) : -1;
+        const nextIndex = (currentIndex + 1) % uniqueSpeakers.length;
+        setActiveRightChar(uniqueSpeakers[nextIndex]);
+    };
+
     if (loading) {
         return (
             <div className="h-[100dvh] flex items-center justify-center bg-gray-50 flex-col gap-3">
@@ -170,14 +193,19 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Mirror Layout Toggle */}
-                    <button 
-                        onClick={() => setIsMirrorLayout(!isMirrorLayout)} 
-                        className={`p-2 rounded-full transition-all ${isMirrorLayout ? 'bg-indigo-100 text-indigo-600' : isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}`}
-                        title="สลับฝั่ง (Swap Sides)"
-                    >
-                        <ArrowRightLeft className="w-5 h-5" />
-                    </button>
+                    {/* Cycle Right Character Toggle */}
+                    {uniqueSpeakers.length > 1 && (
+                        <button 
+                            onClick={cycleRightChar} 
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100`}
+                            title="สลับคนพูดอยู่ขวา (Cycle Right Character)"
+                        >
+                            <ArrowRightLeft className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase hidden xs:inline">
+                                {activeRightChar || 'สลับฝั่ง'}
+                            </span>
+                        </button>
+                    )}
 
                     <button 
                         onClick={() => setIsDarkMode(!isDarkMode)} 
@@ -202,12 +230,13 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
                         <div className="space-y-6">
                             {chatBubbles.map((bubble, idx) => {
                                 const isNarrator = bubble.speaker === 'NARRATOR';
-                                const charIndex = script.characters?.findIndex(c => c.trim() === bubble.speaker.trim()) ?? -1;
+                                const charIndex = uniqueSpeakers.indexOf(bubble.speaker.trim());
                                 
-                                // Default logic: Even = Left, Odd = Right
-                                const defaultRight = charIndex !== -1 && charIndex % 2 !== 0;
-                                // Apply Mirror Logic
-                                const isRight = isMirrorLayout ? !defaultRight : defaultRight;
+                                // Logic: If speaker matches activeRightChar, put on Right. Otherwise Left.
+                                // Fallback for 2 people if activeRightChar is somehow not set: use index % 2
+                                const isRight = activeRightChar 
+                                    ? bubble.speaker.trim() === activeRightChar 
+                                    : charIndex !== -1 && charIndex % 2 !== 0;
 
                                 if (isNarrator) {
                                     return (

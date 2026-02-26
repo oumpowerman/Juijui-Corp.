@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { MessageCircle, X, ArrowRightLeft } from 'lucide-react';
 
 interface ChatPreviewProps {
     content: string;
@@ -9,7 +9,8 @@ interface ChatPreviewProps {
 }
 
 const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, characters }) => {
-    
+    const [activeRightChar, setActiveRightChar] = useState<string | null>(null);
+
     const chatBubbles = useMemo(() => {
         const cleanContent = content
             .replace(/<\/p>/gi, '\n') 
@@ -66,6 +67,29 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
         return bubbles;
     }, [content]);
 
+    // --- Unique Speakers for Cycling ---
+    const uniqueSpeakers = useMemo(() => {
+        const speakers = new Set<string>();
+        chatBubbles.forEach(b => {
+            if (b.speaker !== 'NARRATOR') speakers.add(b.speaker.trim());
+        });
+        return Array.from(speakers);
+    }, [chatBubbles]);
+
+    // Set initial active right character if not set
+    useEffect(() => {
+        if (!activeRightChar && uniqueSpeakers.length > 0) {
+            setActiveRightChar(uniqueSpeakers[0]);
+        }
+    }, [uniqueSpeakers, activeRightChar]);
+
+    const cycleRightChar = () => {
+        if (uniqueSpeakers.length === 0) return;
+        const currentIndex = activeRightChar ? uniqueSpeakers.indexOf(activeRightChar) : -1;
+        const nextIndex = (currentIndex + 1) % uniqueSpeakers.length;
+        setActiveRightChar(uniqueSpeakers[nextIndex]);
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -78,17 +102,36 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
                     </span>
                     Live Preview
                 </h3>
-                <button onClick={onClose} className="text-gray-400 hover:text-red-500 md:hidden p-2 hover:bg-red-50 rounded-full transition-colors">
-                    <X className="w-5 h-5"/>
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Cycle Right Character Toggle */}
+                    {uniqueSpeakers.length > 1 && (
+                        <button 
+                            onClick={cycleRightChar} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100"
+                            title="สลับคนพูดอยู่ขวา (Cycle Right Character)"
+                        >
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            <span className="text-[9px] font-black uppercase">
+                                {activeRightChar || 'สลับฝั่ง'}
+                            </span>
+                        </button>
+                    )}
+                    <button onClick={onClose} className="text-gray-400 hover:text-red-500 md:hidden p-2 hover:bg-red-50 rounded-full transition-colors">
+                        <X className="w-5 h-5"/>
+                    </button>
+                </div>
             </div>
             
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
                 {chatBubbles.map((bubble, idx) => {
                     const isNarrator = bubble.speaker === 'NARRATOR';
-                    const charIndex = characters.findIndex(c => c.trim() === bubble.speaker.trim());
-                    const isRight = charIndex !== -1 && charIndex % 2 !== 0;
+                    const charIndex = uniqueSpeakers.indexOf(bubble.speaker.trim());
+                    
+                    // Logic: If speaker matches activeRightChar, put on Right. Otherwise Left.
+                    const isRight = activeRightChar 
+                        ? bubble.speaker.trim() === activeRightChar 
+                        : charIndex !== -1 && charIndex % 2 !== 0;
                     
                     if (isNarrator) {
                         return (
@@ -113,9 +156,9 @@ const ChatPreview: React.FC<ChatPreviewProps> = ({ content, isOpen, onClose, cha
 
                             <div className={`flex flex-col ${isRight ? 'items-end' : 'items-start'} max-w-[75%]`}>
                                 <div className="flex items-center gap-2 mb-1 px-1">
-                                    {!isRight && <span className="text-[9px] text-gray-300 font-mono">#{bubble.lineIndex}</span>}
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{bubble.speaker}</span>
                                     {isRight && <span className="text-[9px] text-gray-300 font-mono">#{bubble.lineIndex}</span>}
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{bubble.speaker}</span>
+                                    {!isRight && <span className="text-[9px] text-gray-300 font-mono">#{bubble.lineIndex}</span>}
                                 </div>
                                 <div className={`
                                     px-4 py-3 text-sm shadow-sm whitespace-pre-wrap leading-relaxed

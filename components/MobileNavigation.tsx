@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { User, ViewMode, TaskType, MenuGroup } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
-import { useSidebarBadges } from '../hooks/useSidebarBadges'; // Import Badge Hook
+import SidebarBadge from './SidebarBadge.tsx';
 
 interface MobileNavigationProps {
     currentUser: User;
@@ -83,11 +83,12 @@ interface MobileMenuButtonProps {
     color: string;
     currentView: ViewMode;
     onNavigate: (v: ViewMode) => void;
-    badge?: number;
+    currentUser: User;
+    unreadChatCount: number;
 }
 
 const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({ 
-    view, icon: Icon, label, color, currentView, onNavigate, badge 
+    view, icon: Icon, label, color, currentView, onNavigate, currentUser, unreadChatCount 
 }) => {
     const isActive = currentView === view;
     return (
@@ -105,12 +106,14 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({
             </div>
             <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${isActive ? 'text-indigo-700' : 'text-gray-500'}`}>{label}</span>
             
-            {/* Badge - Fixed Logic: Check explicit greater than 0 with fallback */}
-            {(badge || 0) > 0 && (
-                <div className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
-                    {badge! > 99 ? '99+' : badge}
-                </div>
-            )}
+            {/* Real-time Badge */}
+            <div className="absolute top-1.5 right-1.5">
+                <SidebarBadge 
+                    view={view} 
+                    currentUser={currentUser} 
+                    count={view === 'CHAT' ? unreadChatCount : undefined}
+                />
+            </div>
         </button>
     );
 };
@@ -121,7 +124,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     const [isIOS, setIsIOS] = useState(false);
     
     // Hooks
-    const { badges } = useSidebarBadges(currentUser);
     useMobileBackHandler(isMenuOpen, () => setIsMenuOpen(false));
 
     useEffect(() => {
@@ -180,17 +182,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     const nextLevelXP = currentUser.level * 1000;
     const progressPercent = Math.min(((currentUser.xp % 1000) / 1000) * 100, 100);
 
-    // Helper to map badge count
-    const getBadgeCount = (view: ViewMode) => {
-        if (view === 'CHAT') return unreadChatCount;
-        if (view === 'QUALITY_GATE') return badges.qualityGate;
-        if (view === 'FEEDBACK') return badges.feedback;
-        if (view === 'DUTY') return badges.myDuty;
-        if (view === 'ATTENDANCE' && currentUser.role === 'ADMIN') return badges.attendanceApproval;
-        if (view === 'TEAM' && currentUser.role === 'ADMIN') return badges.memberApproval;
-        return 0;
-    };
-
     return (
         <>
             {/* --- BOTTOM DOCK (Floating) --- */}
@@ -199,13 +190,11 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
                         { view: 'CALENDAR', icon: CalendarIcon, label: 'Plan' },
-                        { view: 'CHAT', icon: MessageCircle, label: 'Chat', badge: unreadChatCount },
-                        { view: 'TEAM', icon: Users, label: 'Team', badge: currentUser.role === 'ADMIN' ? badges.memberApproval : 0 },
+                        { view: 'CHAT', icon: MessageCircle, label: 'Chat' },
+                        { view: 'TEAM', icon: Users, label: 'Team' },
                     ].map((item) => {
                         const Icon = item.icon;
                         const isActive = currentView === item.view;
-                        // @ts-ignore
-                        const badge = item.badge;
 
                         return (
                             <button
@@ -218,9 +207,13 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                             >
                                 <Icon className={`w-6 h-6 mb-0.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
                                 <span className="text-[9px] font-bold tracking-tight">{item.label}</span>
-                                {badge > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-                                )}
+                                <div className="absolute top-1.5 right-1.5">
+                                    <SidebarBadge 
+                                        view={item.view as ViewMode} 
+                                        currentUser={currentUser} 
+                                        count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                    />
+                                </div>
                             </button>
                         );
                     })}
@@ -236,11 +229,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     >
                         <Menu className="w-6 h-6 mb-0.5" />
                         <span className="text-[9px] font-bold">Menu</span>
-                        
-                        {/* Summary Badge for other menu items */}
-                        {(badges.qualityGate + badges.feedback + badges.myDuty + badges.attendanceApproval) > 0 && (
-                             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white"></span>
-                        )}
                     </button>
                 </div>
             </div>
@@ -337,7 +325,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                                     color={color}
                                                     currentView={currentView} 
                                                     onNavigate={handleNavigateAndClose}
-                                                    badge={getBadgeCount(item.view)}
+                                                    currentUser={currentUser}
+                                                    unreadChatCount={unreadChatCount}
                                                 />
                                             )
                                         })}

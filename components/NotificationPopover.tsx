@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, Settings, X, CheckSquare, Zap, Users, Info } from 'lucide-react';
 import { AppNotification, Task, ViewMode } from '../types';
+import { LeaveRequest } from '../types/attendance';
 import NotificationList, { NotificationTab } from './notification/NotificationList';
 
 interface NotificationPopoverProps {
@@ -15,10 +16,14 @@ interface NotificationPopoverProps {
     onDismiss?: (id: string) => void;
     onMarkAllRead?: () => void;
     onNavigate: (view: ViewMode) => void; 
+    onApproveLeave?: (request: LeaveRequest) => Promise<void>;
+    onRejectLeave?: (id: string, reason: string) => Promise<void>;
+    leaveRequests?: LeaveRequest[];
 }
 
 const NotificationPopover: React.FC<NotificationPopoverProps> = ({ 
-    isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkAllRead, onNavigate
+    isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkAllRead, onNavigate,
+    onApproveLeave, onRejectLeave, leaveRequests = []
 }) => {
     const [activeTab, setActiveTab] = useState<NotificationTab>('ALL');
     const contentRef = useRef<HTMLDivElement>(null);
@@ -49,8 +54,24 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
         }
     };
     
-    const handleAction = (id: string, action: 'APPROVE' | 'REJECT') => {
-        alert(`${action} Notification ${id} (Mock Action)`);
+    const handleAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
+        if (id.startsWith('leave_')) {
+            const leaveId = id.replace('leave_', '');
+            const request = leaveRequests.find(r => r.id === leaveId);
+            
+            if (action === 'APPROVE') {
+                if (request && onApproveLeave) {
+                    await onApproveLeave(request);
+                }
+            } else {
+                if (onRejectLeave) {
+                    await onRejectLeave(leaveId, 'Rejected via notification');
+                }
+            }
+        } else {
+            alert(`${action} Notification ${id} (Mock Action)`);
+        }
+        
         if (onDismiss) onDismiss(id);
     };
 

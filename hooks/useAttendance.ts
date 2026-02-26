@@ -536,6 +536,32 @@ export const useAttendance = (userId: string) => {
         if (userId) {
             fetchTodayStatus();
             fetchStats();
+
+            // --- REAL-TIME SUBSCRIPTION ---
+            const channel = supabase.channel(`attendance-realtime-${userId}`)
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'attendance_logs', 
+                    filter: `user_id=eq.${userId}` 
+                }, () => {
+                    fetchTodayStatus();
+                    fetchStats();
+                })
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'leave_requests',
+                    filter: `user_id=eq.${userId}`
+                }, () => {
+                    // If a leave is approved/rejected, it might affect today's status
+                    fetchTodayStatus();
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [userId, fetchTodayStatus, fetchStats]);
 

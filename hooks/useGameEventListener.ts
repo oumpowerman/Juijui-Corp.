@@ -18,6 +18,7 @@ export const useGameEventListener = (currentUser: User | null) => {
     // Buffer: ใช้เก็บ Log ที่เด้งมาพร้อมกันหลายๆ อัน เพื่อแสดงรวบยอด (ลด Spam)
     const bufferRef = useRef<Map<string, any[]>>(new Map());
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const nameCacheRef = useRef<Map<string, string>>(new Map());
 
     // 1. Request Notification Permission (Browser)
     useEffect(() => {
@@ -26,22 +27,35 @@ export const useGameEventListener = (currentUser: User | null) => {
         }
     }, []);
 
-    const processBuffer = () => {
+    const processBuffer = async () => {
         if (!currentUser) return;
         const isAdmin = currentUser.role === 'ADMIN';
 
-        bufferRef.current.forEach((logs, groupKey) => {
-            if (logs.length === 0) return;
+        // 1. Copy and Clear immediately to prevent losing logs during async processing
+        const logsToProcess = Array.from(bufferRef.current.entries());
+        bufferRef.current.clear();
+        timerRef.current = null;
+
+        const fetchName = async (userId: string) => {
+            if (nameCacheRef.current.has(userId)) return nameCacheRef.current.get(userId);
+            const { data } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
+            const name = data?.full_name || 'Unknown';
+            nameCacheRef.current.set(userId, name);
+            return name;
+        };
+
+        for (const [groupKey, logs] of logsToProcess) {
+            if (logs.length === 0) continue;
 
             const firstLog = logs[0];
             const count = logs.length;
             const actionType = firstLog.action_type;
             
             // Helper: ถ้าเป็น Admin จะเห็นยอดรวมคน
-            const generateWhoText = () => {
+            const generateWhoText = (userCount: number) => {
                 if (!isAdmin) return ''; 
-                if (count <= 1) return ''; 
-                return `(${count} คน)`;
+                if (userCount <= 1) return ''; 
+                return `(${userCount} คน)`;
             };
 
             // ✅ KEY LOGIC: ใช้ข้อความจาก Database เลย ไม่ต้อง Hardcode ใน Frontend
@@ -70,34 +84,56 @@ export const useGameEventListener = (currentUser: User | null) => {
             if (isAdmin && count > 1) {
                 // ถ้า Admin เห็นคนหลายคนทำเรื่องเดียวกัน ให้รวบยอด
                 if (actionType === 'TASK_COMPLETE') {
-                    showToast(`🎉 ปิดงานสำเร็จ ${count} งาน ${generateWhoText()}`, 'success');
+                    showToast(`🎉 ปิดงานสำเร็จ ${count} งาน ${generateWhoText(count)}`, 'success');
                 } else if (actionType === 'TASK_LATE') {
-                    showToast(`📉 มีงานส่งล่าช้า ${count} รายการ ${generateWhoText()}`, 'penalty');
+                    showToast(`📉 มีงานส่งล่าช้า ${count} รายการ ${generateWhoText(count)}`, 'penalty');
                 } else if (actionType === 'ATTENDANCE_CHECK_IN') {
-                    showToast(`🕒 มีพนักงานลงเวลาเข้างาน ${generateWhoText()}`, 'info');
+                    showToast(`🕒 มีพนักงานลงเวลาเข้างาน ${generateWhoText(count)}`, 'info');
                 } else {
-                    showToast(`${message} ${generateWhoText()}`, toastType);
+                    showToast(`${message} ${generateWhoText(count)}`, toastType);
                 }
             } else {
                 // Individual User: แสดงข้อความตรงๆ
                 // กรองเฉพาะของตัวเอง หรือถ้าเป็น Admin ก็ให้เห็นของทุกคน (แบบทีละรายการถ้าไม่เยอะ)
-                const myLogs = logs.filter(l => isAdmin || l.user_id === currentUser.id);
+                const myLogs = logs.filter(l => {
+                    if (l.user_id === currentUser.id) return true;
+                    if (isAdmin) {
+                        // For Admin: Only show "Important" events for other users to reduce spam
+                        const importantActions = [
+                            'ATTENDANCE_CHECK_IN', 
+                            'ATTENDANCE_ABSENT', 
+                            'ATTENDANCE_LATE', 
+                            'ATTENDANCE_NO_SHOW',
+                            'DUTY_MISSED', 
+                            'TASK_LATE', 
+                            'LEVEL_UP',
+                            'SYSTEM_LOCK_PENALTY'
+                        ];
+                        // Also show if there's a significant HP loss
+                        return importantActions.includes(l.action_type) || l.hp_change < -5;
+                    }
+                    return false;
+                });
                 
-                myLogs.forEach(log => {
+                for (const log of myLogs) {
                     // Recalculate type per log to be safe for mixed batch
                     let localType = toastType;
                     if (log.hp_change < 0) localType = 'penalty';
                     if (log.action_type === 'LEVEL_UP') localType = 'reward';
                     
-                    // ✨ THE MAGIC LINE: Display whatever the Engine sent
-                    showToast(log.description, localType);
-                });
-            }
-        });
+                    let finalMessage = log.description;
+                    
+                    // If Admin is seeing someone else's log, prefix with their name
+                    if (isAdmin && log.user_id !== currentUser.id) {
+                        const userName = await fetchName(log.user_id);
+                        finalMessage = `👤 ${userName}: ${log.description}`;
+                    }
 
-        // Clear buffer
-        bufferRef.current.clear();
-        timerRef.current = null;
+                    // ✨ THE MAGIC LINE: Display whatever the Engine sent
+                    showToast(finalMessage, localType);
+                }
+            }
+        }
     };
 
     useEffect(() => {

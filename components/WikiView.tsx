@@ -13,6 +13,7 @@ import { useToast } from '../context/ToastContext';
 import WikiSidebar from './wiki/WikiSidebar';
 import WikiList from './wiki/WikiList';
 import WikiReader from './wiki/WikiReader';
+import WikiHandbook from './wiki/WikiHandbook';
 
 // Lazy Load Editor
 const WikiEditor = lazy(() => import('./wiki/WikiEditor'));
@@ -35,6 +36,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const [viewingArticle, setViewingArticle] = useState<WikiArticle | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const [wikiMode, setWikiMode] = useState<'ARTICLES' | 'HANDBOOK'>('ARTICLES');
     
     // Responsive & Layout State
     const [layoutMode, setLayoutMode] = useState<WikiLayoutMode>('STANDARD');
@@ -165,6 +167,22 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 ${showSidebar ? 'lg:w-72 opacity-100' : 'lg:w-0 opacity-0'} 
                 hidden lg:flex flex-col border-r border-slate-100 bg-slate-50/80 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
             `}>
+                <div className="p-4 border-b border-slate-100 bg-white">
+                    <div className="flex bg-slate-100 p-1 rounded-2xl">
+                        <button 
+                            onClick={() => setWikiMode('ARTICLES')}
+                            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'ARTICLES' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Articles
+                        </button>
+                        <button 
+                            onClick={() => setWikiMode('HANDBOOK')}
+                            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Handbook
+                        </button>
+                    </div>
+                </div>
                 <WikiSidebar 
                     categories={categories}
                     selectedCategory={selectedCategory}
@@ -198,12 +216,14 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 />
             </div>
 
-            {/* 3. RIGHT CONTENT (Reader / Editor) */}
+            {/* 3. RIGHT CONTENT (Reader / Editor / Handbook) */}
             <div className={`
                 flex-1 bg-white flex flex-col relative transition-all duration-500 ease-in-out z-10 overflow-hidden
                 ${!isMobileListVisible ? 'absolute inset-0 z-30' : 'hidden lg:flex'}
             `}>
-                {isEditing ? (
+                {wikiMode === 'HANDBOOK' ? (
+                    <WikiHandbook currentUser={currentUser} />
+                ) : isEditing ? (
                     <Suspense fallback={
                         <div className="flex-1 flex flex-col items-center justify-center text-indigo-300">
                             <Loader2 className="w-12 h-12 animate-spin mb-4" />

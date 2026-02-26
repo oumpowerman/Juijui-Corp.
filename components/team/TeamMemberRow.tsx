@@ -6,6 +6,7 @@ import { STATUS_COLORS, WORK_STATUS_CONFIG, PRIORITY_COLORS } from '../../consta
 import { isToday, differenceInCalendarDays, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ColorLensMode } from '../TeamView';
 import FeelingBubble, { BUBBLE_THEMES } from '../common/FeelingBubble';
+import UserAvatarWithHP from '../common/UserAvatarWithHP';
 
 // DnD Wrappers
 import DraggableTask from './dnd/DraggableTask';
@@ -238,16 +239,12 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                     <FeelingBubble 
                         userId={user.id} 
                         feeling={user.feeling} 
-                        className="-top-7 left-1/2 -translate-x-1/2" 
+                        className="-top-8 left-1/2 -translate-x-1/2" 
                     />
-                    <div className="relative">
-                        <div className={`rounded-full border-2 transition-transform duration-300 ${isMe ? 'border-indigo-200' : 'border-gray-100'} ${isFocused ? 'scale-110 p-1.5 ring-4 ring-indigo-50' : 'hover:scale-105 p-1'}`}>
-                            <img src={user.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt={user.name} />
-                        </div>
-                        <div className={`absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white ring-2 ${statusColorClass} shadow-sm z-20 flex items-center justify-center`}></div>
-                        {user.role === 'ADMIN' && <span className="absolute -top-2 -right-2 bg-yellow-400 text-white p-0.5 rounded-full border-2 border-white shadow-sm z-20"><Crown className="w-3 h-3 fill-white" /></span>}
-                        <div className="absolute -bottom-1 -right-1 bg-indigo-600 text-white text-[8px] px-1.5 rounded-full border-2 border-white font-bold shadow-sm z-20">Lv.{user.level}</div>
-                    </div>
+                    <UserAvatarWithHP 
+                        user={user} 
+                        isFocused={isFocused}
+                    />
                 </div>
                 
                 <p className={`text-xs font-bold truncate w-full mb-0.5 ${isMe ? 'text-indigo-700' : 'text-gray-800'}`}>{(user.name || 'Unknown').split(' ')[0]}</p>

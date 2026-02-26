@@ -2,6 +2,7 @@
 import React from 'react';
 import { Crown, Swords, Sparkles } from 'lucide-react';
 import { LeaderboardEntry } from '../../hooks/useLeaderboard';
+import UserAvatarWithHP from '../common/UserAvatarWithHP';
 
 interface PodiumSectionProps {
     topThree: LeaderboardEntry[];
@@ -48,16 +49,13 @@ const PodiumSection: React.FC<PodiumSectionProps> = ({ topThree }) => {
                             <Crown className="w-12 h-12 text-yellow-500 fill-yellow-300 stroke-[2.5px]" />
                         </div>
                     )}
-                    <div className={`
-                        relative w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-white shadow-xl overflow-hidden z-10
-                        ring-4 ${ringColor}
-                    `}>
-                        <img src={entry.user.avatarUrl} className="w-full h-full object-cover" alt={entry.user.name} />
-                    </div>
-                    {/* Level Badge */}
-                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-black text-white shadow-md whitespace-nowrap bg-gray-900 border-2 border-white z-20">
-                        Lv.{entry.user.level}
-                    </div>
+                    <UserAvatarWithHP 
+                        user={entry.user} 
+                        size={isGold ? 'xl' : 'lg'}
+                        showLevel={true}
+                        showStatus={true}
+                        showAdminBadge={true}
+                    />
                 </div>
 
                 {/* Name & Score Info */}

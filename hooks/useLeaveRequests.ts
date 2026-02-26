@@ -95,6 +95,7 @@ export const useLeaveRequests = (currentUser?: any) => {
         if (!currentUser) return false;
         try {
             const startDateStr = format(startDate, 'yyyy-MM-dd');
+            // Check for pending/approved request of same type on same day
             const { data: existingRequest } = await supabase
                 .from('leave_requests')
                 .select('id, status')
@@ -135,7 +136,8 @@ export const useLeaveRequests = (currentUser?: any) => {
 
             const { error } = await supabase.from('leave_requests').insert(payload);
             if (error) throw error;
-
+            
+            // If FORGOT_CHECKOUT, flag the log if exists
             if (type === 'FORGOT_CHECKOUT') {
                 await supabase.from('attendance_logs').update({ status: 'PENDING_VERIFY' }).eq('user_id', currentUser.id).eq('date', startDateStr);
             }
@@ -184,9 +186,6 @@ export const useLeaveRequests = (currentUser?: any) => {
             });
 
             // --- SPECIAL LOGIC FOR WFH ---
-            // WFH is a "Permission", NOT a "Leave Log". 
-            // We DO NOT insert into attendance_logs here. 
-            // The user must still "Check In" manually on that day, but the system will allow WFH mode.
             if (request.type === 'WFH') {
                  await supabase.from('team_messages').insert({
                     content: `✅ คำขอ WFH ของ **${request.user?.name}** ได้รับการอนุมัติแล้ว (อย่าลืม Check-in นะ!)`,
@@ -201,7 +200,6 @@ export const useLeaveRequests = (currentUser?: any) => {
             
             // --- IF APPROVING LATE ENTRY ---
             if (request.type === 'LATE_ENTRY') {
-                // Find existing log if they already checked in (as [APPEAL_PENDING])
                 const dateStr = format(request.startDate, 'yyyy-MM-dd');
                 const { data: existingLog } = await supabase.from('attendance_logs')
                     .select('id, note')
@@ -210,34 +208,41 @@ export const useLeaveRequests = (currentUser?: any) => {
                     .maybeSingle();
 
                 if (existingLog) {
-                    // Update note to remove [APPEAL_PENDING] and add [APPROVED]
                     const newNote = (existingLog.note || '').replace('[APPEAL_PENDING]', '[LATE APPROVED]').trim();
                     await supabase.from('attendance_logs').update({ note: newNote }).eq('id', existingLog.id);
-                } else {
-                     // If they haven't checked in yet (unlikely if flow is followed, but possible if approved pre-arrival)
-                     // We don't create log, just let them check in later. 
-                     // When they check in, they might check in normally.
                 }
             }
 
-            // --- Logic for Corrections (Forgot In/Out) ---
-            if (request.type === 'FORGOT_CHECKIN' || request.type === 'FORGOT_CHECKOUT') {
+            // --- Logic for Corrections (Forgot In/Out, Late Entry) ---
+            if (request.type === 'FORGOT_CHECKIN' || request.type === 'FORGOT_CHECKOUT' || request.type === 'LATE_ENTRY') {
                 const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '00:00';
                 const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
                 
-                if (request.type === 'FORGOT_CHECKIN') {
+                if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
                      const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+                     
+                     // 1. Create or Update Log to allow Check-out
+                     // Important: Status MUST be 'WORKING' to enable the "Check Out" button in StatusCard
                      const payload = {
                          user_id: request.userId,
                          date: shiftDateStr,
                          check_in_time: checkInDateTime.toISOString(),
-                         work_type: 'OFFICE', 
-                         status: 'WORKING',
-                         note: `[APPROVED CORRECTION] ${request.reason}`
+                         work_type: 'OFFICE', // Default
+                         status: 'WORKING',   // KEY: Enables Check-out button
+                         note: `[APPROVED ${request.type}] ${request.reason}`
                      };
+                     
+                     // Upsert to handle if a log exists but was empty/invalid
                      await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                     await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { status: 'ON_TIME', time: timeStr });
+                     
+                     // Update Profile Status to ONLINE
+                     await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+
+                     await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
+                        status: request.type === 'LATE_ENTRY' ? 'LATE' : 'ON_TIME', 
+                        time: timeStr 
+                     });
 
                 } else if (request.type === 'FORGOT_CHECKOUT') {
                      const [hours, minutes] = timeStr.split(':').map(Number);
@@ -255,6 +260,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                         }).eq('id', log.id);
                         await processAction(request.userId, 'DUTY_COMPLETE', { reason: 'Manual Checkout Approved' });
                      } else {
+                         // Fallback if no check-in log exists (rare but possible if forgot BOTH)
                          const defaultStart = new Date(request.startDate);
                          defaultStart.setHours(10, 0, 0, 0);
                          await supabase.from('attendance_logs').insert({
@@ -268,7 +274,7 @@ export const useLeaveRequests = (currentUser?: any) => {
                          });
                      }
                 }
-            } else if (request.type !== 'LATE_ENTRY') { // Skip log creation for LATE_ENTRY as it's just permission
+            } else if (request.type !== 'OVERTIME') { 
                 // --- Logic for Actual Leaves (Sick, Vacation) ---
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
                 const logs = days.map(day => ({
@@ -318,7 +324,6 @@ export const useLeaveRequests = (currentUser?: any) => {
             // --- NEW: Handle LATE_ENTRY Rejection Penalty ---
             if (req && req.type === 'LATE_ENTRY') {
                 const dateStr = req.start_date;
-                // If they checked in (APPEAL PENDING), now update log to LATE and penalize
                 const { data: log } = await supabase.from('attendance_logs')
                     .select('id, note')
                     .eq('user_id', req.user_id)
@@ -330,7 +335,6 @@ export const useLeaveRequests = (currentUser?: any) => {
                     await supabase.from('attendance_logs').update({ note: newNote, status: 'LATE' }).eq('id', log.id);
                 }
                 
-                // Trigger Penalty Game Event
                 await processAction(req.user_id, 'ATTENDANCE_LATE', { date: dateStr });
             }
             

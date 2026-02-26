@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check, Users, MapPin, Zap, Repeat } from 'lucide-react';
+import { X, Check, Users, MapPin, Zap, Repeat, ClipboardList } from 'lucide-react';
 import { MasterOption, TransactionType, AssetType, Task, User, Channel, ShootTrip } from '../../types';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { format } from 'date-fns';
@@ -111,20 +111,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
-
-        const currentMonth = format(new Date(), 'yyyy-MM');
-
-        try {
-            const res = await uploadFileToDrive(
-                file,
-                ['Finance_Receipts', currentMonth]
-            );
-
-            setReceiptUrl(res.thumbnailUrl || res.url);
-
-        } catch (err) {
-            console.error('Drive upload failed:', err);
+        if (file) {
+            const currentMonth = format(new Date(), 'yyyy-MM');
+            try {
+                const res = await uploadFileToDrive(file, ['Finance_Receipts', currentMonth]);
+                setReceiptUrl(res.thumbnailUrl || res.url);
+            } catch (error) {
+                console.error("Drive upload error:", error);
+            }
         }
     };
     
@@ -184,97 +178,157 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     return createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
+            <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
                 
                 <TransactionTypeSelector type={type} setType={setType} onResetCategory={() => setCategoryKey('')} onClose={onClose} />
 
-                <form onSubmit={handleSubmit} className="p-8 overflow-y-auto flex-1 space-y-6 bg-[#f8fafc] scrollbar-thin">
-                    
-                    {/* Amount Input with Ref for Smart Focus */}
-                    <AmountDateInput 
-                        amount={amount} 
-                        setAmount={setAmount} 
-                        date={date} 
-                        setDate={setDate} 
-                        netAmount={netAmount} 
-                        showNet={hasVat || whtRate > 0} 
-                        inputRef={amountInputRef}
-                    />
-
-                    <div className="space-y-4">
-                        <CategorySelector categories={categories} categoryKey={categoryKey} setCategoryKey={setCategoryKey} />
+                <form onSubmit={handleSubmit} className="p-8 overflow-y-auto flex-1 bg-[#f8fafc] scrollbar-thin">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                         
-                        {/* Quick Presets Area with Smart Handler */}
-                        <QuickFillSelector 
-                            categoryKey={categoryKey} 
-                            onSelect={handleQuickSelect} 
-                        />
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">รายการ (Name)</label>
-                            <input type="text" className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-800 focus:border-indigo-400 transition-all" placeholder={type === 'INCOME' ? "เช่น ค่าจ้าง Project A..." : "เช่น ค่าอาหาร, ค่ารถ..."} value={name} onChange={e => setName(e.target.value)} />
-                        </div>
-                        
-                        {/* Recurring Checkbox */}
-                        {type === 'EXPENSE' && (
-                            <label className="flex items-center gap-2 cursor-pointer w-fit p-1 pr-3 rounded-lg hover:bg-gray-100 transition-colors">
-                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
-                                    {isRecurring && <Check className="w-3.5 h-3.5 text-white" />}
+                        {/* Left Column: Core Transaction Details */}
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                    <Zap className="w-4 h-4 text-indigo-600" />
                                 </div>
-                                <input type="checkbox" className="hidden" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} />
-                                <span className={`text-xs font-bold flex items-center gap-1 ${isRecurring ? 'text-indigo-600' : 'text-gray-500'}`}>
-                                    <Repeat className="w-3 h-3" /> รายจ่ายประจำ (Recurring)
-                                </span>
-                            </label>
-                        )}
-
-                        {isSalary && users.length > 0 && (
-                            <div className="bg-red-50 p-4 rounded-xl border border-red-100 animate-in slide-in-from-top-2">
-                                <label className="block text-xs font-bold text-red-500 uppercase mb-2 flex items-center"><Users className="w-3 h-3 mr-1"/> จ่ายให้ใคร? (Receiver)</label>
-                                <select className="w-full px-3 py-2 bg-white border border-red-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-red-400 cursor-pointer" value={targetUserId} onChange={e => setTargetUserId(e.target.value)}>
-                                    <option value="">-- เลือกพนักงาน --</option>
-                                    {users.filter(u => u.isActive).map(u => (
-                                        <option key={u.id} value={u.id}>{u.name} ({u.position})</option>
-                                    ))}
-                                </select>
+                                <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">ข้อมูลหลัก (Core Details)</h3>
                             </div>
-                        )}
-                    </div>
 
-                    {type === 'EXPENSE' && (
-                        <div className="space-y-4">
-                            {/* Trip Linker */}
+                            <AmountDateInput 
+                                amount={amount} 
+                                setAmount={setAmount} 
+                                date={date} 
+                                setDate={setDate} 
+                                netAmount={netAmount} 
+                                showNet={hasVat || whtRate > 0} 
+                                inputRef={amountInputRef}
+                            />
+
+                            <div className="space-y-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                                <CategorySelector categories={categories} categoryKey={categoryKey} setCategoryKey={setCategoryKey} />
+                                
+                                <QuickFillSelector 
+                                    categoryKey={categoryKey} 
+                                    onSelect={handleQuickSelect} 
+                                />
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1">รายการ (Transaction Name)</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none text-sm font-bold text-gray-800 focus:border-indigo-400 focus:bg-white transition-all" 
+                                        placeholder={type === 'INCOME' ? "เช่น ค่าจ้าง Project A..." : "เช่น ค่าอาหาร, ค่ารถ..."} 
+                                        value={name} 
+                                        onChange={e => setName(e.target.value)} 
+                                    />
+                                </div>
+
+                                {type === 'EXPENSE' && (
+                                    <label className="flex items-center gap-2 cursor-pointer w-fit p-1 pr-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isRecurring ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                                            {isRecurring && <Check className="w-3.5 h-3.5 text-white" />}
+                                        </div>
+                                        <input type="checkbox" className="hidden" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} />
+                                        <span className={`text-xs font-bold flex items-center gap-1 ${isRecurring ? 'text-indigo-600' : 'text-gray-500'}`}>
+                                            <Repeat className="w-3 h-3" /> รายจ่ายประจำ (Recurring)
+                                        </span>
+                                    </label>
+                                )}
+                            </div>
+
+                            {isSalary && users.length > 0 && (
+                                <div className="bg-red-50 p-5 rounded-3xl border border-red-100 animate-in slide-in-from-top-2">
+                                    <label className="block text-xs font-bold text-red-500 uppercase mb-2 flex items-center"><Users className="w-3 h-3 mr-1"/> จ่ายให้ใคร? (Receiver)</label>
+                                    <select className="w-full px-4 py-3 bg-white border-2 border-red-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-red-400 cursor-pointer" value={targetUserId} onChange={e => setTargetUserId(e.target.value)}>
+                                        <option value="">-- เลือกพนักงาน --</option>
+                                        {users.filter(u => u.isActive).map(u => (
+                                            <option key={u.id} value={u.id}>{u.name} ({u.position})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center"><MapPin className="w-3 h-3 mr-1"/> ผูกกับทริปออกกอง (Shoot Session)</label>
-                                <select 
-                                    className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-800 focus:border-indigo-400 transition-all"
-                                    value={shootTripId}
-                                    onChange={e => setShootTripId(e.target.value)}
-                                >
-                                    <option value="">-- ไม่ได้มาจากการออกกอง --</option>
-                                    {trips.map(t => (
-                                        <option key={t.id} value={t.id}>{format(new Date(t.date), 'dd/MM')} - {t.title}</option>
-                                    ))}
-                                </select>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1">หมายเหตุเพิ่มเติม (Notes)</label>
+                                <textarea 
+                                    className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-medium text-gray-700 focus:border-indigo-400 transition-all min-h-[80px] resize-none"
+                                    placeholder="ระบุรายละเอียดเพิ่มเติม..."
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Right Column: Context & Tax Compliance */}
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                    <ClipboardList className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider">การเชื่อมโยง & ภาษี (Context & Tax)</h3>
                             </div>
 
-                            <AssetTypeSelector assetType={assetType} setAssetType={setAssetType} />
-                            <ProjectLinker projectId={projectId} setProjectId={setProjectId} projects={projects} channels={channels} />
+                            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+                                {type === 'EXPENSE' && (
+                                    <>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 flex items-center"><MapPin className="w-3 h-3 mr-1"/> ผูกกับทริปออกกอง (Shoot Session)</label>
+                                            <select 
+                                                className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none text-sm font-bold text-gray-800 focus:border-indigo-400 focus:bg-white transition-all cursor-pointer"
+                                                value={shootTripId}
+                                                onChange={e => setShootTripId(e.target.value)}
+                                            >
+                                                <option value="">-- ไม่ได้มาจากการออกกอง --</option>
+                                                {trips.map(t => (
+                                                    <option key={t.id} value={t.id}>{format(new Date(t.date), 'dd/MM')} - {t.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <AssetTypeSelector assetType={assetType} setAssetType={setAssetType} />
+                                    </>
+                                )}
+                                
+                                <ProjectLinker projectId={projectId} setProjectId={setProjectId} projects={projects} channels={channels} />
+                            </div>
+                            
+                            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                                <TaxForm 
+                                    hasVat={hasVat} setHasVat={setHasVat} 
+                                    whtRate={whtRate} setWhtRate={setWhtRate} 
+                                    entityName={entityName} setEntityName={setEntityName} 
+                                    taxId={taxId} setTaxId={setTaxId} 
+                                    taxInvoiceNo={taxInvoiceNo} setTaxInvoiceNo={setTaxInvoiceNo} 
+                                    baseAmount={baseVal} vatAmount={vatAmount} 
+                                    whtAmount={whtAmount} netAmount={netAmount} 
+                                />
+                            </div>
+
+                            <ReceiptUploader 
+                                receiptUrl={receiptUrl} 
+                                setReceiptUrl={setReceiptUrl} 
+                                isUploading={isUploading} 
+                                isDriveReady={isDriveReady} 
+                                onFileChange={handleFileUpload} 
+                            />
                         </div>
-                    )}
-                    
-                    <TaxForm hasVat={hasVat} setHasVat={setHasVat} whtRate={whtRate} setWhtRate={setWhtRate} entityName={entityName} setEntityName={setEntityName} taxId={taxId} setTaxId={setTaxId} taxInvoiceNo={taxInvoiceNo} setTaxInvoiceNo={setTaxInvoiceNo} baseAmount={baseVal} vatAmount={vatAmount} whtAmount={whtAmount} netAmount={netAmount} />
-                    <ReceiptUploader receiptUrl={receiptUrl} setReceiptUrl={setReceiptUrl} isUploading={isUploading} isDriveReady={isDriveReady} onFileChange={handleFileUpload} />
+                    </div>
                 </form>
 
-                <div className="p-6 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0">
-                    <button onClick={onClose} className="px-6 py-3 rounded-2xl text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 transition-colors">ยกเลิก</button>
-                    <button onClick={handleSubmit} disabled={isSubmitting || isUploading} className={`px-8 py-3 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 flex items-center gap-2 ${type === 'INCOME' ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}>
-                        {isSubmitting ? 'กำลังบันทึก...' : <><Check className="w-5 h-5"/> บันทึกรายการ</>}
-                    </button>
+                <div className="p-6 bg-white border-t border-gray-100 flex justify-between items-center shrink-0 px-10">
+                    <div className="hidden sm:block">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Transaction System v2.0</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-8 py-3 rounded-2xl text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 transition-colors">ยกเลิก</button>
+                        <button onClick={handleSubmit} disabled={isSubmitting || isUploading} className={`px-10 py-3 text-white font-bold rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2 ${type === 'INCOME' ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}>
+                            {isSubmitting ? 'กำลังบันทึก...' : <><Check className="w-5 h-5"/> บันทึกรายการ</>}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>,
+        </div>
+,
         document.body
     );
 };

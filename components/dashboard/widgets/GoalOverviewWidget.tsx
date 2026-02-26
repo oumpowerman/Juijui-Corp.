@@ -72,7 +72,7 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
                             <Trophy className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black tracking-tight leading-none">เป้าหมาย</h3>
+                            <h3 className="text-lg font-bold tracking-tight leading-none">เป้าหมาย</h3>
                             <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider mt-1">Squad Goals</p>
                         </div>
                     </div>

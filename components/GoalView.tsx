@@ -10,6 +10,7 @@ import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Ta
 import { format, isSameMonth, addMonths, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, subDays, eachDayOfInterval, isSameDay, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 interface GoalViewProps {
     channels: Channel[];
@@ -138,6 +139,25 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
         const end = endOfWeek(endOfMonth(viewMonth));
         return eachDayOfInterval({ start, end });
     }, [viewMonth]);
+
+    const handleUpdateProgress = async (val: number) => {
+        if (!updatingGoal) return;
+        
+        const wasCompleted = updatingGoal.currentValue >= updatingGoal.targetValue;
+        const isNowCompleted = val >= updatingGoal.targetValue;
+
+        await updateGoalValue(updatingGoal.id, val);
+        
+        if (!wasCompleted && isNowCompleted) {
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+            });
+        }
+        setUpdatingGoal(null);
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24">
@@ -300,6 +320,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                     currentUser={currentUser}
                                     onUpdate={() => setUpdatingGoal(goal)}
                                     onToggleOwner={toggleOwner}
+                                    onToggleBoost={toggleBoost}
                                     onDelete={deleteGoal}
                                     onEdit={(g) => { setEditingGoal(g); setIsCreateModalOpen(true); }}
                                 />
@@ -346,7 +367,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                     isOpen={!!updatingGoal}
                     onClose={() => setUpdatingGoal(null)}
                     goal={updatingGoal}
-                    onUpdate={(val) => updateGoalValue(updatingGoal.id, val)}
+                    onUpdate={handleUpdateProgress}
                 />
             )}
 

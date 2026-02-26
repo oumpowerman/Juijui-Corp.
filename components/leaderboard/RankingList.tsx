@@ -2,6 +2,7 @@
 import React from 'react';
 import { CheckCircle2, AlertTriangle, TrendingDown, MessageCircle, Flame, Shield, Skull, Moon } from 'lucide-react';
 import { LeaderboardEntry, BadgeType } from '../../hooks/useLeaderboard';
+import UserAvatarWithHP from '../common/UserAvatarWithHP';
 
 interface RankingListProps {
     list: LeaderboardEntry[];
@@ -51,16 +52,13 @@ const RankingList: React.FC<RankingListProps> = ({ list, emptyMessage = "ยั�
 
                         {/* Agent Profile */}
                         <div className="col-span-6 md:col-span-6 flex items-center gap-3 md:gap-4 pl-2">
-                            <div className="relative shrink-0">
-                                <img 
-                                    src={entry.user.avatarUrl} 
-                                    className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-200 border-2 border-white shadow-sm object-cover group-hover:scale-105 transition-transform" 
-                                    alt={entry.user.name} 
-                                />
-                                <div className="absolute -bottom-1 -right-1 bg-slate-800 text-white rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold border-2 border-white">
-                                    {entry.user.level}
-                                </div>
-                            </div>
+                            <UserAvatarWithHP 
+                                user={entry.user} 
+                                size="md"
+                                showLevel={true}
+                                showStatus={true}
+                                showAdminBadge={true}
+                            />
                             
                             <div className="min-w-0 flex flex-col justify-center">
                                 <div className="flex items-center gap-2">

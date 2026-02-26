@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, ViewMode } from '../../../types';
 import { Trophy, ChevronRight, Crown, TrendingUp, Clock, History } from 'lucide-react';
 import { useLeaderboard, TimeRange } from '../../../hooks/useLeaderboard';
+import UserAvatarWithHP from '../../common/UserAvatarWithHP';
 
 interface HallOfFameWidgetProps {
     users: User[];
@@ -16,32 +17,32 @@ const HallOfFameWidget: React.FC<HallOfFameWidgetProps> = ({ users, currentUser,
 
     // --- Components ---
     const RenderAvatar = ({ user, rank, score }: { user: User, rank: number, score: number }) => {
-        let sizeClass = 'w-10 h-10';
-        let borderClass = 'border-gray-200';
+        let size: 'sm' | 'md' | 'lg' | 'xl' = 'md';
         let crown = null;
         let mt = 'mt-0';
 
         if (rank === 1) {
-            sizeClass = 'w-14 h-14';
-            borderClass = 'border-yellow-400 ring-4 ring-yellow-100';
-            crown = <Crown className="w-6 h-6 text-yellow-500 absolute -top-5 left-1/2 -translate-x-1/2 animate-bounce-slow drop-shadow-md" fill="currentColor" />;
+            size = 'lg';
+            crown = <Crown className="w-6 h-6 text-yellow-500 absolute -top-5 left-1/2 -translate-x-1/2 animate-bounce-slow drop-shadow-md z-30" fill="currentColor" />;
             mt = '-mt-4'; // Lift up
         } else if (rank === 2) {
-            sizeClass = 'w-12 h-12';
-            borderClass = 'border-slate-300 ring-2 ring-slate-100'; // Silver
+            size = 'md';
         } else if (rank === 3) {
-            sizeClass = 'w-11 h-11';
-            borderClass = 'border-orange-300 ring-2 ring-orange-100'; // Bronze
+            size = 'md';
         }
 
         return (
             <div className={`flex flex-col items-center ${mt} relative group`}>
                 {crown}
-                <div className={`relative ${sizeClass} rounded-full border-2 ${borderClass} p-0.5 bg-white shadow-lg group-hover:scale-105 transition-transform duration-300`}>
-                    <img src={user.avatarUrl} className="w-full h-full rounded-full object-cover" alt={user.name} />
-                    <div className="absolute -bottom-2 -right-1 bg-gray-800 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
-                        {rank}
-                    </div>
+                <UserAvatarWithHP 
+                    user={user} 
+                    size={size}
+                    showLevel={false}
+                    showStatus={false}
+                    showAdminBadge={false}
+                />
+                <div className="absolute -bottom-2 -right-1 bg-gray-800 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm z-30">
+                    {rank}
                 </div>
                 <span className={`text-[10px] font-bold mt-2 truncate max-w-[60px] ${rank === 1 ? 'text-gray-800 text-xs' : 'text-gray-500'}`}>{user.name.split(' ')[0]}</span>
                 <span className="text-[9px] font-medium text-gray-400">{score.toLocaleString()} XP</span>
@@ -63,7 +64,7 @@ const HallOfFameWidget: React.FC<HallOfFameWidgetProps> = ({ users, currentUser,
                             <Trophy className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black tracking-tight leading-none">Hall of Fame</h3>
+                            <h3 className="text-lg font-bold tracking-tight leading-none">Hall of Fame</h3>
                             <p className="text-yellow-100 text-[10px] font-bold uppercase tracking-wider mt-1">
                                 {timeRange === 'WEEKLY' ? 'MVP of the Week' : 'Top Performers'}
                             </p>

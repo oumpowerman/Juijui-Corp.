@@ -31,7 +31,9 @@ export const useGoogleDrive = () => {
     const pendingAction = useRef<'PICK' | 'UPLOAD' | null>(null);
     const pendingFile = useRef<File | null>(null);
     const pendingCallback = useRef<((result: any) => void) | null>(null);
+    const pendingReject = useRef<((error: any) => void) | null>(null); // NEW: Handle rejections
     const pendingFolderPath = useRef<string[]>([]); // New: Store folder path
+    const uploadTimeoutRef = useRef<any>(null);
 
     useEffect(() => {
         if (!CLIENT_ID || !API_KEY) {
@@ -85,9 +87,15 @@ export const useGoogleDrive = () => {
 
     const handleTokenCallback = (response: any) => {
         if (response.error !== undefined) {
-            console.error(response);
+            console.error("Google Auth Error:", response);
             showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Google Drive', 'error');
             setIsUploading(false);
+            
+            // Reject pending promise if any
+            if (pendingReject.current) {
+                pendingReject.current(new Error(response.error_description || response.error || 'Auth failed'));
+                pendingReject.current = null;
+            }
             return;
         }
         
@@ -98,9 +106,11 @@ export const useGoogleDrive = () => {
         if (pendingAction.current === 'PICK') {
             createPicker(token, pendingCallback.current);
             pendingAction.current = null;
+            pendingReject.current = null;
         } else if (pendingAction.current === 'UPLOAD' && pendingFile.current) {
-            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current);
+            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current, pendingReject.current);
             pendingAction.current = null;
+            // pendingReject is handled inside performUpload
         }
     };
 
@@ -207,30 +217,46 @@ export const useGoogleDrive = () => {
                 return;
             }
 
-            const onComplete = (result: any) => resolve(result);
-            const onError = (error: any) => reject(error);
+            // Set a safety timeout (60 seconds)
+            const timeoutId = setTimeout(() => {
+                setIsUploading(false);
+                showToast('การอัปโหลดใช้เวลานานเกินไป กรุณาลองใหม่', 'error');
+                reject(new Error('Upload timeout'));
+            }, 60000);
+
+            const onComplete = (result: any) => {
+                clearTimeout(timeoutId);
+                resolve(result);
+            };
+            const onError = (error: any) => {
+                clearTimeout(timeoutId);
+                reject(error);
+            };
 
             if (accessToken) {
                 setIsUploading(true);
-                performUpload(accessToken, file, onComplete, folderPath).catch(onError);
+                performUpload(accessToken, file, onComplete, folderPath, onError).catch(onError);
                 return;
             }
 
             pendingAction.current = 'UPLOAD';
             pendingFile.current = file;
             pendingCallback.current = onComplete;
+            pendingReject.current = onError; // Store reject function
             pendingFolderPath.current = folderPath;
             
             setIsUploading(true);
             tokenClient.requestAccessToken({ prompt: '' });
-            
-            // Note: handleTokenCallback will eventually call performUpload which calls pendingCallback
-            // We need a way to reject if the token request fails or is cancelled.
-            // For simplicity in this environment, we assume performUpload will handle the resolution.
         });
     };
 
-    const performUpload = async (accessToken: string, file: File, onComplete: ((result: any) => void) | null, folderPath: string[]) => {
+    const performUpload = async (
+        accessToken: string, 
+        file: File, 
+        onComplete: ((result: any) => void) | null, 
+        folderPath: string[],
+        onError?: ((error: any) => void) | null
+    ) => {
         try {
             // 1. Get/Create Root Folder (Juijui_Uploads)
             let currentParentId = await ensureFolder(accessToken, MAIN_FOLDER_NAME);
@@ -313,11 +339,13 @@ export const useGoogleDrive = () => {
         } catch (error: any) {
             console.error('Drive Upload Error:', error);
             showToast('อัปโหลดไป Drive ไม่สำเร็จ', 'error');
+            if (onError) onError(error);
             throw error; // Re-throw to allow Promise rejection
         } finally {
             setIsUploading(false);
             pendingFile.current = null;
             pendingFolderPath.current = [];
+            pendingReject.current = null;
         }
     };
 

@@ -131,9 +131,33 @@ export const useGoals = (currentUser: User) => {
 
     const updateGoalValue = async (id: string, currentValue: number) => {
         try {
+            const goal = goals.find(g => g.id === id);
+            if (!goal) return;
+
+            const wasCompleted = goal.currentValue >= goal.targetValue;
+            const isNowCompleted = currentValue >= goal.targetValue;
+
             setGoals(prev => prev.map(g => g.id === id ? { ...g, currentValue } : g));
             await supabase.from('goals').update({ current_value: currentValue }).eq('id', id);
-            showToast('อัปเดตยอดล่าสุดแล้ว! 📈', 'success');
+            
+            // Auto-Reward Logic
+            if (!wasCompleted && isNowCompleted && goal.owners.length > 0) {
+                // Reward each owner
+                for (const userId of goal.owners) {
+                    // This is a simplified version. In a real app, you'd have a server-side function
+                    // to ensure atomicity and prevent cheating.
+                    const { data: profile } = await supabase.from('profiles').select('xp, coins').eq('id', userId).single();
+                    if (profile) {
+                        await supabase.from('profiles').update({
+                            xp: (profile.xp || 0) + (goal.rewardXp || 0),
+                            coins: (profile.coins || 0) + (goal.rewardCoin || 0)
+                        }).eq('id', userId);
+                    }
+                }
+                showToast(`ยินดีด้วย! เป้าหมายสำเร็จและจ่ายรางวัลให้ทีมแล้ว 🏆 +${goal.rewardXp} XP, +${goal.rewardCoin} Coins`, 'success');
+            } else {
+                showToast('อัปเดตยอดล่าสุดแล้ว! 📈', 'success');
+            }
         } catch (err: any) {
             showToast('อัปเดตไม่สำเร็จ', 'error');
         }

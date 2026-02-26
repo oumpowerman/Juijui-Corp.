@@ -263,7 +263,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
             )}
 
             {/* ON LEAVE BANNER (Non-Blocking) */}
-            {(isLeaveLog || isApprovedLeaveToday) && todayActiveLeave?.type !== 'WFH' && (
+            {(isLeaveLog || isApprovedLeaveToday) && todayActiveLeave?.type !== 'WFH' && todayActiveLeave?.type !== 'LATE_ENTRY' && (
                 <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
                     <div className="flex items-center gap-2">
                         <Palmtree className="w-4 h-4 text-blue-600" />
@@ -286,6 +286,19 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         <span className="text-xs font-bold">มีรายการถูกปฏิเสธ! แก้ไขด่วน</span>
                     </div>
                     <ArrowUpRight className="w-4 h-4" />
+                </div>
+            )}
+
+            {/* Late Entry Approved Banner */}
+            {todayActiveLeave?.type === 'LATE_ENTRY' && todayActiveLeave.status === 'APPROVED' && !todayLog && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between mb-2 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-green-600" />
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-green-800">อนุมัติการเข้าสายแล้ว ✅</p>
+                            <p className="text-[10px] text-green-600">คุณสามารถกด Check-in เพื่อเริ่มงานได้เลย</p>
+                        </div>
+                    </div>
                 </div>
             )}
 

@@ -50,20 +50,11 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
 
                 // 2. Upload Strategy
                 const currentMonthFolder = format(new Date(), 'yyyy-MM');
+                
                 const driveUploader = async (f: File): Promise<string> => {
-                    try {
-                        setUploadStatus('กำลังอัปโหลดไป Drive...');
-
-                        const result = await uploadFileToDrive(
-                            f,
-                            ['Chat_Images', currentMonthFolder]
-                        );
-
-                        return result.thumbnailUrl || result.url;
-                    } catch (err) {
-                        console.error(err);
-                        throw err;
-                    }
+                    setUploadStatus('กำลังอัปโหลดไป Drive...');
+                    const result = await uploadFileToDrive(f, ['Chat_Images', currentMonthFolder]);
+                    return result.thumbnailUrl || result.url;
                 };
 
                 // 3. Send

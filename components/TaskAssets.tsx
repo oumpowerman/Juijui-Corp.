@@ -72,11 +72,8 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         const currentMonth = format(new Date(), 'MM_MMMM');
 
         try {
-            const result = await uploadFileToDrive(
-                file,
-                ['Juijui_Assets', currentYear, currentMonth]
-            );
-
+            const result = await uploadFileToDrive(file, ['Juijui_Assets', currentYear, currentMonth]);
+            
             let autoCategory: AssetCategory = 'OTHER';
             if (result.mimeType.includes('image')) autoCategory = 'THUMBNAIL';
             if (result.mimeType.includes('video')) autoCategory = 'VIDEO_DRAFT';
@@ -87,19 +84,15 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                 name: result.name,
                 url: result.url,
                 type: 'LINK',
-                category: autoCategory,
+                category: autoCategory, 
                 createdAt: new Date()
             };
-
             onAdd(newAsset);
-
-        } catch (err) {
-            console.error('Drive upload failed:', err);
-        } finally {
-            if (driveUploadInputRef.current) {
-                driveUploadInputRef.current.value = '';
-            }
+            
+            if (driveUploadInputRef.current) driveUploadInputRef.current.value = '';
             resetForm();
+        } catch (error) {
+            console.error("Drive upload error:", error);
         }
     };
 

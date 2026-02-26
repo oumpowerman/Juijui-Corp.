@@ -146,7 +146,7 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                                 <Layers className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white tracking-tight leading-none">Weekly Progress</h3>
+                                <h3 className="text-xl font-bold text-white tracking-tight leading-none">Weekly Progress</h3>
                                 <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mt-1.5 opacity-80">ความคืบหน้ารวม (Active)</p>
                             </div>
                         </div>

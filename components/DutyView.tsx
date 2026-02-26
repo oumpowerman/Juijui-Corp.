@@ -113,30 +113,15 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     }, [duties, currentUser]);
 
     // --- Wrapper to inject Google Drive logic ---
-    const handleSubmitProofWrapper = async (
-        dutyId: string,
-        file: File,
-        userName: string
-    ) => {
+    const handleSubmitProofWrapper = async (dutyId: string, file: File, userName: string) => {
+        // Define uploader if Drive is ready
+        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
+            const currentMonthFolder = format(new Date(), 'yyyy-MM');
+            const result = await uploadFileToDrive(fileToUpload, ['Duty', currentMonthFolder]);
+            return result.thumbnailUrl || result.url;
+        } : undefined;
 
-        const googleDriveUploader = isDriveReady
-            ? async (fileToUpload: File): Promise<string | null> => {
-                try {
-                    const currentMonthFolder = format(new Date(), 'yyyy-MM');
-
-                    const result = await uploadFileToDrive(
-                        fileToUpload,
-                        ['Duty', currentMonthFolder]
-                    );
-
-                    return result.thumbnailUrl || result.url;
-                } catch (err) {
-                    console.error('Drive upload failed:', err);
-                    return null;
-                }
-            }
-            : undefined;
-
+        // Pass to original hook
         return await submitProof(dutyId, file, userName, googleDriveUploader);
     };
 
@@ -239,23 +224,11 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         if (!currentUser) return;
         if (duty.assigneeId !== currentUser.id) return; // SECURITY LOCK
         
-        const googleDriveUploader = isDriveReady
-        ? async (fileToUpload: File): Promise<string | null> => {
-            try {
-                const currentMonthFolder = format(new Date(), 'yyyy-MM');
-
-                const result = await uploadFileToDrive(
-                    fileToUpload,
-                    ['Duty_Appeals', currentMonthFolder]
-                );
-
-                return result.thumbnailUrl || result.url;
-            } catch (err) {
-                console.error(err);
-                return null;
-            }
-            }
-        : undefined;
+        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
+            const currentMonthFolder = format(new Date(), 'yyyy-MM');
+            const result = await uploadFileToDrive(fileToUpload, ['Duty_Appeals', currentMonthFolder]);
+            return result.thumbnailUrl || result.url;
+        } : undefined;
 
         await submitAppeal(duty.id, reason, file, currentUser.name, googleDriveUploader);
         setPendingRedemptionDuty(null);

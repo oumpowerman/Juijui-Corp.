@@ -281,6 +281,23 @@ export interface DutySwap {
 }
 
 // --- WIKI ---
+export type WikiNodeType = 'FOLDER' | 'PAGE';
+
+export interface WikiNode {
+    id: string;
+    parentId: string | null; // null for root nodes
+    title: string;
+    description?: string;
+    content?: string; // Only for PAGE type
+    type: WikiNodeType;
+    icon?: string; // Lucide icon name or emoji
+    color?: string; // Tailwind color class
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: string;
+}
+
 export interface WikiArticle {
     id: string;
     title: string;

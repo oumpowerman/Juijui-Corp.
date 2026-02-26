@@ -1,8 +1,9 @@
 
 import React, { useMemo } from 'react';
-import { WeeklyQuest, Task, Platform, ViewMode } from '../../../types';
+import { WeeklyQuest, Task, ViewMode } from '../../../types';
 import { Target, ChevronRight, Layers, Zap, CheckCircle2, AlertTriangle, Folder, Clock } from 'lucide-react';
-import { addDays, isWithinInterval, isPast, isToday, differenceInDays, endOfDay, startOfDay } from 'date-fns';
+import { addDays, isWithinInterval, differenceInDays, endOfDay, startOfDay } from 'date-fns';
+import { isTaskMatchingQuest } from '../../../utils/questUtils';
 
 interface QuestOverviewWidgetProps {
     quests: WeeklyQuest[];
@@ -15,42 +16,7 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
     // --- Helper: Calculate Individual Quest Progress ---
     const getQuestProgress = (quest: WeeklyQuest) => {
         if (quest.questType === 'MANUAL') return quest.manualProgress || 0;
-
-        const qStart = startOfDay(new Date(quest.weekStartDate));
-        const qEnd = endOfDay(quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6));
-
-        const matches = tasks.filter(t => {
-            if (t.isUnscheduled || !t.endDate) return false;
-            const taskDate = new Date(t.endDate);
-            // Check if task is within quest duration
-            const inRange = isWithinInterval(taskDate, { start: qStart, end: qEnd });
-            
-            if (!inRange) return false;
-            if (quest.channelId && t.channelId !== quest.channelId) return false;
-            if (quest.targetStatus && t.status !== quest.targetStatus && t.status !== 'DONE') return false;
-
-            // Platform Check
-            let matchPlatform = true;
-            if (quest.targetPlatform) {
-                if (quest.targetPlatform === 'ALL') {
-                     matchPlatform = (t.targetPlatforms && t.targetPlatforms.length > 0) || false;
-                } else {
-                     const hasSpecific = t.targetPlatforms?.includes(quest.targetPlatform as Platform);
-                     const hasAll = t.targetPlatforms?.includes('ALL');
-                     matchPlatform = hasSpecific || hasAll || false;
-                }
-            }
-
-            // Format Check
-            let matchFormat = true;
-            if (quest.targetFormat && quest.targetFormat.length > 0) {
-                 matchFormat = t.contentFormat ? quest.targetFormat.includes(t.contentFormat) : false;
-            }
-
-            return matchPlatform && matchFormat;
-        });
-
-        return matches.length;
+        return tasks.filter(t => isTaskMatchingQuest(t, quest)).length;
     };
 
     // --- Logic: Grouping & Filtering ---

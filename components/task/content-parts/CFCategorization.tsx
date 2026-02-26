@@ -6,6 +6,8 @@ import OptionSelectionModal from '../../ui/OptionSelectionModal';
 interface CFCategorizationProps {
     contentFormat: string;
     setContentFormat: (val: string) => void;
+    contentFormats: string[];
+    setContentFormats: (val: string[]) => void;
     pillar: string;
     setPillar: (val: string) => void;
     category: string;
@@ -16,7 +18,7 @@ interface CFCategorizationProps {
 }
 
 const CFCategorization: React.FC<CFCategorizationProps> = ({ 
-    contentFormat, setContentFormat, pillar, setPillar, category, setCategory,
+    contentFormat, setContentFormat, contentFormats, setContentFormats, pillar, setPillar, category, setCategory,
     formatOptions, pillarOptions, categoryOptions
 }) => {
     const [activeModal, setActiveModal] = useState<'FORMAT' | 'PILLAR' | 'CATEGORY' | null>(null);
@@ -142,7 +144,11 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                 {/* 1. FORMAT */}
                 <SelectionCard 
                     label="Format" 
-                    value={contentFormat ? getLabel(formatOptions, contentFormat) : ''}
+                    value={contentFormats.length > 0 
+                        ? (contentFormats.length === 1 
+                            ? getLabel(formatOptions, contentFormats[0]) 
+                            : `${getLabel(formatOptions, contentFormats[0])} +${contentFormats.length - 1}`)
+                        : ''}
                     placeholder="เลือกรูปแบบ"
                     icon={Layout}
                     theme="pink"
@@ -177,9 +183,10 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                 onClose={() => setActiveModal(null)}
                 title="เลือกรูปแบบงาน (Select Format)"
                 options={formatOptions}
-                selectedKey={contentFormat}
-                onSelect={setContentFormat}
+                selectedKeys={contentFormats}
+                onSelectMulti={setContentFormats}
                 colorTheme="pink"
+                isMulti={true}
             />
             
             <OptionSelectionModal 

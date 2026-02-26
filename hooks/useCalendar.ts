@@ -70,7 +70,10 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     const checkMatch = (t: Task, chip: ChipConfig) => {
         switch (chip.type) {
             case 'CHANNEL': return t.channelId === chip.value;
-            case 'FORMAT': return t.contentFormat === chip.value;
+            case 'FORMAT': {
+                const formats = t.contentFormats || (t.contentFormat ? [t.contentFormat] : []);
+                return formats.includes(chip.value);
+            }
             case 'STATUS': return t.status === chip.value;
             case 'PILLAR': return t.pillar === chip.value;
             case 'CATEGORY': return t.category === chip.value;

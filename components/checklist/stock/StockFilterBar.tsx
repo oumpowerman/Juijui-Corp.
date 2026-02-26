@@ -13,8 +13,8 @@ interface StockFilterBarProps {
     setSearchQuery: (val: string) => void;
     filterChannel: string;
     setFilterChannel: (val: string) => void;
-    filterFormat: string;
-    setFilterFormat: (val: string) => void;
+    filterFormat: string[];
+    setFilterFormat: React.Dispatch<React.SetStateAction<string[]>>;
     filterPillar: string[];
     setFilterPillar: React.Dispatch<React.SetStateAction<string[]>>;
     filterCategory: string[];
@@ -87,7 +87,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
         };
       }, [datePickerRef]);
 
-    const hasActiveFilters = searchQuery || filterChannel !== 'ALL' || filterFormat !== 'ALL' || filterPillar.length > 0 || filterCategory.length > 0 || filterStatuses.length > 0 || filterHasShootDate || filterShootDateStart || filterShootDateEnd;
+    const hasActiveFilters = searchQuery || filterChannel !== 'ALL' || filterFormat.length > 0 || filterPillar.length > 0 || filterCategory.length > 0 || filterStatuses.length > 0 || filterHasShootDate || filterShootDateStart || filterShootDateEnd;
 
     const handleDateClick = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
@@ -252,14 +252,13 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
                 
                 {/* Format Filter */}
                 <motion.div layout>
-                    <FilterDropdown 
+                    <MultiSelectFilter 
                         label="Format"
-                        value={filterFormat}
+                        values={filterFormat}
                         options={formatOptions}
                         onChange={setFilterFormat}
                         icon={<Film className="w-4 h-4" />}
-                        activeColorClass="bg-pink-50 border-pink-200 text-pink-700"
-                        placeholder="Format"
+                        activeColorClass="bg-pink-50 border-pink-200 text-pink-700 shadow-sm ring-2 ring-pink-100 ring-offset-1"
                     />
                 </motion.div>
 

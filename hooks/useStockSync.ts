@@ -47,6 +47,7 @@ export const useStockSync = (
                     dateDiff(globalMatch.endDate, localTask.endDate) ||
                     dateDiff(globalMatch.shootDate, localTask.shootDate) ||
                     // Array Checks (Critical for People/Tags)
+                    arraysDiff(globalMatch.contentFormats, localTask.contentFormats) ||
                     arraysDiff(globalMatch.ideaOwnerIds, localTask.ideaOwnerIds) ||
                     arraysDiff(globalMatch.editorIds, localTask.editorIds) ||
                     arraysDiff(globalMatch.assigneeIds, localTask.assigneeIds) ||

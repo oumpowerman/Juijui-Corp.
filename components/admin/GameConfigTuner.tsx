@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGameConfig } from '../../context/GameConfigContext';
 import { useToast } from '../../context/ToastContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { 
     Save, RefreshCw, Trophy, Heart, Gavel, ShoppingBag, 
     Coins, Zap, ShieldAlert, TrendingUp, Clock, AlertTriangle,
@@ -116,6 +117,7 @@ const HealthBarSimulator = ({ maxHp = 100, penalties }: { maxHp?: number, penalt
 const GameConfigTuner = () => {
     const { config, updateConfigValue, refreshConfig, isLoading } = useGameConfig();
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     const [activeTab, setActiveTab] = useState<'ECONOMY' | 'QUESTS' | 'LAW' | 'SHOP'>('ECONOMY');
     const [localConfig, setLocalConfig] = useState<any>(null);
@@ -163,8 +165,8 @@ const GameConfigTuner = () => {
         }
     };
 
-    const handleReset = () => {
-        if (window.confirm('คืนค่ากลับเป็นค่าล่าสุดที่บันทึกไว้?')) {
+    const handleReset = async () => {
+        if (await showConfirm('คืนค่ากลับเป็นค่าล่าสุดที่บันทึกไว้?')) {
             setLocalConfig(JSON.parse(JSON.stringify(config)));
             setIsDirty(false);
         }

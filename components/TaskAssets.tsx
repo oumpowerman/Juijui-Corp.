@@ -64,36 +64,43 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         resetForm();
     };
 
-    const handleDriveUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         const currentYear = format(new Date(), 'yyyy');
         const currentMonth = format(new Date(), 'MM_MMMM');
 
-        uploadFileToDrive(
-            file, 
-            (result) => {
-                let autoCategory: AssetCategory = 'OTHER';
-                if (result.mimeType.includes('image')) autoCategory = 'THUMBNAIL';
-                if (result.mimeType.includes('video')) autoCategory = 'VIDEO_DRAFT';
-                if (result.mimeType.includes('pdf')) autoCategory = 'SCRIPT';
+        try {
+            const result = await uploadFileToDrive(
+                file,
+                ['Juijui_Assets', currentYear, currentMonth]
+            );
 
-                const newAsset: TaskAsset = {
-                    id: crypto.randomUUID(),
-                    name: result.name,
-                    url: result.url,
-                    type: 'LINK',
-                    category: autoCategory, 
-                    createdAt: new Date()
-                };
-                onAdd(newAsset);
-                
-                if (driveUploadInputRef.current) driveUploadInputRef.current.value = '';
-                resetForm();
-            },
-            ['Juijui_Assets', currentYear, currentMonth] 
-        );
+            let autoCategory: AssetCategory = 'OTHER';
+            if (result.mimeType.includes('image')) autoCategory = 'THUMBNAIL';
+            if (result.mimeType.includes('video')) autoCategory = 'VIDEO_DRAFT';
+            if (result.mimeType.includes('pdf')) autoCategory = 'SCRIPT';
+
+            const newAsset: TaskAsset = {
+                id: crypto.randomUUID(),
+                name: result.name,
+                url: result.url,
+                type: 'LINK',
+                category: autoCategory,
+                createdAt: new Date()
+            };
+
+            onAdd(newAsset);
+
+        } catch (err) {
+            console.error('Drive upload failed:', err);
+        } finally {
+            if (driveUploadInputRef.current) {
+                driveUploadInputRef.current.value = '';
+            }
+            resetForm();
+        }
     };
 
     const handleDelete = async (id: string) => {

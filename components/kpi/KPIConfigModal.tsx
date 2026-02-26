@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { KPIConfig } from '../../types';
 import { X, Save, Scale, AlertTriangle, Percent } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface KPIConfigModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface KPIConfigModalProps {
 }
 
 const KPIConfigModal: React.FC<KPIConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
+    const { showAlert } = useGlobalDialog();
     const [form, setForm] = useState<KPIConfig>(config);
 
     if (!isOpen) return null;
@@ -20,7 +22,7 @@ const KPIConfigModal: React.FC<KPIConfigModalProps> = ({ isOpen, onClose, config
 
     const handleSave = () => {
         if (!isWeightValid) {
-            alert('ผลรวมน้ำหนักต้องเท่ากับ 100% ครับ');
+            showAlert('ผลรวมน้ำหนักต้องเท่ากับ 100% ครับ');
             return;
         }
         onSave(form);

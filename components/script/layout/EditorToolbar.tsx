@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2, Maximize2, Minimize2, Zap, ZapOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ScriptStatus } from '../../../types';
 import { useScriptContext } from '../core/ScriptContext';
@@ -40,7 +40,9 @@ const EditorToolbar: React.FC = () => {
         zoomLevel, setZoomLevel,
         contentId, onPromote, 
         isScriptOwner, 
-        isCommentsOpen, setIsCommentsOpen, comments
+        isCommentsOpen, setIsCommentsOpen, comments,
+        isFocusMode, setIsFocusMode,
+        isAutoCharacter, setIsAutoCharacter
     } = useScriptContext();
     
     const { showToast } = useToast();
@@ -107,95 +109,116 @@ const EditorToolbar: React.FC = () => {
             )}
 
             {/* Main Toolbar - Responsive Layout */}
-            <div className={`bg-white/80 backdrop-blur-md border-b border-indigo-50 px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between shrink-0 shadow-sm gap-3 xl:gap-6 relative transition-all ${isAnyMenuOpen ? 'z-50' : 'z-20'}`}>
-                
-                {/* Top Line: Back & Title & Meta */}
-                <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
-                    <button 
-                        onClick={onClose} 
-                        className="shrink-0 group p-2 bg-white border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl transition-all duration-300 hover:-rotate-12 shadow-sm"
-                    >
-                        <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-indigo-600" />
-                    </button>
+            {!isFocusMode && (
+                <div className={`bg-white/80 backdrop-blur-md border-b border-indigo-50 px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between shrink-0 shadow-sm gap-3 xl:gap-6 relative transition-all ${isAnyMenuOpen ? 'z-50' : 'z-20'}`}>
                     
-                    <div className="flex flex-col min-w-0 flex-1">
-                        <input 
-                            type="text" 
-                            value={title} 
-                            onChange={(e) => setTitle(e.target.value)} 
-                            className="font-black text-gray-800 text-lg md:text-xl outline-none bg-transparent placeholder:text-gray-300 w-full truncate focus:scale-[1.01] transition-transform origin-left"
-                            placeholder="Untitled Script ✨"
-                        />
-                        <div className="flex items-center gap-2 md:gap-3 text-[10px] text-gray-400 font-bold mt-0.5 overflow-x-auto scrollbar-hide whitespace-nowrap">
-                            {owner && (
-                                <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                    <img src={owner.avatarUrl} className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-white" alt={owner.name} />
-                                    <span className="text-indigo-600">{owner.name.split(' ')[0]}</span>
-                                </div>
-                            )}
-                            
-                            {/* Manual Save Button (Replaces passive text) */}
-                            <button 
-                                onClick={handleManualSave}
-                                disabled={isSaving}
-                                className={`
-                                    flex items-center gap-1.5 px-3 py-0.5 rounded-full border transition-all shrink-0 active:scale-95
-                                    ${showSaveSuccess 
-                                        ? 'bg-green-50 text-green-600 border-green-200' 
-                                        : isSaving 
-                                            ? 'bg-indigo-50 text-indigo-400 border-indigo-200 cursor-wait'
-                                            : 'bg-white text-gray-500 border-gray-200 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'
-                                    }
-                                `}
-                                title="คลิกเพื่อบันทึกทันที"
-                            >
-                                {isSaving ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : showSaveSuccess ? (
-                                    <Check className="w-3 h-3" />
-                                ) : (
-                                    <Save className="w-3 h-3" />
+                    {/* Top Line: Back & Title & Meta */}
+                    <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
+                        <button 
+                            onClick={onClose} 
+                            className="shrink-0 group p-2 bg-white border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl transition-all duration-300 hover:-rotate-12 shadow-sm"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-indigo-600" />
+                        </button>
+                        
+                        <div className="flex flex-col min-w-0 flex-1">
+                            <input 
+                                type="text" 
+                                value={title} 
+                                onChange={(e) => setTitle(e.target.value)} 
+                                className="font-black text-gray-800 text-lg md:text-xl outline-none bg-transparent placeholder:text-gray-300 w-full truncate focus:scale-[1.01] transition-transform origin-left"
+                                placeholder="Untitled Script ✨"
+                            />
+                            <div className="flex items-center gap-2 md:gap-3 text-[10px] text-gray-400 font-bold mt-0.5 overflow-x-auto scrollbar-hide whitespace-nowrap">
+                                {owner && (
+                                    <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                        <img src={owner.avatarUrl} className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-white" alt={owner.name} />
+                                        <span className="text-indigo-600">{owner.name.split(' ')[0]}</span>
+                                    </div>
                                 )}
                                 
-                                {isSaving 
-                                    ? 'Saving...' 
-                                    : showSaveSuccess 
-                                        ? 'Saved!' 
-                                        : `Save (${format(lastSaved, 'HH:mm')})`
-                                }
-                            </button>
-                            
-                            <span className="flex items-center shrink-0" title="Estimated Reading Time">
-                                <Clock className="w-3 h-3 mr-1 text-orange-400" /> {formattedDuration}
-                            </span>
+                                {/* Manual Save Button (Replaces passive text) */}
+                                <button 
+                                    onClick={handleManualSave}
+                                    disabled={isSaving}
+                                    className={`
+                                        flex items-center gap-1.5 px-3 py-0.5 rounded-full border transition-all shrink-0 active:scale-95
+                                        ${showSaveSuccess 
+                                            ? 'bg-green-50 text-green-600 border-green-200' 
+                                            : isSaving 
+                                                ? 'bg-indigo-50 text-indigo-400 border-indigo-200 cursor-wait'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'
+                                        }
+                                    `}
+                                    title="คลิกเพื่อบันทึกทันที"
+                                >
+                                    {isSaving ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : showSaveSuccess ? (
+                                        <Check className="w-3 h-3" />
+                                    ) : (
+                                        <Save className="w-3 h-3" />
+                                    )}
+                                    
+                                    {isSaving 
+                                        ? 'Saving...' 
+                                        : showSaveSuccess 
+                                            ? 'Saved!' 
+                                            : `Save (${format(lastSaved, 'HH:mm')})`
+                                    }
+                                </button>
+                                
+                                <span className="flex items-center shrink-0" title="Estimated Reading Time">
+                                    <Clock className="w-3 h-3 mr-1 text-orange-400" /> {formattedDuration}
+                                </span>
+                            </div>
                         </div>
+
+                        {/* Metadata Button */}
+                        <button 
+                            onClick={() => setIsMetadataOpen(true)}
+                            className="p-2 text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-100 transition-all shrink-0"
+                            title="แก้ไขรายละเอียด (Metadata)"
+                        >
+                            <FileText className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Promote to Content Button */}
+                        {!contentId && isScriptOwner && (
+                             <button 
+                                onClick={onPromote}
+                                className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
+                                title="ส่งเข้ากระบวนการผลิต (Create Content)"
+                             >
+                                 <Rocket className="w-4 h-4" /> ส่งเข้าผลิต
+                             </button>
+                        )}
                     </div>
 
-                    {/* Metadata Button */}
-                    <button 
-                        onClick={() => setIsMetadataOpen(true)}
-                        className="p-2 text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-100 transition-all shrink-0"
-                        title="แก้ไขรายละเอียด (Metadata)"
-                    >
-                        <FileText className="w-5 h-5" />
-                    </button>
-                    
-                    {/* Promote to Content Button */}
-                    {!contentId && isScriptOwner && (
-                         <button 
-                            onClick={onPromote}
-                            className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
-                            title="ส่งเข้ากระบวนการผลิต (Create Content)"
-                         >
-                             <Rocket className="w-4 h-4" /> ส่งเข้าผลิต
-                         </button>
-                    )}
-                </div>
+                    {/* Bottom Line (Mobile) / Right Side (Desktop): Tools */}
+                    <div className="flex items-center gap-2 shrink-0 overflow-x-auto xl:overflow-visible pb-1 xl:pb-0 scrollbar-hide w-full xl:w-auto -mx-4 px-4 xl:mx-0 xl:px-0">
+                        
+                        {/* Focus Mode Toggle */}
+                        <button 
+                            onClick={() => setIsFocusMode(true)}
+                            className="p-2 bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm shrink-0"
+                            title="Focus Mode (เต็มจอ)"
+                        >
+                            <Maximize2 className="w-4 h-4" />
+                        </button>
 
-                {/* Bottom Line (Mobile) / Right Side (Desktop): Tools */}
-                <div className="flex items-center gap-2 shrink-0 overflow-x-auto xl:overflow-visible pb-1 xl:pb-0 scrollbar-hide w-full xl:w-auto -mx-4 px-4 xl:mx-0 xl:px-0">
-                    
-                    {/* Comments Toggle */}
+                        {/* Auto Character Toggle */}
+                        <button 
+                            onClick={() => setIsAutoCharacter(!isAutoCharacter)}
+                            className={`p-2 rounded-xl transition-all border shadow-sm shrink-0 ${isAutoCharacter ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:text-orange-600'}`}
+                            title={isAutoCharacter ? "ปิด Auto Character" : "เปิด Auto Character (Enter เพื่อสลับตัวละคร)"}
+                        >
+                            {isAutoCharacter ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+                        </button>
+
+                        <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
+
+                        {/* Comments Toggle */}
                     <button 
                         onClick={() => setIsCommentsOpen(!isCommentsOpen)}
                         className={`relative p-2 rounded-xl transition-all border shadow-sm shrink-0 ${isCommentsOpen ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : 'bg-white text-gray-500 border-gray-200 hover:text-yellow-600'}`}
@@ -348,6 +371,30 @@ const EditorToolbar: React.FC = () => {
                     </button>
                 </div>
             </div>
+        )}
+
+            {/* Focus Mode Exit Button */}
+            {isFocusMode && (
+                <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+                    <div className={`p-2 rounded-xl border shadow-lg flex items-center gap-2 bg-white/80 backdrop-blur-md ${isAutoCharacter ? 'border-orange-200' : 'border-gray-200'}`}>
+                        <button 
+                            onClick={() => setIsAutoCharacter(!isAutoCharacter)}
+                            className={`p-1.5 rounded-lg transition-all ${isAutoCharacter ? 'bg-orange-100 text-orange-600' : 'text-gray-400 hover:bg-gray-100'}`}
+                            title="Auto Character"
+                        >
+                            {isAutoCharacter ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+                        </button>
+                        <div className="w-px h-4 bg-gray-200"></div>
+                        <button 
+                            onClick={() => setIsFocusMode(false)}
+                            className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md"
+                            title="ออกจาก Focus Mode"
+                        >
+                            <Minimize2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Config Modals */}
             {showConfig && <CharacterManager onClose={() => setShowConfig(false)} />}

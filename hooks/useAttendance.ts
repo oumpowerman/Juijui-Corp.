@@ -304,7 +304,8 @@ export const useAttendance = (userId: string) => {
         locationName?: string, // Added explicitly
         note?: string, // Additional note
         externalUploadFn?: (file: File) => Promise<string | null>,
-        isAppeal: boolean = false // NEW Parameter for Appeal
+        isAppeal: boolean = false, // NEW Parameter for Appeal
+        proofUrlParam?: string | null // NEW: Allow passing pre-resolved or null proofUrl
     ) => {
         setIsLoading(true);
         try {
@@ -318,13 +319,15 @@ export const useAttendance = (userId: string) => {
             const isLate = checkIsLate(now, startTimeStr, buffer);
 
             // Upload Logic
-            let proofUrl = null;
-            if (file) {
+            let proofUrl = proofUrlParam !== undefined ? proofUrlParam : null;
+            
+            if (proofUrlParam === undefined && file) {
                 if (externalUploadFn) {
                     try {
                         proofUrl = await externalUploadFn(file);
                     } catch (extErr) {
                         console.warn("External upload failed", extErr);
+                        proofUrl = null;
                     }
                 }
                 if (!proofUrl) {

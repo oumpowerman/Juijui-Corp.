@@ -4,6 +4,7 @@ import { PayrollSlip, PayrollCycle, User } from '../../../types';
 import { ArrowLeft, Save, Lock, Wallet, Calculator, Trash2, Plus, UserPlus, Send, CheckCircle2, AlertTriangle, FileText, Upload, Clock } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import SlipReviewModal from './SlipReviewModal';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface PayrollEditorProps {
     cycle: PayrollCycle;
@@ -24,6 +25,7 @@ const PayrollEditor: React.FC<PayrollEditorProps> = ({
     cycle, slips, allUsers, currentUser, isSeniorHR, 
     onBack, onUpdateSlip, onDeleteSlip, onCreateSlip, onFinalize, onSendToReview, onRespondToSlip 
 }) => {
+    const { showConfirm } = useGlobalDialog();
     const [isAddMode, setIsAddMode] = useState(false);
     const [viewingSlip, setViewingSlip] = useState<PayrollSlip | null>(null);
 
@@ -37,10 +39,10 @@ const PayrollEditor: React.FC<PayrollEditorProps> = ({
     // Filter Logic: If not HR, user sees only their slip? No, `usePayroll` filters data already.
     // If user is member, `slips` contains only their slip.
     
-    const handleSendReviewClick = () => {
+    const handleSendReviewClick = async () => {
         // Default due date: 3 days from now
         const due = addDays(new Date(), 3);
-        if(confirm(`ส่งให้พนักงานตรวจสอบ? กำหนดตอบรับภายใน ${format(due, 'd MMM')}`)) {
+        if(await showConfirm(`ส่งให้พนักงานตรวจสอบ? กำหนดตอบรับภายใน ${format(due, 'd MMM')}`)) {
             onSendToReview(due);
         }
     };

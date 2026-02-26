@@ -2,6 +2,7 @@
 import React from 'react';
 import { MasterOption } from '../../../types';
 import { HeartPulse, Star, UserCircle, ShieldCheck } from 'lucide-react';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface BehaviorSectionProps {
     criteria: MasterOption[];
@@ -41,6 +42,7 @@ const BehaviorSection: React.FC<BehaviorSectionProps> = ({
     onSave, onSaveSelf,
     currentStatus, finalScore, canPay
 }) => {
+    const { showConfirm } = useGlobalDialog();
     
     // Helper to render the Dual Slider
     const renderSlider = (criterionKey: string) => {
@@ -190,9 +192,9 @@ const BehaviorSection: React.FC<BehaviorSectionProps> = ({
                     ) : isAdmin && (
                         <>
                             <button onClick={() => onSave('DRAFT')} className="flex-1 sm:flex-none px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-xs font-bold transition-colors">Save Draft</button>
-                            <button onClick={() => { if(confirm('ยืนยันผล?')) onSave('FINAL'); }} className="flex-1 sm:flex-none px-4 py-2 bg-pink-600 hover:bg-pink-500 rounded-xl text-xs font-bold shadow-lg shadow-pink-900/50 transition-all active:scale-95">Approve</button>
+                            <button onClick={async () => { if(await showConfirm('ยืนยันผล?')) onSave('FINAL'); }} className="flex-1 sm:flex-none px-4 py-2 bg-pink-600 hover:bg-pink-500 rounded-xl text-xs font-bold shadow-lg shadow-pink-900/50 transition-all active:scale-95">Approve</button>
                             {currentStatus === 'FINAL' && canPay && (
-                                <button onClick={() => { if(confirm('จ่ายเงิน?')) onSave('PAID'); }} className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-xs font-bold shadow-lg shadow-green-900/50 transition-all active:scale-95">Pay</button>
+                                <button onClick={async () => { if(await showConfirm('จ่ายเงิน?')) onSave('PAID'); }} className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-xs font-bold shadow-lg shadow-green-900/50 transition-all active:scale-95">Pay</button>
                             )}
                         </>
                     )}

@@ -56,6 +56,12 @@ interface ScriptContextType {
     isReadOnly: boolean;
     forceTakeover: () => Promise<void>;
     
+    // View State
+    isFocusMode: boolean;
+    setIsFocusMode: (val: boolean) => void;
+    isAutoCharacter: boolean;
+    setIsAutoCharacter: (val: boolean) => void;
+    
     // Tools State
     isTeleprompterOpen: boolean;
     setIsTeleprompterOpen: (val: boolean) => void;
@@ -167,6 +173,9 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [isMetadataOpen, setIsMetadataOpen] = useState(false);
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+    
+    const [isFocusMode, setIsFocusMode] = useState(false);
+    const [isAutoCharacter, setIsAutoCharacter] = useState(false);
     
     const [isGenerating, setIsGenerating] = useState(false);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -431,6 +440,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             zoomLevel, setZoomLevel,
             isPublic, shareToken, handleToggleShare,
             lockStatus, lockerUser, isReadOnly, forceTakeover,
+            isFocusMode, setIsFocusMode,
+            isAutoCharacter, setIsAutoCharacter,
             isTeleprompterOpen, setIsTeleprompterOpen,
             isChatPreviewOpen, setIsChatPreviewOpen,
             isAIOpen, setIsAIOpen,

@@ -74,6 +74,7 @@ interface RichTextEditorProps {
     onEditorReady?: (editor: Editor) => void; 
     extensions?: any[]; // Allow injecting custom extensions
     bubbleMenuContent?: (editor: Editor) => React.ReactNode; // Content for Bubble Menu
+    onKeyDown?: (view: any, event: KeyboardEvent) => boolean | void;
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -85,7 +86,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     minHeight = '300px',
     onEditorReady,
     extensions = [],
-    bubbleMenuContent
+    bubbleMenuContent,
+    onKeyDown
 }) => {
     // Modal State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -111,13 +113,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     newGroupDelay: 500,
                 }
             } as any),
-
-            BubbleMenuExtension.configure({
-            options: {
-                placement: 'top',
-                strategy: 'absolute',
-            },
-            }),
 
             Placeholder.configure({
                 placeholder: placeholder,
@@ -145,6 +140,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             handleKeyDown: (view, event) => {
                 if (event.key === 'Tab') {
                     return false; 
+                }
+                if (onKeyDown) {
+                    return onKeyDown(view, event) as any;
                 }
             }
         },
@@ -239,7 +237,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="flex flex-col w-full relative group">
             {/* Bubble Menu for Comments */}
             {editor && bubbleMenuContent && (
-                <BubbleMenu editor={editor} >
+                <BubbleMenu {...({ editor } as any)}>
                     {bubbleMenuContent(editor)}
                 </BubbleMenu>
             )}

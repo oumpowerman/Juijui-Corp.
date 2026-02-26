@@ -58,30 +58,36 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         });
     };
 
-    const handleDriveUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         const currentMonthFolder = format(new Date(), 'yyyy-MM');
 
-        uploadFileToDrive(
-            file, 
-            (result) => {
-                const newAsset: TaskAsset = {
-                    id: crypto.randomUUID(),
-                    name: result.name,
-                    url: result.url,
-                    type: 'LINK',
-                    category: 'OTHER', // Or determine by mimeType
-                    createdAt: new Date()
-                };
-                onAdd(newAsset);
-                
-                // Reset input
-                if (driveUploadInputRef.current) driveUploadInputRef.current.value = '';
-            },
-            ['Work', currentMonthFolder] // Path: Juijui_Uploads / Work / 2023-10
-        );
+        try {
+            const result = await uploadFileToDrive(
+                file,
+                ['Work', currentMonthFolder] // Juijui_Uploads / Work / yyyy-MM
+            );
+
+            const newAsset: TaskAsset = {
+                id: crypto.randomUUID(),
+                name: result.name,
+                url: result.url,
+                type: 'LINK',
+                category: 'OTHER',
+                createdAt: new Date()
+            };
+
+            onAdd(newAsset);
+
+        } catch (err) {
+            console.error('Drive upload failed:', err);
+        } finally {
+            if (driveUploadInputRef.current) {
+                driveUploadInputRef.current.value = '';
+            }
+        }
     };
 
     const handleDelete = async (id: string) => {

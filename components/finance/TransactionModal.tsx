@@ -109,13 +109,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const isSalary = categoryKey === 'SALARY';
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const currentMonth = format(new Date(), 'yyyy-MM');
-            uploadFileToDrive(file, (res) => {
-                setReceiptUrl(res.thumbnailUrl || res.url);
-            }, ['Finance_Receipts', currentMonth]);
+        if (!file) return;
+
+        const currentMonth = format(new Date(), 'yyyy-MM');
+
+        try {
+            const res = await uploadFileToDrive(
+                file,
+                ['Finance_Receipts', currentMonth]
+            );
+
+            setReceiptUrl(res.thumbnailUrl || res.url);
+
+        } catch (err) {
+            console.error('Drive upload failed:', err);
         }
     };
     

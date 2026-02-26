@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Reward, User, Redemption } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const useRewards = (currentUser: User | null) => {
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [allRedemptions, setAllRedemptions] = useState<(Redemption & { user?: any })[]>([]); // Added for Admin
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
 
     const fetchRewards = async () => {
         try {
@@ -117,7 +119,7 @@ export const useRewards = (currentUser: User | null) => {
             return;
         }
 
-        if(!confirm(`ยืนยันแลก "${reward.title}" ด้วย ${reward.cost} แต้ม?`)) return;
+        if(!await showConfirm(`ยืนยันแลก "${reward.title}" ด้วย ${reward.cost} แต้ม?`)) return;
 
         try {
             // 1. Deduct Points

@@ -5,6 +5,7 @@ import { Channel, Platform, Task } from '../types';
 import { PLATFORM_ICONS } from '../constants';
 import MentorTip from './MentorTip';
 import NotificationBellBtn from './NotificationBellBtn';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface ChannelManagerProps {
   tasks: Task[];
@@ -37,6 +38,7 @@ const PLATFORM_OPTIONS: { id: Platform, label: string, icon: any, color: string 
 ];
 
 const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd, onEdit, onDelete, onOpenSettings }) => {
+  const { showAlert, showConfirm } = useGlobalDialog();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -101,11 +103,11 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
     e.preventDefault();
     
     if (!name.trim()) {
-        alert("กรุณาตั้งชื่อรายการ/แบรนด์ด้วยครับ");
+        showAlert("กรุณาตั้งชื่อรายการ/แบรนด์ด้วยครับ");
         return;
     }
     if (selectedPlatforms.length === 0) {
-        alert("ต้องเลือกอย่างน้อย 1 ช่องทาง (Platform) นะครับ");
+        showAlert("ต้องเลือกอย่างน้อย 1 ช่องทาง (Platform) นะครับ");
         return;
     }
 
@@ -392,9 +394,9 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
                             </h3>
                             <div className="flex space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                         e.stopPropagation();
-                                        if(confirm(`ยืนยันลบรายการ "${channel.name}" ?`)) onDelete(channel.id);
+                                        if(await showConfirm(`ยืนยันลบรายการ "${channel.name}" ?`)) onDelete(channel.id);
                                     }}
                                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                     title="ลบรายการ"

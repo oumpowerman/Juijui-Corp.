@@ -69,6 +69,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tags: data.tags || [],
             pillar: data.pillar,
             contentFormat: data.content_format || data.contentFormat,
+            contentFormats: Array.isArray(data.content_formats) ? data.content_formats : (data.content_format ? [data.content_format] : []),
             category: data.category,
             remark: data.remark,
             startDate: new Date(startDateVal),

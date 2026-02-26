@@ -181,7 +181,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                     <div>
                         <h3 className="font-bold text-gray-800 text-lg">ลงเวลาเข้างาน</h3>
                         <p className="text-xs text-gray-400">
-                            {compressing ? 'กำลังบีบอัดภาพ...' : `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
+                            {compressing ? 'กำลังบีบอัดภาพ...' : isSubmitting ? 'กำลังอัปโหลดข้อมูล...' : `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm"><X className="w-5 h-5"/></button>

@@ -3,6 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
 import { InventoryItem, MasterOption, AssetGroup } from '../../types';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface InventoryModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface InventoryModalProps {
 const InventoryModal: React.FC<InventoryModalProps> = ({ 
     isOpen, onClose, inventoryItems, onAdd, onAddItem, onUpdateItem, onDeleteItem, masterOptions 
 }) => {
+    const { showAlert, showConfirm } = useGlobalDialog();
     
     // Filtered Master Options
     const mainCats = useMemo(() => masterOptions.filter(o => o.type === 'INV_CAT_L1').sort((a,b) => a.sortOrder - b.sortOrder), [masterOptions]);
@@ -152,7 +154,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
 
     const handleSave = async () => {
         if (!invName.trim() || !invL2) {
-            alert('กรุณากรอกชื่อและเลือกประเภทให้ครบ');
+            showAlert('กรุณากรอกชื่อและเลือกประเภทให้ครบ');
             return;
         }
         setIsSubmitting(true);
@@ -461,7 +463,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                     <>
                                         <div className="flex gap-2">
                                             <button onClick={handleEditClick} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
-                                            <button onClick={async () => { if(await window.confirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
+                                            <button onClick={async () => { if(await showConfirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
                                         </div>
                                         <button onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"><Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า</button>
                                     </>

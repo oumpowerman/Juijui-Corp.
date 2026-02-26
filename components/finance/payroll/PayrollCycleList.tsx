@@ -4,6 +4,7 @@ import { PayrollCycle } from '../../../types';
 import { Calendar, ChevronRight, Lock, CheckCircle2, CircleDashed, Trash2, Eye, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface PayrollCycleListProps {
     cycles: PayrollCycle[];
@@ -14,6 +15,7 @@ interface PayrollCycleListProps {
 }
 
 const PayrollCycleList: React.FC<PayrollCycleListProps> = ({ cycles, onSelect, onCreate, onDelete, canCreate }) => {
+    const { showConfirm } = useGlobalDialog();
     
     const getStatusBadge = (status: string) => {
         switch(status) {
@@ -72,7 +74,10 @@ const PayrollCycleList: React.FC<PayrollCycleListProps> = ({ cycles, onSelect, o
                         <div className="flex gap-2">
                              {cycle.status === 'DRAFT' && canCreate && (
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); if(confirm('ต้องการลบรอบบัญชีนี้? ข้อมูลภายในจะหายหมด')) onDelete(cycle.id); }}
+                                    onClick={async (e) => { 
+                                        e.stopPropagation(); 
+                                        if(await showConfirm('ต้องการลบรอบบัญชีนี้? ข้อมูลภายในจะหายหมด')) onDelete(cycle.id); 
+                                    }}
                                     className="bg-red-50 p-2 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors"
                                     title="ลบรอบบัญชี"
                                 >

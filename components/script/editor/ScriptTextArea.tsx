@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useScriptContext } from '../core/ScriptContext';
 import RichTextEditor from '../../ui/RichTextEditor';
 import CharacterBar from './CharacterBar';
@@ -10,8 +10,39 @@ const ScriptTextArea: React.FC = () => {
     const { 
         content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, zoomLevel,
         addComment, scrollToComment, editorInstance, 
-        sendLiveUpdate, liveContent, isBroadcastConnected 
+        sendLiveUpdate, liveContent, isBroadcastConnected,
+        isAutoCharacter, characters, isFocusMode
     } = useScriptContext();
+
+    const lastCharIndexRef = useRef<number>(-1);
+
+    const handleKeyDown = (view: any, event: KeyboardEvent) => {
+        if (!isAutoCharacter || isReadOnly || !editorInstance) return false;
+
+        if (event.key === 'Enter') {
+            // Shift + Enter = Normal Newline
+            if (event.shiftKey) return false;
+
+            // Alt + Enter = Repeat Current Character
+            if (event.altKey) {
+                event.preventDefault();
+                const currentChar = lastCharIndexRef.current >= 0 ? characters[lastCharIndexRef.current] : characters[0];
+                editorInstance.chain().focus().insertContent(`<p><strong>${currentChar}:</strong> </p>`).run();
+                return true;
+            }
+
+            // Normal Enter = Next Character
+            event.preventDefault();
+            const nextIndex = (lastCharIndexRef.current + 1) % characters.length;
+            const nextChar = characters[nextIndex];
+            lastCharIndexRef.current = nextIndex;
+            
+            editorInstance.chain().focus().insertContent(`<p><strong>${nextChar}:</strong> </p>`).run();
+            return true;
+        }
+
+        return false;
+    };
 
     const [isCommentInputOpen, setIsCommentInputOpen] = useState(false);
     const [commentText, setCommentText] = useState('');
@@ -83,31 +114,33 @@ const ScriptTextArea: React.FC = () => {
             `} 
         >
             {/* Character Bar (Sticky Header) */}
-            <div className="sticky top-0 z-20 w-full bg-[#f8fafc] flex justify-between items-center pr-4">
-                <CharacterBar />
-                
-                {/* Real-time Indicator Badge */}
-                {isBroadcastConnected && (
-                    <div className={`
-                        flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border shadow-sm
-                        ${isReadOnly 
-                            ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' 
-                            : 'bg-green-50 text-green-600 border-green-100'}
-                    `}>
-                        {isReadOnly ? (
-                            <>
-                                <Eye className="w-3 h-3" />
-                                <span>LIVE Watching</span>
-                            </>
-                        ) : (
-                            <>
-                                <Radio className="w-3 h-3" />
-                                <span>Broadcasting</span>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
+            {!isFocusMode && (
+                <div className="sticky top-0 z-20 w-full bg-[#f8fafc] flex justify-between items-center pr-4">
+                    <CharacterBar />
+                    
+                    {/* Real-time Indicator Badge */}
+                    {isBroadcastConnected && (
+                        <div className={`
+                            flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border shadow-sm
+                            ${isReadOnly 
+                                ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' 
+                                : 'bg-green-50 text-green-600 border-green-100'}
+                        `}>
+                            {isReadOnly ? (
+                                <>
+                                    <Eye className="w-3 h-3" />
+                                    <span>LIVE Watching</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Radio className="w-3 h-3" />
+                                    <span>Broadcasting</span>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Dot Grid Pattern Background (Fixed behind) */}
             <div className="absolute inset-0 opacity-[0.3] pointer-events-none z-0" 
@@ -146,6 +179,7 @@ const ScriptTextArea: React.FC = () => {
                                 onEditorReady={(editor) => {
                                     setEditorInstance(editor);
                                 }}
+                                onKeyDown={handleKeyDown}
                                 extensions={[CommentMark]}
                                 placeholder={scriptType === 'DIALOGUE' ? "คลิกเลือกตัวละครด้านบน หรือพิมพ์เอง..." : "เริ่มเขียนบทของคุณที่นี่..."}
                                 className="prose max-w-none focus:outline-none" 

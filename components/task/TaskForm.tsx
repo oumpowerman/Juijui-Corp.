@@ -3,11 +3,12 @@ import React from 'react';
 import { Task, Channel, User, MasterOption, TaskType } from '../../types';
 import { useTaskForm } from '../../hooks/useTaskForm';
 import { STATUS_COLORS, PLATFORM_ICONS, DIFFICULTY_LABELS } from '../../constants';
-import { Sparkles, CalendarDays, Archive, Layout, Layers, MonitorPlay, Check, Users, Swords, Activity, AlertTriangle, Info, Star, BarChart3, Timer, Calendar, Trash2, Send, FileCheck, ThumbsUp, Wrench, TrendingUp, DollarSign, Share2, MessageCircle, Eye } from 'lucide-react';
+import { Sparkles, CalendarDays, Archive, Layout, Layers, MonitorPlay, Check, Users, Swords, Activity, AlertTriangle, Info, Star, BarChart3, Timer, Calendar, Trash2, Send, FileCheck, ThumbsUp, Wrench, TrendingUp, DollarSign, Share2, MessageCircle, Eye, ChevronDown } from 'lucide-react';
 import { format, isWithinInterval } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import UserStatusBadge from '../UserStatusBadge';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Import
+import OptionSelectionModal from '../ui/OptionSelectionModal';
 
 interface TaskFormProps {
     initialData?: Task | null;
@@ -49,6 +50,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         targetPlatforms,
         pillar, setPillar,
         contentFormat, setContentFormat,
+        contentFormats, setContentFormats,
         category, setCategory,
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
@@ -111,6 +113,10 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
     // ... (Workflow Actions Logic - Same as before) ...
 
+    const [activeModal, setActiveModal] = React.useState<'FORMAT' | 'PILLAR' | 'CATEGORY' | null>(null);
+
+    const getLabel = (opts: MasterOption[], key: string) => opts.find(o => o.key === key)?.label || key;
+
     return (
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
             {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
@@ -152,17 +158,57 @@ const TaskForm: React.FC<TaskFormProps> = ({
                         </div>
                     </div>
 
-                    {/* ... (Format & Pillar, Status & Channel, Platforms - No Changes) ... */}
+                    {/* Format & Pillar */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-pink-50 p-4 rounded-[1.5rem] border-2 border-pink-100 hover:border-pink-200 transition-colors relative overflow-hidden group">
+                        <div 
+                            onClick={() => setActiveModal('FORMAT')}
+                            className="bg-pink-50 p-4 rounded-[1.5rem] border-2 border-pink-100 hover:border-pink-200 transition-colors relative overflow-hidden group cursor-pointer"
+                        >
                             <label className="block text-xs font-black text-pink-500 mb-2 uppercase tracking-wide flex items-center relative z-10"><Layout className="w-3.5 h-3.5 mr-1.5" /> รูปแบบ (Format)</label>
-                            <select value={contentFormat} onChange={(e) => setContentFormat(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-pink-100/50 rounded-xl outline-none font-bold text-gray-700 cursor-pointer hover:bg-white focus:border-pink-300 focus:ring-2 focus:ring-pink-200 transition-all text-sm relative z-10 shadow-sm"><option value="">-- เลือก --</option>{formatOptions.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}</select>
+                            <div className="w-full px-4 py-3 bg-white/80 border-2 border-pink-100/50 rounded-xl outline-none font-bold text-gray-700 transition-all text-sm relative z-10 shadow-sm flex justify-between items-center">
+                                <span>
+                                    {contentFormats.length > 0 
+                                        ? (contentFormats.length === 1 
+                                            ? getLabel(formatOptions, contentFormats[0]) 
+                                            : `${getLabel(formatOptions, contentFormats[0])} +${contentFormats.length - 1}`)
+                                        : '-- เลือก --'}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                            </div>
                         </div>
-                        <div className="bg-blue-50 p-4 rounded-[1.5rem] border-2 border-blue-100 hover:border-blue-200 transition-colors relative overflow-hidden group">
+                        <div 
+                            onClick={() => setActiveModal('PILLAR')}
+                            className="bg-blue-50 p-4 rounded-[1.5rem] border-2 border-blue-100 hover:border-blue-200 transition-colors relative overflow-hidden group cursor-pointer"
+                        >
                             <label className="block text-xs font-black text-blue-500 mb-2 uppercase tracking-wide flex items-center relative z-10"><Layers className="w-3.5 h-3.5 mr-1.5" /> แกนเนื้อหา (Pillar)</label>
-                            <select value={pillar} onChange={(e) => setPillar(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-blue-100/50 rounded-xl outline-none font-bold text-gray-700 cursor-pointer hover:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200 transition-all text-sm relative z-10 shadow-sm"><option value="">-- เลือก --</option>{pillarOptions.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}</select>
+                            <div className="w-full px-4 py-3 bg-white/80 border-2 border-blue-100/50 rounded-xl outline-none font-bold text-gray-700 transition-all text-sm relative z-10 shadow-sm flex justify-between items-center">
+                                <span>{pillar ? getLabel(pillarOptions, pillar) : '-- เลือก --'}</span>
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                            </div>
                         </div>
                     </div>
+
+                    {/* Modals */}
+                    <OptionSelectionModal 
+                        isOpen={activeModal === 'FORMAT'}
+                        onClose={() => setActiveModal(null)}
+                        title="เลือกรูปแบบงาน (Select Format)"
+                        options={formatOptions}
+                        selectedKeys={contentFormats}
+                        onSelectMulti={setContentFormats}
+                        colorTheme="pink"
+                        isMulti={true}
+                    />
+                    
+                    <OptionSelectionModal 
+                        isOpen={activeModal === 'PILLAR'}
+                        onClose={() => setActiveModal(null)}
+                        title="เลือกแกนเนื้อหา (Select Pillar)"
+                        options={pillarOptions}
+                        selectedKey={pillar}
+                        onSelect={setPillar}
+                        colorTheme="blue"
+                    />
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">

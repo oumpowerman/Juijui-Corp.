@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check } from 'lucide-react';
 import { MasterOption } from '../../types';
@@ -9,23 +9,51 @@ interface OptionSelectionModalProps {
     onClose: () => void;
     title: string;
     options: MasterOption[];
-    selectedKey: string;
-    onSelect: (key: string) => void;
+    selectedKey?: string; // For single select
+    selectedKeys?: string[]; // For multi select
+    onSelect?: (key: string) => void; // For single select
+    onSelectMulti?: (keys: string[]) => void; // For multi select
     colorTheme: 'pink' | 'blue' | 'emerald';
+    isMulti?: boolean;
 }
 
 const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({ 
-    isOpen, onClose, title, options, selectedKey, onSelect, colorTheme 
+    isOpen, onClose, title, options, selectedKey, selectedKeys = [], onSelect, onSelectMulti, colorTheme, isMulti = false 
 }) => {
+    const [localSelected, setLocalSelected] = useState<string[]>(isMulti ? selectedKeys : (selectedKey ? [selectedKey] : []));
+
+    // Sync local state with props when modal opens or props change
+    useEffect(() => {
+        if (isOpen) {
+            setLocalSelected(isMulti ? selectedKeys : (selectedKey ? [selectedKey] : []));
+        }
+    }, [isOpen, selectedKey, selectedKeys, isMulti]);
+
     if (!isOpen) return null;
 
     // Theme mapping
     const themeStyles = {
-        pink: { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200', activeRing: 'ring-pink-400', activeBg: 'bg-pink-100', icon: 'text-pink-500' },
-        blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', activeRing: 'ring-blue-400', activeBg: 'bg-blue-100', icon: 'text-blue-500' },
-        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', activeRing: 'ring-emerald-400', activeBg: 'bg-emerald-100', icon: 'text-emerald-500' },
+        pink: { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200', activeRing: 'ring-pink-400', activeBg: 'bg-pink-100', icon: 'text-pink-500', btn: 'bg-pink-600 hover:bg-pink-700' },
+        blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', activeRing: 'ring-blue-400', activeBg: 'bg-blue-100', icon: 'text-blue-500', btn: 'bg-blue-600 hover:bg-blue-700' },
+        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', activeRing: 'ring-emerald-400', activeBg: 'bg-emerald-100', icon: 'text-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700' },
     };
     const theme = themeStyles[colorTheme];
+
+    const handleToggle = (key: string) => {
+        if (isMulti) {
+            setLocalSelected(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+        } else {
+            onSelect?.(key);
+            onClose();
+        }
+    };
+
+    const handleConfirm = () => {
+        if (isMulti && onSelectMulti) {
+            onSelectMulti(localSelected);
+        }
+        onClose();
+    };
 
     return createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -35,7 +63,7 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
                 <div className={`px-8 py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
                     <div>
                         <h3 className={`text-2xl font-black tracking-tight ${theme.text}`}>{title}</h3>
-                        <p className="text-gray-500 text-sm font-medium opacity-80">เลือกรายการที่ต้องการ</p>
+                        <p className="text-gray-500 text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors text-gray-500 shadow-sm">
                         <X className="w-6 h-6" />
@@ -43,14 +71,14 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
                 </div>
 
                 {/* Grid */}
-                <div className="p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200">
+                <div className="p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200 flex-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {options.map(option => {
-                            const isSelected = selectedKey === option.key;
+                            const isSelected = localSelected.includes(option.key);
                             return (
                                 <button
                                     key={option.id}
-                                    onClick={() => { onSelect(option.key); onClose(); }}
+                                    onClick={() => handleToggle(option.key)}
                                     className={`
                                         relative flex flex-col items-start p-5 rounded-2xl border-2 text-left transition-all duration-200 group
                                         ${isSelected 
@@ -78,6 +106,19 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
                         })}
                     </div>
                 </div>
+
+                {/* Footer for Multi-Select */}
+                {isMulti && (
+                    <div className="px-8 py-4 bg-white border-t border-gray-100 flex justify-end items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 uppercase">เลือกแล้ว {localSelected.length} รายการ</span>
+                        <button 
+                            onClick={handleConfirm}
+                            className={`px-6 py-2 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${theme.btn}`}
+                        >
+                            ยืนยันการเลือก
+                        </button>
+                    </div>
+                )}
             </div>
         </div>,
         document.body

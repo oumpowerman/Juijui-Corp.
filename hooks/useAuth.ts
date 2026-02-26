@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, WorkStatus } from '../types';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const useAuth = (sessionUser: any) => {
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+    const { showAlert } = useGlobalDialog();
 
     const mapProfileToUser = (data: any): User => ({
         id: data.id,
@@ -141,7 +143,7 @@ export const useAuth = (sessionUser: any) => {
             return true;
         } catch (err: any) {
             console.error('Update profile failed:', err);
-            alert('เกิดข้อผิดพลาด: ' + err.message);
+            showAlert('เกิดข้อผิดพลาด: ' + err.message);
             return false;
         }
     };

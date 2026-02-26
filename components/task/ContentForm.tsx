@@ -61,6 +61,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         targetPlatforms, 
         pillar, setPillar,
         contentFormat, setContentFormat,
+        contentFormats, setContentFormats,
         category, setCategory,
         publishedLinks, handleLinkChange,
         shootDate, setShootDate,
@@ -410,6 +411,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     {/* 6. Format & Pillar */}
                     <CFCategorization 
                         contentFormat={contentFormat} setContentFormat={setContentFormat}
+                        contentFormats={contentFormats} setContentFormats={setContentFormats}
                         pillar={pillar} setPillar={setPillar}
                         category={category} setCategory={setCategory}
                         formatOptions={formatOptions} pillarOptions={pillarOptions} categoryOptions={categoryOptions}

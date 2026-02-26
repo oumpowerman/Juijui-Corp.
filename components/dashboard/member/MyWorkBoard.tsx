@@ -7,6 +7,7 @@ import { subDays, isAfter } from 'date-fns'; // Import date helpers
 import TaskCategoryModal from '../../TaskCategoryModal';
 import DoneHistoryModal from './board/DoneHistoryModal'; // Import New Modal
 import WorkColumn from './board/WorkColumn';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface MyWorkBoardProps {
     tasks: Task[];
@@ -20,6 +21,7 @@ interface MyWorkBoardProps {
 type ColumnType = 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 
 const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask }) => {
+    const { showAlert } = useGlobalDialog();
     const [activeModalColumn, setActiveModalColumn] = useState<ColumnType | null>(null);
     const [isDoneHistoryOpen, setIsDoneHistoryOpen] = useState(false); // New state for Done Modal
     const isAdmin = currentUser.role === 'ADMIN';
@@ -74,7 +76,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
 
         // Security Check: Only Admin can drag to DONE
         if (targetType === 'DONE' && !isAdmin) {
-            alert('🔒 เฉพาะหัวหน้า/Admin เท่านั้นที่สามารถย้ายงานไปช่อง "เสร็จแล้ว" ได้\n\nกรุณากด "ส่งงาน" ในหน้าแก้ไขงาน เพื่อให้หัวหน้าตรวจสอบครับ');
+            showAlert('🔒 เฉพาะหัวหน้า/Admin เท่านั้นที่สามารถย้ายงานไปช่อง "เสร็จแล้ว" ได้\n\nกรุณากด "ส่งงาน" ในหน้าแก้ไขงาน เพื่อให้หัวหน้าตรวจสอบครับ');
             return;
         }
 

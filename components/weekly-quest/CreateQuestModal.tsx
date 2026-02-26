@@ -4,6 +4,7 @@ import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowR
 import { Channel, MasterOption, WeeklyQuest, Platform } from '../../types';
 import { CONTENT_FORMATS } from '../../constants';
 import { format, addDays, differenceInDays } from 'date-fns';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface CreateQuestModalProps {
     isOpen: boolean;
@@ -134,6 +135,7 @@ const FormatMultiSelect = ({
 };
 
 const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, channels, masterOptions, weekStart, onAddQuest }) => {
+    const { showAlert } = useGlobalDialog();
     const [selectedChannelId, setSelectedChannelId] = useState<string>('');
     const [customChannelName, setCustomChannelName] = useState('');
     const [isCustomChannel, setIsCustomChannel] = useState(false);
@@ -183,12 +185,12 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     const handleCreateGroup = (e: React.FormEvent) => {
         e.preventDefault();
         if (!isCustomChannel && !selectedChannelId) {
-            alert("กรุณาเลือกช่อง (Channel) หรือพิมพ์ชื่อใหม่ครับ");
+            showAlert("กรุณาเลือกช่อง (Channel) หรือพิมพ์ชื่อใหม่ครับ");
             return;
         }
         
         if (new Date(customStartDate) > new Date(customEndDate)) {
-             alert("วันจบต้องมาหลังวันเริ่มนะครับ");
+             showAlert("วันจบต้องมาหลังวันเริ่มนะครับ");
              return;
         }
 

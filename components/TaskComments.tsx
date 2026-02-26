@@ -45,22 +45,32 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUs
         }
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setIsUploading(true);
-            const currentMonth = format(new Date(), 'yyyy-MM');
-            uploadFileToDrive(
-                file, 
-                (result) => {
-                    const fileUrl = result.thumbnailUrl || result.url;
-                    sendComment(fileUrl); // Send URL as message
-                    setIsUploading(false);
-                }, 
+        if (!file) return;
+
+        setIsUploading(true);
+
+        const currentMonth = format(new Date(), 'yyyy-MM');
+
+        try {
+            const result = await uploadFileToDrive(
+                file,
                 ['Task_Comments', currentMonth]
             );
-            // Reset input
-            if (fileInputRef.current) fileInputRef.current.value = '';
+
+            const fileUrl = result.thumbnailUrl || result.url;
+
+            sendComment(fileUrl); // ส่ง URL เป็น message
+
+        } catch (err) {
+            console.error('Drive upload failed:', err);
+        } finally {
+            setIsUploading(false);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 

@@ -4,6 +4,7 @@ import { useAttendance } from '../../hooks/useAttendance';
 import { useMasterData } from '../../hooks/useMasterData';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { User } from '../../types';
 import { WorkLocation, LeaveType, LeaveRequest } from '../../types/attendance';
 import { format, isWithinInterval, startOfDay, endOfDay, isFuture, isSameDay } from 'date-fns';
@@ -25,6 +26,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
     const { masterOptions } = useMasterData(); 
     const { submitRequest, leaveUsage, requests } = useLeaveRequests(user);
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    const { showAlert, showConfirm } = useGlobalDialog();
 
     // UI State
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
@@ -103,24 +105,33 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user }) => {
 
     // --- Handlers ---
     const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
-        const note = undefined; 
-        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
-            const currentMonthFolder = format(new Date(), 'yyyy-MM');
-            return new Promise((resolve) => {
-                uploadFileToDrive(
-                    fileToUpload, 
-                    (result) => {
-                        const finalUrl = result.thumbnailUrl || result.url;
-                        resolve(finalUrl);
-                    },
-                    ['Attendance', currentMonthFolder]
-                );
-            });
-        } : undefined;
-        
-        const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY'; // Use active leave for appeal check
+        let proofUrl: string | null = null;
+        let shouldProceed = true;
 
-        await checkIn(type, file, location, locationName, note, googleDriveUploader, isAppeal);
+        if (isDriveReady) {
+            try {
+                const currentMonthFolder = format(new Date(), 'yyyy-MM');
+                const result = await uploadFileToDrive(file, ['Attendance', currentMonthFolder]);
+                proofUrl = result.thumbnailUrl || result.url;
+            } catch (err) {
+                console.error("Drive upload failed:", err);
+                const choice = await showConfirm(
+                    "ไม่สามารถอัปโหลดรูปภาพลง Google Drive ได้ คุณต้องการบันทึกข้อมูลต่อไปโดยไม่มีรูปภาพ หรือจะตรวจสอบ Drive ก่อนครับ?",
+                    "เกิดข้อผิดพลาดในการอัปโหลด"
+                );
+                if (choice) {
+                    proofUrl = null; // Proceed without image
+                } else {
+                    shouldProceed = false; // Stop and check drive
+                }
+            }
+        }
+
+        if (shouldProceed) {
+            const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY';
+            await checkIn(type, file, location, locationName, undefined, undefined, isAppeal, proofUrl);
+            showAlert("บันทึกข้อมูลการเข้างานเรียบร้อยแล้วครับ", "สำเร็จ");
+        }
     };
     
     const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File): Promise<boolean> => {

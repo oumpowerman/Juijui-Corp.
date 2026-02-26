@@ -9,7 +9,7 @@ interface UseContentStockProps {
     searchQuery: string;
     filters: {
         channelId: string;
-        format: string;
+        format: string[];
         pillar: string[];
         category: string[];
         statuses: string[];
@@ -53,6 +53,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         targetPlatforms: Array.isArray(data.target_platform) ? data.target_platform : [],
         pillar: data.pillar,
         contentFormat: data.content_format,
+        contentFormats: Array.isArray(data.content_formats) ? data.content_formats : (data.content_format ? [data.content_format] : []),
         category: data.category,
         isUnscheduled: data.is_unscheduled,
         
@@ -95,7 +96,12 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
             // 2. Filters
             if (filters.channelId !== 'ALL') query = query.eq('channel_id', filters.channelId);
-            if (filters.format !== 'ALL') query = query.eq('content_format', filters.format);
+            
+            if (filters.format.length > 0) {
+                // Use overlaps for array column
+                query = query.overlaps('content_formats', filters.format);
+            }
+            
             if (filters.pillar.length > 0) query = query.in('pillar', filters.pillar);
             if (filters.category.length > 0) query = query.in('category', filters.category);
             if (filters.statuses.length > 0) query = query.in('status', filters.statuses);
@@ -174,7 +180,13 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
         // Filter Match
         if (currentFilters.channelId !== 'ALL' && task.channelId !== currentFilters.channelId) return false;
-        if (currentFilters.format !== 'ALL' && task.contentFormat !== currentFilters.format) return false;
+        
+        if (currentFilters.format.length > 0) {
+            const taskFormats = task.contentFormats || (task.contentFormat ? [task.contentFormat] : []);
+            const hasMatch = taskFormats.some(f => currentFilters.format.includes(f));
+            if (!hasMatch) return false;
+        }
+        
         if (currentFilters.pillar.length > 0 && (!task.pillar || !currentFilters.pillar.includes(task.pillar))) return false;
         if (currentFilters.category.length > 0 && (!task.category || !currentFilters.category.includes(task.category))) return false;
         if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(task.status as any)) return false;

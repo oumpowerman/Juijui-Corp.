@@ -80,7 +80,8 @@ export interface Task {
     channelId?: string;
     targetPlatforms?: Platform[];
     pillar?: ContentPillar | string;
-    contentFormat?: ContentFormat | string;
+    contentFormat?: ContentFormat | string; // Legacy single format
+    contentFormats?: (ContentFormat | string)[]; // New multi-format support
     category?: string;
     isUnscheduled?: boolean;
     

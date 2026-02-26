@@ -51,6 +51,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
                     status: d.status,
                     channelId: d.channel_id,
                     contentFormat: d.content_format,
+                    contentFormats: Array.isArray(d.content_formats) ? d.content_formats : (d.content_format ? [d.content_format] : []),
                     createdAt: d.created_at ? new Date(d.created_at) : undefined
                 } as Task));
                 setStockTasks(mapped);

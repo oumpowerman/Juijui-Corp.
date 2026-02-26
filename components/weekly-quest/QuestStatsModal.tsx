@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trophy, Skull, TrendingUp, Calendar, ChevronLeft, ChevronRight, RefreshCw, Filter, Search, ArrowUpDown, BarChart3 } from 'lucide-react';
 import { WeeklyQuest, Task } from '../../types';
-import { format, isPast, isToday, isWithinInterval, addDays, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
+import { format, isPast, isToday, addDays, startOfMonth, endOfMonth, eachMonthOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { isTaskMatchingQuest } from '../../utils/questUtils';
 
 interface QuestStatsModalProps {
     isOpen: boolean;
@@ -33,25 +34,12 @@ const QuestStatsModal: React.FC<QuestStatsModalProps> = ({ isOpen, onClose, ques
         if (quest.questType === 'MANUAL') {
             progress = quest.manualProgress || 0;
         } else {
-            const qStart = new Date(quest.weekStartDate);
-            qStart.setHours(0, 0, 0, 0);
-            const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6);
-            qEnd.setHours(23, 59, 59, 999);
-
-            const matches = tasks.filter(t => {
-                if (t.isUnscheduled || !t.endDate) return false;
-                const taskDate = new Date(t.endDate);
-                const inRange = isWithinInterval(taskDate, { start: qStart, end: qEnd });
-                if (!inRange) return false;
-                if (quest.channelId && t.channelId !== quest.channelId) return false;
-                if (quest.targetStatus && t.status !== quest.targetStatus && t.status !== 'DONE') return false;
-                return true; 
-            });
-            progress = matches.length;
+            progress = tasks.filter(t => isTaskMatchingQuest(t, quest)).length;
         }
 
         const isCompleted = progress >= quest.targetCount;
-        const qEnd = quest.endDate ? new Date(quest.endDate) : addDays(new Date(quest.weekStartDate), 6);
+        const qStart = startOfDay(new Date(quest.weekStartDate));
+        const qEnd = endOfDay(quest.endDate ? new Date(quest.endDate) : addDays(qStart, 6));
         const isExpired = isPast(qEnd) && !isToday(qEnd);
 
         return { isCompleted, isExpired, progress, qEnd };

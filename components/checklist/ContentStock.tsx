@@ -38,7 +38,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   // --- Filter States ---
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChannel, setFilterChannel] = useState<string>('ALL');
-  const [filterFormat, setFilterFormat] = useState<string>('ALL');
+  const [filterFormat, setFilterFormat] = useState<string[]>([]);
   const [filterPillar, setFilterPillar] = useState<string[]>([]);
   const [filterCategory, setFilterCategory] = useState<string[]>([]);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
@@ -116,7 +116,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const clearFilters = () => {
     setSearchQuery('');
     setFilterChannel('ALL');
-    setFilterFormat('ALL');
+    setFilterFormat([]);
     setFilterPillar([]);
     setFilterCategory([]);
     setFilterHasShootDate(false);

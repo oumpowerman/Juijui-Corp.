@@ -31,7 +31,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
     const [channelId, setChannelId] = useState<string>('');
     const [targetPlatforms, setTargetPlatforms] = useState<Platform[]>(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
     const [pillar, setPillar] = useState<string>('');
-    const [contentFormat, setContentFormat] = useState<string>('');
+    const [contentFormat, setContentFormat] = useState<string>(''); // Legacy
+    const [contentFormats, setContentFormats] = useState<string[]>([]); // New Multi
     const [category, setCategory] = useState('');
     
     // People & Assets
@@ -91,7 +92,16 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             setChannelId(initialData.channelId || ''); 
             setTargetPlatforms(initialData.targetPlatforms || []);
             setPillar(initialData.pillar || '');
-            setContentFormat(initialData.contentFormat || '');
+            
+            // Handle Legacy vs Multi
+            if (initialData.contentFormats && Array.isArray(initialData.contentFormats)) {
+                setContentFormats(initialData.contentFormats);
+                setContentFormat(initialData.contentFormats[0] || '');
+            } else {
+                setContentFormat(initialData.contentFormat || '');
+                setContentFormats(initialData.contentFormat ? [initialData.contentFormat] : []);
+            }
+            
             setCategory(initialData.category || '');
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
             setEditorIds(initialData.editorIds || []);
@@ -126,7 +136,11 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             setChannelId(''); 
             setTargetPlatforms(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
             setPillar(pillarOptions.find(o => o.isDefault)?.key || '');
-            setContentFormat(formatOptions.find(o => o.isDefault)?.key || '');
+            
+            const defaultFormat = formatOptions.find(o => o.isDefault)?.key || '';
+            setContentFormat(defaultFormat);
+            setContentFormats(defaultFormat ? [defaultFormat] : []);
+            
             const defaultCat = categoryOptions.find(o => o.isDefault);
             setCategory(defaultCat ? defaultCat.key : ''); 
             setIdeaOwnerIds([]);
@@ -205,7 +219,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
                 channelId,
                 targetPlatforms,
                 pillar: pillar as ContentPillar,
-                contentFormat: contentFormat as ContentFormat,
+                contentFormat: contentFormats[0] || contentFormat as ContentFormat, // Fallback for legacy
+                contentFormats: contentFormats, // New Multi
                 category,
                 ideaOwnerIds,
                 editorIds,
@@ -259,6 +274,7 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
         targetPlatforms, 
         pillar, setPillar,
         contentFormat, setContentFormat,
+        contentFormats, setContentFormats,
         category, setCategory,
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,

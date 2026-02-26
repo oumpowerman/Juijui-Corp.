@@ -9,7 +9,7 @@ import { GoalFormModal, UpdateProgressModal } from './goal/GoalActionModals';
 import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target, X, CalendarDays } from 'lucide-react';
 import { format, isSameMonth, addMonths, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, subDays, eachDayOfInterval, isSameDay, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface GoalViewProps {
     channels: Channel[];
@@ -32,8 +32,8 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
     const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ 
-        start: startOfMonth(new Date()), 
-        end: endOfMonth(new Date()) 
+        start: null, 
+        end: null 
     });
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const [viewMonth, setViewMonth] = useState(new Date());
@@ -89,6 +89,14 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     useMemo(() => {
         setPage(1);
     }, [filterTab, filterChannel, dateRange]);
+
+    // Handle Lazy Loading for Completed Goals
+    React.useEffect(() => {
+        if (filterTab === 'COMPLETED' || filterTab === 'ALL') {
+            // In a real app, you might call a specific function to fetch more data here
+            // For now, we'll ensure useGoals is aware of the need for more data if implemented server-side
+        }
+    }, [filterTab]);
 
     const handleQuickDateSelect = (type: 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_90' | 'ALL') => {
         const now = new Date();

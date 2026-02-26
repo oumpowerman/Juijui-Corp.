@@ -28,7 +28,8 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
     const [channelId, setChannelId] = useState<string>('');
     const [targetPlatforms, setTargetPlatforms] = useState<Platform[]>(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
     const [pillar, setPillar] = useState<string>('');
-    const [contentFormat, setContentFormat] = useState<string>('');
+    const [contentFormat, setContentFormat] = useState<string>(''); // Legacy
+    const [contentFormats, setContentFormats] = useState<string[]>([]); // New Multi
     const [category, setCategory] = useState('');
     const [publishedLinks, setPublishedLinks] = useState<Record<string, string>>({}); 
 
@@ -74,7 +75,16 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             // Ensure array consistency for platforms
             setTargetPlatforms(Array.isArray(initialData.targetPlatforms) ? initialData.targetPlatforms : []);
             setPillar(initialData.pillar || '');
-            setContentFormat(initialData.contentFormat || '');
+            
+            // Handle Legacy vs Multi
+            if (initialData.contentFormats && Array.isArray(initialData.contentFormats)) {
+                setContentFormats(initialData.contentFormats);
+                setContentFormat(initialData.contentFormats[0] || '');
+            } else {
+                setContentFormat(initialData.contentFormat || '');
+                setContentFormats(initialData.contentFormat ? [initialData.contentFormat] : []);
+            }
+            
             setCategory(initialData.category || '');
             setPublishedLinks(initialData.publishedLinks || {});
 
@@ -110,7 +120,10 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
 
             setTargetPlatforms(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
             setPillar(pillarOptions.find(o => o.isDefault)?.key || '');
-            setContentFormat(formatOptions.find(o => o.isDefault)?.key || '');
+            
+            const defaultFormat = formatOptions.find(o => o.isDefault)?.key || '';
+            setContentFormat(defaultFormat);
+            setContentFormats(defaultFormat ? [defaultFormat] : []);
             
             const defaultCat = categoryOptions.find(o => o.isDefault);
             setCategory(defaultCat ? defaultCat.key : '');
@@ -183,7 +196,8 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
                 channelId,
                 targetPlatforms: targetPlatforms, // Array format is key for Quest Matching
                 pillar: pillar as ContentPillar,
-                contentFormat: contentFormat as ContentFormat,
+                contentFormat: contentFormats[0] || contentFormat as ContentFormat, // Fallback for legacy
+                contentFormats: contentFormats, // New Multi
                 category,
                 publishedLinks,
 
@@ -246,6 +260,7 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
         targetPlatforms, 
         pillar, setPillar,
         contentFormat, setContentFormat,
+        contentFormats, setContentFormats,
         category, setCategory,
         publishedLinks, handleLinkChange,
 

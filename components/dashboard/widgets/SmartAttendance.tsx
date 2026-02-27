@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAttendance } from '../../../hooks/useAttendance';
+import { useAttendanceStatus } from '../../../hooks/attendance/useAttendanceStatus';
+import { useAttendanceStats } from '../../../hooks/attendance/useAttendanceStats';
 import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 import { User, MasterOption, ViewMode } from '../../../types';
@@ -15,7 +16,8 @@ interface SmartAttendanceProps {
 }
 
 const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, onNavigate }) => {
-    const { todayLog, isLoading, stats } = useAttendance(user.id);
+    const { todayLog, isLoading } = useAttendanceStatus(user.id);
+    const { stats } = useAttendanceStats(user.id);
     
     // --- HOLIDAY LOGIC HOOKS ---
     const { exceptions } = useCalendarExceptions();

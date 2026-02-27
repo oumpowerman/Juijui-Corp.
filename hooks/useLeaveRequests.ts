@@ -5,12 +5,14 @@ import { LeaveRequest, LeaveType, LeaveUsage } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
 import { useGamification } from './useGamification';
+import { useGoogleDrive } from './useGoogleDrive';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { processAction } = useGamification(); 
+    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
     const fetchRequests = async () => {
         if (requests.length === 0) setIsLoading(true);
@@ -71,12 +73,12 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
             SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, WFH: 0
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0
         };
 
         if (!currentUser) return usage;
 
-        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY'];
+        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
@@ -124,12 +126,35 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
 
             let attachmentUrl = null;
             if (file) {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `leave-${currentUser.id}-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
-                if (uploadError) throw uploadError;
-                const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
-                attachmentUrl = data.publicUrl;
+                // Try Google Drive first if ready
+                let driveSuccess = false;
+                if (isDriveReady) {
+                    try {
+                        showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
+                        const driveResult = await uploadFileToDrive(file, ['Attendance_Proofs', currentUser.name || 'Unknown']);
+                        attachmentUrl = driveResult.thumbnailUrl || driveResult.url;
+                        driveSuccess = true;
+                    } catch (driveErr: any) {
+                        console.warn("Drive upload failed, falling back to Supabase", driveErr);
+                        // If it's just a cancel or auth error, we might want to still try Supabase
+                    }
+                }
+
+                // Fallback to Supabase if Drive failed or not ready
+                if (!driveSuccess) {
+                    try {
+                        showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `leave-${currentUser.id}-${Date.now()}.${fileExt}`;
+                        const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                        if (uploadError) throw uploadError;
+                        const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        attachmentUrl = data.publicUrl;
+                    } catch (supabaseErr: any) {
+                        console.error("Supabase upload failed", supabaseErr);
+                        throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
+                    }
+                }
             }
 
             const payload = {
@@ -168,8 +193,8 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     };
 
     const approveRequest = async (request: LeaveRequest) => {
-        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY'];
-        const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'];
+        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
+        const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
         const SPECIAL_TYPES = ['WFH', 'OVERTIME'];
 
         setRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'APPROVED' } : r));
@@ -221,24 +246,59 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             
             // B. CORRECTIONS (Forgot In/Out, Late Entry)
             if (CORRECTION_TYPES.includes(request.type)) {
-                const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})\]/);
+                const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})(-\d{2}:\d{2})?\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '00:00';
+                const endTimeStr = timeMatch && timeMatch[2] ? timeMatch[2].substring(1) : null;
                 const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
                 
-                if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
+                if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY' || request.type === 'FORGOT_BOTH') {
                      const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
                      
-                     const payload = {
-                         user_id: request.userId,
-                         date: shiftDateStr,
-                         check_in_time: checkInDateTime.toISOString(),
-                         work_type: 'OFFICE', // Default to office for correction if unknown
-                         status: 'WORKING',   
-                         note: `[APPROVED ${request.type}] ${request.reason}`
-                     };
+                     // Check if log exists first
+                     const { data: existingLog } = await supabase
+                        .from('attendance_logs')
+                        .select('*')
+                        .eq('user_id', request.userId)
+                        .eq('date', shiftDateStr)
+                        .maybeSingle();
+
+                     if (request.type === 'LATE_ENTRY' && existingLog) {
+                        // For Late Entry Appeal: Preserve actual check-in time, just update status and note
+                        const newNote = `${existingLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`.replace('[APPEAL_PENDING]', '').trim();
+                        await supabase.from('attendance_logs')
+                            .update({
+                                status: 'WORKING', 
+                                note: newNote
+                            })
+                            .eq('id', existingLog.id);
+                     } else if (request.type === 'FORGOT_BOTH') {
+                        const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
+                        const payload = {
+                            user_id: request.userId,
+                            date: shiftDateStr,
+                            check_in_time: checkInDateTime.toISOString(),
+                            check_out_time: checkOutDateTime.toISOString(),
+                            work_type: 'OFFICE', 
+                            status: 'COMPLETED',   
+                            note: `[APPROVED FORGOT_BOTH] ${request.reason}`
+                        };
+                        await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                     } else {
+                        // For Forgot Check-in or Late Entry without log: Create/Upsert
+                        const payload = {
+                            user_id: request.userId,
+                            date: shiftDateStr,
+                            check_in_time: checkInDateTime.toISOString(),
+                            work_type: 'OFFICE', 
+                            status: 'WORKING',   
+                            note: `[APPROVED ${request.type}] ${request.reason}`
+                        };
+                        await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                     }
                      
-                     await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                     await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+                     if (request.type !== 'FORGOT_BOTH') {
+                        await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+                     }
 
                      await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
                         status: request.type === 'LATE_ENTRY' ? 'LATE' : 'ON_TIME', 

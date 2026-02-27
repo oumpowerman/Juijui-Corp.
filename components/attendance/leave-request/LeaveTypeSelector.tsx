@@ -2,7 +2,7 @@
 import React from 'react';
 import { MasterOption } from '../../../types';
 import { LEAVE_THEMES } from './constants';
-import { Clock, Moon, Home, History } from 'lucide-react';
+import { Clock, Moon, Home, History, FileText } from 'lucide-react';
 
 interface Props {
     masterOptions: MasterOption[];
@@ -10,8 +10,8 @@ interface Props {
 }
 
 const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
-    // Standard Types from DB (Filter out WFH because we have a special button for it)
-    const standardTypes = masterOptions.filter(o => o.type === 'LEAVE_TYPE' && o.isActive && o.key !== 'WFH');
+    // Standard Types from DB (Filter out WFH and UNPAID because we have special buttons for them)
+    const standardTypes = masterOptions.filter(o => o.type === 'LEAVE_TYPE' && o.isActive && o.key !== 'WFH' && o.key !== 'UNPAID');
 
     return (
         <div className="grid grid-cols-2 gap-3 pb-4">
@@ -71,6 +71,20 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                     <History className="w-6 h-6" />
                 </div>
                 <span className="font-bold text-gray-700 text-xs group-hover:text-rose-600 text-center leading-tight">ลืมลงเวลา /<br/>ย้อนหลัง</span>
+            </button>
+
+            <button onClick={() => onSelect('FORGOT_BOTH')} className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-red-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95">
+                <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mb-2">
+                    <History className="w-6 h-6" />
+                </div>
+                <span className="font-bold text-gray-700 text-xs group-hover:text-red-600 text-center leading-tight">ลืมทั้งเข้า-ออก<br/>(เต็มวัน)</span>
+            </button>
+
+            <button onClick={() => onSelect('UNPAID')} className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-slate-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95">
+                <div className="w-12 h-12 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center mb-2">
+                    <FileText className="w-6 h-6" />
+                </div>
+                <span className="font-bold text-gray-700 text-xs group-hover:text-slate-600 text-center leading-tight">ลาไม่รับ<br/>ค่าจ้าง</span>
             </button>
         </div>
     );

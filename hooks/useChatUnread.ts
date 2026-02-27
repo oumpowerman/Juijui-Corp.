@@ -8,17 +8,18 @@ export const useChatUnread = (currentUser: User | null) => {
 
     // Initial Fetch (On Mount or User Change)
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser?.id) return;
 
         const fetchUnread = async () => {
             // 1. Get last read time from DB (Source of Truth)
             const lastRead = currentUser.lastReadChatAt || new Date(0);
+            const lastReadISO = lastRead instanceof Date ? lastRead.toISOString() : new Date(lastRead).toISOString();
 
             // 2. Count messages created AFTER last read
             const { count, error } = await supabase
                 .from('team_messages')
                 .select('*', { count: 'exact', head: true })
-                .gt('created_at', lastRead.toISOString())
+                .gt('created_at', lastReadISO)
                 .neq('user_id', currentUser.id); // Don't count own messages
 
             if (!error) {
@@ -29,12 +30,17 @@ export const useChatUnread = (currentUser: User | null) => {
         fetchUnread();
 
         // 3. Subscribe to NEW messages
+        // Use a more specific channel name to avoid collisions
         const channel = supabase
-            .channel('global-chat-unread')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_messages' }, (payload) => {
-                if (payload.new.user_id !== currentUser.id) {
-                    setUnreadCount(prev => prev + 1);
-                }
+            .channel(`chat-unread-global-${currentUser.id}`)
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'team_messages' 
+            }, () => {
+                // Robust approach: Re-fetch the count from DB on every insert
+                // This handles multiple messages and ensures consistency with DB state
+                fetchUnread();
             })
             .subscribe();
 
@@ -48,7 +54,7 @@ export const useChatUnread = (currentUser: User | null) => {
             supabase.removeChannel(channel);
             window.removeEventListener('juijui-chat-read', handleLocalRead);
         };
-    }, [currentUser?.id, currentUser?.lastReadChatAt]); // Re-run if lastReadChatAt updates
+    }, [currentUser?.id, currentUser?.lastReadChatAt?.getTime()]); // Use getTime() to prevent unnecessary re-runs from new Date object instances
 
     // Mark as read function
     const markAsRead = async () => {

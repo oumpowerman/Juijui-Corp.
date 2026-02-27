@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AttendanceLog, LeaveType } from '../../types/attendance';
-import { useAttendance, AttendanceFilters } from '../../hooks/useAttendance'; 
+import { useAttendanceHistory } from '../../hooks/attendance/useAttendanceHistory';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests'; 
 import { format, isSameDay } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
@@ -23,22 +23,31 @@ interface AttendanceHistoryProps {
 const PAGE_SIZE = 15;
 
 const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
-    const { getAttendanceLogs } = useAttendance(userId);
+    const [page, setPage] = useState(1);
+    const [filters, setFilters] = useState<any>({
+        startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+        workType: 'ALL'
+    });
+
+    const { getAttendanceLogs, isHistoryLoading: isFetching } = useAttendanceHistory(userId);
     const { requests, submitRequest } = useLeaveRequests({ id: userId } as any);
 
     // Data State
     const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
     const [totalCount, setTotalCount] = useState(0);
-    const [page, setPage] = useState(1);
-    
-    // Filter State
-    const [filters, setFilters] = useState<AttendanceFilters>({
-        startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-        endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-        workType: 'ALL'
-    });
-    
-    const [isFetching, setIsFetching] = useState(false);
+
+    const fetchData = useCallback(async () => {
+        const { data, count } = await getAttendanceLogs(page, PAGE_SIZE, filters);
+        setHistoryLogs(data);
+        setTotalCount(count);
+    }, [getAttendanceLogs, page, filters]);
+
+    // Initial Fetch & Filter Change
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]); 
+
     const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
     
     // Re-submit State
@@ -52,21 +61,8 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }, [requests, userId]);
 
-    // Initial Fetch & Filter Change
-    useEffect(() => {
-        fetchData();
-    }, [page, filters]); 
-
-    const fetchData = async () => {
-        setIsFetching(true);
-        const { data, count } = await getAttendanceLogs(page, PAGE_SIZE, filters);
-        setHistoryLogs(data);
-        setTotalCount(count);
-        setIsFetching(false);
-    };
-
-    const handleFilterChange = (key: keyof AttendanceFilters, value: string) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
+    const handleFilterChange = (key: string, value: string) => {
+        setFilters((prev: any) => ({ ...prev, [key]: value }));
         setPage(1); 
     };
 

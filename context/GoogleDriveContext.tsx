@@ -1,0 +1,232 @@
+
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useToast } from './ToastContext';
+
+declare global {
+    interface Window {
+        gapi: any;
+        google: any;
+    }
+}
+
+interface GoogleDriveContextType {
+    isReady: boolean;
+    isUploading: boolean;
+    isAuthenticated: boolean;
+    accessToken: string | null;
+    login: () => void;
+    uploadFileToDrive: (file: File, folderPath?: string[]) => Promise<any>;
+    openDrivePicker: (onSelect: (file: any) => void) => void;
+}
+
+const GoogleDriveContext = createContext<GoogleDriveContextType | undefined>(undefined);
+
+const CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID || ''; 
+const API_KEY = (import.meta as any).env.VITE_GOOGLE_PICKER_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || ''; 
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const MAIN_FOLDER_NAME = 'Juijui_Uploads';
+
+export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [isReady, setIsReady] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [tokenClient, setTokenClient] = useState<any>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
+    const { showToast } = useToast();
+
+    const pendingAction = useRef<'PICK' | 'UPLOAD' | null>(null);
+    const pendingFile = useRef<File | null>(null);
+    const pendingCallback = useRef<((result: any) => void) | null>(null);
+    const pendingReject = useRef<((error: any) => void) | null>(null);
+    const pendingFolderPath = useRef<string[]>([]);
+
+    useEffect(() => {
+        if (!CLIENT_ID || !API_KEY) return;
+
+        const loadScript = (src: string) => {
+            return new Promise((resolve, reject) => {
+                const existingScript = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement;
+                if (existingScript) {
+                    if (existingScript.dataset.loaded === 'true') resolve(true);
+                    else {
+                        existingScript.addEventListener('load', () => resolve(true));
+                        existingScript.addEventListener('error', reject);
+                    }
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.defer = true;
+                script.onload = () => {
+                    script.dataset.loaded = 'true';
+                    resolve(true);
+                };
+                script.onerror = reject;
+                document.body.appendChild(script);
+            });
+        };
+
+        Promise.all([
+            loadScript('https://apis.google.com/js/api.js'),
+            loadScript('https://accounts.google.com/gsi/client'),
+        ]).then(() => {
+            window.gapi.load('picker', () => setIsReady(true));
+            const client = window.google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (response: any) => handleTokenCallback(response),
+            });
+            setTokenClient(client);
+        }).catch(err => console.error("Failed to load Google Scripts", err));
+    }, []);
+
+    const handleTokenCallback = (response: any) => {
+        if (response.error !== undefined) {
+            showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Google Drive', 'error');
+            setIsUploading(false);
+            if (pendingReject.current) {
+                pendingReject.current(new Error(response.error_description || response.error || 'Auth failed'));
+                pendingReject.current = null;
+            }
+            return;
+        }
+        
+        const token = response.access_token;
+        setAccessToken(token);
+        showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
+
+        if (pendingAction.current === 'PICK') {
+            createPicker(token, pendingCallback.current);
+        } else if (pendingAction.current === 'UPLOAD' && pendingFile.current) {
+            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current, pendingReject.current);
+        }
+        pendingAction.current = null;
+    };
+
+    const login = () => {
+        if (!tokenClient) return;
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+    };
+
+    const ensureFolder = async (token: string, folderName: string, parentId?: string): Promise<string> => {
+        let q = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
+        if (parentId) q += ` and '${parentId}' in parents`;
+        const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const searchData = await searchResponse.json();
+        if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+
+        const metadata: any = { name: folderName, mimeType: 'application/vnd.google-apps.folder' };
+        if (parentId) metadata.parents = [parentId];
+        const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(metadata)
+        });
+        const folderData = await createResponse.json();
+        return folderData.id;
+    };
+
+    const createPicker = (token: string, onSelect: ((file: any) => void) | null) => {
+        const view = new window.google.picker.View(window.google.picker.ViewId.DOCS);
+        view.setMimeTypes('image/png,image/jpeg,video/mp4,application/pdf,application/vnd.google-apps.document,application/vnd.google-apps.spreadsheet');
+        const picker = new window.google.picker.PickerBuilder()
+            .addView(view).setOAuthToken(token).setDeveloperKey(API_KEY)
+            .setCallback((data: any) => {
+                if (data[window.google.picker.Response.ACTION] === window.google.picker.Action.PICKED) {
+                    const doc = data[window.google.picker.Response.DOCUMENTS][0];
+                    if (onSelect) onSelect({
+                        name: doc[window.google.picker.Document.NAME],
+                        url: doc[window.google.picker.Document.URL],
+                        mimeType: doc[window.google.picker.Document.MIME_TYPE],
+                        iconUrl: doc[window.google.picker.Document.ICON_URL]
+                    });
+                }
+            }).build();
+        picker.setVisible(true);
+    };
+
+    const performUpload = async (token: string, file: File, onComplete: any, folderPath: string[], onError: any) => {
+        try {
+            let currentParentId = await ensureFolder(token, MAIN_FOLDER_NAME);
+            for (const folderName of folderPath) {
+                if (currentParentId) currentParentId = await ensureFolder(token, folderName, currentParentId);
+            }
+            const metadata = { name: file.name, mimeType: file.type, parents: currentParentId ? [currentParentId] : [] };
+            const formData = new FormData();
+            formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            formData.append('file', file);
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink,thumbnailLink,name', {
+                method: 'POST', headers: new Headers({ 'Authorization': 'Bearer ' + token }), body: formData,
+            });
+            if (!response.ok) throw new Error('Upload failed');
+            const data = await response.json();
+            await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
+                method: 'POST', headers: new Headers({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ role: 'reader', type: 'anyone' })
+            });
+            const result = {
+                name: data.name, url: data.webViewLink, mimeType: file.type,
+                downloadUrl: data.webContentLink, thumbnailUrl: data.thumbnailLink?.replace(/=s\d+$/, '=s1200')
+            };
+            if (onComplete) onComplete(result);
+            showToast(`อัปโหลดไฟล์เรียบร้อย 📂`, 'success');
+        } catch (error: any) {
+            showToast('อัปโหลดไป Drive ไม่สำเร็จ', 'error');
+            if (onError) onError(error);
+        } finally {
+            setIsUploading(false);
+            pendingFile.current = null;
+            pendingFolderPath.current = [];
+            pendingReject.current = null;
+        }
+    };
+
+    const uploadFileToDrive = (file: File, folderPath: string[] = []): Promise<any> => {
+        return new Promise((resolve, reject) => {
+            if (!isReady || !tokenClient) {
+                showToast('Google Drive API ยังไม่พร้อม', 'error');
+                return reject(new Error('Not ready'));
+            }
+            const timeoutId = setTimeout(() => {
+                setIsUploading(false);
+                reject(new Error('Timeout'));
+            }, 60000);
+            const onComplete = (res: any) => { clearTimeout(timeoutId); resolve(res); };
+            const onError = (err: any) => { clearTimeout(timeoutId); reject(err); };
+            if (accessToken) {
+                setIsUploading(true);
+                performUpload(accessToken, file, onComplete, folderPath, onError);
+            } else {
+                pendingAction.current = 'UPLOAD';
+                pendingFile.current = file;
+                pendingCallback.current = onComplete;
+                pendingReject.current = onError;
+                pendingFolderPath.current = folderPath;
+                setIsUploading(true);
+                tokenClient.requestAccessToken({ prompt: '' });
+            }
+        });
+    };
+
+    const openDrivePicker = (onSelect: any) => {
+        if (!isReady || !tokenClient) return showToast('Google Drive API ยังไม่พร้อม', 'error');
+        if (accessToken) return createPicker(accessToken, onSelect);
+        pendingAction.current = 'PICK';
+        pendingCallback.current = onSelect;
+        tokenClient.requestAccessToken({ prompt: '' });
+    };
+
+    return (
+        <GoogleDriveContext.Provider value={{ isReady, isUploading, isAuthenticated: !!accessToken, accessToken, login, uploadFileToDrive, openDrivePicker }}>
+            {children}
+        </GoogleDriveContext.Provider>
+    );
+};
+
+export const useGoogleDriveContext = () => {
+    const context = useContext(GoogleDriveContext);
+    if (context === undefined) throw new Error('useGoogleDriveContext must be used within a GoogleDriveProvider');
+    return context;
+};

@@ -8,7 +8,7 @@ import AdminWeeklyTimesheet from '../components/attendance/AdminWeeklyTimesheet'
 import LeaveApprovalList from '../components/attendance/LeaveApprovalList'; 
 import LeaveQuotaModal from '../components/attendance/LeaveQuotaModal'; 
 import AttendanceInfoCard from '../components/attendance/AttendanceInfoCard'; 
-import { useAttendance } from '../hooks/useAttendance'; 
+import { useAttendanceStats } from '../hooks/attendance/useAttendanceStats'; 
 import { useLeaveRequests } from '../hooks/useLeaveRequests'; 
 import MentorTip from '../components/MentorTip';
 import { Clock, Calendar, PieChart, FileCheck, TableProperties } from 'lucide-react';
@@ -25,7 +25,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     const [isQuotaOpen, setIsQuotaOpen] = useState(false); 
     
     // Hooks
-    const { stats } = useAttendance(currentUser.id);
+    const { stats } = useAttendanceStats(currentUser.id);
     // Lift state up: Fetch all requests here so we can pass actions to child
     // If Admin, fetch all requests for the approval list
     const { requests, leaveUsage, isLoading: isRequestsLoading, approveRequest, rejectRequest } = useLeaveRequests(
@@ -128,7 +128,10 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
                          {/* Left: Action Card */}
                          <div className="space-y-6">
-                             <AttendanceWidget user={currentUser} />
+                             <AttendanceWidget 
+                                user={currentUser} 
+                                onNavigateToHistory={() => setCurrentTab('HISTORY')}
+                             />
                          </div>
 
                          {/* Right: Info */}

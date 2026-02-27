@@ -65,6 +65,17 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClos
                             <h3 className="text-3xl font-black text-slate-800">
                                 {format(new Date(log.date), 'EEEE d MMMM', { locale: th })}
                             </h3>
+                            {(() => {
+                                const leaveMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
+                                if (leaveMatch) {
+                                    return (
+                                        <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest border border-sky-200">
+                                            {leaveMatch[1]} LEAVE
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                         <div className="p-4 bg-indigo-50 text-indigo-600 rounded-[1.5rem] shadow-inner">
                             <Clock className="w-8 h-8" />

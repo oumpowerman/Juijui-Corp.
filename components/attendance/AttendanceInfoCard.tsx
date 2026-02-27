@@ -15,7 +15,7 @@ const AttendanceInfoCard: React.FC = () => {
                         <Sparkles className="w-3 h-3 text-yellow-300" />
                         <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest">Tips for Professional</span>
                     </div>
-                    <h3 className="text-3xl font-black tracking-tight text-white leading-tight">
+                    <h3 className="text-3xl font-bold tracking-tight text-white leading-tight">
                         Why Time Matters? <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200">ทำไมเวลาถึงสำคัญ?</span>
                     </h3>

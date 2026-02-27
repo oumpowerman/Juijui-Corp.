@@ -72,7 +72,7 @@ const DEFAULT_OPTIONS = [
     { type: 'LEAVE_TYPE', key: 'SICK', label: 'ลาป่วย', color: 'bg-gray-500', sort_order: 0 },
     { type: 'LEAVE_TYPE', key: 'BUSINESS', label: 'ลากิจ', color: 'bg-gray-500', sort_order: 0 },
     { type: 'LEAVE_TYPE', key: 'VACATION', label: 'พักร้อน', color: 'bg-blue-500', sort_order: 0 },
-    { type: 'LEAVE_TYPE', key: 'WITHOUT_PAY', label: 'ลาไม่รับค่าจ้าง', color: 'bg-gray-800', sort_order: -5 },
+    { type: 'LEAVE_TYPE', key: 'UNPAID', label: 'ลาไม่รับค่าจ้าง', color: 'bg-gray-800', sort_order: -5 },
 ];
 
 export const useMasterData = () => {

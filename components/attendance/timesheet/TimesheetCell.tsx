@@ -58,6 +58,8 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
 
     const late = log.checkInTime && checkIsLate(log.checkInTime, '10:00', 15);
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
+    const leaveTypeMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
+    const leaveType = leaveTypeMatch ? leaveTypeMatch[1] : null;
 
     return (
         <div 
@@ -75,13 +77,24 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                   'bg-emerald-50 border-emerald-100 text-emerald-600'}
                 ${dayStatus.status === 'HOLIDAY' ? 'ring-2 ring-orange-200 ring-offset-1' : ''}
             `}>
-                <span className="text-[10px] font-black font-mono leading-none">
-                    {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
-                </span>
-                <div className="w-4 h-[1px] bg-current opacity-20"></div>
-                <span className="text-[10px] font-black font-mono leading-none opacity-60">
-                    {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
-                </span>
+                {isLeave && leaveType ? (
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-center px-1 leading-tight">
+                        {leaveType === 'UNPAID' ? 'UNPAID' : 
+                         leaveType === 'SICK' ? 'SICK' :
+                         leaveType === 'VACATION' ? 'VAC' :
+                         leaveType === 'PERSONAL' ? 'PERS' : leaveType}
+                    </span>
+                ) : (
+                    <>
+                        <span className="text-[10px] font-black font-mono leading-none">
+                            {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
+                        </span>
+                        <div className="w-4 h-[1px] bg-current opacity-20"></div>
+                        <span className="text-[10px] font-black font-mono leading-none opacity-60">
+                            {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
+                        </span>
+                    </>
+                )}
                 
                 {log.note?.includes('[PROOF:') && (
                     <div className="absolute top-1 right-1">

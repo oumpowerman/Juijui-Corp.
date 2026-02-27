@@ -11,20 +11,25 @@ interface UseLeaveFormLogicProps {
     selectedType?: string;
 }
 
+import { compressImage } from '../../../../lib/imageUtils';
+
 export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReason, selectedType }: UseLeaveFormLogicProps) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
     const [file, setFile] = useState<File | null>(null);
     const [targetTime, setTargetTime] = useState('09:00');
+    const [endTime, setEndTime] = useState('18:00'); // New state for FORGOT_BOTH
     const [otHours, setOtHours] = useState(2);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const initialDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : '';
+
     useEffect(() => {
-        const d = initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+        const d = initialDateStr || format(new Date(), 'yyyy-MM-dd');
         setStartDate(d);
         setEndDate(d);
-        setReason(initialReason || ''); // Reset with initialReason
+        setReason(initialReason || '');
         setFile(null);
         
         // Set sensible defaults based on type
@@ -32,12 +37,15 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
             setTargetTime('18:00');
         } else if (selectedType === 'FORGOT_CHECKIN' || selectedType === 'LATE_ENTRY') {
             setTargetTime('09:00');
+        } else if (selectedType === 'FORGOT_BOTH') {
+            setTargetTime('09:00');
+            setEndTime('18:00');
         } else {
             setTargetTime('09:00');
         }
         
         setOtHours(2);
-    }, [initialDate, initialReason, selectedType]);
+    }, [initialDateStr, initialReason, selectedType]);
 
     const handleSubmit = async (selectedType: string) => {
         if (!selectedType) return;
@@ -49,18 +57,33 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
 
         setIsSubmitting(true);
 
+        let finalFile = file;
+        if (file && file.type.startsWith('image/')) {
+            try {
+                finalFile = await compressImage(file);
+            } catch (err) {
+                console.error('Compression failed', err);
+            }
+        }
+
         let finalStartDate = new Date(startDate);
         let finalEndDate = new Date(endDate);
         let finalReason = reason;
 
-        if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+        if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType)) {
             // Combine date and time correctly to avoid midnight issue
             const [year, month, day] = startDate.split('-').map(Number);
             const [hours, minutes] = targetTime.split(':').map(Number);
             finalStartDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
             
-            finalReason = `[TIME:${targetTime}] ${reason}`;
-            finalEndDate = finalStartDate; 
+            if (selectedType === 'FORGOT_BOTH') {
+                finalReason = `[TIME:${targetTime}-${endTime}] ${reason}`;
+                const [endH, endM] = endTime.split(':').map(Number);
+                finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
+            } else {
+                finalReason = `[TIME:${targetTime}] ${reason}`;
+                finalEndDate = finalStartDate; 
+            }
         } else if (selectedType === 'OVERTIME') {
             finalReason = `[OT:${otHours}hr] ${reason}`;
             finalEndDate = finalStartDate;
@@ -71,7 +94,7 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
             finalStartDate,
             finalEndDate,
             finalReason,
-            file || undefined
+            finalFile || undefined
         );
 
         setIsSubmitting(false);
@@ -84,6 +107,7 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         reason, setReason,
         file, setFile,
         targetTime, setTargetTime,
+        endTime, setEndTime,
         otHours, setOtHours,
         isSubmitting,
         handleSubmit

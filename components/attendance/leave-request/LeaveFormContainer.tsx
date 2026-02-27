@@ -31,7 +31,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const { 
         startDate, setStartDate, endDate, setEndDate, 
         reason, setReason, file, setFile, 
-        targetTime, setTargetTime, otHours, setOtHours, 
+        targetTime, setTargetTime, endTime, setEndTime, otHours, setOtHours, 
         isSubmitting, handleSubmit 
     } = useLeaveFormLogic({ onSubmit, onClose, initialDate, initialReason, selectedType }); // Pass initialReason and selectedType
 
@@ -42,7 +42,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const standardLabel = masterOptions.find(o => o.key === selectedType)?.label || selectedType;
     const headerLabel = fixedType ? 'Time Correction (แก้ไขเวลา)' : (selectedType === 'WFH' ? 'ขออนุญาต WFH' : standardLabel);
 
-    const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType);
+    const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
 
     // --- Validation Logic ---
     const daysRequested = useMemo(() => {
@@ -69,7 +69,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const getPlaceholder = () => {
         if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
         if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN') return "เช่น ลืมกดออก/เข้า เนื่องจากรีบไปธุระ...";
+        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') return "เช่น ลืมกดออก/เข้า เนื่องจากรีบไปธุระ...";
         if (selectedType === 'WFH') return "เช่น เคลียร์งานตัดต่อที่บ้าน, ไม่สบายเล็กน้อยแต่อยากทำงาน...";
         return "ระบุเหตุผลการลา...";
     };
@@ -125,6 +125,8 @@ const LeaveFormContainer: React.FC<Props> = ({
                         <TimeCorrectionInputs 
                             date={startDate} setDate={setStartDate} 
                             time={targetTime} setTime={setTargetTime} 
+                            endTime={endTime} setEndTime={setEndTime}
+                            showEndTime={selectedType === 'FORGOT_BOTH'}
                             isFixedDate={!!fixedType}
                         />
                     ) : selectedType === 'OVERTIME' ? (

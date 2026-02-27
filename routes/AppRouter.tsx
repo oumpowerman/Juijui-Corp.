@@ -16,6 +16,7 @@ import { useGameEventListener } from '../hooks/useGameEventListener';
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
 import { Loader2, Search, Inbox } from 'lucide-react';
 import { WorkboxProvider, useWorkboxContext } from '../context/WorkboxContext';
+import { GoogleDriveProvider } from '../context/GoogleDriveContext';
 import WorkboxPanel from '../components/workbox/WorkboxPanel';
 import WorkboxTrigger from '../components/workbox/WorkboxTrigger';
 
@@ -535,9 +536,11 @@ const AppRouter: React.FC<{ user: any }> = ({ user }) => {
   const { currentUserProfile } = useAuth(user);
 
   return (
-    <WorkboxProvider currentUser={currentUserProfile}>
-      <AppRouterInner user={user} />
-    </WorkboxProvider>
+    <GoogleDriveProvider>
+      <WorkboxProvider currentUser={currentUserProfile}>
+        <AppRouterInner user={user} />
+      </WorkboxProvider>
+    </GoogleDriveProvider>
   );
 };
 

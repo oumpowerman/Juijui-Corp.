@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { LeaveRequest } from '../../../types/attendance';
-import { format, differenceInDays } from 'date-fns';
-import th from 'date-fns/locale/th';
-import { Calendar, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { format, isToday } from 'date-fns';
+import { th } from 'date-fns/locale';
+import { Calendar, Clock, ChevronRight, Palmtree, Coffee, Briefcase, AlertCircle } from 'lucide-react';
 
 interface UpcomingLeaveListProps {
     requests: LeaveRequest[];
@@ -12,53 +12,66 @@ interface UpcomingLeaveListProps {
 const UpcomingLeaveList: React.FC<UpcomingLeaveListProps> = ({ requests }) => {
     if (requests.length === 0) return null;
 
-    return (
-        <div className="bg-white rounded-2xl border border-indigo-100 p-4 shadow-sm animate-in slide-in-from-bottom-2">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-500" /> แผนการลาล่วงหน้า (Upcoming)
-            </h4>
-            <div className="space-y-2">
-                {requests.map((req) => {
-                    const days = differenceInDays(new Date(req.endDate), new Date(req.startDate)) + 1;
-                    const isApproved = req.status === 'APPROVED';
-                    const isPending = req.status === 'PENDING';
-                    
-                    return (
-                        <div key={req.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 relative overflow-hidden group">
-                            {/* Status Strip */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${isApproved ? 'bg-green-500' : isPending ? 'bg-orange-400' : 'bg-red-500'}`}></div>
-                            
-                            <div className="flex items-center gap-3 pl-2">
-                                <div className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 ${isApproved ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                    <span className="text-[10px] font-bold uppercase">{format(req.startDate, 'MMM')}</span>
-                                    <span className="text-sm font-black">{format(req.startDate, 'd')}</span>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-700">{req.type}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {days > 1 ? `${days} วัน • ถึง ${format(req.endDate, 'd MMM')}` : 'ลา 1 วัน'}
-                                    </p>
-                                </div>
-                            </div>
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'VACATION': return <Palmtree className="w-4 h-4" />;
+            case 'SICK': return <AlertCircle className="w-4 h-4" />;
+            case 'WFH': return <Briefcase className="w-4 h-4" />;
+            default: return <Coffee className="w-4 h-4" />;
+        }
+    };
 
-                            <div className="flex items-center gap-2">
-                                {isApproved ? (
-                                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg border border-green-100">
-                                        <CheckCircle2 className="w-3 h-3" /> อนุมัติแล้ว
-                                    </span>
-                                ) : isPending ? (
-                                    <span className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
-                                        <Clock className="w-3 h-3" /> รออนุมัติ
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg border border-red-100">
-                                        <AlertCircle className="w-3 h-3" /> ไม่ผ่าน
-                                    </span>
-                                )}
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'APPROVED': return 'text-emerald-600 bg-emerald-50 border-emerald-100';
+            case 'PENDING': return 'text-amber-600 bg-amber-50 border-amber-100';
+            default: return 'text-gray-600 bg-gray-50 border-gray-100';
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2 uppercase tracking-wider">
+                    <Calendar className="w-4 h-4 text-indigo-500" />
+                    แผนการลาล่วงหน้า
+                </h3>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                    {requests.length} รายการ
+                </span>
+            </div>
+
+            <div className="space-y-3">
+                {requests.map((req) => (
+                    <div 
+                        key={req.id}
+                        className="flex items-center gap-4 p-3 rounded-2xl border border-slate-50 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all group"
+                    >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${getStatusColor(req.status)}`}>
+                            {getIcon(req.type)}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <h4 className="text-xs font-bold text-slate-700 truncate">
+                                    {req.type}
+                                </h4>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${getStatusColor(req.status)}`}>
+                                    {req.status}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {format(new Date(req.startDate), 'd MMM', { locale: th })}
+                                    {req.startDate !== req.endDate && ` - ${format(new Date(req.endDate), 'd MMM', { locale: th })}`}
+                                </p>
                             </div>
                         </div>
-                    );
-                })}
+
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                    </div>
+                ))}
             </div>
         </div>
     );

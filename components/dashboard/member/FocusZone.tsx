@@ -37,18 +37,24 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
 
     // Helper for Status Badge (Small pill)
     const getStatusBadge = () => {
-        const s = task.status;
+        const s = (task.status || '').toString().toUpperCase();
         
-        // 1. Try to find label from Master Options
-        const masterStatus = masterOptions.find(opt => 
-            (opt.type === 'CONTENT_STATUS' || opt.type === 'TASK_STATUS') && 
-            opt.key === s
+        // 1. Try to find label from Master Options (Prioritize STATUS and TASK_STATUS types)
+        let masterStatus = masterOptions.find(opt => 
+            (opt.type === 'STATUS' || opt.type === 'TASK_STATUS') && 
+            opt.key.toUpperCase() === s
         );
-        
-        const label = masterStatus?.label || STATUS_LABELS[s as any] || s;
 
-        if (s === 'WAITING' || s === 'FEEDBACK') return { text: label, color: 'bg-yellow-100 text-yellow-700' };
+        // 2. Fallback: Search any master option by key if not found in specific types
+        if (!masterStatus) {
+            masterStatus = masterOptions.find(opt => opt.key.toUpperCase() === s);
+        }
+        
+        const label = masterStatus?.label || STATUS_LABELS[s as any] || task.status;
+
+        if (s === 'WAITING' || s === 'FEEDBACK' || s === 'FEEDBACK_1') return { text: label, color: 'bg-yellow-100 text-yellow-700' };
         if (s === 'REVISE' || s.includes('EDIT')) return { text: label, color: 'bg-red-100 text-red-700' };
+        if (s === 'DONE' || s === 'APPROVE') return { text: label, color: 'bg-emerald-100 text-emerald-700' };
         return { text: label, color: 'bg-gray-100 text-gray-600' };
     };
     const badge = getStatusBadge();
@@ -79,9 +85,15 @@ const CardItem: React.FC<CardItemProps> = ({ task, isRevise = false, channels, u
                             {channel.name}
                         </span>
                     )}
+                    
+                    {/* Status Badge - Always show label instead of key */}
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border border-black/5 ${badge.color}`}>
+                        {badge.text}
+                    </span>
+
                     {isRevise && (
-                         <span className={`flex items-center text-[9px] font-bold px-2 py-0.5 rounded-md ${badge.color}`}>
-                            <Wrench className="w-3 h-3 mr-1" /> {badge.text}
+                         <span className="flex items-center text-[9px] font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md border border-red-200">
+                            <Wrench className="w-3 h-3 mr-1" /> แก้ไขด่วน
                         </span>
                     )}
                     {!isRevise && isOverdue && (
@@ -316,6 +328,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                 title={viewAllType === 'REVISE' ? 'รายการงานแก้ / รอปรับ (Revise)' : 'รายการงานด่วน / ใกล้ส่ง (Urgent)'}
                 tasks={viewAllType === 'REVISE' ? reviseTasks : urgentTasks}
                 channels={channels}
+                masterOptions={masterOptions}
                 onEditTask={onOpenTask}
                 colorTheme={viewAllType === 'REVISE' ? 'red' : 'orange'}
             />

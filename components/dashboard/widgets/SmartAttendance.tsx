@@ -64,6 +64,82 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
         return { mode: 'NORMAL', name: '' };
     }, [exceptions, annualHolidays, time]); // Add time to dependency
 
+    // 2.5 NOT CHECKED IN (Config-driven Pastel Card)
+    const config = useMemo(() => {
+        const mode = dayStatus.mode;
+        
+        // Default (NORMAL)
+        const base = {
+            mode: 'NORMAL',
+            bg: 'bg-gradient-to-br from-indigo-50 via-white to-blue-50',
+            border: 'border-indigo-100',
+            shadow: 'shadow-indigo-100/50',
+            badgeBg: 'bg-indigo-100',
+            badgeText: 'text-indigo-600',
+            badgeIcon: Calendar,
+            badgeLabel: format(time, 'EEEE, d MMM', { locale: th }),
+            title: 'พร้อมลุยไหม?',
+            description: 'เริ่มต้นวันใหม่ด้วยพลัง! ไปที่หน้าลงเวลาเพื่อเช็คอิน',
+            accentColor: 'text-indigo-500',
+            icon: Sparkles,
+            btnText: 'ไปหน้าลงเวลา',
+            btnBg: 'bg-indigo-600',
+            btnShadow: 'shadow-indigo-200',
+            btnHover: 'hover:bg-indigo-700',
+            showBtn: true,
+            titleColor: 'text-slate-800'
+        };
+
+        if (mode === 'SPECIAL_WORK') {
+            return {
+                ...base,
+                mode: 'SPECIAL_WORK',
+                bg: 'bg-gradient-to-br from-amber-50 via-white to-orange-50',
+                border: 'border-orange-100',
+                shadow: 'shadow-orange-100/50',
+                badgeBg: 'bg-orange-100',
+                badgeText: 'text-orange-600',
+                badgeIcon: Zap,
+                badgeLabel: dayStatus.name || 'วันทำงานพิเศษ',
+                title: 'ลุยงานพิเศษ!',
+                description: 'วันนี้วันพิเศษ สู้ๆ นะครับ! ไปเช็คอินกันเลย',
+                accentColor: 'text-orange-500',
+                btnBg: 'bg-orange-600',
+                btnShadow: 'shadow-orange-200',
+                btnHover: 'hover:bg-orange-700',
+                titleColor: 'text-orange-900'
+            };
+        }
+
+        if (mode === 'HOLIDAY') {
+            return {
+                ...base,
+                mode: 'HOLIDAY',
+                bg: 'bg-gradient-to-br from-rose-50 via-white to-pink-50',
+                border: 'border-rose-100',
+                shadow: 'shadow-rose-100/50',
+                badgeBg: 'bg-rose-100',
+                badgeText: 'text-rose-600',
+                badgeIcon: PartyPopper,
+                badgeLabel: format(time, 'EEEE, d MMM', { locale: th }),
+                title: 'สุขสันต์วันหยุด!',
+                description: `วันนี้ "${dayStatus.name}" พักผ่อนให้เต็มที่นะครับ ไม่ต้องลงเวลานะ`,
+                accentColor: 'text-rose-500',
+                icon: Palmtree,
+                btnText: 'แต่ฉันจะทำงาน',
+                btnBg: 'bg-rose-500',
+                btnShadow: 'shadow-rose-100',
+                btnHover: 'hover:bg-rose-600',
+                showBtn: true,
+                titleColor: 'text-rose-900'
+            };
+        }
+
+        // Future modes (SICK, WFH, etc.) can be added here easily
+        
+        return base;
+    }, [dayStatus, time]);
+
 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
 
@@ -194,60 +270,22 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
         );
     }
 
-    // 2.5 HOLIDAY MODE (Only if truly a holiday, not a special work day)
-    if (dayStatus.mode === 'HOLIDAY') {
-        return (
-            <div className="w-full">
-                <div className="bg-gradient-to-br from-rose-500 to-pink-500 rounded-[2.5rem] p-6 text-white shadow-xl shadow-rose-200 relative overflow-hidden group border-4 border-white/20 w-full">
-                    <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
-                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-orange-400 opacity-20 rounded-full blur-2xl"></div>
-
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
-                        <div className="flex-1 text-center md:text-left">
-                            <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                                <span className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 tracking-wider flex items-center shadow-sm">
-                                    <PartyPopper className="w-3 h-3 mr-1.5" />
-                                    {format(time, 'EEEE, d MMM')}
-                                </span>
-                            </div>
-                            <h3 className="text-3xl font-black tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
-                                สุขสันต์วันหยุด! <Palmtree className="w-7 h-7 text-yellow-200 animate-bounce-slow" />
-                            </h3>
-                            <p className="text-rose-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">
-                                วันนี้ "{dayStatus.name}" พักผ่อนให้เต็มที่นะครับ ไม่ต้องลงเวลานะ
-                            </p>
-                        </div>
-
-                        <button 
-                            onClick={() => onNavigate('ATTENDANCE')}
-                            className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-2xl font-bold backdrop-blur-md border border-white/30 transition-all text-xs"
-                        >
-                            แต่ฉันจะทำงาน (ไปหน้าลงเวลา)
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // 3. START WORK (Vibrant Gradient Card)
+    // 2.5 NOT CHECKED IN (Config-driven Pastel Card)
     return (
         <div className="w-full">
             <div className={`
-                rounded-[2.5rem] p-6 text-white shadow-xl relative overflow-hidden group border-4 border-white/20 w-full transition-all duration-500
-                ${dayStatus.mode === 'SPECIAL_WORK' 
-                    ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 shadow-orange-200' 
-                    : 'bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 shadow-indigo-200'}
+                rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group border-4 border-white w-full transition-all duration-500
+                ${config.bg} ${config.shadow}
             `}>
-                {/* Dynamic Background */}
-                <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
-                <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500 opacity-20 rounded-full blur-2xl"></div>
+                {/* Dynamic Background Blobs */}
+                <div className="absolute -right-10 -top-10 w-64 h-64 bg-white opacity-40 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-30 rounded-full blur-2xl"></div>
                 
                 {/* STREAK INDICATOR */}
-                {stats.currentStreak > 0 && (
-                    <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md border border-white/30 rounded-full px-3 py-1 flex items-center gap-1.5 animate-pulse">
-                        <Flame className="w-3.5 h-3.5 text-orange-300 fill-orange-300" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-white">
+                {stats.currentStreak > 0 && config.mode !== 'HOLIDAY' && (
+                    <div className="absolute top-4 right-4 bg-white/60 backdrop-blur-md border border-white rounded-full px-3 py-1 flex items-center gap-1.5 shadow-sm">
+                        <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-orange-600">
                             {stats.currentStreak} Day Streak!
                         </span>
                     </div>
@@ -256,37 +294,28 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                     <div className="flex-1 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                            {dayStatus.mode === 'SPECIAL_WORK' ? (
-                                <span className="bg-white text-orange-600 px-3 py-1 rounded-full text-[10px] font-black border border-orange-200 tracking-wider flex items-center shadow-sm animate-pulse">
-                                    <Zap className="w-3 h-3 mr-1.5 fill-orange-600" />
-                                    {dayStatus.name || 'Special Workday'}
-                                </span>
-                            ) : (
-                                <span className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 tracking-wider flex items-center shadow-sm">
-                                    <Calendar className="w-3 h-3 mr-1.5" />
-                                    {format(time, 'EEEE, d MMM')}
-                                </span>
-                            )}
+                            <span className={`${config.badgeBg} ${config.badgeText} px-3 py-1 rounded-full text-[10px] font-black border border-white tracking-wider flex items-center shadow-sm`}>
+                                <config.badgeIcon className="w-3 h-3 mr-1.5" />
+                                {config.badgeLabel}
+                            </span>
                         </div>
-                        <h3 className="text-3xl font-bold tracking-tight mt-1 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
-                            {dayStatus.mode === 'SPECIAL_WORK' ? 'ลุยงานพิเศษ!' : 'พร้อมลุยไหม?'} <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
+                        <h3 className={`text-3xl font-bold tracking-tight mt-1 flex items-center justify-center md:justify-start gap-2 ${config.titleColor}`}>
+                            {config.title} <config.icon className={`w-7 h-7 ${config.accentColor} animate-pulse`} />
                         </h3>
-                        <p className="text-indigo-100 text-sm mt-1.5 font-medium opacity-90 max-w-md">
-                            {dayStatus.mode === 'SPECIAL_WORK' 
-                                ? 'วันนี้วันพิเศษ สู้ๆ นะครับ! ไปเช็คอินกันเลย'
-                                : 'เริ่มต้นวันใหม่ด้วยพลัง! ไปที่หน้าลงเวลาเพื่อเช็คอิน'
-                            }
+                        <p className="text-slate-500 text-sm mt-1.5 font-medium max-w-md">
+                            {config.description}
                         </p>
                     </div>
 
-                    <button 
-                        onClick={() => onNavigate('ATTENDANCE')}
-                        className="group/btn relative px-8 py-4 bg-white text-indigo-600 rounded-2xl font-black shadow-lg hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden w-full md:w-auto justify-center"
-                    >
-                        <div className="absolute inset-0 bg-indigo-50 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300"></div>
-                        <Camera className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform" />
-                        <span className="relative z-10 text-base">ไปหน้าลงเวลา</span>
-                    </button>
+                    {config.showBtn && (
+                        <button 
+                            onClick={() => onNavigate('ATTENDANCE')}
+                            className={`group/btn relative px-8 py-4 ${config.btnBg} text-white rounded-2xl font-black shadow-lg ${config.btnShadow} ${config.btnHover} hover:scale-105 active:scale-95 transition-all flex items-center gap-3 overflow-hidden w-full md:w-auto justify-center`}
+                        >
+                            <Camera className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform" />
+                            <span className="relative z-10 text-base">{config.btnText}</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

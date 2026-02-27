@@ -71,7 +71,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
     const { handleSaveTask } = useTasks(); 
-    const { duties } = useDuty(currentUser); // Direct fetch for custom passing
+    const { duties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 
     // Sync local user
     useEffect(() => {
@@ -171,6 +171,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 users={users}
                                 onNavigate={onNavigate}
                                 onFixNegligence={setNegligenceDuty}
+                                calendarMetadata={calendarMetadata}
                             />
                         </div>
                     </div>

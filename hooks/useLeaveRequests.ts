@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
 import { useGamification } from './useGamification';
 
-export const useLeaveRequests = (currentUser?: any) => {
+export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -22,6 +22,11 @@ export const useLeaveRequests = (currentUser?: any) => {
                     profiles:profiles!leave_requests_user_id_fkey (id, full_name, avatar_url, position)
                 `)
                 .order('created_at', { ascending: false });
+            
+            // If not fetching all, filter by current user
+            if (!options.all && currentUser?.id) {
+                query = query.eq('user_id', currentUser.id);
+            }
             
             const { data, error } = await query;
 
@@ -61,7 +66,7 @@ export const useLeaveRequests = (currentUser?: any) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => fetchRequests())
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [currentUser?.id, options.all]);
 
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {

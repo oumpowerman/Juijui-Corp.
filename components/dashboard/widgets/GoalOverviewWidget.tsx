@@ -1,9 +1,11 @@
 
 import React, { useMemo } from 'react';
-import { Goal, ViewMode, Platform } from '../../../types';
-import { TrendingUp, ChevronRight, Star, Coins, Trophy, CheckCircle2 } from 'lucide-react';
+import { Goal, ViewMode } from '../../../types';
+import { TrendingUp, ChevronRight, Star, Trophy, CheckCircle2, Target, Zap, Rocket, Flame, ArrowUpRight } from 'lucide-react';
 import { PLATFORM_ICONS } from '../../../constants';
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { th } from 'date-fns/locale';
 
 interface GoalOverviewWidgetProps {
     goals: Goal[];
@@ -14,17 +16,13 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
     
     // --- Logic: Process Data ---
     const activeGoals = useMemo(() => {
-        // Filter active only
         const filtered = goals.filter(g => !g.isArchived);
-        
-        // Calculate percentages
         const mapped = filtered.map(g => {
             const percent = Math.min(100, Math.round((g.currentValue / g.targetValue) * 100));
             const daysLeft = differenceInDays(new Date(g.deadline), new Date());
             return { ...g, percent, daysLeft };
         });
 
-        // Sort: Highest Percent > Closest Deadline
         return mapped.sort((a, b) => {
             if (b.percent !== a.percent) return b.percent - a.percent;
             return a.daysLeft - b.daysLeft;
@@ -34,9 +32,23 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
     const topGoals = activeGoals.slice(0, 3);
     const totalGoals = activeGoals.length;
     
-    // Calculate Total Potential Rewards
+    // Aggregate Progress Calculation (Sum of Current / Sum of Target)
+    const { totalCurrent, totalTarget, overallPercent } = useMemo(() => {
+        const current = activeGoals.reduce((sum, g) => sum + g.currentValue, 0);
+        const target = activeGoals.reduce((sum, g) => sum + g.targetValue, 0);
+        const percent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+        return { totalCurrent: current, totalTarget: target, overallPercent: percent };
+    }, [activeGoals]);
+
     const totalPotentialXP = activeGoals.reduce((sum, g) => sum + (g.percent < 100 ? g.rewardXp : 0), 0);
     const completedCount = activeGoals.filter(g => g.percent >= 100).length;
+
+    // Find the most urgent goal
+    const urgentGoal = useMemo(() => {
+        return [...activeGoals]
+            .filter(g => g.percent < 100)
+            .sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    }, [activeGoals]);
 
     // --- Empty State ---
     if (goals.length === 0) {
@@ -58,115 +70,190 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
     }
 
     return (
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-white/60 relative overflow-hidden flex flex-col h-full group hover:shadow-xl hover:shadow-emerald-100 transition-all duration-500 min-h-[300px]">
-            
-            {/* Header / Banner */}
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-5 pb-8 relative shrink-0 text-white">
-                {/* Decor */}
-                <div className="absolute bottom-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-3xl translate-x-10 translate-y-10 pointer-events-none"></div>
-                <div className="absolute top-0 left-0 w-16 h-16 bg-white opacity-10 rounded-full blur-2xl -translate-x-5 -translate-y-5 pointer-events-none"></div>
-
-                <div className="relative z-10 flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-2xl text-white shadow-inner border border-white/10">
-                            <Trophy className="w-6 h-6" />
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5 }}
+            onClick={() => onNavigate('GOALS')}
+            className="bg-white rounded-[3rem] shadow-xl border border-white/60 relative overflow-hidden flex flex-col h-full group hover:shadow-emerald-200/40 transition-all duration-500 min-h-[400px] cursor-pointer"
+        >
+            {/* --- TOP SECTION: VIBRANT HEADER --- */}
+            <div className="p-8 pb-6 relative overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-emerald-50 text-slate-800 border-b border-slate-100">
+                {/* Animated Background Elements */}
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 90, 0],
+                        opacity: [0.1, 0.2, 0.1]
+                    }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    className="absolute -top-10 -right-10 w-64 h-64 bg-emerald-400 rounded-full blur-[80px] pointer-events-none"
+                />
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        x: [0, 20, 0],
+                        opacity: [0.05, 0.1, 0.05]
+                    }}
+                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-400 rounded-full blur-[60px] pointer-events-none"
+                />
+                
+                <div className="relative z-10 flex justify-between items-start mb-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <motion.div 
+                                animate={{ rotate: [0, 15, -15, 0] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="bg-emerald-500/20 backdrop-blur-md p-1.5 rounded-lg border border-emerald-500/30"
+                            >
+                                <Trophy className="w-4 h-4 text-emerald-400" />
+                            </motion.div>
+                            <span className="text-indigo-600 text-[11px] font-bold uppercase tracking-[0.2em]">Squad Mission</span>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold tracking-tight leading-none">เป้าหมาย</h3>
-                            <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider mt-1">Squad Goals</p>
-                        </div>
+                        <h3 className="text-4xl font-bold tracking-tighter leading-none text-slate-900">
+                            {overallPercent}<span className="text-xl text-emerald-400/60">%</span>
+                        </h3>
+                        <p className="text-slate-500 text-[11px] font-bold mt-1 uppercase tracking-widest flex items-center gap-1">
+                            <Rocket className="w-3 h-3" /> Total Team Progress
+                        </p>
                     </div>
-                    
-                    {/* Stats */}
+
                     <div className="text-right">
-                        <div className="flex items-center justify-end gap-1 font-black text-2xl leading-none tracking-tighter">
-                            <span className="text-yellow-300 text-lg animate-pulse">✨</span>
-                            {totalPotentialXP.toLocaleString()}
-                        </div>
-                        <p className="text-[8px] text-emerald-100 uppercase font-bold tracking-widest mt-1">XP Pool</p>
+                        <motion.div 
+                            whileHover={{ scale: 1.1 }}
+                            className="bg-white rounded-2xl p-4 border border-slate-200 shadow-lg"
+                        >
+                            <div className="flex items-center justify-end gap-1.5 text-2xl font-bold text-amber-500 leading-none tracking-tighter">
+                                <Zap className="w-5 h-5 text-amber-500" />
+                                {totalPotentialXP.toLocaleString()}
+                            </div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-1">XP POOL</p>
+                        </motion.div>
                     </div>
                 </div>
 
-                {/* Progress Mini Bar */}
-                <div className="absolute bottom-0 left-0 w-full px-5 pb-3 flex items-center justify-between text-[10px] font-bold text-emerald-100/80 z-20">
-                     <span>สำเร็จแล้ว {completedCount}/{totalGoals}</span>
-                     <div className="w-24 h-1.5 bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
-                         <div className="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.8)]" style={{ width: `${(completedCount/totalGoals)*100}%` }}></div>
-                     </div>
+                {/* Aggregate Progress Bar - Large & Animated */}
+                <div className="relative pt-2">
+                    <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="w-5 h-5 rounded-full border-2 border-slate-800 bg-emerald-500 flex items-center justify-center">
+                                        <Star className="w-2 h-2 text-white fill-white" />
+                                    </div>
+                                ))}
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                                {completedCount} Goals Cleared
+                            </span>
+                        </div>
+                        <div className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20">
+                            {totalCurrent.toLocaleString()} / {totalTarget.toLocaleString()}
+                        </div>
+                    </div>
+                    <div className="h-4 bg-white/5 rounded-full overflow-hidden p-1 border border-white/10 backdrop-blur-sm rounded-t-[3rem]">
+                        <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${overallPercent}%` }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
+                            className="h-full bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 rounded-full shadow-[0_0_20px_rgba(52,211,153,0.6)] relative"
+                        >
+                            <motion.div 
+                                animate={{ x: ["0%", "100%"], opacity: [0, 1, 0] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                            />
+                        </motion.div>
+                    </div>
                 </div>
             </div>
 
-            {/* List Body */}
-            <div className="p-3 flex-1 flex flex-col gap-2 overflow-y-auto">
-                {topGoals.map((goal) => {
-                    const PlatformIcon = PLATFORM_ICONS[goal.platform] || PLATFORM_ICONS['OTHER'];
-                    const isDone = goal.percent >= 100;
-                    
-                    // Progress Color Logic
-                    let progressColor = 'bg-indigo-500';
-                    if (goal.percent >= 100) progressColor = 'bg-green-500';
-                    else if (goal.percent >= 70) progressColor = 'bg-emerald-400';
-                    else if (goal.percent >= 30) progressColor = 'bg-yellow-400';
-                    else progressColor = 'bg-orange-400';
-
-                    return (
-                        <div 
-                            key={goal.id} 
-                            className="bg-white p-3 rounded-2xl border border-gray-100 flex items-center gap-3 shadow-sm hover:border-emerald-200 transition-colors relative overflow-hidden group/item"
-                        >
-                            {/* Icon Box */}
-                            <div className={`
-                                w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border z-10 transition-colors
-                                ${isDone ? 'bg-green-50 border-green-100 text-green-600' : 'bg-gray-50 border-gray-100 text-gray-400 group-hover/item:text-emerald-500 group-hover/item:bg-emerald-50'}
-                            `}>
-                                {isDone ? <CheckCircle2 className="w-5 h-5" /> : <PlatformIcon className="w-5 h-5" />}
+            {/* --- MIDDLE SECTION: MOTIVATIONAL & LIST --- */}
+            <div className="p-8 flex-1 flex flex-col gap-6">
+                {urgentGoal && (
+                    <motion.div 
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between group/urgent overflow-hidden relative"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="w-12 h-12 bg-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-rose-200 animate-bounce">
+                                <Flame className="w-6 h-6 text-white fill-white" />
                             </div>
-
-                            {/* Info */}
-                            <div className="flex-1 min-w-0 z-10">
-                                <div className="flex justify-between items-center mb-1.5">
-                                    <h4 className="text-xs font-bold text-gray-700 truncate mr-2" title={goal.title}>
-                                        {goal.title}
-                                    </h4>
-                                    
-                                    {/* Reward Badge or Days Left */}
-                                    {isDone ? (
-                                        <span className="text-[9px] font-black text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">Success!</span>
-                                    ) : goal.rewardXp > 0 ? (
-                                        <span className="flex items-center text-[9px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
-                                            <Star className="w-2.5 h-2.5 mr-0.5 fill-orange-500" /> +{goal.rewardXp}
-                                        </span>
-                                    ) : (
-                                        <span className="text-[9px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">{goal.daysLeft} วัน</span>
-                                    )}
-                                </div>
-                                
-                                {/* Bar & Numbers */}
-                                <div className="flex items-center gap-2">
-                                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div 
-                                            className={`h-full rounded-full transition-all duration-1000 ${progressColor}`} 
-                                            style={{ width: `${goal.percent}%` }}
-                                        ></div>
-                                    </div>
-                                    <span className="text-[9px] font-bold text-gray-400 min-w-[28px] text-right">
-                                        {goal.percent}%
-                                    </span>
-                                </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-rose-600 uppercase tracking-tight">ลุยเลยทีม!</h4>
+                                <p className="text-xs font-bold text-rose-400">
+                                    {urgentGoal.title} เหลืออีก <span className="text-rose-600 font-bold">{urgentGoal.daysLeft} วัน</span>
+                                </p>
                             </div>
                         </div>
-                    );
-                })}
+                        <ArrowUpRight className="w-5 h-5 text-rose-300 group-hover/urgent:text-rose-500 group-hover/urgent:translate-x-1 group-hover/urgent:-translate-y-1 transition-all" />
+                    </motion.div>
+                )}
 
-                {/* View All Button */}
-                <button 
-                    onClick={() => onNavigate('GOALS')}
-                    className="mt-auto w-full py-3 bg-gray-50 hover:bg-emerald-50 text-gray-500 hover:text-emerald-600 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 group/btn"
-                >
-                    ดูเป้าหมายทั้งหมด ({totalGoals}) <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-                </button>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">Active Missions</span>
+                        <span className="text-[10px] font-bold text-slate-300 italic">Top 3 Priority</span>
+                    </div>
+                    
+                    <AnimatePresence>
+                        {topGoals.map((goal, index) => {
+                            const isDone = goal.percent >= 100;
+                            return (
+                                <motion.div 
+                                    key={goal.id} 
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="group/item flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 hover:shadow-sm"
+                                >
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${
+                                        isDone ? 'bg-emerald-500 text-white shadow-emerald-100' : 'bg-slate-100 text-slate-400 group-hover/item:bg-white group-hover/item:scale-110'
+                                    }`}>
+                                        {isDone ? <CheckCircle2 className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="text-sm font-bold text-slate-800 truncate pr-4">{goal.title}</h4>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xs font-bold ${isDone ? 'text-emerald-500' : 'text-slate-900'}`}>
+                                                    {goal.percent}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5">
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${goal.percent}%` }}
+                                                transition={{ duration: 1, delay: index * 0.1 + 0.5 }}
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                    isDone ? 'bg-emerald-500' : 'bg-gradient-to-r from-slate-300 to-slate-400 group-hover/item:from-emerald-400 group-hover/item:to-teal-500'
+                                                }`}
+                                            />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                </div>
             </div>
-        </div>
+
+            {/* --- BOTTOM SECTION: CTA --- */}
+            <div className="p-8 pt-0 mt-auto">
+                <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-5 bg-gradient-to-r from-indigo-500 to-emerald-400 hover:from-indigo-600 hover:to-emerald-500 rounded-[2rem] text-white text-sm font-bold transition-all duration-300 flex items-center justify-center gap-3 shadow-2xl shadow-slate-200 group-hover:shadow-emerald-200/50"
+                >
+                    EXPLORE ALL MISSIONS <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </motion.div>
+            </div>
+        </motion.div>
     );
 };
 

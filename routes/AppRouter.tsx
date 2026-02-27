@@ -138,7 +138,10 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // --- SUB-HOOKS ---
   const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
-  const { requests: leaveRequests, approveRequest, rejectRequest } = useLeaveRequests(currentUserProfile);
+  const { requests: leaveRequests, approveRequest, rejectRequest } = useLeaveRequests(
+    currentUserProfile, 
+    { all: currentUserProfile?.role === 'ADMIN' }
+  );
   
   // --- BACKGROUND SERVICES ---
   useAutoJudge(currentUserProfile); 

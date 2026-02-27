@@ -27,7 +27,11 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     // Hooks
     const { stats } = useAttendance(currentUser.id);
     // Lift state up: Fetch all requests here so we can pass actions to child
-    const { requests, leaveUsage, isLoading: isRequestsLoading, approveRequest, rejectRequest } = useLeaveRequests(currentUser);
+    // If Admin, fetch all requests for the approval list
+    const { requests, leaveUsage, isLoading: isRequestsLoading, approveRequest, rejectRequest } = useLeaveRequests(
+        currentUser, 
+        { all: currentUser.role === 'ADMIN' }
+    );
     
     // Admin pending count (for approval list badge)
     const adminPendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);

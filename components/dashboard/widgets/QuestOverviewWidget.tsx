@@ -135,47 +135,68 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-white/60 relative overflow-hidden flex flex-col h-full group hover:shadow-xl hover:shadow-indigo-100/50 transition-all duration-500 min-h-[350px]">
             
             {/* Header / Banner */}
-            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-purple-900 p-6 pb-8 relative shrink-0">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-[0.07] rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none animate-pulse"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500 opacity-20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
-                
+                <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 pb-8 relative shrink-0 border-b border-slate-100">
+
                 <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-5">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl text-white shadow-inner border border-white/10">
-                                <Layers className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-white tracking-tight leading-none">Weekly Progress</h3>
-                                <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider mt-1.5 opacity-80">ความคืบหน้ารวม (Active)</p>
-                            </div>
+
+                    {/* Top Row */}
+                    <div className="flex justify-between items-start mb-6">
+
+                    {/* Left */}
+                    <div className="flex items-center gap-4">
+
+                        {/* ✅ FIXED ICON (ไม่กลืนแล้ว) */}
+                        <div className="w-12 h-12 rounded-2xl 
+                                        bg-white 
+                                        shadow-sm 
+                                        border border-indigo-100
+                                        flex items-center justify-center">
+                        <Layers className="w-6 h-6 text-indigo-600" />
                         </div>
-                        
-                        <div className="text-right">
-                            <div className="flex items-baseline justify-end gap-1">
-                                <span className="text-4xl font-black text-white leading-none tracking-tighter drop-shadow-md">{totalPercent}</span>
-                                <span className="text-lg text-indigo-300 font-bold">%</span>
-                            </div>
+
+                        <div>
+                        <h3 className="text-xl font-semibold text-slate-900">
+                            Weekly Progress
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">
+                            ความคืบหน้ารวม (Active)
+                        </p>
                         </div>
                     </div>
 
-                    {/* Overall Progress Bar */}
-                    <div className="relative">
-                        <div className="flex justify-between text-[10px] font-bold text-indigo-200 mb-1.5 px-1">
-                            <span>ความคืบหน้าทีม</span>
-                            <span>{activeGroupsCount} Active Groups</span>
-                        </div>
-                        <div className="h-2.5 w-full bg-black/20 rounded-full overflow-hidden backdrop-blur-sm shadow-inner border border-white/5">
-                            <div 
-                                className={`h-full rounded-full transition-all duration-1000 ${totalPercent >= 100 ? 'bg-green-400' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}
-                                style={{ width: `${totalPercent}%` }}
-                            >
-                                <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite]"></div>
-                            </div>
+                    {/* Right Percentage */}
+                    <div className="text-right">
+                        <div className="flex items-end justify-end gap-1">
+                        <span className="text-4xl font-bold text-slate-900 leading-none">
+                            {totalPercent}
+                        </span>
+                        <span className="text-lg text-indigo-600 font-semibold mb-1">
+                            %
+                        </span>
                         </div>
                     </div>
+
+                    </div>
+
+                    {/* Progress Section */}
+                    <div>
+                    <div className="flex justify-between text-xs text-slate-500 mb-2 px-1">
+                        <span>ความคืบหน้าทีม</span>
+                        <span>{activeGroupsCount} Active Groups</span>
+                    </div>
+
+                    {/* ✅ CLEAN PROGRESS BAR */}
+                    <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                        className="h-full rounded-full transition-all duration-700 
+                                    bg-gradient-to-r from-indigo-500 to-purple-500"
+                        style={{ width: `${totalPercent}%` }}
+                        />
+                    </div>
+                    </div>
+
                 </div>
-            </div>
+                </div>
 
             {/* List Body */}
             <div className="flex-1 flex flex-col overflow-hidden bg-[#f8fafc]">
@@ -193,10 +214,10 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                                 className={`
                                     p-4 rounded-2xl border transition-all relative overflow-hidden group/card cursor-pointer
                                     ${isDone 
-                                        ? 'bg-green-50/40 border-green-200 hover:bg-green-50' 
+                                        ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' 
                                         : isUrgent
-                                            ? 'bg-red-50/40 border-red-200 hover:bg-red-50' 
-                                            : 'bg-white border-gray-100 hover:border-indigo-300 hover:shadow-md'
+                                            ? 'bg-rose-50 border-rose-200 hover:bg-rose-100' 
+                                            : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm'
                                     }
                                 `}
                             >
@@ -211,10 +232,10 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                                                     ? 'bg-gray-100 border-gray-200 text-gray-500' 
                                                     : 'bg-indigo-50 border-indigo-100 text-indigo-600 group-hover/card:bg-indigo-100'}
                                         `}>
-                                            {isDone ? <CheckCircle2 className="w-6 h-6" /> : isUrgent ? <AlertTriangle className="w-6 h-6 animate-pulse" /> : <Folder className="w-6 h-6" />}
+                                            {isDone ? <CheckCircle2 className="w-6 h-6" /> : isUrgent ? <AlertTriangle className="w-6 h-6 " /> : <Folder className="w-6 h-6" />}
                                         </div>
                                         <div className="min-w-0">
-                                            <h4 className={`text-sm font-bold truncate mb-0.5 ${isDone ? 'text-green-800' : isUrgent ? 'text-red-700' : 'text-gray-800'}`}>
+                                            <h4 className={`text-sm font-bold truncate mb-0.5 ${isDone ? 'text-emerald-600'  : isUrgent  ? 'text-rose-500' : 'text-indigo-600'}`}>
                                                 {group.title}
                                             </h4>
                                             <div className="flex items-center gap-2">
@@ -253,7 +274,12 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                 <div className="p-4 pt-2 bg-gradient-to-t from-white to-transparent">
                     <button 
                         onClick={() => onNavigate('WEEKLY')}
-                        className="w-full py-3 bg-white border border-gray-200 hover:border-indigo-300 hover:text-indigo-600 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1 group/btn shadow-sm hover:shadow-md"
+                        className="w-full py-3 
+                            bg-gradient-to-r from-indigo-500 to-purple-400 
+                            hover:from-indigo-600 hover:to-purple-500 
+                            text-white rounded-2xl text-xs font-bold 
+                            transition-all flex items-center justify-center gap-1 
+                            shadow-md hover:shadow-lg"
                     >
                         ดูรายละเอียดทั้งหมด <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
                     </button>

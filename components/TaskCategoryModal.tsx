@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { X, Calendar, ArrowRight, User, AlertCircle } from 'lucide-react';
-import { Task, Channel } from '../types';
+import { Task, Channel, MasterOption } from '../types';
 import { STATUS_COLORS, STATUS_LABELS, PLATFORM_ICONS } from '../constants';
 import { format, differenceInDays } from 'date-fns';
 
@@ -11,12 +11,13 @@ interface TaskCategoryModalProps {
   title: string;
   tasks: Task[];
   channels: Channel[];
+  masterOptions?: MasterOption[]; // Add masterOptions
   onEditTask: (task: Task) => void;
   colorTheme: string; // e.g., 'blue', 'green', 'red', 'orange'
 }
 
 const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({ 
-  isOpen, onClose, title, tasks, channels, onEditTask, colorTheme 
+  isOpen, onClose, title, tasks, channels, masterOptions = [], onEditTask, colorTheme 
 }) => {
   if (!isOpen) return null;
 
@@ -109,9 +110,25 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                                                 <channelInfo.Icon className="w-3 h-3" /> {channelInfo.name}
                                             </span>
                                         )}
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[task.status as any]}`}>
-                                            {STATUS_LABELS[task.status as any]}
-                                        </span>
+                                        {(() => {
+                                            const s = (task.status || '').toString().toUpperCase();
+                                            let masterStatus = masterOptions.find(opt => 
+                                                (opt.type === 'STATUS' || opt.type === 'TASK_STATUS') && 
+                                                opt.key.toUpperCase() === s
+                                            );
+
+                                            if (!masterStatus) {
+                                                masterStatus = masterOptions.find(opt => opt.key.toUpperCase() === s);
+                                            }
+
+                                            const label = masterStatus?.label || STATUS_LABELS[s as any] || task.status;
+                                            
+                                            return (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[s as any] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                                    {label}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                     
                                     <h3 className="font-bold text-gray-800 text-base leading-snug group-hover:text-indigo-700 transition-colors mb-2">

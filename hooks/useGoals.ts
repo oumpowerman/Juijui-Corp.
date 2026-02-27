@@ -174,30 +174,88 @@ export const useGoals = (currentUser: User) => {
     };
 
     // --- New Features ---
-    const toggleOwner = async (goalId: string, userId: string, isOwner: boolean) => {
+    const toggleOwner = async (goalId: string, userId: string, isCurrentlyOwner: boolean) => {
+        // Optimistic Update
+        const previousGoals = [...goals];
+        setGoals(prev => prev.map(g => {
+            if (g.id === goalId) {
+                const newOwners = isCurrentlyOwner 
+                    ? g.owners.filter(uid => uid !== userId)
+                    : [...g.owners, userId];
+                return { ...g, owners: newOwners };
+            }
+            return g;
+        }));
+
         try {
-            if (isOwner) {
+            if (isCurrentlyOwner) {
                 // Remove
-                await supabase.from('goal_owners').delete().eq('goal_id', goalId).eq('user_id', userId);
+                const { error } = await supabase
+                    .from('goal_owners')
+                    .delete()
+                    .eq('goal_id', goalId)
+                    .eq('user_id', userId);
+                if (error) throw error;
             } else {
                 // Add
-                await supabase.from('goal_owners').insert({ goal_id: goalId, user_id: userId });
+                const { error } = await supabase
+                    .from('goal_owners')
+                    .insert({ goal_id: goalId, user_id: userId });
+                
+                // Handle unique constraint if user somehow joins twice
+                if (error && error.code !== '23505') throw error;
+                
+                if (!error) {
+                    showToast('เข้าร่วมทีมสำเร็จ! 🤝', 'success');
+                }
             }
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error('Toggle owner error:', err);
+            // Rollback on error
+            setGoals(previousGoals);
+            showToast('ไม่สามารถเปลี่ยนสถานะทีมได้ในขณะนี้', 'error');
         }
     };
 
-    const toggleBoost = async (goalId: string, isBoosted: boolean) => {
-        try {
-            if (isBoosted) {
-                await supabase.from('goal_boosts').delete().eq('goal_id', goalId).eq('user_id', currentUser.id);
-            } else {
-                await supabase.from('goal_boosts').insert({ goal_id: goalId, user_id: currentUser.id });
-                showToast('ส่งพลังเชียร์แล้ว! 🔥', 'success');
+    const toggleBoost = async (goalId: string, isCurrentlyBoosted: boolean) => {
+        // Optimistic Update
+        const previousGoals = [...goals];
+        setGoals(prev => prev.map(g => {
+            if (g.id === goalId) {
+                const newBoosts = isCurrentlyBoosted 
+                    ? g.boosts.filter(uid => uid !== currentUser.id)
+                    : [...g.boosts, currentUser.id];
+                return { ...g, boosts: newBoosts };
             }
-        } catch (err) {
-            console.error(err);
+            return g;
+        }));
+
+        try {
+            if (isCurrentlyBoosted) {
+                const { error } = await supabase
+                    .from('goal_boosts')
+                    .delete()
+                    .eq('goal_id', goalId)
+                    .eq('user_id', currentUser.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('goal_boosts')
+                    .insert({ goal_id: goalId, user_id: currentUser.id });
+                
+                // If error is 23505 (unique constraint), it means it's already boosted, 
+                // which is fine for a toggle that was intended to boost.
+                if (error && error.code !== '23505') throw error;
+                
+                if (!error) {
+                    showToast('ส่งพลังเชียร์แล้ว! 🔥', 'success');
+                }
+            }
+        } catch (err: any) {
+            console.error('Toggle boost error:', err);
+            // Rollback on error
+            setGoals(previousGoals);
+            showToast('ไม่สามารถส่งพลังเชียร์ได้ในขณะนี้', 'error');
         }
     };
 

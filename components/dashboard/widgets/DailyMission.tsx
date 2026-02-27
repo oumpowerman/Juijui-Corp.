@@ -11,7 +11,7 @@ interface DailyMissionProps {
 }
 
 const DailyMission: React.FC<DailyMissionProps> = ({ currentUser, onNavigate, users = [] }) => {
-    const { duties } = useDuty(); // Hook handles fetching and realtime updates
+    const { duties, calendarMetadata } = useDuty(); // Hook handles fetching and realtime updates
 
     return (
         <MyDutyWidget 
@@ -19,6 +19,7 @@ const DailyMission: React.FC<DailyMissionProps> = ({ currentUser, onNavigate, us
             currentUser={currentUser} 
             users={users} // Pass users down
             onNavigate={onNavigate}
+            calendarMetadata={calendarMetadata}
         />
     );
 };

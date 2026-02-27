@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     error: null
   };
 
-  public props: ErrorBoundaryProps;
+  public declare props: ErrorBoundaryProps;
 
   constructor(props: ErrorBoundaryProps) {
     super(props);

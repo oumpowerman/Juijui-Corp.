@@ -27,6 +27,11 @@ export const STATUS_LABELS: Record<Status, string> = {
   'EDIT_DRAFT_2': 'Edit Draft 2 🔧',
   'APPROVE': 'Approve 👍',
   'DONE': 'Done ✅',
+  'WAITING': 'Waiting ⏳',
+  'REVISE': 'Revise 🛠️',
+  'TODO': 'To Do 📝',
+  'DOING': 'Doing ⚡',
+  'BLOCKED': 'Blocked 🚫',
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {

@@ -162,10 +162,25 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                 </div>
                 <div className="flex flex-col items-start max-w-[85%]">
                     <span className="text-[10px] text-gray-400 font-bold mb-1 ml-1">Juijui Bot (AI)</span>
-                    <div className={`px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm ${msg.messageType === 'TASK_CREATED' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
-                        {msg.messageType === 'TASK_CREATED' && <CheckSquare className="w-4 h-4 inline-block mr-2 -mt-1" />}
-                        {renderTextWithLinks(msg.content)}
-                    </div>
+                    
+                    {isStandardImage ? (
+                        <div className="bg-white p-1 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm overflow-hidden">
+                            <img 
+                                src={msg.content} 
+                                alt="Bot Attachment" 
+                                className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity min-w-[150px] min-h-[150px] bg-gray-100 object-cover" 
+                                loading="lazy"
+                                onClick={() => window.open(msg.content, '_blank')}
+                                onLoad={onImageLoad} 
+                            />
+                        </div>
+                    ) : (
+                        <div className={`px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm ${msg.messageType === 'TASK_CREATED' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
+                            {msg.messageType === 'TASK_CREATED' && <CheckSquare className="w-4 h-4 inline-block mr-2 -mt-1" />}
+                            {renderTextWithLinks(msg.content)}
+                        </div>
+                    )}
+                    
                     <span className="text-[10px] text-gray-300 mt-1 ml-1">
                         {format(msg.createdAt, 'HH:mm')}
                     </span>

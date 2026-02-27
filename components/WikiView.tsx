@@ -153,7 +153,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
 
     // Calculate visibility based on layout mode (Desktop only logic)
     const showSidebar = layoutMode === 'STANDARD';
-    const showList = layoutMode === 'STANDARD' || layoutMode === 'FOCUS';
+    const showList = (layoutMode === 'STANDARD' || layoutMode === 'FOCUS') && wikiMode === 'ARTICLES';
 
     return (
         // Main Container: Fixed height relative to viewport to enable independent scrolling
@@ -170,13 +170,19 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 <div className="p-4 border-b border-slate-100 bg-white">
                     <div className="flex bg-slate-100 p-1 rounded-2xl">
                         <button 
-                            onClick={() => setWikiMode('ARTICLES')}
+                            onClick={() => {
+                                setWikiMode('ARTICLES');
+                                setIsMobileListVisible(true);
+                            }}
                             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'ARTICLES' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             Articles
                         </button>
                         <button 
-                            onClick={() => setWikiMode('HANDBOOK')}
+                            onClick={() => {
+                                setWikiMode('HANDBOOK');
+                                setIsMobileListVisible(false);
+                            }}
                             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             Handbook

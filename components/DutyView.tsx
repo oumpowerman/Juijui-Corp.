@@ -40,11 +40,10 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         duties, configs, swapRequests, isLoading, 
         saveConfigs, addDuty, toggleDuty, deleteDuty, 
         calculateRandomDuties, saveDuties, cleanupOldDuties, submitProof,
-        requestSwap, respondSwap, submitAppeal 
+        requestSwap, respondSwap, submitAppeal, isProofUploading 
     } = useDuty(currentUser);
 
     const { processAction } = useGamification(currentUser);
-    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
     const { showAlert, showConfirm } = useGlobalDialog();
 
     // View State
@@ -73,19 +72,19 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     const [pendingRedemptionDuty, setPendingRedemptionDuty] = useState<Duty | null>(null);
 
     // Date Calculation
-    const getStartOfWeek = (date: Date) => {
-        const d = new Date(date);
+    const start = useMemo(() => {
+        const d = new Date(currentDate);
         const day = d.getDay();
         const diff = (day === 0 ? -6 : 1); // Monday start
         d.setDate(d.getDate() - day + diff);
         d.setHours(0, 0, 0, 0);
         return d;
-    };
-    const start = getStartOfWeek(currentDate);
-    const end = endOfWeek(currentDate, { weekStartsOn: 1 });
-    const weekDays = eachDayOfInterval({ start, end });
+    }, [currentDate]);
+
+    const end = useMemo(() => endOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
+    const weekDays = useMemo(() => eachDayOfInterval({ start, end }), [start, end]);
     
-    const activeUsers = users.filter(u => u.isActive);
+    const activeUsers = useMemo(() => users.filter(u => u.isActive), [users]);
 
     // --- Find My Pending Duty for Today (Mobile Logic) ---
     const myPendingDutyToday = useMemo(() => {
@@ -112,17 +111,32 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         }
     }, [duties, currentUser]);
 
-    // --- Wrapper to inject Google Drive logic ---
-    const handleSubmitProofWrapper = async (dutyId: string, file: File, userName: string) => {
-        // Define uploader if Drive is ready
-        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
-            const currentMonthFolder = format(new Date(), 'yyyy-MM');
-            const result = await uploadFileToDrive(fileToUpload, ['Duty', currentMonthFolder]);
-            return result.thumbnailUrl || result.url;
-        } : undefined;
+    // --- Helper: Check if duty is in the future ---
+    const isFutureDuty = (date: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d > today;
+    };
 
-        // Pass to original hook
-        return await submitProof(dutyId, file, userName, googleDriveUploader);
+    // --- Wrapper to handle future lock and proof strategy ---
+    const handleToggleDuty = async (id: string) => {
+        const duty = duties.find(d => d.id === id);
+        if (duty && isFutureDuty(duty.date)) {
+            showAlert("ยังไม่ถึงเวลา", "คุณไม่สามารถทำเวรล่วงหน้าได้ กรุณารอให้ถึงวันที่กำหนดก่อนครับ");
+            return;
+        }
+        return toggleDuty(id);
+    };
+
+    const handleSubmitProof = async (dutyId: string, file: File, userName: string) => {
+        const duty = duties.find(d => d.id === dutyId);
+        if (duty && isFutureDuty(duty.date)) {
+            showAlert("ยังไม่ถึงเวลา", "คุณไม่สามารถส่งหลักฐานเวรล่วงหน้าได้ กรุณารอให้ถึงวันที่กำหนดก่อนครับ");
+            return false;
+        }
+        return submitProof(dutyId, file, userName);
     };
 
     // --- Config Handlers ---
@@ -202,7 +216,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
         try {
             // 1. Submit Proof (Mark done)
-            const success = await handleSubmitProofWrapper(duty.id, file, currentUser.name);
+            const success = await handleSubmitProof(duty.id, file, currentUser.name);
             if (!success) return;
 
             // 2. Update status to LATE_COMPLETED
@@ -224,26 +238,40 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
         if (!currentUser) return;
         if (duty.assigneeId !== currentUser.id) return; // SECURITY LOCK
         
-        const googleDriveUploader = isDriveReady ? async (fileToUpload: File): Promise<string | null> => {
-            const currentMonthFolder = format(new Date(), 'yyyy-MM');
-            const result = await uploadFileToDrive(fileToUpload, ['Duty_Appeals', currentMonthFolder]);
-            return result.thumbnailUrl || result.url;
-        } : undefined;
-
-        await submitAppeal(duty.id, reason, file, currentUser.name, googleDriveUploader);
+        await submitAppeal(duty.id, reason, file, currentUser.name);
         setPendingRedemptionDuty(null);
     };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
             
+            {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
+            {isProofUploading && (
+                <div className="fixed inset-0 z-[100] bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100 flex flex-col items-center gap-4 max-w-xs text-center">
+                        <div className="relative">
+                            <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">
+                                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-gray-800">กำลังประมวลผล...</h3>
+                            <p className="text-sm text-gray-500 mt-1 font-medium">ระบบกำลังจัดการไฟล์และบันทึกข้อมูล กรุณารอสักครู่ครับ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* --- MOBILE ACTION (If has pending duty) --- */}
             <div className="lg:hidden">
                 {myPendingDutyToday && currentUser && (
                     <MobileDutyAction 
                         duty={myPendingDutyToday}
-                        onToggle={toggleDuty}
-                        onSubmitProof={handleSubmitProofWrapper} // Use Wrapper
+                        onToggle={handleToggleDuty}
+                        onSubmitProof={handleSubmitProof} 
                         onRequestSwap={handleInitiateSwap}
                         userName={currentUser.name}
                     />
@@ -332,9 +360,9 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 onAdd={handleConfirmAdd}
                 setNewDutyTitle={setNewDutyTitle}
                 setAssigneeId={setAssigneeId}
-                onToggleDuty={toggleDuty}
+                onToggleDuty={handleToggleDuty}
                 onDeleteDuty={deleteDuty}
-                onSubmitProof={handleSubmitProofWrapper} // Use Wrapper
+                onSubmitProof={handleSubmitProof} 
                 onRequestSwap={handleInitiateSwap}
             />
 

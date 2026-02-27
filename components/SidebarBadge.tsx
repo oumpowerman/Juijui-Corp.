@@ -141,6 +141,22 @@ const SidebarBadge: React.FC<SidebarBadgeProps> = ({ view, currentUser, collapse
                         setInternalCount(wikiCount || 0);
                         break;
                     }
+                    case 'CHAT': {
+                        // 1. Get last read time from DB (Source of Truth)
+                        const lastRead = currentUser.lastReadChatAt || new Date(0);
+            
+                        // 2. Count messages created AFTER last read
+                        const { count, error } = await supabase
+                            .from('team_messages')
+                            .select('*', { count: 'exact', head: true })
+                            .gt('created_at', lastRead.toISOString())
+                            .neq('user_id', currentUser.id); // Don't count own messages
+            
+                        if (!error) {
+                            setInternalCount(count || 0);
+                        }
+                        break;
+                    }
                     default:
                         setInternalCount(0);
                 }
@@ -164,6 +180,7 @@ const SidebarBadge: React.FC<SidebarBadgeProps> = ({ view, currentUser, collapse
                 case 'DASHBOARD': tables.push('tasks'); break;
                 case 'KPI': tables.push('kpi_records'); break;
                 case 'WIKI': tables.push('wiki_articles'); break;
+                case 'CHAT': tables.push('team_messages'); break;
             }
         }
 
@@ -179,6 +196,14 @@ const SidebarBadge: React.FC<SidebarBadgeProps> = ({ view, currentUser, collapse
             };
         }
     }, [view, currentUser.id, isAdmin, manualCount]);
+
+    useEffect(() => {
+        const handleRead = () => {
+            if (view === 'CHAT') setInternalCount(0);
+        };
+        window.addEventListener('juijui-chat-read', handleRead);
+        return () => window.removeEventListener('juijui-chat-read', handleRead);
+    }, [view]);
 
     if (displayCount === 0) return null;
 

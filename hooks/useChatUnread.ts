@@ -38,8 +38,15 @@ export const useChatUnread = (currentUser: User | null) => {
             })
             .subscribe();
 
+        // Listen for local read events to clear badge immediately
+        const handleLocalRead = () => {
+            setUnreadCount(0);
+        };
+        window.addEventListener('juijui-chat-read', handleLocalRead);
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('juijui-chat-read', handleLocalRead);
         };
     }, [currentUser?.id, currentUser?.lastReadChatAt]); // Re-run if lastReadChatAt updates
 

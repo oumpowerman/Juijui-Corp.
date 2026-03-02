@@ -97,7 +97,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     
     const { channels } = useChannels();
     const { masterOptions } = useMasterData();
-    const { showConfirm } = useGlobalDialog(); // USE DIALOG
+    const { showConfirm, showAlert } = useGlobalDialog(); // USE DIALOG
 
     // UI State
     const [activeScript, setActiveScript] = useState<Script | null>(null);
@@ -164,7 +164,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
         if (fullScript) {
             setActiveScript(fullScript);
         } else {
-            alert("ไม่สามารถโหลดข้อมูลสคริปต์ได้");
+            showAlert("ไม่สามารถโหลดข้อมูลสคริปต์ได้", "ข้อผิดพลาด");
         }
     };
 
@@ -185,7 +185,15 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
         );
         
         if (confirmed) {
-            toggleShootQueue(id, currentStatus);
+            const success = await toggleShootQueue(id, currentStatus);
+            if (success) {
+                // If we were in LIBRARY, move to QUEUE. If in QUEUE, move to LIBRARY.
+                if (viewTab === 'LIBRARY') {
+                    setViewTab('QUEUE');
+                } else if (viewTab === 'QUEUE') {
+                    setViewTab('LIBRARY');
+                }
+            }
         }
     };
 
@@ -205,7 +213,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             '🎉 ยืนยันจบงาน (Mark as Done)?'
         );
         if (confirmed) {
-            updateScript(id, { status: 'DONE', isInShootQueue: false });
+            const success = await updateScript(id, { status: 'DONE', isInShootQueue: false });
+            if (success) {
+                setViewTab('HISTORY');
+            }
         }
     };
 
@@ -215,7 +226,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             'ยืนยันการนำกลับมาใช้?'
         );
         if (confirmed) {
-            updateScript(id, { status: 'DRAFT', isInShootQueue: false });
+            const success = await updateScript(id, { status: 'DRAFT', isInShootQueue: false });
+            if (success) {
+                setViewTab('LIBRARY');
+            }
         }
     };
     

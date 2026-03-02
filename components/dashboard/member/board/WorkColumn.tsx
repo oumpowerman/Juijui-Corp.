@@ -23,15 +23,43 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
     
     // Header Config
     const headerConfig = {
-        'TODO': { icon: <Backpack className="w-4 h-4" />, title: "รอทำ (To Do)", bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200" },
-        'DOING': { icon: <Play className="w-4 h-4" />, title: "ลุยงาน (Doing)", bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-200" },
-        'WAITING': { icon: <Coffee className="w-4 h-4" />, title: "รอตรวจ (Waiting)", bg: "bg-orange-50", text: "text-orange-600", border: "border-orange-200" },
-        'DONE': { icon: <CheckCircle2 className="w-4 h-4" />, title: "เสร็จแล้ว (Done)", bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200" }
+        'TODO': { 
+            icon: <Backpack className="w-4 h-4" />, 
+            title: "รอทำ (To Do)", 
+            bg: "bg-slate-500/10", 
+            text: "text-slate-600", 
+            border: "border-slate-200/50",
+            accent: "bg-slate-500"
+        },
+        'DOING': { 
+            icon: <Play className="w-4 h-4" />, 
+            title: "ลุยงาน (Doing)", 
+            bg: "bg-indigo-500/10", 
+            text: "text-indigo-600", 
+            border: "border-indigo-200/50",
+            accent: "bg-indigo-500"
+        },
+        'WAITING': { 
+            icon: <Coffee className="w-4 h-4" />, 
+            title: "รอตรวจ (Waiting)", 
+            bg: "bg-amber-500/10", 
+            text: "text-amber-600", 
+            border: "border-amber-200/50",
+            accent: "bg-amber-500"
+        },
+        'DONE': { 
+            icon: <CheckCircle2 className="w-4 h-4" />, 
+            title: "เสร็จแล้ว (Done)", 
+            bg: "bg-emerald-500/10", 
+            text: "text-emerald-600", 
+            border: "border-emerald-200/50",
+            accent: "bg-emerald-500"
+        }
     }[type];
 
     const handleDragOver = (e: React.DragEvent) => {
         if (isDroppable) {
-            e.preventDefault(); // Allow drop
+            e.preventDefault();
             e.dataTransfer.dropEffect = "move";
         }
     };
@@ -46,47 +74,54 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
     };
 
     const renderEmptyState = () => {
-        const style = "text-center py-12 text-xs font-medium border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 h-full min-h-[150px]";
+        const style = "text-center py-12 text-[10px] font-bold border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-3 h-full min-h-[180px] transition-all duration-300";
         
         if (type === 'TODO') return (
-            <div className={`${style} border-gray-200 text-gray-400`}>
-                <Backpack className="w-6 h-6 opacity-30" />
-                <span>ไม่มีงานค้าง</span>
+            <div className={`${style} border-slate-200 text-slate-400 bg-slate-50/30`}>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100">
+                    <Backpack className="w-5 h-5 opacity-40" />
+                </div>
+                <span className="uppercase tracking-widest">ไม่มีงานค้าง</span>
             </div>
         );
         if (type === 'DOING') return (
             <div className={`${style} border-indigo-200 text-indigo-400 bg-indigo-50/30`}>
-                <Zap className="w-6 h-6 opacity-30" />
-                <span>ลากงานมาวางที่นี่เพื่อเริ่มทำ!</span>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-indigo-100">
+                    <Zap className="w-5 h-5 opacity-40 animate-pulse" />
+                </div>
+                <span className="uppercase tracking-widest">ลากงานมาวางเพื่อเริ่ม!</span>
             </div>
         );
         if (type === 'WAITING') return (
-            <div className={`${style} border-orange-200 text-orange-400 bg-orange-50/30`}>
-                <Coffee className="w-6 h-6 opacity-30" />
-                <span>ไม่มีงานรอตรวจ ชิวๆ เลย</span>
+            <div className={`${style} border-amber-200 text-amber-400 bg-amber-50/30`}>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-amber-100">
+                    <Coffee className="w-5 h-5 opacity-40" />
+                </div>
+                <span className="uppercase tracking-widest">ไม่มีงานรอตรวจ</span>
             </div>
         );
         return (
-            <div className={`${style} border-emerald-100 text-emerald-400 bg-emerald-50/30`}>
-                <CheckCircle2 className="w-6 h-6 opacity-30" />
-                <span>ยังไม่มีงานที่เสร็จ</span>
+            <div className={`${style} border-emerald-200 text-emerald-400 bg-emerald-50/30`}>
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-emerald-100">
+                    <CheckCircle2 className="w-5 h-5 opacity-40" />
+                </div>
+                <span className="uppercase tracking-widest">ยังไม่มีงานที่เสร็จ</span>
             </div>
         );
     };
 
     // Container Style
-    let containerStyle = "rounded-[1.5rem] p-3 flex flex-col h-full transition-colors duration-300";
-    if (type === 'DOING') containerStyle += " bg-white border-2 border-indigo-100 shadow-sm relative";
-    else if (type === 'WAITING') containerStyle += " bg-orange-50/30 border border-orange-100";
-    else if (type === 'DONE') containerStyle += " bg-emerald-50/30 border border-emerald-100";
-    else containerStyle += " bg-slate-50/50 border border-slate-200";
+    let containerStyle = "rounded-[2.5rem] p-4 flex flex-col h-full transition-all duration-500 border border-white/40 shadow-sm hover:shadow-md";
+    if (type === 'DOING') containerStyle += " bg-white/60 backdrop-blur-md border-indigo-100/50 shadow-indigo-100/20";
+    else if (type === 'WAITING') containerStyle += " bg-white/40 backdrop-blur-sm border-amber-100/50";
+    else if (type === 'DONE') containerStyle += " bg-white/40 backdrop-blur-sm border-emerald-100/50";
+    else containerStyle += " bg-white/40 backdrop-blur-sm border-slate-200/50";
 
-    // Logic: Limit items to 3
     const DISPLAY_LIMIT = 3;
     const hasMoreItems = tasks.length > DISPLAY_LIMIT;
     const badgeColor = hasMoreItems 
-        ? 'bg-red-100 text-red-600 border-red-200 ring-1 ring-red-100' // Highlight if overflow
-        : 'bg-white text-gray-600 border-gray-100'; // Normal
+        ? 'bg-rose-500 text-white border-rose-400' 
+        : 'bg-white text-slate-600 border-slate-100';
 
     return (
         <div 
@@ -95,23 +130,20 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
             onDrop={handleDrop}
         >
             {/* Header */}
-            <div className={`flex items-center justify-between mb-4 p-3 rounded-xl border ${headerConfig.border} ${headerConfig.bg}`}>
-                <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-tight ${headerConfig.text}`}>
-                    {headerConfig.icon}
+            <div className={`flex items-center justify-between mb-5 p-3.5 rounded-2xl border ${headerConfig.border} ${headerConfig.bg} backdrop-blur-md shadow-sm`}>
+                <div className={`flex items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.15em] ${headerConfig.text}`}>
+                    <div className={`p-1.5 rounded-lg text-white ${headerConfig.accent} shadow-sm`}>
+                        {headerConfig.icon}
+                    </div>
                     {headerConfig.title}
                 </div>
-                <span className={`text-xs font-black px-2 py-0.5 rounded-lg shadow-sm border transition-colors ${badgeColor}`}>
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl shadow-sm border transition-all duration-300 ${badgeColor}`}>
                     {tasks.length}
                 </span>
             </div>
 
             {/* Content */}
-            <div className={`flex-1 overflow-y-auto pr-1 scrollbar-hide flex flex-col gap-0 relative ${isDroppable ? 'min-h-[200px]' : ''}`}>
-                {/* Drag Overlay Hint */}
-                {isDroppable && tasks.length > 0 && (
-                    <div className="absolute inset-0 bg-indigo-50/0 pointer-events-none transition-colors duration-300 peer-active:bg-indigo-50/20" />
-                )}
-
+            <div className={`flex-1 overflow-y-auto pr-1 scrollbar-hide flex flex-col gap-3 relative ${isDroppable ? 'min-h-[200px]' : ''}`}>
                 {tasks.length > 0 ? (
                     tasks.slice(0, DISPLAY_LIMIT).map(task => (
                         <WorkCard 
@@ -135,13 +167,13 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
                 {(tasks.length > DISPLAY_LIMIT || type === 'DONE') && onViewAll && (
                     <button 
                         onClick={onViewAll} 
-                        className={`w-full py-3 text-xs font-bold mt-2 border-t transition-colors rounded-b-xl hover:bg-white/50 ${
-                            type === 'WAITING' ? 'text-orange-500 hover:text-orange-700 border-orange-200' :
-                            type === 'DONE' ? 'text-emerald-600 hover:text-emerald-800 border-emerald-200 bg-emerald-50/50' :
-                            'text-slate-400 hover:text-slate-600 border-slate-200'
+                        className={`w-full py-3.5 text-[10px] font-black mt-2 border-t transition-all rounded-2xl uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] ${
+                            type === 'WAITING' ? 'text-amber-600 hover:bg-amber-500 hover:text-white border-amber-100 bg-amber-50/50' :
+                            type === 'DONE' ? 'text-emerald-600 hover:bg-emerald-500 hover:text-white border-emerald-100 bg-emerald-50/50' :
+                            'text-slate-500 hover:bg-slate-500 hover:text-white border-slate-100 bg-slate-50/50'
                         }`}
                     >
-                        {type === 'DONE' ? '📜 ดูประวัติงานเสร็จทั้งหมด' : `+ ดูทั้งหมด (${tasks.length})`}
+                        {type === 'DONE' ? '📜 View History' : `+ View All (${tasks.length})`}
                     </button>
                 )}
             </div>

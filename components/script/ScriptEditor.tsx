@@ -19,7 +19,7 @@ interface ScriptEditorProps {
     masterOptions: MasterOption[]; // New
     currentUser: User; 
     onClose: () => void;
-    onSave: (id: string, updates: Partial<Script>) => Promise<void>;
+    onSave: (id: string, updates: Partial<Script>) => Promise<any>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
     onPromote: (scriptId: string) => void; // Added Prop
 }

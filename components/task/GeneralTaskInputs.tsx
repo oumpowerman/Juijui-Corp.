@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Task, User, MasterOption, ScriptSummary, Channel } from '../../types';
+import { Task, User, MasterOption, ScriptSummary, Channel, DeadlineRequest } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
-import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye } from 'lucide-react';
+import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, CheckCircle, XCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import TaskAssets from '../TaskAssets'; 
 import { isTaskCompleted } from '../../constants';
 import { useScripts } from '../../hooks/useScripts'; 
+import { useDeadlineRequests } from '../../hooks/useDeadlineRequests';
 
 // Import Form Parts
 import GTAssigneeSelector from './form-parts/GTAssigneeSelector';
@@ -21,6 +22,7 @@ import GTDateScheduler from './form-parts/GTDateScheduler';
 import GTScriptLinker from './form-parts/GTScriptLinker'; 
 import CreateScriptModal from '../script/hub/CreateScriptModal';
 import ContentActionFooter from './content-parts/ContentActionFooter';
+import DeadlineExtensionModal from './form-parts/DeadlineExtensionModal';
 
 interface GeneralTaskInputsProps {
     initialData?: Task | null;
@@ -115,6 +117,59 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         }
     };
     
+    // --- Deadline Extension Logic ---
+    const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+    const [pendingExtension, setPendingExtension] = useState<DeadlineRequest | null>(null);
+    const { getPendingRequestForTask, createRequest, resolveRequest, isLoading: isProcessingExtension } = useDeadlineRequests(currentUser);
+
+    useEffect(() => {
+        const fetchPendingExtension = async () => {
+            if (!initialData?.id) return;
+            const request = await getPendingRequestForTask(initialData.id);
+            setPendingExtension(request);
+        };
+        fetchPendingExtension();
+    }, [initialData?.id, getPendingRequestForTask]);
+
+    const handleRequestExtension = async (newDateStr: string, reason: string) => {
+        if (!initialData?.id) return;
+        
+        const { success, data, error } = await createRequest(initialData.id, newDateStr, reason);
+        
+        if (success && data) {
+            showToast('ส่งคำขอเลื่อน Deadline แล้ว รอ Admin อนุมัติ', 'success');
+            setIsExtensionModalOpen(false);
+            setPendingExtension(data);
+        } else {
+            showToast('เกิดข้อผิดพลาดในการส่งคำขอ: ' + error, 'error');
+        }
+    };
+
+    const handleResolveExtension = async (requestId: string, isApproved: boolean, newDate?: Date) => {
+        if (!initialData?.id) return;
+        
+        // Optimistic Update: Remove pending banner and update end date
+        const previousExtension = pendingExtension;
+        const previousEndDate = endDate;
+        
+        setPendingExtension(null);
+        if (isApproved && newDate) {
+            setEndDate(newDate.toISOString().split('T')[0]);
+        }
+        
+        // Background API Call
+        const { success, error } = await resolveRequest(requestId, initialData.id, isApproved, newDate);
+        
+        if (success) {
+            showToast(isApproved ? 'อนุมัติการเลื่อน Deadline แล้ว' : 'ปฏิเสธคำขอแล้ว', 'success');
+        } else {
+            // Revert on failure
+            setPendingExtension(previousExtension);
+            setEndDate(previousEndDate);
+            showToast('เกิดข้อผิดพลาด: ' + error, 'error');
+        }
+    };
+
     // --- Standard Task Logic ---
 
     const activeUsers = users.filter(u => u.isActive);
@@ -281,6 +336,48 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
                     {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
+                    {/* Pending Extension Banner */}
+                    {pendingExtension && (
+                        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl animate-in slide-in-from-top-2">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl shrink-0 mt-0.5">
+                                        <CalendarIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-indigo-900">
+                                            {isAdmin ? 'คำขอเลื่อน Deadline' : 'กำลังรออนุมัติเลื่อน Deadline'}
+                                        </h4>
+                                        <p className="text-xs text-indigo-700 mt-1">
+                                            <span className="font-semibold">{pendingExtension.user?.name || 'Member'}</span> ขอเลื่อนเป็นวันที่ <span className="font-bold">{pendingExtension.newDeadline.toLocaleDateString('th-TH')}</span>
+                                        </p>
+                                        <div className="mt-2 text-xs text-indigo-600/80 bg-white/50 p-2 rounded-lg italic">
+                                            "{pendingExtension.reason}"
+                                        </div>
+                                    </div>
+                                </div>
+                                {isAdmin && (
+                                    <div className="flex flex-col gap-2 shrink-0 ml-4">
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleResolveExtension(pendingExtension.id, true, pendingExtension.newDeadline)}
+                                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            <CheckCircle className="w-3.5 h-3.5" /> อนุมัติ
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => handleResolveExtension(pendingExtension.id, false)}
+                                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            <XCircle className="w-3.5 h-3.5" /> ปฏิเสธ
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
                         
                         <GTAssigneeSelector 
@@ -366,6 +463,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             setStartDate={setStartDate}
                             endDate={endDate}
                             setEndDate={setEndDate}
+                            isEndDateLocked={!!initialData && !isAdmin}
+                            onRequestExtension={() => setIsExtensionModalOpen(true)}
                         />
                     </fieldset>
                 </div>
@@ -392,6 +491,14 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                 onSubmit={handleCreateScriptSubmit}
                 channels={channels}
                 masterOptions={masterOptions}
+            />
+
+            {/* Deadline Extension Modal */}
+            <DeadlineExtensionModal 
+                isOpen={isExtensionModalOpen}
+                onClose={() => setIsExtensionModalOpen(false)}
+                onSubmit={handleRequestExtension}
+                currentEndDate={endDate}
             />
         </>
     );

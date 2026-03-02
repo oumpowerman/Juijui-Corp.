@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { Editor } from '@tiptap/core';
 import { useScriptComments } from '../../../hooks/useScriptComments';
 import { useScriptBroadcast } from '../../../hooks/useScriptBroadcast';
@@ -123,7 +124,7 @@ interface ScriptProviderProps {
     masterOptions: MasterOption[];
     currentUser: User; 
     onClose: () => void;
-    onSave: (id: string, updates: Partial<Script>) => Promise<void>;
+    onSave: (id: string, updates: Partial<Script>) => Promise<any>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
     onPromote: () => void;
     children: React.ReactNode;
@@ -133,6 +134,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI, onPromote 
 }) => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
     
     const { comments, addComment: addCommentHook, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook } = useScriptComments(script.id);
 
@@ -323,7 +325,11 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     };
 
     const forceTakeover = async () => {
-        if(confirm(`ยืนยันจะแย่งสิทธิ์การแก้ไขจาก ${lockerUser?.name}?`)) {
+        const confirmed = await showConfirm(
+            `ยืนยันจะแย่งสิทธิ์การแก้ไขจาก ${lockerUser?.name}?`,
+            'แย่งสิทธิ์การแก้ไข'
+        );
+        if (confirmed) {
             await acquireLock();
             showToast('แย่งสิทธิ์การแก้ไขเรียบร้อย 😈', 'success');
         }

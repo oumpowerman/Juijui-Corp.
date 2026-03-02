@@ -62,8 +62,17 @@ export const useWeeklyQuests = () => {
     }, []);
 
     const handleAddQuest = async (quest: Omit<WeeklyQuest, 'id'>) => {
+        const newId = crypto.randomUUID();
+        const newQuest: WeeklyQuest = {
+            ...quest,
+            id: newId,
+            createdAt: new Date()
+        };
+
         try {
-            const newId = crypto.randomUUID();
+            // Optimistic Update
+            setQuests(prev => [newQuest, ...prev]);
+
             const payload = {
                 id: newId,
                 title: quest.title,
@@ -88,16 +97,29 @@ export const useWeeklyQuests = () => {
         } catch (err: any) {
             console.error(err);
             showToast('สร้าง Quest ไม่สำเร็จ: ' + err.message, 'error');
+            // Rollback on error
+            setQuests(prev => prev.filter(q => q.id !== newId));
         }
     };
 
     const handleDeleteQuest = async (id: string) => {
+        const questToDelete = quests.find(q => q.id === id);
+        if (!questToDelete) return;
+
         try {
+            // Optimistic Update
+            setQuests(prev => prev.filter(q => q.id !== id));
+
             const { error } = await supabase.from('weekly_quests').delete().eq('id', id);
             if (error) throw error;
             showToast('ลบ Quest เรียบร้อย', 'info');
         } catch (err) {
+            console.error(err);
             showToast('ลบไม่สำเร็จ', 'error');
+            // Rollback on error
+            if (questToDelete) {
+                setQuests(prev => [questToDelete, ...prev]);
+            }
         }
     };
 

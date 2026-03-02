@@ -3,6 +3,7 @@ import React from 'react';
 import { CheckCircle2, AlertTriangle, TrendingDown, MessageCircle, Flame, Shield, Skull, Moon } from 'lucide-react';
 import { LeaderboardEntry, BadgeType } from '../../hooks/useLeaderboard';
 import UserAvatarWithHP from '../common/UserAvatarWithHP';
+import { motion } from 'framer-motion';
 
 interface RankingListProps {
     list: LeaderboardEntry[];
@@ -22,17 +23,22 @@ const RankingList: React.FC<RankingListProps> = ({ list, emptyMessage = "ยั�
     };
 
     return (
-        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200 border border-slate-100 overflow-hidden relative z-10 max-w-4xl mx-auto mb-24">
+        <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white/60 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white/60 overflow-hidden relative z-10 max-w-4xl mx-auto mb-32"
+        >
             
             {/* Table Header */}
-            <div className="grid grid-cols-12 px-6 py-4 bg-slate-50/80 border-b border-slate-100 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-wider backdrop-blur-sm sticky top-0 z-20">
-                <div className="col-span-2 md:col-span-1 text-center">Rank</div>
-                <div className="col-span-6 md:col-span-6 pl-2">Agent & Status</div>
-                <div className="col-span-2 md:col-span-3 text-right">Score</div>
-                <div className="col-span-2 text-center">Performance</div>
+            <div className="grid grid-cols-12 px-6 py-5 bg-slate-50/50 border-b border-slate-100/50 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-wider backdrop-blur-sm sticky top-0 z-20">
+                <div className="col-span-2 md:col-span-1 text-center">อันดับ</div>
+                <div className="col-span-6 md:col-span-6 pl-2">เจ้าหน้าที่ & สถานะ</div>
+                <div className="col-span-2 md:col-span-3 text-right">คะแนน</div>
+                <div className="col-span-2 text-center">ผลงาน</div>
             </div>
 
-            <div className="divide-y divide-slate-50">
+            <div className="divide-y divide-slate-100/50">
                 {list.length === 0 && (
                     <div className="p-12 text-center text-slate-400 flex flex-col items-center">
                         <TrendingDown className="w-12 h-12 mb-2 opacity-20" />
@@ -40,36 +46,44 @@ const RankingList: React.FC<RankingListProps> = ({ list, emptyMessage = "ยั�
                     </div>
                 )}
 
-                {list.map((entry) => (
-                    <div key={entry.user.id} className="grid grid-cols-12 px-4 md:px-6 py-4 items-center hover:bg-indigo-50/30 transition-all duration-200 group relative">
+                {list.map((entry, index) => (
+                    <motion.div 
+                        key={entry.user.id} 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + (index * 0.05) }}
+                        className="grid grid-cols-12 px-4 md:px-6 py-4 items-center hover:bg-white/60 transition-all duration-200 group relative"
+                    >
                         
                         {/* Rank */}
                         <div className="col-span-2 md:col-span-1 text-center">
-                            <span className="text-xl font-black text-slate-300 group-hover:text-indigo-400 transition-colors">
+                            <span className="text-xl font-black text-slate-300 group-hover:text-indigo-400 transition-colors group-hover:scale-110 inline-block">
                                 {entry.rank}
                             </span>
                         </div>
 
                         {/* Agent Profile */}
                         <div className="col-span-6 md:col-span-6 flex items-center gap-3 md:gap-4 pl-2">
-                            <UserAvatarWithHP 
-                                user={entry.user} 
-                                size="md"
-                                showLevel={true}
-                                showStatus={true}
-                                showAdminBadge={true}
-                            />
+                            <div className="group-hover:scale-105 transition-transform duration-300">
+                                <UserAvatarWithHP 
+                                    user={entry.user} 
+                                    size="md"
+                                    showLevel={true}
+                                    showStatus={true}
+                                    showAdminBadge={true}
+                                />
+                            </div>
                             
                             <div className="min-w-0 flex flex-col justify-center">
                                 <div className="flex items-center gap-2">
-                                    <p className="font-bold text-slate-700 truncate text-sm md:text-base group-hover:text-indigo-700">
+                                    <p className="font-bold text-slate-700 truncate text-sm md:text-base group-hover:text-indigo-700 transition-colors">
                                         {entry.user.name}
                                     </p>
                                     
                                     {/* BADGES ROW */}
                                     <div className="flex gap-1">
                                         {entry.badges.map(badge => (
-                                            <div key={badge} className="p-0.5 bg-gray-50 rounded border border-gray-100" title={badge}>
+                                            <div key={badge} className="p-0.5 bg-white/50 rounded border border-slate-100" title={badge}>
                                                 {getBadgeIcon(badge)}
                                             </div>
                                         ))}
@@ -80,7 +94,7 @@ const RankingList: React.FC<RankingListProps> = ({ list, emptyMessage = "ยั�
                                 {entry.user.feeling ? (
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <MessageCircle className="w-3 h-3 text-slate-400" />
-                                        <p className="text-xs text-slate-500 italic truncate max-w-[140px] md:max-w-xs bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+                                        <p className="text-xs text-slate-500 italic truncate max-w-[140px] md:max-w-xs bg-slate-50/50 px-2 py-0.5 rounded-lg border border-slate-100/50">
                                             "{entry.user.feeling}"
                                         </p>
                                     </div>
@@ -92,29 +106,29 @@ const RankingList: React.FC<RankingListProps> = ({ list, emptyMessage = "ยั�
 
                         {/* Score */}
                         <div className="col-span-2 md:col-span-3 text-right">
-                            <div className="font-black text-indigo-600 text-base md:text-lg">{entry.score.toLocaleString()}</div>
-                            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">XP Points</div>
+                            <div className="font-black text-indigo-600 text-base md:text-lg group-hover:text-indigo-700 transition-colors">{entry.score.toLocaleString()}</div>
+                            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">แต้ม XP</div>
                         </div>
 
                         {/* Stats */}
                         <div className="col-span-2 flex justify-center gap-2 md:gap-6">
-                            <div className="flex flex-col items-center group/stat" title="Completed Tasks">
-                                <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md mb-0.5 group-hover/stat:bg-green-100 transition-colors">
+                            <div className="flex flex-col items-center group/stat" title="ภารกิจที่สำเร็จ">
+                                <span className="text-xs font-bold text-green-600 bg-green-50/50 px-2 py-0.5 rounded-md mb-0.5 group-hover/stat:bg-green-100 transition-colors border border-green-100/50">
                                     +{entry.missions}
                                 </span>
                                 <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
                             </div>
-                            <div className="flex flex-col items-center group/stat" title="Late/Missed">
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md mb-0.5 transition-colors ${entry.penalties > 0 ? 'text-red-500 bg-red-50 group-hover/stat:bg-red-100' : 'text-gray-300 bg-gray-50'}`}>
+                            <div className="flex flex-col items-center group/stat" title="ส่งช้า/ขาด">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md mb-0.5 transition-colors border ${entry.penalties > 0 ? 'text-red-500 bg-red-50/50 group-hover/stat:bg-red-100 border-red-100/50' : 'text-gray-300 bg-gray-50/50 border-gray-100/50'}`}>
                                     -{entry.penalties}
                                 </span>
                                 <AlertTriangle className={`w-3.5 h-3.5 ${entry.penalties > 0 ? 'text-red-400' : 'text-gray-300'}`} />
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
-        </div>
+        </motion.div>
     );
 };
 

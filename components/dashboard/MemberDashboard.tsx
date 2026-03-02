@@ -1,8 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Task, Channel, MasterOption, WorkStatus, ViewMode, Duty, AppNotification } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
+
+// dnd-kit
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+} from '@dnd-kit/sortable';
 
 // Components
 import WelcomeHeader from './member/WelcomeHeader';
@@ -12,14 +29,14 @@ import ItemShopModal from '../gamification/ItemShopModal';
 import WorkloadModal from '../workload/WorkloadModal'; 
 import MemberReportModal from './member/MemberReportModal'; 
 import NegligenceLockModal from '../duty/NegligenceLockModal'; // Import the Modal
+import SortableWidget from './widgets/SortableWidget';
 
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
-import DailyMission from './widgets/DailyMission';
 import QuestOverviewWidget from './widgets/QuestOverviewWidget';
 import GoalOverviewWidget from './widgets/GoalOverviewWidget';
 import HallOfFameWidget from './widgets/HallOfFameWidget';
-import MyDutyWidget from './member/MyDutyWidget'; // Make sure this is imported if used directly or ensure DailyMission passes props correctly (it wraps it)
+import MyDutyWidget from './member/MyDutyWidget'; 
 
 // Hooks
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
@@ -73,6 +90,49 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const { handleSaveTask } = useTasks(); 
     const { duties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 
+    // --- 🧩 Draggable Widgets Logic ---
+    type WidgetId = 'attendance' | 'duty' | 'quest' | 'goal' | 'hall_of_fame' | 'focus_zone' | 'work_board';
+
+    const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(() => {
+        const saved = localStorage.getItem(`dashboard_layout_${currentUser.id}`);
+        return saved ? JSON.parse(saved) : ['attendance', 'duty', 'focus_zone', 'work_board', 'quest', 'goal', 'hall_of_fame'];
+    });
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Avoid accidental drags on click
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            setWidgetOrder((items) => {
+                const oldIndex = items.indexOf(active.id as WidgetId);
+                const newIndex = items.indexOf(over.id as WidgetId);
+                const newOrder = arrayMove(items, oldIndex, newIndex);
+                localStorage.setItem(`dashboard_layout_${currentUser.id}`, JSON.stringify(newOrder));
+                return newOrder;
+            });
+        }
+    };
+
+    const WIDGET_CONFIG: Record<WidgetId, { span: string }> = {
+        attendance: { span: 'xl:col-span-8' },
+        duty: { span: 'xl:col-span-4' },
+        quest: { span: 'xl:col-span-4' },
+        goal: { span: 'xl:col-span-4' },
+        hall_of_fame: { span: 'xl:col-span-4' },
+        focus_zone: { span: 'xl:col-span-4' },
+        work_board: { span: 'xl:col-span-8' },
+    };
+
     // Sync local user
     useEffect(() => {
         setLocalUser(currentUser);
@@ -121,6 +181,83 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         }
     };
 
+    const renderWidget = (id: WidgetId) => {
+        switch (id) {
+            case 'attendance':
+                return (
+                    <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-sm p-2 hover:shadow-md transition-all h-full">
+                        <SmartAttendance 
+                            user={currentUser} 
+                            masterOptions={masterOptions} 
+                            onNavigate={onNavigate}
+                        />
+                    </div>
+                );
+            case 'duty':
+                return (
+                    <div className="h-full bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-[2.5rem] border border-orange-100 shadow-sm p-1 relative overflow-hidden group min-h-[200px]">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/40 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
+                        <MyDutyWidget 
+                            duties={duties} 
+                            currentUser={currentUser} 
+                            users={users}
+                            onNavigate={onNavigate}
+                            onFixNegligence={setNegligenceDuty}
+                            calendarMetadata={calendarMetadata}
+                        />
+                    </div>
+                );
+            case 'quest':
+                return (
+                    <QuestOverviewWidget 
+                        quests={quests} 
+                        tasks={tasks} 
+                        onNavigate={onNavigate} 
+                    />
+                );
+            case 'goal':
+                return (
+                    <GoalOverviewWidget 
+                        goals={goals} 
+                        onNavigate={onNavigate} 
+                    />
+                );
+            case 'hall_of_fame':
+                return (
+                    <HallOfFameWidget 
+                        users={users} 
+                        currentUser={currentUser} 
+                        onNavigate={onNavigate} 
+                    />
+                );
+            case 'focus_zone':
+                return (
+                    <FocusZone 
+                        tasks={myTasks} 
+                        channels={channels}
+                        users={users}
+                        masterOptions={masterOptions}
+                        onOpenTask={onEditTask} 
+                    />
+                );
+            case 'work_board':
+                return (
+                    <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-white/60 shadow-sm p-6 h-full">
+                        <MyWorkBoard 
+                            tasks={myTasks} 
+                            masterOptions={masterOptions}
+                            users={users}
+                            currentUser={currentUser} 
+                            onOpenTask={onEditTask}
+                            onUpdateTask={(t) => handleSaveTask(t, null)} 
+                        />
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="min-h-full bg-[#FDFBF7] pb-24 relative overflow-hidden">
             
@@ -131,100 +268,43 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
             <div className="relative z-10 space-y-6 px-4 pt-4 md:px-6">
                 
-                {/* --- ROW 1: HEADER & ATTENDANCE --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Left: Profile & Attendance */}
-                    <div className="xl:col-span-8 flex flex-col gap-6">
-                         {/* Header Wrapper with High Z-Index for Dropdowns */}
-                         <div className="relative z-30">
-                            <WelcomeHeader 
-                                user={localUser}
-                                onUpdateStatus={handleUpdateStatus}
-                                onOpenShop={() => setIsShopOpen(true)}
-                                onOpenNotifications={onOpenNotifications || onOpenSettings} 
-                                onEditProfile={onEditProfile}
-                                unreadNotifications={unreadCount}
-                                onOpenWorkload={() => setIsWorkloadOpen(true)}
-                                onOpenReport={() => setIsReportOpen(true)} 
-                            />
-                         </div>
-                        
-                        {/* Attendance Bar Wrapper */}
-                        <div className="relative z-20 bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-sm p-2 hover:shadow-md transition-all">
-                             <SmartAttendance 
-                                user={currentUser} 
-                                masterOptions={masterOptions} 
-                                onNavigate={onNavigate}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Right: Daily Mission (Customized to pass onFixNegligence) */}
-                    <div className="xl:col-span-4 flex flex-col h-full relative z-10">
-                        <div className="h-full bg-gradient-to-br from-orange-50 to-amber-50/50 rounded-[2.5rem] border border-orange-100 shadow-sm p-1 relative overflow-hidden group min-h-[200px]">
-                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/40 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
-                             {/* Manually rendering MyDutyWidget here to pass the new prop easily, instead of DailyMission wrapper */}
-                             <MyDutyWidget 
-                                duties={duties} 
-                                currentUser={currentUser} 
-                                users={users}
-                                onNavigate={onNavigate}
-                                onFixNegligence={setNegligenceDuty}
-                                calendarMetadata={calendarMetadata}
-                            />
-                        </div>
-                    </div>
+                {/* --- HEADER (Fixed) --- */}
+                <div className="relative z-30">
+                    <WelcomeHeader 
+                        user={localUser}
+                        onUpdateStatus={handleUpdateStatus}
+                        onOpenShop={() => setIsShopOpen(true)}
+                        onOpenNotifications={onOpenNotifications || onOpenSettings} 
+                        onEditProfile={onEditProfile}
+                        unreadNotifications={unreadCount}
+                        onOpenWorkload={() => setIsWorkloadOpen(true)}
+                        onOpenReport={() => setIsReportOpen(true)} 
+                    />
                 </div>
 
-                {/* --- ROW 2: SQUAD HUB --- */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-6 items-stretch relative z-10">
-                    <div className="lg:col-span-2 xl:col-span-6 h-full">
-                        <QuestOverviewWidget 
-                            quests={quests} 
-                            tasks={tasks} 
-                            onNavigate={onNavigate} 
-                        />
-                    </div>
-                    <div className="lg:col-span-1 xl:col-span-3 h-full">
-                        <GoalOverviewWidget 
-                            goals={goals} 
-                            onNavigate={onNavigate} 
-                        />
-                    </div>
-                    <div className="lg:col-span-1 xl:col-span-3 h-full">
-                        <HallOfFameWidget 
-                            users={users} 
-                            currentUser={currentUser} 
-                            onNavigate={onNavigate} 
-                        />
-                    </div>
-                </div>
-
-                {/* --- ROW 3: WORKSPACE --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 relative z-10">
-                    <div className="xl:col-span-4 flex flex-col gap-4">
-                        <FocusZone 
-                            tasks={myTasks} 
-                            channels={channels}
-                            users={users}
-                            masterOptions={masterOptions} // Pass Master Options
-                            onOpenTask={onEditTask} 
-                        />
-                    </div>
-                    <div className="xl:col-span-8">
-                        <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-white/60 shadow-sm p-6 h-full">
-                             <MyWorkBoard 
-                                tasks={myTasks} 
-                                masterOptions={masterOptions}
-                                users={users}
-                                currentUser={currentUser} 
-                                onOpenTask={onEditTask}
-                                onUpdateTask={(t) => handleSaveTask(t, null)} 
-                            />
+                {/* --- DRAGGABLE WIDGETS GRID --- */}
+                <DndContext 
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext 
+                        items={widgetOrder}
+                        strategy={rectSortingStrategy}
+                    >
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                            {widgetOrder.map((id) => (
+                                <SortableWidget 
+                                    key={id} 
+                                    id={id} 
+                                    className={WIDGET_CONFIG[id].span}
+                                >
+                                    {renderWidget(id)}
+                                </SortableWidget>
+                            ))}
                         </div>
-                    </div>
-                </div>
+                    </SortableContext>
+                </DndContext>
             </div>
 
             {/* Modals */}

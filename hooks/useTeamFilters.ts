@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User } from '../types';
 
-export type ViewScope = 'MY_SQUAD' | 'ALL';
+export type ViewScope = 'MY_SQUAD' | 'ALL' | 'ONLY_ME';
 
 export const useTeamFilters = (allUsers: User[], currentUser: User | null) => {
     const [viewScope, setViewScope] = useState<ViewScope>('ALL');

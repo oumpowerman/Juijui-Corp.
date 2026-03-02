@@ -2,8 +2,9 @@
 import React from 'react';
 import { User } from '../types';
 import { useLeaderboard, TimeRange } from '../hooks/useLeaderboard';
-import { Trophy, Sparkles } from 'lucide-react';
+import { Trophy, Sparkles, Crown } from 'lucide-react';
 import MentorTip from './MentorTip';
+import { motion } from 'framer-motion';
 
 // Import refactored sub-components
 import PodiumSection from './leaderboard/PodiumSection';
@@ -19,7 +20,29 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
     const { topThree, restList, myStats, timeRange, setTimeRange } = useLeaderboard(users, currentUser);
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-28 relative">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-32 relative min-h-screen">
+             {/* Animated Background Blobs */}
+             <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+                <motion.div 
+                    animate={{ 
+                        x: [0, 100, 0],
+                        y: [0, -50, 0],
+                        scale: [1, 1.2, 1]
+                    }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-200/20 rounded-full blur-[100px]"
+                />
+                <motion.div 
+                    animate={{ 
+                        x: [0, -100, 0],
+                        y: [0, 100, 0],
+                        scale: [1, 1.5, 1]
+                    }}
+                    transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                    className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/20 rounded-full blur-[100px]"
+                />
+            </div>
+
              <MentorTip variant="orange" messages={[
                 "🔥 สัปดาห์นี้ใครจะเป็น MVP? ดูคะแนนได้ที่นี่เลย!",
                 "XP ได้จากการทำงานเสร็จตรงเวลา และการช่วยเพื่อนๆ",
@@ -27,33 +50,52 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
             ]} />
 
             {/* Header & Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-2xl shadow-lg shadow-orange-200 text-white transform -rotate-6">
-                        <Trophy className="w-8 h-8" />
-                    </div>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
+                <div className="flex items-center gap-4">
+                    <motion.div 
+                        whileHover={{ rotate: 360, scale: 1.1 }}
+                        transition={{ duration: 0.8 }}
+                        className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl shadow-xl shadow-orange-200/50 text-white relative overflow-hidden group"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <Trophy className="w-10 h-10 drop-shadow-md" />
+                    </motion.div>
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center">
+                        <h1 className="text-4xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
                             Hall of Fame
-                            <Sparkles className="w-6 h-6 ml-2 text-yellow-400 animate-pulse" />
+                            <motion.div
+                                animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
+                                <Crown className="w-8 h-8 text-yellow-500 fill-yellow-300" />
+                            </motion.div>
                         </h1>
-                        <p className="text-slate-500 font-bold text-sm">ลานประลองของคนขยัน (Leaderboard)</p>
+                        <p className="text-slate-500 font-bold text-base mt-1 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                            ลานประลองของคนขยัน (Leaderboard)
+                        </p>
                     </div>
                 </div>
 
-                {/* Time Switcher */}
-                <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 flex">
+                {/* Glassy Time Switcher */}
+                <div className="bg-white/60 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-white/60 flex relative">
                     {['WEEKLY', 'MONTHLY', 'ALL_TIME'].map((t) => (
                         <button
                             key={t}
                             onClick={() => setTimeRange(t as TimeRange)}
                             className={`
-                                px-4 py-2 rounded-xl text-xs font-black transition-all
+                                px-5 py-2.5 rounded-xl text-xs font-black transition-all relative z-10
                                 ${timeRange === t 
-                                    ? 'bg-indigo-600 text-white shadow-md' 
-                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}
+                                    ? 'text-white shadow-lg shadow-indigo-200 scale-105' 
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}
                             `}
                         >
+                            {timeRange === t && (
+                                <motion.div 
+                                    layoutId="activeTab"
+                                    className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl -z-10"
+                                />
+                            )}
                             {t === 'WEEKLY' ? 'สัปดาห์นี้' : t === 'MONTHLY' ? 'เดือนนี้' : 'ตลอดกาล'}
                         </button>
                     ))}

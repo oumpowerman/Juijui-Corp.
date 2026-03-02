@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useTeamChat } from '../hooks/useTeamChat';
 import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { compressImage } from '../lib/imageUtils';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 // Import Refactored Sub-Components
 import ChatHeader from './team-chat/ChatHeader';
@@ -19,6 +20,7 @@ interface TeamChatProps {
 }
 
 const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask }) => {
+    const { showAlert } = useGlobalDialog();
     // --- State ---
     const [isBotEnabled, setIsBotEnabled] = useState(true);
     const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -62,7 +64,7 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
 
             } catch (error) {
                 console.error("File processing error:", error);
-                alert("เกิดข้อผิดพลาดในการส่งไฟล์");
+                showAlert("เกิดข้อผิดพลาดในการส่งไฟล์", "ข้อผิดพลาด");
             } finally {
                 setIsProcessingFile(false);
                 setUploadStatus('');

@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { Search, Users, User, Filter, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Users, User, Filter, X, UserCheck, ChevronDown } from 'lucide-react';
 import { ViewScope } from '../../hooks/useTeamFilters';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeamToolbarProps {
     viewScope: ViewScope;
@@ -21,50 +22,138 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
     availablePositions,
     onReset
 }) => {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     return (
-        <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-3xl border border-white/40 shadow-xl shadow-indigo-500/5 flex flex-col lg:flex-row gap-4 items-center justify-between relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 opacity-50 pointer-events-none" />
             
             {/* Left: Scope & Position */}
-            <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-                <div className="flex bg-gray-100 p-1 rounded-xl">
+            <div className="flex flex-wrap gap-3 w-full lg:w-auto relative z-10">
+                <div className="flex bg-gray-100/50 p-1.5 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
                     <button 
                         onClick={() => setViewScope('MY_SQUAD')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewScope === 'MY_SQUAD' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${viewScope === 'MY_SQUAD' ? 'text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <Users className="w-4 h-4" /> My Squad
+                        {viewScope === 'MY_SQUAD' && (
+                            <motion.div 
+                                layoutId="activeTab"
+                                className="absolute inset-0 bg-white rounded-xl shadow-sm border border-blue-100"
+                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            <Users className="w-4 h-4" /> 
+                            <span>My Squad</span>
+                        </span>
                     </button>
+
                     <button 
                         onClick={() => setViewScope('ALL')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewScope === 'ALL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${viewScope === 'ALL' ? 'text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <User className="w-4 h-4" /> All Team
+                        {viewScope === 'ALL' && (
+                            <motion.div 
+                                layoutId="activeTab"
+                                className="absolute inset-0 bg-white rounded-xl shadow-sm border border-purple-100"
+                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            <User className="w-4 h-4" /> 
+                            <span>All Team</span>
+                        </span>
+                    </button>
+
+                    <button 
+                        onClick={() => setViewScope('ONLY_ME')}
+                        className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${viewScope === 'ONLY_ME' ? 'text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        {viewScope === 'ONLY_ME' && (
+                            <motion.div 
+                                layoutId="activeTab"
+                                className="absolute inset-0 bg-white rounded-xl shadow-sm border border-emerald-100"
+                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            <UserCheck className="w-4 h-4" /> 
+                            <span>Only Me</span>
+                        </span>
                     </button>
                 </div>
 
-                <div className="relative group min-w-[160px]">
-                    <select 
-                        value={selectedPosition}
-                        onChange={(e) => setSelectedPosition(e.target.value)}
-                        className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-xs font-bold py-2.5 pl-9 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer hover:border-indigo-200 transition-colors"
+                {/* Custom Position Dropdown */}
+                <div className="relative min-w-[180px]" ref={dropdownRef}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-2xl blur-md opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                    <button 
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className={`relative w-full flex items-center justify-between bg-white/40 backdrop-blur-md border border-white/80 text-gray-700 text-xs font-bold py-2.5 px-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-200/50 cursor-pointer hover:bg-white/60 hover:border-indigo-300 transition-all shadow-[0_4px_12px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_20px_-4px_rgba(99,102,241,0.15)] ${isDropdownOpen ? 'ring-2 ring-indigo-200/50 border-indigo-300' : ''}`}
                     >
-                        <option value="ALL">ตำแหน่ง (All)</option>
-                        {availablePositions.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                        ))}
-                    </select>
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 border-r-2 border-b-2 border-gray-400 rotate-45 mb-1"></div>
+                        <div className="flex items-center gap-2">
+                            <Filter className={`w-3.5 h-3.5 transition-colors ${isDropdownOpen ? 'text-indigo-600' : 'text-indigo-400'}`} />
+                            <span>{selectedPosition === 'ALL' ? 'ตำแหน่งทั้งหมด' : selectedPosition}</span>
+                        </div>
+                        <motion.div 
+                            animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+                            className="text-indigo-400"
+                        >
+                            <ChevronDown className="w-4 h-4" />
+                        </motion.div>
+                    </button>
+
+                    <AnimatePresence>
+                        {isDropdownOpen && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 5, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                className="absolute top-full left-0 w-full mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-2xl shadow-indigo-500/20 overflow-hidden z-[100]"
+                            >
+                                <div className="max-h-[280px] overflow-y-auto p-1.5 custom-scrollbar">
+                                    <button 
+                                        onClick={() => { setSelectedPosition('ALL'); setIsDropdownOpen(false); }}
+                                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${selectedPosition === 'ALL' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-500'}`}
+                                    >
+                                        ตำแหน่งทั้งหมด
+                                    </button>
+                                    {availablePositions.map(p => (
+                                        <button 
+                                            key={p}
+                                            onClick={() => { setSelectedPosition(p); setIsDropdownOpen(false); }}
+                                            className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${selectedPosition === p ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-500'}`}
+                                        >
+                                            {p}
+                                        </button>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
 
             {/* Right: Search */}
-            <div className="flex gap-2 w-full lg:w-auto">
-                <div className="relative flex-1 lg:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="flex gap-2 w-full lg:w-auto relative z-10">
+                <div className="relative flex-1 lg:w-64 group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                     <input 
                         type="text" 
                         placeholder="ค้นหาชื่อ..." 
-                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-transparent focus:bg-white focus:border-indigo-200 rounded-xl text-xs font-bold outline-none transition-all"
+                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50/50 border border-gray-200/60 focus:bg-white focus:border-indigo-200 rounded-2xl text-xs font-bold outline-none transition-all shadow-inner focus:shadow-lg focus:shadow-indigo-500/10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -74,7 +163,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
                         </button>
                     )}
                 </div>
-                {(searchQuery || selectedPosition !== 'ALL') && (
+                {(searchQuery || selectedPosition !== 'ALL' || viewScope !== 'ALL') && (
                     <button 
                         onClick={onReset}
                         className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"

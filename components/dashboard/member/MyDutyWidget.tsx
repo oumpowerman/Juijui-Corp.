@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { User, Duty, ViewMode, AnnualHoliday } from '../../../types';
 import { format, isWeekend } from 'date-fns';
+import { Clock } from 'lucide-react';
 
 // Sub-components
 import AbandonedState from './duty-widgets/AbandonedState';
@@ -62,6 +63,13 @@ const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users,
     const hasMyDutyToday = myDutiesToday.length > 0;
 
     // 3. CRITICAL CHECK: Find Missed Duties
+    const missedDuties = useMemo(() => duties.filter(d => {
+        if (!d.date || d.isDone) return false;
+        const dutyDate = new Date(d.date);
+        dutyDate.setHours(0,0,0,0);
+        return d.assigneeId === currentUser.id && dutyDate < today && d.penaltyStatus === 'NONE';
+    }), [duties, currentUser, today]);
+
     const tribunalDuties = useMemo(() => duties.filter(d => d.assigneeId === currentUser.id && d.penaltyStatus === 'AWAITING_TRIBUNAL'), [duties, currentUser]);
     
     const abandonedDuties = useMemo(() => duties.filter(d => 
@@ -89,6 +97,36 @@ const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users,
     // --- PRIORITY 2: TRIBUNAL (LAST CHANCE) ---
     if (tribunalDuties.length > 0) {
         return <TribunalState onNavigate={onNavigate} />;
+    }
+
+    // --- PRIORITY 3: RECENT MISSED (BEFORE TRIBUNAL) ---
+    if (missedDuties.length > 0) {
+        return (
+            <div 
+                onClick={() => onNavigate('DUTY')}
+                className="relative overflow-hidden bg-gradient-to-br from-orange-100 to-red-100 rounded-[2.5rem] p-6 text-red-900 shadow-lg shadow-orange-100 h-full flex flex-col justify-center group border border-orange-200 cursor-pointer transition-all hover:shadow-xl active:scale-[0.98]"
+            >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-40 rounded-full blur-2xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                <div className="relative z-10 flex items-center gap-5">
+                    <div className="w-16 h-16 bg-white/60 backdrop-blur-md rounded-2xl flex items-center justify-center border border-orange-300 shadow-inner shrink-0 animate-pulse">
+                        <Clock className="w-10 h-10 text-orange-600" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                                MISSED DUTY
+                            </span>
+                        </div>
+                        <h3 className="text-xl font-black tracking-tight leading-none mb-1">
+                            ลืมทำเวรเมื่อวาน! 😱
+                        </h3>
+                        <p className="text-orange-800 text-xs font-bold opacity-80">
+                            รีบไปจัดการด่วนก่อนโดนหักคะแนนครับ
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     // --- CASE 3: I HAVE DUTY TODAY (Active Mode) ---

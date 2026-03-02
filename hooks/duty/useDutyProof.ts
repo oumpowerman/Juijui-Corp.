@@ -144,7 +144,19 @@ export const useDutyProof = (
             if (isAssist) {
                 processAction(currentUser.id, 'DUTY_ASSIST', { ...duty, targetName: 'เพื่อนร่วมทีม' });
             } else if (duty.assigneeId) {
-                processAction(duty.assigneeId, 'DUTY_COMPLETE', duty);
+                // Check if it's a late submission
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const dutyDate = new Date(duty.date);
+                dutyDate.setHours(0,0,0,0);
+                
+                const isLate = dutyDate < today || duty.penaltyStatus === 'AWAITING_TRIBUNAL';
+                
+                if (isLate) {
+                    processAction(duty.assigneeId, 'DUTY_LATE_SUBMIT', duty);
+                } else {
+                    processAction(duty.assigneeId, 'DUTY_COMPLETE', duty);
+                }
             }
 
             return true;

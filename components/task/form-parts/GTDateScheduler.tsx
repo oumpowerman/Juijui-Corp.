@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Sparkles, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Sparkles, Info, Lock } from 'lucide-react';
 import { format, parseISO, isSameMonth, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, isValid, isWeekend } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
@@ -11,9 +11,11 @@ interface GTDateSchedulerProps {
     setStartDate: (val: string) => void;
     endDate: string;
     setEndDate: (val: string) => void;
+    isEndDateLocked?: boolean;
+    onRequestExtension?: () => void;
 }
 
-const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDate, endDate, setEndDate }) => {
+const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDate, endDate, setEndDate, isEndDateLocked, onRequestExtension }) => {
     const [activePicker, setActivePicker] = useState<'START' | 'END' | null>(null);
     const [viewMonth, setViewMonth] = useState(new Date());
     const containerRef = useRef<HTMLDivElement>(null);
@@ -118,23 +120,43 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
 
                 {/* End Date Display */}
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-gray-400 ml-1 uppercase tracking-widest">จบ (Due Date)</label>
+                    <div className="flex items-center justify-between">
+                        <label className="block text-[10px] font-black text-gray-400 ml-1 uppercase tracking-widest">จบ (Due Date)</label>
+                        {isEndDateLocked && (
+                            <button 
+                                type="button" 
+                                onClick={(e) => { e.stopPropagation(); onRequestExtension?.(); }}
+                                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-full transition-colors flex items-center gap-1"
+                            >
+                                <Lock className="w-3 h-3" />
+                                ขอเลื่อน
+                            </button>
+                        )}
+                    </div>
                     <button 
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            setActivePicker('END');
-                            if (endDate) setViewMonth(parseISO(endDate));
+                            if (isEndDateLocked) {
+                                onRequestExtension?.();
+                            } else {
+                                setActivePicker('END');
+                                if (endDate) setViewMonth(parseISO(endDate));
+                            }
                         }}
                         className={`
-                            w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all text-left
+                            w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all text-left
                             ${activePicker === 'END' ? 'bg-white border-rose-400 ring-4 ring-rose-50 shadow-md' : 'bg-rose-50/30 border-rose-100 hover:border-rose-200'}
+                            ${isEndDateLocked ? 'opacity-80 cursor-pointer' : ''}
                         `}
                     >
-                        <CalendarIcon className={`w-5 h-5 ${activePicker === 'END' ? 'text-rose-500' : 'text-rose-300'}`} />
-                        <span className={`text-sm font-black tracking-wide ${endDate ? 'text-rose-700' : 'text-rose-300'}`}>
-                            {formatDateDisplay(endDate)}
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <CalendarIcon className={`w-5 h-5 ${activePicker === 'END' ? 'text-rose-500' : 'text-rose-300'}`} />
+                            <span className={`text-sm font-black tracking-wide ${endDate ? 'text-rose-700' : 'text-rose-300'}`}>
+                                {formatDateDisplay(endDate)}
+                            </span>
+                        </div>
+                        {isEndDateLocked && <Lock className="w-4 h-4 text-rose-300" />}
                     </button>
                 </div>
             </div>

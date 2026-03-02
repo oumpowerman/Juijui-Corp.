@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { User, ViewMode, TaskType, MenuGroup } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 import SidebarBadge from './SidebarBadge.tsx';
 
 interface MobileNavigationProps {
@@ -119,6 +120,7 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({
 };
 
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
+    const { showAlert } = useGlobalDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
@@ -174,7 +176,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
             }
         } catch (err) {
             console.warn("Fullscreen toggle error:", err);
-            if (isIOS) alert("บน iOS กรุณาใช้เมนู Share > 'Add to Home Screen' เพื่อใช้งานเต็มจอครับ");
+            if (isIOS) showAlert("บน iOS กรุณาใช้เมนู Share > 'Add to Home Screen' เพื่อใช้งานเต็มจอครับ", "คำแนะนำ");
         }
     };
 

@@ -21,6 +21,8 @@ import MobileDutyAction from './duty/MobileDutyAction';
 import DutyTribunalModal from './duty/DutyTribunalModal'; // Import Tribunal
 import DutyGuideModal from './duty/DutyGuideModal';
 
+import AppBackground from './common/AppBackground';
+
 interface DutyViewProps {
     users: User[];
     currentUser?: User;
@@ -35,7 +37,7 @@ const WEEK_DAYS_MAP = [
 ];
 
 const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
-    // Hook Logic
+    // ... existing logic ...
     const { 
         duties, configs, swapRequests, isLoading, 
         saveConfigs, addDuty, toggleDuty, deleteDuty, 
@@ -70,6 +72,12 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
     // --- Tribunal State ---
     const [pendingRedemptionDuty, setPendingRedemptionDuty] = useState<Duty | null>(null);
+
+    // Random background theme for this view
+    const bgTheme = useMemo(() => {
+        const themes: any[] = ['pastel-emerald', 'pastel-sky', 'pastel-rose', 'pastel-amber', 'pastel-teal', 'pastel-cyan', 'pastel-lime', 'pastel-indigo'];
+        return themes[Math.floor(Math.random() * themes.length)];
+    }, []);
 
     // Date Calculation
     const start = useMemo(() => {
@@ -224,10 +232,6 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 penalty_status: 'LATE_COMPLETED' 
             }).eq('id', duty.id);
 
-            // 3. Process Logic (Small Penalty or Cost)
-            // 'DUTY_LATE_SUBMIT' logic defined in gameLogic (e.g. -3 HP, but marked done)
-            await processAction(currentUser.id, 'DUTY_LATE_SUBMIT', duty);
-
             setPendingRedemptionDuty(null);
         } catch (err) {
             console.error(err);
@@ -243,177 +247,179 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
-            
-            {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
-            {isProofUploading && (
-                <div className="fixed inset-0 z-[100] bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100 flex flex-col items-center gap-4 max-w-xs text-center">
-                        <div className="relative">
-                            <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">
-                                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>
+        <AppBackground theme={bgTheme} pattern="grid" className="-m-4 p-8 min-h-screen">
+            <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
+                
+                {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
+                {isProofUploading && (
+                    <div className="fixed inset-0 z-[100] bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                        <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100 flex flex-col items-center gap-4 max-w-xs text-center">
+                            <div className="relative">
+                                <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-ping"></div>
+                                    </div>
                                 </div>
                             </div>
+                            <div>
+                                <h3 className="text-lg font-black text-gray-800">กำลังประมวลผล...</h3>
+                                <p className="text-sm text-gray-500 mt-1 font-medium">ระบบกำลังจัดการไฟล์และบันทึกข้อมูล กรุณารอสักครู่ครับ</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- MOBILE ACTION (If has pending duty) --- */}
+                <div className="lg:hidden">
+                    {myPendingDutyToday && currentUser && (
+                        <MobileDutyAction 
+                            duty={myPendingDutyToday}
+                            onToggle={handleToggleDuty}
+                            onSubmitProof={handleSubmitProof} 
+                            onRequestSwap={handleInitiateSwap}
+                            userName={currentUser.name}
+                        />
+                    )}
+                </div>
+
+                <MentorTip variant="green" messages={[
+                    "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
+                    "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!",
+                    "หากลืมทำเวร ระบบจะให้โอกาสแก้ตัวในวันรุ่งขึ้น (Tribunal) อย่าเพิ่งตกใจ!"
+                ]} />
+
+                {/* --- HERO SECTION --- */}
+                <div>
+                    {/* 1. Alerts */}
+                    {currentUser && <SwapInbox requests={swapRequests} currentUser={currentUser} onRespond={respondSwap} />}
+                </div>
+
+                {/* --- CONTROL DOCK --- */}
+                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-indigo-500/5 border border-white/60 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 sticky top-2 z-30">
+                    
+                    {/* Left: Title */}
+                    <div className="flex items-center gap-3">
+                        <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-600">
+                            <CalendarDays className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-gray-800">กำลังประมวลผล...</h3>
-                            <p className="text-sm text-gray-500 mt-1 font-medium">ระบบกำลังจัดการไฟล์และบันทึกข้อมูล กรุณารอสักครู่ครับ</p>
+                            <h2 className="text-xl font-black text-gray-800 tracking-tight">Duty Roster</h2>
+                            <p className="text-xs text-gray-500 font-bold">ตารางเวรประจำสัปดาห์</p>
                         </div>
                     </div>
-                </div>
-            )}
 
-            {/* --- MOBILE ACTION (If has pending duty) --- */}
-            <div className="lg:hidden">
-                {myPendingDutyToday && currentUser && (
-                    <MobileDutyAction 
-                        duty={myPendingDutyToday}
-                        onToggle={handleToggleDuty}
-                        onSubmitProof={handleSubmitProof} 
-                        onRequestSwap={handleInitiateSwap}
-                        userName={currentUser.name}
+                    {/* Center: Navigator */}
+                    <div className="flex items-center bg-gray-100/50 p-1 rounded-xl border border-gray-200/60">
+                        <button onClick={() => setCurrentDate(addWeeks(currentDate, -1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <div className="px-6 text-center min-w-[140px]">
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
+                            <p className="text-indigo-600 font-black text-sm">
+                                {format(start, 'd MMM')} - {format(end, 'd MMM')}
+                            </p>
+                        </div>
+                        <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setIsGuideModalOpen(true)}
+                            className="p-2.5 bg-white/60 backdrop-blur-sm border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
+                            title="คู่มือการใช้งาน"
+                        >
+                            <Info className="w-5 h-5" />
+                        </button>
+                        <button 
+                            onClick={() => setIsRandomModalOpen(true)}
+                            className="flex items-center px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all active:scale-95"
+                        >
+                            <Dices className="w-4 h-4 mr-2" />
+                            สุ่มเวร (Randomizer)
+                        </button>
+                        <button 
+                            onClick={handleOpenConfig}
+                            className="p-2.5 bg-white/60 backdrop-blur-sm border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all"
+                            title="ตั้งค่ากติกา"
+                        >
+                            <Settings className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* --- GRID --- */}
+                <DutyCalendarGrid 
+                    weekDays={weekDays}
+                    duties={duties}
+                    users={users}
+                    currentUser={currentUser || { id: '', name: 'Guest' } as User}
+                    isAddMode={isAddMode}
+                    newDutyTitle={newDutyTitle}
+                    assigneeId={assigneeId}
+                    onStartAdd={handleStartAdd}
+                    onCancelAdd={() => setIsAddMode(null)}
+                    onAdd={handleConfirmAdd}
+                    setNewDutyTitle={setNewDutyTitle}
+                    setAssigneeId={setAssigneeId}
+                    onToggleDuty={handleToggleDuty}
+                    onDeleteDuty={deleteDuty}
+                    onSubmitProof={handleSubmitProof} 
+                    onRequestSwap={handleInitiateSwap}
+                />
+
+                {/* Modals */}
+                <RandomizerModal 
+                    isOpen={isRandomModalOpen}
+                    onClose={() => setIsRandomModalOpen(false)}
+                    users={activeUsers}
+                    configs={configs}
+                    calculateDuties={calculateRandomDuties}
+                    onSaveToDB={saveDuties}
+                />
+
+                <ConfigModal 
+                    isOpen={isConfigModalOpen}
+                    onClose={() => setIsConfigModalOpen(false)}
+                    configs={editingConfigs}
+                    onUpdateConfig={handleUpdateConfig}
+                    onUpdateTitle={handleUpdateTitle}
+                    onSave={() => { saveConfigs(editingConfigs); setIsConfigModalOpen(false); }}
+                    onCleanup={cleanupOldDuties}
+                />
+
+                {currentUser && (
+                    <SwapRequestModal 
+                        isOpen={isSwapModalOpen}
+                        onClose={() => setIsSwapModalOpen(false)}
+                        sourceDuty={sourceDutyForSwap}
+                        allDuties={duties}
+                        users={users}
+                        currentUser={currentUser}
+                        onConfirmSwap={handleConfirmSwap}
                     />
                 )}
-            </div>
 
-            <MentorTip variant="green" messages={[
-                "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
-                "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!",
-                "หากลืมทำเวร ระบบจะให้โอกาสแก้ตัวในวันรุ่งขึ้น (Tribunal) อย่าเพิ่งตกใจ!"
-            ]} />
+                {/* THE TRIBUNAL MODAL */}
+                {pendingRedemptionDuty && (
+                    <DutyTribunalModal 
+                        isOpen={!!pendingRedemptionDuty}
+                        pendingDuty={pendingRedemptionDuty}
+                        onAcceptPenalty={handleAcceptPenalty}
+                        onRedeem={handleRedeem}
+                        onAppeal={handleAppeal}
+                    />
+                )}
 
-            {/* --- HERO SECTION --- */}
-            <div>
-                {/* 1. Alerts */}
-                {currentUser && <SwapInbox requests={swapRequests} currentUser={currentUser} onRespond={respondSwap} />}
-            </div>
-
-            {/* --- CONTROL DOCK --- */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 sticky top-2 z-30">
-                
-                {/* Left: Title */}
-                <div className="flex items-center gap-3">
-                    <div className="bg-indigo-50 p-2 rounded-xl text-indigo-600">
-                        <CalendarDays className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-black text-gray-800 tracking-tight">Duty Roster</h2>
-                        <p className="text-xs text-gray-500 font-medium">ตารางเวรประจำสัปดาห์</p>
-                    </div>
-                </div>
-
-                {/* Center: Navigator */}
-                <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-200">
-                    <button onClick={() => setCurrentDate(addWeeks(currentDate, -1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="px-6 text-center min-w-[140px]">
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">WEEK OF</p>
-                        <p className="text-indigo-600 font-black text-sm">
-                            {format(start, 'd MMM')} - {format(end, 'd MMM')}
-                        </p>
-                    </div>
-                    <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Right: Actions */}
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={() => setIsGuideModalOpen(true)}
-                        className="p-2.5 bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
-                        title="คู่มือการใช้งาน"
-                    >
-                        <Info className="w-5 h-5" />
-                    </button>
-                    <button 
-                        onClick={() => setIsRandomModalOpen(true)}
-                        className="flex items-center px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95"
-                    >
-                        <Dices className="w-4 h-4 mr-2" />
-                        สุ่มเวร (Randomizer)
-                    </button>
-                    <button 
-                        onClick={handleOpenConfig}
-                        className="p-2.5 bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl transition-all"
-                        title="ตั้งค่ากติกา"
-                    >
-                        <Settings className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-
-            {/* --- GRID --- */}
-            <DutyCalendarGrid 
-                weekDays={weekDays}
-                duties={duties}
-                users={users}
-                currentUser={currentUser || { id: '', name: 'Guest' } as User}
-                isAddMode={isAddMode}
-                newDutyTitle={newDutyTitle}
-                assigneeId={assigneeId}
-                onStartAdd={handleStartAdd}
-                onCancelAdd={() => setIsAddMode(null)}
-                onAdd={handleConfirmAdd}
-                setNewDutyTitle={setNewDutyTitle}
-                setAssigneeId={setAssigneeId}
-                onToggleDuty={handleToggleDuty}
-                onDeleteDuty={deleteDuty}
-                onSubmitProof={handleSubmitProof} 
-                onRequestSwap={handleInitiateSwap}
-            />
-
-            {/* Modals */}
-            <RandomizerModal 
-                isOpen={isRandomModalOpen}
-                onClose={() => setIsRandomModalOpen(false)}
-                users={activeUsers}
-                configs={configs}
-                calculateDuties={calculateRandomDuties}
-                onSaveToDB={saveDuties}
-            />
-
-            <ConfigModal 
-                isOpen={isConfigModalOpen}
-                onClose={() => setIsConfigModalOpen(false)}
-                configs={editingConfigs}
-                onUpdateConfig={handleUpdateConfig}
-                onUpdateTitle={handleUpdateTitle}
-                onSave={() => { saveConfigs(editingConfigs); setIsConfigModalOpen(false); }}
-                onCleanup={cleanupOldDuties}
-            />
-
-            {currentUser && (
-                <SwapRequestModal 
-                    isOpen={isSwapModalOpen}
-                    onClose={() => setIsSwapModalOpen(false)}
-                    sourceDuty={sourceDutyForSwap}
-                    allDuties={duties}
-                    users={users}
-                    currentUser={currentUser}
-                    onConfirmSwap={handleConfirmSwap}
+                <DutyGuideModal 
+                    isOpen={isGuideModalOpen}
+                    onClose={() => setIsGuideModalOpen(false)}
                 />
-            )}
-
-            {/* THE TRIBUNAL MODAL */}
-            {pendingRedemptionDuty && (
-                <DutyTribunalModal 
-                    isOpen={!!pendingRedemptionDuty}
-                    pendingDuty={pendingRedemptionDuty}
-                    onAcceptPenalty={handleAcceptPenalty}
-                    onRedeem={handleRedeem}
-                    onAppeal={handleAppeal}
-                />
-            )}
-
-            <DutyGuideModal 
-                isOpen={isGuideModalOpen}
-                onClose={() => setIsGuideModalOpen(false)}
-            />
-        </div>
+            </div>
+        </AppBackground>
     );
 };
 

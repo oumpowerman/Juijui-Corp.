@@ -175,10 +175,9 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
 
     const handleAddDefaultItems = () => {
         setQuestItems([
-            { id: crypto.randomUUID(), title: 'ลง Story (IG) 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
+            { id: crypto.randomUUID(), title: 'ลง Story 📱', targetCount: 5, platform: 'INSTAGRAM', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
             { id: crypto.randomUUID(), title: 'ลง Post (FB) 🖼️', targetCount: 3, platform: 'FACEBOOK', statusKey: defaultStatusKey, questType: 'AUTO', formatKeys: [] },
             { id: crypto.randomUUID(), title: 'ลง Reels/Shorts 🎬', targetCount: 3, platform: 'ALL', formatKeys: ['REELS', 'SHORT_FORM'], statusKey: defaultStatusKey, questType: 'AUTO' },
-            { id: crypto.randomUUID(), title: 'ทำความสะอาดสตู 🧹', targetCount: 1, questType: 'MANUAL', formatKeys: [] },
         ]);
     };
 

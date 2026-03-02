@@ -273,7 +273,7 @@ export const useScripts = (currentUser: User) => {
         }
     };
 
-    const updateScript = async (id: string, updates: Partial<Script>) => {
+    const updateScript = async (id: string, updates: Partial<Script>): Promise<boolean> => {
         try {
             const payload: any = {
                 updated_at: new Date().toISOString()
@@ -337,8 +337,10 @@ export const useScripts = (currentUser: User) => {
                  }
             }
 
+            return true;
         } catch (err) {
             console.error('Update script failed', err);
+            return false;
         }
     };
 
@@ -392,16 +394,20 @@ export const useScripts = (currentUser: User) => {
         }
     };
 
-    const toggleShootQueue = async (id: string, currentStatus: boolean) => {
+    const toggleShootQueue = async (id: string, currentStatus: boolean): Promise<boolean> => {
         try {
-            await updateScript(id, { isInShootQueue: !currentStatus });
-            showToast(
-                !currentStatus ? 'เพิ่มเข้าคิวถ่ายทำแล้ว 🎬' : 'เอาออกจากคิวแล้ว', 
-                !currentStatus ? 'success' : 'info'
-            );
-            // Refresh logic will be handled by UI triggering fetch or optimistic update in updateScript
+            const success = await updateScript(id, { isInShootQueue: !currentStatus });
+            if (success) {
+                showToast(
+                    !currentStatus ? 'เพิ่มเข้าคิวถ่ายทำแล้ว 🎬' : 'เอาออกจากคิวแล้ว', 
+                    !currentStatus ? 'success' : 'info'
+                );
+                return true;
+            }
+            return false;
         } catch (err) {
             console.error(err);
+            return false;
         }
     };
 

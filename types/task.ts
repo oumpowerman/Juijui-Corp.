@@ -64,6 +64,19 @@ export interface TaskLog {
     user?: { name: string; avatarUrl: string };
 }
 
+export interface DeadlineRequest {
+    id: string;
+    taskId: string;
+    requestedBy: string;
+    newDeadline: Date;
+    reason: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: Date;
+    resolvedAt?: Date;
+    resolvedBy?: string;
+    user?: { name: string; avatarUrl: string };
+}
+
 export interface Task {
     id: string;
     type: TaskType;
@@ -96,6 +109,7 @@ export interface Task {
     assets?: TaskAsset[];
     reviews?: ReviewSession[];
     logs?: TaskLog[];
+    deadlineRequests?: DeadlineRequest[];
     
     // Gamification & Meta
     difficulty?: Difficulty;

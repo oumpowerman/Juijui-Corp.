@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { PartyPopper, Coffee, CalendarClock, Clock, Sun } from 'lucide-react';
+import { PartyPopper, Coffee, CalendarClock, Clock, Sun, Sparkles } from 'lucide-react';
 import { format, differenceInCalendarDays } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { Duty, User, ViewMode } from '../../../../types';
 import DutyGuardians from './DutyGuardians';
+import { motion } from 'framer-motion';
 
 interface IdleStateProps {
     todayStatus: { isHoliday: boolean; name: string };
@@ -18,68 +19,97 @@ const IdleState: React.FC<IdleStateProps> = ({ todayStatus, nextDuty, todaysDuti
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    return (
-        <div 
-            onClick={() => onNavigate('DUTY')}
-            className={`relative overflow-hidden rounded-[2.5rem] p-6 shadow-lg h-full flex flex-col justify-center group border transition-all duration-500 cursor-pointer hover:shadow-xl active:scale-[0.98] ${
-            todayStatus.isHoliday 
-                ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200 text-white border-white/20' 
-                : 'bg-gradient-to-br from-rose-100 via-sky-100 to-violet-100 shadow-purple-100 text-indigo-900 border-white/40'
-        }`}>
-            <div className="absolute top-[-20%] left-[-10%] w-40 h-40 bg-white opacity-20 rounded-full blur-2xl pointer-events-none animate-pulse"></div>
-            <div className="absolute bottom-[-20%] right-[-10%] w-56 h-56 bg-purple-200 opacity-30 rounded-full blur-3xl pointer-events-none"></div>
+    const isHoliday = todayStatus.isHoliday;
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className={`w-14 h-14 rounded-2xl backdrop-blur-sm border shadow-inner flex items-center justify-center shrink-0 ${
-                        todayStatus.isHoliday ? 'bg-white/20 border-white/30' : 'bg-white/40 border-white/50'
-                    }`}>
-                        {todayStatus.isHoliday ? (
-                            <PartyPopper className="w-7 h-7 text-yellow-300 animate-bounce" />
+    return (
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ y: -5, boxShadow: "0 20px 40px rgba(0,0,0,0.05)" }}
+            onClick={() => onNavigate('DUTY')}
+            className={`relative overflow-hidden rounded-[3rem] p-8 h-full flex flex-col justify-center group border transition-all duration-500 cursor-pointer ${
+            isHoliday 
+                ? 'bg-gradient-to-br from-emerald-50/80 via-teal-100/60 to-emerald-100/40 backdrop-blur-xl border-emerald-200/50 shadow-[0_10px_30px_rgba(16,185,129,0.1)]' 
+                : 'bg-gradient-to-br from-indigo-50/80 via-sky-50/60 to-violet-50/40 backdrop-blur-xl border-white/60 shadow-[0_10px_30px_rgba(99,102,241,0.05)]'
+        }`}>
+            {/* 3D Glass Blobs */}
+            <div className={`absolute top-[-20%] left-[-10%] w-48 h-48 rounded-full blur-3xl pointer-events-none animate-pulse opacity-40 ${
+                isHoliday ? 'bg-emerald-200' : 'bg-indigo-200'
+            }`} />
+            <div className={`absolute bottom-[-20%] right-[-10%] w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-30 ${
+                isHoliday ? 'bg-teal-200' : 'bg-purple-200'
+            }`} />
+
+            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-6 w-full lg:w-auto">
+                    <motion.div 
+                        whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+                        className={`w-16 h-16 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center shrink-0 relative overflow-hidden ${
+                            isHoliday 
+                                ? 'bg-gradient-to-br from-emerald-400 to-teal-500 border-emerald-300/50 text-white' 
+                                : 'bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/50 text-white'
+                        }`}
+                    >
+                        {/* Shine effect */}
+                        <motion.div 
+                            animate={{ x: ['-100%', '200%'] }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+                        />
+                        
+                        {isHoliday ? (
+                            <PartyPopper className="w-8 h-8 drop-shadow-md" />
                         ) : (
-                            nextDuty ? <CalendarClock className="w-7 h-7 text-indigo-600" /> : <Sun className="w-7 h-7 text-amber-400" />
+                            nextDuty ? <CalendarClock className="w-8 h-8 drop-shadow-md" /> : <Sun className="w-8 h-8 drop-shadow-md" />
                         )}
-                    </div>
-                    <div>
-                        {todayStatus.isHoliday ? (
+                    </motion.div>
+
+                    <div className="flex-1">
+                        {isHoliday ? (
                             <>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="bg-white/20 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center border border-white/30">
-                                        <Coffee className="w-3 h-3 mr-1" /> HOLIDAY MODE
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="bg-emerald-500/10 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm flex items-center border border-emerald-200/50">
+                                        <Coffee className="w-3 h-3 mr-1.5" /> HOLIDAY MODE
                                     </span>
+                                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                                        <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                    </motion.div>
                                 </div>
-                                <h3 className="text-xl font-bold text-white leading-tight">
+                                <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-none">
                                     {todayStatus.name}
                                 </h3>
-                                <p className="text-emerald-100 text-xs mt-0.5 font-medium opacity-90">
-                                    วันนี้ไม่มีเวร พักผ่อนให้เต็มที่นะครับ
+                                <p className="text-emerald-700/70 text-sm mt-2 font-bold">
+                                    วันนี้ไม่มีเวร พักผ่อนให้เต็มที่นะครับ ✨
                                 </p>
                             </>
                         ) : nextDuty ? (
                             <>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="bg-indigo-100 text-indigo-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center border border-indigo-200">
-                                        <Clock className="w-3 h-3 mr-1" /> NEXT MISSION
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="bg-indigo-500/10 text-indigo-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm flex items-center border border-indigo-200/50">
+                                        <Clock className="w-3 h-3 mr-1.5" /> NEXT MISSION
                                     </span>
                                 </div>
-                                <h3 className="text-xl font-bold text-indigo-950 leading-tight">
-                                    อีก {differenceInCalendarDays(new Date(nextDuty.date), today)} วัน ถึงคิวคุณ
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+                                    อีก <span className="text-indigo-600">{differenceInCalendarDays(new Date(nextDuty.date), today)}</span> วัน ถึงคิวคุณ
                                 </h3>
-                                <p className="text-indigo-800 text-xs mt-0.5 font-semibold opacity-90">
-                                    {format(new Date(nextDuty.date), 'd MMM', { locale: th })}: {nextDuty.title}
-                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                    <p className="text-indigo-700/70 text-sm font-bold truncate max-w-[200px]">
+                                        {format(new Date(nextDuty.date), 'd MMM', { locale: th })}: {nextDuty.title}
+                                    </p>
+                                </div>
                             </>
                         ) : (
                             <>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center border border-emerald-200">
-                                        <Sun className="w-3 h-3 mr-1" /> Free Time
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm flex items-center border border-amber-200/50">
+                                        <Sun className="w-3 h-3 mr-1.5" /> FREE TIME
                                     </span>
                                 </div>
-                                <h3 className="text-xl font-bold text-indigo-950 leading-tight">
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
                                     ยังไม่มีเวรเร็วๆ นี้
                                 </h3>
-                                <p className="text-indigo-800 text-xs mt-0.5 font-semibold opacity-90">
+                                <p className="text-slate-500 text-sm mt-2 font-bold">
                                     พักผ่อนให้เต็มที่นะครับ
                                 </p>
                             </>
@@ -87,11 +117,16 @@ const IdleState: React.FC<IdleStateProps> = ({ todayStatus, nextDuty, todaysDuti
                     </div>
                 </div>
 
-                <div className={todayStatus.isHoliday ? '' : 'opacity-80'}>
+                <motion.div 
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className={`bg-white/40 backdrop-blur-md p-4 rounded-[2rem] border border-white/60 shadow-inner ${isHoliday ? 'border-emerald-200/30' : 'border-indigo-200/30'}`}
+                >
                     <DutyGuardians todaysDuties={todaysDuties} users={users} />
-                </div>
+                </motion.div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

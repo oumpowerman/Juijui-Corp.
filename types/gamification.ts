@@ -1,7 +1,7 @@
 
 import { Platform, User } from './index';
 
-export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_ASSIST' | 'DUTY_MISSED' | 'DUTY_LATE_SUBMIT' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE' | 'TIME_WARP_REFUND' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_ABSENT' | 'ATTENDANCE_LEAVE' | 'ATTENDANCE_NO_SHOW' | 'ATTENDANCE_EARLY_LEAVE' | 'ATTENDANCE_LATE' | 'KPI_REWARD';
+export type GameActionType = 'TASK_COMPLETE' | 'TASK_LATE' | 'DUTY_COMPLETE' | 'DUTY_ASSIST' | 'DUTY_MISSED' | 'DUTY_LATE_SUBMIT' | 'MANUAL_ADJUST' | 'SHOP_PURCHASE' | 'ITEM_USE' | 'TIME_WARP_REFUND' | 'ATTENDANCE_CHECK_IN' | 'ATTENDANCE_CHECK_OUT' | 'ATTENDANCE_ABSENT' | 'ATTENDANCE_LEAVE' | 'ATTENDANCE_NO_SHOW' | 'ATTENDANCE_EARLY_LEAVE' | 'ATTENDANCE_LATE' | 'KPI_REWARD';
 
 export interface WeeklyQuest {
     id: string;
@@ -86,9 +86,13 @@ export interface GameConfig {
         COIN_PER_TASK: number;
         COIN_BONUS_EARLY: number;
         COIN_DUTY: number;
+        COIN_ATTENDANCE: number;
+        COIN_TASK: number;
         BASE_XP_PER_LEVEL: number;
         XP_BONUS_EARLY: number;
         XP_DUTY_COMPLETE: number;
+        XP_ATTENDANCE: number;
+        XP_TASK_COMPLETE: number;
         XP_DUTY_LATE_SUBMIT: number;
         XP_DUTY_ASSIST?: number;
         [key: string]: number | undefined;

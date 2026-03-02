@@ -11,12 +11,16 @@ export const DEFAULT_GAME_CONFIG = {
         COIN_PER_TASK: 10,
         COIN_BONUS_EARLY: 20,
         COIN_DUTY: 5,
+        COIN_ATTENDANCE: 5,
+        COIN_TASK: 10,
         BASE_XP_PER_LEVEL: 1000,
         // New Flexible Keys
         XP_BONUS_EARLY: 50,
         XP_DUTY_COMPLETE: 20,
+        XP_ATTENDANCE: 10,
+        XP_TASK_COMPLETE: 50,
         XP_DUTY_LATE_SUBMIT: 5,
-        P_DUTY_ASSIST: 10,
+        XP_DUTY_ASSIST: 10,
     },
 
     // XP Calculation
@@ -121,7 +125,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             const { difficulty, estimatedHours, endDate, title } = context;
             const taskName = title || 'งาน';
             // 1. Base XP
-            let xp = diffXP[difficulty as Difficulty] || diffXP.MEDIUM;
+            let xp = diffXP[difficulty as Difficulty] || globals.XP_TASK_COMPLETE || diffXP.MEDIUM;
             
             // 2. Hourly Bonus
             if (estimatedHours > 0) {
@@ -130,7 +134,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
             // 3. Early Bonus
             const isEarly = differenceInDays(new Date(endDate), new Date()) >= 1;
-            let coins = globals.COIN_PER_TASK || 10;
+            let coins = globals.COIN_TASK || globals.COIN_PER_TASK || 10;
             if (isEarly) {
                 coins += globals.COIN_BONUS_EARLY || 20;
                 xp += globals.XP_BONUS_EARLY || 50; // Dynamic Early XP Bonus
@@ -225,7 +229,13 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'ATTENDANCE_CHECK_IN': {
             const status = context.status; // 'ON_TIME' | 'LATE' | 'APPEAL'
-            const rule = attendanceRules[status] || attendanceRules.ON_TIME;
+            let rule = { ...(attendanceRules[status] || attendanceRules.ON_TIME) };
+            
+            // Override with global attendance rewards if on time
+            if (status === 'ON_TIME') {
+                if (globals.XP_ATTENDANCE !== undefined) rule.xp = globals.XP_ATTENDANCE;
+                if (globals.COIN_ATTENDANCE !== undefined) rule.coins = globals.COIN_ATTENDANCE;
+            }
             
             const timeStr = context.time ? ` @ ${context.time}` : '';
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
@@ -241,6 +251,21 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 coins: rule.coins,
                 message: msg,
                 details: `${rule.xp > 0 ? `+${rule.xp} XP` : ''} ${rule.hp < 0 ? `${rule.hp} HP` : ''}`
+            };
+        }
+
+        case 'ATTENDANCE_CHECK_OUT': {
+            const xpReward = globals.XP_ATTENDANCE || 10; 
+            const coinReward = globals.COIN_ATTENDANCE || 5;
+            const timeStr = context.time ? ` @ ${context.time}` : '';
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            
+            return {
+                xp: xpReward,
+                hp: 0,
+                coins: coinReward,
+                message: `ลงเวลาออกงานเรียบร้อย${timeStr}${dateStr}`,
+                details: `+${xpReward} XP, +${coinReward} JP`
             };
         }
 
@@ -312,12 +337,16 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                  'WFH': 'Work From Home'
              };
              const typeLabel = leaveTypeMap[context.type] || context.type;
+             
+             // Dynamic scoring for leaves
+             const rule = attendanceRules[context.type] || { xp: 0, hp: 0, coins: 0 };
+             
              return {
-                 xp: 0,
-                 hp: 0,
-                 coins: 0,
+                 xp: rule.xp || 0,
+                 hp: rule.hp || 0,
+                 coins: rule.coins || 0,
                  message: `ใช้วันลา: ${typeLabel}`,
-                 details: ''
+                 details: `${rule.xp > 0 ? `+${rule.xp} XP ` : ''}${rule.hp < 0 ? `${rule.hp} HP` : ''}`.trim()
              };
         }
 

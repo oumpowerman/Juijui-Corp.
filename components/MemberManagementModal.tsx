@@ -3,6 +3,7 @@ import { User, Role, MasterOption, Task } from '../types';
 import { X, Search, Briefcase, Phone, Trash2, Power, Check, Edit2, Loader2, Users, Shield, UserX, Ban, Trophy, Heart, Coins, Gavel, DollarSign, CreditCard, Layers, AlertCircle, Calendar } from 'lucide-react';
 import { useGamification } from '../hooks/useGamification';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface MemberManagementModalProps {
     isOpen: boolean;
@@ -31,6 +32,7 @@ const WEEK_DAYS = [
 const MemberManagementModal: React.FC<MemberManagementModalProps> = ({ 
     isOpen, onClose, users, currentUser, masterOptions, tasks = [], onToggleStatus, onRemoveMember, onUpdateMember 
 }) => {
+    const { showAlert } = useGlobalDialog();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentTab, setCurrentTab] = useState<TabType>('ACTIVE');
     const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -131,7 +133,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     const handleGmSave = async () => {
         if (!selectedGmUser) return;
         if (!adjustForm.reason.trim()) {
-            alert("กรุณาระบุเหตุผลในการปรับค่าด้วยครับ (เพื่อบันทึก Log)");
+            showAlert("กรุณาระบุเหตุผลในการปรับค่าด้วยครับ (เพื่อบันทึก Log)", "ต้องการเหตุผล");
             return;
         }
         setIsSaving(true);

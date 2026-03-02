@@ -13,7 +13,7 @@ interface QuestCardProps {
     onUpdateManualProgress?: (id: string, val: number) => void;
 }
 
-const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClick, onUpdateManualProgress }) => {
+const QuestCard: React.FC<QuestCardProps> = React.memo(({ channel, quests, allTasks, onClick, onUpdateManualProgress }) => {
     
     // --- Logic Reused for Visualization ---
     const getMatchingTasks = (quest: WeeklyQuest) => {
@@ -164,6 +164,6 @@ const QuestCard: React.FC<QuestCardProps> = ({ channel, quests, allTasks, onClic
             </div>
         </div>
     );
-};
+});
 
 export default QuestCard;

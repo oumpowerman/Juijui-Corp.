@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface UserAvatarWithHPProps {
     user: User;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
     className?: string;
     showLevel?: boolean;
     showStatus?: boolean;
@@ -38,14 +38,16 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
         sm: 'w-8 h-8',
         md: 'w-12 h-12',
         lg: 'w-16 h-16',
-        xl: 'w-24 h-24'
+        xl: 'w-24 h-24',
+        '2xl': 'w-32 h-32'
     };
 
     const ringInset = {
         sm: '-inset-1',
         md: '-inset-1.5',
         lg: '-inset-2',
-        xl: '-inset-3'
+        xl: '-inset-3',
+        '2xl': '-inset-4'
     };
 
     const getStatusColor = (status: string) => {

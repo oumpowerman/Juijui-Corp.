@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { LeaveType } from '../../../../types/attendance';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
@@ -14,6 +15,7 @@ interface UseLeaveFormLogicProps {
 import { compressImage } from '../../../../lib/imageUtils';
 
 export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReason, selectedType }: UseLeaveFormLogicProps) => {
+    const { showAlert } = useGlobalDialog();
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
@@ -51,7 +53,7 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         if (!selectedType) return;
         
         if (!reason.trim()) {
-            alert('กรุณาระบุเหตุผลด้วยครับ');
+            showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
 

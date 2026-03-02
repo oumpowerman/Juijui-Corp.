@@ -1,9 +1,10 @@
 
 import React, { useMemo } from 'react';
 import { WeeklyQuest, Task, ViewMode } from '../../../types';
-import { Target, ChevronRight, Layers, Zap, CheckCircle2, AlertTriangle, Folder, Clock } from 'lucide-react';
+import { Target, ChevronRight, Layers, Zap, CheckCircle2, AlertTriangle, Folder, Clock, Flame, ArrowUpRight, Trophy, Star } from 'lucide-react';
 import { addDays, isWithinInterval, differenceInDays, endOfDay, startOfDay } from 'date-fns';
 import { isTaskMatchingQuest } from '../../../utils/questUtils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface QuestOverviewWidgetProps {
     quests: WeeklyQuest[];
@@ -108,13 +109,24 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
     }, [quests, tasks]);
 
     const activeGroupsCount = majorQuests.length;
+    const topQuests = majorQuests.slice(0, 3);
+    const completedCount = majorQuests.filter(q => q.percent >= 100).length;
+
+    // Find the most urgent quest group
+    const urgentQuest = useMemo(() => {
+        return [...majorQuests]
+            .filter(q => q.percent < 100)
+            .sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    }, [majorQuests]);
 
     // --- Empty State ---
     if (activeGroupsCount === 0) {
         return (
-            <div 
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
                 onClick={() => onNavigate('WEEKLY')}
-                className="bg-white rounded-[2.5rem] border-2 border-dashed border-indigo-100 p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-indigo-50/30 transition-all h-full min-h-[320px] group relative overflow-hidden"
+                className="bg-white rounded-[3rem] border-2 border-dashed border-indigo-100 p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-indigo-50/30 transition-all h-full min-h-[350px] group relative overflow-hidden"
             >
                 <div className="absolute inset-0 bg-indigo-50/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="w-20 h-20 bg-white border-4 border-indigo-50 rounded-full flex items-center justify-center mb-6 text-indigo-300 group-hover:scale-110 group-hover:border-indigo-200 transition-all shadow-sm">
@@ -127,165 +139,206 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                 <button className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 group-hover:-translate-y-1">
                     + สร้างภารกิจใหม่
                 </button>
-            </div>
+            </motion.div>
         );
     }
 
     return (
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-white/60 relative overflow-hidden flex flex-col h-full group hover:shadow-xl hover:shadow-indigo-100/50 transition-all duration-500 min-h-[350px]">
-            
-            {/* Header / Banner */}
-                <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 pb-8 relative shrink-0 border-b border-slate-100">
-
-                <div className="relative z-10">
-
-                    {/* Top Row */}
-                    <div className="flex justify-between items-start mb-6">
-
-                    {/* Left */}
-                    <div className="flex items-center gap-4">
-
-                        {/* ✅ FIXED ICON (ไม่กลืนแล้ว) */}
-                        <div className="w-12 h-12 rounded-2xl 
-                                        bg-white 
-                                        shadow-sm 
-                                        border border-indigo-100
-                                        flex items-center justify-center">
-                        <Layers className="w-6 h-6 text-indigo-600" />
-                        </div>
-
-                        <div>
-                        <h3 className="text-xl font-semibold text-slate-900">
-                            Weekly Progress
-                        </h3>
-                        <p className="text-sm text-slate-500 mt-1">
-                            ความคืบหน้ารวม (Active)
-                        </p>
-                        </div>
-                    </div>
-
-                    {/* Right Percentage */}
-                    <div className="text-right">
-                        <div className="flex items-end justify-end gap-1">
-                        <span className="text-4xl font-bold text-slate-900 leading-none">
-                            {totalPercent}
-                        </span>
-                        <span className="text-lg text-indigo-600 font-semibold mb-1">
-                            %
-                        </span>
-                        </div>
-                    </div>
-
-                    </div>
-
-                    {/* Progress Section */}
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5 }}
+            onClick={() => onNavigate('WEEKLY')}
+            className="bg-white rounded-[3rem] shadow-xl border border-white/60 relative overflow-hidden flex flex-col h-full group hover:shadow-indigo-200/40 transition-all duration-500 min-h-[400px] cursor-pointer"
+        >
+            {/* --- TOP SECTION: VIBRANT HEADER --- */}
+            <div className="p-8 pb-6 relative overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-slate-800 border-b border-slate-100">
+                {/* Animated Background Elements */}
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 90, 0],
+                        opacity: [0.1, 0.2, 0.1]
+                    }}
+                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                    className="absolute -top-10 -right-10 w-64 h-64 bg-indigo-400 rounded-full blur-[80px] pointer-events-none"
+                />
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        x: [0, 20, 0],
+                        opacity: [0.05, 0.1, 0.05]
+                    }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -bottom-10 -left-10 w-48 h-48 bg-purple-400 rounded-full blur-[60px] pointer-events-none"
+                />
+                
+                <div className="relative z-10 flex justify-between items-start mb-6">
                     <div>
-                    <div className="flex justify-between text-xs text-slate-500 mb-2 px-1">
-                        <span>ความคืบหน้าทีม</span>
-                        <span>{activeGroupsCount} Active Groups</span>
-                    </div>
-
-                    {/* ✅ CLEAN PROGRESS BAR */}
-                    <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                        className="h-full rounded-full transition-all duration-700 
-                                    bg-gradient-to-r from-indigo-500 to-purple-500"
-                        style={{ width: `${totalPercent}%` }}
-                        />
-                    </div>
-                    </div>
-
-                </div>
-                </div>
-
-            {/* List Body */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-[#f8fafc]">
-                <div className="overflow-y-auto p-4 space-y-3 flex-1">
-                    {majorQuests.map((group) => {
-                        const isDone = group.percent >= 100;
-                        const isGeneral = group.id === 'GENERAL';
-                        // Urgency logic: Red if urgent & not done. Green if done.
-                        const isUrgent = group.isUrgent && !isDone;
-
-                        return (
-                            <div 
-                                key={group.id} 
-                                onClick={() => onNavigate('WEEKLY')}
-                                className={`
-                                    p-4 rounded-2xl border transition-all relative overflow-hidden group/card cursor-pointer
-                                    ${isDone 
-                                        ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100' 
-                                        : isUrgent
-                                            ? 'bg-rose-50 border-rose-200 hover:bg-rose-100' 
-                                            : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm'
-                                    }
-                                `}
+                        <div className="flex items-center gap-2 mb-2">
+                            <motion.div 
+                                animate={{ rotate: [0, 15, -15, 0] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="bg-indigo-500/20 backdrop-blur-md p-1.5 rounded-lg border border-indigo-500/30"
                             >
-                                {/* Icon & Title */}
-                                <div className="flex justify-between items-start mb-3 relative z-10">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className={`
-                                            w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border transition-colors shadow-sm
-                                            ${isDone 
-                                                ? 'bg-green-100 border-green-200 text-green-600' 
-                                                : isGeneral 
-                                                    ? 'bg-gray-100 border-gray-200 text-gray-500' 
-                                                    : 'bg-indigo-50 border-indigo-100 text-indigo-600 group-hover/card:bg-indigo-100'}
-                                        `}>
-                                            {isDone ? <CheckCircle2 className="w-6 h-6" /> : isUrgent ? <AlertTriangle className="w-6 h-6 " /> : <Folder className="w-6 h-6" />}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h4 className={`text-sm font-bold truncate mb-0.5 ${isDone ? 'text-emerald-600'  : isUrgent  ? 'text-rose-500' : 'text-indigo-600'}`}>
+                                <Layers className="w-4 h-4 text-indigo-500" />
+                            </motion.div>
+                            <span className="text-indigo-600 text-[11px] font-bold uppercase tracking-[0.2em]">Weekly Quests</span>
+                        </div>
+                        <h3 className="text-4xl font-bold tracking-tighter leading-none text-slate-900">
+                            {totalPercent}<span className="text-xl text-indigo-400/60">%</span>
+                        </h3>
+                        <p className="text-slate-500 text-[11px] font-bold mt-1 uppercase tracking-widest flex items-center gap-1">
+                            <Zap className="w-3 h-3" /> Overall Squad Progress
+                        </p>
+                    </div>
+
+                    <div className="text-right">
+                        <motion.div 
+                            whileHover={{ scale: 1.1 }}
+                            className="bg-white rounded-2xl p-4 border border-slate-200 shadow-lg"
+                        >
+                            <div className="flex items-center justify-end gap-1.5 text-2xl font-bold text-indigo-600 leading-none tracking-tighter">
+                                <Target className="w-5 h-5 text-indigo-500" />
+                                {activeGroupsCount}
+                            </div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-1">Active Groups</p>
+                        </motion.div>
+                    </div>
+                </div>
+
+                {/* Aggregate Progress Bar */}
+                <div className="relative pt-2">
+                    <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2">
+                                {[...Array(Math.min(3, completedCount || 1))].map((_, i) => (
+                                    <div key={i} className="w-5 h-5 rounded-full border-2 border-slate-800 bg-indigo-500 flex items-center justify-center">
+                                        <Star className="w-2 h-2 text-white fill-white" />
+                                    </div>
+                                ))}
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {completedCount} Groups Completed
+                            </span>
+                        </div>
+                        <div className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                            {totalPercent}% Total
+                        </div>
+                    </div>
+                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 backdrop-blur-sm">
+                        <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${totalPercent}%` }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
+                            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] relative"
+                        >
+                            <motion.div 
+                                animate={{ x: ["0%", "100%"], opacity: [0, 1, 0] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                            />
+                        </motion.div>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- MIDDLE SECTION: MOTIVATIONAL & LIST --- */}
+            <div className="p-8 flex-1 flex flex-col gap-6 bg-white">
+                {urgentQuest && (
+                    <motion.div 
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between group/urgent overflow-hidden relative"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-rose-200/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="w-12 h-12 bg-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-rose-200 animate-bounce">
+                                <Flame className="w-6 h-6 text-white fill-white" />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-rose-600 uppercase tracking-tight">รีบหน่อยทีม!</h4>
+                                <p className="text-xs font-bold text-rose-400">
+                                    {urgentQuest.title} เหลืออีก <span className="text-rose-600 font-bold">{urgentQuest.daysLeft} วัน</span>
+                                </p>
+                            </div>
+                        </div>
+                        <ArrowUpRight className="w-5 h-5 text-rose-300 group-hover/urgent:text-rose-500 group-hover/urgent:translate-x-1 group-hover/urgent:-translate-y-1 transition-all" />
+                    </motion.div>
+                )}
+
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">Active Groups</span>
+                        <span className="text-[10px] font-bold text-slate-300 italic">Top 3 Priority</span>
+                    </div>
+                    
+                    <AnimatePresence>
+                        {topQuests.map((group, index) => {
+                            const isDone = group.percent >= 100;
+                            const isUrgent = group.isUrgent && !isDone;
+                            return (
+                                <motion.div 
+                                    key={group.id} 
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="group/item flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 hover:shadow-sm"
+                                >
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 shadow-sm ${
+                                        isDone 
+                                            ? 'bg-emerald-500 text-white shadow-emerald-100' 
+                                            : isUrgent
+                                                ? 'bg-rose-500 text-white shadow-rose-100'
+                                                : 'bg-slate-100 text-slate-400 group-hover/item:bg-white group-hover/item:scale-110'
+                                    }`}>
+                                        {isDone ? <CheckCircle2 className="w-6 h-6" /> : isUrgent ? <AlertTriangle className="w-6 h-6" /> : <Folder className="w-6 h-6" />}
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className={`text-sm font-bold truncate pr-4 ${isDone ? 'text-emerald-600' : isUrgent ? 'text-rose-600' : 'text-slate-800'}`}>
                                                 {group.title}
                                             </h4>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-[10px] text-gray-400 font-bold bg-white/50 px-1.5 py-0.5 rounded border border-gray-100/50">
-                                                    {group.questCount} ภารกิจย่อย
-                                                </p>
-                                                {isUrgent && (
-                                                    <span className="text-[10px] font-bold text-red-500 flex items-center bg-red-100/50 px-1.5 py-0.5 rounded border border-red-100">
-                                                        <Clock className="w-3 h-3 mr-1"/> เหลือ {group.daysLeft} วัน
-                                                    </span>
-                                                )}
+                                                <span className={`text-xs font-bold ${isDone ? 'text-emerald-500' : isUrgent ? 'text-rose-500' : 'text-slate-900'}`}>
+                                                    {group.percent}%
+                                                </span>
                                             </div>
                                         </div>
+                                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5">
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${group.percent}%` }}
+                                                transition={{ duration: 1, delay: index * 0.1 + 0.5 }}
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                    isDone 
+                                                        ? 'bg-emerald-500' 
+                                                        : isUrgent
+                                                            ? 'bg-rose-500'
+                                                            : 'bg-gradient-to-r from-slate-300 to-slate-400 group-hover/item:from-indigo-400 group-hover/item:to-purple-500'
+                                                }`}
+                                            />
+                                        </div>
                                     </div>
-
-                                    <div className="text-right shrink-0">
-                                        <span className={`text-xl font-black ${isDone ? 'text-green-600' : isUrgent ? 'text-red-500' : 'text-indigo-600'}`}>
-                                            {group.percent}%
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Progress Bar */}
-                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden relative z-10">
-                                    <div 
-                                        className={`h-full rounded-full transition-all duration-1000 ${isDone ? 'bg-green-500' : isUrgent ? 'bg-red-500' : 'bg-indigo-500'}`} 
-                                        style={{ width: `${group.percent}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* View All Button */}
-                <div className="p-4 pt-2 bg-gradient-to-t from-white to-transparent">
-                    <button 
-                        onClick={() => onNavigate('WEEKLY')}
-                        className="w-full py-3 
-                            bg-gradient-to-r from-indigo-500 to-purple-400 
-                            hover:from-indigo-600 hover:to-purple-500 
-                            text-white rounded-2xl text-xs font-bold 
-                            transition-all flex items-center justify-center gap-1 
-                            shadow-md hover:shadow-lg"
-                    >
-                        ดูรายละเอียดทั้งหมด <ChevronRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-                    </button>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
                 </div>
             </div>
-        </div>
+
+            {/* --- BOTTOM SECTION: CTA --- */}
+            <div className="p-8 pt-0 mt-auto bg-white">
+                <motion.div 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-5 bg-gradient-to-r from-indigo-500 to-purple-400 hover:from-indigo-600 hover:to-purple-500 rounded-[2rem] text-white text-sm font-bold transition-all duration-300 flex items-center justify-center gap-3 shadow-2xl shadow-slate-200 group-hover:shadow-indigo-200/50"
+                >
+                    EXPLORE ALL QUESTS <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </motion.div>
+            </div>
+        </motion.div>
     );
 };
 

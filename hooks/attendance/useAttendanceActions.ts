@@ -183,8 +183,8 @@ export const useAttendanceActions = (userId: string) => {
 
             if (calcResult.status === 'COMPLETED' || newStatus === 'PENDING_VERIFY') {
                 showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
-                await processAction(userId, 'DUTY_COMPLETE', {
-                    reason: `Work day completed (${calcResult.hoursWorked.toFixed(1)} hrs)`,
+                await processAction(userId, 'ATTENDANCE_CHECK_OUT', {
+                    time: format(now, 'HH:mm'),
                     date: now 
                 });
             } else {

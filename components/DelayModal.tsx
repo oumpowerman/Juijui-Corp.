@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CalendarClock, AlertTriangle, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface DelayModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ const DELAY_REASONS = [
 ];
 
 const DelayModal: React.FC<DelayModalProps> = ({ isOpen, onClose, onConfirm, taskTitle, oldDate, newDate }) => {
+    const { showAlert } = useGlobalDialog();
     const [reason, setReason] = useState('');
     const [customReason, setCustomReason] = useState('');
 
@@ -30,8 +32,8 @@ const DelayModal: React.FC<DelayModalProps> = ({ isOpen, onClose, onConfirm, tas
 
     const handleConfirm = () => {
         const finalReason = reason === 'อื่นๆ (Other)' ? customReason : reason;
-        if (!finalReason.trim()) {
-            alert('กรุณาระบุเหตุผลด้วยครับ');
+        if (!finalReason || !finalReason.trim()) {
+            showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
         onConfirm(finalReason);

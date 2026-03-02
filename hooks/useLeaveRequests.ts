@@ -305,6 +305,13 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         time: timeStr 
                      });
 
+                     if (request.type === 'FORGOT_BOTH') {
+                        await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
+                            time: endTimeStr || '18:00',
+                            date: shiftDateStr
+                        });
+                     }
+
                 } else if (request.type === 'FORGOT_CHECKOUT') {
                      const [hours, minutes] = timeStr.split(':').map(Number);
                      const checkOutDateTime = new Date(request.startDate); 
@@ -319,7 +326,10 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                              status: 'COMPLETED',
                              note: `[APPROVED CORRECTION] ${request.reason}`
                         }).eq('id', log.id);
-                        await processAction(request.userId, 'DUTY_COMPLETE', { reason: 'Manual Checkout Approved' });
+                        await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
+                            time: timeStr,
+                            date: shiftDateStr
+                        });
                      } else {
                          // Fallback: Create a full log if missing
                          const defaultStart = new Date(request.startDate);

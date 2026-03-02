@@ -31,7 +31,9 @@ export const useTeamData = ({
         let users = allUsers.filter(u => u.isActive && u.isApproved); // Only Active
 
         // A. Scope Filter
-        if (filters.scope === 'MY_SQUAD' && currentUser) {
+        if (filters.scope === 'ONLY_ME' && currentUser) {
+            users = users.filter(u => u.id === currentUser.id);
+        } else if (filters.scope === 'MY_SQUAD' && currentUser) {
             // Show users with same position OR explicit position filter
             const targetPos = filters.position !== 'ALL' ? filters.position : currentUser.position;
             if (targetPos) {

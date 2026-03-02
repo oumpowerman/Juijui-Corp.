@@ -5,6 +5,7 @@ import GeneralTaskInputs from './GeneralTaskInputs';
 import ScriptEditor from '../script/ScriptEditor';
 import { useScripts } from '../../hooks/useScripts';
 import { Loader2 } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface GeneralTaskFormProps {
     initialData?: Task | null;
@@ -20,6 +21,7 @@ interface GeneralTaskFormProps {
 }
 
 const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
+    const { showAlert } = useGlobalDialog();
     // State for Overlay Mode
     const [editorScript, setEditorScript] = useState<Script | null>(null);
     const [isLoadingScript, setIsLoadingScript] = useState(false);
@@ -37,11 +39,11 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
             if (script) {
                 setEditorScript(script);
             } else {
-                alert("ไม่สามารถโหลดข้อมูลสคริปต์ได้");
+                showAlert("ไม่สามารถโหลดข้อมูลสคริปต์ได้", "ข้อผิดพลาด");
             }
         } catch (error) {
             console.error(error);
-            alert("เกิดข้อผิดพลาดในการโหลดสคริปต์");
+            showAlert("เกิดข้อผิดพลาดในการโหลดสคริปต์", "ข้อผิดพลาด");
         } finally {
             setIsLoadingScript(false);
         }

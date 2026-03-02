@@ -12,6 +12,7 @@ import UrgentTasksWidget from './admin/UrgentTasksWidget';
 import WorkloadChart from './admin/WorkloadChart';
 import DutyRosterWidget from './admin/DutyRosterWidget';
 import AttendanceComparisonWidget from './admin/AttendanceComparisonWidget'; // NEW
+import AdminDeadlineRequests from '../admin/AdminDeadlineRequests';
 
 interface DashboardProps {
   tasks: Task[];
@@ -130,6 +131,11 @@ const AdminDashboard: React.FC<DashboardProps> = ({
 
         {/* Right Column: Widgets (1 col wide) */}
         <div className="xl:col-span-1 space-y-6 flex flex-col">
+          {/* Deadline Requests Widget */}
+          <div className="flex-shrink-0">
+             <AdminDeadlineRequests currentUser={currentUser} />
+          </div>
+
           {/* New Attendance Widget */}
           <div className="flex-shrink-0">
              <AttendanceComparisonWidget 

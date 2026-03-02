@@ -17,7 +17,7 @@ import AttendanceRulesView from './admin/master/views/AttendanceRulesView';
 import InventoryMasterView from './admin/master/views/InventoryMasterView';
 import PositionMasterView from './admin/master/views/PositionMasterView';
 import LocationMasterView from './admin/master/views/LocationMasterView'; 
-import GameConfigTuner from './admin/GameConfigTuner'; // Updated Import
+import GameConfigTuner from './admin/game-tuner'; // Updated Import (Modular)
 import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
 import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
 

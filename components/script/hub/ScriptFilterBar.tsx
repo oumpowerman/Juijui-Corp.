@@ -122,7 +122,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
     );
 
     return (
-        <div className="flex flex-col gap-4 relative">
+        <div className="flex flex-col gap-4 relative z-30">
             
             {/* Filter Section (Chips) - Moved to TOP */}
             <div className="flex flex-col gap-3 pt-1 px-1">

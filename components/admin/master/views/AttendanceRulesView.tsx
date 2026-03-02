@@ -222,14 +222,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 <span className="text-sm font-bold text-gray-700">{opt.label}</span>
             </div>
             <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Score (HP/XP)</span>
-                    <ScoreInput 
-                        initialValue={getDisplayScore(opt)}
-                        onSave={(val) => handleScoreChange(opt, val)}
-                    />
-                </div>
-                
                 {/* Actions */}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg border border-gray-100 shadow-sm p-0.5 absolute right-2 md:relative md:right-0 md:bg-transparent md:border-0 md:shadow-none md:p-0">
                     <button 
@@ -377,16 +369,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 </div>
             </div>
 
-            {/* 3. Scoring Rules */}
+            {/* 3. Scoring Rules - REMOVED and moved to Game Balancing */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 flex items-center">
-                        <Heart className="w-5 h-5 mr-2 text-red-500" />
-                        กติกาการให้คะแนน (Game Config Sync)
+                        <Heart className="w-5 h-5 mr-2 text-gray-400" />
+                        จัดการประเภทการลา & สถานะ (Types Management)
                     </h3>
-                    <div className="text-xs text-gray-500 font-medium">
-                        * คะแนนติดลบ = หัก HP, คะแนนบวก = เพิ่ม XP
-                    </div>
                 </div>
                 
                 <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">

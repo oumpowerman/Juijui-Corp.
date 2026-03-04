@@ -155,7 +155,7 @@ Deno.serve(async (req: any) => {
                   action: {
                     type: "uri",
                     label: "เปิดดูในแอป",
-                    uri: "https://your-app-url.com" // เปลี่ยนเป็น URL จริงของคุณ
+                    uri: "https://juijui-corp.vercel.app/" // เปลี่ยนเป็น URL จริงของคุณ
                   },
                   style: "secondary",
                   height: "sm",

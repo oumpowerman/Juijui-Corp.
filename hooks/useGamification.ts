@@ -82,31 +82,34 @@ export const useGamification = (currentUser: User | null = null) => {
     const processAction = handleAction; // Alias for backward compatibility
 
     const adminAdjustStats = useCallback(async (userId: string, type: 'XP' | 'HP' | 'COINS', amount: number, reason: string) => {
-        // This logic was likely inline or in a separate function before. 
-        // Re-implementing basic adjustment logic for admin use.
         try {
-             const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).single();
-             if (!user) return;
+            setIsLoading(true);
+            const { data: user, error: fetchError } = await supabase.from('profiles').select('xp, hp, max_hp, available_points').eq('id', userId).single();
+            if (fetchError || !user) throw new Error('User not found');
 
-             let updates: any = {};
-             if (type === 'XP') updates.xp = Math.max(0, user.xp + amount);
-             if (type === 'HP') updates.hp = Math.min(user.max_hp, Math.max(0, user.hp + amount));
-             if (type === 'COINS') updates.available_points = Math.max(0, user.available_points + amount);
+            let updates: any = {};
+            if (type === 'XP') updates.xp = Math.max(0, user.xp + amount);
+            if (type === 'HP') updates.hp = Math.min(user.max_hp, Math.max(0, user.hp + amount));
+            if (type === 'COINS') updates.available_points = Math.max(0, user.available_points + amount);
 
-             await supabase.from('profiles').update(updates).eq('id', userId);
-             
-             await supabase.from('game_logs').insert({
-                 user_id: userId,
-                 action_type: 'ADMIN_ADJUST',
-                 xp_change: type === 'XP' ? amount : 0,
-                 hp_change: type === 'HP' ? amount : 0,
-                 jp_change: type === 'COINS' ? amount : 0,
-                 description: `Admin Adjusted: ${reason}`
-             });
-             return { success: true };
-        } catch (e) {
-            console.error(e);
-            return { success: false };
+            const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', userId);
+            if (updateError) throw updateError;
+            
+            await supabase.from('game_logs').insert({
+                user_id: userId,
+                action_type: 'ADMIN_ADJUST',
+                xp_change: type === 'XP' ? amount : 0,
+                hp_change: type === 'HP' ? amount : 0,
+                jp_change: type === 'COINS' ? amount : 0,
+                description: `Admin Adjusted: ${reason}`
+            });
+            
+            return { success: true };
+        } catch (e: any) {
+            console.error("Admin Adjust Error:", e);
+            return { success: false, message: e.message };
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 

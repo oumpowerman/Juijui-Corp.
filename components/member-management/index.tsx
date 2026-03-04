@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { User, Role, MasterOption, Task } from '../../types';
-import { X, Users, Loader2 } from 'lucide-react';
+import { X, Users, Loader2, Briefcase } from 'lucide-react';
 import { useGamification } from '../../hooks/useGamification';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
@@ -31,6 +31,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     isOpen, onClose, users, currentUser, masterOptions, tasks = [], onToggleStatus, onRemoveMember, onUpdateMember, onAdjustStats 
 }) => {
     const { showAlert } = useGlobalDialog();
+    const { showToast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentTab, setCurrentTab] = useState<TabType>('ACTIVE');
     const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -72,6 +73,13 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         inactive: users.filter(u => !u.isActive).length,
         admin: users.filter(u => u.role === 'ADMIN').length
     }), [users]);
+
+    const getActiveTaskCount = (userId: string) => {
+        return tasks.filter(t => 
+            (t.assigneeIds.includes(userId) || t.ideaOwnerIds?.includes(userId) || t.editorIds?.includes(userId)) &&
+            t.status !== 'DONE' && t.status !== 'CANCELLED'
+        ).length;
+    };
 
     const filteredUsers = useMemo(() => {
         return users
@@ -120,12 +128,31 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
             });
     }, [users, currentTab, searchQuery, selectedPosition, selectedRole, payrollFilter, workloadFilter, tasks]);
 
-    const getActiveTaskCount = (userId: string) => {
-        return tasks.filter(t => 
-            (t.assigneeIds.includes(userId) || t.ideaOwnerIds?.includes(userId) || t.editorIds?.includes(userId)) &&
-            t.status !== 'DONE' && t.status !== 'CANCELLED'
-        ).length;
-    };
+    const groupedUsers = useMemo(() => {
+        const groups: Record<string, User[]> = {};
+        
+        filteredUsers.forEach(user => {
+            const pos = user.position || 'ไม่มีตำแหน่ง';
+            if (!groups[pos]) groups[pos] = [];
+            groups[pos].push(user);
+        });
+
+        // Sort groups by positionOptions order if possible
+        const sortedGroups: Record<string, User[]> = {};
+        
+        // Add positions from options first to maintain order
+        positionOptions.forEach(opt => {
+            if (groups[opt.label]) {
+                sortedGroups[opt.label] = groups[opt.label];
+                delete groups[opt.label];
+            }
+        });
+
+        // Add remaining groups (like 'ไม่มีตำแหน่ง')
+        Object.assign(sortedGroups, groups);
+
+        return sortedGroups;
+    }, [filteredUsers, positionOptions]);
 
     // Handlers
     const handleEditClick = (user: User) => {
@@ -167,34 +194,47 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
             showAlert("กรุณาระบุเหตุผลในการปรับค่าด้วยครับ (เพื่อบันทึก Log)", "ต้องการเหตุผล");
             return;
         }
-        setIsSaving(true);
-        
-        const promises = [];
-        if (adjustForm.hp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'HP', Number(adjustForm.hp), adjustForm.reason));
-        if (adjustForm.xp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'XP', Number(adjustForm.xp), adjustForm.reason));
-        if (adjustForm.points !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'COINS', Number(adjustForm.points), adjustForm.reason));
-        
-        await Promise.all(promises);
-        
-        setIsSaving(false);
+
+        const hp = Number(adjustForm.hp);
+        const xp = Number(adjustForm.xp);
+        const points = Number(adjustForm.points);
+
+        // 1. Optimistic UI Update (Immediate feedback for GM)
         if (onAdjustStats) {
-            onAdjustStats(selectedGmUser.id, {
-                hp: Number(adjustForm.hp),
-                xp: Number(adjustForm.xp),
-                points: Number(adjustForm.points)
-            });
+            onAdjustStats(selectedGmUser.id, { hp, xp, points });
         }
-        
-        setSelectedGmUser(null);
-        setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
-        onClose();
+
+        setIsSaving(true);
+        try {
+            const promises = [];
+            if (hp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'HP', hp, adjustForm.reason));
+            if (xp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'XP', xp, adjustForm.reason));
+            if (points !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'COINS', points, adjustForm.reason));
+            
+            const results = await Promise.all(promises);
+            const failed = results.find(r => !r?.success);
+            
+            if (failed) {
+                showToast('การปรับค่าบางรายการล้มเหลว กรุณาลองใหม่', 'error');
+            } else {
+                showToast('ปรับค่า Stats สำเร็จ! ข้อมูลจะซิงค์ไปยังทุกคนในทีม', 'success');
+            }
+        } catch (error) {
+            console.error("GM Save Error:", error);
+            showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+        } finally {
+            setIsSaving(false);
+            setSelectedGmUser(null);
+            setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
+            onClose();
+        }
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
+            <div className="bg-white w-full max-w-6xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
                 
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-gray-100 bg-white shrink-0 flex justify-between items-start">
@@ -239,52 +279,77 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 
                 {/* Users List */}
                 <div className="overflow-y-auto flex-1 p-6 bg-gray-50/50">
-                    <div className="space-y-3">
-                        {filteredUsers.length === 0 ? (
+                    <div className="space-y-10">
+                        {Object.keys(groupedUsers).length === 0 ? (
                             <div className="text-center py-20 text-gray-400 border-2 border-dashed border-gray-200 rounded-3xl">
                                 <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                 <p className="font-bold">ไม่พบรายชื่อในหมวดนี้</p>
                                 <p className="text-xs">ลองเปลี่ยนคำค้นหา หรือสลับ Tab ดูนะครับ</p>
                             </div>
                         ) : (
-                            filteredUsers.map(user => (
-                                <MemberItemContainer key={user.id} user={user}>
-                                    {editingUser === user.id && currentTab !== 'GAME_MASTER' ? (
-                                        <MemberEditForm 
-                                            user={user}
-                                            editForm={editForm}
-                                            setEditForm={setEditForm}
-                                            positionOptions={positionOptions}
-                                            isSaving={isSaving}
-                                            onCancel={() => setEditingUser(null)}
-                                            onSave={handleSave}
-                                            toggleWorkDay={toggleWorkDay}
-                                        />
-                                    ) : selectedGmUser?.id === user.id && currentTab === 'GAME_MASTER' ? (
-                                        <GameMasterForm 
-                                            user={user}
-                                            adjustForm={adjustForm}
-                                            setAdjustForm={setAdjustForm}
-                                            isSaving={isSaving}
-                                            onCancel={() => setSelectedGmUser(null)}
-                                            onSave={handleGmSave}
-                                        />
-                                    ) : (
-                                        <MemberViewMode 
-                                            user={user}
-                                            currentTab={currentTab}
-                                            taskCount={getActiveTaskCount(user.id)}
-                                            currentUser={currentUser}
-                                            onEditClick={handleEditClick}
-                                            onToggleStatus={onToggleStatus}
-                                            onRemoveMember={onRemoveMember}
-                                            onGmAdjustClick={(u) => {
-                                                setSelectedGmUser(u);
-                                                setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
-                                            }}
-                                        />
+                            Object.entries(groupedUsers).map(([position, groupUsers]) => (
+                                <div key={position} className="space-y-5">
+                                    {currentTab !== 'GAME_MASTER' && (
+                                        <div className="flex items-center justify-between px-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-gray-100">
+                                                    <Briefcase className="w-5 h-5 text-indigo-500" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-black text-gray-800 tracking-tight">
+                                                        {position}
+                                                    </h4>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                        {groupUsers.length} {groupUsers.length > 1 ? 'Members' : 'Member'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent ml-6"></div>
+                                        </div>
                                     )}
-                                </MemberItemContainer>
+                                    
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {groupUsers.map(user => (
+                                            <MemberItemContainer key={user.id} user={user}>
+                                                {editingUser === user.id && currentTab !== 'GAME_MASTER' ? (
+                                                    <MemberEditForm 
+                                                        user={user}
+                                                        editForm={editForm}
+                                                        setEditForm={setEditForm}
+                                                        positionOptions={positionOptions}
+                                                        isSaving={isSaving}
+                                                        onCancel={() => setEditingUser(null)}
+                                                        onSave={handleSave}
+                                                        toggleWorkDay={toggleWorkDay}
+                                                    />
+                                                ) : selectedGmUser?.id === user.id && currentTab === 'GAME_MASTER' ? (
+                                                    <GameMasterForm 
+                                                        user={user}
+                                                        adjustForm={adjustForm}
+                                                        setAdjustForm={setAdjustForm}
+                                                        isSaving={isSaving}
+                                                        onCancel={() => setSelectedGmUser(null)}
+                                                        onSave={handleGmSave}
+                                                    />
+                                                ) : (
+                                                    <MemberViewMode 
+                                                        user={user}
+                                                        currentTab={currentTab}
+                                                        taskCount={getActiveTaskCount(user.id)}
+                                                        currentUser={currentUser}
+                                                        onEditClick={handleEditClick}
+                                                        onToggleStatus={onToggleStatus}
+                                                        onRemoveMember={onRemoveMember}
+                                                        onGmAdjustClick={(u) => {
+                                                            setSelectedGmUser(u);
+                                                            setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
+                                                        }}
+                                                    />
+                                                )}
+                                            </MemberItemContainer>
+                                        ))}
+                                    </div>
+                                </div>
                             ))
                         )}
                     </div>

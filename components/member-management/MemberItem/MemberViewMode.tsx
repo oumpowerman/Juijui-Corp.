@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../../../types';
-import { Heart, Trophy, Coins, Briefcase, Check, AlertCircle, Layers, Gavel, Edit2, Power, Trash2 } from 'lucide-react';
+import { Heart, Trophy, Coins, Briefcase, Check, AlertCircle, Layers, Gavel, Edit2, Power, Trash2, Activity } from 'lucide-react';
 import { TabType } from '../constants';
 
 interface MemberViewModeProps {
@@ -76,18 +76,25 @@ export const MemberViewMode: React.FC<MemberViewModeProps> = ({
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                        <span className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><Briefcase className="w-3 h-3 mr-1.5"/> {user.position || 'No Position'}</span>
-                        
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-gray-500 mt-1">
                         {(user.baseSalary ?? 0) > 0 ? (
-                            <span className="flex items-center text-green-600" title="ข้อมูลเงินเดือนพร้อม"><Check className="w-3 h-3 mr-1"/> Payroll Ready</span>
+                            <span className="flex items-center text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 font-black uppercase tracking-wider" title="ข้อมูลเงินเดือนพร้อม">
+                                <Check className="w-3 h-3 mr-1.5"/> Payroll Ready
+                            </span>
                         ) : (
-                            <span className="flex items-center text-orange-400" title="ยังไม่ระบุเงินเดือน"><AlertCircle className="w-3 h-3 mr-1"/> No Salary</span>
+                            <span className="flex items-center text-orange-500 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-100 font-black uppercase tracking-wider" title="ยังไม่ระบุเงินเดือน">
+                                <AlertCircle className="w-3 h-3 mr-1.5"/> No Salary
+                            </span>
                         )}
                         
-                        <span className={`flex items-center px-2 py-1 rounded-lg border ${taskCount > 5 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                        <span className={`flex items-center px-2.5 py-1 rounded-lg border font-black uppercase tracking-wider ${taskCount > 5 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                             <Layers className="w-3 h-3 mr-1.5" />
                             {taskCount} Active Tasks
+                        </span>
+
+                        <span className="flex items-center bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg border border-gray-200 font-black uppercase tracking-wider">
+                            <Activity className="w-3 h-3 mr-1.5" />
+                            {user.isActive ? 'Online' : 'Offline'}
                         </span>
                     </div>
                 )}

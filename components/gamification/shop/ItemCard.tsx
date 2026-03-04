@@ -32,11 +32,11 @@ const ItemCard: React.FC<ItemCardProps> = ({
             <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-gray-800 truncate">{item.name}</h4>
                 <p className="text-xs text-gray-500 line-clamp-1">{item.description}</p>
-                {showEffect && (
+                {showEffect && (item.effectType || (item as any).effect_type) && (
                     <div className="flex items-center gap-1 mt-1">
-                        {getEffectIcon(item.effectType)}
+                        {getEffectIcon(item.effectType || (item as any).effect_type)}
                         <span className="text-[10px] font-bold text-gray-400 uppercase">
-                            {item.effectType.replace('_', ' ')}
+                            {(item.effectType || (item as any).effect_type || '').replace('_', ' ')}
                         </span>
                     </div>
                 )}

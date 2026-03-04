@@ -32,7 +32,22 @@ export const fetchUserInventory = async (userId: string) => {
             .order('purchased_at', { ascending: false });
 
         if (error) throw error;
-        return data || [];
+        
+        // Map snake_case to camelCase
+        const mappedData = (data || []).map(inv => ({
+            ...inv,
+            isUsed: inv.is_used,
+            purchasedAt: inv.purchased_at,
+            usedAt: inv.used_at,
+            item: inv.item ? {
+                ...inv.item,
+                effectType: (inv.item as any).effect_type,
+                effectValue: (inv.item as any).effect_value,
+                isActive: (inv.item as any).is_active
+            } : undefined
+        }));
+
+        return mappedData;
     } catch (err) {
         console.error('Error fetching inventory:', err);
         return [];

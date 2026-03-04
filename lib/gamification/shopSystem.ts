@@ -14,7 +14,16 @@ export const fetchShopItems = async () => {
             .order('price', { ascending: true });
 
         if (error) throw error;
-        return data || [];
+        
+        // Map snake_case to camelCase
+        const mappedData = (data || []).map(item => ({
+            ...item,
+            effectType: item.effect_type,
+            effectValue: item.effect_value,
+            isActive: item.is_active
+        }));
+
+        return mappedData;
     } catch (err) {
         console.error('Error fetching shop items:', err);
         return [];

@@ -305,6 +305,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({
                 onClose={() => setIsStatsOpen(false)}
                 quests={quests}
                 tasks={tasks}
+                channels={channels}
             />
         </div>
         </AppBackground>

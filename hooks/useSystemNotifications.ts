@@ -5,7 +5,7 @@ import { Task, User, AppNotification } from '../types';
 import { startOfDay, isSameDay } from 'date-fns';
 import { mapGameLogToNotification, mapTaskToNotification } from '../lib/notificationMappers';
 
-export const useSystemNotifications = (tasks: Task[], currentUser: User | null) => {
+export const useSystemNotifications = (tasks: Task[], currentUser: User | null, onEvent?: () => void) => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
@@ -133,9 +133,11 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null) 
         const channel = supabase
             .channel('system-notifications-v2')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
+                if (onEvent) onEvent();
                 fetchAllNotifications();
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_logs', filter: `user_id=eq.${currentUser.id}` }, () => {
+                 if (onEvent) onEvent();
                  fetchAllNotifications();
             })
             // NEW: Listen for leave requests so Admins get instant alerts

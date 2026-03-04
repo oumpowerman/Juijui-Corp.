@@ -1,10 +1,11 @@
 
 import React, { useMemo } from 'react';
-import { Trophy, Sparkles, Star, ShieldCheck, Zap, Award } from 'lucide-react';
+import { Trophy, Sparkles, Star } from 'lucide-react';
 import { User, WorkStatus } from '../../../../types';
 import ProfileSection from './ProfileSection';
 import StatsSection from './StatsSection';
 import ActionButtons from './ActionButtons';
+import { getTierConfig } from '../../../../config/tierSystem';
 
 interface TieredStateViewProps {
     user: User;
@@ -40,52 +41,24 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
     onOpenDeathHistory
 }) => {
     
-    const tierConfig = useMemo(() => {
-        if (hpPercent >= 90) {
-            return {
-                name: "DIVINE",
-                label: "Divine Blessing Active",
-                message: hpPercent === 100 ? "จุติเทพ! พลังชีวิตเต็มแม็กซ์ ไร้เทียมทาน! ✨" : "ออร่าเทพเจ้าแผ่กระจาย! รักษาสุขภาพระดับนี้ไว้ให้ได้นะ! 🌟",
-                icon: <ShieldCheck className="w-4 h-4 text-white drop-shadow-sm" />,
-                borderGradient: "linear-gradient(135deg, #ffb867 0%, #fef3c7 25%, #fffdf7 50%, #fef3c7 75%, #ffb867 100%)",
-                bannerGradient: "from-amber-500 via-yellow-400 to-amber-500",
-                glowColor: "rgba(251, 191, 36, 0.3)",
-                rayColor: "rgba(250, 204, 21, 0.12)",
-                textColor: "text-amber-700",
-                glassBg: "rgba(255, 255, 255, 0.75)"
-            };
-        } else if (hpPercent >= 80) {
-            return {
-                name: "ELITE",
-                label: "Elite Status Active",
-                message: "ระดับอีลิท! สุขุม นุ่มลึก พร้อมลุยทุกสถานการณ์! 🥈",
-                icon: <Award className="w-4 h-4 text-white drop-shadow-sm" />,
-                borderGradient: "linear-gradient(135deg, #94a3b8 0%, #f8fafc 25%, #cbd5e1 50%, #f8fafc 75%, #94a3b8 100%)",
-                bannerGradient: "from-slate-500 via-gray-300 to-slate-500",
-                glowColor: "rgba(148, 163, 184, 0.3)",
-                rayColor: "rgba(148, 163, 184, 0.1)",
-                textColor: "text-slate-700",
-                glassBg: "rgba(255, 255, 255, 0.8)"
-            };
-        } else {
-            return {
-                name: "STEADY",
-                label: "Steady Energy Active",
-                message: "พลังกายคงที่! รักษาสมดุลนี้ไว้ งานไหนก็ไม่หวั่น! 🌊",
-                icon: <Zap className="w-4 h-4 text-white drop-shadow-sm" />,
-                borderGradient: "linear-gradient(135deg, #0ea5e9 0%, #e0f2fe 25%, #7dd3fc 50%, #e0f2fe 75%, #0ea5e9 100%)",
-                bannerGradient: "from-sky-500 via-cyan-300 to-sky-500",
-                glowColor: "rgba(14, 165, 233, 0.2)",
-                rayColor: "rgba(14, 165, 233, 0.08)",
-                textColor: "text-sky-700",
-                glassBg: "rgba(255, 255, 255, 0.85)"
-            };
-        }
-    }, [hpPercent]);
+    // 1. Reactive HP Check
+    const isHpLow = hpPercent < 40;
+    const isMaxHp = hpPercent === 100;
 
-    return (
-        <>
-            <style>{`
+    // 2. Tier Config with useMemo
+    const tierConfig = useMemo(() => getTierConfig(hpPercent), [hpPercent]);
+
+    // 3. Dynamic Styles with useMemo for Performance
+    const dynamicStyles = useMemo(() => {
+        const glowStrong = `rgba(${tierConfig.glowRgb}, 0.3)`;
+        const glowSoft = `rgba(${tierConfig.glowRgb}, 0.1)`;
+        const rayColor = `rgba(${tierConfig.rayRgb}, 0.12)`;
+
+        return {
+            glowStrong,
+            glowSoft,
+            rayColor,
+            css: `
                 @keyframes rays-tiered {
                     0% { transform: rotate(0deg) scale(1); opacity: 0.15; }
                     50% { transform: rotate(180deg) scale(1.1); opacity: 0.25; }
@@ -99,17 +72,25 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                     0% { background-position: -200% center; }
                     100% { background-position: 200% center; }
                 }
+                @keyframes divine-pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(${tierConfig.glowRgb}, 0.4); }
+                    70% { box-shadow: 0 0 0 20px rgba(${tierConfig.glowRgb}, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(${tierConfig.glowRgb}, 0); }
+                }
                 .tiered-glass {
                     background: ${tierConfig.glassBg};
-                    backdrop-filter: blur(25px) saturate(200%);
+                    backdrop-filter: blur(20px) saturate(180%);
                     border: 1px solid rgba(255, 255, 255, 0.5);
+                    transition: background 0.5s ease, backdrop-filter 0.5s ease;
                 }
                 .tiered-border-3d {
                     position: relative;
                     box-shadow: 
-                        0 10px 30px -5px ${tierConfig.glowColor},
-                        0 20px 60px -10px ${tierConfig.glowColor.replace('0.3', '0.1').replace('0.2', '0.05')},
+                        0 10px 30px -5px ${glowStrong},
+                        0 20px 60px -10px ${glowSoft},
                         inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+                    transition: box-shadow 0.5s ease;
+                    ${isMaxHp ? 'animation: divine-pulse 3s infinite;' : ''}
                 }
                 .tiered-border-3d::before {
                     content: '';
@@ -120,11 +101,18 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                     border-radius: 2.2rem;
                     z-index: -1;
                     animation: shine-tiered 6s linear infinite;
+                    transition: background 0.5s ease;
                 }
                 .animate-tiered-float {
                     animation: float-tiered 5s ease-in-out infinite;
                 }
-            `}</style>
+            `
+        };
+    }, [tierConfig, isMaxHp]);
+
+    return (
+        <>
+            <style>{dynamicStyles.css}</style>
 
             <div className="tiered-border-3d tiered-glass rounded-[2rem] p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700">
                 
@@ -132,7 +120,7 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                 <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
                     <div 
                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] animate-[rays-tiered_30s_linear_infinite]" 
-                        style={{ background: `radial-gradient(circle, ${tierConfig.rayColor} 0%, transparent 60%)` }}
+                        style={{ background: `radial-gradient(circle, ${dynamicStyles.rayColor} 0%, transparent 60%)` }}
                     />
                 </div>
 
@@ -172,7 +160,7 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                             <ProfileSection 
                                 user={user}
                                 randomGreeting={randomGreeting}
-                                isHpLow={false}
+                                isHpLow={isHpLow}
                                 onEditProfile={onEditProfile}
                                 onUpdateStatus={onUpdateStatus}
                             />
@@ -181,14 +169,14 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                         {/* 2. Stats & Gamification */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
                             <div className="relative">
-                                {/* Glow effect for stats */}
-                                <div className="absolute inset-0 blur-2xl rounded-3xl" style={{ backgroundColor: tierConfig.glowColor }} />
+                                {/* Glow effect for stats - Reduced blur for performance */}
+                                <div className="absolute inset-0 blur-xl rounded-3xl" style={{ backgroundColor: dynamicStyles.glowStrong }} />
                                 <StatsSection 
                                     user={user}
                                     hpPercent={hpPercent}
                                     progressPercent={progressPercent}
                                     nextLevelXP={nextLevelXP}
-                                    isHpLow={false}
+                                    isHpLow={isHpLow}
                                     onOpenRules={onOpenRules}
                                     onOpenDeathHistory={onOpenDeathHistory}
                                 />

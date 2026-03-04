@@ -296,7 +296,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 </div>
 
                 {/* --- CONTROL DOCK --- */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-indigo-500/5 border border-white/60 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 relative xl:sticky xl:top-2 z-30">
+                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-indigo-500/5 border border-white/60 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 relative z-30">
                     
                     {/* Left: Title */}
                     <div className="flex items-center gap-3">

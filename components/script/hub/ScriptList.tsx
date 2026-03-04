@@ -28,9 +28,62 @@ const ScriptList: React.FC<ScriptListProps> = ({
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name;
     const getCategoryLabel = (key?: string) => masterOptions.find(o => o.type === 'SCRIPT_CATEGORY' && o.key === key)?.label;
 
+    const premiumStyles = (
+        <style>{`
+            .premium-3d-card {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.6);
+                box-shadow: 
+                    0 10px 20px -5px rgba(0, 0, 0, 0.05),
+                    0 4px 6px -2px rgba(0, 0, 0, 0.02),
+                    inset 0 1px 1px 0 rgba(255, 255, 255, 0.8);
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .premium-3d-card:hover {
+                transform: translateY(-6px) scale(1.01);
+                box-shadow: 
+                    0 20px 40px -10px rgba(99, 102, 241, 0.12),
+                    0 10px 20px -5px rgba(0, 0, 0, 0.05);
+                border-color: rgba(99, 102, 241, 0.2);
+            }
+            .glossy-shine-card {
+                position: relative;
+                overflow: hidden;
+            }
+            .glossy-shine-card::after {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: linear-gradient(
+                    45deg,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.1) 45%,
+                    rgba(255, 255, 255, 0.3) 50%,
+                    rgba(255, 255, 255, 0.1) 55%,
+                    transparent 100%
+                );
+                transform: rotate(30deg);
+                transition: all 0.8s ease;
+                opacity: 0;
+                pointer-events: none;
+            }
+            .glossy-shine-card:hover::after {
+                left: 100%;
+                opacity: 1;
+            }
+            .pastel-border-indigo { border-color: rgba(129, 140, 248, 0.2); }
+            .pastel-border-rose { border-color: rgba(251, 113, 133, 0.2); }
+        `}</style>
+    );
+
     if (isLoading) {
         return (
             <div className="py-32 text-center text-gray-400 flex flex-col items-center">
+                {premiumStyles}
                 <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
                 <p>กำลังโหลดสคริปต์...</p>
             </div>
@@ -39,8 +92,9 @@ const ScriptList: React.FC<ScriptListProps> = ({
 
     if (scripts.length === 0) {
         return (
-            <div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+            <div className="col-span-full py-24 text-center text-gray-400 bg-white/80 backdrop-blur-md rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center shadow-lg premium-3d-card">
+                {premiumStyles}
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                     <Search className="w-10 h-10 text-gray-300" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-700 mb-2">ไม่พบสคริปต์ในหน้านี้</h3>
@@ -52,8 +106,9 @@ const ScriptList: React.FC<ScriptListProps> = ({
     // --- LIST VIEW (Standard Mapping) ---
     if (layoutMode === 'LIST') {
         return (
-            <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm flex flex-col relative z-10">
-                <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+            <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-xl flex flex-col relative z-10 premium-3d-card">
+                {premiumStyles}
+                <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-200 grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
                     <div className="col-span-6">Script Details</div>
                     <div className="col-span-2">Creator</div>
                     <div className="col-span-2">Status</div>
@@ -185,10 +240,11 @@ const ScriptList: React.FC<ScriptListProps> = ({
     // --- GRID VIEW (Standard Map) ---
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative z-10">
+            {premiumStyles}
             {scripts.map(script => (
                 <div 
                     key={script.id}
-                    className={`bg-white/80 backdrop-blur-md rounded-[2rem] border p-5 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col relative group min-h-[280px] ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100' : 'border-gray-100'}`}
+                    className={`rounded-[2rem] border p-5 shadow-lg hover:border-indigo-300 transition-all flex flex-col relative group min-h-[280px] premium-3d-card glossy-shine-card ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100 grayscale-[0.5] hover:grayscale-0' : 'border-gray-100'}`}
                 >
                     {/* Header */}
                     <div className="flex justify-between items-start mb-3">

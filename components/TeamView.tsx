@@ -264,7 +264,7 @@ const TeamView: React.FC<TeamViewProps> = ({
         )}
 
         {/* --- CONTROLS ROW: Date & Toolbar --- */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sticky top-0 z-40 bg-white/60 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-white/20 shadow-sm">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 z-40 bg-white/60 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-white/20 shadow-sm">
           
           {/* Date Navigator */}
           <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0">

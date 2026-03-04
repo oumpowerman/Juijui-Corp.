@@ -34,6 +34,7 @@ export const useDuty = (currentUser?: User) => {
     const { isUploading: isProofUploading, submitProof, submitAppeal } = useDutyProof(
         currentUser || null, 
         duties, 
+        setDuties,
         isDriveReady, 
         uploadFileToDrive, 
         isAuthenticated, 

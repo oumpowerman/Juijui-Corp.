@@ -138,7 +138,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const { items: workboxItems, addItem: addToWorkbox, setIsDragging } = useWorkboxContext();
 
   // --- SUB-HOOKS ---
-  const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile);
+  const { notifications, unreadCount: sysUnread, dismissNotification, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile, fetchProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
   const { requests: leaveRequests, approveRequest, rejectRequest } = useLeaveRequests(
     currentUserProfile, 
@@ -147,7 +147,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   
   // --- BACKGROUND SERVICES ---
   useAutoJudge(currentUserProfile); 
-  useGameEventListener(currentUserProfile); 
+  useGameEventListener(currentUserProfile, fetchProfile); 
 
   // --- GLOBAL KEYBOARD SHORTCUTS ---
   useEffect(() => {

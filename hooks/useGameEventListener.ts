@@ -12,7 +12,7 @@ import { User } from '../types';
  * ตอนนี้: เราอ่าน field `description` จาก Database โดยตรง ซึ่งถูกสร้างโดย Engine (`useGamification`)
  * ทำให้เราไม่ต้องแก้ไฟล์นี้ทุกครั้งที่มีเควสใหม่ หรือเงื่อนไขใหม่
  */
-export const useGameEventListener = (currentUser: User | null) => {
+export const useGameEventListener = (currentUser: User | null, onEvent?: () => void) => {
     const { showToast } = useToast();
     
     // Buffer: ใช้เก็บ Log ที่เด้งมาพร้อมกันหลายๆ อัน เพื่อแสดงรวบยอด (ลด Spam)
@@ -169,6 +169,9 @@ export const useGameEventListener = (currentUser: User | null) => {
                 (payload) => {
                     const log = payload.new;
                     
+                    // ✨ ROBUST SYNC: Trigger profile refresh if callback provided
+                    if (onEvent) onEvent();
+
                     // --- INTELLIGENT GROUPING STRATEGY ---
                     // จัดกลุ่ม Event ที่มักจะเกิดรัวๆ พร้อมกัน
                     let groupKey = `single_${log.id}`; // Default: No grouping

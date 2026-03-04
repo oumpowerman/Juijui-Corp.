@@ -8,7 +8,6 @@ import { useGreetings } from '../../../hooks/useGreetings';
 // Sub-components
 import DeadStateView from './welcome-header/DeadStateView';
 import TieredStateView from './welcome-header/TieredStateView';
-import DivineStateView from './welcome-header/DivineStateView';
 import ProfileSection from './welcome-header/ProfileSection';
 import StatsSection from './welcome-header/StatsSection';
 import ActionButtons from './welcome-header/ActionButtons';
@@ -64,30 +63,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
             );
         }
 
-        // --- DIVINE STATE (HP 90-100) ---
-        if (isDivine) {
-            return (
-                <DivineStateView 
-                    user={user}
-                    hpPercent={hpPercent}
-                    progressPercent={progressPercent}
-                    nextLevelXP={nextLevelXP}
-                    randomGreeting={randomGreeting}
-                    unreadNotifications={unreadNotifications}
-                    onUpdateStatus={onUpdateStatus}
-                    onOpenShop={onOpenShop}
-                    onOpenNotifications={onOpenNotifications}
-                    onEditProfile={onEditProfile}
-                    onOpenWorkload={onOpenWorkload}
-                    onOpenReport={onOpenReport}
-                    onOpenRules={() => setIsRulesOpen(true)}
-                    onOpenDeathHistory={() => setIsDeathHistoryOpen(true)}
-                />
-            );
-        }
-
-        // --- TIERED STATE (HP 50-89) ---
-        if (isTiered) {
+        // --- TIERED & DIVINE STATES (HP 50-100) ---
+        if (isTiered || isDivine) {
             return (
                 <TieredStateView 
                     user={user}

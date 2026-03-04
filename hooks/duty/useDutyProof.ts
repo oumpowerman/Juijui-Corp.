@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, Dispatch, SetStateAction } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Duty, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 export const useDutyProof = (
     currentUser: User | null, 
     duties: Duty[],
+    setDuties: Dispatch<SetStateAction<Duty[]>>,
     isDriveReady: boolean,
     uploadFileToDrive: (file: File, path: string[]) => Promise<any>,
     isAuthenticated: boolean,
@@ -35,9 +36,9 @@ export const useDutyProof = (
         try {
             let imageUrl: string | null = null;
 
-            // --- STRATEGY: TRY GOOGLE DRIVE FIRST ---
+            // ... (Google Drive logic) ...
             if (isDriveReady) {
-                // Attempt Upload to Drive (uploadFileToDrive handles auth internally if needed)
+                // ... (upload logic) ...
                 try {
                     const currentMonthFolder = format(new Date(), 'yyyy-MM');
                     const result = await uploadFileToDrive(file, ['Duty', currentMonthFolder]);
@@ -47,6 +48,7 @@ export const useDutyProof = (
                         showToast('บันทึกลง Google Drive สำเร็จ ✅', 'success');
                     }
                 } catch (driveErr: any) {
+                    // ... (fallback confirm logic) ...
                     console.error("Drive Upload Error:", driveErr);
                     
                     const useFallback = await showConfirm(
@@ -58,12 +60,12 @@ export const useDutyProof = (
                         setIsUploading(false);
                         return false;
                     }
-                    // If user chooses fallback, imageUrl remains null and we proceed to Supabase logic
                 }
             }
 
             // --- STRATEGY: FALLBACK TO SUPABASE ---
             if (!imageUrl) {
+                // ... (supabase upload logic) ...
                 try {
                     const fileExt = file.name.split('.').pop();
                     const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
@@ -100,7 +102,11 @@ export const useDutyProof = (
 
             if (dbError) throw dbError;
 
+            // Update Local State for Instant UI Feedback
+            setDuties(prev => prev.map(d => d.id === dutyId ? { ...d, isDone: true, proofImageUrl: imageUrl! } : d));
+
             // Send Message to Chat
+            // ... (chat message logic) ...
             const isAssist = currentUser.id !== duty.assigneeId;
             const message = isAssist 
                 ? `🦸‍♂️ **${userName}** เป็นฮีโร่! ช่วยทำเวรแทนเจ้าของเวร "${duty.title}" เรียบร้อย!` 
@@ -122,6 +128,7 @@ export const useDutyProof = (
             ]);
 
             // Gamification
+            // ... (gamification logic) ...
             if (isAssist) {
                 processAction(currentUser.id, 'DUTY_ASSIST', { ...duty, targetName: 'เพื่อนร่วมทีม' });
             } else if (duty.assigneeId) {
@@ -159,7 +166,7 @@ export const useDutyProof = (
         try {
             let proofUrl = null;
             if (file) {
-                // For appeals, we simplify to Supabase for now or could use similar strategy
+                // ... (appeal upload logic) ...
                 const fileExt = file.name.split('.').pop();
                 const fileName = `duty-appeal-${dutyId}-${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage.from('chat-files').upload(fileName, file);
@@ -179,6 +186,14 @@ export const useDutyProof = (
                 .eq('id', dutyId);
 
             if (error) throw error;
+
+            // Update Local State
+            setDuties(prev => prev.map(d => d.id === dutyId ? { 
+                ...d, 
+                penaltyStatus: 'UNDER_REVIEW', 
+                appealReason: reason, 
+                appealProofUrl: proofUrl || d.appealProofUrl 
+            } : d));
             
             const duty = duties.find(d => d.id === dutyId);
             if (duty) {

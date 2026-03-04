@@ -234,7 +234,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-6xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
+            <div className="bg-white w-full max-w-7xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
                 
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-gray-100 bg-white shrink-0 flex justify-between items-start">

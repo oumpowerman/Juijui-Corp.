@@ -40,6 +40,19 @@ const WORKLOAD_LEVELS = [
     { max: 999, color: 'bg-rose-800', text: 'text-rose-800', label: 'Max!' }
 ];
 
+// Glassy 3D Themes for Tasks
+const GLASS_THEMES = [
+    { bg: 'bg-blue-400/20', border: 'border-blue-400/40', text: 'text-blue-900', accent: 'bg-blue-400', shadow: 'shadow-blue-500/10' },
+    { bg: 'bg-indigo-400/20', border: 'border-indigo-400/40', text: 'text-indigo-900', accent: 'bg-indigo-400', shadow: 'shadow-indigo-500/10' },
+    { bg: 'bg-purple-400/20', border: 'border-purple-400/40', text: 'text-purple-900', accent: 'bg-purple-400', shadow: 'shadow-purple-500/10' },
+    { bg: 'bg-rose-400/20', border: 'border-rose-400/40', text: 'text-rose-900', accent: 'bg-rose-400', shadow: 'shadow-rose-500/10' },
+    { bg: 'bg-amber-400/20', border: 'border-amber-400/40', text: 'text-amber-900', accent: 'bg-amber-400', shadow: 'shadow-amber-500/10' },
+    { bg: 'bg-emerald-400/20', border: 'border-emerald-400/40', text: 'text-emerald-900', accent: 'bg-emerald-400', shadow: 'shadow-emerald-500/10' },
+    { bg: 'bg-cyan-400/20', border: 'border-cyan-400/40', text: 'text-cyan-900', accent: 'bg-cyan-400', shadow: 'shadow-cyan-500/10' },
+    { bg: 'bg-violet-400/20', border: 'border-violet-400/40', text: 'text-violet-900', accent: 'bg-violet-400', shadow: 'shadow-violet-500/10' },
+    { bg: 'bg-fuchsia-400/20', border: 'border-fuchsia-400/40', text: 'text-fuchsia-900', accent: 'bg-fuchsia-400', shadow: 'shadow-fuchsia-500/10' },
+];
+
 // Helper for Priority Colors (Full classes)
 const getPriorityStyle = (priority: Priority) => {
     switch (priority) {
@@ -185,11 +198,34 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
     };
     const statusColorClass = getStatusColor(user.workStatus || 'ONLINE');
     
-    const getTaskColorClass = (task: Task) => {
-        if (colorLens === 'PRIORITY') return getPriorityStyle(task.priority);
-        if (colorLens === 'TYPE') return getTaskTypeStyle(task);
-        if (task.assigneeType === 'TEAM') return 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 text-emerald-900 shadow-sm ring-1 ring-emerald-100';
-        return `bg-white ${STATUS_COLORS[task.status as Status]}`;
+    const getTaskStyle = (task: Task) => {
+        if (colorLens === 'PRIORITY') return { className: getPriorityStyle(task.priority) };
+        if (colorLens === 'TYPE') return { className: getTaskTypeStyle(task) };
+        
+        // Default: Glassy Randomized Theme
+        const id = task.id || 'default';
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) {
+            hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const index = Math.abs(hash) % GLASS_THEMES.length;
+        const theme = GLASS_THEMES[index];
+
+        const isUrgent = task.priority === 'URGENT';
+        const isHigh = task.priority === 'HIGH';
+
+        return {
+            theme,
+            isUrgent,
+            isHigh,
+            className: `
+                backdrop-blur-md border-t border-white/50 border-b border-black/10
+                ${theme.bg} ${theme.border} ${theme.text} ${theme.shadow}
+                ${isUrgent ? 'ring-2 ring-red-500/50 ring-inset animate-pulse' : ''}
+                ${isHigh ? 'shadow-lg' : 'shadow-sm'}
+                hover:scale-[1.02] hover:z-30 hover:brightness-110
+            `
+        };
     };
 
     // Height classes based on Focus Mode
@@ -330,15 +366,29 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                                     <div 
                                         onClick={() => onEditTask(task)} 
                                         className={`
-                                            relative flex items-center overflow-hidden cursor-pointer shadow-sm hover:brightness-95 hover:z-20 transition-all
+                                            relative flex items-center overflow-hidden cursor-pointer transition-all duration-300
                                             ${rowHeightClass}
                                             ${shapeClass}
-                                            ${getTaskColorClass(task)}
+                                            ${getTaskStyle(task).className}
                                         `}
                                         title={`${task.title} (${format(task.startDate, 'd MMM')} - ${format(task.endDate, 'd MMM')})`}
                                     >
+                                        {/* 3D Glossy Layer */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
+                                        
+                                        {/* Side Accent Line */}
+                                        {getTaskStyle(task).theme && (
+                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTaskStyle(task).theme?.accent} opacity-50`} />
+                                        )}
+
+                                        {/* Urgent Pattern */}
+                                        {task.priority === 'URGENT' && (
+                                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                                                 style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 20px)' }} />
+                                        )}
+
                                         {showContent && (
-                                            <div className="flex items-center px-2 min-w-0 w-full">
+                                            <div className="relative z-10 flex items-center px-2 min-w-0 w-full">
                                                 {task.assigneeType === 'TEAM' ? <Users className="w-3 h-3 mr-1 shrink-0" /> : <JobIcon className="w-3 h-3 mr-1 opacity-50 shrink-0" />}
                                                 <span className={`font-bold truncate ${isFocused ? 'text-xs whitespace-normal line-clamp-2 leading-tight' : 'text-[10px] whitespace-nowrap'}`}>
                                                     {task.title}

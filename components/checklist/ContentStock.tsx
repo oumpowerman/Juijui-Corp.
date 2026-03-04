@@ -28,7 +28,7 @@ interface ContentStockProps {
   onAddToWorkbox?: (task: Task) => void;
 }
 
-type SortKey = 'title' | 'status' | 'date' | 'remark';
+type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 20;
@@ -54,7 +54,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
   // --- Sort States ---
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'date', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
 
   // --- Pagination State ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,7 +106,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           if (current && current.key === key) {
               return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
           }
-          return { key, direction: key === 'date' ? 'desc' : 'asc' };
+          // Default to desc for date-related columns, asc for others
+          const isDateKey = key === 'date' || key === 'publishDate' || key === 'shootDate';
+          return { key, direction: isDateKey ? 'desc' : 'asc' };
       });
   };
 

@@ -16,7 +16,8 @@ import {
     Shield,
     Briefcase,
     CreditCard,
-    Activity
+    Activity,
+    X
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TabType } from './constants'
@@ -189,16 +190,16 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
     /* ============================= */
 
     return (
-        <div ref={ref} className="bg-white shrink-0 border-b border-gray-100 shadow-sm relative z-10">
+        <div ref={ref} className="bg-white shrink-0 border-b border-gray-100 shadow-sm relative z-50">
 
             {/* ================= TABS ================= */}
 
-            <div className="px-8 py-4 flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="px-4 sm:px-8 py-4 flex flex-col lg:flex-row gap-4 items-center justify-between">
 
                 <div
                     role="tablist"
                     aria-label="Member Status Tabs"
-                    className="inline-flex p-1 bg-gray-100 rounded-2xl relative"
+                    className="flex p-1 bg-gray-100 rounded-2xl relative w-full sm:w-auto overflow-x-auto no-scrollbar min-w-max"
                 >
                     {tabs.map((tab, index) => {
                         const Icon = tab.icon
@@ -213,22 +214,22 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                                 tabIndex={isActive ? 0 : -1}
                                 onKeyDown={(e) => handleTabKeyDown(e, index)}
                                 onClick={() => handleTabClick(tab.id)}
-                                className={`relative z-10 flex-none whitespace-nowrap px-6 py-2.5 rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-2 ${
+                                className={`relative z-10 flex-1 sm:flex-none whitespace-nowrap px-6 sm:px-10 py-3 rounded-xl text-[11px] sm:text-xs font-black transition-all duration-300 flex items-center justify-center gap-2 min-w-[110px] sm:min-w-[140px] ${
                                     isActive
                                         ? tab.color
-                                        : 'text-gray-500 hover:text-gray-700'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
                                 }`}
                             >
                                 {isActive && (
                                     <motion.div
                                         layoutId="activeTab"
-                                        className={`absolute inset-0 rounded-xl shadow-sm ${tab.activeBg}`}
+                                        className={`absolute inset-0 rounded-xl shadow-md ${tab.activeBg}`}
                                         transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                                     />
                                 )}
 
                                 <span className="relative z-20 flex items-center gap-2">
-                                    <Icon className="w-4 h-4" />
+                                    <Icon className={`w-4 h-4 sm:w-4.5 sm:h-4.5 ${isActive ? 'animate-bounce' : ''}`} />
                                     {tab.label}
                                 </span>
                             </button>
@@ -286,12 +287,12 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                     <motion.div
                         id="advanced-filter-panel"
                         ref={advancedPanelRef}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden bg-gray-50/50 border-t border-gray-100"
+                        initial={{ height: 0, opacity: 0, y: -10 }}
+                        animate={{ height: 'auto', opacity: 1, y: 0 }}
+                        exit={{ height: 0, opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-2xl z-[100] overflow-hidden"
                     >
-                        <div className="px-8 py-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="px-8 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 bg-gradient-to-b from-white to-gray-50/50">
 
                             {/* ===== POSITION FILTER ===== */}
                             <div className="space-y-2">
@@ -300,18 +301,21 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                                     Position
                                 </label>
 
-                                <select
-                                    value={selectedPosition}
-                                    onChange={(e) => setSelectedPosition(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-100 outline-none appearance-none cursor-pointer"
-                                >
-                                    <option value="ALL">All Positions</option>
-                                    {positionOptions.map(opt => (
-                                        <option key={opt.id} value={opt.label}>
-                                            {opt.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="relative group/select">
+                                    <select
+                                        value={selectedPosition}
+                                        onChange={(e) => setSelectedPosition(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-100 outline-none appearance-none cursor-pointer pr-8 transition-all group-hover/select:border-indigo-300"
+                                    >
+                                        <option value="ALL">All Positions</option>
+                                        {positionOptions.map(opt => (
+                                            <option key={opt.id} value={opt.label}>
+                                                {opt.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none group-hover/select:text-indigo-500 transition-colors" />
+                                </div>
                             </div>
 
                             {/* ===== ROLE FILTER ===== */}
@@ -389,6 +393,23 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                                 </div>
                             </div>
 
+                            {/* ===== CLEAR FILTERS ===== */}
+                            {hasActiveFilters && (
+                                <div className="lg:col-span-4 flex justify-end pt-2 border-t border-gray-100 mt-2">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedPosition('ALL')
+                                            setSelectedRole('ALL')
+                                            setPayrollFilter('ALL')
+                                            setWorkloadFilter('ALL')
+                                        }}
+                                        className="text-[10px] font-black text-red-500 hover:text-red-600 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-all"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        CLEAR ALL FILTERS
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}

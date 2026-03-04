@@ -100,7 +100,7 @@ const StockTableHeader: React.FC<StockTableHeaderProps> = ({
                     </div>
                 </th>
 
-                {/* Dynamic Columns */}
+                        {/* Dynamic Columns */}
                 {columnOrder.map((key, index) => {
                     if (!visibleColumns.includes(key)) return null;
                     const col = AVAILABLE_COLUMNS.find(c => c.key === key);
@@ -116,11 +116,11 @@ const StockTableHeader: React.FC<StockTableHeaderProps> = ({
                             onDragLeave={() => setDragOverIndex(null)}
                             className={`px-4 py-4 text-center cursor-pointer hover:bg-gray-100 transition-all relative group ${dragOverIndex === index ? 'bg-indigo-50 border-x-2 border-indigo-200' : ''}`}
                             style={{ width: columnWidths[key] || 150 }}
-                            onClick={() => onSort(key === 'publishDate' ? 'date' : key)}
+                            onClick={() => onSort(key)}
                         >
                             <div className="flex items-center justify-center gap-1">
                                 <GripVertical className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-                                {col.label} {renderSortIcon(key === 'publishDate' ? 'date' : key)}
+                                {col.label} {renderSortIcon(key)}
                             </div>
                             
                             {/* Resize Handle */}

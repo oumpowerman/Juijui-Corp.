@@ -125,10 +125,31 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             // 3. Sort
             if (sortConfig) {
                 const sortKeyMap: Record<string, string> = {
-                    'title': 'title', 'status': 'status', 'date': 'end_date', 'remark': 'remark'
+                    'title': 'title', 
+                    'status': 'status', 
+                    'date': 'end_date', 
+                    'publishDate': 'end_date',
+                    'shootDate': 'shoot_date',
+                    'remark': 'remark',
+                    'shortNote': 'remark',
+                    'ideaOwner': 'idea_owner_ids',
+                    'editor': 'editor_ids',
+                    'helper': 'assignee_ids',
+                    'createdAt': 'created_at'
                 };
                 const dbKey = sortKeyMap[sortConfig.key] || 'created_at';
-                query = query.order(dbKey, { ascending: sortConfig.direction === 'asc' });
+                
+                // Special handling: Only group by is_unscheduled when explicitly sorting by date columns
+                const isDateSort = sortConfig.key === 'publishDate' || sortConfig.key === 'date' || sortConfig.key === 'shootDate';
+                if (isDateSort) {
+                    query = query.order('is_unscheduled', { ascending: true });
+                }
+
+                // Use nullsFirst: false to keep items without dates at the bottom for date sorts
+                query = query.order(dbKey, { 
+                    ascending: sortConfig.direction === 'asc',
+                    nullsFirst: false 
+                });
             } else {
                 query = query.order('created_at', { ascending: false });
             }

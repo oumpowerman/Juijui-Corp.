@@ -37,7 +37,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
     }, []);
 
     return (
-        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-3xl border border-white/40 shadow-xl shadow-indigo-500/5 flex flex-col lg:flex-row gap-4 items-center justify-between relative">
+        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-3xl border border-white/40 shadow-xl shadow-indigo-500/5 flex flex-col lg:flex-row gap-4 items-center justify-between relative z-50">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 opacity-50 pointer-events-none" />
             
             {/* Left: Scope & Position */}

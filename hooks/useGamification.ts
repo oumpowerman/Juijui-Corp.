@@ -103,6 +103,15 @@ export const useGamification = (currentUser: User | null = null) => {
                 jp_change: type === 'COINS' ? amount : 0,
                 description: `Admin Adjusted: ${reason}`
             });
+
+            // Add to notifications table to trigger LINE and real-time bell
+            await supabase.from('notifications').insert({
+                user_id: userId,
+                type: amount >= 0 ? 'GAME_REWARD' : 'GAME_PENALTY',
+                title: amount >= 0 ? '🎁 มีการปรับเพิ่มสถานะ!' : '📉 มีการปรับลดสถานะ!',
+                message: `GM ได้ปรับ ${type} ของคุณ: ${amount > 0 ? '+' : ''}${amount} (${reason})`,
+                link_path: 'DASHBOARD'
+            });
             
             return { success: true };
         } catch (e: any) {

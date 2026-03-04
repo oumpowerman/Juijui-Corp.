@@ -268,6 +268,23 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
                 
+                // --- NOTIFICATION: NEW ASSIGNMENT (ON UPDATE) ---
+                if (existingTask && task.assigneeIds) {
+                    const newAssignees = task.assigneeIds.filter(id => !existingTask.assigneeIds.includes(id));
+                    if (newAssignees.length > 0) {
+                        const notifications = newAssignees.map(uid => ({
+                            user_id: uid,
+                            type: 'NEW_ASSIGNMENT',
+                            title: `⚡ งานใหม่: ${task.title}`,
+                            message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
+                            related_id: task.id,
+                            link_path: isContent ? 'STOCK' : 'DASHBOARD',
+                            is_read: false
+                        }));
+                        await supabase.from('notifications').insert(notifications);
+                    }
+                }
+
                 // --- SMART AUDIT LOGGING (V10) ---
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user && existingTask) {
@@ -313,6 +330,20 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 
                 if (error) throw error;
                 
+                // --- NOTIFICATION: NEW ASSIGNMENT ---
+                if (task.assigneeIds && task.assigneeIds.length > 0) {
+                    const notifications = task.assigneeIds.map(uid => ({
+                        user_id: uid,
+                        type: 'NEW_ASSIGNMENT',
+                        title: `⚡ งานใหม่: ${task.title}`,
+                        message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
+                        related_id: task.id,
+                        link_path: isContent ? 'STOCK' : 'DASHBOARD',
+                        is_read: false
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                }
+
                 // Update Context State (if suitable for list)
                 if (!task.contentId) {
                     setTasks(prev => [...prev, task]);

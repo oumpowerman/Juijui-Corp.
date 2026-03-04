@@ -12,7 +12,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 .from('task_deadline_requests')
                 .select(`
                     id, task_id, requested_by, new_deadline, reason, status, created_at,
-                    profiles:requested_by (name, avatar_url)
+                    profiles:requested_by (full_name, avatar_url)
                 `)
                 .eq('task_id', taskId)
                 .eq('status', 'PENDING')
@@ -31,7 +31,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 reason: data.reason,
                 status: data.status,
                 createdAt: new Date(data.created_at),
-                user: profile ? { name: profile.name, avatarUrl: profile.avatar_url } : undefined
+                user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
             };
         } catch (err) {
             console.error('Error fetching pending request:', err);
@@ -47,7 +47,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 .from('task_deadline_requests')
                 .select(`
                     id, task_id, requested_by, new_deadline, reason, status, created_at,
-                    profiles:requested_by (name, avatar_url),
+                    profiles:requested_by (full_name, avatar_url),
                     tasks:task_id (title)
                 `)
                 .eq('status', 'PENDING')
@@ -67,7 +67,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                     reason: req.reason,
                     status: req.status,
                     createdAt: new Date(req.created_at),
-                    user: profile ? { name: profile.name, avatarUrl: profile.avatar_url } : undefined,
+                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
                     taskTitle: task?.title // Add task title for admin view
                 } as DeadlineRequest & { taskTitle?: string };
             });

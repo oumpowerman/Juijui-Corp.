@@ -72,8 +72,15 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
             const duty2 = dutiesData.find(d => d.id === swap.target_duty_id);
 
             if (duty1 && duty2) {
-                await supabase.from('duties').update({ assignee_id: duty2.assignee_id }).eq('id', duty1.id);
-                await supabase.from('duties').update({ assignee_id: duty1.assignee_id }).eq('id', duty2.id);
+                // Execute duty updates concurrently to reduce atomicity risks
+                const [update1, update2] = await Promise.all([
+                    supabase.from('duties').update({ assignee_id: duty2.assignee_id }).eq('id', duty1.id),
+                    supabase.from('duties').update({ assignee_id: duty1.assignee_id }).eq('id', duty2.id)
+                ]);
+
+                if (update1.error) throw update1.error;
+                if (update2.error) throw update2.error;
+
                 await supabase.from('duty_swaps').update({ status: 'APPROVED' }).eq('id', swapId);
                 
                 await supabase.from('notifications').insert({

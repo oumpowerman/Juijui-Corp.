@@ -126,11 +126,12 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     handleToggleChecklist, handleAddChecklistItem, handleDeleteChecklistItem, handleResetChecklist,
     handleLoadPreset, handleAddPreset, handleDeletePreset,
     
-    approveMember, removeMember, toggleUserStatus,
+    approveMember, removeMember, toggleUserStatus, adjustStatsLocally,
 
     quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest,
 
-    updateProfile
+    updateProfile,
+    fetchProfile
   } = useTaskManager(user);
 
   // --- WORKBOX CONTEXT ---
@@ -236,6 +237,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   onEditProfile={() => setIsProfileModalOpen(true)}
                   masterOptions={masterOptions}
                   onFetchAllData={fetchAllTasks}
+                  onRefreshProfile={fetchProfile}
                   isFetching={isTaskFetching}
                 />
               );
@@ -276,6 +278,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   onApproveMember={approveMember}
                   onRemoveMember={removeMember}
                   onToggleStatus={toggleUserStatus}
+                  onAdjustStats={adjustStatsLocally}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onAddTask={(type) => handleAddTask(type)}
                   onMoveTask={(t) => handleSaveTask(t)}
@@ -491,6 +494,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       masterOptions={masterOptions}
                       currentUser={currentUserProfile}
                       projects={tasks.filter(t => t.type === 'CONTENT')} 
+                      onOpenTask={handleEditTask}
                   />
               )}
   

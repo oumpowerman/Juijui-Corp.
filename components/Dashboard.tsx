@@ -19,6 +19,7 @@ interface DashboardProps {
   onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
+  onRefreshProfile?: () => Promise<any>;
   onFetchAllData?: () => void;
   isFetching?: boolean;
 }
@@ -37,6 +38,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
         {...props} 
         masterOptions={props.masterOptions || []} 
         onNavigate={props.onNavigate}
+        onRefreshProfile={props.onRefreshProfile}
       />
     );
   };

@@ -104,7 +104,7 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
                         <div className="flex items-center gap-2 mb-2">
                             <motion.div 
                                 animate={{ rotate: [0, 15, -15, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                                 className="bg-emerald-500/20 backdrop-blur-md p-1.5 rounded-lg border border-emerald-500/30"
                             >
                                 <Trophy className="w-4 h-4 text-emerald-400" />

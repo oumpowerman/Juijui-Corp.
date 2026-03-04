@@ -1,12 +1,13 @@
 
 import React, { useMemo } from 'react';
+import { PenTool, Eraser, FileText, Edit3, Type } from 'lucide-react';
 
 export type BackgroundTheme = 
   | 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
   | 'pastel-red' | 'pastel-orange' | 'pastel-yellow' | 'pastel-green' | 'pastel-blue' 
   | 'pastel-indigo' | 'pastel-purple' | 'pastel-pink' | 'pastel-rose' | 'pastel-teal'
   | 'pastel-cyan' | 'pastel-sky' | 'pastel-emerald' | 'pastel-lime' | 'pastel-amber'
-  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral';
+  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script';
 
 interface AppBackgroundProps {
     theme?: BackgroundTheme;
@@ -49,7 +50,20 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             'pastel-slate': 'from-slate-50 to-slate-100',
             'pastel-zinc': 'from-zinc-50 to-zinc-100',
             neutral: 'from-gray-50 to-slate-100',
+            script: 'from-amber-200 via-orange-100 to-yellow-300', // Base vibrant
         };
+
+        if (theme === 'script') {
+            // Randomly pick a slightly different warm gradient for "script" theme
+            const scriptVariants = [
+                'from-amber-200 via-orange-100 to-yellow-300',
+                'from-orange-100 via-amber-50 to-yellow-200',
+                'from-yellow-200 via-orange-100 to-amber-100',
+                'from-amber-100 via-yellow-50 to-orange-200'
+            ];
+            return scriptVariants[Math.floor(Math.random() * scriptVariants.length)];
+        }
+
         return configs[theme] || configs.neutral;
     }, [theme]);
 
@@ -78,9 +92,97 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
         return {};
     }, [pattern]);
 
+    // Use state for decorative elements to ensure they are generated once per mount
+    const [elements, setElements] = React.useState<any[]>([]);
+    const [scribbles, setScribbles] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+        if (theme !== 'script') {
+            setElements([]);
+            setScribbles([]);
+            return;
+        }
+
+        const icons = [PenTool, Eraser, FileText, Edit3, Type];
+        const colors = [
+            'text-amber-500', 'text-orange-500', 'text-yellow-600', 
+            'text-red-500', 'text-blue-500', 'text-green-500', 
+            'text-purple-500', 'text-pink-500', 'text-teal-500',
+            'text-indigo-500', 'text-emerald-500', 'text-cyan-500'
+        ];
+
+        const newElements = Array.from({ length: 20 }).map((_, i) => ({
+            id: i,
+            Icon: icons[Math.floor(Math.random() * icons.length)],
+            top: `${Math.random() * 95}%`,
+            left: `${Math.random() * 95}%`,
+            size: Math.floor(Math.random() * 60) + 40,
+            rotate: Math.floor(Math.random() * 360),
+            color: colors[Math.floor(Math.random() * colors.length)],
+            opacity: (Math.random() * 0.4) + 0.1,
+            animate: Math.random() > 0.6 ? 'animate-pulse' : ''
+        }));
+
+        const newScribbles = Array.from({ length: 12 }).map((_, i) => ({
+            id: i,
+            top: `${Math.random() * 95}%`,
+            left: `${Math.random() * 95}%`,
+            width: `${Math.random() * 250 + 100}px`,
+            rotate: Math.floor(Math.random() * 40 - 20),
+            opacity: (Math.random() * 0.3) + 0.2
+        }));
+
+        setElements(newElements);
+        setScribbles(newScribbles);
+    }, [theme]);
+
     return (
-        <div className={`relative min-h-full w-full bg-gradient-to-br ${themeConfig} transition-colors duration-1000 ${className}`}>
-            <div className="absolute inset-0 pointer-events-none" style={patternStyle} />
+        <div className={`relative min-h-screen w-full ${className}`}>
+            {/* Fixed Background Layer with z-index 0 to ensure it covers AppShell background but stays behind content */}
+            <div 
+                className={`fixed inset-0 bg-gradient-to-br ${themeConfig} transition-colors duration-1000 pointer-events-none z-0`} 
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+            />
+            
+            {/* Pattern Layer */}
+            <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle, position: 'fixed' }} />
+            
+            {/* Decorative Elements for Script Theme */}
+            {theme === 'script' && (
+                <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                    {elements.map((el) => (
+                        <el.Icon 
+                            key={el.id}
+                            className={`absolute ${el.color} ${el.animate}`}
+                            style={{
+                                top: el.top,
+                                left: el.left,
+                                width: el.size,
+                                height: el.size,
+                                transform: `rotate(${el.rotate}deg)`,
+                                opacity: el.opacity
+                            }}
+                        />
+                    ))}
+                    
+                    {/* Floating Scribbles */}
+                    {scribbles.map((s) => (
+                        <div 
+                            key={`scribble-${s.id}`}
+                            className="absolute border-b-2 border-amber-500/30 rounded-full"
+                            style={{
+                                top: s.top,
+                                left: s.left,
+                                width: s.width,
+                                height: '1px',
+                                transform: `rotate(${s.rotate}deg)`,
+                                opacity: s.opacity
+                            }}
+                        ></div>
+                    ))}
+                </div>
+            )}
+
             <div className="relative z-10">
                 {children}
             </div>

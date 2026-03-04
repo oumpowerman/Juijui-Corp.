@@ -29,6 +29,7 @@ export const useTeam = () => {
         availablePoints: u.available_points || 0,
         hp: u.hp ?? 100,
         maxHp: u.max_hp || 100,
+        deathCount: u.death_count || 0,
         // --- NEW STATUS FIELDS ---
         workStatus: (u.work_status as WorkStatus) || 'ONLINE',
         leaveStartDate: u.leave_start_date ? new Date(u.leave_start_date) : null,
@@ -45,6 +46,34 @@ export const useTeam = () => {
         ssoIncluded: u.sso_included !== false, // Default true
         taxType: u.tax_type || 'WHT_3'
     });
+
+    // Helper to map partial DB updates to User fields
+    const mapDBToUserUpdates = (u: any): Partial<User> => {
+        const updates: Partial<User> = {};
+        if ('full_name' in u) updates.name = u.full_name;
+        if ('role' in u) updates.role = u.role;
+        if ('avatar_url' in u) updates.avatarUrl = u.avatar_url;
+        if ('position' in u) updates.position = u.position;
+        if ('phone_number' in u) updates.phoneNumber = u.phone_number;
+        if ('bio' in u) updates.bio = u.bio;
+        if ('feeling' in u) updates.feeling = u.feeling;
+        if ('is_approved' in u) updates.isApproved = u.is_approved;
+        if ('is_active' in u) updates.isActive = u.is_active;
+        if ('xp' in u) updates.xp = u.xp;
+        if ('level' in u) updates.level = u.level;
+        if ('available_points' in u) updates.availablePoints = u.available_points;
+        if ('hp' in u) updates.hp = u.hp;
+        if ('max_hp' in u) updates.maxHp = u.max_hp;
+        if ('death_count' in u) updates.deathCount = u.death_count;
+        if ('work_status' in u) updates.workStatus = u.work_status;
+        if ('work_days' in u) updates.workDays = u.work_days;
+        if ('base_salary' in u) updates.baseSalary = u.base_salary;
+        if ('bank_account' in u) updates.bankAccount = u.bank_account;
+        if ('bank_name' in u) updates.bankName = u.bank_name;
+        if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
+        if ('tax_type' in u) updates.taxType = u.tax_type;
+        return updates;
+    };
 
     const fetchTeamMembers = async () => {
         try {
@@ -85,7 +114,7 @@ export const useTeam = () => {
                     } 
                     else if (payload.eventType === 'UPDATE') {
                         setAllUsers(prev => prev.map(u => 
-                            u.id === payload.new.id ? mapProfileToUser(payload.new) : u
+                            u.id === payload.new.id ? { ...u, ...mapDBToUserUpdates(payload.new) } : u
                         ));
                     } 
                     else if (payload.eventType === 'DELETE') {
@@ -176,12 +205,34 @@ export const useTeam = () => {
         }
     };
 
+    // NEW: Function for immediate local stat adjustment (Optimistic UI)
+    const adjustStatsLocally = (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => {
+        setAllUsers(prev => prev.map(u => {
+            if (u.id === userId) {
+                const newHp = adjustments.hp !== undefined ? Math.min(u.maxHp, Math.max(0, u.hp + adjustments.hp)) : u.hp;
+                const newXp = adjustments.xp !== undefined ? Math.max(0, u.xp + adjustments.xp) : u.xp;
+                const newPoints = adjustments.points !== undefined ? Math.max(0, u.availablePoints + adjustments.points) : u.availablePoints;
+                
+                // Note: Level calculation is usually done on server/hook but we can approximate or wait for realtime
+                return {
+                    ...u,
+                    hp: newHp,
+                    xp: newXp,
+                    availablePoints: newPoints
+                };
+            }
+            return u;
+        }));
+    };
+
     return {
         allUsers,
         fetchTeamMembers,
         approveMember,
         removeMember,
         toggleUserStatus,
-        updateMember
+        updateMember,
+        adjustStatsLocally,
+        setAllUsers
     };
 };

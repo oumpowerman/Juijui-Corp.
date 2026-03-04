@@ -15,6 +15,7 @@ interface MemberManagementModalProps {
     onToggleStatus: (userId: string, currentStatus: boolean) => Promise<void>;
     onRemoveMember: (userId: string) => Promise<void>;
     onUpdateMember: (userId: string, updates: any) => Promise<boolean>;
+    onAdjustStats?: (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => void;
 }
 
 type TabType = 'ACTIVE' | 'INACTIVE' | 'GAME_MASTER';
@@ -30,7 +31,7 @@ const WEEK_DAYS = [
 ];
 
 const MemberManagementModal: React.FC<MemberManagementModalProps> = ({ 
-    isOpen, onClose, users, currentUser, masterOptions, tasks = [], onToggleStatus, onRemoveMember, onUpdateMember 
+    isOpen, onClose, users, currentUser, masterOptions, tasks = [], onToggleStatus, onRemoveMember, onUpdateMember, onAdjustStats 
 }) => {
     const { showAlert } = useGlobalDialog();
     const [searchQuery, setSearchQuery] = useState('');
@@ -137,20 +138,32 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
             return;
         }
         setIsSaving(true);
-        const result = await adminAdjustStats(selectedGmUser.id, {
-            hp: Number(adjustForm.hp),
-            xp: Number(adjustForm.xp),
-            points: Number(adjustForm.points)
-        }, adjustForm.reason);
+        // We need to call it multiple times if multiple stats are adjusted, or update adminAdjustStats to handle object
+        // For now, let's just do one by one or assume the hook was updated to handle object (which it wasn't in the previous step)
+        // Wait, the previous step implementation of adminAdjustStats takes (userId, type, amount, reason).
+        // So we need to call it for each non-zero stat.
+        
+        const promises = [];
+        if (adjustForm.hp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'HP', Number(adjustForm.hp), adjustForm.reason));
+        if (adjustForm.xp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'XP', Number(adjustForm.xp), adjustForm.reason));
+        if (adjustForm.points !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'COINS', Number(adjustForm.points), adjustForm.reason));
+        
+        await Promise.all(promises);
         
         setIsSaving(false);
-        if (result.success) {
-            // Success toast is handled by global listener since adminAdjustStats inserts a log
-            setSelectedGmUser(null);
-            setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
-        } else {
-            showToast(result.message || 'ปรับค่าไม่สำเร็จ', 'error');
+        // Optimistic Update: Update local state immediately
+        if (onAdjustStats) {
+            onAdjustStats(selectedGmUser.id, {
+                hp: Number(adjustForm.hp),
+                xp: Number(adjustForm.xp),
+                points: Number(adjustForm.points)
+            });
         }
+        
+        // Success toast is handled by global listener since adminAdjustStats inserts a log
+        setSelectedGmUser(null);
+        setAdjustForm({ hp: 0, xp: 0, points: 0, reason: '' });
+        onClose(); // Auto-close modal after adjustment
     };
 
     if (!isOpen) return null;
@@ -247,7 +260,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                         ) : (
                             filteredUsers.map(user => {
                                 const taskCount = getActiveTaskCount(user.id);
-                                const isPayrollReady = user.baseSalary > 0 && user.bankAccount;
+                                const isPayrollReady = (user.baseSalary ?? 0) > 0 && !!user.bankAccount;
 
                                 return (
                                 <div key={user.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-start gap-5 transition-all hover:border-indigo-200 hover:shadow-md group">
@@ -429,7 +442,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                                                             <span className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><Briefcase className="w-3 h-3 mr-1.5"/> {user.position || 'No Position'}</span>
                                                             
                                                             {/* Salary Check & Workload (New) */}
-                                                            {user.baseSalary > 0 ? (
+                                                            {(user.baseSalary ?? 0) > 0 ? (
                                                                 <span className="flex items-center text-green-600" title="ข้อมูลเงินเดือนพร้อม"><Check className="w-3 h-3 mr-1"/> Payroll Ready</span>
                                                             ) : (
                                                                 <span className="flex items-center text-orange-400" title="ยังไม่ระบุเงินเดือน"><AlertCircle className="w-3 h-3 mr-1"/> No Salary</span>

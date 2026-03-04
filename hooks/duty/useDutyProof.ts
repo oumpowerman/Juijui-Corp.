@@ -37,47 +37,28 @@ export const useDutyProof = (
 
             // --- STRATEGY: TRY GOOGLE DRIVE FIRST ---
             if (isDriveReady) {
-                // 1. Check Auth
-                if (!isAuthenticated) {
-                    const shouldLogin = await showConfirm(
-                        "ต้องการสิทธิ์ Google Drive",
-                        "ระบบต้องการสิทธิ์ในการบันทึกไฟล์ลง Google Drive ของทีม คุณต้องการเข้าสู่ระบบตอนนี้หรือไม่?"
-                    );
+                // Attempt Upload to Drive (uploadFileToDrive handles auth internally if needed)
+                try {
+                    const currentMonthFolder = format(new Date(), 'yyyy-MM');
+                    const result = await uploadFileToDrive(file, ['Duty', currentMonthFolder]);
+                    imageUrl = result.thumbnailUrl || result.url;
                     
-                    if (shouldLogin) {
-                        login();
-                        // We stop here because login is a popup and we can't easily await it 
-                        // in this specific flow without complex state management.
-                        // The user will have to click "Submit" again after login.
+                    if (imageUrl) {
+                        showToast('บันทึกลง Google Drive สำเร็จ ✅', 'success');
+                    }
+                } catch (driveErr: any) {
+                    console.error("Drive Upload Error:", driveErr);
+                    
+                    const useFallback = await showConfirm(
+                        "บันทึกไดร์ฟไม่สำเร็จ",
+                        `เกิดข้อผิดพลาด: ${driveErr.message || 'ไม่ทราบสาเหตุ'}\n\nคุณต้องการบันทึกผ่านระบบสำรอง (Supabase) เพื่อให้งานเสร็จสมบูรณ์ทันทีหรือไม่?`
+                    );
+
+                    if (!useFallback) {
                         setIsUploading(false);
                         return false;
                     }
-                }
-
-                // 2. Attempt Upload to Drive
-                if (isAuthenticated) {
-                    try {
-                        const currentMonthFolder = format(new Date(), 'yyyy-MM');
-                        const result = await uploadFileToDrive(file, ['Duty', currentMonthFolder]);
-                        imageUrl = result.thumbnailUrl || result.url;
-                        
-                        if (imageUrl) {
-                            showToast('บันทึกลง Google Drive สำเร็จ ✅', 'success');
-                        }
-                    } catch (driveErr: any) {
-                        console.error("Drive Upload Error:", driveErr);
-                        
-                        const useFallback = await showConfirm(
-                            "บันทึกไดร์ฟไม่สำเร็จ",
-                            `เกิดข้อผิดพลาด: ${driveErr.message || 'ไม่ทราบสาเหตุ'}\n\nคุณต้องการบันทึกผ่านระบบสำรอง (Supabase) เพื่อให้งานเสร็จสมบูรณ์ทันทีหรือไม่?`
-                        );
-
-                        if (!useFallback) {
-                            setIsUploading(false);
-                            return false;
-                        }
-                        // If user chooses fallback, imageUrl remains null and we proceed to Supabase logic
-                    }
+                    // If user chooses fallback, imageUrl remains null and we proceed to Supabase logic
                 }
             }
 

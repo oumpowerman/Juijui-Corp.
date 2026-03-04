@@ -119,7 +119,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
     return (
         <motion.div 
             layout
-            className="bg-white p-4 rounded-3xl shadow-sm border border-gray-200/60 flex flex-col xl:flex-row gap-4 relative transition-all hover:shadow-md"
+            className="bg-white p-4 rounded-3xl shadow-sm border border-gray-200/60 flex flex-col xl:flex-row gap-4 relative z-50 transition-all hover:shadow-md"
         >
             
             {/* Left: Search & Date Range */}

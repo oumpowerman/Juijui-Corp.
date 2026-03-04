@@ -9,16 +9,19 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
 
     const saveConfigs = async (newConfigs: DutyConfig[]) => {
         try {
-            for (const config of newConfigs) {
-                const { error } = await supabase
-                    .from('duty_configs')
-                    .upsert({
-                        day_of_week: config.dayOfWeek,
-                        required_people: config.requiredPeople,
-                        task_titles: config.taskTitles
-                    });
-                if (error) throw error;
-            }
+            // Bulk upsert to prevent performance issues (N+1 queries)
+            const payload = newConfigs.map(config => ({
+                day_of_week: config.dayOfWeek,
+                required_people: config.requiredPeople,
+                task_titles: config.taskTitles
+            }));
+
+            const { error } = await supabase
+                .from('duty_configs')
+                .upsert(payload);
+            
+            if (error) throw error;
+            
             showToast('บันทึกการตั้งค่าเวรลงระบบแล้ว ☁️', 'success');
         } catch (err: any) {
             showToast('บันทึกกติกาไม่สำเร็จ: ' + err.message, 'error');

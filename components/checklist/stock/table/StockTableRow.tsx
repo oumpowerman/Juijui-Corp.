@@ -26,7 +26,7 @@ interface StockTableRowProps {
     getCategoryLabel: (key?: string) => string;
 }
 
-const StockTableRow: React.FC<StockTableRowProps> = ({
+const StockTableRow = React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
     task,
     channel,
     statusInfo,
@@ -43,7 +43,7 @@ const StockTableRow: React.FC<StockTableRowProps> = ({
     getFormatLabel,
     getPillarLabel,
     getCategoryLabel
-}) => {
+}, ref) => {
     const channelStyle = channel ? channel.color : 'bg-gray-100 text-gray-500 border-gray-200';
 
     const handleDragStart = (e: React.DragEvent) => {
@@ -60,6 +60,7 @@ const StockTableRow: React.FC<StockTableRowProps> = ({
 
     return (
         <motion.tr 
+            ref={ref}
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -203,6 +204,6 @@ const StockTableRow: React.FC<StockTableRowProps> = ({
             </td>
         </motion.tr>
     );
-};
+});
 
 export default StockTableRow;

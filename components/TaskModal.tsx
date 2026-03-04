@@ -26,6 +26,7 @@ interface TaskModalProps {
   masterOptions?: MasterOption[];
   currentUser?: User; 
   projects?: Task[]; 
+  onOpenTask?: (task: Task) => void;
 }
 
 // --- 🎨 UI CONFIGURATION: Contextual Themes ---
@@ -40,7 +41,7 @@ const TAB_CONFIGS: Record<string, { color: string, icon: any, label: string }> =
 };
 
 const TaskModal: React.FC<TaskModalProps> = ({ 
-    isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [] 
+    isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [], onOpenTask 
 }) => {
   // Main View State
   const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>('DETAILS');
@@ -267,6 +268,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             onSave={(task) => { onSave(task); onClose(); }}
                             onDelete={onDelete}
                             onClose={onClose}
+                            onOpenTask={onOpenTask}
                         />
                     )
                 )}

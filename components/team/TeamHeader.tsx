@@ -45,10 +45,13 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                 <div className="flex items-center gap-4">
                     <motion.div 
                         whileHover={{ scale: 1.2, rotate: [0, -15, 15, 0] }}
-                        transition={{ type: "spring", stiffness: 300 }}
+                        transition={{ 
+                            scale: { type: "spring", stiffness: 300 },
+                            rotate: { duration: 0.5, ease: "easeInOut" }
+                        }}
                         className="text-5xl drop-shadow-2xl filter brightness-110 cursor-default"
                     >
-                        🤜🤛
+                        👨‍👦‍👦
                     </motion.div>
                     <div>
                         <div className="relative inline-block">

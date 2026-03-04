@@ -44,6 +44,7 @@ const IdleState: React.FC<IdleStateProps> = ({ todayStatus, nextDuty, todaysDuti
                 <div className="flex items-center gap-6 w-full lg:w-auto">
                     <motion.div 
                         whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+                        transition={{ rotate: { duration: 0.5, ease: "easeInOut" } }}
                         className={`w-16 h-16 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center shrink-0 relative overflow-hidden ${
                             isHoliday 
                                 ? 'bg-gradient-to-br from-emerald-400 to-teal-500 border-emerald-300/50 text-white' 

@@ -106,6 +106,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       onNavigate(view);
   };
 
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'ONLINE': return 'bg-green-500';
+      case 'BUSY': return 'bg-red-500';
+      case 'SICK': return 'bg-orange-500';
+      case 'VACATION': return 'bg-blue-500';
+      case 'MEETING': return 'bg-purple-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
   return (
     <aside 
       onMouseEnter={() => onToggleCollapse(false)}
@@ -235,7 +246,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="relative shrink-0 sidebar-icon">
             <img src={currentUser.avatarUrl} alt="User" className={`${isCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-full object-cover border-2 border-white shadow-sm`} />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 ${getStatusColor(currentUser.workStatus || 'ONLINE')} border-2 border-white rounded-full`}></div>
           </div>
           
           <div className="sidebar-item-text flex-1 min-w-0">

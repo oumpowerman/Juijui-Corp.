@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Link as LinkIcon, Search, LayoutTemplate, X, Unlink, ChevronRight, Layers, Loader2, ChevronDown, Check, Layout } from 'lucide-react';
+import { Link as LinkIcon, Search, LayoutTemplate, X, Unlink, ChevronRight, Layers, Loader2, ChevronDown, Check, Layout, ExternalLink } from 'lucide-react';
 import { Task, Status, Channel, MasterOption } from '../../../types';
 import { STATUS_COLORS } from '../../../constants';
 import { supabase } from '../../../lib/supabase';
@@ -11,11 +11,12 @@ interface Props {
     projects: Task[]; // Still kept as cache/fallback
     channels: Channel[];
     masterOptions: MasterOption[]; // Added for Format Filter
+    onOpenTask?: (task: Task) => void;
 }
 
 const PAGE_SIZE = 20;
 
-const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, channels = [], masterOptions = [] }) => {
+const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, channels = [], masterOptions = [], onOpenTask }) => {
     const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
     const [projectSearch, setProjectSearch] = useState('');
     
@@ -165,6 +166,25 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
         ? 'All Formats' 
         : formatOptions.find(f => f.key === selectedFormat)?.label || selectedFormat;
 
+    // Helper to get Format Label
+    const getFormatLabel = (key: string) => {
+        return formatOptions.find(f => f.key === key)?.label || key;
+    };
+
+    // Helper to get Status Label (Optional: if you have masterOptions for status too)
+    // For now, using raw status or mapping if needed.
+    const getStatusLabel = (status: string) => {
+        // You can map status keys to labels here if you have a mapping
+        return status.replace(/_/g, ' '); 
+    };
+
+    const handleViewContent = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (resolvedParent && onOpenTask) {
+            onOpenTask(resolvedParent);
+        }
+    };
+
     return (
         <div className="space-y-3">
              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center ml-1">
@@ -173,22 +193,28 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
            
             {resolvedParent ? (
                 // --- LINKED STATE (Card) ---
-                <div className="relative group overflow-hidden bg-gradient-to-r from-indigo-50 to-white p-1 rounded-[1.5rem] border-2 border-indigo-100 shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
+                <div 
+                    onClick={handleViewContent}
+                    className="relative group overflow-hidden bg-gradient-to-r from-indigo-50 to-white p-1 rounded-[1.5rem] border-2 border-indigo-100 shadow-sm transition-all hover:shadow-md hover:border-indigo-200 cursor-pointer"
+                >
                     <div className="flex items-center p-3 gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-sm shrink-0 group-hover:scale-105 transition-transform">
                             <LayoutTemplate className="w-6 h-6" />
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider mb-0.5">Linked to Parent</p>
-                            <h4 className="font-black text-indigo-900 text-sm truncate">{resolvedParent.title}</h4>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Linked to Parent</p>
+                                <ExternalLink className="w-3 h-3 text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <h4 className="font-black text-indigo-900 text-sm truncate group-hover:text-indigo-600 transition-colors">{resolvedParent.title}</h4>
                             <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-[8px] px-1.5 py-0.5 rounded border font-bold ${STATUS_COLORS[resolvedParent.status as Status] || 'bg-gray-100 text-gray-500'}`}>
-                                    {resolvedParent.status}
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase ${STATUS_COLORS[resolvedParent.status as Status] || 'bg-gray-100 text-gray-500'}`}>
+                                    {getStatusLabel(resolvedParent.status)}
                                 </span>
                                 {resolvedParent.contentFormat && (
-                                    <span className="text-[8px] px-1.5 py-0.5 rounded border border-purple-100 bg-purple-50 text-purple-600 font-bold">
-                                        {resolvedParent.contentFormat}
+                                    <span className="text-[8px] px-1.5 py-0.5 rounded border border-purple-100 bg-purple-50 text-purple-600 font-bold uppercase">
+                                        {getFormatLabel(resolvedParent.contentFormat)}
                                     </span>
                                 )}
                             </div>
@@ -196,8 +222,8 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
 
                         <button 
                             type="button"
-                            onClick={() => setProjectId('')} 
-                            className="w-9 h-9 rounded-xl bg-white border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-all shadow-sm active:scale-95"
+                            onClick={(e) => { e.stopPropagation(); setProjectId(''); }} 
+                            className="w-9 h-9 rounded-xl bg-white border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-all shadow-sm active:scale-95 z-10"
                             title="ยกเลิกการเชื่อมโยง (Unlink)"
                         >
                             <Unlink className="w-4 h-4" />
@@ -358,11 +384,11 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
                                                     <h4 className="font-bold text-gray-800 text-sm truncate group-hover:text-indigo-700 transition-colors max-w-[200px]">{proj.title}</h4>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase border ${STATUS_COLORS[proj.status as Status] || 'bg-gray-100 text-gray-500'}`}>
-                                                            {proj.status}
+                                                            {getStatusLabel(proj.status)}
                                                         </span>
                                                         {proj.contentFormat && (
                                                             <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase border bg-purple-50 text-purple-600 border-purple-100">
-                                                                {proj.contentFormat}
+                                                                {getFormatLabel(proj.contentFormat)}
                                                             </span>
                                                         )}
                                                     </div>

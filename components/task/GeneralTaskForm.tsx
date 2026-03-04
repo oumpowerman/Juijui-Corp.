@@ -18,6 +18,7 @@ interface GeneralTaskFormProps {
     onClose: () => void;
     projects?: Task[]; 
     channels?: Channel[]; // Add optional channels prop
+    onOpenTask?: (task: Task) => void;
 }
 
 const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
@@ -93,6 +94,7 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
         <GeneralTaskInputs 
             {...props}
             onEditScript={handleOpenEditor}
+            onOpenTask={props.onOpenTask}
         />
     );
 };

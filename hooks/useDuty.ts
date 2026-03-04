@@ -43,6 +43,7 @@ export const useDuty = (currentUser?: User) => {
     return {
         // Data
         duties,
+        setDuties,
         configs,
         swapRequests,
         isLoading,

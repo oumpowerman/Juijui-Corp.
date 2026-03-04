@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, RefreshCw, X, Check, SwitchCamera } from 'lucide-react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
@@ -187,7 +188,7 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
         setImagePreview(null);
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh]">
             <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent pt-safe-area">
                 <span className="text-white font-bold text-sm drop-shadow-md">📷 Check-in Camera</span>
@@ -271,7 +272,8 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

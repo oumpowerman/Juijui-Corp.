@@ -1,11 +1,17 @@
 
 import React, { useState } from 'react';
 import { User, WorkStatus } from '../../../types';
-import { WORK_STATUS_CONFIG } from '../../../constants';
-import { Trophy, ChevronDown, Heart, ShoppingBag, BookOpen, Edit2, BatteryCharging, Skull, AlertOctagon, FileBarChart } from 'lucide-react';
 import GameRulesModal from '../../gamification/GameRulesModal';
+import DeathHistoryModal from './DeathHistoryModal';
 import { useGreetings } from '../../../hooks/useGreetings';
-import NotificationBellBtn from '../../NotificationBellBtn';
+
+// Sub-components
+import DeadStateView from './welcome-header/DeadStateView';
+import TieredStateView from './welcome-header/TieredStateView';
+import DivineStateView from './welcome-header/DivineStateView';
+import ProfileSection from './welcome-header/ProfileSection';
+import StatsSection from './welcome-header/StatsSection';
+import ActionButtons from './welcome-header/ActionButtons';
 
 interface WelcomeHeaderProps {
     user: User;
@@ -15,7 +21,9 @@ interface WelcomeHeaderProps {
     onEditProfile: () => void;
     unreadNotifications: number;
     onOpenWorkload: () => void;
-    onOpenReport: () => void; // New Prop
+    onOpenReport: () => void;
+    onOpenRules?: () => void;
+    onOpenDeathHistory?: () => void;
 }
 
 const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({ 
@@ -29,6 +37,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     onOpenReport
 }) => {
     const [isRulesOpen, setIsRulesOpen] = useState(false);
+    const [isDeathHistoryOpen, setIsDeathHistoryOpen] = useState(false);
     const { randomGreeting } = useGreetings();
 
     // Calculate Level Progress
@@ -39,77 +48,110 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     const hpPercent = Math.min((user.hp / (user.maxHp || 100)) * 100, 100);
     const isHpLow = hpPercent < 30;
     const isDead = user.hp <= 0;
+    const isDivine = hpPercent >= 90;
+    const isTiered = hpPercent >= 50;
 
-    // Status Logic
-    const currentStatusConfig = WORK_STATUS_CONFIG[user.workStatus || 'ONLINE'];
+    const renderMainContent = () => {
+        // --- GAME OVER STATE ---
+        if (isDead) {
+            return (
+                <DeadStateView 
+                    user={user} 
+                    onOpenShop={onOpenShop} 
+                    onEditProfile={onEditProfile} 
+                    onOpenDeathHistory={() => setIsDeathHistoryOpen(true)}
+                />
+            );
+        }
 
-    // --- GAME OVER STATE ---
-    if (isDead) {
+        // --- DIVINE STATE (HP 90-100) ---
+        if (isDivine) {
+            return (
+                <DivineStateView 
+                    user={user}
+                    hpPercent={hpPercent}
+                    progressPercent={progressPercent}
+                    nextLevelXP={nextLevelXP}
+                    randomGreeting={randomGreeting}
+                    unreadNotifications={unreadNotifications}
+                    onUpdateStatus={onUpdateStatus}
+                    onOpenShop={onOpenShop}
+                    onOpenNotifications={onOpenNotifications}
+                    onEditProfile={onEditProfile}
+                    onOpenWorkload={onOpenWorkload}
+                    onOpenReport={onOpenReport}
+                    onOpenRules={() => setIsRulesOpen(true)}
+                    onOpenDeathHistory={() => setIsDeathHistoryOpen(true)}
+                />
+            );
+        }
+
+        // --- TIERED STATE (HP 50-89) ---
+        if (isTiered) {
+            return (
+                <TieredStateView 
+                    user={user}
+                    hpPercent={hpPercent}
+                    progressPercent={progressPercent}
+                    nextLevelXP={nextLevelXP}
+                    randomGreeting={randomGreeting}
+                    unreadNotifications={unreadNotifications}
+                    onUpdateStatus={onUpdateStatus}
+                    onOpenShop={onOpenShop}
+                    onOpenNotifications={onOpenNotifications}
+                    onEditProfile={onEditProfile}
+                    onOpenWorkload={onOpenWorkload}
+                    onOpenReport={onOpenReport}
+                    onOpenRules={() => setIsRulesOpen(true)}
+                    onOpenDeathHistory={() => setIsDeathHistoryOpen(true)}
+                />
+            );
+        }
+
+        // --- NORMAL STATE ---
         return (
-            <div className="bg-slate-900 rounded-[2rem] p-6 shadow-xl border-4 border-red-600 relative overflow-hidden text-white animate-in zoom-in-95 duration-500">
-                {/* Scary Background Striping */}
-                <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#ef4444_10px,#ef4444_20px)] opacity-5 pointer-events-none"></div>
-                <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
-                    <Skull className="w-40 h-40 text-red-500" />
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 relative overflow-visible">
+                {/* Background Decor Mask */}
+                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50" />
                 </div>
 
-                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                    <div className="relative shrink-0">
-                        <div className="w-24 h-24 rounded-full bg-gray-800 grayscale overflow-hidden border-4 border-red-600 shadow-[0_0_30px_rgba(220,38,38,0.6)]">
-                            <img src={user.avatarUrl} className="w-full h-full object-cover opacity-60" alt={user.name} />
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <Skull className="w-12 h-12 text-red-500 animate-pulse drop-shadow-lg" />
-                        </div>
-                    </div>
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    {/* 1. User Profile & Status */}
+                    <ProfileSection 
+                        user={user}
+                        randomGreeting={randomGreeting}
+                        isHpLow={isHpLow}
+                        onEditProfile={onEditProfile}
+                        onUpdateStatus={onUpdateStatus}
+                    />
 
-                    <div className="flex-1">
-                        <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                            <AlertOctagon className="w-6 h-6 text-red-500 animate-bounce" />
-                            <h1 className="text-3xl font-black text-red-500 tracking-widest uppercase drop-shadow-sm">
-                                SYSTEM CRITICAL
-                            </h1>
-                        </div>
-                        <p className="text-gray-300 text-sm font-medium mb-6 max-w-xl leading-relaxed">
-                            <span className="text-white font-bold">{user.name}</span>, พลังชีวิตของคุณหมดลงแล้ว (0 HP)! <br/>
-                            ประสิทธิภาพการทำงานลดลง กรุณาติดต่อฝ่ายบุคคล หรือใช้ไอเทมฟื้นฟูโดยด่วน
-                        </p>
+                    {/* 2. Stats & Gamification */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+                        <StatsSection 
+                            user={user}
+                            hpPercent={hpPercent}
+                            progressPercent={progressPercent}
+                            nextLevelXP={nextLevelXP}
+                            isHpLow={isHpLow}
+                            onOpenRules={() => setIsRulesOpen(true)}
+                            onOpenDeathHistory={() => setIsDeathHistoryOpen(true)}
+                        />
 
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                            <button
-                                onClick={onOpenShop}
-                                className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-900/50 transition-all active:scale-95 flex items-center justify-center gap-2 group"
-                            >
-                                <ShoppingBag className="w-5 h-5 group-hover:rotate-12 transition-transform" /> 
-                                ร้านค้า (กู้ชีพ)
-                            </button>
-                            <button 
-                                onClick={onEditProfile} 
-                                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all border border-white/10"
-                            >
-                                แก้ไขข้อมูล
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Minimal Stats for context */}
-                    <div className="bg-black/40 p-4 rounded-2xl border border-red-500/30 backdrop-blur-sm min-w-[150px]">
-                        <div className="text-center">
-                            <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">Current Status</p>
-                            <p className="text-2xl font-black text-white">EXHAUSTED</p>
-                        </div>
-                        <div className="w-full h-px bg-red-500/30 my-3"></div>
-                        <div className="flex justify-between items-center text-xs font-bold text-gray-400">
-                            <span>Wallet</span>
-                            <span className="text-yellow-400">{user.availablePoints} JP</span>
-                        </div>
+                        <ActionButtons 
+                            user={user}
+                            unreadNotifications={unreadNotifications}
+                            onOpenReport={onOpenReport}
+                            onOpenWorkload={onOpenWorkload}
+                            onOpenShop={onOpenShop}
+                            onOpenNotifications={onOpenNotifications}
+                        />
                     </div>
                 </div>
             </div>
         );
-    }
+    };
 
-    // --- NORMAL STATE ---
     return (
         <>
             {/* Custom Animation Styles */}
@@ -130,193 +172,18 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                 }
             `}</style>
 
-            {/* Main Container */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 relative overflow-visible">
-                
-                {/* Background Decor Mask */}
-                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50" />
-                </div>
+            {renderMainContent()}
 
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    
-                    {/* 1. User Profile & Status */}
-                    <div className="flex items-start gap-5">
-                        {/* Avatar */}
-                        <div className="relative group cursor-pointer shrink-0 pt-2" onClick={onEditProfile} title="คลิกเพื่อแก้ไขโปรไฟล์">
-                            <div className={`w-20 h-20 rounded-full p-1 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl ${isHpLow ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-tr from-indigo-500 to-purple-500'}`}>
-                                <img src={user.avatarUrl} className="w-full h-full rounded-full object-cover border-4 border-white" alt={user.name} />
-                            </div>
-                            
-                            {/* VISIBLE Edit Button (Top Right) */}
-                            <div className="absolute -top-1 -right-1 bg-white text-gray-400 hover:text-indigo-600 p-1.5 rounded-full border border-gray-200 shadow-sm z-20 transition-colors mt-2">
-                                <Edit2 className="w-3 h-3" />
-                            </div>
-
-                            {/* Level Badge (Bottom Right) */}
-                            <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md z-10 pointer-events-none">
-                                <div className="bg-yellow-400 text-white text-xs font-black px-2 py-0.5 rounded-full border-2 border-white flex items-center shadow-sm">
-                                    Lv.{user.level}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex flex-col relative">
-                            {/* Greeting Bubble (New Design: 3D Pop & Animated) */}
-                            <div className="relative -ml-2 mb-2 z-20 animate-float-gentle hidden sm:block origin-bottom-left">
-                                <div className="
-                                    bg-gradient-to-br from-white via-indigo-50/50 to-purple-50/50
-                                    border-2 border-indigo-200
-                                    px-5 py-3 
-                                    rounded-2xl rounded-tl-none
-                                    pop-shadow
-                                    flex items-center gap-3
-                                    w-fit min-w-[200px]
-                                    transition-all duration-300
-                                    cursor-default
-                                ">
-                                    <div className="bg-white p-1.5 rounded-full shadow-sm border border-indigo-100">
-                                        <span className="text-xl leading-none">✨</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5 leading-none">TODAY'S VIBE</p>
-                                        <p className="text-sm font-bold text-slate-700 leading-tight">
-                                            "{randomGreeting || 'ขอให้เป็นวันที่ดีนะ!'}"
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                {/* Triangle Tail (Custom CSS Triangle) */}
-                                <div className="absolute top-[0px] -left-[9px] w-0 h-0 
-                                    border-t-[14px] border-t-indigo-200 
-                                    border-l-[14px] border-l-transparent">
-                                </div>
-                                <div className="absolute top-[2px] -left-[5px] w-0 h-0 
-                                    border-t-[11px] border-t-white 
-                                    border-l-[11px] border-l-transparent">
-                                </div>
-                            </div>
-
-                            {/* Name & Mobile Greeting */}
-                            <h1 className="text-2xl font-black text-gray-800 tracking-tight mt-1">
-                                สวัสดี, {user.name.split(' ')[0]}! 👋
-                            </h1>
-                            
-                            {/* Mobile Only Greeting Text */}
-                            <p className="text-xs font-medium text-indigo-500 sm:hidden mt-1 italic">
-                                "{randomGreeting || 'Have a nice day!'}"
-                            </p>
-                            
-                            {/* Status Selector Dropdown */}
-                            <div className="relative group mt-2 inline-block w-fit">
-                                <button className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${currentStatusConfig.color} bg-opacity-10 hover:bg-opacity-20`}>
-                                    {currentStatusConfig.icon} {currentStatusConfig.label} <ChevronDown className="w-3 h-3 opacity-50" />
-                                </button>
-                                
-                                {/* Dropdown Menu with padding bridge fix */}
-                                <div className="absolute top-full left-0 pt-2 w-48 hidden group-hover:block z-50">
-                                    <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-2 animate-in fade-in slide-in-from-top-2">
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold px-2 py-1">เปลี่ยนสถานะ (Set Status)</p>
-                                        {Object.entries(WORK_STATUS_CONFIG).map(([key, config]) => (
-                                            <button
-                                                key={key}
-                                                onClick={() => onUpdateStatus(key as WorkStatus)}
-                                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors ${user.workStatus === key ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
-                                            >
-                                                <span>{(config as any).icon}</span>
-                                                {(config as any).label.split('(')[0]}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 2. Stats & Gamification */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                        {/* Status Bars */}
-                        <div className="flex-1 bg-gray-50 rounded-2xl p-3 border border-gray-100 flex flex-col justify-center min-w-[200px] gap-2 relative group cursor-help" onClick={() => setIsRulesOpen(true)}>
-                             {/* Hint Label */}
-                             <div className="absolute -top-2 right-2 bg-white text-gray-400 text-[9px] font-bold px-2 py-0.5 rounded-full border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none">
-                                คลิกเพื่อดูกติกา
-                             </div>
-
-                            {/* HP Bar */}
-                            <div>
-                                <div className="flex justify-between text-[10px] font-black text-gray-400 mb-1 px-1">
-                                    <span className="flex items-center gap-1 text-red-400"><Heart className="w-3 h-3 fill-red-400" /> HP</span>
-                                    <span className={isHpLow ? 'text-red-500 animate-pulse' : ''}>{user.hp}/{user.maxHp || 100}</span>
-                                </div>
-                                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden border border-gray-200">
-                                    <div 
-                                        className={`h-full rounded-full transition-all duration-1000 relative ${isHpLow ? 'bg-red-500' : 'bg-gradient-to-r from-red-400 to-pink-500'}`}
-                                        style={{ width: `${hpPercent}%` }}
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite]"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* XP Bar */}
-                            <div>
-                                <div className="flex justify-between text-[10px] font-black text-gray-400 mb-1 px-1">
-                                    <span className="flex items-center gap-1 text-yellow-500"><Trophy className="w-3 h-3 fill-yellow-500" /> XP</span>
-                                    <span>{user.xp}/{nextLevelXP}</span>
-                                </div>
-                                <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden border border-gray-200">
-                                    <div 
-                                        className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-1000 relative"
-                                        style={{ width: `${progressPercent}%` }}
-                                    >
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                             {/* Report Button (NEW) */}
-                             <button 
-                                onClick={onOpenReport}
-                                className="p-3 bg-white border border-gray-200 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
-                                title="สรุปผลงาน (My Report)"
-                            >
-                                <FileBarChart className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-
-                             {/* Workload Monitor Button */}
-                             <button 
-                                onClick={onOpenWorkload}
-                                className="p-3 bg-white border border-gray-200 text-teal-500 hover:text-teal-700 hover:bg-teal-50 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center w-[50px] group"
-                                title="เช็คภาระงาน (Workload)"
-                            >
-                                <BatteryCharging className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-
-                            {/* Wallet / Shop Button */}
-                            <button 
-                                onClick={onOpenShop}
-                                className="flex-1 bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-3 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 flex flex-col items-center justify-center min-w-[80px] group"
-                            >
-                                <ShoppingBag className="w-5 h-5 mb-1 group-hover:rotate-12 transition-transform" />
-                                <span className="text-xs font-bold">{user.availablePoints} Pts</span>
-                            </button>
-
-                            {/* Notification Bell */}
-                            <NotificationBellBtn 
-                                onClick={() => onOpenNotifications()}
-                                unreadCount={unreadNotifications}
-                                className="w-[50px] justify-center"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Game Rules Modal */}
+            {/* Modals - Always rendered regardless of which state view is active */}
             <GameRulesModal 
                 isOpen={isRulesOpen} 
                 onClose={() => setIsRulesOpen(false)} 
+            />
+
+            <DeathHistoryModal 
+                isOpen={isDeathHistoryOpen}
+                onClose={() => setIsDeathHistoryOpen(false)}
+                userId={user.id}
             />
         </>
     );

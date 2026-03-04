@@ -5,7 +5,7 @@ import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks } f
 import { ChevronLeft, ChevronRight, Check, X, ClipboardList } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useRewards } from '../hooks/useRewards';
-import MemberManagementModal from './MemberManagementModal'; 
+import MemberManagementModal from './member-management'; 
 import MemberDetailModal from './MemberDetailModal'; 
 import { useTeam } from '../hooks/useTeam';
 import RewardShop from './RewardShop';
@@ -37,6 +37,7 @@ interface TeamViewProps {
   onApproveMember?: (id: string) => void;
   onRemoveMember?: (id: string) => void;
   onToggleStatus?: (id: string, currentStatus: boolean) => void; 
+  onAdjustStats?: (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => void;
   onOpenSettings: () => void;
   onAddTask?: (type?: any) => void; 
   onMoveTask?: (task: Task) => void; 
@@ -53,6 +54,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   onApproveMember, 
   onRemoveMember, 
   onToggleStatus,
+  onAdjustStats,
   onAddTask,
   onMoveTask
 }) => {
@@ -383,6 +385,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                 onToggleStatus={(uid, status) => handleAction('TOGGLE_STATUS', uid, status)}
                 onRemoveMember={(uid) => handleAction('REMOVE', uid)}
                 onUpdateMember={updateMember}
+                onAdjustStats={onAdjustStats}
             />
         )}
 

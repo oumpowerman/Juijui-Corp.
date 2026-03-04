@@ -65,7 +65,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
                             Hall of Fame
                             <motion.div
                                 animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                             >
                                 <Crown className="w-8 h-8 text-yellow-500 fill-yellow-300" />
                             </motion.div>

@@ -24,7 +24,7 @@ export const useTaskManager = (sessionUser: any) => {
   } = useUI();
 
   // 3. Team Hook
-  const { allUsers, fetchTeamMembers, approveMember, removeMember, toggleUserStatus } = useTeam();
+  const { allUsers, fetchTeamMembers, approveMember, removeMember, toggleUserStatus, updateMember, adjustStatsLocally, setAllUsers } = useTeam();
 
   // 4. Channels Hook
   const { channels, fetchChannels, handleAddChannel, handleUpdateChannel, handleDeleteChannel } = useChannels();
@@ -78,11 +78,13 @@ export const useTaskManager = (sessionUser: any) => {
       channels: channels
   });
 
+  const mergedUsers = allUsers.map(u => u.id === currentUserProfile?.id ? { ...u, ...currentUserProfile } : u);
+
   return {
     isLoading: isLoading || (tasks.length === 0 && isFetching), // Show load on initial empty
     isTaskFetching: isFetching, // Expose fetch state
     currentUserProfile,
-    allUsers,
+    allUsers: mergedUsers,
     tasks,
     channels,
     masterOptions,
@@ -137,6 +139,9 @@ export const useTaskManager = (sessionUser: any) => {
     approveMember,
     removeMember,
     toggleUserStatus,
+    updateMember,
+    adjustStatsLocally,
+    setAllUsers,
 
     // Quest Actions
     quests,
@@ -146,6 +151,7 @@ export const useTaskManager = (sessionUser: any) => {
     updateQuest,
 
     // Profile Actions
-    updateProfile
+    updateProfile,
+    fetchProfile
   };
 };

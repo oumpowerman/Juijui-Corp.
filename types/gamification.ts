@@ -78,6 +78,14 @@ export interface GameActionResult {
     coins: number;
     message: string;
     details?: string;
+    isLevelUp?: boolean;
+    isDeath?: boolean;
+    newLevel?: number;
+    newXp?: number;
+    newHp?: number;
+    newCoins?: number;
+    bonusCoins?: number;
+    deathCount?: number;
 }
 
 export interface GameConfig {
@@ -115,6 +123,9 @@ export interface GameConfig {
     };
     ATTENDANCE_RULES: Record<string, { xp: number; hp: number; coins: number }>;
     KPI_REWARDS: Record<string, { xp: number; coins: number }>;
+    LEVELING_SYSTEM?: {
+        level_up_bonus_coins: number;
+    };
 }
 
 // New Interface for Logs

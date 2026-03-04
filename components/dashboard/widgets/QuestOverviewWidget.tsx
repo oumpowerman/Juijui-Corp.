@@ -178,7 +178,7 @@ const QuestOverviewWidget: React.FC<QuestOverviewWidgetProps> = ({ quests, tasks
                         <div className="flex items-center gap-2 mb-2">
                             <motion.div 
                                 animate={{ rotate: [0, 15, -15, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                                 className="bg-indigo-500/20 backdrop-blur-md p-1.5 rounded-lg border border-indigo-500/30"
                             >
                                 <Layers className="w-4 h-4 text-indigo-500" />

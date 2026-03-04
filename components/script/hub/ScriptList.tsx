@@ -52,7 +52,7 @@ const ScriptList: React.FC<ScriptListProps> = ({
     // --- LIST VIEW (Standard Mapping) ---
     if (layoutMode === 'LIST') {
         return (
-            <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm flex flex-col">
+            <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm flex flex-col relative z-10">
                 <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
                     <div className="col-span-6">Script Details</div>
                     <div className="col-span-2">Creator</div>
@@ -184,11 +184,11 @@ const ScriptList: React.FC<ScriptListProps> = ({
 
     // --- GRID VIEW (Standard Map) ---
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative z-10">
             {scripts.map(script => (
                 <div 
                     key={script.id}
-                    className={`bg-white rounded-[2rem] border p-5 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col relative group min-h-[280px] ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100' : 'border-gray-100'}`}
+                    className={`bg-white/80 backdrop-blur-md rounded-[2rem] border p-5 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all flex flex-col relative group min-h-[280px] ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100' : 'border-gray-100'}`}
                 >
                     {/* Header */}
                     <div className="flex justify-between items-start mb-3">

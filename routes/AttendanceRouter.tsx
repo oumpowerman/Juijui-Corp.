@@ -50,7 +50,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     }, []);
 
     return (
-        <AppBackground theme={bgTheme} pattern="grid" className="-m-4 p-8 min-h-screen">
+        <AppBackground theme={bgTheme} pattern="grid" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
             <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
                 <MentorTip variant="blue" messages={[
                     "อย่าลืมกด Check-in เมื่อเริ่มงาน และ Check-out ก่อนกลับบ้านนะ!",

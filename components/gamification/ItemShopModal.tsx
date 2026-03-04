@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { X, ShoppingBag, Backpack, Zap, Heart, Shield, Clock, AlertTriangle, Loader2, History } from 'lucide-react';
-import { ShopItem, UserInventoryItem, User } from '../../types';
+import { X, ShoppingBag, Backpack, Loader2, History } from 'lucide-react';
+import { ShopItem, User } from '../../types';
 import { useGamification } from '../../hooks/useGamification';
 import MemberHistoryModal from './MemberHistoryModal';
 import { useToast } from '../../context/ToastContext';
+import ShopTab from './shop/ShopTab';
+import InventoryTab from './shop/InventoryTab';
 
 interface ItemShopModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentUser: User;
+    onRefreshProfile?: () => Promise<any>;
 }
 
-const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentUser }) => {
+const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentUser, onRefreshProfile }) => {
     const { shopItems, userInventory, buyItem, useItem, isLoading } = useGamification(currentUser);
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'SHOP' | 'INVENTORY'>('SHOP');
@@ -21,27 +24,43 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
 
     const handleBuy = async (item: ShopItem) => {
         const result = await buyItem(item);
-        if (!result.success && result.message) {
+        if (result.success) {
+            // Manual refresh to update wallet points immediately
+            if (onRefreshProfile) {
+                await onRefreshProfile();
+            }
+        } else if (result.message) {
             showToast(result.message, 'error');
         }
         // Success toasts are handled by global listener
     };
 
     const handleUse = async (id: string, item: ShopItem) => {
+        const wasDead = currentUser.hp <= 0;
         const result = await useItem(id, item);
-        if (!result.success && result.message) {
-            // Check if it's an info message (like passive item) or error
+        
+        if (result.success) {
+            // Success toast is handled by useGameEventListener (via game_logs)
+            // but we can add a local one for immediate feedback if we want.
+            // However, the user wants the "profile to come back".
+            
+            // Manual refresh to ensure UI updates immediately before modal closes
+            if (onRefreshProfile) {
+                await onRefreshProfile();
+            }
+            
+            if (wasDead && (item.effectType === 'HEAL_HP' || item.effectType === 'REMOVE_LATE')) {
+                // If they were dead and used a healing item, close modal to show the revived dashboard
+                onClose();
+            } else if (item.effectType === 'HEAL_HP' || item.effectType === 'REMOVE_LATE') {
+                // Even if not dead, healing items usually mean they want to see their stats update
+                setTimeout(() => {
+                    onClose();
+                }, 800);
+            }
+        } else if (result.message) {
             const type = item.effectType === 'SKIP_DUTY' ? 'info' : 'error';
             showToast(result.message, type);
-        }
-    };
-
-    const getEffectIcon = (type: string) => {
-        switch (type) {
-            case 'HEAL_HP': return <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />;
-            case 'SKIP_DUTY': return <Shield className="w-4 h-4 text-blue-500 fill-blue-500" />;
-            case 'REMOVE_LATE': return <Clock className="w-4 h-4 text-orange-500" />;
-            default: return <Zap className="w-4 h-4 text-yellow-500" />;
         }
     };
 
@@ -108,7 +127,7 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+                <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50 relative">
                     {isLoading && (
                         <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
                             <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -116,63 +135,17 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                     )}
 
                     {activeTab === 'SHOP' ? (
-                        <div className="space-y-3">
-                            {shopItems.map(item => (
-                                <div key={item.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:border-indigo-200 transition-colors">
-                                    <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">
-                                        {item.icon}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-gray-800">{item.name}</h4>
-                                        <p className="text-xs text-gray-500 line-clamp-1">{item.description}</p>
-                                        <div className="flex items-center gap-1 mt-1">
-                                            {getEffectIcon(item.effectType)}
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase">{item.effectType.replace('_', ' ')}</span>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleBuy(item)}
-                                        disabled={currentUser.availablePoints < item.price}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold flex flex-col items-center min-w-[80px] transition-all active:scale-95 ${
-                                            currentUser.availablePoints >= item.price 
-                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700' 
-                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                        }`}
-                                    >
-                                        <span>{item.price}</span>
-                                        <span className="text-[9px] opacity-80">POINTS</span>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                        <ShopTab 
+                            items={shopItems} 
+                            currentUser={currentUser} 
+                            onBuy={handleBuy} 
+                        />
                     ) : (
-                        <div className="space-y-3">
-                            {userInventory.length === 0 ? (
-                                <div className="text-center py-12 text-gray-400">
-                                    <Backpack className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                    <p>กระเป๋าว่างเปล่า</p>
-                                    <button onClick={() => setActiveTab('SHOP')} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">ไปซื้อของกันเถอะ</button>
-                                </div>
-                            ) : (
-                                userInventory.map(inv => (
-                                    <div key={inv.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-3xl border border-indigo-100">
-                                            {inv.item?.icon}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-bold text-gray-800">{inv.item?.name}</h4>
-                                            <p className="text-xs text-gray-500">{inv.item?.description}</p>
-                                        </div>
-                                        <button 
-                                            onClick={() => inv.item && handleUse(inv.id, inv.item)}
-                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-md shadow-green-200 transition-all active:scale-95 whitespace-nowrap"
-                                        >
-                                            ใช้ทันที
-                                        </button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
+                        <InventoryTab 
+                            inventory={userInventory} 
+                            onUse={handleUse} 
+                            onGoToShop={() => setActiveTab('SHOP')} 
+                        />
                     )}
                 </div>
             </div>

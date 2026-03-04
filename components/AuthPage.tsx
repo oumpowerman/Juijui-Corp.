@@ -211,7 +211,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+    <div className="h-[100dvh] bg-[#f0f4f8] flex items-center justify-center p-4 font-sans relative overflow-hidden">
       
       {/* Image Cropper Modal */}
       {cropImageSrc && (
@@ -229,7 +229,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
 
       <div className={`
           relative w-full max-w-5xl bg-white/80 backdrop-blur-3xl rounded-[2.5rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col md:flex-row border border-white/60 transition-all duration-700
-          h-auto min-h-[780px] md:h-[780px]
+          h-full max-h-[850px] md:h-[780px]
       `}>
         
         {/* --- ARTWORK SIDE --- */}
@@ -259,7 +259,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* --- FORM SIDE --- */}
-        <div className="w-full md:w-7/12 p-8 md:p-12 flex flex-col relative overflow-y-auto">
+        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto">
             
             <div className="flex justify-center mb-8">
                  <div className="bg-slate-100/80 p-1.5 rounded-2xl flex items-center border border-slate-200/80 shadow-inner w-full max-w-[340px] relative">

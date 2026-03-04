@@ -184,6 +184,17 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     const nextLevelXP = currentUser.level * 1000;
     const progressPercent = Math.min(((currentUser.xp % 1000) / 1000) * 100, 100);
 
+    const getStatusColor = (status: string) => {
+        switch(status) {
+            case 'ONLINE': return 'bg-green-500';
+            case 'BUSY': return 'bg-red-500';
+            case 'SICK': return 'bg-orange-500';
+            case 'VACATION': return 'bg-blue-500';
+            case 'MEETING': return 'bg-purple-500';
+            default: return 'bg-gray-400';
+        }
+    };
+
     return (
         <>
             {/* --- BOTTOM DOCK (Floating) --- */}
@@ -249,7 +260,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                 <div className="flex items-center gap-4 active:opacity-80 transition-opacity" onClick={onEditProfile}>
                                     <div className="relative">
                                         <img src={currentUser.avatarUrl} className="w-14 h-14 rounded-full border-2 border-white/20 shadow-md object-cover" />
-                                        <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-slate-900"></div>
+                                        <div className={`absolute -bottom-1 -right-1 ${getStatusColor(currentUser.workStatus || 'ONLINE')} w-4 h-4 rounded-full border-2 border-slate-900`}></div>
                                     </div>
                                     <div>
                                         <h2 className="text-xl font-black tracking-tight">{currentUser.name}</h2>

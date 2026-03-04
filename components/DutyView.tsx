@@ -247,7 +247,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     };
 
     return (
-        <AppBackground theme={bgTheme} pattern="grid" className="-m-4 p-8 min-h-screen">
+        <AppBackground theme={bgTheme} pattern="grid" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
             <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
                 
                 {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
@@ -296,7 +296,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 </div>
 
                 {/* --- CONTROL DOCK --- */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-indigo-500/5 border border-white/60 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 sticky top-2 z-30">
+                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-indigo-500/5 border border-white/60 p-4 flex flex-col xl:flex-row items-center justify-between gap-4 relative xl:sticky xl:top-2 z-30">
                     
                     {/* Left: Title */}
                     <div className="flex items-center gap-3">

@@ -236,9 +236,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 </div>
 
                 {/* --- BOTTOM ROW (Mobile) / RIGHT SECTION (Desktop): Tools --- */}
-                <div className="flex items-center justify-between w-full lg:w-auto shrink-0 gap-2 border-t lg:border-t-0 border-gray-100 pt-3 lg:pt-0">
-                    
-                    <div className="flex items-center gap-2">
+                <div className="w-full lg:w-auto shrink-0 border-t lg:border-t-0 border-gray-100 pt-3 lg:pt-0 overflow-x-auto lg:overflow-x-visible scrollbar-hide">
+                    <div className="flex items-center justify-start lg:justify-between gap-4 lg:gap-6 min-w-max lg:min-w-0 px-1 py-1">
+                        
+                        <div className="flex items-center gap-2">
                          {/* Notifications Bell */}
                         <NotificationBellBtn 
                             onClick={() => { if (onOpenNotifications) onOpenNotifications(); else onOpenSettings(); }}
@@ -291,27 +292,43 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                 <Eye className="w-4 h-4 group-hover:scale-110 transition-transform" />
                             </button>
                             {isViewMenuOpen && (
-                                <div className="absolute left-0 lg:left-auto lg:right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-right">
-                                    <p className="text-[10px] font-bold text-gray-400 px-2 py-1 mb-1 uppercase tracking-wider">Display Mode</p>
-                                    {[
-                                        { mode: 'MINIMAL', label: 'Minimal (Clean)', icon: AlignLeft },
-                                        { mode: 'DOT', label: 'Dot (Compact)', icon: Circle },
-                                        { mode: 'EMOJI', label: 'Emoji (Iconic)', icon: React.Fragment, emoji: '📝' },
-                                        { mode: 'FULL', label: 'Full Badge', icon: LayoutList },
-                                    ].map((opt: any) => (
-                                        <button 
-                                            key={opt.mode}
-                                            onClick={() => { setTaskDisplayMode(opt.mode); setIsViewMenuOpen(false); }}
-                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${taskDisplayMode === opt.mode ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-                                        >
-                                            <span className="flex items-center gap-2">
-                                                {opt.emoji ? <span className="text-sm">{opt.emoji}</span> : <opt.icon className="w-3.5 h-3.5" />}
-                                                {opt.label}
-                                            </span>
-                                            {taskDisplayMode === opt.mode && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                                        </button>
-                                    ))}
-                                </div>
+                                <>
+                                    {/* Mobile Backdrop */}
+                                    <div 
+                                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[90] lg:hidden" 
+                                        onClick={() => setIsViewMenuOpen(false)}
+                                    />
+                                    
+                                    <div className={`
+                                        fixed inset-x-0 bottom-0 z-[100] p-6 bg-white rounded-t-[2.5rem] shadow-[0_-20px_40px_-12px_rgba(0,0,0,0.2)] border-t border-gray-100 animate-in slide-in-from-bottom duration-300
+                                        lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-48 lg:rounded-xl lg:shadow-xl lg:border lg:p-2 lg:z-50 lg:animate-in lg:fade-in lg:zoom-in-95 lg:origin-top-right
+                                    `}>
+                                        {/* Mobile Handle */}
+                                        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 lg:hidden" />
+                                        
+                                        <p className="text-[10px] font-bold text-gray-400 px-2 py-1 mb-2 lg:mb-1 uppercase tracking-wider">Display Mode</p>
+                                        <div className="space-y-1 lg:space-y-0">
+                                            {[
+                                                { mode: 'MINIMAL', label: 'Minimal (Clean)', icon: AlignLeft },
+                                                { mode: 'DOT', label: 'Dot (Compact)', icon: Circle },
+                                                { mode: 'EMOJI', label: 'Emoji (Iconic)', icon: React.Fragment, emoji: '📝' },
+                                                { mode: 'FULL', label: 'Full Badge', icon: LayoutList },
+                                            ].map((opt: any) => (
+                                                <button 
+                                                    key={opt.mode}
+                                                    onClick={() => { setTaskDisplayMode(opt.mode); setIsViewMenuOpen(false); }}
+                                                    className={`w-full flex items-center justify-between px-4 py-3 lg:px-3 lg:py-2 rounded-xl lg:rounded-lg text-sm lg:text-xs font-bold transition-all ${taskDisplayMode === opt.mode ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                                >
+                                                    <span className="flex items-center gap-3 lg:gap-2">
+                                                        {opt.emoji ? <span className="text-lg lg:text-sm">{opt.emoji}</span> : <opt.icon className="w-4 h-4 lg:w-3.5 lg:h-3.5" />}
+                                                        {opt.label}
+                                                    </span>
+                                                    {taskDisplayMode === opt.mode && <Check className="w-4 h-4 lg:w-3.5 lg:h-3.5 text-indigo-600" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
                             )}
                         </div>
 
@@ -401,10 +418,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                             </div>
                         </button>
                     </div>
-
                 </div>
             </div>
         </div>
+    </div>
     );
 };
 

@@ -37,10 +37,11 @@ interface GeneralTaskInputsProps {
     channels?: Channel[]; // Add optional channels prop
     // New Props for Script Editor interaction
     onEditScript: (scriptId: string) => void;
+    onOpenTask?: (task: Task) => void;
 }
 
 const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({ 
-    initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose, projects = [], channels = [], onEditScript
+    initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose, projects = [], channels = [], onEditScript, onOpenTask
 }) => {
     const { showToast } = useToast();
     const { showConfirm, showAlert } = useGlobalDialog();
@@ -423,6 +424,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             projects={projects}
                             channels={channels}
                             masterOptions={masterOptions}
+                            onOpenTask={onOpenTask}
                         />
 
                         <GTCoreDetails 

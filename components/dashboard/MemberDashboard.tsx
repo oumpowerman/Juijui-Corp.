@@ -56,6 +56,7 @@ interface MemberDashboardProps {
     unreadCount?: number; 
     onEditProfile: () => void;
     onRefreshMasterData?: () => Promise<void>;
+    onRefreshProfile?: () => Promise<any>;
     onNavigate: (view: ViewMode) => void;
     onUpdateTask?: (task: Task) => void; 
 }
@@ -71,6 +72,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     onOpenNotifications,
     unreadCount = 0,
     onEditProfile,
+    onRefreshProfile,
     onNavigate
 }) => {
     // Local State
@@ -88,7 +90,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
     const { handleSaveTask } = useTasks(); 
-    const { duties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
+    const { duties, setDuties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 
     // --- 🧩 Draggable Widgets Logic ---
     type WidgetId = 'attendance' | 'duty' | 'quest' | 'goal' | 'hall_of_fame' | 'focus_zone' | 'work_board';
@@ -165,6 +167,12 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
     const handleAcknowledgeNegligence = async () => {
         if (!negligenceDuty) return;
+        
+        // Optimistic Update
+        setDuties(prev => prev.map(d => 
+            d.id === negligenceDuty.id ? { ...d, clearedBySystem: true } : d
+        ));
+
         try {
             // Update DB to clear from screen
             const { error } = await supabase.from('duties')
@@ -177,6 +185,10 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
             setNegligenceDuty(null);
         } catch (err) {
             console.error(err);
+            // Revert on error
+            setDuties(prev => prev.map(d => 
+                d.id === negligenceDuty.id ? { ...d, clearedBySystem: false } : d
+            ));
             showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
         }
     };
@@ -312,6 +324,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 isOpen={isShopOpen}
                 onClose={() => setIsShopOpen(false)}
                 currentUser={localUser}
+                onRefreshProfile={onRefreshProfile}
             />
 
             <WorkloadModal 

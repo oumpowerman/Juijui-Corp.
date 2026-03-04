@@ -200,7 +200,7 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
                                 rotate: [0, 15, -15, 0],
                                 scale: [1, 1.2, 1]
                             }}
-                            transition={{ repeat: Infinity, duration: 3 }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                         >
                             <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400 drop-shadow-sm" />
                         </motion.div>

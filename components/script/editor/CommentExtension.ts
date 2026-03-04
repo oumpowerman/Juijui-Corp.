@@ -47,12 +47,12 @@ export const CommentMark = Mark.create<CommentOptions>({
   addCommands() {
     return {
       setComment:
-        (attributes) =>
+        (attributes: any) =>
         ({ commands }: any) => {
           return commands.setMark(this.name, attributes);
         },
       unsetComment:
-        (attributes) =>
+        (attributes: any) =>
         ({ commands }: any) => {
           return commands.unsetMark(this.name, { id: attributes.id });
         },

@@ -22,6 +22,7 @@ export interface User {
     availablePoints: number;
     hp: number;
     maxHp: number;
+    deathCount: number;
     workStatus: WorkStatus;
     leaveStartDate?: Date | null;
     leaveEndDate?: Date | null;

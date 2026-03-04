@@ -11,7 +11,8 @@ import CreateScriptModal from './hub/CreateScriptModal';
 import ScriptEditor from './ScriptEditor';
 import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
-import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft } from 'lucide-react';
+import AppBackground from '../common/AppBackground';
+import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
 import ContentForm from '../task/ContentForm'; // IMPORT
 import { createPortal } from 'react-dom'; // IMPORT
@@ -33,8 +34,8 @@ const StatCard: React.FC<StatCardProps> = ({ label, count, icon: Icon, color, is
         className={`
             relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between h-32 group text-left
             ${isActive 
-                ? `bg-white border-${color}-400 shadow-xl shadow-${color}-100 ring-1 ring-${color}-200 scale-[1.02]` 
-                : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'
+                ? `bg-white/90 backdrop-blur-md border-${color}-400 shadow-xl shadow-${color}-100 ring-1 ring-${color}-200 scale-[1.02]` 
+                : 'bg-white/60 backdrop-blur-sm border-gray-100 hover:border-gray-300 hover:shadow-md'
             }
         `}
     >
@@ -336,7 +337,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] pb-24 relative">
+        <AppBackground theme="script" pattern="dots" className="pb-24">
             {isFetchingDetail && (
                 <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
                     <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
@@ -443,7 +444,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 
                     {/* Pagination Controls */}
                     {totalCount > 0 && (
-                        <div className="flex items-center justify-between pt-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="flex items-center justify-between pt-4 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-gray-100 shadow-sm">
                             <div className="text-xs text-gray-500 font-medium">
                                 แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
                             </div>
@@ -487,12 +488,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             >
                 <ScriptGuide />
             </InfoModal>
-        </div>
+        </AppBackground>
     );
 };
 
 export default ScriptHubView;
-// Simple X Icon for local use if not imported
-const X = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-);

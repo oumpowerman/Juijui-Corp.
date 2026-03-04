@@ -122,7 +122,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
     );
 
     return (
-        <div className="flex flex-col gap-4 relative z-30">
+        <div className="flex flex-col gap-4">
             
             {/* Filter Section (Chips) - Moved to TOP */}
             <div className="flex flex-col gap-3 pt-1 px-1">
@@ -247,7 +247,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
                                 {isCreatorPopoverOpen && (
                                     <div 
                                         id="creator-popover-portal"
-                                        className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 origin-top-left"
+                                        className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-[60] overflow-hidden animate-in fade-in zoom-in-95 origin-top-left"
                                     >
                                         {/* Search Header */}
                                         <div className="p-3 border-b border-gray-50 bg-gray-50/50">
@@ -315,7 +315,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
             </div>
 
             {/* Top Bar: Search & Layout Toggle - Moved to BOTTOM */}
-            <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-2 rounded-2xl border border-gray-100 shadow-sm sticky top-2 z-20">
+            <div className="flex flex-col md:flex-row gap-4 items-center bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-gray-100 shadow-sm sticky top-2 z-[50]">
                 <div className="flex-1 w-full relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 

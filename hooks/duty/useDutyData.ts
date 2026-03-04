@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Duty, DutyConfig, DutySwap, AnnualHoliday } from '../../types';
-import { format } from 'date-fns';
+import { format, subMonths, addMonths } from 'date-fns';
 
 export const useDutyData = () => {
     const [duties, setDuties] = useState<Duty[]>([]);
@@ -29,9 +29,15 @@ export const useDutyData = () => {
 
     const fetchDuties = useCallback(async () => {
         try {
+            // Fetch only relevant duties (2 months ago to 6 months ahead) to prevent scalability issues
+            const startDate = format(subMonths(new Date(), 2), 'yyyy-MM-dd');
+            const endDate = format(addMonths(new Date(), 6), 'yyyy-MM-dd');
+
             const { data, error } = await supabase
                 .from('duties')
                 .select('*')
+                .gte('date', startDate)
+                .lte('date', endDate)
                 .order('date', { ascending: true });
 
             if (error) throw error;

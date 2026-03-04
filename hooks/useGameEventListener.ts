@@ -19,6 +19,22 @@ export const useGameEventListener = (currentUser: User | null) => {
     const bufferRef = useRef<Map<string, any[]>>(new Map());
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const nameCacheRef = useRef<Map<string, string>>(new Map());
+    const prevHpRef = useRef<number | null>(null);
+
+    // --- HP DEATH TRACKER ---
+    useEffect(() => {
+        if (!currentUser) return;
+        
+        const currentHp = currentUser.hp;
+        const prevHp = prevHpRef.current;
+        
+        // Detect transition to 0 HP
+        if (prevHp !== null && prevHp > 0 && currentHp === 0) {
+            showToast('💀 HP ของคุณหมดลงแล้ว! ระบบได้บันทึกประวัติความผิดพลาดไว้แล้ว', 'penalty');
+        }
+        
+        prevHpRef.current = currentHp;
+    }, [currentUser?.hp, currentUser?.id]);
 
     // 1. Request Notification Permission (Browser)
     useEffect(() => {

@@ -14,6 +14,8 @@ import InfoModal from '../ui/InfoModal';
 import FeedbackGuide from './FeedbackGuide';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import AppBackground, { BackgroundTheme } from '../common/AppBackground';
+
 interface FeedbackViewProps {
     currentUser: User;
 }
@@ -72,13 +74,19 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
         setCurrentPage(1);
     }, [activeFilter, searchQuery, sortBy, tab]);
 
+    const bgTheme = useMemo(() => {
+        const themes: BackgroundTheme[] = ['pastel-pink', 'pastel-rose', 'pastel-purple'];
+        return themes[Math.floor(Math.random() * themes.length)];
+    }, []);
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-            <MentorTip variant="pink" messages={[
-                "พื้นที่ปลอดภัยสำหรับทุกคน! อยากเสนอไอเดียหรือชมเพื่อน จัดไป!",
-                "เลือก 'Anonymous' ได้นะ ถ้ายอมรับความจริงกันได้ ทีมจะแกร่งขึ้นแน่นอน",
-                "Admin จะคอยดูอยู่ห่างๆ เพื่อความเรียบร้อยครับ"
-            ]} />
+        <AppBackground theme={bgTheme} pattern="grid" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
+            <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+                <MentorTip variant="pink" messages={[
+                    "พื้นที่ปลอดภัยสำหรับทุกคน! อยากเสนอไอเดียหรือชมเพื่อน จัดไป!",
+                    "เลือก 'Anonymous' ได้นะ ถ้ายอมรับความจริงกันได้ ทีมจะแกร่งขึ้นแน่นอน",
+                    "Admin จะคอยดูอยู่ห่างๆ เพื่อความเรียบร้อยครับ"
+                ]} />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div className="flex items-center gap-3">
@@ -300,6 +308,7 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                 <FeedbackGuide />
             </InfoModal>
         </div>
+        </AppBackground>
     );
 };
 

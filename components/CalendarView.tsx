@@ -165,7 +165,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     <AppBackground 
       theme={bgTheme} 
       pattern="dots" 
-      className={isExpanded ? "fixed inset-0 z-50" : "-m-4 p-4 md:p-8 min-h-screen"}
+      className={isExpanded ? "fixed inset-0 z-50" : "-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen"}
     >
       <div className={containerClasses}>
         {isExpanded && (

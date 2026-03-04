@@ -11,6 +11,7 @@ import CreateScriptModal from './hub/CreateScriptModal';
 import ScriptEditor from './ScriptEditor';
 import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
+import ScriptCategoryFilter from './hub/ScriptCategoryFilter';
 import AppBackground from '../common/AppBackground';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
@@ -57,28 +58,6 @@ const StatCard: React.FC<StatCardProps> = ({ label, count, icon: Icon, color, is
     </button>
 );
 
-interface CategoryPillProps {
-    cat: MasterOption | { key: string, label: string };
-    count?: number;
-    isActive: boolean;
-    onClick: () => void;
-}
-
-const CategoryPill: React.FC<CategoryPillProps> = ({ cat, count, isActive, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`
-            flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold whitespace-nowrap transition-all
-            ${isActive 
-                ? 'bg-gray-800 text-white border-gray-800 shadow-md' 
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-            }
-        `}
-    >
-        <span>{cat.label}</span>
-        {/* Count disabled for categorized pill in server-side mode to simplify initial query */}
-    </button>
-);
 
 // --- Main Component ---
 
@@ -392,26 +371,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 </div>
 
                 {/* 3. Category Deck */}
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-500 text-xs font-bold uppercase tracking-wider px-1">
-                        <Layers className="w-4 h-4" /> เลือกดูตามประเภท (Categories)
-                    </div>
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                        <CategoryPill 
-                            cat={{ key: 'ALL', label: 'ทั้งหมด (All)' }} 
-                            isActive={filterCategory === 'ALL'} 
-                            onClick={() => setFilterCategory('ALL')} 
-                        />
-                        {scriptCategories.map(cat => (
-                            <CategoryPill 
-                                key={cat.key} 
-                                cat={cat} 
-                                isActive={filterCategory === cat.key} 
-                                onClick={() => setFilterCategory(cat.key)} 
-                            />
-                        ))}
-                    </div>
-                </div>
+                <ScriptCategoryFilter
+                    categories={scriptCategories}
+                    value={filterCategory}
+                    onChange={setFilterCategory}
+                />
 
                 {/* 4. Filter Bar & List */}
                 <div className="space-y-4">

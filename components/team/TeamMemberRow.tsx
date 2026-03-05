@@ -21,7 +21,7 @@ interface TeamMemberRowProps {
     onSelectUser: (user: User) => void;
     isTaskOnDay: (task: Task, day: Date) => boolean;
     // DnD Props
-    onDragStart: (e: React.DragEvent, taskId: string) => void;
+    onDragStart: (e: React.DragEvent, taskId: string, clickDate?: Date) => void;
     onDragOver: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent, userId: string, date: Date) => void;
     // Visual Props
@@ -362,7 +362,12 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                             const showContent = isStartOfTask || isFirstCol;
 
                             return (
-                                <DraggableTask key={`${task.id}-${dayIndex}`} taskId={task.id} onDragStart={onDragStart} onDragEnd={() => {}}>
+                                <DraggableTask
+                                    key={`${task.id}-${dayIndex}`}
+                                    taskId={task.id}
+                                    onDragStart={(e, taskId) => onDragStart(e, taskId, day)}
+                                    onDragEnd={() => {}}
+                                >
                                     <div 
                                         onClick={() => onEditTask(task)} 
                                         className={`

@@ -5,22 +5,27 @@ import { Task } from '../types';
 interface UseTeamDragDropProps {
     tasks: Task[];
     onTaskMove: (taskId: string, newAssigneeId: string, newDate: Date) => void;
+    onDragStartExtra?: (taskId: string, clickDate: Date) => void;
 }
 
-export const useTeamDragDrop = ({ tasks, onTaskMove }: UseTeamDragDropProps) => {
+export const useTeamDragDrop = ({ tasks, onTaskMove, onDragStartExtra }: UseTeamDragDropProps) => {
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
     // 1. Start Dragging
-    const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
+    const handleDragStart = useCallback((e: React.DragEvent, taskId: string, clickDate?: Date) => {
         setDraggedTaskId(taskId);
         setIsDragging(true);
         // Set data for transfer
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', taskId);
         
+        if (onDragStartExtra && clickDate) {
+            onDragStartExtra(taskId, clickDate);
+        }
+
         // Optional: Set ghost image opacity or style here if needed
-    }, []);
+    }, [onDragStartExtra]);
 
     // 2. Drag End (Cleanup)
     const handleDragEnd = useCallback(() => {

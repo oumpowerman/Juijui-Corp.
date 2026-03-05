@@ -26,7 +26,7 @@ interface StockTableRowProps {
     getCategoryLabel: (key?: string) => string;
 }
 
-const StockTableRow = React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
+const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
     task,
     channel,
     statusInfo,
@@ -204,6 +204,6 @@ const StockTableRow = React.forwardRef<HTMLTableRowElement, StockTableRowProps>(
             </td>
         </motion.tr>
     );
-});
+}));
 
 export default StockTableRow;

@@ -20,7 +20,7 @@ interface ScriptListProps {
     onDone: (id: string) => void;
 }
 
-const ScriptList: React.FC<ScriptListProps> = ({ 
+const ScriptList: React.FC<ScriptListProps> = React.memo(({ 
     scripts, layoutMode, viewTab, isLoading, channels, masterOptions,
     onOpen, onToggleQueue, onDelete, onRestore, onDone 
 }) => {
@@ -31,7 +31,7 @@ const ScriptList: React.FC<ScriptListProps> = ({
     const premiumStyles = (
         <style>{`
             .premium-3d-card {
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+                background: linear-gradient(135deg, rgba(236, 239, 255, 0.9) 0%, rgba(255, 245, 255, 0.8) 100%);
                 backdrop-filter: blur(10px);
                 border: 1px solid rgba(255, 255, 255, 0.6);
                 box-shadow: 
@@ -120,7 +120,7 @@ const ScriptList: React.FC<ScriptListProps> = ({
                         key={script.id}
                         onClick={() => onOpen(script)}
                         className={`
-                            grid grid-cols-12 items-start gap-4 p-4 border-b border-gray-100 hover:bg-indigo-50/30 transition-colors cursor-pointer group last:border-b-0
+                            grid grid-cols-12 items-start gap-4 p-4 border-b border-indigo-100 hover:bg-indigo-50/30 transition-colors cursor-pointer group last:border-b-0
                             ${viewTab === 'HISTORY' ? 'opacity-70 grayscale hover:grayscale-0 hover:opacity-100' : ''}
                         `}
                     >
@@ -359,6 +359,6 @@ const ScriptList: React.FC<ScriptListProps> = ({
             ))}
         </div>
     );
-};
+});
 
 export default ScriptList;

@@ -25,9 +25,9 @@ interface QuestStatCardProps {
     index: number;
 }
 
-export const QuestStatCard: React.FC<QuestStatCardProps> = ({ 
+export const QuestStatCard = React.forwardRef<HTMLDivElement, QuestStatCardProps>(({ 
     quest, groupTitle, subQuests, tasks, calculateStatus, progress, isCompleted, isFailed, qEnd, onRevive, index 
-}) => {
+}, ref) => {
     const [isExpanded, setIsExpanded] = useState(false);
     
     // If it's a group, calculate aggregate stats
@@ -52,6 +52,7 @@ export const QuestStatCard: React.FC<QuestStatCardProps> = ({
 
     return (
         <motion.div
+            ref={ref}
             layout
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -200,7 +201,7 @@ export const QuestStatCard: React.FC<QuestStatCardProps> = ({
             </AnimatePresence>
         </motion.div>
     );
-};
+});
 
 // --- Helper Components for Hierarchy ---
 

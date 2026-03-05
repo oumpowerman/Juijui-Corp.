@@ -3,7 +3,7 @@ import React from 'react';
 
 interface DraggableTaskProps {
     taskId: string;
-    onDragStart: (e: React.DragEvent, taskId: string) => void;
+    onDragStart: (e: React.DragEvent, taskId: string, clickDate?: Date) => void;
     onDragEnd: () => void;
     children: React.ReactNode;
     className?: string;

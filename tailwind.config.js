@@ -6,6 +6,8 @@ export default {
         fire: 'fire 0.8s infinite',
         wiggle: 'wiggle 0.4s infinite',
         'pulse-fast': 'pulse 0.6s infinite',
+        breathe: 'breathe 1.6s ease-in-out infinite',
+        pastel: 'pastelGlow 6s ease-in-out infinite',
       },
       keyframes: {
         fire: {
@@ -15,6 +17,22 @@ export default {
         wiggle: {
           '0%, 100%': { transform: 'rotate(-3deg)' },
           '50%': { transform: 'rotate(3deg)' },
+        },
+        breathe: {
+          '0%,100%': { 
+          transform: 'translateY(0px) scale(1)',
+          },
+          '50%': { 
+          transform: 'translateY(-8px) scale(1.035)',
+          },
+        },
+        pastelGlow: {
+          '0%,100%': {
+            background: 'linear-gradient(135deg,#fef3c7,#fde68a,#fbcfe8)',
+          },
+          '50%': {
+            background: 'linear-gradient(135deg,#e0f2fe,#bae6fd,#ddd6fe)',
+          },
         },
       },
     },

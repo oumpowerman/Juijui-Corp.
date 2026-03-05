@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Task, Channel, User, MasterOption } from '../types';
-import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks } from 'date-fns';
+import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks, differenceInCalendarDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Check, X, ClipboardList } from 'lucide-react';
 import MentorTip from './MentorTip';
 import { useRewards } from '../hooks/useRewards';
@@ -134,21 +134,45 @@ const TeamView: React.FC<TeamViewProps> = ({
   }, []);
 
   // --- DnD Hook Initialization ---
+  const [dragOffsetDays, setDragOffsetDays] = useState(0);
   const { handleDragStart, handleDragOver, handleDrop } = useTeamDragDrop({
-      tasks,
-      onTaskMove: (taskId, newAssigneeId, newDate) => {
-          const task = tasks.find(t => t.id === taskId);
-          if (task && onMoveTask) {
-              const updatedTask = {
-                  ...task,
-                  assigneeIds: [newAssigneeId],
-                  startDate: newDate,
-                  endDate: newDate,
-                  isUnscheduled: false
-              };
-              onMoveTask(updatedTask);
-          }
-      }
+    tasks,
+    onDragStartExtra: (taskId, clickDate) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const start = new Date(task.startDate);
+    const diffDays = differenceInCalendarDays(clickDate, start);
+
+    setDragOffsetDays(diffDays);
+    },
+    onTaskMove: (taskId, newAssigneeId, newDate) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (task && onMoveTask) {
+
+            const oldStart = new Date(task.startDate);
+            const oldEnd = new Date(task.endDate);
+
+            const correctedStart = new Date(newDate);
+            correctedStart.setDate(correctedStart.getDate() - dragOffsetDays);
+
+            const duration =
+                oldEnd.getTime() - oldStart.getTime();
+
+            const newStart = correctedStart;
+            const newEnd = new Date(newStart.getTime() + duration);
+
+            const updatedTask = {
+                ...task,
+                assigneeIds: [newAssigneeId],
+                startDate: newStart,
+                endDate: newEnd,
+                isUnscheduled: false
+            };
+
+            onMoveTask(updatedTask);
+        }
+    }
   });
 
   // --- Handlers ---
@@ -264,7 +288,7 @@ const TeamView: React.FC<TeamViewProps> = ({
         )}
 
         {/* --- CONTROLS ROW: Date & Toolbar --- */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[100] bg-white/60 backdrop-blur-xl py-4 -mx-4 px-4 border-b border-white/20 shadow-sm">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[100] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
           
           {/* Date Navigator */}
           <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0">

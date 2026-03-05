@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import PodiumSection from './leaderboard/PodiumSection';
 import RankingList from './leaderboard/RankingList';
 import UserStatsFooter from './leaderboard/UserStatsFooter';
+import PastelStageBackground from './leaderboard/PastelStageBackground';
 
 interface LeaderboardViewProps {
     users: User[];
@@ -20,30 +21,9 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
     const { topThree, restList, myStats, timeRange, setTimeRange } = useLeaderboard(users, currentUser);
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-32 relative min-h-screen">
-             {/* Animated Background Blobs */}
-             <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-                <motion.div 
-                    animate={{ 
-                        x: [0, 100, 0],
-                        y: [0, -50, 0],
-                        scale: [1, 1.2, 1]
-                    }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-200/20 rounded-full blur-[100px]"
-                />
-                <motion.div 
-                    animate={{ 
-                        x: [0, -100, 0],
-                        y: [0, 100, 0],
-                        scale: [1, 1.5, 1]
-                    }}
-                    transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                    className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/20 rounded-full blur-[100px]"
-                />
-            </div>
-
-             <MentorTip variant="orange" messages={[
+        <PastelStageBackground>
+            <div className="space-y-8 animate-in fade-in duration-500 pb-32 relative">
+                 <MentorTip variant="orange" messages={[
                 "🔥 สัปดาห์นี้ใครจะเป็น MVP? ดูคะแนนได้ที่นี่เลย!",
                 "XP ได้จากการทำงานเสร็จตรงเวลา และการช่วยเพื่อนๆ",
                 "อย่าลืมนะ! ส่งงานช้า หรือโดดเวร คะแนนลดนะจ๊ะ 📉"
@@ -114,6 +94,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
             {/* 3. STICKY FOOTER (MY STATS) */}
             <UserStatsFooter myStats={myStats} />
         </div>
+        </PastelStageBackground>
     );
 };
 

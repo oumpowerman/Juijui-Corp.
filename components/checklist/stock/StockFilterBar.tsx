@@ -39,7 +39,7 @@ interface StockFilterBarProps {
     masterOptions: MasterOption[];
 }
 
-const StockFilterBar: React.FC<StockFilterBarProps> = ({
+const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
     searchQuery, setSearchQuery,
     filterChannel, setFilterChannel,
     filterFormat, setFilterFormat,
@@ -55,16 +55,48 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
     clearFilters,
     channels, masterOptions
 }) => {
+    // Local state for debouncing search input
+    const [localSearch, setLocalSearch] = useState(searchQuery);
+    
+    // Sync local state if parent prop changes externally (e.g. clear filters)
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
+
+    // Debounce effect
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                setSearchQuery(localSearch);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [localSearch, setSearchQuery, searchQuery]);
+
     // Calendar State
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const [viewMonth, setViewMonth] = useState(new Date());
     const datePickerRef = useRef<HTMLDivElement>(null);
 
-    // Derive Options
-    const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
-    const pillarOptions = masterOptions.filter(o => o.type === 'PILLAR' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
-    const categoryOptions = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
-    const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
+    // Derive Options with useMemo for Performance
+    const formatOptions = useMemo(() => 
+        masterOptions.filter(o => o.type === 'FORMAT' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder),
+    [masterOptions]);
+
+    const pillarOptions = useMemo(() => 
+        masterOptions.filter(o => o.type === 'PILLAR' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder),
+    [masterOptions]);
+
+    const categoryOptions = useMemo(() => 
+        masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder),
+    [masterOptions]);
+
+    const statusOptions = useMemo(() => 
+        masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder),
+    [masterOptions]);
 
     const toggleStatusFilter = (status: string) => {
         setFilterStatuses(prev => 
@@ -130,12 +162,12 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
                     <input 
                         type="text" 
                         placeholder="ค้นหาชื่อ, หมายเหตุ..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={localSearch}
+                        onChange={(e) => setLocalSearch(e.target.value)}
                         className="w-full h-full pl-11 pr-10 py-3 bg-gray-50/50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 focus:bg-white outline-none text-sm font-bold text-gray-700 transition-all placeholder:font-normal placeholder:text-gray-400 min-h-[50px]"
                     />
-                    {searchQuery && (
-                        <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                    {localSearch && (
+                        <button onClick={() => setLocalSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
                             <X className="w-4 h-4" />
                         </button>
                     )}
@@ -335,6 +367,6 @@ const StockFilterBar: React.FC<StockFilterBarProps> = ({
             </motion.div>
         </motion.div>
     );
-};
+});
 
 export default StockFilterBar;

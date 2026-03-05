@@ -117,10 +117,13 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
             <div className="tiered-border-3d tiered-glass rounded-[2rem] p-4 sm:p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700">
                 
                 {/* Background Decor - Dynamic Rays */}
+                
                 <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
                     <div 
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] animate-[rays-tiered_30s_linear_infinite]" 
-                        style={{ background: `radial-gradient(circle, ${dynamicStyles.rayColor} 0%, transparent 60%)` }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250%] h-[250%] animate-[rays-tiered_40s_linear_infinite]" 
+                        style={{ 
+                            background: `radial-gradient(circle at center, ${dynamicStyles.rayColor} 0%, ${dynamicStyles.rayColor.replace('0.12', '0.05')} 40%, transparent 70%)` 
+                        }}
                     />
                 </div>
 

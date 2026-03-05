@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Trophy, Heart, Coins, Gavel, 
@@ -293,6 +294,8 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
+    const portalRoot = document.getElementById('portal-root') || document.body;
+
     const TABS = [
         { id: 'XP', label: 'เลเวล & XP', icon: Trophy, color: 'amber', gradient: 'from-amber-400 via-orange-400 to-orange-500', shadow: 'shadow-orange-200/50' },
         { id: 'HP', label: 'พลังชีวิต (HP)', icon: Heart, color: 'rose', gradient: 'from-rose-400 via-pink-400 to-pink-500', shadow: 'shadow-pink-200/50' },
@@ -314,8 +317,8 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-8">
+    return createPortal(
+        <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 md:p-8">
             <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -436,7 +439,8 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                     <div className="absolute bottom-0 left-0 right-0 h-16 md:h-32 bg-gradient-to-t from-white/90 to-transparent pointer-events-none" />
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        portalRoot
     );
 };
 

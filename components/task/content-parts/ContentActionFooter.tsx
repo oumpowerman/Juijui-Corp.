@@ -30,10 +30,10 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
         <div className="flex flex-col gap-4 pt-6 mt-6 border-t border-gray-100 bg-white relative z-20 pb-safe-area">
             
             {/* Action Row */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
                 
                 {/* Left: Danger Zone */}
-                <div>
+                <div className="shrink-0">
                     {showDelete && onDelete && (
                         <button 
                             type="button" 
@@ -42,13 +42,13 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                             title="ลบงานนี้"
                         >
                             <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="hidden sm:inline-block ml-2 text-xs font-bold">ลบ</span>
+                            <span className="hidden md:inline-block ml-2 text-xs font-bold">ลบ</span>
                         </button>
                     )}
                 </div>
 
                 {/* Right: Primary Actions */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end">
                     
                     {/* Send to QC Button */}
                     {showSendQC && onSendQC && (
@@ -58,19 +58,20 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                                 onClick={onSendQC}
                                 disabled={isSendingQC || !canSendQC}
                                 className={`
-                                    relative overflow-hidden flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold transition-all shadow-sm active:scale-95 border-2
+                                    relative overflow-hidden flex items-center justify-center gap-2 p-3 sm:px-5 sm:py-3 rounded-2xl text-sm font-bold transition-all shadow-sm active:scale-95 border-2
                                     ${!canSendQC 
                                         ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed' 
                                         : 'bg-white text-indigo-600 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-indigo-100'
                                     }
                                 `}
+                                title="ส่งตรวจ (QC)"
                             >
                                 {isSendingQC ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                 ) : (
                                     <Send className={`w-5 h-5 ${canSendQC ? 'group-hover/qc:-translate-y-0.5 group-hover/qc:translate-x-0.5 transition-transform' : ''}`} />
                                 )}
-                                <span className="whitespace-nowrap">ส่งตรวจ (QC)</span>
+                                <span className="hidden sm:inline-block whitespace-nowrap">ส่งตรวจ (QC)</span>
                             </button>
                             
                             {/* Disabled Tooltip */}
@@ -83,15 +84,17 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                     )}
 
                     {/* Divider */}
-                    <div className="w-px h-8 bg-gray-200 hidden sm:block"></div>
+                    <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
 
                     {/* Cancel Button */}
                     <button 
                         type="button" 
                         onClick={onCancel} 
-                        className="px-5 py-3 text-sm font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-2xl transition-colors active:scale-95"
+                        className="p-3 sm:px-5 sm:py-3 text-sm font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-2xl transition-colors active:scale-95 flex items-center justify-center"
+                        title="ยกเลิก"
                     >
-                        ยกเลิก
+                        <X className="w-5 h-5 sm:hidden" />
+                        <span className="hidden sm:inline-block">ยกเลิก</span>
                     </button>
                     
                     {/* Save Button (Primary) */}
@@ -99,7 +102,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                         type="submit" 
                         disabled={isSaving}
                         className={`
-                            group relative flex items-center gap-2 px-8 py-3 text-white font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 overflow-hidden
+                            group relative flex items-center justify-center gap-2 px-5 py-3 sm:px-8 sm:py-3 text-white font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 overflow-hidden flex-1 sm:flex-none
                             ${mode === 'CREATE' 
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200' 
                                 : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200'

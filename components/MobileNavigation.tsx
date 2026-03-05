@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
     LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
@@ -198,7 +199,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     return (
         <>
             {/* --- BOTTOM DOCK (Floating) --- */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 p-3 pb-safe-area lg:hidden pointer-events-none">
+            <div className="fixed bottom-0 left-0 right-0 z-30 p-3 pb-safe-area lg:hidden pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ring-black/5">
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
@@ -247,10 +248,17 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
             </div>
 
             {/* --- FULL SCREEN MENU DRAWER --- */}
-            {isMenuOpen && (
-                <div className="fixed inset-0 z-[9999] bg-[#f8fafc] lg:hidden animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[100dvh]">
-                    
-                    {/* Header: User Profile & Stats */}
+            <AnimatePresence>
+                {isMenuOpen && (
+                    <motion.div 
+                        initial={{ y: '100%' }}
+                        animate={{ y: 0 }}
+                        exit={{ y: '100%' }}
+                        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                        className="fixed inset-0 z-[9999] bg-[#f8fafc] lg:hidden flex flex-col h-[100dvh]"
+                    >
+                        
+                        {/* Header: User Profile & Stats */}
                     <div className="bg-slate-900 text-white p-6 pb-8 rounded-b-[3rem] shadow-2xl relative overflow-hidden shrink-0">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
@@ -312,7 +320,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                     <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-8 scrollbar-hide">
                         {MOBILE_MENU_GROUPS.map((group) => {
                             if (group.adminOnly && currentUser.role !== 'ADMIN') return null;
-
+                            const GroupIcon = group.icon;
                             return (
                                 <div key={group.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                                     <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 pl-1 flex items-center gap-2">
@@ -358,8 +366,9 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                             <LogOut className="w-5 h-5" /> ลงชื่อออก (Logout)
                         </button>
                     </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 };

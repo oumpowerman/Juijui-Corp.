@@ -104,7 +104,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
     return (
         <div className={`
-            relative z-10 transition-all duration-500 ease-in-out
+            relative z-30 transition-all duration-500 ease-in-out
             ${isExpanded 
                 ? 'bg-white/95 backdrop-blur-xl border-b border-gray-100 p-4 shadow-sm sticky top-0' 
                 : 'bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] border border-white/60 p-4 lg:p-5 ring-1 ring-white/60'
@@ -301,7 +301,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     
                                     <div className={`
                                         fixed inset-x-0 bottom-0 z-[100] p-6 bg-white rounded-t-[2.5rem] shadow-[0_-20px_40px_-12px_rgba(0,0,0,0.2)] border-t border-gray-100 animate-in slide-in-from-bottom duration-300
-                                        lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-48 lg:rounded-xl lg:shadow-xl lg:border lg:p-2 lg:z-50 lg:animate-in lg:fade-in lg:zoom-in-95 lg:origin-top-right
+                                        lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-48 lg:rounded-xl lg:shadow-xl lg:border lg:p-2 lg:z-[100] lg:animate-in lg:fade-in lg:zoom-in-95 lg:origin-top-right
                                     `}>
                                         {/* Mobile Handle */}
                                         <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 lg:hidden" />

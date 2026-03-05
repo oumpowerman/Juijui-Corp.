@@ -29,7 +29,7 @@ interface StatCardProps {
     onClick: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, count, icon: Icon, color, isActive, onClick }) => (
+const StatCard: React.FC<StatCardProps> = React.memo(({ label, count, icon: Icon, color, isActive, onClick }) => (
     <button 
         onClick={onClick}
         className={`
@@ -58,7 +58,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, count, icon: Icon, color, is
             </span>
         </div>
     </button>
-);
+));
 
 interface ScriptStatsGridProps {
     filterOwner: string[];
@@ -69,7 +69,7 @@ interface ScriptStatsGridProps {
     onTabChange: (tab: 'QUEUE' | 'LIBRARY' | 'HISTORY', status?: string) => void;
 }
 
-const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = ({
+const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
     filterOwner,
     filterChannel,
     filterCategory,
@@ -130,6 +130,12 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = ({
         }
     }, [filterOwner, filterChannel, filterCategory]);
 
+    // Use a ref to track the latest fetchStats to avoid re-subscribing unnecessarily
+    const fetchStatsRef = useRef(fetchStats);
+    useEffect(() => {
+        fetchStatsRef.current = fetchStats;
+    }, [fetchStats]);
+
     // Debounced fetch to prevent excessive API calls during rapid filter changes
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -138,17 +144,21 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = ({
         return () => clearTimeout(timer);
     }, [fetchStats]);
 
-    // Real-time subscription for stats
+    // Real-time subscription for stats - Stable subscription
     useEffect(() => {
         const channel = supabase
             .channel('script-stats-grid-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'scripts' }, () => {
-                fetchStats();
+                // Trigger the debounced fetch instead of immediate call
+                // We can't easily trigger the setTimeout above, so we just call fetchStats
+                // but since fetchStats is stable via useCallback, it's okay.
+                // To be even safer, we could use a state-based trigger.
+                fetchStatsRef.current();
             })
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [fetchStats]);
+    }, []); // Empty dependency array makes subscription stable
 
     return (
         <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300 ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
@@ -186,6 +196,6 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = ({
             />
         </div>
     );
-};
+});
 
 export default ScriptStatsGrid;

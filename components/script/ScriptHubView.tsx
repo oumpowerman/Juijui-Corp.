@@ -346,7 +346,28 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 
                     {/* Pagination Controls */}
                     {totalCount > 0 && (
-                        <div className="flex items-center justify-between pt-4 bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="
+                        flex items-center justify-between pt-4
+                        p-4 rounded-3xl
+                        bg-white/70
+                        backdrop-blur-xl
+                        border border-white/40
+                        shadow-[0_20px_60px_rgba(0,0,0,0.18)]
+                        animate-breathe
+                        relative overflow-hidden
+                        ">
+
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent"/>
+
+                               {/* pastel glow */}
+                            <div className="
+                                absolute -top-10 -left-10 w-[200%] h-[200%]
+                                opacity-30 blur-3xl
+                                animate-pastel
+                            "/>
+                        </div>
+
                             <div className="text-xs text-gray-500 font-medium">
                                 แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
                             </div>

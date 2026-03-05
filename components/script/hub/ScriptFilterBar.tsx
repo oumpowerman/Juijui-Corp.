@@ -41,7 +41,7 @@ const SCRIPT_STATUS_OPTIONS = [
     { key: 'DONE', label: '🏁 Done (เสร็จสิ้น)' }
 ];
 
-const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
+const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
     layoutMode, setLayoutMode,
     searchQuery, setSearchQuery,
     filterOwner, setFilterOwner,
@@ -191,6 +191,6 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = ({
             </div>
         </div>
     );
-};
+});
 
 export default ScriptFilterBar;

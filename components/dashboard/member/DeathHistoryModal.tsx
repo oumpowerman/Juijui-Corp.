@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
 import { HPDeathLog } from '../../../types';
 import {
@@ -110,10 +111,12 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  const portalRoot = document.getElementById('portal-root') || document.body;
+
+  return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 md:p-8
+        className="fixed inset-0 z-[11000] flex items-center justify-center p-2 sm:p-4 md:p-8
         bg-gradient-to-br from-slate-900/70 via-indigo-900/60 to-slate-900/70 backdrop-blur-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -349,7 +352,8 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalRoot
   );
 };
 

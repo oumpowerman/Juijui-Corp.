@@ -448,7 +448,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
             </div>
 
             {/* NEW FOOTER COMPONENT - IN FLOW */}
-            <div className="bg-white shrink-0 z-30 px-6 pb-6 pt-2 border-t border-gray-100">
+            <div className="bg-white shrink-0 z-30 px-4 sm:px-6 pb-6 pt-2 border-t border-gray-100">
                 <ContentActionFooter 
                     mode={initialData ? 'EDIT' : 'CREATE'}
                     onCancel={onClose}

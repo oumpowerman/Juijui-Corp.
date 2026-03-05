@@ -440,7 +440,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           {/* --- GLOBAL SEARCH BUTTON (FLOATING) --- */}
           <button 
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="fixed bottom-6 right-6 z-40 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
+              className="fixed bottom-6 right-6 z-20 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
           >
               <Search className="w-6 h-6" />
           </button>

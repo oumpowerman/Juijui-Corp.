@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Task, Channel, User, MasterOption } from '../../../types';
 import { Search, Loader2 } from 'lucide-react';
 import { isPast, isToday, isTomorrow, format } from 'date-fns';
@@ -37,7 +37,7 @@ interface StockTableProps {
     onAddToWorkbox?: (task: Task) => void;
 }
 
-const StockTable: React.FC<StockTableProps> = ({ 
+const StockTable: React.FC<StockTableProps> = React.memo(({ 
     isLoading, isFiltering, tasks, channels, users, masterOptions,
     sortConfig, onSort,
     totalCount, currentPage, onPageChange, itemsPerPage,
@@ -91,11 +91,11 @@ const StockTable: React.FC<StockTableProps> = ({
         }
     }, []);
 
-    // --- Helpers derived from Master Data ---
-    const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive);
-    const pillarOptions = masterOptions.filter(o => o.type === 'PILLAR' && o.isActive);
-    const categoryOptions = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive);
-    const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive);
+    // --- Helpers derived from Master Data with useMemo ---
+    const formatOptions = useMemo(() => masterOptions.filter(o => o.type === 'FORMAT' && o.isActive), [masterOptions]);
+    const pillarOptions = useMemo(() => masterOptions.filter(o => o.type === 'PILLAR' && o.isActive), [masterOptions]);
+    const categoryOptions = useMemo(() => masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive), [masterOptions]);
+    const statusOptions = useMemo(() => masterOptions.filter(o => o.type === 'STATUS' && o.isActive), [masterOptions]);
 
     const getFormatLabel = (key?: string) => formatOptions.find(o => o.key === key)?.label || key || '';
     const getPillarLabel = (key?: string) => pillarOptions.find(o => o.key === key)?.label || key || '';
@@ -261,6 +261,6 @@ const StockTable: React.FC<StockTableProps> = ({
             />
         </div>
     );
-};
+});
 
 export default StockTable;

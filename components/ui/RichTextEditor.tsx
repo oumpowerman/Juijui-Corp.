@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
-import BubbleMenuExtension from '@tiptap/extension-bubble-menu';
 import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -27,7 +26,10 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: element => element.style.fontSize.replace('px', ''),
+            parseHTML: element => {
+            const size = element.style.fontSize;
+            return size ? size.replace('px', '') : null;
+            },
             renderHTML: attributes => {
               if (!attributes.fontSize) {
                 return {};
@@ -43,13 +45,13 @@ const FontSize = Extension.create({
   },
   addCommands() {
     return {
-      setFontSize: (fontSize: string) => ({ chain }: any) => {
+      setFontSize: (fontSize: string) => ({ chain }) => {
         return chain().setMark('textStyle', { fontSize }).run();
       },
-      unsetFontSize: () => ({ chain }: any) => {
-        return chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run();
+      unsetFontSize: () => ({ chain }) => {
+        return chain().unsetMark('textStyle').removeEmptyTextStyle().run();
       },
-    } as any;
+    };
   },
 });
 
@@ -130,11 +132,14 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         content: content, 
         editable: !readOnly,
         onUpdate: ({ editor }) => {
-            onChange(editor.getHTML());
+            const html = editor.getHTML();
+            if (html !== content) {
+                onChange(html);
+            }
         },
         editorProps: {
             attributes: {
-                class: `prose prose-sm sm:prose-base focus:outline-none max-w-none ${className} [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic`,
+                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic`,
                 style: `min-height: ${minHeight}; outline: none;`,
             },
             handleKeyDown: (view, event) => {
@@ -144,9 +149,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 if (onKeyDown) {
                     return onKeyDown(view, event) as any;
                 }
+                return false;
             }
         },
     });
+
+    useEffect(() => {
+        return () => {
+            editor?.destroy();
+        };
+    }, [editor]);
 
     const [isColorOpen, setIsColorOpen] = useState(false);
     const colorMenuRef = useRef<HTMLDivElement>(null);
@@ -161,10 +173,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     // Handle external content updates
     React.useEffect(() => {
-        if (editor && content !== editor.getHTML()) {
-             if (!editor.isFocused || editor.isEmpty) {
-                 editor.commands.setContent(content);
-             }
+        if (editor && !editor.isFocused && content !== editor.getHTML()) {
+            editor.commands.setContent(content, {
+                emitUpdate: false
+            });
         }
     }, [content, editor]);
 
@@ -192,12 +204,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         if (!editor) return;
         
         // Critical: Focus back to editor before applying command
-        editor.chain().focus().extendMarkRange('link');
+        const chain = editor.chain().focus().extendMarkRange('link');
 
         if (url === '') {
-            editor.chain().focus().unsetLink().run();
+            chain.unsetLink().run();
         } else {
-            editor.chain().focus().setLink({ href: url }).run();
+            chain.setLink({ href: url }).run();
         }
         setIsLinkModalOpen(false);
     };
@@ -405,7 +417,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             )}
 
             {/* Editor Content Area */}
-            <div className="cursor-text p-4 md:p-8" onClick={() => editor.chain().focus().run()}>
+            <div className="cursor-text p-4 md:p-8 caret-black" onClick={() => editor.chain().focus().run()}>
                 <EditorContent editor={editor} />
             </div>
 

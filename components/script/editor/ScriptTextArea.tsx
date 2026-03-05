@@ -164,7 +164,7 @@ const ScriptTextArea: React.FC = () => {
                         <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 rounded-t-[2rem]"></div>
                         
                         {/* Content Area */}
-                        <div className="p-6 md:p-10 lg:p-12 flex-1 cursor-text">
+                        <div className="p-6 md:p-10 lg:p-12 flex-1 cursor-text caret-black">
                             <RichTextEditor 
                                 content={content}
                                 onChange={(html) => {
@@ -182,7 +182,7 @@ const ScriptTextArea: React.FC = () => {
                                 onKeyDown={handleKeyDown}
                                 extensions={[CommentMark]}
                                 placeholder={scriptType === 'DIALOGUE' ? "คลิกเลือกตัวละครด้านบน หรือพิมพ์เอง..." : "เริ่มเขียนบทของคุณที่นี่..."}
-                                className="prose max-w-none focus:outline-none caret-black" 
+                                className="prose max-w-none text-black focus:outline-none caret-black [&_.ProseMirror]:caret-black"
                                 minHeight="500px"
                                 bubbleMenuContent={(editor) => (
                                     <>

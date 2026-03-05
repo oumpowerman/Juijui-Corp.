@@ -114,7 +114,7 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
         <>
             <style>{dynamicStyles.css}</style>
 
-            <div className="tiered-border-3d tiered-glass rounded-[2rem] p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700">
+            <div className="tiered-border-3d tiered-glass rounded-[2rem] p-4 sm:p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700">
                 
                 {/* Background Decor - Dynamic Rays */}
                 <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
@@ -132,11 +132,11 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
 
                 <div className="relative z-10">
                     {/* Header Area with Banner and Cheering Message */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className={`flex items-center gap-2 bg-gradient-to-r ${tierConfig.bannerGradient} bg-[length:200%_auto] animate-[shine-tiered_3s_linear_infinite] px-4 py-1.5 rounded-full shadow-lg border border-white/20`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className={`flex items-center gap-2 bg-gradient-to-r ${tierConfig.bannerGradient} bg-[length:200%_auto] animate-[shine-tiered_3s_linear_infinite] px-3 sm:px-4 py-1 sm:py-1.5 rounded-full shadow-lg border border-white/20`}>
                                 {tierConfig.icon}
-                                <span className="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-sm">{tierConfig.label}</span>
+                                <span className="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-widest drop-shadow-sm">{tierConfig.label}</span>
                             </div>
                             
                             {/* Cheering Text */}
@@ -147,13 +147,13 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                         </div>
 
                         {/* Mobile/Small Screen Cheering Text */}
-                        <div className="lg:hidden flex items-center gap-2 bg-white/40 px-3 py-1 rounded-lg border border-white/20">
-                            <Sparkles className={`w-3 h-3 ${hpPercent >= 90 ? 'text-yellow-500' : hpPercent >= 80 ? 'text-slate-500' : 'text-sky-500'}`} />
-                            <span className={`text-[9px] font-bold ${tierConfig.textColor} italic`}>{tierConfig.message}</span>
+                        <div className="lg:hidden flex items-center gap-2 bg-white/40 px-3 py-1 rounded-lg border border-white/20 w-full sm:w-auto">
+                            <Sparkles className={`w-3 h-3 shrink-0 ${hpPercent >= 90 ? 'text-yellow-500' : hpPercent >= 80 ? 'text-slate-500' : 'text-sky-500'}`} />
+                            <span className={`text-[9px] font-bold ${tierConfig.textColor} italic truncate`}>{tierConfig.message}</span>
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                    <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-6 lg:gap-8">
                         
                         {/* 1. User Profile & Status */}
                         <div className="relative">
@@ -167,8 +167,8 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                         </div>
 
                         {/* 2. Stats & Gamification */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
-                            <div className="relative">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                            <div className="relative w-full lg:w-auto">
                                 {/* Glow effect for stats - Reduced blur for performance */}
                                 <div className="absolute inset-0 blur-xl rounded-3xl" style={{ backgroundColor: dynamicStyles.glowStrong }} />
                                 <StatsSection 

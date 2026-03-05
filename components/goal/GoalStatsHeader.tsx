@@ -15,56 +15,56 @@ const GoalStatsHeader: React.FC<GoalStatsHeaderProps> = ({ goals }) => {
     const avgProgress = activeGoals.length > 0 ? Math.round((totalProgress / activeGoals.length) * 100) : 0;
 
     const StatBox = ({ label, value, icon: Icon, color, subtext }: any) => (
-        <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-start justify-between relative overflow-hidden group hover:shadow-xl hover:shadow-indigo-50 transition-all duration-500">
+        <div className="bg-slate-900/40 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/40 flex items-start justify-between relative overflow-hidden group hover:shadow-indigo-500/10 hover:border-indigo-500/40 transition-all duration-500">
             {/* Watermark Icon - Bottom Right Corner */}
             <div className={`absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700 ${color}`}>
                 <Icon className="w-24 h-24" />
             </div>
             
             <div className="relative z-10">
-                <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2">{label}</p>
-                <h3 className="text-3xl font-black text-gray-800 tracking-tighter">{value}</h3>
-                {subtext && <p className="text-[10px] text-gray-400 mt-1.5 font-bold flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mb-3">{label}</p>
+                <h3 className="text-4xl font-black text-white tracking-tighter italic">{value}</h3>
+                {subtext && <p className="text-[10px] text-gray-500 mt-2 font-black uppercase tracking-widest flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full ${color.replace('text-', 'bg-')} shadow-[0_0_8px_currentColor]`}></span>
                     {subtext}
                 </p>}
             </div>
 
-            <div className={`relative z-10 p-3 rounded-2xl ${color.replace('text-', 'bg-').replace('600', '50').replace('500', '50')} ${color} shadow-inner border border-white/50`}>
-                <Icon className="w-5 h-5" />
+            <div className={`relative z-10 p-3.5 rounded-2xl bg-white/5 ${color} border border-white/10 shadow-xl`}>
+                <Icon className="w-6 h-6" />
             </div>
         </div>
     );
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             <StatBox 
-                label="Active Goals" 
+                label="Active Missions" 
                 value={activeGoals.length} 
                 icon={Target} 
-                color="text-indigo-600" 
-                subtext="เป้าหมายที่กำลังดำเนินการ"
+                color="text-indigo-400" 
+                subtext="Operational"
             />
             <StatBox 
-                label="Completion Rate" 
+                label="Sync Rate" 
                 value={`${Math.min(100, avgProgress)}%`} 
                 icon={TrendingUp} 
-                color="text-blue-600" 
-                subtext="ความคืบหน้าเฉลี่ย"
+                color="text-blue-400" 
+                subtext="Average Progress"
             />
             <StatBox 
-                label="Completed" 
+                label="Accomplished" 
                 value={completedGoals.length} 
                 icon={CheckCircle2} 
-                color="text-emerald-600" 
-                subtext="เป้าหมายที่สำเร็จแล้ว"
+                color="text-emerald-400" 
+                subtext="Missions Complete"
             />
             <StatBox 
-                label="Total Rewards" 
+                label="XP Potential" 
                 value={activeGoals.reduce((sum, g) => sum + g.rewardXp, 0).toLocaleString()} 
                 icon={Trophy} 
-                color="text-amber-500" 
-                subtext="XP Pool รวมทั้งหมด"
+                color="text-amber-400" 
+                subtext="Total Reward Pool"
             />
         </div>
     );

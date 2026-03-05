@@ -12,52 +12,12 @@ import ScriptEditor from './ScriptEditor';
 import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
 import ScriptCategoryFilter from './hub/ScriptCategoryFilter';
+import ScriptStatsGrid from './hub/ScriptStatsGrid';
 import AppBackground from '../common/AppBackground';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
 import ContentForm from '../task/ContentForm'; // IMPORT
 import { createPortal } from 'react-dom'; // IMPORT
-
-// --- Sub-components ---
-
-interface StatCardProps {
-    label: string;
-    count: number;
-    icon: React.ElementType;
-    color: string;
-    isActive: boolean;
-    onClick: () => void;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ label, count, icon: Icon, color, isActive, onClick }) => (
-    <button 
-        onClick={onClick}
-        className={`
-            relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between h-32 group text-left
-            ${isActive 
-                ? `bg-white/90 backdrop-blur-md border-${color}-400 shadow-xl shadow-${color}-100 ring-1 ring-${color}-200 scale-[1.02]` 
-                : 'bg-white/60 backdrop-blur-sm border-gray-100 hover:border-gray-300 hover:shadow-md'
-            }
-        `}
-    >
-        <div className={`
-            absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-10 pointer-events-none transition-transform group-hover:scale-110
-            bg-${color}-500
-        `}></div>
-        
-        <div className="flex justify-between items-start relative z-10">
-            <span className={`text-xs font-bold uppercase tracking-wider ${isActive ? `text-${color}-600` : 'text-gray-400'}`}>{label}</span>
-            <div className={`p-2 rounded-xl ${isActive ? `bg-${color}-100 text-${color}-600` : 'bg-gray-50 text-gray-400'}`}>
-                <Icon className="w-5 h-5" />
-            </div>
-        </div>
-        
-        <div className="relative z-10">
-            <span className={`text-4xl font-black ${isActive ? 'text-gray-800' : 'text-gray-600'}`}>{count}</span>
-        </div>
-    </button>
-);
-
 
 // --- Main Component ---
 
@@ -69,7 +29,7 @@ interface ScriptHubViewProps {
 const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => {
     // Hooks
     const { 
-        scripts, totalCount, stats, isLoading, 
+        scripts, totalCount, isLoading, 
         fetchScripts, getScriptById,
         createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI,
         promoteToContent // NEW
@@ -335,40 +295,18 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 />
 
                 {/* 2. Dashboard Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard 
-                        label="ถ่ายวันนี้ (Queue)" 
-                        count={stats.queue} 
-                        icon={Clapperboard} 
-                        color="orange" 
-                        isActive={viewTab === 'QUEUE'}
-                        onClick={() => { setViewTab('QUEUE'); setFilterStatus('ALL'); setFilterCategory('ALL'); }}
-                    />
-                    <StatCard 
-                        label="คลังบท (Library)" 
-                        count={stats.library} 
-                        icon={FileText} 
-                        color="indigo" 
-                        isActive={viewTab === 'LIBRARY' && filterStatus === 'ALL'}
-                        onClick={() => { setViewTab('LIBRARY'); setFilterStatus('ALL'); setFilterCategory('ALL'); }}
-                    />
-                    <StatCard 
-                        label="แบบร่าง (Drafts)" 
-                        count={stats.drafts} 
-                        icon={Edit3} 
-                        color="pink" 
-                        isActive={viewTab === 'LIBRARY' && filterStatus === 'DRAFT'}
-                        onClick={() => { setViewTab('LIBRARY'); setFilterStatus('DRAFT'); setFilterCategory('ALL'); }}
-                    />
-                    <StatCard 
-                        label="เสร็จแล้ว (History)" 
-                        count={stats.history} 
-                        icon={CheckCircle2} 
-                        color="emerald" 
-                        isActive={viewTab === 'HISTORY'}
-                        onClick={() => { setViewTab('HISTORY'); setFilterStatus('ALL'); setFilterCategory('ALL'); }}
-                    />
-                </div>
+                <ScriptStatsGrid 
+                    filterOwner={filterOwner}
+                    filterChannel={filterChannel}
+                    filterCategory={filterCategory}
+                    viewTab={viewTab}
+                    filterStatus={filterStatus}
+                    onTabChange={(tab, status) => {
+                        setViewTab(tab);
+                        if (status) setFilterStatus(status);
+                        // We don't reset category here to allow filtered stats to stay
+                    }}
+                />
 
                 {/* 3. Category Deck */}
                 <ScriptCategoryFilter

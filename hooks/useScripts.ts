@@ -22,15 +22,6 @@ interface FetchScriptsOptions {
 export const useScripts = (currentUser: User) => {
     const [scripts, setScripts] = useState<ScriptSummary[]>([]);
     const [totalCount, setTotalCount] = useState(0);
-    
-    // NEW: Stats State for Dashboard Cards
-    const [stats, setStats] = useState({
-        queue: 0,
-        library: 0,
-        drafts: 0,
-        history: 0
-    });
-
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
@@ -62,34 +53,6 @@ export const useScripts = (currentUser: User) => {
         shareToken: s.share_token,
         isPublic: s.is_public
     });
-
-    // NEW: Fetch Counts for all Tabs
-    const fetchStats = async () => {
-        try {
-            // Queue: In Queue
-            const queueReq = supabase.from('scripts').select('id', { count: 'exact', head: true }).eq('is_in_shoot_queue', true);
-            
-            // History: Done
-            const historyReq = supabase.from('scripts').select('id', { count: 'exact', head: true }).eq('status', 'DONE');
-            
-            // Library: Not in Queue AND Not Done
-            const libraryReq = supabase.from('scripts').select('id', { count: 'exact', head: true }).eq('is_in_shoot_queue', false).neq('status', 'DONE');
-            
-            // Drafts: Not in Queue AND Status is DRAFT (Subset of Library)
-            const draftReq = supabase.from('scripts').select('id', { count: 'exact', head: true }).eq('is_in_shoot_queue', false).eq('status', 'DRAFT');
-
-            const [q, h, l, d] = await Promise.all([queueReq, historyReq, libraryReq, draftReq]);
-
-            setStats({
-                queue: q.count || 0,
-                history: h.count || 0,
-                library: l.count || 0,
-                drafts: d.count || 0
-            });
-        } catch (error) {
-            console.error("Error fetching script stats", error);
-        }
-    };
 
     const fetchScripts = useCallback(async (options: FetchScriptsOptions) => {
         setIsLoading(true);
@@ -170,19 +133,11 @@ export const useScripts = (currentUser: User) => {
         }
     }, [showToast]);
 
-    // Initial Stats Load & Realtime
+    // Initial Realtime
     useEffect(() => {
-        fetchStats();
-
-        // Subscribe to changes to update stats automatically
-        const channel = supabase
-            .channel('script-stats-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scripts' }, () => {
-                fetchStats();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
+        // Subscribe to changes to update list automatically if needed
+        // (Optional: fetchScripts could be called here, but usually it's controlled by UI)
+        return () => { };
     }, []);
 
 
@@ -262,7 +217,6 @@ export const useScripts = (currentUser: User) => {
             const { data, error } = await supabase.from('scripts').insert(payload).select().single();
             if (error) throw error;
             setTotalCount(prev => prev + 1);
-            fetchStats(); // Update stats
             
             showToast('สร้างสคริปต์ใหม่เรียบร้อย', 'success');
             return data.id;
@@ -312,7 +266,6 @@ export const useScripts = (currentUser: User) => {
 
             // Optimistic update for list view
             setScripts(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-            fetchStats(); // Update stats in background
 
             // --- TRINITY PHASE 3: SYNC STATUS ---
             // If Status changed to FINAL and there is a linked Content
@@ -388,7 +341,6 @@ export const useScripts = (currentUser: User) => {
             setScripts(prev => prev.filter(s => s.id !== id));
             showToast('ลบสคริปต์แล้ว', 'info');
             setTotalCount(prev => prev - 1);
-            fetchStats(); // Update stats
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
         }
@@ -447,7 +399,6 @@ export const useScripts = (currentUser: User) => {
     return {
         scripts,
         totalCount,
-        stats, // Export Stats
         isLoading,
         fetchScripts,
         getScriptById,

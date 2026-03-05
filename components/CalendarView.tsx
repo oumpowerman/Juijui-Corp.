@@ -15,7 +15,7 @@ import DayHighlightModal from './calendar/DayHightlightModal';
 import StockSidePanel from './StockSidePanel';
 import DelayModal from './DelayModal';
 import AppBackground, { BackgroundTheme } from './common/AppBackground';
-
+import MobileLandscapeWrapper from './common/MobileLandscapeWrapper';
 export type TaskDisplayMode = 'MINIMAL' | 'DOT' | 'EMOJI' | 'FULL';
 
 interface CalendarViewProps {
@@ -232,24 +232,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
            />
         </div>
 
+        <MobileLandscapeWrapper
+            isActive={isMobileLandscape}
+            onClose={() => setIsMobileLandscape(false)}
+          >
         <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
           
           {/* Main Content Area */}
           <div className={`
               flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] 
               ${isStockOpen ? 'mr-4' : 'mr-0'}
-              ${isMobileLandscape ? 'fixed inset-0 z-[100] bg-white w-[100vh] h-[100vw] origin-top-left rotate-90 translate-x-[100%] overflow-auto' : ''}
           `}>
-              {/* Close Landscape Button (Mobile Only) */}
-              {isMobileLandscape && (
-                  <button 
-                      onClick={() => setIsMobileLandscape(false)}
-                      className="fixed top-4 right-4 z-[110] bg-black/60 hover:bg-black/80 text-white p-3 rounded-full backdrop-blur-md shadow-lg transition-all animate-in zoom-in"
-                      title="หมุนกลับ"
-                  >
-                      <RotateCcw className="w-6 h-6" />
-                  </button>
-              )}
 
               <div key={`${displayMode}-${viewMode}`} className="animate-in fade-in zoom-in-[0.98] duration-300 h-full">
                   {displayMode === 'CALENDAR' ? (
@@ -318,7 +311,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
           )}
         </div>
-
+        </MobileLandscapeWrapper>
         {/* Mobile Stock Panel Overlay (If Open on Mobile & Not Landscape) */}
         {isStockOpen && !isMobileLandscape && (
             <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsStockOpen(false)}>

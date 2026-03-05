@@ -137,7 +137,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     }, [theme]);
 
     return (
-        <div className={`relative min-h-screen w-full ${className}`}>
+        <div className={`relative min-h-screen w-auto ${className}`}>
             {/* Fixed Background Layer with z-index 0 to ensure it covers AppShell background but stays behind content */}
             <div 
                 className={`fixed inset-0 bg-gradient-to-br ${themeConfig} transition-colors duration-1000 pointer-events-none z-0`} 

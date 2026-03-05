@@ -60,7 +60,7 @@ const StatsSection: React.FC<StatsSectionProps> = ({
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 whileHover={{ scale: 1.02, y: -2 }}
-                className="flex-1 relative group cursor-help min-w-[340px] flex flex-col"
+                className="flex-1 relative group cursor-help w-full lg:min-w-[340px] flex flex-col"
                 onClick={onOpenRules}
             >
                 {/* Glassy Background & Internal Clipping Layer */}
@@ -75,7 +75,7 @@ const StatsSection: React.FC<StatsSectionProps> = ({
                 </div>
 
                 {/* Actual Content Container (Padded to match the background) */}
-                <div className="relative z-20 p-5 flex flex-col justify-center gap-4">
+                <div className="relative z-20 p-4 sm:p-5 flex flex-col justify-center gap-3 sm:gap-4">
                     {/* HP Bar Section */}
                     <div className="relative">
                         <div className="flex justify-between items-end mb-1.5 px-1">

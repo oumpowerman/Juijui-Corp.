@@ -315,7 +315,7 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 md:p-8">
             <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -328,33 +328,40 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-6xl h-[90vh] md:h-[800px] bg-white/80 backdrop-blur-3xl rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-white/40 overflow-hidden flex flex-col md:flex-row"
+                className="relative w-full max-w-6xl h-[95vh] md:h-[800px] bg-white/80 backdrop-blur-3xl rounded-[2rem] md:rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-white/40 overflow-hidden flex flex-col md:flex-row"
             >
                 {/* Background Decorative Blobs */}
                 <div className={`absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-gradient-to-br ${activeTab?.gradient} opacity-10 blur-[100px] pointer-events-none transition-all duration-700`} />
                 <div className={`absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-gradient-to-tr ${activeTab?.gradient} opacity-10 blur-[100px] pointer-events-none transition-all duration-700`} />
 
-                {/* Left Sidebar - Navigation */}
-                <div className="w-full md:w-80 bg-white/40 border-r border-white/40 p-8 flex flex-col relative z-10">
-                    <div className="flex items-center gap-4 mb-12">
-                        <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-xl">
-                            <CircuitBoard className="w-6 h-6" />
+                {/* Left Sidebar - Navigation (Horizontal on Mobile, Vertical on Desktop) */}
+                <div className="w-full md:w-80 bg-white/40 border-b md:border-b-0 md:border-r border-white/40 p-5 md:p-8 flex flex-col relative z-10 shrink-0">
+                    <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-12">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-xl">
+                            <CircuitBoard className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">คู่มือระบบ</h2>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System v3.0</p>
+                            <h2 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">คู่มือระบบ</h2>
+                            <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">System v3.0</p>
                         </div>
+                        {/* Mobile Close Button (Inside Sidebar for better access) */}
+                        <button 
+                            onClick={onClose}
+                            className="md:hidden ml-auto p-2 bg-white/50 text-slate-400 rounded-xl border border-white/60"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
-                    <nav className="space-y-3 flex-1">
+                    <nav className="flex flex-row md:flex-col gap-2 md:gap-3 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 scrollbar-hide">
                         {TABS.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setSelectedTab(tab.id)}
                                 className={`
-                                    w-full p-4 rounded-2xl flex items-center gap-4 transition-all relative group
+                                    p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 transition-all relative group shrink-0 md:shrink
                                     ${selectedTab === tab.id 
-                                        ? `bg-white shadow-xl ${tab.shadow} text-slate-900 scale-[1.02]` 
+                                        ? `bg-white shadow-lg md:shadow-xl ${tab.shadow} text-slate-900 scale-[1.02]` 
                                         : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
                                     }
                                 `}
@@ -362,17 +369,17 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                                 {selectedTab === tab.id && (
                                     <motion.div 
                                         layoutId="activeTab"
-                                        className="absolute inset-0 bg-white rounded-2xl shadow-xl -z-10"
+                                        className="absolute inset-0 bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl -z-10"
                                     />
                                 )}
-                                <tab.icon className={`w-5 h-5 transition-colors ${selectedTab === tab.id ? `text-${tab.color}-500` : ''}`} />
-                                <span className="text-sm font-bold tracking-tight">{tab.label}</span>
-                                {selectedTab === tab.id && <ChevronRight className="w-4 h-4 ml-auto" />}
+                                <tab.icon className={`w-4 h-4 md:w-5 md:h-5 transition-colors ${selectedTab === tab.id ? `text-${tab.color}-500` : ''}`} />
+                                <span className="text-xs md:text-sm font-bold tracking-tight whitespace-nowrap">{tab.label}</span>
+                                {selectedTab === tab.id && <ChevronRight className="hidden md:block w-4 h-4 ml-auto" />}
                             </button>
                         ))}
                     </nav>
 
-                    <div className="mt-auto pt-8 border-t border-white/40">
+                    <div className="hidden md:block mt-auto pt-8 border-t border-white/40">
                         <div className="bg-white/60 p-4 rounded-2xl border border-white/80 flex items-center gap-3">
                             <Info className="w-5 h-5 text-slate-400" />
                             <p className="text-[10px] font-bold text-slate-500 leading-tight">
@@ -384,24 +391,24 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
 
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col relative overflow-hidden z-10">
-                    {/* Close Button */}
+                    {/* Desktop Close Button */}
                     <button 
                         onClick={onClose}
-                        className="absolute top-8 right-8 p-3 bg-white/50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-2xl transition-all z-50 border border-white/60 shadow-sm"
+                        className="hidden md:block absolute top-8 right-8 p-3 bg-white/50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-2xl transition-all z-50 border border-white/60 shadow-sm"
                     >
                         <X className="w-6 h-6" />
                     </button>
 
                     {/* Content Header */}
-                    <div className="p-8 md:p-12 pb-4">
-                        <div className="flex items-center gap-3 mb-2">
-                            <Sparkles className={`w-5 h-5 text-${activeTab?.color}-500`} />
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">รายละเอียดโมดูล</span>
+                    <div className="p-6 md:p-12 pb-2 md:pb-4">
+                        <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2">
+                            <Sparkles className={`w-4 h-4 md:w-5 md:h-5 text-${activeTab?.color}-500`} />
+                            <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.2em] md:tracking-[0.3em]">รายละเอียดโมดูล</span>
                         </div>
-                        <h1 className={`text-5xl font-bold tracking-tighter mb-4 bg-gradient-to-r ${activeTab?.gradient} bg-clip-text text-transparent`}>
+                        <h1 className={`text-3xl md:text-5xl font-bold tracking-tighter mb-2 md:mb-4 bg-gradient-to-r ${activeTab?.gradient} bg-clip-text text-transparent`}>
                             {activeTab?.label}
                         </h1>
-                        <p className="text-slate-500 font-medium text-lg max-w-xl">
+                        <p className="text-slate-500 font-medium text-sm md:text-lg max-w-xl line-clamp-2 md:line-clamp-none">
                             {selectedTab === 'XP' && 'สะสมประสบการณ์จากการทำงานและกิจกรรมต่างๆ เพื่อเลื่อนระดับและปลดล็อกรางวัล'}
                             {selectedTab === 'HP' && 'รักษาวินัยและความรับผิดชอบเพื่อไม่ให้พลังชีวิตลดลงจนถึงขั้นวิกฤต'}
                             {selectedTab === 'COIN' && 'รับเงินรางวัลจากการทำภารกิจสำเร็จเพื่อนำไปแลกไอเทมในร้านค้า'}
@@ -411,7 +418,7 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Content Scroll Area */}
-                    <div className="flex-1 overflow-y-auto p-8 md:p-12 pt-4 scrollbar-hide relative">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-12 pt-2 md:pt-4 scrollbar-hide relative">
                         <AnimatePresence mode="wait">
                             <motion.div 
                                 key={selectedTab}
@@ -426,7 +433,7 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Bottom Decorative Element */}
-                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white/90 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 h-16 md:h-32 bg-gradient-to-t from-white/90 to-transparent pointer-events-none" />
                 </div>
             </motion.div>
         </div>

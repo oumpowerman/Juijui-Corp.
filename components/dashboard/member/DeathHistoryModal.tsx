@@ -72,14 +72,24 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
     };
   }, [isOpen, userId]);
 
+  const [view, setView] = useState<'list' | 'detail'>('list');
+
   useEffect(() => {
     if (!isOpen) {
       setSelectedLog(null);
       setExpandedPenaltyIndex(null);
+      setView('list');
     }
   }, [isOpen]);
 
-    const penalties = useMemo(() => {
+  const handleLogClick = (log: HPDeathLog) => {
+    setSelectedLog(log);
+    if (window.innerWidth < 768) {
+      setView('detail');
+    }
+  };
+
+  const penalties = useMemo(() => {
     if (!selectedLog) return [];
 
     const raw =
@@ -103,7 +113,7 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 
+        className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 md:p-8
         bg-gradient-to-br from-slate-900/70 via-indigo-900/60 to-slate-900/70 backdrop-blur-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -113,28 +123,36 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="w-full max-w-4xl h-[650px] 
-          rounded-[2.5rem] overflow-hidden 
+          className="w-full max-w-4xl h-[90vh] md:h-[650px] 
+          rounded-[2rem] md:rounded-[2.5rem] overflow-hidden 
           backdrop-blur-2xl bg-white/40 
           border border-white/30 
           shadow-[0_20px_80px_rgba(0,0,0,0.25)]
           flex flex-col"
         >
           {/* HEADER */}
-          <div className="relative p-6 flex justify-between items-center 
+          <div className="relative p-4 md:p-6 flex justify-between items-center 
             bg-gradient-to-br from-white/40 to-white/10 
-            backdrop-blur-2xl border-b border-white/30"
+            backdrop-blur-2xl border-b border-white/30 shrink-0"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/20 
+            <div className="flex items-center gap-3 md:gap-4">
+              {view === 'detail' && (
+                <button 
+                  onClick={() => setView('list')}
+                  className="md:hidden p-2 hover:bg-white/30 rounded-xl transition"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-600 rotate-180" />
+                </button>
+              )}
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-red-500/20 
                 flex items-center justify-center border border-red-500/30">
-                <History className="w-6 h-6 text-red-500" />
+                <History className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-800">
+                <h2 className="text-lg md:text-xl font-bold text-slate-800">
                   ประวัติการ HP หมด
                 </h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">
                   บันทึกเหตุการณ์ทั้งหมด
                 </p>
               </div>
@@ -148,9 +166,12 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
             </button>
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden relative">
             {/* LEFT LIST */}
-            <div className="w-2/5 border-r border-white/30 overflow-y-auto p-4 space-y-3">
+            <div className={`
+              ${view === 'list' ? 'flex' : 'hidden md:flex'}
+              w-full md:w-2/5 border-r border-white/30 overflow-y-auto p-4 flex-col space-y-3
+            `}>
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-500 font-bold">
                   Loading...
@@ -164,32 +185,35 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                 logs.map((log) => (
                   <button
                     key={log.id}
-                    onClick={() => setSelectedLog(log)}
+                    onClick={() => handleLogClick(log)}
                     className={`w-full p-4 rounded-2xl text-left transition
                       backdrop-blur-xl border border-white/40
                       ${selectedLog?.id === log.id
                         ? 'bg-red-100/60'
                         : 'bg-white/50 hover:bg-white/70'}`}
                   >
-                    <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                    <div className="flex justify-between text-[10px] md:text-xs font-bold text-slate-600 mb-1">
                       <span>ครั้งที่ {log.deathNumber}</span>
                       <span>
                         {format(log.createdAt, 'd MMM yy', { locale: th })}
                       </span>
                     </div>
-                    <p className="font-bold text-red-600">HP CRITICAL</p>
+                    <p className="font-bold text-red-600 text-sm md:text-base">HP CRITICAL</p>
                   </button>
                 ))
               )}
             </div>
 
             {/* RIGHT DETAIL */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className={`
+              ${view === 'detail' ? 'flex' : 'hidden md:flex'}
+              flex-1 overflow-y-auto p-4 md:p-6 flex-col
+            `}>
               {selectedLog ? (
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   <div className="bg-white/60 backdrop-blur-xl 
-                    border border-white/40 rounded-3xl p-6 shadow-md">
-                    <h3 className="text-lg font-bold text-red-600 mb-4">
+                    border border-white/40 rounded-3xl p-4 md:p-6 shadow-md">
+                    <h3 className="text-base md:text-lg font-bold text-red-600 mb-4">
                       เหตุการณ์ทั้งหมดที่ทำให้ HP หมด
                     </h3>
 
@@ -197,7 +221,7 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                         {/* TABLE HEADER */}
                         <div className="grid grid-cols-3 px-4 pb-3 
                             border-b border-white/40 
-                            text-xs text-slate-500 font-bold tracking-wide">
+                            text-[10px] md:text-xs text-slate-500 font-bold tracking-wide">
                             <span>สาเหตุ</span>
                             <span className="text-right">HP ลด</span>
                             <span className="text-right">สะสม</span>
@@ -223,12 +247,12 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                                     expandedPenaltyIndex === i ? null : i
                                     )
                                 }
-                                className="w-full grid grid-cols-3 items-center p-4 font-bold text-left"
+                                className="w-full grid grid-cols-3 items-center p-3 md:p-4 font-bold text-left"
                                 >
                                 {/* DESCRIPTION */}
                                 <div className="flex flex-col pr-2">
                                 <span
-                                    className={`text-red-600 transition-all duration-200
+                                    className={`text-red-600 text-xs md:text-sm transition-all duration-200
                                     ${
                                         expandedPenaltyIndex === i
                                         ? 'whitespace-normal break-words'
@@ -245,7 +269,7 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="text-xs text-slate-500 font-bold mt-1"
+                                    className="text-[10px] md:text-xs text-slate-500 font-bold mt-1"
                                     >
                                     ▼ กดเพื่อซ่อนรายละเอียด
                                     </motion.span>
@@ -253,12 +277,12 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                                 </div>
 
                                 {/* DAMAGE */}
-                                <span className="text-right text-red-500 tabular-nums">
+                                <span className="text-right text-red-500 tabular-nums text-xs md:text-sm">
                                     {penalty.hpChange}
                                 </span>
 
                                 {/* CUMULATIVE */}
-                                <span className={`text-right tabular-nums
+                                <span className={`text-right tabular-nums text-xs md:text-sm
                                     ${isFinal ? 'text-red-700' : 'text-indigo-600'}
                                 `}>
                                     {penalty.cumulative}
@@ -272,7 +296,7 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                                         animate={{ opacity: 1, scaleY: 1 }}
                                         exit={{ opacity: 0, scaleY: 0.95 }}
                                         transition={{ duration: 0.2 }}
-                                        className="px-4 pb-4 text-sm text-slate-600 font-bold origin-top"
+                                        className="px-4 pb-4 text-[10px] md:text-sm text-slate-600 font-bold origin-top"
                                     >
                                     เวลา:{' '}
                                     {format(
@@ -290,26 +314,26 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                   </div>
 
                   {/* STATS */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white/60 backdrop-blur-xl p-4 rounded-2xl border border-white/40 text-center">
-                      <p className="text-xs text-slate-500 font-bold">
+                  <div className="grid grid-cols-3 gap-2 md:gap-4">
+                    <div className="bg-white/60 backdrop-blur-xl p-3 md:p-4 rounded-2xl border border-white/40 text-center">
+                      <p className="text-[10px] md:text-xs text-slate-500 font-bold">
                         Level
                       </p>
-                      <p className="text-xl font-bold text-indigo-600">
+                      <p className="text-base md:text-xl font-bold text-indigo-600">
                         {selectedLog.snapshotData?.statsAtDeath?.level ?? '-'}
                       </p>
                     </div>
-                    <div className="bg-white/60 backdrop-blur-xl p-4 rounded-2xl border border-white/40 text-center">
-                      <p className="text-xs text-slate-500 font-bold">XP</p>
-                      <p className="text-xl font-bold text-yellow-600">
+                    <div className="bg-white/60 backdrop-blur-xl p-3 md:p-4 rounded-2xl border border-white/40 text-center">
+                      <p className="text-[10px] md:text-xs text-slate-500 font-bold">XP</p>
+                      <p className="text-base md:text-xl font-bold text-yellow-600">
                         {selectedLog.snapshotData?.statsAtDeath?.xp ?? '-'}
                       </p>
                     </div>
-                    <div className="bg-white/60 backdrop-blur-xl p-4 rounded-2xl border border-white/40 text-center">
-                      <p className="text-xs text-slate-500 font-bold">
+                    <div className="bg-white/60 backdrop-blur-xl p-3 md:p-4 rounded-2xl border border-white/40 text-center">
+                      <p className="text-[10px] md:text-xs text-slate-500 font-bold">
                         Coins
                       </p>
-                      <p className="text-xl font-bold text-emerald-600">
+                      <p className="text-base md:text-xl font-bold text-emerald-600">
                         {selectedLog.snapshotData?.statsAtDeath?.availablePoints ??
                           '-'}
                       </p>
@@ -317,7 +341,7 @@ const DeathHistoryModal: React.FC<DeathHistoryModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 font-bold">
+                <div className="h-full flex items-center justify-center text-slate-400 font-bold text-center p-8">
                   เลือกรายการทางซ้ายเพื่อดูรายละเอียด
                 </div>
               )}

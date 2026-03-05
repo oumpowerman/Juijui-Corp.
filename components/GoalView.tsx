@@ -6,7 +6,8 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 import GoalStatsHeader from './goal/GoalStatsHeader';
 import GoalCard from './goal/GoalCard';
 import { GoalFormModal, UpdateProgressModal } from './goal/GoalActionModals';
-import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target, X, CalendarDays } from 'lucide-react';
+import SpaceBackground from './common/SpaceBackground';
+import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target, X, CalendarDays, Rocket } from 'lucide-react';
 import { format, isSameMonth, addMonths, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, subDays, eachDayOfInterval, isSameDay, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -160,218 +161,227 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-24">
-            
-            {/* 1. Header & Stats */}
-            <div>
-                <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2">
-                            🚀 Goal Tracking
-                        </h1>
-                        <p className="text-gray-500 font-medium mt-1">ติดตามเป้าหมายและผลงานของทีม</p>
+        <SpaceBackground className="pb-24">
+            <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+                
+                {/* 1. Header & Stats */}
+                <div className="relative">
+                    <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-indigo-500/20 rounded-xl border border-indigo-500/30 backdrop-blur-sm">
+                                    <Rocket className="w-6 h-6 text-indigo-400 animate-pulse" />
+                                </div>
+                                <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
+                                    Mission Control
+                                </h1>
+                            </div>
+                            <p className="text-indigo-300/70 font-bold text-sm tracking-widest uppercase ml-1">Strategic Objective Tracking System</p>
+                        </div>
+                        
+                        <button 
+                            onClick={() => { setEditingGoal(null); setIsCreateModalOpen(true); }}
+                            className="flex items-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-900/40 hover:shadow-indigo-500/20 hover:-translate-y-1 transition-all active:scale-95 text-xs uppercase tracking-widest border border-indigo-400/30"
+                        >
+                            <Plus className="w-5 h-5 mr-2 stroke-[4px]" /> Initiate New Mission
+                        </button>
                     </div>
                     
-                    <button 
-                        onClick={() => { setEditingGoal(null); setIsCreateModalOpen(true); }}
-                        className="flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 text-sm"
-                    >
-                        <Plus className="w-5 h-5 mr-2 stroke-[3px]" /> สร้างเป้าหมาย
-                    </button>
-                </div>
-                
-                <GoalStatsHeader goals={filteredGoals} />
-            </div>
-
-            {/* 2. Controls & Filters */}
-            <div className="bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-indigo-50/50 flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-4 z-40 backdrop-blur-md bg-white/90">
-                
-                {/* Left: Tab & Date Range */}
-                <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
-                    {/* Tabs */}
-                    <div className="flex bg-gray-100 p-1 rounded-2xl w-full md:w-auto">
-                        <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'ACTIVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>กำลังทำ</button>
-                        <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'COMPLETED' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>สำเร็จแล้ว</button>
-                        <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl text-xs font-black transition-all ${filterTab === 'ALL' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>ทั้งหมด</button>
-                    </div>
-
-                    {/* Date Range Picker UI */}
-                    <div className="relative w-full md:w-auto">
-                        <button 
-                            onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                            className={`flex items-center justify-between gap-3 px-5 py-2.5 rounded-2xl border transition-all w-full md:w-auto min-w-[220px] ${isDatePickerOpen ? 'border-indigo-500 ring-4 ring-indigo-50 bg-white' : 'border-gray-200 bg-white hover:border-indigo-300 shadow-sm'}`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <CalendarDays className={`w-4 h-4 ${dateRange.start ? 'text-indigo-500' : 'text-gray-400'}`} />
-                                <span className="text-xs font-bold text-gray-700">
-                                    {dateRange.start && dateRange.end 
-                                        ? `${format(dateRange.start, 'd MMM', { locale: th })} - ${format(dateRange.end, 'd MMM yy', { locale: th })}`
-                                        : 'ทุกช่วงเวลา (All Time)'}
-                                </span>
-                            </div>
-                            <Filter className={`w-3.5 h-3.5 transition-transform ${isDatePickerOpen ? 'rotate-180 text-indigo-500' : 'text-gray-400'}`} />
-                        </button>
-
-                        <AnimatePresence>
-                            {isDatePickerOpen && (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    className="absolute top-full left-0 mt-2 w-full md:w-[320px] bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 p-6 z-50"
-                                >
-                                    <div className="flex justify-between items-center mb-6 px-1">
-                                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">เลือกช่วงเวลา</span>
-                                        <button onClick={() => setIsDatePickerOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400"><X className="w-4 h-4" /></button>
-                                    </div>
-                                    
-                                    {/* Calendar Header */}
-                                    <div className="flex items-center justify-between mb-4 px-1">
-                                        <button onClick={() => setViewMonth(prev => addMonths(prev, -1))} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-400"><ChevronLeft className="w-4 h-4" /></button>
-                                        <span className="text-sm font-black text-gray-700">{format(viewMonth, 'MMMM yyyy', { locale: th })}</span>
-                                        <button onClick={() => setViewMonth(prev => addMonths(prev, 1))} className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-400"><ChevronRight className="w-4 h-4" /></button>
-                                    </div>
-
-                                    {/* Calendar Grid */}
-                                    <div className="grid grid-cols-7 gap-1 mb-6">
-                                        {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(day => (
-                                            <div key={day} className="text-[10px] font-black text-gray-300 text-center py-1 uppercase">{day}</div>
-                                        ))}
-                                        {calendarDays.map((date, i) => {
-                                            const isSelected = (dateRange.start && isSameDay(date, dateRange.start)) || (dateRange.end && isSameDay(date, dateRange.end));
-                                            const isInRange = dateRange.start && dateRange.end && isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
-                                            const isCurrentMonth = isSameMonth(date, viewMonth);
-
-                                            return (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => handleDateClick(date)}
-                                                    className={`
-                                                        relative h-9 w-full flex items-center justify-center text-xs font-bold rounded-xl transition-all
-                                                        ${!isCurrentMonth ? 'text-gray-200' : 'text-gray-600 hover:bg-indigo-50'}
-                                                        ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md z-10' : ''}
-                                                        ${isInRange && !isSelected ? 'bg-indigo-50 text-indigo-600 rounded-none first:rounded-l-xl last:rounded-r-xl' : ''}
-                                                    `}
-                                                >
-                                                    {format(date, 'd')}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="h-px bg-gray-100 mb-4"></div>
-
-                                    {/* Quick Selects */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => handleQuickDateSelect('THIS_MONTH')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">เดือนนี้</button>
-                                        <button onClick={() => handleQuickDateSelect('LAST_MONTH')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">เดือนที่แล้ว</button>
-                                        <button onClick={() => handleQuickDateSelect('LAST_90')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-indigo-50 text-[10px] font-black text-gray-500 hover:text-indigo-600 transition-colors text-center uppercase tracking-wider">90 วันล่าสุด</button>
-                                        <button onClick={() => handleQuickDateSelect('ALL')} className="px-3 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-[10px] font-black text-gray-400 hover:text-gray-700 transition-colors text-center uppercase tracking-wider">ทั้งหมด</button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-2">
+                        <GoalStatsHeader goals={filteredGoals} />
                     </div>
                 </div>
 
-                {/* Right: Channel Filter */}
-                <div className="w-full xl:w-auto overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => setFilterChannel('ALL')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition-all ${filterChannel === 'ALL' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-                        >
-                            รวมทุกช่อง
-                        </button>
-                        {channels.map(c => (
-                            <button
-                                key={c.id}
-                                onClick={() => setFilterChannel(c.id)}
-                                className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap transition-all flex items-center gap-2 ${filterChannel === c.id ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm ring-1 ring-indigo-200' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-                            >
-                                {c.logoUrl && <img src={c.logoUrl} className="w-4 h-4 rounded-full" />}
-                                {c.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* 3. Grid Content */}
-            {isLoading ? (
-                <div className="py-32 text-center text-gray-400 animate-pulse">กำลังโหลดข้อมูล...</div>
-            ) : paginatedGoals.length === 0 ? (
-                <div className="py-24 text-center border-2 border-dashed border-gray-200 rounded-[2.5rem] bg-gray-50/50">
-                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        <Target className="w-10 h-10 text-gray-300" />
-                    </div>
-                    <p className="text-gray-500 font-bold text-lg">ไม่พบเป้าหมายในช่วงนี้</p>
-                    <p className="text-gray-400 text-sm mt-1">ลองเปลี่ยนตัวกรอง หรือสร้างเป้าหมายใหม่</p>
-                </div>
-            ) : (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {paginatedGoals.map(goal => (
-                            <div key={goal.id} className="h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <GoalCard 
-                                    goal={goal}
-                                    channel={channels.find(c => c.id === goal.channelId)}
-                                    users={users}
-                                    currentUser={currentUser}
-                                    onUpdate={() => setUpdatingGoal(goal)}
-                                    onToggleOwner={toggleOwner}
-                                    onToggleBoost={toggleBoost}
-                                    onDelete={deleteGoal}
-                                    onEdit={(g) => { setEditingGoal(g); setIsCreateModalOpen(true); }}
-                                />
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Pagination Footer */}
-                    {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-4 py-6 border-t border-gray-100">
-                            <button 
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="p-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                            >
-                                <ChevronLeft className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <span className="text-sm font-bold text-gray-600 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                                หน้า {page} / {totalPages}
-                            </span>
-                            <button 
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                className="p-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                            >
-                                <ChevronRight className="w-5 h-5 text-gray-600" />
-                            </button>
+                {/* 2. Controls & Filters */}
+                <div className="bg-slate-900/60 p-4 rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/50 flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-4 z-40 backdrop-blur-xl">
+                    
+                    {/* Left: Tab & Date Range */}
+                    <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
+                        {/* Tabs */}
+                        <div className="flex bg-black/40 p-1.5 rounded-2xl w-full md:w-auto border border-white/5">
+                            <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Active</button>
+                            <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Completed</button>
+                            <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ALL' ? 'bg-white/10 text-white shadow-lg shadow-white/5' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
                         </div>
-                    )}
+
+                        {/* Date Range Picker UI */}
+                        <div className="relative w-full md:w-auto">
+                            <button 
+                                onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                                className={`flex items-center justify-between gap-3 px-6 py-2.5 rounded-2xl border transition-all w-full md:w-auto min-w-[240px] ${isDatePickerOpen ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-black/20 hover:border-indigo-500/50 shadow-sm'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <CalendarDays className={`w-4 h-4 ${dateRange.start ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                                        {dateRange.start && dateRange.end 
+                                            ? `${format(dateRange.start, 'd MMM', { locale: th })} - ${format(dateRange.end, 'd MMM yy', { locale: th })}`
+                                            : 'Temporal Range: All Time'}
+                                    </span>
+                                </div>
+                                <Filter className={`w-3.5 h-3.5 transition-transform ${isDatePickerOpen ? 'rotate-180 text-indigo-400' : 'text-gray-500'}`} />
+                            </button>
+
+                            <AnimatePresence>
+                                {isDatePickerOpen && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute top-full left-0 mt-2 w-full md:w-[320px] bg-slate-900/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/10 p-6 z-50"
+                                    >
+                                        <div className="flex justify-between items-center mb-6 px-1">
+                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Temporal Selection</span>
+                                            <button onClick={() => setIsDatePickerOpen(false)} className="p-2 hover:bg-white/5 rounded-xl text-gray-500"><X className="w-4 h-4" /></button>
+                                        </div>
+                                        
+                                        {/* Calendar Header */}
+                                        <div className="flex items-center justify-between mb-4 px-1">
+                                            <button onClick={() => setViewMonth(prev => addMonths(prev, -1))} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500"><ChevronLeft className="w-4 h-4" /></button>
+                                            <span className="text-xs font-black text-white uppercase tracking-widest">{format(viewMonth, 'MMMM yyyy', { locale: th })}</span>
+                                            <button onClick={() => setViewMonth(prev => addMonths(prev, 1))} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500"><ChevronRight className="w-4 h-4" /></button>
+                                        </div>
+
+                                        {/* Calendar Grid */}
+                                        <div className="grid grid-cols-7 gap-1 mb-6">
+                                            {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(day => (
+                                                <div key={day} className="text-[9px] font-black text-gray-600 text-center py-1 uppercase">{day}</div>
+                                            ))}
+                                            {calendarDays.map((date, i) => {
+                                                const isSelected = (dateRange.start && isSameDay(date, dateRange.start)) || (dateRange.end && isSameDay(date, dateRange.end));
+                                                const isInRange = dateRange.start && dateRange.end && isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+                                                const isCurrentMonth = isSameMonth(date, viewMonth);
+
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => handleDateClick(date)}
+                                                        className={`
+                                                            relative h-9 w-full flex items-center justify-center text-[10px] font-bold rounded-xl transition-all
+                                                            ${!isCurrentMonth ? 'text-gray-700' : 'text-gray-400 hover:bg-white/5'}
+                                                            ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-900/50 z-10' : ''}
+                                                            ${isInRange && !isSelected ? 'bg-indigo-500/20 text-indigo-400 rounded-none first:rounded-l-xl last:rounded-r-xl' : ''}
+                                                        `}
+                                                    >
+                                                        {format(date, 'd')}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="h-px bg-white/5 mb-4"></div>
+
+                                        {/* Quick Selects */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button onClick={() => handleQuickDateSelect('THIS_MONTH')} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-[9px] font-black text-gray-500 hover:text-indigo-400 transition-colors text-center uppercase tracking-wider">This Month</button>
+                                            <button onClick={() => handleQuickDateSelect('LAST_MONTH')} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-[9px] font-black text-gray-500 hover:text-indigo-400 transition-colors text-center uppercase tracking-wider">Last Month</button>
+                                            <button onClick={() => handleQuickDateSelect('LAST_90')} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-[9px] font-black text-gray-500 hover:text-indigo-400 transition-colors text-center uppercase tracking-wider">Last 90 Days</button>
+                                            <button onClick={() => handleQuickDateSelect('ALL')} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[9px] font-black text-gray-600 hover:text-gray-300 transition-colors text-center uppercase tracking-wider">All Time</button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+
+                    {/* Right: Channel Filter */}
+                    <div className="w-full xl:w-auto overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setFilterChannel('ALL')}
+                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all ${filterChannel === 'ALL' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
+                            >
+                                All Sectors
+                            </button>
+                            {channels.map(c => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => setFilterChannel(c.id)}
+                                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all flex items-center gap-2 ${filterChannel === c.id ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50 shadow-sm ring-1 ring-indigo-500/30' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
+                                >
+                                    {c.logoUrl && <img src={c.logoUrl} className="w-4 h-4 rounded-full opacity-70" />}
+                                    {c.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
-            )}
 
-            {/* Modals */}
-            <GoalFormModal 
-                isOpen={isCreateModalOpen} 
-                onClose={() => setIsCreateModalOpen(false)}
-                initialData={editingGoal}
-                channels={channels}
-                onSave={handleSaveGoal}
-            />
+                {/* 3. Grid Content */}
+                {isLoading ? (
+                    <div className="py-32 text-center text-indigo-400/50 animate-pulse font-black uppercase tracking-[0.2em]">Scanning Data Streams...</div>
+                ) : paginatedGoals.length === 0 ? (
+                    <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20 backdrop-blur-sm">
+                        <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
+                            <Target className="w-12 h-12 text-indigo-400/30" />
+                        </div>
+                        <p className="text-white font-black text-xl uppercase tracking-widest">No Active Missions Found</p>
+                        <p className="text-gray-500 text-xs mt-2 uppercase tracking-widest">Adjust temporal range or sector filters</p>
+                    </div>
+                ) : (
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                            {paginatedGoals.map(goal => (
+                                <div key={goal.id} className="h-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+                                    <GoalCard 
+                                        goal={goal}
+                                        channel={channels.find(c => c.id === goal.channelId)}
+                                        users={users}
+                                        currentUser={currentUser}
+                                        onUpdate={() => setUpdatingGoal(goal)}
+                                        onToggleOwner={toggleOwner}
+                                        onToggleBoost={toggleBoost}
+                                        onDelete={deleteGoal}
+                                        onEdit={(g) => { setEditingGoal(g); setIsCreateModalOpen(true); }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
 
-            {updatingGoal && (
-                <UpdateProgressModal 
-                    isOpen={!!updatingGoal}
-                    onClose={() => setUpdatingGoal(null)}
-                    goal={updatingGoal}
-                    onUpdate={handleUpdateProgress}
+                        {/* Pagination Footer */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-6 py-8">
+                                <button 
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="p-4 rounded-2xl bg-slate-900/60 border border-white/10 text-gray-400 hover:text-white hover:bg-indigo-600/20 disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-xl backdrop-blur-md"
+                                >
+                                    <ChevronLeft className="w-6 h-6" />
+                                </button>
+                                <span className="text-xs font-black text-indigo-400 bg-slate-900/80 px-6 py-3 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl uppercase tracking-[0.2em]">
+                                    Sector {page} <span className="text-gray-600 mx-2">/</span> {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="p-4 rounded-2xl bg-slate-900/60 border border-white/10 text-gray-400 hover:text-white hover:bg-indigo-600/20 disabled:opacity-20 disabled:cursor-not-allowed transition-all shadow-xl backdrop-blur-md"
+                                >
+                                    <ChevronRight className="w-6 h-6" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Modals */}
+                <GoalFormModal 
+                    isOpen={isCreateModalOpen} 
+                    onClose={() => setIsCreateModalOpen(false)}
+                    initialData={editingGoal}
+                    channels={channels}
+                    onSave={handleSaveGoal}
                 />
-            )}
 
-        </div>
+                {updatingGoal && (
+                    <UpdateProgressModal 
+                        isOpen={!!updatingGoal}
+                        onClose={() => setUpdatingGoal(null)}
+                        goal={updatingGoal}
+                        onUpdate={handleUpdateProgress}
+                    />
+                )}
+
+            </div>
+        </SpaceBackground>
     );
 };
 

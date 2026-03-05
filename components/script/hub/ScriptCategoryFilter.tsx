@@ -15,6 +15,7 @@ const ScriptCategoryFilter: React.FC<ScriptCategoryFilterProps> = ({
   onChange
 }) => {
   const clear = () => onChange('ALL');
+  const isAll = !value || value === 'ALL';
 
   const ordered = [...categories].sort((a, b) => {
     if (a.key === value) return 1;
@@ -34,18 +35,18 @@ return (
       <div className="hidden md:flex items-center gap-6">
 
         <button
-          onClick={value ? clear : undefined}
-          disabled={!value}
+          onClick={!isAll ? clear : undefined}
+          disabled={isAll}
           className={`
             text-[10px] font-black uppercase tracking-widest
             px-4 py-2 rounded-xl border transition-all duration-500 min-w-[110px]
-            ${value
+            ${!isAll
               ? 'bg-gradient-to-br from-indigo-50 to-blue-100 text-indigo-600 border-indigo-200'
               : 'bg-white/50 text-gray-400 border-gray-100 opacity-60'
             }
           `}
         >
-          {value
+          {!isAll
             ? <> <Trash2 className="w-3.5 h-3.5 mr-2 inline animate-pulse" /> Clear </>
             : <> <Layers className="w-3.5 h-3.5 mr-2 inline opacity-50" /> Categories </>
           }

@@ -11,8 +11,9 @@ interface TimesheetTableProps {
     dateRange: Date[];
     filteredAndGroupedUsers: Record<string, User[]>;
     logs: AttendanceLog[];
+    leaveRequests?: any[];
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
-    onCellClick: (log: AttendanceLog) => void;
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any) => void;
 }
 
 const TimesheetTable: React.FC<TimesheetTableProps> = ({
@@ -20,6 +21,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
     dateRange,
     filteredAndGroupedUsers,
     logs,
+    leaveRequests = [],
     getEffectiveDayStatus,
     onCellClick
 }) => {
@@ -102,16 +104,25 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                             const dateStr = format(day, 'yyyy-MM-dd');
                                             const log = logs.find(l => l.userId === user.id && l.date === dateStr);
                                             const dayStatus = getEffectiveDayStatus(day);
+                                            
+                                            // Find relevant leave request for this user and day
+                                            const relevantRequest = leaveRequests.find(r => 
+                                                r.user_id === user.id && 
+                                                dateStr >= r.start_date && 
+                                                dateStr <= r.end_date
+                                            );
+
                                             return (
                                                 <td key={day.toString()} className="p-0">
                                                     <TimesheetCell 
                                                         date={day}
                                                         log={log} 
+                                                        leaveRequest={relevantRequest}
                                                         dayStatus={dayStatus}
                                                         isToday={isToday(day)}
                                                         onClick={() => {
-                                                            if (log) {
-                                                                onCellClick(log);
+                                                            if (log || relevantRequest) {
+                                                                onCellClick(log || null, relevantRequest);
                                                             }
                                                         }}
                                                     />

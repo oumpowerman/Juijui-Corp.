@@ -6,11 +6,15 @@ import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight } from 'lucide-
 import { AttendanceLog } from '../../../types/attendance';
 
 interface TimesheetDetailModalProps {
-    log: AttendanceLog;
+    log?: AttendanceLog | null;
+    leaveRequest?: any | null;
     onClose: () => void;
 }
 
-const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClose }) => {
+const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, onClose }) => {
+    const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
+    const note = log?.note || leaveRequest?.reason || '';
+    
     return (
         <div 
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-300"
@@ -22,8 +26,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClos
             >
                 <div className="relative h-72 bg-slate-900 flex items-center justify-center group/img">
                     {(() => {
-                        const proofMatch = log.note?.match(/\[PROOF:(.*?)\]/);
-                        const url = proofMatch ? proofMatch[1] : null;
+                        const proofMatch = note.match(/\[PROOF:(.*?)\]/);
+                        const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
                         const isDrive = url?.includes('drive.google.com');
                         const displayUrl = isDrive ? `https://lh3.googleusercontent.com/d/${url?.split('id=')[1] || url?.split('/d/')[1]?.split('/')[0]}=s1000` : url;
 
@@ -39,7 +43,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClos
                                 <div className="absolute bottom-4 left-6 flex items-center gap-3">
                                     <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white flex items-center gap-2">
                                         <ImageIcon className="w-4 h-4" />
-                                        <span className="text-xs font-black uppercase tracking-widest">Image Verified</span>
+                                        <span className="text-xs font-black uppercase tracking-widest">Visual Evidence</span>
                                     </div>
                                     <a href={url} target="_blank" rel="noreferrer" className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-all">
                                         <Download className="w-4 h-4" />
@@ -61,11 +65,21 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClos
                 <div className="p-8">
                     <div className="flex justify-between items-start mb-8">
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Time Analysis Log</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+                                {log ? 'Time Analysis Log' : 'Leave Request Detail'}
+                            </p>
                             <h3 className="text-3xl font-black text-slate-800">
-                                {format(new Date(log.date), 'EEEE d MMMM', { locale: th })}
+                                {format(displayDate, 'EEEE d MMMM', { locale: th })}
                             </h3>
-                            {(() => {
+                            {leaveRequest && (
+                                <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border
+                                    ${leaveRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
+                                      leaveRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                                      'bg-red-100 text-red-700 border-red-200'}`}>
+                                    {leaveRequest.status} {leaveRequest.type}
+                                </div>
+                            )}
+                            {log && !leaveRequest && (() => {
                                 const leaveMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
                                 if (leaveMatch) {
                                     return (
@@ -78,33 +92,55 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, onClos
                             })()}
                         </div>
                         <div className="p-4 bg-indigo-50 text-indigo-600 rounded-[1.5rem] shadow-inner">
-                            <Clock className="w-8 h-8" />
+                            {leaveRequest ? <Info className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6 mb-8">
-                        <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-emerald-200 transition-all">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-emerald-500" /> Start Mission</p>
-                            <p className="text-3xl font-black text-indigo-600 font-mono">
-                                {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
-                            </p>
-                            <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.locationName || 'Unspecified'}</p>
+                    {log ? (
+                        <div className="grid grid-cols-2 gap-6 mb-8">
+                            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-emerald-200 transition-all">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-emerald-500" /> Start Mission</p>
+                                <p className="text-3xl font-black text-indigo-600 font-mono">
+                                    {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
+                                </p>
+                                <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.locationName || 'Unspecified'}</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-orange-200 transition-all">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-orange-500 rotate-180" /> Mission End</p>
+                                <p className="text-3xl font-black text-slate-700 font-mono">
+                                    {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
+                                </p>
+                                <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.checkOutLocationName || 'Unspecified'}</p>
+                            </div>
                         </div>
-                        <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-orange-200 transition-all">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-orange-500 rotate-180" /> Mission End</p>
-                            <p className="text-3xl font-black text-slate-700 font-mono">
-                                {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
-                            </p>
-                            <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.checkOutLocationName || 'Unspecified'}</p>
+                    ) : leaveRequest && (
+                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-indigo-500" />
+                                    <span className="text-xs font-bold text-slate-600">Duration</span>
+                                </div>
+                                <span className="text-xs font-black text-indigo-600">
+                                    {format(new Date(leaveRequest.start_date), 'd MMM')} - {format(new Date(leaveRequest.end_date), 'd MMM')}
+                                </span>
+                            </div>
+                            <div className="h-[1px] bg-slate-200 w-full mb-4"></div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Info className="w-4 h-4 text-indigo-500" />
+                                    <span className="text-xs font-bold text-slate-600">Type</span>
+                                </div>
+                                <span className="text-xs font-black text-slate-800 uppercase tracking-widest">{leaveRequest.type}</span>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {log.note && (
+                    {note && (
                         <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-indigo-400">Official Note</h4>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-indigo-400">Official Note / Reason</h4>
                             <p className="text-sm font-medium leading-relaxed italic">
-                                "{log.note.replace(/\[.*?\]/g, '').trim() || 'ไม่มีหมายเหตุเพิ่มเติม'}"
+                                "{note.replace(/\[.*?\]/g, '').trim() || 'ไม่มีหมายเหตุเพิ่มเติม'}"
                             </p>
                         </div>
                     )}

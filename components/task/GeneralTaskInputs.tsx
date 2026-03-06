@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Task, User, MasterOption, ScriptSummary, Channel, DeadlineRequest } from '../../types';
+import { Task, User, MasterOption, ScriptSummary, Channel, DeadlineRequest, ReviewSession } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
 import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, CheckCircle, XCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -8,8 +8,10 @@ import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import TaskAssets from '../TaskAssets'; 
 import { isTaskCompleted } from '../../constants';
+import { format } from 'date-fns';
 import { useScripts } from '../../hooks/useScripts'; 
 import { useDeadlineRequests } from '../../hooks/useDeadlineRequests';
+import { useTasks } from '../../hooks/useTasks';
 
 // Import Form Parts
 import GTAssigneeSelector from './form-parts/GTAssigneeSelector';
@@ -46,6 +48,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     const { showToast } = useToast();
     const { showConfirm, showAlert } = useGlobalDialog();
     const [isSendingQC, setIsSendingQC] = useState(false);
+    const [qcSenderName, setQcSenderName] = useState<string>('');
     const isAdmin = currentUser?.role === 'ADMIN';
     const isCreative = currentUser?.position === 'Creative' || isAdmin;
 
@@ -79,6 +82,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         onSave,
         projects
     });
+
+    const { handleSendToQC: sendToQC } = useTasks();
     
     // --- Script Linking Logic (Local to Form) ---
     const { 
@@ -173,9 +178,30 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
     // --- Standard Task Logic ---
 
+    useEffect(() => {
+        const fetchSender = async () => {
+            if (status === 'WAITING' && initialData?.id) {
+                const { data } = await supabase
+                    .from('task_logs')
+                    .select('user_id, users(name)')
+                    .eq('task_id', initialData.id)
+                    .eq('action', 'SENT_TO_QC')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                if (data && (data as any).users) {
+                    setQcSenderName((data as any).users.name);
+                }
+            }
+        };
+        fetchSender();
+    }, [status, initialData?.id]);
+
     const activeUsers = users.filter(u => u.isActive);
     const isOwnerOrAssignee = (currentUser && assigneeIds.includes(currentUser.id)) || isAdmin;
-    const isReadOnly = !!initialData && !isOwnerOrAssignee;
+    const isWaiting = status === 'WAITING';
+    const isReadOnly = (!!initialData && !isOwnerOrAssignee) || (isWaiting && !isAdmin);
 
     const filteredStatusOptions = React.useMemo(() => {
         if (isAdmin) return taskStatusOptions;
@@ -209,16 +235,6 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             return;
         }
 
-        const existingPendingReview = initialData.reviews?.find(r => r.status === 'PENDING');
-        if (existingPendingReview) {
-             await showAlert(`มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว`, '⚠️ ส่งซ้ำไม่ได้');
-             setIsSendingQC(false);
-             return;
-        }
-
-        const currentRoundCount = initialData.reviews?.length || 0;
-        const nextRound = currentRoundCount + 1;
-        
         const confirmed = await showConfirm(
             `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
             `🚀 ยืนยันการส่งงาน?`
@@ -230,63 +246,9 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         }
 
         try {
-            const { error: reviewError } = await supabase.from('task_reviews').insert({
-                task_id: initialData.id,
-                content_id: null,
-                round: nextRound,
-                scheduled_at: new Date().toISOString(),
-                status: 'PENDING',
-                reviewer_id: null
-            });
-            if (reviewError) throw reviewError;
-
-            await supabase.from('task_logs').insert({
-                task_id: initialData.id,
-                action: 'SENT_TO_QC',
-                details: `ส่งงาน (Submission ${nextRound})`,
-                user_id: currentUser?.id
-            });
-
-            const targetStatus = 'WAITING'; 
+            const updatedTask = await sendToQC(initialData, currentUser!);
             
-            const newOptimisticReview = {
-                id: `temp-${Date.now()}`,
-                taskId: initialData.id,
-                round: nextRound,
-                scheduledAt: new Date(),
-                status: 'PENDING',
-                reviewerId: null
-            };
-
-            const updatedTask: Task = {
-                ...initialData!,
-                title,
-                description,
-                status: targetStatus,
-                priority,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
-                assigneeIds,
-                assigneeType,
-                targetPosition,
-                difficulty,
-                estimatedHours,
-                assets,
-                reviews: [...(initialData.reviews || []), newOptimisticReview as any], 
-                showOnBoard: true 
-            };
-
-            const { error: updateError } = await supabase
-                .from('tasks')
-                .update({ 
-                    status: targetStatus,
-                    show_on_board: true
-                })
-                .eq('id', initialData.id);
-
-            if (updateError) throw updateError;
-
-            setStatus(targetStatus);
+            setStatus(updatedTask.status);
             onSave(updatedTask);
             
             await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 หัวหน้าจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
@@ -294,7 +256,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
         } catch (err: any) {
             console.error("Submission error details:", err);
-            showToast('ส่งงานไม่สำเร็จ: ' + (err.message || 'Unknown Error'), 'error');
+            showToast(err.message || 'ส่งงานไม่สำเร็จ', 'error');
             setIsSendingQC(false); 
         }
     };
@@ -319,6 +281,18 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     return (
         <>
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden">
+                {/* Top Alert Banner for QC */}
+                {isWaiting && (
+                    <div className="bg-yellow-50 border-b border-yellow-100 px-6 py-3 flex items-center gap-3 animate-in slide-in-from-top duration-300 shrink-0">
+                        <Lock className="w-5 h-5 text-yellow-600 shrink-0" />
+                        <p className="text-sm text-yellow-800">
+                            <span className="font-bold">⚠️ งานนี้อยู่ระหว่างการตรวจสอบ (Round {initialData?.reviews?.find(r => r.status === 'PENDING')?.round || initialData?.reviews?.length || 1})</span>
+                            {' '}ส่งเมื่อวันที่ {initialData?.reviews?.find(r => r.status === 'PENDING')?.scheduledAt ? format(new Date(initialData.reviews.find(r => r.status === 'PENDING')!.scheduledAt), 'd MMM yyyy') : format(new Date(), 'd MMM yyyy')}
+                            {qcSenderName && ` โดย ${qcSenderName}`} - ฟิลด์ข้อมูลจะถูกล็อคชั่วคราว
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
                     {isReadOnly && (
                         <div className="bg-slate-100 border-l-4 border-slate-400 p-4 rounded-r-lg animate-in slide-in-from-top-2">
@@ -480,7 +454,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                         isSaving={Boolean(isSaving)}
                         isSendingQC={isSendingQC}
                         canSendQC={isOwnerOrAssignee}
-                        showSendQC={Boolean(initialData && !isTaskDone && status !== 'WAITING' && status !== 'FEEDBACK')}
+                        showSendQC={Boolean(initialData && !isTaskDone && status !== 'WAITING')}
                         showDelete={Boolean(initialData && onDelete && isAdmin)}
                     />
                 </div>

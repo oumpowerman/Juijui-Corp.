@@ -434,6 +434,95 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         }
     };
 
+    const handleSendToQC = async (task: Task, currentUser: User) => {
+        const currentRoundCount = task.reviews?.length || 0;
+        const nextRound = currentRoundCount + 1;
+
+        // 0. Check for existing pending review
+        const existingPendingReview = task.reviews?.find(r => r.status === 'PENDING');
+        if (existingPendingReview) {
+             throw new Error(`มีรายการ "Draft ${existingPendingReview.round}" รอตรวจอยู่แล้ว`);
+        }
+
+        // 1. Insert Review Record
+        const { error: reviewError } = await supabase.from('task_reviews').insert({
+            task_id: task.id,
+            content_id: null,
+            round: nextRound,
+            scheduled_at: new Date().toISOString(),
+            status: 'PENDING',
+            reviewer_id: null
+        });
+        if (reviewError) throw reviewError;
+
+        // 2. Log Action
+        await supabase.from('task_logs').insert({
+            task_id: task.id,
+            user_id: currentUser.id,
+            action: 'SENT_TO_QC',
+            details: `ส่งงาน (Submission ${nextRound})`
+        });
+
+        // 3. Update Task Status to WAITING and show on board
+        const targetStatus = 'WAITING';
+        const { error: updateError } = await supabase
+            .from('tasks')
+            .update({ 
+                status: targetStatus,
+                show_on_board: true 
+            })
+            .eq('id', task.id);
+
+        if (updateError) throw updateError;
+
+        // 4. Send Notifications to Admins
+        try {
+            const { data: admins } = await supabase
+                .from('users')
+                .select('id')
+                .eq('role', 'ADMIN')
+                .eq('is_active', true);
+
+            if (admins && admins.length > 0) {
+                const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'QC_REQUEST',
+                    title: `🚀 งานรอตรวจ: ${task.title}`,
+                    message: `${currentUser.name} ส่งงานให้ตรวจสอบ (รอบที่ ${nextRound})`,
+                    related_id: task.id,
+                    link_path: 'QUALITY_GATE',
+                    is_read: false
+                }));
+                await supabase.from('notifications').insert(notifications);
+            }
+        } catch (notifError) {
+            console.error("Failed to send QC notifications:", notifError);
+            // Non-blocking error
+        }
+
+        // 5. Return updated task for optimistic UI
+        const newOptimisticReview = {
+            id: `temp-${Date.now()}`,
+            taskId: task.id,
+            round: nextRound,
+            scheduledAt: new Date(),
+            status: 'PENDING',
+            reviewerId: null
+        };
+
+        const updatedTask: Task = { 
+            ...task, 
+            status: targetStatus,
+            showOnBoard: true,
+            reviews: [...(task.reviews || []), newOptimisticReview as any]
+        };
+
+        // Update global state if it's in the list
+        setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+
+        return updatedTask;
+    };
+
     return {
         tasks,
         fetchTasks,
@@ -441,6 +530,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,
+        handleSendToQC,
         checkAndExpandRange,
         fetchAllTasks,
         isFetching

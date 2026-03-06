@@ -18,7 +18,7 @@ interface LogisticsTabProps {
 
 const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, currentUser, onUpdate }) => {
     // We reuse useTasks, which fetches by content_id correctly
-    const { fetchSubTasks, handleSaveTask, handleDeleteTask } = useTasks(() => {});
+    const { fetchSubTasks, handleSaveTask, handleDeleteTask, handleSendToQC: sendToQC } = useTasks(() => {});
     const { showAlert, showConfirm } = useGlobalDialog();
     const [subTasks, setSubTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,9 +106,9 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
 
     // --- NEW LOGIC: CLICK HANDLER ---
     const handleItemClick = async (task: Task) => {
-        if (task.status === 'FEEDBACK') {
+        if (task.status === 'WAITING') {
             // Blocked
-            showToast('รายการนี้อยู่ระหว่างการตรวจสอบ (Under Review)', 'warning');
+            showToast('รายการนี้อยู่ระหว่างการตรวจสอบ (Waiting for Review)', 'warning');
             return;
         }
 
@@ -136,25 +136,14 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
         if (!actionTask) return;
         setIsActionProcessing(true);
         try {
-            // Set status to FEEDBACK (Waiting/Review)
-            const updatedTask = { ...actionTask, status: 'FEEDBACK' };
+            const updatedTask = await sendToQC(actionTask, currentUser);
             setSubTasks(prev => prev.map(t => t.id === actionTask.id ? updatedTask : t));
             
-            await handleSaveTask(updatedTask, actionTask);
-            
-            // Log
-            await supabase.from('task_logs').insert({
-                task_id: actionTask.id,
-                user_id: currentUser.id,
-                action: 'SENT_TO_QC',
-                details: 'ส่งตรวจงานย่อย (Logistics)'
-            });
-            
-            showToast('ส่งตรวจเรียบร้อย รอหัวหน้าอนุมัติ ⏳', 'success');
+            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 หัวหน้าจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
             setActionTask(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            showToast('เกิดข้อผิดพลาด', 'error');
+            showToast(error.message || 'เกิดข้อผิดพลาดในการส่งงาน', 'error');
         } finally {
             setIsActionProcessing(false);
         }
@@ -283,7 +272,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                 ) : (
                     subTasks.map(task => {
                         const isDone = task.status === 'DONE';
-                        const isFeedback = task.status === 'FEEDBACK';
+                        const isWaiting = task.status === 'WAITING';
                         const assignee = users.find(u => u.id === task.assigneeIds[0]);
 
                         return (
@@ -292,11 +281,11 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                                     onClick={() => handleItemClick(task)} 
                                     className={`shrink-0 transition-colors ${
                                         isDone ? 'text-green-500' : 
-                                        isFeedback ? 'text-yellow-500 cursor-not-allowed' : 
+                                        isWaiting ? 'text-yellow-500 cursor-not-allowed' : 
                                         'text-gray-300 hover:text-indigo-500'
                                     }`}
                                 >
-                                    {isDone ? <CheckCircle2 className="w-6 h-6" /> : isFeedback ? <Lock className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                                    {isDone ? <CheckCircle2 className="w-6 h-6" /> : isWaiting ? <Lock className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
                                 </button>
                                 
                                 <div className="flex-1 min-w-0">
@@ -310,7 +299,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                                                 <Eye className="w-2.5 h-2.5" /> On Board
                                             </span>
                                         )}
-                                        {isFeedback && (
+                                        {isWaiting && (
                                             <span className="text-[9px] bg-yellow-50 text-yellow-600 px-1.5 rounded border border-yellow-100 flex items-center gap-1">
                                                 <Lock className="w-2.5 h-2.5" /> Under Review
                                             </span>
@@ -332,7 +321,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                                     
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {!isFeedback && (
+                                        {!isWaiting && (
                                             <>
                                                 <button 
                                                     onClick={() => handleToggleShowOnBoard(task)} 

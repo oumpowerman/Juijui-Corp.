@@ -25,8 +25,10 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     
     // Data States
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
+    const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
+    const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<any | null>(null);
 
     // Smart Calendar Data
     const { annualHolidays } = useAnnualHolidays();
@@ -70,22 +72,33 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             const endStr = format(dateRange[dateRange.length - 1], 'yyyy-MM-dd');
             
             try {
-                const { data, error } = await supabase
+                // 1. Fetch Logs
+                const { data: logData, error: logError } = await supabase
                     .from('attendance_logs')
                     .select('*')
                     .gte('date', startStr)
                     .lte('date', endStr);
 
-                if (error) throw error;
-                setLogs(data.map((l: any) => ({
+                if (logError) throw logError;
+                setLogs(logData.map((l: any) => ({
                     id: l.id, userId: l.user_id, date: l.date,
                     checkInTime: l.check_in_time ? new Date(l.check_in_time) : null,
                     checkOutTime: l.check_out_time ? new Date(l.check_out_time) : null,
                     workType: l.work_type, status: l.status, note: l.note,
                     locationName: l.location_name, checkOutLocationName: l.check_out_location_name
                 })));
+
+                // 2. Fetch Leave Requests (to handle pending/approved without logs)
+                const { data: leaveData, error: leaveError } = await supabase
+                    .from('leave_requests')
+                    .select('*')
+                    .or(`and(start_date.lte.${endStr},end_date.gte.${startStr})`);
+                
+                if (leaveError) throw leaveError;
+                setLeaveRequests(leaveData || []);
+
             } catch (err) {
-                console.error("Fetch logs failed", err);
+                console.error("Fetch data failed", err);
             } finally {
                 setIsLoading(false);
             }
@@ -148,14 +161,22 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 dateRange={dateRange}
                 filteredAndGroupedUsers={filteredAndGroupedUsers}
                 logs={logs}
+                leaveRequests={leaveRequests}
                 getEffectiveDayStatus={getEffectiveDayStatus}
-                onCellClick={setSelectedLog}
+                onCellClick={(log, leaveReq) => {
+                    setSelectedLog(log);
+                    setSelectedLeaveRequest(leaveReq);
+                }}
             />
 
-            {selectedLog && (
+            {(selectedLog || selectedLeaveRequest) && (
                 <TimesheetDetailModal 
                     log={selectedLog}
-                    onClose={() => setSelectedLog(null)}
+                    leaveRequest={selectedLeaveRequest}
+                    onClose={() => {
+                        setSelectedLog(null);
+                        setSelectedLeaveRequest(null);
+                    }}
                 />
             )}
         </div>

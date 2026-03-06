@@ -59,7 +59,9 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [filterChannel, setFilterChannel] = useState<string[]>([]); // Array of IDs
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
+    const [filterTags, setFilterTags] = useState<string[]>([]); // NEW: Multi-tag filter
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC'); // NEW SORT STATE
+    const [isDeepSearch, setIsDeepSearch] = useState(false); // NEW DEEP SEARCH STATE
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -73,15 +75,17 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             filterOwner,
             filterChannel,
             filterCategory,
+            filterTags, // NEW
             filterStatus,
-            sortOrder // NEW
+            sortOrder, // NEW
+            isDeepSearch // NEW
         });
-    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder, fetchScripts]);
+    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch, fetchScripts]);
 
     // Reset page on filter change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus]);
+    }, [searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, filterTags, isDeepSearch]);
 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
@@ -93,7 +97,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             if (fullScript) setActiveScript(fullScript);
         }
         // Refetch list to show new item
-        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder });
+        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch });
     };
 
     const handleOpenScript = async (summary: ScriptSummary) => {
@@ -299,6 +303,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     filterOwner={filterOwner}
                     filterChannel={filterChannel}
                     filterCategory={filterCategory}
+                    filterTags={filterTags} // NEW
                     searchQuery={searchQuery} // NEW
                     viewTab={viewTab}
                     filterStatus={filterStatus}
@@ -309,13 +314,6 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     }}
                 />
 
-                {/* 3. Category Deck */}
-                <ScriptCategoryFilter
-                    categories={scriptCategories}
-                    value={filterCategory}
-                    onChange={setFilterCategory}
-                />
-
                 {/* 4. Filter Bar & List */}
                 <div className="space-y-4">
                      <ScriptFilterBar 
@@ -323,9 +321,12 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                         filterOwner={filterOwner} setFilterOwner={setFilterOwner}
                         filterChannel={filterChannel} setFilterChannel={setFilterChannel}
+                        filterCategory={filterCategory} setFilterCategory={setFilterCategory}
+                        filterTags={filterTags} setFilterTags={setFilterTags} // NEW
                         // NEW PROPS
                         filterStatus={filterStatus} setFilterStatus={setFilterStatus}
                         sortOrder={sortOrder} setSortOrder={setSortOrder}
+                        isDeepSearch={isDeepSearch} setIsDeepSearch={setIsDeepSearch}
                         users={users} channels={channels} masterOptions={masterOptions}
                     />
 

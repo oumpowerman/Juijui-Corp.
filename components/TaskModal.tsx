@@ -113,7 +113,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                     </button>
                 )}
                 <div>
-                    <h2 className={`text-2xl font-black tracking-tight flex items-center gap-2 text-slate-800 transition-colors`}>
+                    <h2 className={`text-2xl font-bold tracking-tight flex items-center gap-2 text-slate-800 transition-colors`}>
                         {viewMode === 'DETAILS' ? (
                              initialData ? (initialData.title || 'แก้ไขงาน') : (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์ใหม่' : '⚡ สร้างภารกิจใหม่')
                         ) : (

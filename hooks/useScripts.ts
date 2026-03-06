@@ -15,8 +15,10 @@ interface FetchScriptsOptions {
     filterOwner?: string[]; // Changed to Array
     filterChannel?: string[]; // Changed to Array
     filterCategory?: string;
+    filterTags?: string[]; // NEW: Multi-tag filter
     filterStatus?: string;
     sortOrder?: 'ASC' | 'DESC'; // NEW: Add Sort Order
+    isDeepSearch?: boolean; // NEW: Deep search in content
 }
 
 export const useScripts = (currentUser: User) => {
@@ -98,9 +100,21 @@ export const useScripts = (currentUser: User) => {
                 query = query.eq('status', options.filterStatus);
             }
 
+            if (options.filterTags && options.filterTags.length > 0) {
+                // Use .cs (contains) for array filtering
+                // This finds scripts that contain ALL of the selected tags
+                query = query.contains('tags', options.filterTags);
+            }
+
             // 3. Search (Server-side)
             if (options.searchQuery) {
-                query = query.or(`title.ilike.%${options.searchQuery}%,tags.cs.{${options.searchQuery}}`);
+                if (options.isDeepSearch) {
+                    // Deep Search: Title OR Tags OR Content
+                    query = query.or(`title.ilike.%${options.searchQuery}%,tags.cs.{${options.searchQuery}},content.ilike.%${options.searchQuery}%`);
+                } else {
+                    // Standard Search: Title OR Tags
+                    query = query.or(`title.ilike.%${options.searchQuery}%,tags.cs.{${options.searchQuery}}`);
+                }
             }
 
             // 4. Sorting & Pagination

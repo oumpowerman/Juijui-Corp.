@@ -183,16 +183,16 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
         <div className="flex flex-col gap-4">
           {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl p-6 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl pt-7 pb-6 px-6 pr-7 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5 overflow-x-visible overflow-y-visible">
               <div>
-                  <h1 className="text-3xl font-black text-gray-800 flex items-center mb-3 tracking-tight">
+                  <h1 className="text-3xl font-bold text-gray-800 flex items-center mb-3 tracking-tight">
                       <span className="text-4xl mr-2">📑</span>
                       รายการคอนเทนต์ (All Content)
                   </h1>
 
                   {/* Quick Channel Chips */}
                   <div className="w-full overflow-x-auto scrollbar-hide pb-1">
-                      <div className="flex items-center gap-2 min-w-max lg:min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 pt-1.5">
                           <button
                               onClick={() => setFilterChannel('ALL')}
                               className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm ${filterChannel === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/80 text-gray-500 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'}`}
@@ -205,7 +205,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                                   <button
                                       key={ch.id}
                                       onClick={() => setFilterChannel(ch.id)}
-                                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${filterChannel === ch.id ? 'ring-2 ring-offset-1 ring-indigo-500 border-transparent text-gray-800 bg-white' : 'border-gray-200 hover:border-indigo-300 bg-white/80 text-gray-600 hover:text-indigo-600'}`}
+                                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${filterChannel === ch.id ? 'ring-2 ring-indigo-500 border-transparent text-gray-800 bg-white mr-[2px]' : 'border-gray-200 hover:border-indigo-300 bg-white/80 text-gray-600 hover:text-indigo-600'}`}
                                   >
                                   <span className={`w-2 h-2 rounded-full ${bgClass}`}></span>
                                   {ch.name}
@@ -233,7 +233,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                           <button
                               onClick={() => fileInputRef.current?.click()}
                               disabled={isImporting}
-                              className="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors disabled:opacity-50"
+                              className="px-3 py-1.5 text-md font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors disabled:opacity-50"
                           >
                               {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />} Import
                           </button>

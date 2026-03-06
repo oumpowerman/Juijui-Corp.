@@ -1,10 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, ChevronDown, LayoutGrid, List, User as UserIcon, X, Check, MonitorPlay, Search, Users, Activity, ArrowDownAZ, ArrowUpAZ, Calendar, Trash2 } from 'lucide-react';
+import { Filter, ChevronDown, LayoutGrid, List, User as UserIcon, X, Check, MonitorPlay, Search, Users, Activity, ArrowDownAZ, ArrowUpAZ, Calendar, Trash2, Sparkles, Tag, Loader2, Hash, CheckCircle, Eye, Layers } from 'lucide-react';
 import { Channel, User, MasterOption } from '../../../types';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { supabase } from '../../../lib/supabase';
 import ChannelFilter from './ChannelFilter';
 import CreatorFilter from './CreatorFilter';
+import TagFilter from './TagFilter';
+import ScriptCategoryFilter from './ScriptCategoryFilter';
 
 interface ScriptFilterBarProps {
     layoutMode: 'GRID' | 'LIST';
@@ -19,6 +23,10 @@ interface ScriptFilterBarProps {
     setFilterOwner: (val: string[]) => void;
     filterChannel: string[];
     setFilterChannel: (val: string[]) => void;
+    filterCategory: string;
+    setFilterCategory: (val: string) => void;
+    filterTags: string[];
+    setFilterTags: (val: string[]) => void;
 
     // NEW: Status & Sort
     filterStatus: string;
@@ -26,19 +34,24 @@ interface ScriptFilterBarProps {
     sortOrder: 'ASC' | 'DESC';
     setSortOrder: (val: 'ASC' | 'DESC') => void;
 
+    // Deep Search
+    isDeepSearch: boolean;
+    setIsDeepSearch: (val: boolean) => void;
+
     // Data
     users: User[];
     channels: Channel[];
     masterOptions: MasterOption[];
 }
 
-// Define correct Script Lifecycle Statuses
+// Define correct Script Lifecycle Statuses with styling
 const SCRIPT_STATUS_OPTIONS = [
-    { key: 'DRAFT', label: '📝 Draft (ร่าง)' },
-    { key: 'REVIEW', label: '👀 Review (รอตรวจ)' },
-    { key: 'FINAL', label: '✅ Final (สมบูรณ์)' },
-    { key: 'SHOOTING', label: '🎬 Shooting (ถ่ายทำ)' },
-    { key: 'DONE', label: '🏁 Done (เสร็จสิ้น)' }
+    { key: 'ALL', label: 'ทุกสถานะ (All)', icon: Activity, color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' },
+    { key: 'DRAFT', label: 'Draft (ร่าง)', icon: List, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
+    { key: 'REVIEW', label: 'Review (รอตรวจ)', icon: Eye, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+    { key: 'FINAL', label: 'Final (สมบูรณ์)', icon: Check, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+    { key: 'SHOOTING', label: 'Shooting (ถ่ายทำ)', icon: MonitorPlay, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
+    { key: 'DONE', label: 'Done (เสร็จสิ้น)', icon: CheckCircle, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' }
 ];
 
 const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
@@ -46,17 +59,34 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
     searchQuery, setSearchQuery,
     filterOwner, setFilterOwner,
     filterChannel, setFilterChannel,
+    filterCategory, setFilterCategory,
+    filterTags, setFilterTags,
     filterStatus, setFilterStatus,
     sortOrder, setSortOrder,
+    isDeepSearch, setIsDeepSearch,
     users, channels, masterOptions
 }) => {
     // Local state for debouncing search input
     const [localSearch, setLocalSearch] = useState(searchQuery);
+    const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+    const [isStatusOpen, setIsStatusOpen] = useState(false);
+    const statusRef = useRef<HTMLDivElement>(null);
     
     // Sync local state if parent prop changes externally
     useEffect(() => {
         setLocalSearch(searchQuery);
     }, [searchQuery]);
+
+    // Close status dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
+                setIsStatusOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Debounce effect
     useEffect(() => {
@@ -81,6 +111,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
 
     const clearOwner = () => setFilterOwner([]);
     const clearChannel = () => setFilterChannel([]);
+    const clearTags = () => setFilterTags([]);
 
     return (
         <div className="flex flex-col gap-4 p-1">
@@ -96,25 +127,62 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                 }
             `}</style>
             
-            {/* Filter Section (Chips) - Moved to TOP */}
-            <div className="flex flex-col gap-3 pt-1 px-1">
-                
-                {/* 1. Channel Filter Row (New Component) */}
-                <ChannelFilter 
-                    channels={channels}
-                    selectedIds={filterChannel}
-                    onToggle={(id) => toggleFilter(id, filterChannel, setFilterChannel)}
-                    onClear={clearChannel}
-                />
+            {/* Filter Section (Chips) - Animated Expansion with Framer Motion */}
+            <LayoutGroup>
+                <AnimatePresence>
+                    {isFilterExpanded && (
+                        <motion.div 
+                            layout
+                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                            animate={{ height: 'auto', opacity: 1, marginTop: 8 }}
+                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                            transition={{ type: 'spring', duration: 0.5, bounce: 0 }}
+                            className="flex flex-col gap-3 px-1 overflow-hidden"
+                        >
+                            {/* 1. Channel Filter Row (New Component) */}
+                            <ChannelFilter 
+                                channels={channels}
+                                selectedIds={filterChannel}
+                                onToggle={(id) => toggleFilter(id, filterChannel, setFilterChannel)}
+                                onClear={clearChannel}
+                            />
 
-                {/* 2. Owner Filter Row (New Component) */}
-                <CreatorFilter 
-                    users={users}
-                    selectedIds={filterOwner}
-                    onToggle={(id) => toggleFilter(id, filterOwner, setFilterOwner)}
-                    onClear={clearOwner}
-                />
-            </div>
+                            {/* 2. Owner Filter Row (New Component) */}
+                            <CreatorFilter 
+                                users={users}
+                                selectedIds={filterOwner}
+                                onToggle={(id) => toggleFilter(id, filterOwner, setFilterOwner)}
+                                onClear={clearOwner}
+                            />
+
+                            {/* 3. Category Filter Row */}
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    <Layers className="w-3 h-3" /> Category Filter
+                                </div>
+                                <ScriptCategoryFilter
+                                    categories={masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder)}
+                                    value={filterCategory}
+                                    onChange={setFilterCategory}
+                                />
+                            </div>
+
+                            {/* 4. Smart Tag Filter Row */}
+                            <TagFilter 
+                                selectedTags={filterTags}
+                                onToggle={(tag) => toggleFilter(tag, filterTags, setFilterTags)}
+                                onClear={clearTags}
+                                // Pass current context for smart counting
+                                filterOwner={filterOwner}
+                                filterChannel={filterChannel}
+                                filterCategory={filterCategory}
+                                filterStatus={filterStatus}
+                                searchQuery={searchQuery}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </LayoutGroup>
 
             {/* Top Bar: Search & Layout Toggle - Moved to BOTTOM */}
             <div className="premium-3d-container p-2.5 rounded-[1.5rem] sticky top-2 z-[50] flex flex-col md:flex-row gap-4 items-center transition-all duration-500 hover:shadow-xl">
@@ -124,16 +192,56 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                     </div>
                     <input 
                         type="text" 
-                        placeholder="ค้นหาสคริปต์ (ชื่อ, แท็ก)..." 
-                        className="w-full pl-11 pr-5 py-2.5 bg-white/50 border border-gray-200/60 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 outline-none transition-all text-sm font-black text-gray-700 placeholder:text-gray-400/80 shadow-inner"
+                        placeholder={isDeepSearch ? "ค้นหาคำในเนื้อหาบทสคริปต์..." : "ค้นหาสคริปต์ (ชื่อ, แท็ก)..."} 
+                        className={`w-full pl-11 pr-12 py-2.5 bg-white/50 border rounded-xl focus:ring-4 outline-none transition-all text-sm font-black text-gray-700 placeholder:text-gray-400/80 shadow-inner ${isDeepSearch ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-400' : 'border-gray-200/60 focus:ring-indigo-500/10 focus:border-indigo-300'}`}
                         value={localSearch}
                         onChange={e => setLocalSearch(e.target.value)}
                     />
+                    
+                    {/* Deep Search Toggle Button inside Input */}
+                    <button
+                        onClick={() => setIsDeepSearch(!isDeepSearch)}
+                        className={`
+                            absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all duration-300 flex items-center gap-1.5
+                            ${isDeepSearch 
+                                ? 'bg-rose-500 text-white shadow-md scale-105' 
+                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                            }
+                        `}
+                        title={isDeepSearch ? "ปิดโหมดค้นหาในเนื้อหาบท" : "เปิดโหมดค้นหาในเนื้อหาบท (Deep Search)"}
+                    >
+                        <Sparkles className={`w-3.5 h-3.5 ${isDeepSearch ? 'animate-pulse' : ''}`} />
+                        {isDeepSearch && <span className="text-[10px] font-black pr-1">DEEP</span>}
+                    </button>
                 </div>
                 
                 {/* Right Side Controls Group */}
                 <div className="flex items-center gap-2">
-                    
+                    {/* Filter Toggle Button */}
+                    <button 
+                        onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                        className={`
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-500 border shadow-sm
+                            ${isFilterExpanded 
+                                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-200' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600'
+                            }
+                        `}
+                    >
+                        <Filter className={`w-4 h-4 ${isFilterExpanded ? 'animate-pulse' : ''}`} />
+                        <span className="hidden sm:inline">FILTERS</span>
+                        {(filterOwner.length > 0 || filterChannel.length > 0 || filterTags.length > 0 || (filterCategory && filterCategory !== 'ALL')) && (
+                            <span className={`
+                                flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black
+                                ${isFilterExpanded ? 'bg-white text-indigo-600' : 'bg-indigo-600 text-white'}
+                            `}>
+                                {filterOwner.length + filterChannel.length + filterTags.length + (filterCategory !== 'ALL' ? 1 : 0)}
+                            </span>
+                        )}
+                    </button>
+
+                    <div className="w-px h-8 bg-gray-200/60 mx-1"></div>
+
                     {/* Sort Toggle */}
                     <button 
                         onClick={() => setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC')}
@@ -150,24 +258,63 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                     </button>
 
                     {/* Status Dropdown */}
-                    <div className="relative group">
-                        <select 
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
+                    <div className="relative" ref={statusRef}>
+                        <button 
+                            onClick={() => setIsStatusOpen(!isStatusOpen)}
                             className={`
-                                appearance-none pl-4 pr-10 py-2.5 rounded-xl text-xs font-black border cursor-pointer outline-none transition-all duration-500 shadow-sm
+                                flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-black border transition-all duration-500 shadow-sm
                                 ${filterStatus !== 'ALL' 
-                                    ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 focus:ring-4 focus:ring-indigo-100' 
-                                    : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 focus:ring-4 focus:ring-gray-100'
+                                    ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50' 
+                                    : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/10'
                                 }
                             `}
                         >
-                            <option value="ALL">ทุกสถานะ (All)</option>
-                            {SCRIPT_STATUS_OPTIONS.map(opt => (
-                                <option key={opt.key} value={opt.key}>{opt.label}</option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none group-hover:text-indigo-500 transition-colors" />
+                            {(() => {
+                                const current = SCRIPT_STATUS_OPTIONS.find(o => o.key === filterStatus) || SCRIPT_STATUS_OPTIONS[0];
+                                const Icon = current.icon;
+                                return (
+                                    <>
+                                        <Icon className={`w-4 h-4 ${current.color}`} />
+                                        <span className="truncate max-w-[100px]">{current.label}</span>
+                                    </>
+                                );
+                            })()}
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isStatusOpen ? 'rotate-180 text-indigo-500' : ''}`} />
+                        </button>
+
+                        {isStatusOpen && (
+                            <div className="absolute bottom-full mb-2 right-0 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[60] p-1.5 animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+                                <div className="px-3 py-2 mb-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">เลือกสถานะสคริปต์</span>
+                                </div>
+                                {SCRIPT_STATUS_OPTIONS.map(opt => {
+                                    const Icon = opt.icon;
+                                    const isSelected = filterStatus === opt.key;
+                                    return (
+                                        <button
+                                            key={opt.key}
+                                            onClick={() => {
+                                                setFilterStatus(opt.key);
+                                                setIsStatusOpen(false);
+                                            }}
+                                            className={`
+                                                w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200
+                                                ${isSelected 
+                                                    ? `${opt.bg} ${opt.color} shadow-sm ring-1 ${opt.border}` 
+                                                    : 'text-slate-600 hover:bg-slate-50 hover:pl-4'
+                                                }
+                                            `}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isSelected ? opt.border : 'bg-slate-50 border-slate-100'}`}>
+                                                <Icon className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-bold text-xs flex-1 text-left">{opt.label}</span>
+                                            {isSelected && <Check className="w-4 h-4" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     <div className="w-px h-8 bg-gray-200/60 mx-1"></div>

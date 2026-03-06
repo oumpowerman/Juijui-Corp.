@@ -64,6 +64,7 @@ interface ScriptStatsGridProps {
     filterOwner: string[];
     filterChannel: string[];
     filterCategory: string;
+    filterTags: string[]; // NEW
     searchQuery: string; // NEW
     viewTab: 'QUEUE' | 'LIBRARY' | 'HISTORY';
     filterStatus: string;
@@ -74,6 +75,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
     filterOwner,
     filterChannel,
     filterCategory,
+    filterTags, // NEW
     searchQuery, // NEW
     viewTab,
     filterStatus,
@@ -101,6 +103,9 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 }
                 if (filterCategory !== 'ALL') {
                     q = q.eq('category', filterCategory);
+                }
+                if (filterTags.length > 0) {
+                    q = q.contains('tags', filterTags);
                 }
                 // NEW: Apply Search Query
                 if (searchQuery) {
@@ -134,7 +139,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
         } finally {
             setIsLoading(false);
         }
-    }, [filterOwner, filterChannel, filterCategory, searchQuery]); // ADDED searchQuery
+    }, [filterOwner, filterChannel, filterCategory, filterTags, searchQuery]); // ADDED searchQuery
 
     // Use a ref to track the latest fetchStats to avoid re-subscribing unnecessarily
     const fetchStatsRef = useRef(fetchStats);

@@ -50,6 +50,7 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
                 </button>
 
                 <motion.div 
+                    layout
                     className="flex items-center"
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
@@ -61,11 +62,10 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
                             onClick={() => onToggle(channel.id)}
                             className="relative group/item shrink-0"
                             title={channel.name}
-                            initial={false}
                             animate={{
-                                x: isHovered ? 0 : index * -24,
+                                marginLeft: (isHovered || index === 0) ? 0 : -24,
                                 zIndex: isHovered ? 10 : unselectedChannels.length - index,
-                                filter: isHovered ? 'grayscale(0%)' : 'grayscale(100%) brightness(0.7)',
+                                filter: isHovered ? 'grayscale(0%) brightness(1)' : 'grayscale(100%) brightness(0.7)',
                                 opacity: isHovered ? 1 : 0.8,
                                 scale: isHovered ? 1.1 : 1,
                             }}
@@ -73,13 +73,14 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
                                 scale: 1.2, 
                                 y: -8, 
                                 zIndex: 50,
-                                rotate: 5
+                                rotate: 5,
+                                marginLeft: 0
                             }}
                             transition={{ 
                                 type: "spring", 
                                 stiffness: 300, 
                                 damping: 30,
-                                layout: { duration: 0.6, type: "spring", bounce: 0.3 }
+                                layout: { duration: 0.4, type: "spring", bounce: 0.2 }
                             }}
                         >
                             <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg bg-black ring-1 ring-black/5">
@@ -105,36 +106,43 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
             </div>
 
             {/* Divider Arrow */}
-            {selectedChannels.length > 0 && (
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex-1 flex justify-center items-center px-4"
-                >
-                    <div className="h-px bg-gradient-to-r from-transparent via-rose-200 to-transparent w-full relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[10px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
-                            Selected Channels
+            <AnimatePresence>
+                {selectedChannels.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.8, width: 0 }}
+                        animate={{ opacity: 1, scale: 1, width: 'auto' }}
+                        exit={{ opacity: 0, scale: 0.8, width: 0 }}
+                        className="flex-1 flex justify-center items-center px-4 overflow-hidden"
+                    >
+                        <div className="h-px bg-gradient-to-r from-transparent via-rose-200 to-transparent w-full relative min-w-[100px]">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[10px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">
+                                Selected Channels
+                            </div>
                         </div>
-                    </div>
-                </motion.div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Right Side: Selected Colorful */}
-            <div className="flex items-center gap-3 ml-auto">
+            <motion.div layout className="flex items-center gap-3 ml-auto">
                 {selectedChannels.map((channel) => (
                     <motion.button
                         key={channel.id}
                         layoutId={`channel-${channel.id}`}
                         onClick={() => onToggle(channel.id)}
                         className="relative group/selected active:scale-90 transition-transform shrink-0"
-                        initial={false}
-                        animate={{ rotate: 0, scale: 1 }}
+                        animate={{ 
+                            rotate: 0, 
+                            scale: 1,
+                            filter: 'grayscale(0%) brightness(1)',
+                            opacity: 1
+                        }}
                         whileHover={{ scale: 1.1, y: -4, rotate: -5 }}
                         transition={{ 
                             type: "spring", 
                             stiffness: 300, 
                             damping: 30,
-                            layout: { duration: 0.6, type: "spring", bounce: 0.3 }
+                            layout: { duration: 0.4, type: "spring", bounce: 0.2 }
                         }}
                     >
                         <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-rose-400 shadow-xl selected-glow bg-white p-0.5">
@@ -161,7 +169,7 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
                         </div>
                     </motion.button>
                 ))}
-            </div>
+            </motion.div>
         </div>
     );
 };

@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
-import { X, Tag, Target, Layers, Layout, Save, Hash, ChevronDown, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Tag, Target, Layers, Layout, Save, Hash, ChevronDown, Loader2, Check, Type } from 'lucide-react';
 import { useScriptContext } from '../core/ScriptContext';
+import SmartTagInput from '../hub/SmartTagInput';
 
 const ScriptMetadataModal: React.FC = () => {
     const { 
@@ -14,25 +15,32 @@ const ScriptMetadataModal: React.FC = () => {
         handleSave, isSaving
     } = useScriptContext();
 
-    const [newTag, setNewTag] = useState('');
+    // Dropdown states
+    const [isChannelOpen, setIsChannelOpen] = useState(false);
+    const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+    
+    const channelRef = useRef<HTMLDivElement>(null);
+    const categoryRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdowns on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (channelRef.current && !channelRef.current.contains(event.target as Node)) {
+                setIsChannelOpen(false);
+            }
+            if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) {
+                setIsCategoryOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     if (!isMetadataOpen) return null;
 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive);
-
-    const handleAddTag = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && newTag.trim()) {
-            e.preventDefault();
-            if (!tags.includes(newTag.trim())) {
-                setTags([...tags, newTag.trim()]);
-            }
-            setNewTag('');
-        }
-    };
-
-    const removeTag = (tagToRemove: string) => {
-        setTags(tags.filter(t => t !== tagToRemove));
-    };
+    const selectedChannel = channels.find(c => c.id === channelId);
+    const selectedCategory = scriptCategories.find(c => c.key === category);
 
     const handleClose = async () => {
         await handleSave(); // Auto save on close
@@ -55,7 +63,7 @@ const ScriptMetadataModal: React.FC = () => {
                             <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-sm shadow-inner border border-white/10">
                                 <Layers className="w-6 h-6 text-white" />
                             </div>
-                            <h3 className="text-2xl font-black tracking-tight">Script Details</h3>
+                            <h3 className="text-2xl font-bold tracking-tight">Script Details</h3>
                         </div>
                         <p className="text-indigo-100 text-sm font-medium ml-1 opacity-90">ข้อมูลจำเพาะ & เป้าหมายของงาน</p>
                      </div>
@@ -73,66 +81,137 @@ const ScriptMetadataModal: React.FC = () => {
                     
                     {/* Row 1: Channel & Category */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Channel</label>
-                            <div className="relative group">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none">
-                                    <Layout className="w-5 h-5" />
+                        {/* Channel Dropdown */}
+                        <div className="space-y-2 relative" ref={channelRef}>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                <Layout className="w-3 h-3" /> Channel
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setIsChannelOpen(!isChannelOpen)}
+                                className={`
+                                    w-full flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all duration-300
+                                    ${isChannelOpen 
+                                        ? 'bg-blue-50/50 border-blue-400 ring-4 ring-blue-50 shadow-md' 
+                                        : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-blue-50/10'
+                                    }
+                                `}
+                            >
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    {selectedChannel ? (
+                                        <>
+                                            {selectedChannel.logoUrl ? (
+                                                <img src={selectedChannel.logoUrl} className="w-7 h-7 rounded-lg object-cover bg-gray-100 shrink-0 shadow-sm" alt="" />
+                                            ) : (
+                                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] shrink-0 border border-blue-200">
+                                                    {selectedChannel.name.charAt(0)}
+                                                </div>
+                                            )}
+                                            <span className="font-bold text-slate-700 text-sm truncate">{selectedChannel.name}</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-slate-400 text-sm font-medium pl-1">เลือกช่องทาง...</span>
+                                    )}
                                 </div>
-                                <select 
-                                    className="w-full pl-10 pr-8 py-3.5 bg-white border-2 border-slate-100 rounded-2xl outline-none text-sm font-bold text-slate-700 cursor-pointer focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 transition-all appearance-none shadow-sm hover:border-indigo-100"
-                                    value={channelId || ''}
-                                    onChange={e => setChannelId(e.target.value || undefined)}
-                                >
-                                    <option value="">-- ไม่ระบุ --</option>
-                                    {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            </div>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isChannelOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                            </button>
+
+                            {isChannelOpen && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 max-h-60 overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 slide-in-from-top-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setChannelId(''); setIsChannelOpen(false); }}
+                                        className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-50 transition-colors mb-1 ${!channelId ? 'bg-slate-50 text-slate-800' : ''}`}
+                                    >
+                                        -- ไม่ระบุ --
+                                    </button>
+                                    {channels.map(c => (
+                                        <button
+                                            key={c.id}
+                                            type="button"
+                                            onClick={() => { setChannelId(c.id); setIsChannelOpen(false); }}
+                                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${channelId === c.id ? 'bg-blue-50 text-blue-700 shadow-sm' : 'hover:bg-blue-50/50 hover:pl-4'}`}
+                                        >
+                                            {c.logoUrl ? (
+                                                <img src={c.logoUrl} className="w-7 h-7 rounded-lg object-cover bg-gray-100 border border-gray-200" alt="" />
+                                            ) : (
+                                                <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] border border-blue-200">
+                                                    {c.name.charAt(0)}
+                                                </div>
+                                            )}
+                                            <span className="font-bold text-sm">{c.name}</span>
+                                            {channelId === c.id && <Check className="w-4 h-4 ml-auto text-blue-500" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Category</label>
-                            <div className="relative group">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none">
-                                    <Layers className="w-5 h-5" />
+                        {/* Category Dropdown */}
+                        <div className="space-y-2 relative" ref={categoryRef}>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                <Type className="w-3 h-3" /> Category
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                                className={`
+                                    w-full flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all duration-300
+                                    ${isCategoryOpen 
+                                        ? 'bg-purple-50/50 border-purple-400 ring-4 ring-purple-50 shadow-md' 
+                                        : 'bg-white border-slate-100 hover:border-purple-200 hover:bg-purple-50/10'
+                                    }
+                                `}
+                            >
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${selectedCategory ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                        <Layers className="w-4 h-4" />
+                                    </div>
+                                    <span className={`font-bold text-sm truncate ${selectedCategory ? 'text-slate-700' : 'text-slate-400'}`}>
+                                        {selectedCategory ? selectedCategory.label : 'เลือกหมวด...'}
+                                    </span>
                                 </div>
-                                <select 
-                                    className="w-full pl-10 pr-8 py-3.5 bg-white border-2 border-slate-100 rounded-2xl outline-none text-sm font-bold text-slate-700 cursor-pointer focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 transition-all appearance-none shadow-sm hover:border-indigo-100"
-                                    value={category || ''}
-                                    onChange={e => setCategory(e.target.value || undefined)}
-                                >
-                                    <option value="">-- เลือก --</option>
-                                    {scriptCategories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            </div>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isCategoryOpen ? 'rotate-180 text-purple-500' : ''}`} />
+                            </button>
+
+                            {isCategoryOpen && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 max-h-60 overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 slide-in-from-top-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setCategory(''); setIsCategoryOpen(false); }}
+                                        className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-50 transition-colors mb-1 ${!category ? 'bg-slate-50 text-slate-800' : ''}`}
+                                    >
+                                        -- ไม่ระบุ --
+                                    </button>
+                                    {scriptCategories.map(c => (
+                                        <button
+                                            key={c.key}
+                                            type="button"
+                                            onClick={() => { setCategory(c.key); setIsCategoryOpen(false); }}
+                                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${category === c.key ? 'bg-purple-50 text-purple-700 shadow-sm' : 'hover:bg-purple-50/50 hover:pl-4'}`}
+                                        >
+                                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center border ${category === c.key ? 'bg-purple-100 text-purple-600 border-purple-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                <Layers className="w-3.5 h-3.5" />
+                                            </div>
+                                            <span className="font-bold text-sm">{c.label}</span>
+                                            {category === c.key && <Check className="w-4 h-4 ml-auto text-purple-500" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Row 2: Tags Input - Chip Style */}
+                    {/* Row 2: Smart Tags Input */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                             <Tag className="w-3 h-3" /> Hashtags / Mood
                         </label>
-                        <div className="bg-white p-3 rounded-2xl border-2 border-slate-100 focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-50/50 transition-all flex flex-wrap gap-2 min-h-[60px] shadow-sm items-center">
-                            {tags.map(tag => (
-                                <span key={tag} className="bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-in zoom-in duration-200 shadow-sm">
-                                    <Hash className="w-3 h-3 opacity-50"/> {tag}
-                                    <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors ml-1 bg-white/50 rounded-full p-0.5">
-                                        <X className="w-3 h-3"/>
-                                    </button>
-                                </span>
-                            ))}
-                            <input 
-                                type="text" 
-                                className="bg-transparent text-sm font-medium text-slate-700 outline-none flex-1 min-w-[120px] placeholder:text-slate-300 py-1"
-                                placeholder="+ พิมพ์แท็กแล้วกด Enter"
-                                value={newTag}
-                                onChange={e => setNewTag(e.target.value)}
-                                onKeyDown={handleAddTag}
-                            />
-                        </div>
+                        <SmartTagInput 
+                            selectedTags={tags}
+                            onTagsChange={setTags}
+                            placeholder="พิมพ์แท็ก (เช่น #สนุก, #สาระ)..."
+                        />
                     </div>
 
                     {/* Row 3: Objective */}

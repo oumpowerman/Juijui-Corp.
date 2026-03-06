@@ -126,7 +126,23 @@ const EditorToolbar: React.FC = () => {
                                 type="text" 
                                 value={title} 
                                 onChange={(e) => setTitle(e.target.value)} 
-                                className="font-black text-gray-800 text-lg md:text-xl outline-none bg-transparent placeholder:text-gray-300 w-full truncate focus:scale-[1.01] transition-transform origin-left"
+                                className="font-kanit font-bold tracking-tight text-gray-800 text-lg md:text-xl outline-none
+                                    bg-transparent 
+                                    placeholder:text-transparent
+                                    placeholder:bg-gradient-to-r
+                                    placeholder:from-gray-300
+                                    placeholder:via-gray-200
+                                    placeholder:to-gray-300
+                                    placeholder:bg-[length:200%_100%]
+                                    placeholder:bg-clip-text
+                                    placeholder:animate-shimmer
+                                    w-full truncate     
+                                    origin-left
+                                    transition-all duration-300
+                                    hover:drop-shadow-[0_2px_6px_rgba(0,0,0,0.15)]
+                                    focus:scale-[1.03]
+                                    focus:drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)]
+                                "
                                 placeholder="Untitled Script ✨"
                             />
                             <div className="flex items-center gap-2 md:gap-3 text-[10px] text-gray-400 font-bold mt-0.5 overflow-x-auto scrollbar-hide whitespace-nowrap">

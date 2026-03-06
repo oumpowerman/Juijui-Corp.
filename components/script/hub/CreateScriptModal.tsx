@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag, Hash, Check, ChevronDown, AlignLeft, Type } from 'lucide-react';
 import { Channel, MasterOption, ScriptType } from '../../../types';
+import SmartTagInput from './SmartTagInput';
 
 interface CreateScriptModalProps {
     isOpen: boolean;
@@ -17,7 +18,6 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
     const [category, setCategory] = useState('');
     const [scriptType, setScriptType] = useState<ScriptType>('MONOLOGUE');
     const [tags, setTags] = useState<string[]>([]);
-    const [currentTag, setCurrentTag] = useState('');
     const [objective, setObjective] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -33,7 +33,6 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
             setCategory('');
             setScriptType('MONOLOGUE');
             setTags([]);
-            setCurrentTag('');
             setObjective('');
             setIsSubmitting(false);
             setIsChannelOpen(false);
@@ -57,21 +56,6 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
     const selectedChannel = channels.find(c => c.id === channelId);
-
-    const handleAddTag = (e: React.KeyboardEvent) => {
-        e.stopPropagation(); // Stop enter key from bubbling
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (currentTag.trim() && !tags.includes(currentTag.trim())) {
-                setTags([...tags, currentTag.trim()]);
-                setCurrentTag('');
-            }
-        }
-    };
-
-    const removeTag = (tag: string) => {
-        setTags(tags.filter(t => t !== tag));
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,10 +90,10 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/20 mb-3 shadow-sm">
                                 <Sparkles className="w-3 h-3 text-yellow-300" /> Script Builder
                             </div>
-                            <h3 className="text-3xl font-black tracking-tight leading-none mb-2">
+                            <h3 className="text-3xl font-bold tracking-tight leading-none mb-2">
                                 เริ่มต้นไอเดียใหม่
                             </h3>
-                            <p className="text-rose-100 text-sm font-medium opacity-90">วางโครงเรื่องให้เป๊ะ ก่อนเริ่มเขียนบทจริง</p>
+                            <p className="text-rose-100 text-md font-medium opacity-90">วางโครงเรื่องให้เป๊ะ ก่อนเริ่มเขียนบทจริง</p>
                         </div>
                         <button 
                             type="button" 
@@ -127,7 +111,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                         
                         {/* 1. Title */}
                         <div className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 focus-within:ring-4 focus-within:ring-rose-100 focus-within:border-rose-300 transition-all">
-                            <label className="block text-[10px] font-black text-rose-400 uppercase tracking-widest px-4 pt-3 mb-1">
+                            <label className="block text-[12px] font-black text-rose-400 uppercase tracking-widest px-4 pt-3 mb-1">
                                 Script Title (ชื่อเรื่อง) <span className="text-red-500">*</span>
                             </label>
                             <input 
@@ -252,22 +236,11 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 flex items-center">
                                     <Hash className="w-3.5 h-3.5 mr-1.5" /> Tags & Mood
                                 </label>
-                                <div className="bg-white p-2 rounded-xl border-2 border-slate-100 focus-within:border-rose-300 focus-within:ring-4 focus-within:ring-rose-50 transition-all flex flex-wrap gap-2 items-center min-h-[52px]">
-                                    {tags.map(tag => (
-                                        <span key={tag} className="bg-rose-50 text-rose-600 px-2 py-1 rounded-lg text-xs font-bold flex items-center border border-rose-100 animate-in zoom-in duration-200">
-                                            #{tag}
-                                            <button type="button" onClick={() => removeTag(tag)} className="ml-1.5 hover:text-rose-800 bg-rose-100 rounded-full p-0.5"><X className="w-2.5 h-2.5" /></button>
-                                        </span>
-                                    ))}
-                                    <input 
-                                        type="text" 
-                                        className="bg-transparent text-sm font-medium text-gray-700 outline-none flex-1 min-w-[120px] placeholder:text-slate-300 py-1"
-                                        placeholder={tags.length === 0 ? "พิมพ์แท็กแล้วกด Enter..." : ""}
-                                        value={currentTag}
-                                        onChange={e => setCurrentTag(e.target.value)}
-                                        onKeyDown={handleAddTag}
-                                    />
-                                </div>
+                                <SmartTagInput 
+                                    selectedTags={tags}
+                                    onTagsChange={setTags}
+                                    placeholder="พิมพ์แท็ก (เช่น #สนุก, #สาระ)..."
+                                />
                             </div>
 
                              <div className="space-y-2">

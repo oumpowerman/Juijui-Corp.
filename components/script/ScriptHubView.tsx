@@ -299,6 +299,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     filterOwner={filterOwner}
                     filterChannel={filterChannel}
                     filterCategory={filterCategory}
+                    searchQuery={searchQuery} // NEW
                     viewTab={viewTab}
                     filterStatus={filterStatus}
                     onTabChange={(tab, status) => {

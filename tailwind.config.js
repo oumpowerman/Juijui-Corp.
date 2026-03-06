@@ -8,6 +8,7 @@ export default {
         'pulse-fast': 'pulse 0.6s infinite',
         breathe: 'breathe 1.6s ease-in-out infinite',
         pastel: 'pastelGlow 6s ease-in-out infinite',
+        shimmer: 'shimmer 3s linear infinite',
       },
       keyframes: {
         fire: {
@@ -33,6 +34,10 @@ export default {
           '50%': {
             background: 'linear-gradient(135deg,#e0f2fe,#bae6fd,#ddd6fe)',
           },
+        },
+        shimmer: {
+        '0%': { backgroundPosition: '-200% 0' },
+        '100%': { backgroundPosition: '200% 0' },
         },
       },
     },

@@ -98,8 +98,25 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     const late = log.checkInTime && checkIsLate(log.checkInTime, '10:00', 15);
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPendingVerify = log.status === 'PENDING_VERIFY';
+    const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';
+    const isNoCheckIn = !log.checkInTime && !isLeave && !isHardAbsent;
     const leaveTypeMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
     const leaveType = leaveTypeMatch ? leaveTypeMatch[1] : null;
+
+    if (isHardAbsent) {
+        return (
+            <div 
+                onClick={onClick}
+                className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
+            >
+                <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
+                <span className="text-[8px] font-black text-red-400 uppercase mt-1">ABSENT</span>
+                {log.note?.includes('Judge') && (
+                    <span className="text-[6px] font-bold text-red-300 uppercase tracking-tighter">JUDGED</span>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div 
@@ -113,6 +130,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
             <div className={`
                 w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all group-hover/cell:scale-105 group-hover/cell:shadow-md
                 ${isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
+                  isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   isPendingVerify ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   late ? 'bg-orange-50 border-orange-200 text-orange-600' :
                   'bg-emerald-50 border-emerald-100 text-emerald-600'}
@@ -126,6 +144,15 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                          (leaveType || leaveRequest?.type) === 'VACATION' ? 'VAC' :
                          (leaveType || leaveRequest?.type) === 'PERSONAL' ? 'PERS' : (leaveType || leaveRequest?.type)}
                     </span>
+                ) : isNoCheckIn ? (
+                    <div className="flex flex-col items-center">
+                        <div className="text-[7px] font-black opacity-70 tracking-tighter mb-0.5">
+                            {log.workType === 'WFH' ? 'WFH' : 'LOGGED'}
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-tighter text-center px-1 leading-tight">
+                            NO-IN
+                        </span>
+                    </div>
                 ) : (
                     <>
                         {isPendingVerify && <div className="text-[7px] font-black opacity-70 tracking-tighter">VERIFY</div>}

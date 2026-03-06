@@ -315,39 +315,63 @@ export const useAutoJudge = (currentUser: User | null) => {
             }
 
             // =========================================================
-            // SECTION C: ABSENT (ขาดงานเมื่อวาน)
+            // SECTION C: ABSENT (เช็คการขาดงานย้อนหลัง)
             // =========================================================
-            const yesterday = subDays(today, 1);
-            const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-            const wasYesterdayWorkingDay = isWorkingDay(yesterday, holidays, exceptions, currentUser);
             
-            // เช็คเฉพาะถ้าเมื่อวานเป็นวันทำงาน (ของคนๆ นี้) และไม่ได้ลา และไม่ใช่วันหยุดประจำปี
-            if (wasYesterdayWorkingDay && !isUserOnLeave(yesterdayStr) && !isHolidayOrException(yesterday, holidays, exceptions)) {
-                // ดูว่ามีการลงเวลาไหม?
-                const { data: attendance } = await supabase.from('attendance_logs').select('id').eq('user_id', currentUser.id).eq('date', yesterdayStr).maybeSingle();
+            // ปรับจากเช็คแค่ "เมื่อวาน" เป็นเช็คย้อนหลัง (Lookback) เพื่อเก็บตกกรณีหายไปหลายวัน
+            const absentLookback = config?.AUTO_JUDGE_CONFIG?.absent_lookback_days || 7;
+            
+            for (let i = 1; i <= absentLookback; i++) {
+                const checkDate = subDays(today, i);
+                const checkDateStr = format(checkDate, 'yyyy-MM-dd');
+                
+                // 1. ข้ามถ้า "วันนี้" ไม่ใช่วันทำงาน หรือ เป็นวันหยุด หรือ ลา
+                const wasWorkingDay = isWorkingDay(checkDate, holidays, exceptions, currentUser);
+                if (!wasWorkingDay || isUserOnLeave(checkDateStr) || isHolidayOrException(checkDate, holidays, exceptions)) {
+                    continue;
+                }
 
+                // 2. ดูว่ามีการลงเวลาไหม?
+                const { data: attendance } = await supabase
+                    .from('attendance_logs')
+                    .select('id, status')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', checkDateStr)
+                    .maybeSingle();
+
+                // 3. ถ้าไม่มี Log เลย หรือมี Log แต่สถานะไม่ใช่การทำงาน/ลา (เช่น อาจจะเป็น Log เปล่าที่ระบบสร้างค้างไว้)
                 if (!attendance) {
-                     // ถ้าไม่มี -> เช็คว่าเคยโดนหักคะแนน Absent ของเมื่อวานไปหรือยัง (กันหักซ้ำ)
-                     const { data: existingPenalty } = await supabase.from('game_logs').select('id').eq('user_id', currentUser.id).eq('action_type', 'ATTENDANCE_ABSENT').ilike('description', `%${yesterdayStr}%`).maybeSingle();
-                     
-                     // Using a composite key for absent lock to be safe
-                     const absentLockKey = `absent-${yesterdayStr}`;
+                     // เช็คว่าเคยโดนหักคะแนน Absent ของวันนี้ไปหรือยัง (กันหักซ้ำ)
+                     const absentLockKey = `ABSENT-${checkDateStr}`;
 
+                     // 1. เช็คจาก game_logs โดยใช้ related_id (ชัวร์ที่สุด)
+                     const { data: existingPenalty } = await supabase
+                        .from('game_logs')
+                        .select('id')
+                        .eq('user_id', currentUser.id)
+                        .eq('action_type', 'ATTENDANCE_ABSENT')
+                        .eq('related_id', absentLockKey)
+                        .maybeSingle();
+                     
                      if (!existingPenalty && !isProcessingRef.current.has(absentLockKey)) {
                          isProcessingRef.current.add(absentLockKey);
 
                          // Insert Absent Log
                          await supabase.from('attendance_logs').insert({
                              user_id: currentUser.id,
-                             date: yesterdayStr,
+                             date: checkDateStr,
                              status: 'ABSENT',
                              work_type: 'OFFICE',
-                             note: '[SYSTEM] Auto-marked as Absent by Judge'
+                             note: '[SYSTEM] Auto-marked as Absent by Judge (Lookback Catch-up)'
                          });
                          
-                         // หักคะแนนขาดงาน
-                         await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { date: yesterdayStr });
-                         console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${yesterdayStr}`);
+                         // หักคะแนนขาดงาน (ส่ง absentLockKey ไปเป็น id เพื่อบันทึกใน related_id)
+                         await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
+                             date: checkDateStr,
+                             id: absentLockKey 
+                         });
+                         
+                         console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
                          
                          isProcessingRef.current.delete(absentLockKey);
                      }

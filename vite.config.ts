@@ -13,16 +13,16 @@ export default defineConfig(({ mode }) => {
     define: {
       // Polyfill process.env for libraries that expect it
       'process.env': {},
-      // Explicitly expose API_KEY for the GenAI compliance if needed, reading from VITE_GEMINI_API_KEY
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || '')
+      // Expose environment variables to the client
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_ID || ''),
+      'import.meta.env.VITE_GOOGLE_PICKER_API_KEY': JSON.stringify(env.VITE_GOOGLE_PICKER_API_KEY || env.GOOGLE_PICKER_API_KEY || env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ''),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY || ''),
+      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || '')
     },
     server: {
-      host: true, // สำคัญมาก (เปิดให้ external access)
-      port: 5173,
-      strictPort: true,
-      allowedHosts: [
-        'caitlin-hyperflexible-noncontiguously.ngrok-free.dev'
-      ]
+      host: true,
+      port: 3000,
+      strictPort: true
     },
     build: {
       outDir: 'dist',

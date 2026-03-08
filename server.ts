@@ -5,7 +5,6 @@ import multer from 'multer';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
 
@@ -217,19 +216,6 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
         appType: 'spa',
     });
     app.use(vite.middlewares);
-
-    // Serve index.html with Vite transformation
-    app.get('*', async (req, res, next) => {
-        const url = req.originalUrl;
-        try {
-            let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
-            template = await vite.transformIndexHtml(url, template);
-            res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-        } catch (e: any) {
-            vite.ssrFixStacktrace(e);
-            next(e);
-        }
-    });
 } else if (!process.env.VERCEL) {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (req, res) => {

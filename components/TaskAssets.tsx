@@ -184,7 +184,6 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                             <span className="hidden sm:inline">Upload Drive</span>
                         </button>
                     )}
-                     <input type="file" ref={driveUploadInputRef} className="hidden" onChange={handleDriveUpload} />
                 </div>
             ) : (
                 // --- EXPANDED FORM ---
@@ -337,6 +336,8 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                     )}
                 </div>
             )}
+
+            <input type="file" ref={driveUploadInputRef} className="hidden" onChange={handleDriveUpload} />
 
             {/* Asset List (Grid) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-indigo-100">

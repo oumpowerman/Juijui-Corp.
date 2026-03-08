@@ -23,7 +23,7 @@ interface GoogleDriveContextType {
 const GoogleDriveContext = createContext<GoogleDriveContextType | undefined>(undefined);
 
 const CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID || ''; 
-const API_KEY = (import.meta as any).env.VITE_GOOGLE_PICKER_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || ''; 
+const API_KEY = (import.meta as any).env.VITE_GOOGLE_PICKER_API_KEY || ''; 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const MAIN_FOLDER_NAME = 'Juijui_Uploads';
 

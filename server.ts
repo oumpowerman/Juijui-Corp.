@@ -88,6 +88,21 @@ app.get('/api/auth/google/status', (req, res) => {
     res.json({ connected: !!tokens });
 });
 
+// 3.5 Get Access Token
+app.get('/api/auth/google/token', async (req, res) => {
+    const tokens = (req.session as any).tokens;
+    if (!tokens) return res.status(401).json({ error: 'Not connected' });
+    
+    try {
+        oauth2Client.setCredentials(tokens);
+        const response = await oauth2Client.getAccessToken();
+        res.json({ accessToken: response.token });
+    } catch (error) {
+        console.error('Error refreshing token:', error);
+        res.status(500).json({ error: 'Failed to refresh token' });
+    }
+});
+
 // 4. Upload to Google Drive
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => {

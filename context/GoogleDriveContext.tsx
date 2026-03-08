@@ -34,6 +34,22 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const { showToast } = useToast();
 
+    const fetchServerToken = async () => {
+        try {
+            const response = await fetch('/api/auth/google/token');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.accessToken) {
+                    setAccessToken(data.accessToken);
+                    return data.accessToken;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching server token:', error);
+        }
+        return null;
+    };
+
     const pendingAction = useRef<'PICK' | 'UPLOAD' | null>(null);
     const pendingFile = useRef<File | null>(null);
     const pendingCallback = useRef<((result: any) => void) | null>(null);
@@ -90,6 +106,15 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     useEffect(() => {
         initGoogleScripts();
+        fetchServerToken();
+
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+                fetchServerToken();
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
     }, []);
 
     const retry = () => {
@@ -121,9 +146,15 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         pendingAction.current = null;
     };
 
-    const login = () => {
-        if (!tokenClient) return;
-        tokenClient.requestAccessToken({ prompt: 'select_account' });
+    const login = async () => {
+        try {
+            const response = await fetch('/api/auth/google/url');
+            const { url } = await response.json();
+            window.open(url, 'google_auth', 'width=600,height=700');
+        } catch (error) {
+            console.error('Login error:', error);
+            showToast('ไม่สามารถเริ่มการเชื่อมต่อได้', 'error');
+        }
     };
 
     const ensureFolder = async (token: string, folderName: string, parentId?: string): Promise<string> => {
@@ -202,7 +233,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const uploadFileToDrive = (file: File, folderPath: string[] = []): Promise<any> => {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (!isReady || !tokenClient) {
                 showToast('Google Drive API ยังไม่พร้อม', 'error');
                 return reject(new Error('Not ready'));
@@ -217,23 +248,33 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 setIsUploading(true);
                 performUpload(accessToken, file, onComplete, folderPath, onError);
             } else {
-                pendingAction.current = 'UPLOAD';
-                pendingFile.current = file;
-                pendingCallback.current = onComplete;
-                pendingReject.current = onError;
-                pendingFolderPath.current = folderPath;
-                setIsUploading(true);
-                tokenClient.requestAccessToken({ prompt: '' });
+                const token = await fetchServerToken();
+                if (token) {
+                    setIsUploading(true);
+                    performUpload(token, file, onComplete, folderPath, onError);
+                } else {
+                    pendingAction.current = 'UPLOAD';
+                    pendingFile.current = file;
+                    pendingCallback.current = onComplete;
+                    pendingReject.current = onError;
+                    pendingFolderPath.current = folderPath;
+                    setIsUploading(true);
+                    login();
+                }
             }
         });
     };
 
-    const openDrivePicker = (onSelect: any) => {
-        if (!isReady || !tokenClient) return showToast('Google Drive API ยังไม่พร้อม', 'error');
+    const openDrivePicker = async (onSelect: any) => {
+        if (!isReady) return showToast('Google Drive API ยังไม่พร้อม', 'error');
         if (accessToken) return createPicker(accessToken, onSelect);
+        
+        const token = await fetchServerToken();
+        if (token) return createPicker(token, onSelect);
+
         pendingAction.current = 'PICK';
         pendingCallback.current = onSelect;
-        tokenClient.requestAccessToken({ prompt: '' });
+        login();
     };
 
     return (

@@ -1,18 +1,18 @@
 
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { google } from 'googleapis';
 import multer from 'multer';
 import cookieParser from 'cookie-parser';
-import session from 'express-session';
+import cookieSession from 'cookie-session';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 5173;
+const PORT = 3000;
 const app = express();
 
 // Trust proxy is required for secure cookies behind a reverse proxy (like in AI Studio)
@@ -21,20 +21,18 @@ app.set('trust proxy', 1);
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(session({
-    secret: 'juijui-planner-secret',
-    resave: false,
-    saveUninitialized: true,
-    cookie: { 
-        secure: true, 
-        sameSite: 'none',
-        httpOnly: true 
-    }
+app.use(cookieSession({
+    name: 'session',
+    keys: ['juijui-planner-secret'],
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    secure: true, 
+    sameSite: 'none',
+    httpOnly: true 
 }));
 
 // Google OAuth Configuration
 const getRedirectUri = () => {
-    const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const baseUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
     // Ensure no trailing slash before appending path
     return `${baseUrl.replace(/\/$/, '')}/auth/google/callback`;
 };
@@ -57,6 +55,11 @@ oauth2Client.on('tokens', (tokens) => {
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
 // --- API Routes ---
+
+// 0. Health Check (To verify API is alive)
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', environment: process.env.NODE_ENV || 'development' });
+});
 
 // 1. Auth URL
 app.get('/api/auth/google/url', (req, res) => {
@@ -207,19 +210,37 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
 });
 
 // Vite middleware for development
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
     });
     app.use(vite.middlewares);
-} else {
+
+    // Serve index.html with Vite transformation
+    app.get('*', async (req, res, next) => {
+        const url = req.originalUrl;
+        try {
+            let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+            template = await vite.transformIndexHtml(url, template);
+            res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+        } catch (e: any) {
+            vite.ssrFixStacktrace(e);
+            next(e);
+        }
+    });
+} else if (!process.env.VERCEL) {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+export default app;
+
+if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}

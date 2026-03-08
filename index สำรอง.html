@@ -17,7 +17,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@100..700&display=swap" rel="stylesheet">
     <style>
         :root {
             font-size: 16px; /* Reset base size for better scaling */
@@ -46,14 +46,17 @@
         
         h1, h2, h3, .font-cute { font-family: 'Kanit', sans-serif; font-weight: 700; }
         .font-hand { font-family: 'Mali', cursive; }
-        
+
         .font-anuphan-tight {
             font-family: 'Anuphan', sans-serif;
             letter-spacing: -0.01em;
         }
+
+
         .font-kanit {
             font-family: 'Kanit', sans-serif;
         }
+
 
         /* --- PREMIUM SIDEBAR TRANSITIONS --- */
         .sidebar-transition {
@@ -153,7 +156,42 @@
         if (typeof process === 'undefined') { window.process = { env: {} }; }
     </script>
 
-    <link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0",
+    "date-fns": "https://esm.sh/date-fns@2.30.0",
+    "heic2any": "https://esm.sh/heic2any@0.0.4",
+    "react-easy-crop": "https://esm.sh/react-easy-crop@5.0.4",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@google/genai": "https://esm.sh/@google/genai@^0.1.1",
+    "date-fns/": "https://esm.sh/date-fns@^4.1.0/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1",
+    "react-window": "https://esm.sh/react-window@^2.2.5",
+    "react-virtualized-auto-sizer": "https://esm.sh/react-virtualized-auto-sizer@^2.0.2",
+    "@tiptap/react": "https://esm.sh/@tiptap/react@2.2.4?external=react,react-dom",
+    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@2.2.4",
+    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@2.2.4",
+    "@tiptap/extension-text-style": "https://esm.sh/@tiptap/extension-text-style@^3.17.1",
+    "@tiptap/extension-color": "https://esm.sh/@tiptap/extension-color@^3.17.1",
+    "@tiptap/extension-link": "https://esm.sh/@tiptap/extension-link@^2.2.4",
+    "@tiptap/core": "https://esm.sh/@tiptap/core@^3.17.1",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "react-virtuoso": "https://esm.sh/react-virtuoso@^4.18.1",
+    "@tiptap/react/": "https://esm.sh/@tiptap/react@^3.19.0/",
+    "@tiptap/extension-bubble-menu": "https://esm.sh/@tiptap/extension-bubble-menu@^3.19.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body class="text-slate-700 antialiased">
     <div id="root">

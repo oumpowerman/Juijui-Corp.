@@ -29,9 +29,9 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[600px] relative">
             <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200">
                 <table className="w-full border-collapse table-fixed min-w-[1200px]">
-                    <thead className="sticky top-0 z-30">
+                    <thead className="sticky top-0 z-[100]">
                         <tr className="bg-slate-50/95 backdrop-blur-md border-b border-slate-200">
-                            <th className="w-64 p-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky left-0 bg-slate-50 z-40 border-r border-slate-200">
+                            <th className="w-64 p-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky left-0 bg-slate-50 z-[110] border-r border-slate-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-slate-50 after:to-transparent after:pointer-events-none">
                                 Member Profile
                             </th>
                             {dateRange.map(day => {
@@ -87,8 +87,8 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                 </tr>
                                 
                                 {deptUsers.map(user => (
-                                    <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="p-4 sticky left-0 bg-white group-hover:bg-indigo-50/30 z-20 border-r border-slate-100 shadow-[4px_0_10px_rgba(0,0,0,0.02)] transition-colors">
+                                    <tr key={user.id} className="hover:bg-indigo-50/40 transition-all duration-200 group">
+                                        <td className="p-4 sticky left-0 bg-white group-hover:bg-[#f8faff] z-[90] border-r border-slate-100 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.05)] transition-all duration-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-white group-hover:after:from-[#f8faff] after:to-transparent after:pointer-events-none">
                                             <div className="flex items-center gap-3">
                                                 <div className="relative shrink-0">
                                                     <img src={user.avatarUrl} className="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover" />

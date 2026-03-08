@@ -78,3 +78,38 @@ export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8):
         reader.onerror = (err) => reject(err);
     });
 };
+
+/**
+ * Transforms Google Drive Links to Direct Images using Googleusercontent proxy
+ */
+export const getDirectDriveUrl = (url: string | undefined): string => {
+    if (!url) return '';
+    
+    // If it's already a direct link or not a drive link, return as is
+    if (!url.includes('drive.google.com')) return url;
+
+    try {
+        // Extract ID from various drive URL formats
+        // Format 1: https://drive.google.com/open?id=ID
+        // Format 2: https://drive.google.com/file/d/ID/view
+        // Format 3: https://drive.google.com/thumbnail?id=ID
+        const urlObj = new URL(url);
+        let id = urlObj.searchParams.get('id');
+        
+        if (!id) {
+            const pathParts = urlObj.pathname.split('/');
+            const dIndex = pathParts.indexOf('d');
+            if (dIndex !== -1 && pathParts[dIndex + 1]) {
+                id = pathParts[dIndex + 1];
+            }
+        }
+
+        if (id) {
+            return `https://lh3.googleusercontent.com/d/${id}=s2000`;
+        }
+    } catch (e) {
+        console.error("Error parsing Drive URL", e);
+    }
+    
+    return url;
+};

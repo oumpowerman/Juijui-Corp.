@@ -1,8 +1,10 @@
 
 import React, { memo, useRef, useMemo, useState, useEffect } from 'react';
 import { User, ChatMessage } from '../../types';
-import { Bot, CheckSquare, User as UserIcon, FileText, ExternalLink, ImageOff, Globe, Loader2, PlayCircle } from 'lucide-react';
+import { Bot, CheckSquare, User as UserIcon, FileText, ExternalLink, ImageOff, Globe, Loader2, PlayCircle, X, Download, ZoomIn } from 'lucide-react';
 import { format } from 'date-fns';
+import { getDirectDriveUrl } from '../../lib/imageUtils';
+import { createPortal } from 'react-dom';
 
 interface MessageBubbleProps {
     msg: ChatMessage;
@@ -10,6 +12,48 @@ interface MessageBubbleProps {
     showAvatar: boolean;
     onImageLoad: () => void;
 }
+
+// --- SUB-COMPONENT: Lightbox Modal ---
+const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={onClose}
+        >
+            <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
+                <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <ExternalLink className="w-5 h-5" />
+                </a>
+                <button 
+                    onClick={onClose}
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                >
+                    <X className="w-6 h-6" />
+                </button>
+            </div>
+
+            <div className="relative max-w-5xl w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                <img 
+                    src={getDirectDriveUrl(url)} 
+                    alt="Full Preview" 
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                    referrerPolicy="no-referrer"
+                />
+            </div>
+            
+            <div className="mt-4 text-white/50 text-xs font-medium">
+                Click anywhere to close
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 // --- SUB-COMPONENT: Universal Link Preview Card ---
 const LinkPreviewCard: React.FC<{ url: string; onLoaded?: () => void }> = ({ url, onLoaded }) => {
@@ -95,6 +139,7 @@ const LinkPreviewCard: React.FC<{ url: string; onLoaded?: () => void }> = ({ url
 };
 
 const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvatar, onImageLoad }) => {
+    const [showLightbox, setShowLightbox] = useState(false);
     
     // Helper to check if string is an image URL (Standard Ext)
     const isImageUrl = useRef((url: string) => {
@@ -164,20 +209,47 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                     <span className="text-[10px] text-gray-400 font-bold mb-1 ml-1">Juijui Bot (AI)</span>
                     
                     {isStandardImage ? (
-                        <div className="bg-white p-1 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="bg-white p-1 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm overflow-hidden group/img relative">
                             <img 
-                                src={msg.content} 
+                                src={getDirectDriveUrl(msg.content)} 
                                 alt="Bot Attachment" 
-                                className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity min-w-[150px] min-h-[150px] bg-gray-100 object-cover" 
+                                className="w-full max-w-[180px] md:max-w-[240px] max-h-[160px] md:max-h-[200px] rounded-xl cursor-pointer hover:opacity-95 transition-all bg-gray-100 object-cover" 
                                 loading="lazy"
-                                onClick={() => window.open(msg.content, '_blank')}
+                                referrerPolicy="no-referrer"
+                                onClick={() => setShowLightbox(true)}
                                 onLoad={onImageLoad} 
                             />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 pointer-events-none transition-opacity">
+                                <div className="bg-black/40 backdrop-blur-sm p-2 rounded-full text-white">
+                                    <ZoomIn className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className={`px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm ${msg.messageType === 'TASK_CREATED' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
                             {msg.messageType === 'TASK_CREATED' && <CheckSquare className="w-4 h-4 inline-block mr-2 -mt-1" />}
-                            {renderTextWithLinks(msg.content)}
+                            <div className="flex flex-col gap-2">
+                                <span>{renderTextWithLinks(msg.content)}</span>
+                                
+                                {/* Smart Drive Preview for Bot Text Messages */}
+                                {isDriveImage && drivePreviewData && (
+                                    <div className="mt-2 rounded-xl overflow-hidden relative group/drive cursor-pointer border border-gray-100" onClick={() => setShowLightbox(true)}>
+                                        <img 
+                                            src={getDirectDriveUrl(drivePreviewData.url)}
+                                            alt="Drive Preview"
+                                            className="w-full max-w-[180px] md:max-w-[240px] max-h-[160px] md:max-h-[200px] object-cover bg-gray-100 min-h-[120px]"
+                                            referrerPolicy="no-referrer"
+                                            loading="lazy"
+                                            onLoad={onImageLoad}
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/drive:opacity-100 pointer-events-none transition-opacity">
+                                            <div className="bg-black/40 backdrop-blur-sm p-2 rounded-full text-white">
+                                                <ZoomIn className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                     
@@ -185,6 +257,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                         {format(msg.createdAt, 'HH:mm')}
                     </span>
                 </div>
+
+                {/* Lightbox for Bot Messages */}
+                {showLightbox && (
+                    <Lightbox 
+                        url={isDriveImage && drivePreviewData ? msg.content : msg.content} 
+                        onClose={() => setShowLightbox(false)} 
+                    />
+                )}
             </div>
         );
     }
@@ -220,14 +300,22 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                     ${(isStandardImage || isFile) ? 'p-1' : 'px-4 py-2.5'}
                 `}>
                     {isStandardImage ? (
-                        <img 
-                            src={msg.content} 
-                            alt="Attachment" 
-                            className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity min-w-[150px] min-h-[150px] bg-gray-100 object-cover" 
-                            loading="lazy"
-                            onClick={() => window.open(msg.content, '_blank')}
-                            onLoad={onImageLoad} 
-                        />
+                        <div className="relative group/img">
+                            <img 
+                                src={getDirectDriveUrl(msg.content)} 
+                                alt="Attachment" 
+                                className="w-full max-w-[200px] md:max-w-[300px] max-h-[180px] md:max-h-[240px] rounded-xl cursor-pointer hover:opacity-95 transition-all bg-gray-100 object-cover" 
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                onClick={() => setShowLightbox(true)}
+                                onLoad={onImageLoad} 
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 pointer-events-none transition-opacity">
+                                <div className="bg-black/40 backdrop-blur-sm p-2 rounded-full text-white">
+                                    <ZoomIn className="w-4 h-4" />
+                                </div>
+                            </div>
+                        </div>
                     ) : isFile ? (
                         <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => window.open(msg.content, '_blank')}>
                             <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><FileText className="w-5 h-5"/></div>
@@ -240,11 +328,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                             
                             {/* 2. Smart Drive Preview */}
                             {isDriveImage && drivePreviewData && (
-                                <div className="mt-2 rounded-xl overflow-hidden relative group/drive cursor-pointer border border-white/20" onClick={() => window.open(msg.content, '_blank')}>
+                                <div className="mt-2 rounded-xl overflow-hidden relative group/drive cursor-pointer border border-white/20" onClick={() => setShowLightbox(true)}>
                                     <img 
-                                        src={drivePreviewData.url}
+                                        src={getDirectDriveUrl(drivePreviewData.url)}
                                         alt="Drive Preview"
-                                        className="w-full h-auto max-h-[300px] object-cover bg-gray-100 min-h-[150px]"
+                                        className="w-full max-w-[200px] md:max-w-[300px] max-h-[180px] md:max-h-[240px] object-cover bg-gray-100 min-h-[150px]"
                                         referrerPolicy="no-referrer"
                                         loading="lazy"
                                         onLoad={onImageLoad}
@@ -272,6 +360,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                     {format(msg.createdAt, 'HH:mm')}
                 </span>
             </div>
+
+            {/* Lightbox Modal */}
+            {showLightbox && (
+                <Lightbox 
+                    url={isDriveImage && drivePreviewData ? msg.content : msg.content} 
+                    onClose={() => setShowLightbox(false)} 
+                />
+            )}
         </div>
     );
 });

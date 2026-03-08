@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag, Hash, Check, ChevronDown, AlignLeft, Type } from 'lucide-react';
-import { Channel, MasterOption, ScriptType } from '../../../types';
+import { Channel, MasterOption, ScriptType, User } from '../../../types';
 import SmartTagInput from './SmartTagInput';
 
 interface CreateScriptModalProps {
@@ -10,15 +10,18 @@ interface CreateScriptModalProps {
     onSubmit: (data: any) => Promise<void>;
     channels: Channel[];
     masterOptions: MasterOption[];
+    users: User[];
+    currentUser: User;
 }
 
-const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, onSubmit, channels, masterOptions }) => {
+const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, onSubmit, channels, masterOptions, users, currentUser }) => {
     const [title, setTitle] = useState('');
     const [channelId, setChannelId] = useState('');
     const [category, setCategory] = useState('');
     const [scriptType, setScriptType] = useState<ScriptType>('MONOLOGUE');
     const [tags, setTags] = useState<string[]>([]);
     const [objective, setObjective] = useState('');
+    const [ideaOwnerId, setIdeaOwnerId] = useState(currentUser.id);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Custom Dropdown State
@@ -34,10 +37,11 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
             setScriptType('MONOLOGUE');
             setTags([]);
             setObjective('');
+            setIdeaOwnerId(currentUser.id);
             setIsSubmitting(false);
             setIsChannelOpen(false);
         }
-    }, [isOpen]);
+    }, [isOpen, currentUser.id]);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -56,6 +60,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
     const selectedChannel = channels.find(c => c.id === channelId);
+    const activeUsers = users.filter(u => u.isActive);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -70,7 +75,9 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
             category,
             scriptType,
             tags,
-            objective
+            objective,
+            ideaOwnerId,
+            authorId: currentUser.id
         });
         setIsSubmitting(false);
         onClose();
@@ -109,6 +116,43 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                 <div className="p-8 overflow-y-auto flex-1 bg-[#f8fafc] scrollbar-thin scrollbar-thumb-rose-200">
                     <form id="create-script-form" onSubmit={handleSubmit} className="space-y-6">
                         
+                        {/* 0. Creator Selection */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 flex items-center">
+                                <Users className="w-3.5 h-3.5 mr-1.5" /> Idea Owner (เจ้าของไอเดีย)
+                            </label>
+                            <div className="flex flex-wrap gap-3">
+                                {activeUsers.map(user => (
+                                    <button
+                                        key={user.id}
+                                        type="button"
+                                        onClick={() => setIdeaOwnerId(user.id)}
+                                        className={`relative group transition-all duration-300 ${ideaOwnerId === user.id ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
+                                        title={user.name}
+                                    >
+                                        <div className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${ideaOwnerId === user.id ? 'border-rose-500 shadow-lg ring-4 ring-rose-100' : 'border-white shadow-sm'}`}>
+                                            {user.avatarUrl ? (
+                                                <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm">
+                                                    {user.name.charAt(0)}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {ideaOwnerId === user.id && (
+                                            <div className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-0.5 shadow-md">
+                                                <Check className="w-3 h-3" />
+                                            </div>
+                                        )}
+                                        {/* Tooltip */}
+                                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                            {user.name}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* 1. Title */}
                         <div className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 focus-within:ring-4 focus-within:ring-rose-100 focus-within:border-rose-300 transition-all">
                             <label className="block text-[12px] font-black text-rose-400 uppercase tracking-widest px-4 pt-3 mb-1">

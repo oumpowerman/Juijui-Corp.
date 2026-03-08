@@ -1,7 +1,7 @@
 
 export type Role = 'ADMIN' | 'MEMBER';
 export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING';
-export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'STOCK' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE' | 'ATTENDANCE' | 'FINANCE' | 'LEADERBOARD' | 'ASSETS';
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'STOCK' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE' | 'ATTENDANCE' | 'FINANCE' | 'LEADERBOARD' | 'ASSETS' | 'NEXUS';
 
 export type EmploymentType = 'INTERN' | 'PROBATION' | 'FULL_TIME';
 

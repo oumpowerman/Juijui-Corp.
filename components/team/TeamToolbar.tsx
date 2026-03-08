@@ -49,7 +49,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
                     >
                         {viewScope === 'MY_SQUAD' && (
                             <motion.div 
-                                layoutId="activeTab"
+                                layoutId="teamToolbarActiveTab"
                                 className="absolute inset-0 bg-white rounded-xl shadow-sm border border-blue-100"
                                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                             />
@@ -66,7 +66,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
                     >
                         {viewScope === 'ALL' && (
                             <motion.div 
-                                layoutId="activeTab"
+                                layoutId="teamToolbarActiveTab"
                                 className="absolute inset-0 bg-white rounded-xl shadow-sm border border-purple-100"
                                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                             />
@@ -83,7 +83,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
                     >
                         {viewScope === 'ONLY_ME' && (
                             <motion.div 
-                                layoutId="activeTab"
+                                layoutId="teamToolbarActiveTab"
                                 className="absolute inset-0 bg-white rounded-xl shadow-sm border border-emerald-100"
                                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                             />

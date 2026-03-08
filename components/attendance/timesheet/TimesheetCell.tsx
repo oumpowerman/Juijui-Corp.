@@ -122,13 +122,12 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         <div 
             onClick={onClick}
             className={`
-                h-16 w-full border-r border-slate-100/50 p-1 transition-all duration-300 cursor-pointer group/cell relative
+                h-16 w-full border-r border-slate-100/50 p-1 transition-all duration-200 cursor-pointer group/cell relative
                 ${isToday ? 'bg-indigo-50/30' : ''}
-                hover:z-10
             `}
         >
             <div className={`
-                w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all group-hover/cell:scale-105 group-hover/cell:shadow-md
+                w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all duration-200 group-hover/cell:scale-105 group-hover/cell:shadow-md
                 ${isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
                   isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   isPendingVerify ? 'bg-amber-50 border-amber-200 text-amber-600' :

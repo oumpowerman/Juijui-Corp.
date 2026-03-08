@@ -50,11 +50,32 @@ const ScriptTextArea: React.FC = () => {
     // --- REALTIME: Receive Live Updates (Spectator Mode) ---
     useEffect(() => {
         if (isReadOnly && liveContent && editorInstance) {
-            // Check if content actually changed to avoid cursor jitter
-            if (editorInstance.getHTML() !== liveContent) {
-                // Update content silently (don't trigger update event if possible to avoid loops)
-                // Note: Removed 'false' arg as it caused type error. Loop is prevented by !isReadOnly check in onChange.
-                editorInstance.commands.setContent(liveContent); 
+            const currentHTML = editorInstance.getHTML();
+            if (currentHTML !== liveContent) {
+                // 1. Save current state to prevent jumping
+                const { from, to } = editorInstance.state.selection;
+                const scrollPos = window.scrollY;
+                const container = editorInstance.options.element.closest('.overflow-y-auto');
+                const containerScroll = container?.scrollTop;
+
+                // 2. Update content
+                // Use parseOptions to speed up and avoid some re-renders
+                editorInstance.commands.setContent(liveContent, false); 
+
+                // 3. Restore selection if possible (only if it's still within bounds)
+                try {
+                    const docSize = editorInstance.state.doc.content.size;
+                    if (from < docSize && to < docSize) {
+                        editorInstance.commands.setTextSelection({ from, to });
+                    }
+                } catch (e) {
+                    // Ignore if selection is now invalid
+                }
+
+                // 4. Restore scroll
+                if (containerScroll !== undefined && container) {
+                    container.scrollTop = containerScroll;
+                }
             }
         }
     }, [liveContent, isReadOnly, editorInstance]);

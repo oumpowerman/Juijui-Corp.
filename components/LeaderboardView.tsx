@@ -72,7 +72,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
                         >
                             {timeRange === t && (
                                 <motion.div 
-                                    layoutId="activeTab"
+                                    layoutId="leaderboardActiveTab"
                                     className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl -z-10"
                                 />
                             )}

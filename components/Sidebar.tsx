@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2 } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
 import SidebarBadge from './SidebarBadge.tsx';
 import NotificationPill from './NotificationPill';
@@ -30,6 +30,7 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'CALENDAR', label: 'ปฏิทิน & บอร์ด', icon: CalendarIcon }, 
       { view: 'CHAT', label: 'ห้องแชท', icon: MessageCircle },
       { view: 'TEAM', label: 'ทีมงาน', icon: Users },
+      { view: 'NEXUS', label: 'Nexus Hub', icon: Share2 },
       { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
       { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp }, 
     ]
@@ -87,6 +88,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
+  // Theme Logic
+  const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
+  
+  const themeClasses = {
+      aside: isDarkTheme 
+        ? 'bg-slate-950 border-white/5 shadow-2xl shadow-black/50' 
+        : 'bg-white border-gray-200 shadow-xl',
+      text: isDarkTheme ? 'text-slate-100' : 'text-gray-900',
+      subtext: isDarkTheme ? 'text-slate-400' : 'text-slate-400',
+      groupHeader: isDarkTheme ? 'text-slate-500 hover:text-indigo-400' : 'text-slate-400 hover:text-indigo-600',
+      itemIdle: isDarkTheme ? 'text-slate-400 hover:bg-white/5 hover:text-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-700',
+      itemActive: isDarkTheme 
+        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
+        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100',
+      footer: isDarkTheme ? 'border-white/5 bg-black/20' : 'border-gray-100 bg-slate-50/50',
+      userCard: isDarkTheme ? 'hover:bg-white/5 hover:border-white/10' : 'hover:bg-white hover:border-slate-200 hover:shadow-lg',
+      logoArea: isDarkTheme ? 'from-slate-950 to-slate-900' : 'from-white to-slate-50/50'
+  };
+
   // State for Accordion
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
       'WORKSPACE': true,
@@ -122,20 +142,20 @@ const Sidebar: React.FC<SidebarProps> = ({
       onMouseEnter={() => onToggleCollapse(false)}
       onMouseLeave={() => onToggleCollapse(true)}
       className={`
-        hidden lg:flex flex-col h-full bg-white border-r border-gray-200 shadow-xl shrink-0 z-50 sidebar-transition relative
+        hidden lg:flex flex-col h-full ${themeClasses.aside} shrink-0 z-50 sidebar-transition relative
         ${isCollapsed ? 'w-[88px] sidebar-collapsed' : 'w-[280px] sidebar-expanded'}
       `}
     >
       {/* 1. Brand Logo Area */}
-      <div className={`flex items-center bg-gradient-to-r from-white to-slate-50/50 overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
+      <div className={`flex items-center bg-gradient-to-r ${themeClasses.logoArea} overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
         <div className={`
-          bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0 sidebar-icon
+          bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg ${isDarkTheme ? 'shadow-indigo-900/40' : 'shadow-indigo-100'} text-white shrink-0 sidebar-icon
           ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
         `}>
           <Sparkles className="w-7 h-7 stroke-[2.5px]" />
         </div>
         <div className="sidebar-item-text">
-          <h1 className="text-xl font-black text-gray-900 tracking-tight leading-none">Juijui</h1>
+          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none`}>Juijui</h1>
           <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase">Planner</p>
         </div>
       </div>
@@ -154,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed ? (
                 <button 
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between px-6 py-2 text-slate-400 hover:text-indigo-600 transition-all group/header"
+                  className={`w-full flex items-center justify-between px-6 py-2 ${themeClasses.groupHeader} transition-all group/header`}
                 >
                     <div className="flex items-center gap-3">
                         <GroupIcon className="w-4 h-4 opacity-70" />
@@ -193,8 +213,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                             w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-visible
                             ${isCollapsed ? 'justify-center py-3.5' : 'px-4 py-3'}
                             ${isActive 
-                              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                              : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-700'}
+                              ? themeClasses.itemActive 
+                              : themeClasses.itemIdle}
                           `}
                           title={isCollapsed ? item.label : ''}
                         >
@@ -239,24 +259,24 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* 3. User Footer */}
-      <div className={`border-t border-gray-100 bg-slate-50/50 p-4 transition-all`}>
+      <div className={`border-t ${themeClasses.footer} p-4 transition-all`}>
         <div 
-          className={`flex items-center rounded-[1.25rem] hover:bg-white transition-all cursor-pointer group border border-transparent hover:border-slate-200 hover:shadow-lg ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2.5'}`} 
+          className={`flex items-center rounded-[1.25rem] ${themeClasses.userCard} transition-all cursor-pointer group border border-transparent ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2.5'}`} 
           onClick={onEditProfile}
         >
           <div className="relative shrink-0 sidebar-icon">
-            <img src={currentUser.avatarUrl} alt="User" className={`${isCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-full object-cover border-2 border-white shadow-sm`} />
-            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 ${getStatusColor(currentUser.workStatus || 'ONLINE')} border-2 border-white rounded-full`}></div>
+            <img src={currentUser.avatarUrl} alt="User" className={`${isCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-full object-cover border-2 ${isDarkTheme ? 'border-white/10' : 'border-white'} shadow-sm`} />
+            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 ${getStatusColor(currentUser.workStatus || 'ONLINE')} border-2 ${isDarkTheme ? 'border-slate-900' : 'border-white'} rounded-full`}></div>
           </div>
           
           <div className="sidebar-item-text flex-1 min-w-0">
-            <p className="text-sm font-black text-slate-800 truncate">{currentUser.name}</p>
+            <p className={`text-sm font-black ${isDarkTheme ? 'text-white' : 'text-slate-800'} truncate`}>{currentUser.name}</p>
             <p className="text-xs font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
           </div>
           
           {!isCollapsed && (
             <div className="sidebar-item-text">
-                <Edit className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-500" />
+                <Edit className={`w-3.5 h-3.5 ${isDarkTheme ? 'text-slate-600' : 'text-slate-300'} group-hover:text-indigo-500`} />
             </div>
           )}
         </div>
@@ -265,7 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={onLogout}
           className={`
             w-full flex items-center justify-center gap-2 font-black transition-all uppercase tracking-[0.2em]
-            ${isCollapsed ? 'mt-4 py-3 text-red-300 hover:text-red-500' : 'mt-4 py-3 text-[10px] text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl'}
+            ${isCollapsed ? 'mt-4 py-3 text-red-300 hover:text-red-500' : `mt-4 py-3 text-[10px] ${isDarkTheme ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-xl`}
           `}
           title={isCollapsed ? 'ลงชื่อออก' : ''}
         >

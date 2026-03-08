@@ -222,7 +222,7 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                             >
                                 {isActive && (
                                     <motion.div
-                                        layoutId="activeTab"
+                                        layoutId="memberFiltersActiveTab"
                                         className={`absolute inset-0 rounded-xl shadow-md ${tab.activeBg}`}
                                         transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                                     />

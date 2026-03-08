@@ -467,6 +467,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                 onSubmit={handleCreateScriptSubmit}
                 channels={channels}
                 masterOptions={masterOptions}
+                users={users}
+                currentUser={currentUser || { id: '', name: '', role: 'MEMBER' } as User}
             />
 
             {/* Deadline Extension Modal */}

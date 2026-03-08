@@ -85,8 +85,16 @@ return (
 
       {/* ================= MOBILE ================= */}
         <div className="md:hidden">
-
-        <div className="flex overflow-x-auto gap-3 px-1 pb-2 scrollbar-hide">
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            <div className="flex overflow-x-auto gap-3 px-1 pb-2 no-scrollbar">
 
             {categories.map((cat) => {
             const isActive = cat.key === value;

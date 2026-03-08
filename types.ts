@@ -7,3 +7,4 @@ export * from './types/features';
 export * from './types/attendance';
 export * from './types/finance';
 export * from './types/death';
+export * from './types/nexus';

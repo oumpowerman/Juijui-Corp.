@@ -185,7 +185,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
             </LayoutGroup>
 
             {/* Top Bar: Search & Layout Toggle - Moved to BOTTOM */}
-            <div className="premium-3d-container p-2.5 rounded-[1.5rem] sticky top-2 z-[50] flex flex-col md:flex-row gap-4 items-center transition-all duration-500 hover:shadow-xl">
+            <div className="premium-3d-container p-2.5 rounded-[1.5rem] sticky top-2 z-[50] flex flex-col lg:flex-row gap-3 lg:gap-4 items-center transition-all duration-500 hover:shadow-xl">
                 <div className="flex-1 w-full relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Search className="w-4.5 h-4.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
@@ -216,23 +216,23 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                 </div>
                 
                 {/* Right Side Controls Group */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2 w-full lg:w-auto">
                     {/* Filter Toggle Button */}
                     <button 
                         onClick={() => setIsFilterExpanded(!isFilterExpanded)}
                         className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-500 border shadow-sm
+                            flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black transition-all duration-500 border shadow-sm
                             ${isFilterExpanded 
                                 ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-200' 
                                 : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600'
                             }
                         `}
                     >
-                        <Filter className={`w-4 h-4 ${isFilterExpanded ? 'animate-pulse' : ''}`} />
-                        <span className="hidden sm:inline">FILTERS</span>
+                        <Filter className={`w-3.5 h-3.5 sm:w-4 h-4 ${isFilterExpanded ? 'animate-pulse' : ''}`} />
+                        <span className="inline">FILTERS</span>
                         {(filterOwner.length > 0 || filterChannel.length > 0 || filterTags.length > 0 || (filterCategory && filterCategory !== 'ALL')) && (
                             <span className={`
-                                flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black
+                                flex items-center justify-center w-4 h-4 sm:w-5 h-5 rounded-full text-[9px] sm:text-[10px] font-black
                                 ${isFilterExpanded ? 'bg-white text-indigo-600' : 'bg-indigo-600 text-white'}
                             `}>
                                 {filterOwner.length + filterChannel.length + filterTags.length + (filterCategory !== 'ALL' ? 1 : 0)}
@@ -240,7 +240,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         )}
                     </button>
 
-                    <div className="w-px h-8 bg-gray-200/60 mx-1"></div>
+                    <div className="hidden sm:block w-px h-8 bg-gray-200/60 mx-0.5"></div>
 
                     {/* Sort Toggle */}
                     <button 
@@ -254,32 +254,34 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         `}
                         title={sortOrder === 'DESC' ? 'ล่าสุดไปเก่าสุด' : 'เก่าสุดไปล่าสุด'}
                     >
-                         {sortOrder === 'DESC' ? <ArrowDownAZ className="w-4.5 h-4.5" /> : <ArrowUpAZ className="w-4.5 h-4.5" />}
+                         {sortOrder === 'DESC' ? <ArrowDownAZ className="w-4 h-4 sm:w-4.5 h-4.5" /> : <ArrowUpAZ className="w-4 h-4 sm:w-4.5 h-4.5" />}
                     </button>
 
                     {/* Status Dropdown */}
-                    <div className="relative" ref={statusRef}>
+                    <div className="relative flex-1 sm:flex-none" ref={statusRef}>
                         <button 
                             onClick={() => setIsStatusOpen(!isStatusOpen)}
                             className={`
-                                flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-black border transition-all duration-500 shadow-sm
+                                w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold border transition-all duration-500 shadow-sm
                                 ${filterStatus !== 'ALL' 
                                     ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50' 
                                     : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/10'
                                 }
                             `}
                         >
-                            {(() => {
-                                const current = SCRIPT_STATUS_OPTIONS.find(o => o.key === filterStatus) || SCRIPT_STATUS_OPTIONS[0];
-                                const Icon = current.icon;
-                                return (
-                                    <>
-                                        <Icon className={`w-4 h-4 ${current.color}`} />
-                                        <span className="truncate max-w-[100px]">{current.label}</span>
-                                    </>
-                                );
-                            })()}
-                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isStatusOpen ? 'rotate-180 text-indigo-500' : ''}`} />
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                {(() => {
+                                    const current = SCRIPT_STATUS_OPTIONS.find(o => o.key === filterStatus) || SCRIPT_STATUS_OPTIONS[0];
+                                    const Icon = current.icon;
+                                    return (
+                                        <>
+                                            <Icon className={`w-3.5 h-3.5 sm:w-4 h-4 ${current.color} shrink-0`} />
+                                            <span className="truncate max-w-[80px] sm:max-w-[100px]">{current.label}</span>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                            <ChevronDown className={`w-3.5 h-3.5 sm:w-4 h-4 text-gray-400 transition-transform duration-300 shrink-0 ${isStatusOpen ? 'rotate-180 text-indigo-500' : ''}`} />
                         </button>
 
                         {isStatusOpen && (

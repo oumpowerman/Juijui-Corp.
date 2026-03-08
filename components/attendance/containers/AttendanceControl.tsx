@@ -23,7 +23,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     const { todayLog, outdatedLog, isLoading, refresh } = useAttendanceStatus(user.id);
     const { checkIn, checkOut } = useAttendanceActions(user.id);
     const { masterOptions } = useMasterData();
-    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    const { uploadFileToDrive, isReady: isDriveReady, isAuthenticated: isDriveAuthenticated, login: connectDrive, retry: retryDrive } = useGoogleDrive();
     const { showAlert, showConfirm } = useGlobalDialog();
 
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
@@ -103,6 +103,9 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 onOpenCheckIn={() => setIsCheckInModalOpen(true)}
                 onOpenLeave={onOpenLeave}
                 isDriveReady={isDriveReady}
+                isAuthenticated={isDriveAuthenticated}
+                onConnectDrive={connectDrive}
+                onRetryDrive={retryDrive}
                 onRefresh={refresh}
                 availableLocations={availableLocations}
                 startTime={startTime}

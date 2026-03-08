@@ -1,9 +1,53 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight } from 'lucide-react';
+import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
+import { getDirectDriveUrl } from '../../../lib/imageUtils';
+import { createPortal } from 'react-dom';
+
+// --- SUB-COMPONENT: Lightbox Modal (Consistent with TeamChat) ---
+const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={onClose}
+        >
+            <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
+                <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <ExternalLink className="w-5 h-5" />
+                </a>
+                <button 
+                    onClick={onClose}
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                >
+                    <X className="w-6 h-6" />
+                </button>
+            </div>
+
+            <div className="relative max-w-5xl w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                <img 
+                    src={getDirectDriveUrl(url)} 
+                    alt="Full Preview" 
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                    referrerPolicy="no-referrer"
+                />
+            </div>
+            
+            <div className="mt-4 text-white/50 text-xs font-medium">
+                Click anywhere to close
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 interface TimesheetDetailModalProps {
     log?: AttendanceLog | null;
@@ -12,6 +56,9 @@ interface TimesheetDetailModalProps {
 }
 
 const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, onClose }) => {
+    const [showLightbox, setShowLightbox] = useState(false);
+    const [lightboxUrl, setLightboxUrl] = useState('');
+
     const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
     const note = log?.note || leaveRequest?.reason || '';
     
@@ -28,18 +75,28 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                     {(() => {
                         const proofMatch = note.match(/\[PROOF:(.*?)\]/);
                         const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
-                        const isDrive = url?.includes('drive.google.com');
-                        const displayUrl = isDrive ? `https://lh3.googleusercontent.com/d/${url?.split('id=')[1] || url?.split('/d/')[1]?.split('/')[0]}=s1000` : url;
-
+                        
                         return url ? (
                             <>
                                 <img 
-                                    src={displayUrl || url} 
-                                    className="w-full h-full object-cover opacity-90 group-hover/img:scale-105 transition-transform duration-700" 
+                                    src={getDirectDriveUrl(url)} 
+                                    className="w-full h-full object-cover opacity-90 group-hover/img:scale-105 transition-transform duration-700 cursor-pointer" 
                                     alt="Proof"
-                                    onError={(e) => { (e.target as any).src = url; }}
+                                    referrerPolicy="no-referrer"
+                                    onClick={() => {
+                                        setLightboxUrl(url);
+                                        setShowLightbox(true);
+                                    }}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent pointer-events-none"></div>
+                                
+                                {/* Zoom Indicator */}
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
+                                    <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white">
+                                        <ZoomIn className="w-8 h-8" />
+                                    </div>
+                                </div>
+
                                 <div className="absolute bottom-4 left-6 flex items-center gap-3">
                                     <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white flex items-center gap-2">
                                         <ImageIcon className="w-4 h-4" />
@@ -153,6 +210,14 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                     </button>
                 </div>
             </div>
+
+            {/* Lightbox Modal */}
+            {showLightbox && (
+                <Lightbox 
+                    url={lightboxUrl} 
+                    onClose={() => setShowLightbox(false)} 
+                />
+            )}
         </div>
     );
 };

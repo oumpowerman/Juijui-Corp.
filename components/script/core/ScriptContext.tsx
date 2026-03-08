@@ -157,7 +157,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
 
     const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
-    const [lockerUser, setLockerUser] = useState<{ name: string; avatarUrl: string } | null>(null);
+    const [lockerUser, setLockerUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
 
     const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
 
@@ -247,7 +247,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             if (editorInstance) {
                 // Get current scroll/selection if possible, but setContent usually resets it.
                 // Since this is triggered from a popup, it's acceptable.
-                editorInstance.commands.setContent(newContent, { emitUpdate: true });
+                editorInstance.commands.setContent(newContent, true);
             }
             isDirtyRef.current = true;
         }
@@ -342,32 +342,62 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
                 if (data.locked_by && data.locked_by !== currentUser.id) {
                     setLockStatus('LOCKED_BY_OTHER');
                     const locker = users.find(u => u.id === data.locked_by);
-                    setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
+                    setLockerUser(locker ? { id: locker.id, name: locker.name, avatarUrl: locker.avatarUrl } : { id: data.locked_by, name: 'Unknown', avatarUrl: '' });
                 } else {
                     await acquireLock();
                 }
             }
         };
         checkLock();
-        const channel = supabase.channel(`script-lock-${script.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` }, (payload) => {
-            const newLockedBy = payload.new.locked_by;
-            if (newLockedBy === currentUser.id) {
-                setLockStatus('LOCKED_BY_ME');
-                setLockerUser(currentUser);
-            } else if (newLockedBy === null) {
-                setLockStatus('FREE');
-                if (lockStatus === 'LOCKED_BY_OTHER') {
-                    acquireLock();
-                    showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
+
+        const channel = supabase.channel(`script-lock-${script.id}`)
+            .on('presence', { event: 'sync' }, () => {
+                // Presence sync logic if needed
+            })
+            .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+                // GHOST LOCK CLEANUP: 
+                // If the person who left was the current locker, and we are NOT the locker,
+                // we help clear the DB lock so it's FREE for everyone.
+                leftPresences.forEach((p: any) => {
+                    if (p.user?.id === lockerUser?.id && lockStatus === 'LOCKED_BY_OTHER') {
+                        console.log("Locker left, clearing ghost lock...");
+                        supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then(() => {
+                            setLockStatus('FREE');
+                            setLockerUser(null);
+                        });
+                    }
+                });
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` }, (payload) => {
+                const newLockedBy = payload.new.locked_by;
+                if (newLockedBy === currentUser.id) {
+                    setLockStatus('LOCKED_BY_ME');
+                    setLockerUser({ id: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl });
+                } else if (newLockedBy === null) {
+                    setLockStatus('FREE');
+                    setLockerUser(null);
+                    if (lockStatus === 'LOCKED_BY_OTHER') {
+                        acquireLock();
+                        showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
+                    }
+                } else {
+                    setLockStatus('LOCKED_BY_OTHER');
+                    const locker = users.find(u => u.id === newLockedBy);
+                    setLockerUser(locker ? { id: locker.id, name: locker.name, avatarUrl: locker.avatarUrl } : { id: newLockedBy, name: 'Unknown', avatarUrl: '' });
                 }
-            } else {
-                setLockStatus('LOCKED_BY_OTHER');
-                const locker = users.find(u => u.id === newLockedBy);
-                setLockerUser(locker ? { name: locker.name, avatarUrl: locker.avatarUrl } : { name: 'Unknown', avatarUrl: '' });
-            }
-        }).subscribe();
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await channel.track({
+                        user: currentUser,
+                        onlineAt: new Date().toISOString(),
+                        isLocker: lockStatus === 'LOCKED_BY_ME'
+                    });
+                }
+            });
+
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [lockStatus, lockerUser?.id]);
 
     useEffect(() => {
         latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective };

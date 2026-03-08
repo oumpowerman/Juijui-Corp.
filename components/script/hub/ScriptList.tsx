@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ScriptSummary, Channel, MasterOption } from '../../../types';
-import { FileText, Trash2, Clock, ListPlus, CheckCircle2, Search, Tag, RotateCcw, ArrowRightLeft, User as UserIcon, Layers, AlignLeft } from 'lucide-react';
+import { FileText, Trash2, Clock, ListPlus, CheckCircle2, Search, Tag, RotateCcw, ArrowRightLeft, User as UserIcon, Layers, AlignLeft, List, Eye, Check, MonitorPlay } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ScriptListProps {
@@ -27,6 +27,25 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name;
     const getCategoryLabel = (key?: string) => masterOptions.find(o => o.type === 'SCRIPT_CATEGORY' && o.key === key)?.label;
+
+    const renderStatusBadge = (status: string) => {
+        const config: any = {
+            DRAFT: { label: 'Draft', icon: List, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+            REVIEW: { label: 'Review', icon: Eye, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
+            FINAL: { label: 'Final', icon: Check, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+            SHOOTING: { label: 'Shooting', icon: MonitorPlay, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' },
+            DONE: { label: 'Done', icon: CheckCircle2, color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+        }[status] || { label: status, icon: FileText, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200' };
+
+        const Icon = config.icon;
+
+        return (
+            <span className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm w-full max-w-[90px] ${config.bg} ${config.color} ${config.border}`}>
+                <Icon className="w-3 h-3" />
+                {config.label}
+            </span>
+        );
+    };
 
     const premiumStyles = (
         <style>{`
@@ -108,10 +127,10 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
         return (
             <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-xl flex flex-col relative z-10 premium-3d-card">
                 {premiumStyles}
-                <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-200 grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-200 hidden md:grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
                     <div className="col-span-6">Script Details</div>
                     <div className="col-span-2">Creator</div>
-                    <div className="col-span-2">Status</div>
+                    <div className="col-span-2 text-center">Status</div>
                     <div className="col-span-2 text-right">Actions</div>
                 </div>
 
@@ -125,7 +144,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         `}
                     >
                         {/* Title & Meta & Desc */}
-                        <div className="col-span-6 flex gap-3 min-w-0">
+                        <div className="col-span-12 md:col-span-6 flex gap-3 min-w-0">
                             <div className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border font-black text-[10px] ${script.scriptType === 'DIALOGUE' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                                  {script.scriptType === 'DIALOGUE' ? 'DIAL' : 'MONO'}
                             </div>
@@ -170,7 +189,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         </div>
 
                         {/* Creator */}
-                        <div className="col-span-2 flex items-center gap-2 pt-1">
+                        <div className="hidden md:flex col-span-2 items-center gap-2 pt-1">
                             <div className="relative">
                                 {script.author?.avatarUrl ? (
                                     <img src={script.author.avatarUrl} className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover" />
@@ -184,19 +203,12 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         </div>
                         
                         {/* Status */}
-                        <div className="col-span-2 pt-1">
-                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border inline-block shadow-sm ${
-                                 script.status === 'FINAL' ? 'bg-green-100 text-green-700 border-green-200' :
-                                 script.status === 'DONE' ? 'bg-gray-100 text-gray-500 border-gray-200' :
-                                 script.status === 'SHOOTING' ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                 'bg-orange-100 text-orange-700 border-orange-200'
-                            }`}>
-                                {script.status}
-                            </span>
+                        <div className="hidden md:flex col-span-2 pt-1 justify-center">
+                             {renderStatusBadge(script.status)}
                         </div>
 
                         {/* Actions */}
-                        <div className="col-span-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
+                        <div className="hidden md:flex col-span-2 items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
                             {viewTab === 'LIBRARY' && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onToggleQueue(script.id, false); }}
@@ -249,13 +261,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                     {/* Header */}
                     <div className="flex justify-between items-start mb-3">
                         <div className="flex gap-2 items-center">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
-                                script.status === 'FINAL' ? 'bg-green-50 text-green-600 border-green-100' :
-                                script.status === 'DONE' ? 'bg-gray-100 text-gray-500 border-gray-200' :
-                                'bg-orange-50 text-orange-600 border-orange-100 shadow-sm'
-                            }`}>
-                                {script.status}
-                            </span>
+                            {renderStatusBadge(script.status)}
                             {script.channelId && (
                                 <span className="text-[10px] bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-200 font-bold max-w-[100px] truncate">
                                     {getChannelName(script.channelId)}

@@ -371,7 +371,7 @@ const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose }) => {
                             >
                                 {selectedTab === tab.id && (
                                     <motion.div 
-                                        layoutId="activeTab"
+                                        layoutId="gameRulesActiveTab"
                                         className="absolute inset-0 bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl -z-10"
                                     />
                                 )}

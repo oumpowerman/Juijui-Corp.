@@ -6,12 +6,14 @@ import {
     Film, ClipboardList, BookOpen, ScanEye, Coffee, Target, TrendingUp, 
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
     Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock,
-    Maximize2, Minimize2, Monitor, DollarSign, Briefcase, Clapperboard, Building2, ShieldCheck
+    Maximize2, Minimize2, Monitor, DollarSign, Briefcase, Clapperboard, Building2, ShieldCheck, Share2,
+    Plus, Hash, ArrowRight, ArrowLeft, Search, ChevronRight
 } from 'lucide-react';
-import { User, ViewMode, TaskType, MenuGroup } from '../types';
+import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import SidebarBadge from './SidebarBadge.tsx';
+import CommandPalette from '../components/ui/CommandPalette'
 
 interface MobileNavigationProps {
     currentUser: User;
@@ -20,7 +22,10 @@ interface MobileNavigationProps {
     onAddTask: (type?: TaskType) => void;
     onLogout: () => void;
     onEditProfile: () => void;
+    onOpenTask: (task: Task) => void;
     unreadChatCount: number;
+    tasks: Task[];
+    users: User[];
 }
 
 // --- Menu Configuration (Synced with Sidebar) ---
@@ -34,6 +39,7 @@ const MOBILE_MENU_GROUPS: MenuGroup[] = [
       { view: 'CALENDAR', label: 'ปฏิทิน', icon: CalendarIcon },
       { view: 'CHAT', label: 'แชททีม', icon: MessageCircle },
       { view: 'TEAM', label: 'ทีมงาน', icon: Users },
+      { view: 'NEXUS', label: 'Nexus Hub', icon: Share2 },
       { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
       { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp },
     ]
@@ -120,14 +126,38 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({
     );
 };
 
-const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, unreadChatCount }) => {
+const MobileNavigation: React.FC<MobileNavigationProps> = ({ 
+    currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, onOpenTask, unreadChatCount, tasks, users 
+}) => {
     const { showAlert } = useGlobalDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
+    const [activePanel, setActivePanel] = useState<'MENU' | 'SEARCH'>('MENU');
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    // Theme Logic
+    const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
+    
+    const themeClasses = {
+        dock: isDarkTheme ? 'bg-slate-950/90 border-white/10 ring-white/5' : 'bg-white/95 border-white/50 ring-black/5',
+        dockItemIdle: isDarkTheme ? 'text-slate-500 hover:bg-white/5 hover:text-slate-300' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600',
+        dockItemActive: isDarkTheme ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'bg-indigo-600 text-white shadow-md shadow-indigo-200',
+        menuDrawer: isDarkTheme ? 'bg-slate-950' : 'bg-[#f8fafc]',
+        menuHeader: isDarkTheme ? 'bg-slate-900' : 'bg-slate-900', // Both are dark, but could be different
+        menuFooter: isDarkTheme ? 'bg-slate-950 border-white/5' : 'bg-white border-gray-100',
+        groupTitle: isDarkTheme ? 'text-slate-500' : 'text-gray-400',
+        divider: isDarkTheme ? 'bg-white/5' : 'bg-gray-200'
+    };
     
     // Hooks
-    useMobileBackHandler(isMenuOpen, () => setIsMenuOpen(false));
+    useMobileBackHandler(isMenuOpen, () => {
+        if (activePanel === 'SEARCH') {
+            setActivePanel('MENU');
+        } else {
+            setIsMenuOpen(false);
+        }
+    });
 
     useEffect(() => {
         const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
@@ -154,6 +184,17 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
     const handleNavigateAndClose = (view: ViewMode) => {
         onNavigate(view);
         setIsMenuOpen(false);
+    };
+
+    const handleDragEnd = (e: any, info: any) => {
+        const threshold = 30; // Reduced threshold
+        const velocityThreshold = 300; // Reduced velocity threshold
+        
+        if (info.offset.x < -threshold || info.velocity.x < -velocityThreshold) {
+            if (activePanel === 'MENU') setActivePanel('SEARCH');
+        } else if (info.offset.x > threshold || info.velocity.x > velocityThreshold) {
+            if (activePanel === 'SEARCH') setActivePanel('MENU');
+        }
     };
 
     const toggleFullScreen = async () => {
@@ -200,7 +241,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
         <>
             {/* --- BOTTOM DOCK (Floating) --- */}
             <div className="fixed bottom-0 left-0 right-0 z-30 p-3 pb-safe-area lg:hidden pointer-events-none">
-                <div className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ring-black/5">
+                <div className={`backdrop-blur-xl border shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ${themeClasses.dock}`}>
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
                         { view: 'CALENDAR', icon: CalendarIcon, label: 'Plan' },
@@ -216,7 +257,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                                 onClick={() => onNavigate(item.view as ViewMode)}
                                 className={`
                                     relative flex-1 flex flex-col items-center justify-center h-[56px] rounded-[1.5rem] transition-all duration-300
-                                    ${isActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}
+                                    ${isActive ? themeClasses.dockItemActive : themeClasses.dockItemIdle}
                                 `}
                             >
                                 <Icon className={`w-6 h-6 mb-0.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
@@ -232,18 +273,28 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                         );
                     })}
                     
-                    <div className="w-px h-8 bg-gray-200 mx-1"></div>
+                    <div className={`w-px h-8 ${themeClasses.divider} mx-1`}></div>
 
-                    <button
-                        onClick={() => setIsMenuOpen(true)}
+                    <motion.button
+                        onTap={() => {
+                            setActivePanel('MENU');
+                            setIsMenuOpen(true);
+                        }}
+                        onPanEnd={(_, info) => {
+                            if (info.offset.y < -30) {
+                                setActivePanel('SEARCH');
+                                setIsMenuOpen(true);
+                            }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                         className={`
                             relative flex-1 flex flex-col items-center justify-center h-[56px] rounded-[1.5rem] transition-all duration-300
-                            ${isMenuOpen ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}
+                            ${isMenuOpen ? 'bg-gray-800 text-white' : themeClasses.dockItemIdle}
                         `}
                     >
                         <Menu className="w-6 h-6 mb-0.5" />
                         <span className="text-[9px] font-bold">Menu</span>
-                    </button>
+                    </motion.button>
                 </div>
             </div>
 
@@ -255,7 +306,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                        className="fixed inset-0 z-[9999] bg-[#f8fafc] lg:hidden flex flex-col h-[100dvh]"
+                        className={`fixed inset-0 z-[9999] ${themeClasses.menuDrawer} lg:hidden flex flex-col h-[100dvh]`}
                     >
                         
                         {/* Header: User Profile & Stats */}
@@ -316,54 +367,144 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({ currentUser, curren
                         </div>
                     </div>
 
-                    {/* Menu Grid */}
-                    <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-8 scrollbar-hide">
-                        {MOBILE_MENU_GROUPS.map((group) => {
-                            if (group.adminOnly && currentUser.role !== 'ADMIN') return null;
-                            const GroupIcon = group.icon;
-                            return (
-                                <div key={group.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 pl-1 flex items-center gap-2">
-                                        {React.createElement(group.icon, { className: "w-3.5 h-3.5" })}
-                                        {group.title}
-                                        <div className="h-px bg-gray-200 flex-1 ml-2"></div>
-                                    </h4>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {group.items.map((item) => {
-                                            // Assign Colors based on Group ID
-                                            let color = 'bg-gray-200';
-                                            if (group.id === 'WORKSPACE') color = 'bg-blue-500';
-                                            if (group.id === 'PRODUCTION') color = 'bg-pink-500';
-                                            if (group.id === 'OFFICE') color = 'bg-emerald-500';
-                                            if (group.id === 'ADMIN') color = 'bg-slate-600';
+                    {/* Main Content Area (Swipable Panels) */}
+                    <div className="flex-1 overflow-hidden relative" ref={containerRef} style={{ touchAction: 'pan-y' }}>
+                        <motion.div 
+                            className="flex h-full w-[200%]"
+                            animate={{ x: activePanel === 'MENU' ? 0 : '-50%' }}
+                            transition={{ type: 'spring', damping: 35, stiffness: 350, mass: 0.5 }}
+                            drag="x"
+                            dragDirectionLock
+                            dragConstraints={containerRef}
+                            dragElastic={0.2}
+                            onDragEnd={handleDragEnd}
+                        >
+                            {/* PANEL 1: MENU GRID */}
+                            <div className="w-1/2 h-full overflow-y-auto p-5 pb-32 space-y-8 scrollbar-hide">
+                                {MOBILE_MENU_GROUPS.map((group) => {
+                                    if (group.adminOnly && currentUser.role !== 'ADMIN') return null;
+                                    return (
+                                        <div key={group.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                            <h4 className={`text-xs font-black ${themeClasses.groupTitle} uppercase tracking-widest mb-3 pl-1 flex items-center gap-2`}>
+                                                {React.createElement(group.icon, { className: "w-3.5 h-3.5" })}
+                                                {group.title}
+                                                <div className={`h-px ${themeClasses.divider} flex-1 ml-2`}></div>
+                                            </h4>
+                                            <div className="grid grid-cols-4 gap-3">
+                                                {group.items.map((item) => {
+                                                    let color = 'bg-gray-200';
+                                                    if (group.id === 'WORKSPACE') color = 'bg-blue-500';
+                                                    if (group.id === 'PRODUCTION') color = 'bg-pink-500';
+                                                    if (group.id === 'OFFICE') color = 'bg-emerald-500';
+                                                    if (group.id === 'ADMIN') color = 'bg-slate-600';
 
-                                            return (
-                                                <MobileMenuButton 
-                                                    key={item.view}
-                                                    view={item.view} 
-                                                    icon={item.icon} 
-                                                    label={item.label} 
-                                                    color={color}
-                                                    currentView={currentView} 
-                                                    onNavigate={handleNavigateAndClose}
-                                                    currentUser={currentUser}
-                                                    unreadChatCount={unreadChatCount}
-                                                />
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                                    const isActive = currentView === item.view;
+                                                    const Icon = item.icon;
+
+                                                    return (
+                                                        <button
+                                                            key={item.view}
+                                                            onClick={() => handleNavigateAndClose(item.view)}
+                                                            className={`
+                                                                flex flex-col items-center justify-center p-2 rounded-2xl border transition-all relative group active:scale-95 h-20
+                                                                ${isActive 
+                                                                    ? isDarkTheme ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/40' : 'bg-indigo-50 border-indigo-200 shadow-sm' 
+                                                                    : isDarkTheme ? 'bg-white/5 border-white/5 hover:border-white/10' : 'bg-white border-gray-100 hover:border-indigo-100 hover:shadow-md'}
+                                                            `}
+                                                        >
+                                                            <div className={`p-2 rounded-xl mb-1.5 transition-colors ${isActive ? 'bg-white text-indigo-600 shadow-sm' : `${color} bg-opacity-10`}`}>
+                                                                <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : color.replace('bg-', 'text-').replace('/10', '')}`} />
+                                                            </div>
+                                                            <span className={`text-[10px] font-bold text-center leading-tight truncate w-full ${isActive ? isDarkTheme ? 'text-white' : 'text-indigo-700' : isDarkTheme ? 'text-slate-400' : 'text-gray-500'}`}>{item.label}</span>
+                                                            
+                                                            {/* Real-time Badge */}
+                                                            <div className="absolute top-1.5 right-1.5">
+                                                                <SidebarBadge 
+                                                                    view={item.view} 
+                                                                    currentUser={currentUser} 
+                                                                    count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                                                />
+                                                            </div>
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                
+                                {/* Swipe Hint (Removed as it's now in footer) */}
+                            </div>
+
+                            {/* PANEL 2: SEARCH / COMMAND PALETTE */}
+                            <div className="w-1/2 h-full flex flex-col bg-white">
+                                <CommandPalette 
+                                    currentUser={currentUser}
+                                    tasks={tasks}
+                                    menuGroups={MOBILE_MENU_GROUPS}
+                                    onNavigate={onNavigate}
+                                    onAddTask={onAddTask}
+                                    onEditProfile={onEditProfile}
+                                    onLogout={onLogout}
+                                    onOpenTask={onOpenTask}
+                                    onClose={() => setIsMenuOpen(false)}
+                                    isActive={isMenuOpen && activePanel === 'SEARCH'}
+                                />
+                            </div>
+                        </motion.div>
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="p-4 bg-white border-t border-gray-100 flex items-center justify-center pb-safe-area">
+                    {/* Footer Actions (Static) */}
+                    <div className={`p-4 ${themeClasses.menuFooter} flex items-center justify-between pb-safe-area shrink-0`}>
+                        {/* Pagination & Swipe Hint */}
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                            {/* Swipe Hint Text */}
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={activePanel}
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    className={`flex items-center gap-2 text-[10px] font-black ${isDarkTheme ? 'text-slate-600' : 'text-gray-400'} uppercase tracking-[0.2em]`}
+                                >
+                                    {activePanel === 'MENU' ? (
+                                        <>
+                                            <span>Swipe Left for Search</span>
+                                            <ArrowRight className="w-3 h-3" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ArrowLeft className="w-3 h-3" />
+                                            <span>Swipe Right for Menu</span>
+                                        </>
+                                    )}
+                                </motion.div>
+                            </AnimatePresence>
+
+                            {/* Pagination Dots */}
+                            <div className="flex items-center gap-1.5 h-1.5">
+                                <motion.div 
+                                    animate={{ 
+                                        width: activePanel === 'MENU' ? 24 : 6,
+                                        backgroundColor: activePanel === 'MENU' ? '#4f46e5' : '#e2e8f0'
+                                    }}
+                                    className="h-full rounded-full transition-colors duration-300"
+                                />
+                                <motion.div 
+                                    animate={{ 
+                                        width: activePanel === 'SEARCH' ? 24 : 6,
+                                        backgroundColor: activePanel === 'SEARCH' ? '#4f46e5' : '#e2e8f0'
+                                    }}
+                                    className="h-full rounded-full transition-colors duration-300"
+                                />
+                            </div>
+                        </div>
+
                         <button 
                             onClick={onLogout}
-                            className="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm border border-red-100"
+                            className="p-3 bg-red-50 text-red-500 rounded-2xl active:scale-95 transition-all shrink-0"
                         >
-                            <LogOut className="w-5 h-5" /> ลงชื่อออก (Logout)
+                            <LogOut className="w-5 h-5" />
                         </button>
                     </div>
                     </motion.div>

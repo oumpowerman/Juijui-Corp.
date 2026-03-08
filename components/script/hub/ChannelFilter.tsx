@@ -22,10 +22,17 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
     const selectedChannels = channels.filter(c => selectedIds.includes(c.id));
 
     return (
-        <div className="flex items-center gap-6 w-full py-4 overflow-visible">
+        <div className="flex items-center gap-4 sm:gap-6 w-full py-4 overflow-x-auto sm:overflow-visible no-scrollbar">
             <style>{`
                 .selected-glow {
                     box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
                 }
             `}</style>
 
@@ -112,7 +119,7 @@ const ChannelFilter: React.FC<ChannelFilterProps> = ({
                         initial={{ opacity: 0, scale: 0.8, width: 0 }}
                         animate={{ opacity: 1, scale: 1, width: 'auto' }}
                         exit={{ opacity: 0, scale: 0.8, width: 0 }}
-                        className="flex-1 flex justify-center items-center px-4 overflow-hidden"
+                        className="flex-1 flex justify-center items-center px-4 py-6 overflow-hidden"
                     >
                         <div className="h-px bg-gradient-to-r from-transparent via-rose-200 to-transparent w-full relative min-w-[100px]">
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[10px] font-black text-rose-400 uppercase tracking-widest whitespace-nowrap">

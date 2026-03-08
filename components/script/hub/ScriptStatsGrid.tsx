@@ -68,6 +68,7 @@ interface ScriptStatsGridProps {
     searchQuery: string; // NEW
     viewTab: 'QUEUE' | 'LIBRARY' | 'HISTORY';
     filterStatus: string;
+    refreshTrigger?: number; // NEW
     onTabChange: (tab: 'QUEUE' | 'LIBRARY' | 'HISTORY', status?: string) => void;
 }
 
@@ -79,6 +80,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
     searchQuery, // NEW
     viewTab,
     filterStatus,
+    refreshTrigger, // NEW
     onTabChange
 }) => {
     const [stats, setStats] = useState({
@@ -153,7 +155,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
             fetchStats();
         }, 300);
         return () => clearTimeout(timer);
-    }, [fetchStats]);
+    }, [fetchStats, refreshTrigger]); // ADDED refreshTrigger
 
     // Real-time subscription for stats - Stable subscription
     useEffect(() => {

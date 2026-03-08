@@ -27,6 +27,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     // Calculations
     const percent = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
     const isCompleted = percent >= 100;
+    const isNearCompletion = percent >= 70 && percent < 100;
     const PlatformIcon = PLATFORM_ICONS[goal.platform] || PLATFORM_ICONS['OTHER'];
     
     // Date Logic
@@ -49,6 +50,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
         statusColor = 'text-emerald-400 border-emerald-500/30';
         statusText = 'Mission Accomplished';
         StatusIcon = <Trophy className="w-3 h-3" />;
+    } else if (isNearCompletion) {
+        progressBarColor = 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400';
+        statusColor = 'text-amber-400 border-amber-500/30';
+        statusText = 'Final Push: Near Target';
+        StatusIcon = <Zap className="w-3 h-3 animate-bounce" />;
     } else if (isOverdue) {
         progressBarColor = 'bg-slate-700';
         statusColor = 'text-slate-500 border-white/5';
@@ -70,14 +76,26 @@ const GoalCard: React.FC<GoalCardProps> = ({
     return (
         <motion.div 
             layout
+            onClick={() => !isCompleted && onUpdate(goal)}
             className={`
                 bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] border transition-all flex flex-col h-full group relative overflow-hidden
-                ${isCompleted ? 'border-emerald-500/30 shadow-lg shadow-emerald-900/20' : isOverdue ? 'border-white/5 opacity-60' : isExpiringSoon ? 'border-rose-500/30 shadow-xl shadow-rose-900/20' : 'border-white/10 shadow-2xl shadow-black/40'}
-                hover:shadow-indigo-500/10 hover:border-indigo-500/40 transition-all duration-500
+                ${isCompleted ? 'border-emerald-500/30 shadow-lg shadow-emerald-900/20' : isNearCompletion ? 'border-amber-500/50 shadow-2xl shadow-amber-900/30 ring-2 ring-amber-500/20' : isOverdue ? 'border-white/5 opacity-60' : isExpiringSoon ? 'border-rose-500/30 shadow-xl shadow-rose-900/20' : 'border-white/10 shadow-2xl shadow-black/40'}
+                ${!isCompleted ? 'cursor-pointer hover:shadow-indigo-500/20 hover:border-indigo-500/60 hover:-translate-y-1' : ''}
+                ${isNearCompletion ? 'animate-pulse-subtle' : ''}
+                transition-all duration-500
             `}
         >
             {/* Background Decoration */}
-            <div className={`absolute top-0 right-0 w-48 h-48 blur-[80px] opacity-20 -mr-20 -mt-20 pointer-events-none ${isCompleted ? 'bg-emerald-500' : isExpiringSoon ? 'bg-rose-500' : 'bg-indigo-500'}`}></div>
+            <div className={`absolute top-0 right-0 w-48 h-48 blur-[80px] opacity-20 -mr-20 -mt-20 pointer-events-none ${isCompleted ? 'bg-emerald-500' : isNearCompletion ? 'bg-amber-500' : isExpiringSoon ? 'bg-rose-500' : 'bg-indigo-500'}`}></div>
+            
+            {/* Scanline Animation for Near Completion */}
+            {isNearCompletion && (
+                <motion.div 
+                    animate={{ y: ['0%', '1000%'] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-500/10 to-transparent h-10 w-full z-0 pointer-events-none"
+                />
+            )}
             
             {/* Modern Abstract Pattern - Background */}
             <div className="absolute inset-0 opacity-[0.05] pointer-events-none overflow-hidden">
@@ -111,7 +129,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                                         {channel.name}
                                     </span>
                                 )}
-                                <span className={`flex items-center gap-1.5 text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-[0.15em] ${statusColor} bg-black/20 ${isExpiringSoon ? 'animate-pulse' : ''}`}>
+                                <span className={`flex items-center gap-1.5 text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-[0.15em] ${statusColor} bg-black/20 ${isExpiringSoon || isNearCompletion ? 'animate-pulse' : ''}`}>
                                     {StatusIcon} {statusText}
                                 </span>
                             </div>
@@ -122,7 +140,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                     </div>
                     
                     {/* Menu Actions */}
-                    <div className="relative group/menu">
+                    <div className="relative group/menu" onClick={e => e.stopPropagation()}>
                         <button className="p-2.5 text-gray-600 hover:text-white rounded-xl hover:bg-white/5 transition-all">
                             <MoreHorizontal className="w-5 h-5" />
                         </button>
@@ -140,7 +158,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 {/* Progress Section */}
                 <div className="mb-8">
                     <div className="flex justify-between items-end mb-4">
-                        <div className={`text-5xl font-black tracking-tighter italic ${isCompleted ? 'text-emerald-400' : isOverdue ? 'text-gray-600' : isExpiringSoon ? 'text-rose-400' : 'text-indigo-400'}`}>
+                        <div className={`text-5xl font-black tracking-tighter italic ${isCompleted ? 'text-emerald-400' : isOverdue ? 'text-gray-600' : isNearCompletion ? 'text-amber-400' : isExpiringSoon ? 'text-rose-400' : 'text-indigo-400'}`}>
                             {percent}<span className="text-2xl text-gray-700 font-black ml-1">%</span>
                         </div>
                         <div className="text-right">
@@ -155,13 +173,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
                             initial={{ width: 0 }}
                             animate={{ width: `${percent}%` }}
                             transition={{ duration: 1.5, ease: "easeOut" }}
-                            className={`h-full rounded-full ${progressBarColor} relative overflow-hidden shadow-[0_0_15px_rgba(99,102,241,0.3)]`}
+                            className={`h-full rounded-full ${progressBarColor} relative overflow-hidden shadow-[0_0_15px_rgba(99,102,241,0.3)] ${isNearCompletion ? 'shadow-amber-500/50' : ''}`}
                         >
                             {/* Shimmer Effect for active goals */}
                             {!isCompleted && !isOverdue && (
                                 <motion.div 
                                     animate={{ x: ['-100%', '200%'] }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                    transition={{ duration: isNearCompletion ? 1 : 2, repeat: Infinity, ease: "linear" }}
                                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-1/2 h-full"
                                 />
                             )}
@@ -170,7 +188,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 </div>
 
                 {/* Boosts / Cheers Section - Grand Display */}
-                <div className="mb-8 flex items-center gap-4">
+                <div className="mb-8 flex items-center gap-4" onClick={e => e.stopPropagation()}>
                     <button 
                         onClick={() => onToggleBoost(goal.id, isBoosted)}
                         className={`
@@ -206,14 +224,18 @@ const GoalCard: React.FC<GoalCardProps> = ({
                         )}
                     </div>
                     {goal.boosts.length > 0 && (
-                        <span className="text-[10px] font-black text-rose-400 uppercase tracking-[0.15em] animate-bounce">
+                        <motion.span 
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-[10px] font-black text-rose-400 uppercase tracking-[0.15em]"
+                        >
                             {goal.boosts.length} Active Boosts!
-                        </span>
+                        </motion.span>
                     )}
                 </div>
 
                 {/* Footer Info */}
-                <div className="mt-auto flex items-center justify-between pt-6 border-t border-white/5">
+                <div className="mt-auto flex items-center justify-between pt-6 border-t border-white/5" onClick={e => e.stopPropagation()}>
                     {/* Guardians */}
                     <div className="flex items-center gap-4">
                         <div className="flex -space-x-4">
@@ -252,15 +274,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
             {/* Quick Action Button */}
             {!isCompleted && (
-                <button 
-                    onClick={() => onUpdate(goal)}
+                <div 
                     className={`
                         w-full py-5 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border-t
-                        ${isExpiringSoon ? 'bg-rose-600/20 text-rose-400 border-rose-500/20 hover:bg-rose-600 hover:text-white' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-indigo-600 hover:text-white'}
+                        ${isNearCompletion ? 'bg-amber-600/20 text-amber-400 border-amber-500/20 group-hover:bg-amber-600 group-hover:text-white' : isExpiringSoon ? 'bg-rose-600/20 text-rose-400 border-rose-500/20 group-hover:bg-rose-600 group-hover:text-white' : 'bg-white/5 text-gray-500 border-white/5 group-hover:bg-indigo-600 group-hover:text-white'}
                     `}
                 >
-                    <Zap className="w-4 h-4" /> Sync Progress
-                </button>
+                    <Zap className={`w-4 h-4 ${isNearCompletion ? 'animate-bounce' : ''}`} /> {isNearCompletion ? 'Final Push: Sync Now' : 'Sync Progress'}
+                </div>
             )}
              {isCompleted && (
                 <div className="w-full py-5 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] border-t border-emerald-500/20 flex items-center justify-center gap-3">

@@ -13,6 +13,7 @@ import {
     AlertTriangle, Clock, CheckCircle2, HelpCircle
 } from 'lucide-react';
 import { parseAttendanceMetadata } from '../../lib/attendanceUtils';
+import { getDirectDriveUrl } from '../../lib/imageUtils';
 import LeaveRequestModal from './LeaveRequestModal'; 
 import MyRequestHistory from './MyRequestHistory'; 
 
@@ -381,7 +382,12 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                             <button onClick={() => setViewProofUrl(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
                                 <XCircle className="w-8 h-8" />
                             </button>
-                            <img src={viewProofUrl} className="w-full h-auto rounded-xl shadow-inner bg-gray-100" alt="Proof" />
+                            <img 
+                                src={getDirectDriveUrl(viewProofUrl)} 
+                                className="w-full h-auto rounded-xl shadow-inner bg-gray-100" 
+                                alt="Proof" 
+                                referrerPolicy="no-referrer"
+                            />
                             <a href={viewProofUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center mt-3 text-indigo-600 font-bold text-sm hover:underline py-2">
                                 เปิดรูปต้นฉบับ <ExternalLink className="w-4 h-4 ml-1.5" />
                             </a>

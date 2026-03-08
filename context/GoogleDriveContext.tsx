@@ -15,6 +15,7 @@ interface GoogleDriveContextType {
     isAuthenticated: boolean;
     accessToken: string | null;
     login: () => void;
+    retry: () => void;
     uploadFileToDrive: (file: File, folderPath?: string[]) => Promise<any>;
     openDrivePicker: (onSelect: (file: any) => void) => void;
 }
@@ -39,7 +40,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const pendingReject = useRef<((error: any) => void) | null>(null);
     const pendingFolderPath = useRef<string[]>([]);
 
-    useEffect(() => {
+    const initGoogleScripts = () => {
         if (!CLIENT_ID || !API_KEY) return;
 
         const loadScript = (src: string) => {
@@ -70,15 +71,32 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             loadScript('https://apis.google.com/js/api.js'),
             loadScript('https://accounts.google.com/gsi/client'),
         ]).then(() => {
-            window.gapi.load('picker', () => setIsReady(true));
-            const client = window.google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (response: any) => handleTokenCallback(response),
-            });
-            setTokenClient(client);
-        }).catch(err => console.error("Failed to load Google Scripts", err));
+            if (window.gapi) {
+                window.gapi.load('picker', () => setIsReady(true));
+            }
+            if (window.google?.accounts?.oauth2) {
+                const client = window.google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (response: any) => handleTokenCallback(response),
+                });
+                setTokenClient(client);
+            }
+        }).catch(err => {
+            console.error("Failed to load Google Scripts", err);
+            showToast('ไม่สามารถโหลดระบบ Google Drive ได้ กรุณาตรวจสอบการเชื่อมต่อ', 'error');
+        });
+    };
+
+    useEffect(() => {
+        initGoogleScripts();
     }, []);
+
+    const retry = () => {
+        setIsReady(false);
+        setTokenClient(null);
+        initGoogleScripts();
+    };
 
     const handleTokenCallback = (response: any) => {
         if (response.error !== undefined) {
@@ -219,7 +237,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     return (
-        <GoogleDriveContext.Provider value={{ isReady, isUploading, isAuthenticated: !!accessToken, accessToken, login, uploadFileToDrive, openDrivePicker }}>
+        <GoogleDriveContext.Provider value={{ isReady, isUploading, isAuthenticated: !!accessToken, accessToken, login, retry, uploadFileToDrive, openDrivePicker }}>
             {children}
         </GoogleDriveContext.Provider>
     );

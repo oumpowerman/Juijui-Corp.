@@ -1,13 +1,13 @@
 
 import React, { useMemo } from 'react';
-import { PenTool, Eraser, FileText, Edit3, Type } from 'lucide-react';
+import { PenTool, Eraser, FileText, Edit3, Type, Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, Target, Rocket, Zap, TrendingUp, Trophy, Activity } from 'lucide-react';
 
 export type BackgroundTheme = 
   | 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
   | 'pastel-red' | 'pastel-orange' | 'pastel-yellow' | 'pastel-green' | 'pastel-blue' 
   | 'pastel-indigo' | 'pastel-purple' | 'pastel-pink' | 'pastel-rose' | 'pastel-teal'
   | 'pastel-cyan' | 'pastel-sky' | 'pastel-emerald' | 'pastel-lime' | 'pastel-amber'
-  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script';
+  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script' | 'inspector' | 'productivity';
 
 interface AppBackgroundProps {
     theme?: BackgroundTheme;
@@ -51,6 +51,8 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             'pastel-zinc': 'from-zinc-50 to-zinc-100',
             neutral: 'from-gray-50 to-slate-100',
             script: 'from-amber-200 via-orange-100 to-yellow-300', // Base vibrant
+            inspector: 'from-slate-900 via-slate-800 to-slate-950', // Dark professional desk
+            productivity: 'from-slate-950 via-slate-900 to-emerald-950/30', // Strategic Mission Control
         };
 
         if (theme === 'script') {
@@ -97,43 +99,81 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     const [scribbles, setScribbles] = React.useState<any[]>([]);
 
     React.useEffect(() => {
-        if (theme !== 'script') {
+        if (theme !== 'script' && theme !== 'inspector' && theme !== 'productivity') {
             setElements([]);
             setScribbles([]);
             return;
         }
 
-        const icons = [PenTool, Eraser, FileText, Edit3, Type];
-        const colors = [
-            'text-amber-500', 'text-orange-500', 'text-yellow-600', 
-            'text-red-500', 'text-blue-500', 'text-green-500', 
-            'text-purple-500', 'text-pink-500', 'text-teal-500',
-            'text-indigo-500', 'text-emerald-500', 'text-cyan-500'
-        ];
+        if (theme === 'script') {
+            const icons = [PenTool, Eraser, FileText, Edit3, Type];
+            const colors = [
+                'text-amber-500', 'text-orange-500', 'text-yellow-600', 
+                'text-red-500', 'text-blue-500', 'text-green-500', 
+                'text-purple-500', 'text-pink-500', 'text-teal-500',
+                'text-indigo-500', 'text-emerald-500', 'text-cyan-500'
+            ];
 
-        const newElements = Array.from({ length: 20 }).map((_, i) => ({
-            id: i,
-            Icon: icons[Math.floor(Math.random() * icons.length)],
-            top: `${Math.random() * 95}%`,
-            left: `${Math.random() * 95}%`,
-            size: Math.floor(Math.random() * 60) + 40,
-            rotate: Math.floor(Math.random() * 360),
-            color: colors[Math.floor(Math.random() * colors.length)],
-            opacity: (Math.random() * 0.4) + 0.1,
-            animate: Math.random() > 0.6 ? 'animate-pulse' : ''
-        }));
+            const newElements = Array.from({ length: 20 }).map((_, i) => ({
+                id: i,
+                Icon: icons[Math.floor(Math.random() * icons.length)],
+                top: `${Math.random() * 95}%`,
+                left: `${Math.random() * 95}%`,
+                size: Math.floor(Math.random() * 60) + 40,
+                rotate: Math.floor(Math.random() * 360),
+                color: colors[Math.floor(Math.random() * colors.length)],
+                opacity: (Math.random() * 0.4) + 0.1,
+                animate: Math.random() > 0.6 ? 'animate-pulse' : ''
+            }));
 
-        const newScribbles = Array.from({ length: 12 }).map((_, i) => ({
-            id: i,
-            top: `${Math.random() * 95}%`,
-            left: `${Math.random() * 95}%`,
-            width: `${Math.random() * 250 + 100}px`,
-            rotate: Math.floor(Math.random() * 40 - 20),
-            opacity: (Math.random() * 0.3) + 0.2
-        }));
+            const newScribbles = Array.from({ length: 12 }).map((_, i) => ({
+                id: i,
+                top: `${Math.random() * 95}%`,
+                left: `${Math.random() * 95}%`,
+                width: `${Math.random() * 250 + 100}px`,
+                rotate: Math.floor(Math.random() * 40 - 20),
+                opacity: (Math.random() * 0.3) + 0.2
+            }));
 
-        setElements(newElements);
-        setScribbles(newScribbles);
+            setElements(newElements);
+            setScribbles(newScribbles);
+        } else if (theme === 'inspector') {
+            const icons = [Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, FileText, Edit3];
+            const colors = ['text-slate-400', 'text-slate-500', 'text-indigo-400/30', 'text-amber-500/10'];
+            
+            const newElements = Array.from({ length: 15 }).map((_, i) => ({
+                id: i,
+                Icon: icons[Math.floor(Math.random() * icons.length)],
+                top: `${Math.random() * 90}%`,
+                left: `${Math.random() * 90}%`,
+                size: Math.floor(Math.random() * 100) + 60,
+                rotate: Math.floor(Math.random() * 60 - 30),
+                color: colors[Math.floor(Math.random() * colors.length)],
+                opacity: (Math.random() * 0.15) + 0.05,
+                animate: ''
+            }));
+
+            setElements(newElements);
+            setScribbles([]);
+        } else if (theme === 'productivity') {
+            const icons = [Target, Rocket, Zap, TrendingUp, Trophy, Activity, FileText, Edit3];
+            const colors = ['text-emerald-400/20', 'text-indigo-400/20', 'text-slate-500/20', 'text-emerald-500/10'];
+            
+            const newElements = Array.from({ length: 15 }).map((_, i) => ({
+                id: i,
+                Icon: icons[Math.floor(Math.random() * icons.length)],
+                top: `${Math.random() * 90}%`,
+                left: `${Math.random() * 90}%`,
+                size: Math.floor(Math.random() * 100) + 60,
+                rotate: Math.floor(Math.random() * 60 - 30),
+                color: colors[Math.floor(Math.random() * colors.length)],
+                opacity: (Math.random() * 0.15) + 0.05,
+                animate: Math.random() > 0.8 ? 'animate-pulse' : ''
+            }));
+
+            setElements(newElements);
+            setScribbles([]);
+        }
     }, [theme]);
 
     return (
@@ -147,9 +187,19 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             {/* Pattern Layer */}
             <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle, position: 'fixed' }} />
             
-            {/* Decorative Elements for Script Theme */}
-            {theme === 'script' && (
+            {/* Decorative Elements for Script, Inspector & Productivity Theme */}
+            {(theme === 'script' || theme === 'inspector' || theme === 'productivity') && (
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                    {/* Desk Lamp Glow for Inspector */}
+                    {theme === 'inspector' && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    )}
+
+                    {/* Mission Control Glow for Productivity */}
+                    {theme === 'productivity' && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    )}
+                    
                     {elements.map((el) => (
                         <el.Icon 
                             key={el.id}

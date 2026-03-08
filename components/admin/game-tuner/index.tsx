@@ -164,7 +164,7 @@ const GameConfigTuner = () => {
                             >
                                 {isActive && (
                                     <motion.div
-                                        layoutId="activeTab"
+                                        layoutId="gameTunerActiveTab"
                                         className={`absolute inset-0 ${tab.bg} rounded-xl -z-10`}
                                         transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                     />

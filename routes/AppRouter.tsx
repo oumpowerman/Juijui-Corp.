@@ -31,20 +31,18 @@ const DutyView = lazy(() => import('../components/DutyView'));
 const QualityGateView = lazy(() => import('../components/QualityGateView'));
 const KPIView = lazy(() => import('../components/KPIView'));
 const FeedbackView = lazy(() => import('../components/feedback/FeedbackView'));
-const ChannelManager = lazy(() => import('../components/ChannelManager'));
-const MasterDataManager = lazy(() => import('../components/MasterDataManager'));
 const ContentStock = lazy(() => import('../components/checklist/ContentStock'));
 const ShootChecklist = lazy(() => import('../components/ShootChecklist'));
 const WeeklyQuestBoard = lazy(() => import('../components/WeeklyQuestBoard'));
 const GoalView = lazy(() => import('../components/GoalView'));
 const WikiView = lazy(() => import('../components/WikiView'));
-const SystemLogicGuide = lazy(() => import('../components/admin/SystemLogicGuide'));
 const LeaderboardView = lazy(() => import('../components/LeaderboardView')); 
-const AssetRegistryView = lazy(() => import('../components/assets/AssetRegistryView')); 
+const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
 
 // --- NEW MODULE BRIDGES (Lazy Loaded) ---
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
 const FinanceRouter = lazy(() => import('./FinanceRouter'));
+const AdminRouter = lazy(() => import('./AdminRouter'));
 const CommandPalette = lazy(() => import('../components/ui/CommandPalette')); 
 
 // --- LAZY LOAD MODALS ---
@@ -79,6 +77,11 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
   const [isWorkboxOpen, setIsWorkboxOpen] = useState(false);
+
+  const handleLogout = async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+  };
 
   // --- NAVIGATION HANDLER (Sync with URL) ---
   const handleNavigate = useCallback((view: ViewMode) => {
@@ -323,16 +326,22 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   />
               );
             case 'CHANNELS':
-               return (
-                   <ChannelManager 
-                      tasks={tasks}
-                      channels={channels}
-                      onAdd={handleAddChannel}
-                      onEdit={handleUpdateChannel}
-                      onDelete={handleDeleteChannel}
-                      onOpenSettings={() => setIsNotifSettingsOpen(true)}
-                   />
-               );
+            case 'MASTER_DATA':
+            case 'SYSTEM_GUIDE':
+            case 'ASSETS':
+                return (
+                    <AdminRouter 
+                        currentView={currentView}
+                        tasks={tasks}
+                        channels={channels}
+                        users={allUsers}
+                        masterOptions={masterOptions}
+                        onAddChannel={handleAddChannel}
+                        onUpdateChannel={handleUpdateChannel}
+                        onDeleteChannel={handleDeleteChannel}
+                        onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                    />
+                );
             case 'SCRIPT_HUB':
                 return (
                     <ScriptHubView 
@@ -376,8 +385,6 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 );
             case 'FEEDBACK':
                 return <FeedbackView currentUser={currentUserProfile} />;
-            case 'MASTER_DATA':
-                return <MasterDataManager />;
             case 'WEEKLY':
                 return (
                     <WeeklyQuestBoard 
@@ -402,8 +409,6 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 );
             case 'WIKI':
                 return <WikiView currentUser={currentUserProfile} />;
-            case 'SYSTEM_GUIDE':
-                return <SystemLogicGuide />;
                 
             case 'LEADERBOARD':
                 return <LeaderboardView users={allUsers} currentUser={currentUserProfile} />;
@@ -413,9 +418,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
             case 'FINANCE':
                 return <FinanceRouter currentUser={currentUserProfile} users={allUsers} />;
 
-            case 'ASSETS':
-                return <AssetRegistryView users={allUsers} masterOptions={masterOptions} />;
-                
+            case 'NEXUS':
+                return <NexusHub currentUser={currentUserProfile} />;
+
             default:
               return <div className="p-10 text-center text-gray-500">Coming Soon...</div>;
           }
@@ -432,18 +437,14 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           onLogout={handleForceLogout}
           onEditProfile={() => setIsProfileModalOpen(true)}
           onAddTask={handleAddTask}
+          onOpenTask={handleEditTask}
           chatUnreadCount={chatUnread}
           systemUnreadCount={sysUnread}
           isNotificationOpen={isNotificationOpen}
           onToggleNotification={handleToggleNotification}
+          tasks={tasks}
+          allUsers={allUsers}
       >
-          {/* --- GLOBAL SEARCH BUTTON (FLOATING) --- */}
-          <button 
-              onClick={() => setIsCommandPaletteOpen(true)}
-              className="fixed bottom-6 right-6 z-20 bg-white p-3 rounded-full shadow-xl border border-indigo-100 text-indigo-600 hover:scale-110 transition-transform lg:hidden"
-          >
-              <Search className="w-6 h-6" />
-          </button>
   
           {renderContent()}
   
@@ -467,17 +468,6 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   
           {/* --- GLOBAL MODALS --- */}
           <Suspense fallback={null}>
-              {isCommandPaletteOpen && (
-                  <CommandPalette 
-                      isOpen={isCommandPaletteOpen}
-                      onClose={() => setIsCommandPaletteOpen(false)}
-                      onNavigate={handleNavigate}
-                      tasks={tasks}
-                      users={allUsers}
-                      onOpenTask={(task) => { handleEditTask(task); setIsCommandPaletteOpen(false); }}
-                      onOpenProfile={() => { setIsProfileModalOpen(true); setIsCommandPaletteOpen(false); }}
-                  />
-              )}
   
               {isModalOpen && (
                   <TaskModal

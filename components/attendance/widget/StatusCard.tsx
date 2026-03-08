@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AttendanceLog, LeaveType, LocationDef, AttendanceStats, LeaveRequest } from '../../../types/attendance';
 import { User } from '../../../types';
-import { MapPin, LogOut, LogIn, CheckCircle2, Cloud, Sparkles, Coffee, Calendar, Flame, Briefcase, AlertTriangle, Palmtree, Hourglass, AlertCircle, ShieldCheck, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { MapPin, LogOut, LogIn, CheckCircle2, Cloud, CloudOff, Sparkles, Coffee, Calendar, Flame, Briefcase, AlertTriangle, Palmtree, Hourglass, AlertCircle, ShieldCheck, ArrowRight, ArrowUpRight, Loader2, RefreshCw } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import th from 'date-fns/locale/th';
 import LeaveRequestModal from '../LeaveRequestModal';
@@ -26,6 +26,9 @@ interface StatusCardProps {
     onOpenCheckIn: () => void;
     onOpenLeave: () => void;
     isDriveReady: boolean;
+    isAuthenticated?: boolean;
+    onConnectDrive?: () => void;
+    onRetryDrive?: () => void;
     onRefresh?: () => void;
     availableLocations: LocationDef[];
     onNavigateToHistory?: () => void;
@@ -35,11 +38,44 @@ interface StatusCardProps {
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, onRefresh, availableLocations, onNavigateToHistory,
+    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, isAuthenticated, onConnectDrive, onRetryDrive, onRefresh, availableLocations, onNavigateToHistory,
     startTime, lateBuffer
 }) => {
     const { showAlert } = useGlobalDialog(); 
     const { showToast } = useToast();
+
+    // --- DRIVE LOADING TIMER ---
+    const [loadingTime, setLoadingTime] = useState(0);
+    const [isTimeout, setIsTimeout] = useState(false);
+
+    useEffect(() => {
+        let interval: any;
+        if (!isDriveReady && !isTimeout) {
+            interval = setInterval(() => {
+                setLoadingTime(prev => {
+                    if (prev >= 20) {
+                        setIsTimeout(true);
+                        clearInterval(interval);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 1000);
+        } else if (isDriveReady) {
+            setLoadingTime(0);
+            setIsTimeout(false);
+            if (interval) clearInterval(interval);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isDriveReady, isTimeout]);
+
+    const handleRetry = () => {
+        setLoadingTime(0);
+        setIsTimeout(false);
+        if (onRetryDrive) onRetryDrive();
+    };
 
     // --- HOLIDAY LOGIC HOOKS ---
     const { exceptions } = useCalendarExceptions();
@@ -348,11 +384,64 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 </>
             )}
             
-            {isDriveReady && (
-                <p className="text-[10px] text-gray-400 text-center flex items-center justify-center gap-1 mt-2">
-                    <Cloud className="w-3 h-3" /> เชื่อมต่อ Google Drive แล้ว (ประหยัดพื้นที่)
-                </p>
-            )}
+            {/* Google Drive Status & Connection */}
+            <div className="mt-4 pt-3 border-t border-gray-50">
+                {!isDriveReady ? (
+                    <div className="flex flex-col items-center gap-2">
+                        {isTimeout ? (
+                            <>
+                                <div className="flex items-center gap-1.5 text-[12px] text-red-500 font-bold">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>การเชื่อมต่อ Drive ล้มเหลว (Timeout)</span>
+                                </div>
+                                <button 
+                                    onClick={handleRetry}
+                                    className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-full text-[12px] font-bold transition-all active:scale-95"
+                                >
+                                    <RefreshCw className="w-3 h-3" /> ลองเชื่อมต่อใหม่อีกครั้ง
+                                </button>
+                                <p className="text-[9px] text-gray-400 text-center px-4">
+                                    คุณยังสามารถลงเวลาได้ปกติ รูปภาพจะถูกเก็บในระบบสำรอง
+                                </p>
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center justify-center gap-2 text-[12px] text-orange-400 font-bold">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <span>
+                                        {loadingTime > 10 
+                                            ? 'การเชื่อมต่อช้า... กำลังพยายามอีกครั้ง' 
+                                            : 'กำลังโหลดระบบ Google Drive...'}
+                                    </span>
+                                </div>
+                                <div className="w-24 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-orange-400 transition-all duration-1000 ease-linear"
+                                        style={{ width: `${(loadingTime / 20) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : !isAuthenticated ? (
+                    <div className="flex flex-col items-center gap-2">
+                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <CloudOff className="w-3 h-3" /> ยังไม่ได้เชื่อมต่อ Google Drive
+                        </p>
+                        <button 
+                            onClick={onConnectDrive}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                        >
+                            <Cloud className="w-3 h-3" /> เชื่อมต่อเพื่อสำรองรูปภาพ
+                        </button>
+                    </div>
+                ) : (
+                    <p className="text-[10px] text-emerald-500 font-bold text-center flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> 
+                        เชื่อมต่อ Google Drive แล้ว (สำรองรูปภาพอัตโนมัติ)
+                    </p>
+                )}
+            </div>
         </div>
     );
 };

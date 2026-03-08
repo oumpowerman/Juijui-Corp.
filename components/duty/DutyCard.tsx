@@ -5,7 +5,7 @@ import { Duty, User } from '../../types';
 import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake, ExternalLink, Sparkles } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { isPast, isToday, isSameDay, subDays, getDay } from 'date-fns';
-import { compressImage } from '../../lib/imageUtils';
+import { compressImage, getDirectDriveUrl } from '../../lib/imageUtils';
 
 import { useGameConfig } from '../../context/GameConfigContext';
 
@@ -128,20 +128,6 @@ const DutyCard: React.FC<DutyCardProps> = ({
         if (confirmed) {
             fileInputRef.current?.click();
         }
-    };
-
-    // Helper to transform Google Drive Links to Direct Images
-    const getDisplayImageUrl = (url: string | undefined) => {
-        if (!url) return '';
-        if (url.includes('drive.google.com')) {
-            // Try to extract ID
-            const idPart = url.split('id=')[1] || url.split('/d/')[1]?.split('/')[0];
-            if (idPart) {
-                // Use Googleusercontent proxy for direct image rendering
-                return `https://lh3.googleusercontent.com/d/${idPart}=s2000`; 
-            }
-        }
-        return url;
     };
 
     // Dynamic Styles
@@ -349,9 +335,10 @@ const DutyCard: React.FC<DutyCardProps> = ({
                         
                         {/* Display Image with Proxy Logic */}
                         <img 
-                            src={getDisplayImageUrl(duty.proofImageUrl)} 
+                            src={getDirectDriveUrl(duty.proofImageUrl)} 
                             className="w-full h-auto rounded-3xl shadow-2xl border-4 border-white bg-black" 
                             alt="Proof" 
+                            referrerPolicy="no-referrer"
                         />
                         
                         <div className="mt-4 flex flex-col items-center gap-2">

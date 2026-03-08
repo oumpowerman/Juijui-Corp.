@@ -149,11 +149,20 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const login = async () => {
         try {
             const response = await fetch('/api/auth/google/url');
-            const { url } = await response.json();
-            window.open(url, 'google_auth', 'width=600,height=700');
-        } catch (error) {
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get auth URL');
+            }
+            
+            if (!data.url) {
+                throw new Error('No URL returned from server');
+            }
+            
+            window.open(data.url, 'google_auth', 'width=600,height=700');
+        } catch (error: any) {
             console.error('Login error:', error);
-            showToast('ไม่สามารถเริ่มการเชื่อมต่อได้', 'error');
+            showToast(error.message || 'ไม่สามารถเริ่มการเชื่อมต่อได้', 'error');
         }
     };
 

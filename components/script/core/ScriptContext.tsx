@@ -25,6 +25,8 @@ interface ScriptContextType {
     renameCharacter: (oldName: string, newName: string) => Promise<void>; // NEW
     ideaOwnerId: string | undefined;
     setIdeaOwnerId: (val: string | undefined) => void;
+    authorId: string | undefined;
+    setAuthorId: (val: string | undefined) => void;
     
     // Metadata State
     contentId: string | undefined;
@@ -144,6 +146,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [scriptType, setScriptType] = useState<ScriptType>(script.scriptType || 'MONOLOGUE');
     const [characters, setCharacters] = useState<string[]>(script.characters || ['ตัวละคร A', 'ตัวละคร B']);
     const [ideaOwnerId, setIdeaOwnerId] = useState<string | undefined>(script.ideaOwnerId);
+    const [authorId, setAuthorId] = useState<string | undefined>(script.authorId);
     
     const [contentId, setContentId] = useState<string | undefined>(script.contentId);
     const [channelId, setChannelId] = useState<string | undefined>(script.channelId);
@@ -166,7 +169,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     
     const isDirtyRef = useRef(false);
     const latestStateRef = useRef({ 
-        title, content, status, scriptType, characters, ideaOwnerId,
+        title, content, status, scriptType, characters, ideaOwnerId, authorId,
         channelId, category, tags, objective 
     });
     
@@ -400,8 +403,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     }, [lockStatus, lockerUser?.id]);
 
     useEffect(() => {
-        latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective };
-    }, [title, content, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective]);
+        latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective };
+    }, [title, content, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective]);
 
     useEffect(() => {
         if (lockStatus === 'LOCKED_BY_ME') {
@@ -424,7 +427,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             }
         }, 3000);
         return () => clearTimeout(timer);
-    }, [content, title, status, scriptType, characters, ideaOwnerId, channelId, category, tags, objective, isReadOnly]);
+    }, [content, title, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective, isReadOnly]);
 
     useEffect(() => {
         return () => {
@@ -443,7 +446,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         setIsSaving(true);
         await onSave(script.id, { 
             title, content, status, estimatedDuration: estimatedSeconds,
-            scriptType, characters, ideaOwnerId, channelId, category, tags, objective
+            scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective
         });
         setLastSaved(new Date());
         setIsSaving(false);
@@ -508,6 +511,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             scriptType, setScriptType,
             characters, setCharacters, saveCharacters, renameCharacter, // EXPORTED
             ideaOwnerId, setIdeaOwnerId,
+            authorId, setAuthorId,
             contentId, channelId, setChannelId,
             category, setCategory,
             tags, setTags,

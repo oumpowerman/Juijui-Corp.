@@ -254,6 +254,7 @@ export const useScripts = (currentUser: User) => {
             if (updates.scriptType) payload.script_type = updates.scriptType;
             if (updates.characters) payload.characters = updates.characters;
             if (updates.ideaOwnerId !== undefined) payload.idea_owner_id = updates.ideaOwnerId;
+            if (updates.authorId !== undefined) payload.author_id = updates.authorId;
             if (updates.isInShootQueue !== undefined) payload.is_in_shoot_queue = updates.isInShootQueue;
             if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
             if (updates.shareToken !== undefined) payload.share_token = updates.shareToken;

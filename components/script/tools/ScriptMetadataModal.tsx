@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Tag, Target, Layers, Layout, Save, Hash, ChevronDown, Loader2, Check, Type, Users } from 'lucide-react';
+import { X, Tag, Target, Layers, Layout, Save, Hash, ChevronDown, Loader2, Check, Type, Users, Edit3 } from 'lucide-react';
 import { useScriptContext } from '../core/ScriptContext';
 import SmartTagInput from '../hub/SmartTagInput';
 
@@ -12,6 +12,7 @@ const ScriptMetadataModal: React.FC = () => {
         tags, setTags,
         objective, setObjective,
         ideaOwnerId, setIdeaOwnerId,
+        authorId, setAuthorId,
         currentUser, users,
         channels, masterOptions,
         handleSave, isSaving
@@ -24,8 +25,8 @@ const ScriptMetadataModal: React.FC = () => {
     const channelRef = useRef<HTMLDivElement>(null);
     const categoryRef = useRef<HTMLDivElement>(null);
 
-    // Permission check: Only current owner or admin can handover
-    const canHandover = currentUser.role === 'ADMIN' || currentUser.id === ideaOwnerId;
+    // Permission check: Only current owner, writer or admin can edit metadata
+    const canEdit = currentUser.role === 'ADMIN' || currentUser.id === ideaOwnerId || currentUser.id === authorId;
 
     // Close dropdowns on click outside
     useEffect(() => {
@@ -85,66 +86,114 @@ const ScriptMetadataModal: React.FC = () => {
                 {/* Body Content */}
                 <div className="p-8 overflow-y-auto space-y-6 flex-1 bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200">
                     
-                    {/* Row 0: Idea Owner (Handover System) */}
-                    <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Users className="w-3 h-3" /> Idea Owner (เจ้าของไอเดีย)
-                            </label>
-                            {!canHandover && (
-                                <span className="text-[9px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-                                    Read Only
-                                </span>
-                            )}
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-3">
-                            {activeUsers.map(user => {
-                                const isSelected = ideaOwnerId === user.id;
-                                return (
-                                    <button
-                                        key={user.id}
-                                        type="button"
-                                        disabled={!canHandover}
-                                        onClick={() => setIdeaOwnerId(user.id)}
-                                        className={`
-                                            relative group transition-all duration-300 
-                                            ${isSelected ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'}
-                                            ${!canHandover && !isSelected ? 'hidden' : ''}
-                                            ${!canHandover ? 'cursor-default' : 'cursor-pointer'}
-                                        `}
-                                        title={user.name}
-                                    >
-                                        <div className={`
-                                            w-10 h-10 rounded-full overflow-hidden border-2 transition-all
-                                            ${isSelected ? 'border-indigo-500 shadow-lg ring-4 ring-indigo-100' : 'border-white shadow-sm'}
-                                        `}>
-                                            {user.avatarUrl ? (
-                                                <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
-                                            ) : (
-                                                <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">
-                                                    {user.name.charAt(0)}
+                    {/* Row 0: Handover System (Writer & Owner) */}
+                    <div className="grid grid-cols-1 gap-4">
+                        {/* Writer Selection */}
+                        <div className="space-y-3 bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Edit3 className="w-3 h-3" /> Writer (ผู้รับผิดชอบเขียนบท)
+                                </label>
+                                {!canEdit && (
+                                    <span className="text-[9px] font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                                        Read Only
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-3">
+                                {activeUsers.map(user => {
+                                    const isSelected = authorId === user.id;
+                                    return (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            disabled={!canEdit}
+                                            onClick={() => setAuthorId(user.id)}
+                                            className={`
+                                                relative group transition-all duration-300 
+                                                ${isSelected ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'}
+                                                ${!canEdit && !isSelected ? 'hidden' : ''}
+                                                ${!canEdit ? 'cursor-default' : 'cursor-pointer'}
+                                            `}
+                                            title={user.name}
+                                        >
+                                            <div className={`
+                                                w-10 h-10 rounded-full overflow-hidden border-2 transition-all
+                                                ${isSelected ? 'border-indigo-500 shadow-lg ring-4 ring-indigo-100' : 'border-white shadow-sm'}
+                                            `}>
+                                                {user.avatarUrl ? (
+                                                    <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">
+                                                        {user.name.charAt(0)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {isSelected && canEdit && (
+                                                <div className="absolute -top-1 -right-1 bg-indigo-500 text-white rounded-full p-0.5 shadow-md">
+                                                    <Check className="w-2.5 h-2.5" />
                                                 </div>
                                             )}
-                                        </div>
-                                        {isSelected && canHandover && (
-                                            <div className="absolute -top-1 -right-1 bg-indigo-500 text-white rounded-full p-0.5 shadow-md">
-                                                <Check className="w-2.5 h-2.5" />
+                                            {/* Tooltip */}
+                                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                {user.name}
                                             </div>
-                                        )}
-                                        {/* Tooltip */}
-                                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                            {user.name}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {canHandover && (
+                                        </button>
+                                    );
+                                })}
+                            </div>
                             <p className="text-[9px] text-slate-400 italic">
-                                * เฉพาะเจ้าของไอเดียหรือ Admin เท่านั้นที่สามารถส่งมอบสิทธิ์ให้คนอื่นได้
+                                * เปลี่ยนคนเขียนบทเพื่อให้งานไปปรากฏในคิวของคนนั้น
                             </p>
-                        )}
+                        </div>
+
+                        {/* Idea Owner Selection */}
+                        <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm opacity-80">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Users className="w-3 h-3" /> Idea Owner (เจ้าของไอเดีย)
+                                </label>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-2.5">
+                                {activeUsers.map(user => {
+                                    const isSelected = ideaOwnerId === user.id;
+                                    return (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            disabled={!canEdit}
+                                            onClick={() => setIdeaOwnerId(user.id)}
+                                            className={`
+                                                relative group transition-all duration-300 
+                                                ${isSelected ? 'scale-105' : 'opacity-40 hover:opacity-100'}
+                                                ${!canEdit && !isSelected ? 'hidden' : ''}
+                                            `}
+                                            title={user.name}
+                                        >
+                                            <div className={`
+                                                w-8 h-8 rounded-full overflow-hidden border transition-all
+                                                ${isSelected ? 'border-amber-500 shadow-md ring-2 ring-amber-50' : 'border-white shadow-sm'}
+                                            `}>
+                                                {user.avatarUrl ? (
+                                                    <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-[10px]">
+                                                        {user.name.charAt(0)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {isSelected && (
+                                                <div className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-0.5 shadow-md">
+                                                    <Check className="w-2 h-2" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Row 1: Channel & Category */}

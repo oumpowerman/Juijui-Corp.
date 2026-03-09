@@ -121,6 +121,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 flex items-center">
                                 <Users className="w-3.5 h-3.5 mr-1.5" /> Idea Owner (เจ้าของไอเดีย)
                             </label>
+                            <p className="text-[10px] text-gray-400 ml-1 -mt-2 mb-2 italic">* คุณจะถูกตั้งเป็นคนเขียนบท (Writer) โดยอัตโนมัติ</p>
                             <div className="flex flex-wrap gap-3">
                                 {activeUsers.map(user => (
                                     <button

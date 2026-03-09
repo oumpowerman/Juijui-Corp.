@@ -42,10 +42,11 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({
 
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
-            <button
+            <motion.button
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
-                    flex items-center justify-between gap-2 h-8 px-2 bg-white border border-gray-200 rounded-lg shadow-sm 
+                    flex items-center justify-between gap-2 h-8 px-2.5 bg-white border border-gray-200 rounded-lg shadow-sm 
                     hover:bg-gray-50 transition-all active:scale-95 ${width}
                 `}
                 title={title}
@@ -58,7 +59,7 @@ const ToolbarDropdown: React.FC<ToolbarDropdownProps> = ({
                     </span>
                 </div>
                 <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
+            </motion.button>
 
             <AnimatePresence>
                 {isOpen && (

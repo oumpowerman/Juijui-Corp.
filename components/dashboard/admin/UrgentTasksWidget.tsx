@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Task, Status, Channel, User, MasterOption } from '../../../types';
 import { AlertTriangle, ArrowRight, PartyPopper, CalendarClock, Clock, Siren, ChevronRight, LayoutTemplate, CheckSquare, Filter, X } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow, differenceInCalendarDays, addDays, isBefore } from 'date-fns';
@@ -166,25 +167,30 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
     };
 
     return (
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full relative transition-all duration-500">
+        <div className="glass-card rounded-[2.5rem] overflow-hidden flex flex-col h-full relative transition-all duration-500 shadow-indigo-100/50">
             
             {/* --- Header: Stats Filter --- */}
-            <div className="p-5 pb-6 border-b border-gray-100 relative overflow-hidden bg-white">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none opacity-60"></div>
+            <div className="p-6 pb-8 border-b border-white/40 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-red-100/30 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none opacity-60"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-100/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none opacity-40"></div>
                 
-                <div className="flex justify-between items-start relative z-10 mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl shadow-sm border transition-colors ${stats.overdue > 0 ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-500 border-green-100'}`}>
-                            <Siren className={`w-6 h-6 ${stats.overdue > 0 ? 'animate-pulse' : ''}`} />
-                        </div>
+                <div className="flex justify-between items-start relative z-10 mb-6">
+                    <div className="flex items-center gap-4">
+                        <motion.div 
+                            animate={stats.overdue > 0 ? { scale: [1, 1.1, 1] } : {}}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                            className={`p-3.5 rounded-2xl shadow-sm border transition-colors ${stats.overdue > 0 ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-500 border-green-100'}`}
+                        >
+                            <Siren className={`w-7 h-7 ${stats.overdue > 0 ? 'animate-pulse' : ''}`} />
+                        </motion.div>
                         <div>
-                            <h3 className="font-black text-xl tracking-tight text-gray-800">งานด่วน (Priority)</h3>
-                            <div className="flex items-center gap-2">
-                                <p className="text-xs text-gray-400 font-bold">
+                            <h3 className="font-black text-2xl tracking-tighter text-slate-800">งานด่วน (Priority)</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
                                     {activeFilter === 'ALL' ? (viewScope === 'ME' ? 'เฉพาะงานของคุณ' : 'ภาพรวมทั้งทีม') : `กรอง: ${activeFilter}`}
                                 </p>
                                 {activeFilter !== 'ALL' && (
-                                    <button onClick={() => setActiveFilter('ALL')} className="text-[10px] text-gray-400 hover:text-red-500 bg-gray-100 hover:bg-red-50 px-1.5 py-0.5 rounded flex items-center transition-colors">
+                                    <button onClick={() => setActiveFilter('ALL')} className="text-[10px] text-red-500 font-black uppercase tracking-widest bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-full flex items-center transition-all">
                                         <X className="w-3 h-3 mr-1" /> Clear
                                     </button>
                                 )}
@@ -194,145 +200,149 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
                 </div>
 
                 {/* Clickable Stats Bar */}
-                <div className="grid grid-cols-3 gap-3 relative z-10">
-                    <button 
+                <div className="grid grid-cols-3 gap-4 relative z-10">
+                    <motion.button 
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => toggleFilter('OVERDUE')}
-                        className={`rounded-xl p-2 border text-center transition-all active:scale-95 ${activeFilter === 'OVERDUE' ? 'bg-red-100 border-red-300 ring-2 ring-red-200' : 'bg-red-50 border-red-100 hover:border-red-200'}`}
+                        className={`rounded-2xl p-3 border text-center transition-all ${activeFilter === 'OVERDUE' ? 'bg-red-100 border-red-300 ring-4 ring-red-500/10' : 'bg-red-50/50 border-white/60 hover:border-red-200'}`}
                     >
-                        <span className={`block text-2xl font-black leading-none ${stats.overdue > 0 ? 'text-red-500' : 'text-gray-300'}`}>{stats.overdue}</span>
-                        <span className="text-[10px] text-red-400 uppercase font-bold">Overdue</span>
-                    </button>
-                    <button 
+                        <span className={`block text-3xl font-black leading-none mb-1 ${stats.overdue > 0 ? 'text-red-500' : 'text-slate-300'}`}>{stats.overdue}</span>
+                        <span className="text-[10px] text-red-400 uppercase font-black tracking-widest">Overdue</span>
+                    </motion.button>
+                    <motion.button 
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => toggleFilter('TODAY')}
-                        className={`rounded-xl p-2 border text-center transition-all active:scale-95 ${activeFilter === 'TODAY' ? 'bg-orange-100 border-orange-300 ring-2 ring-orange-200' : 'bg-orange-50 border-orange-100 hover:border-orange-200'}`}
+                        className={`rounded-2xl p-3 border text-center transition-all ${activeFilter === 'TODAY' ? 'bg-orange-100 border-orange-300 ring-4 ring-orange-500/10' : 'bg-orange-50/50 border-white/60 hover:border-orange-200'}`}
                     >
-                        <span className="block text-2xl font-black text-orange-500 leading-none">{stats.today}</span>
-                        <span className="text-[10px] text-orange-400 uppercase font-bold">Today</span>
-                    </button>
-                    <button 
+                        <span className="block text-3xl font-black text-orange-500 leading-none mb-1">{stats.today}</span>
+                        <span className="text-[10px] text-orange-400 uppercase font-black tracking-widest">Today</span>
+                    </motion.button>
+                    <motion.button 
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => toggleFilter('SOON')}
-                        className={`rounded-xl p-2 border text-center transition-all active:scale-95 ${activeFilter === 'SOON' ? 'bg-yellow-100 border-yellow-300 ring-2 ring-yellow-200' : 'bg-yellow-50 border-yellow-100 hover:border-yellow-200'}`}
+                        className={`rounded-2xl p-3 border text-center transition-all ${activeFilter === 'SOON' ? 'bg-yellow-100 border-yellow-300 ring-4 ring-yellow-500/10' : 'bg-yellow-50/50 border-white/60 hover:border-yellow-200'}`}
                     >
-                        <span className="block text-2xl font-black text-yellow-500 leading-none">{stats.upcoming}</span>
-                        <span className="text-[10px] text-yellow-600 uppercase font-bold">Soon</span>
-                    </button>
+                        <span className="block text-3xl font-black text-yellow-500 leading-none mb-1">{stats.upcoming}</span>
+                        <span className="text-[10px] text-yellow-600 uppercase font-black tracking-widest">Soon</span>
+                    </motion.button>
                 </div>
             </div>
 
             {/* --- Body: Task List --- */}
-            {/* REMOVED max-h-[500px] to allow container to control height via flex */}
-            <div className="flex-1 bg-white p-4 space-y-3 overflow-y-auto">
+            <div className="flex-1 p-6 space-y-4 overflow-y-auto scrollbar-thin">
                 {displayTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center text-gray-400">
-                        <PartyPopper className="w-12 h-12 mb-3 text-yellow-400 opacity-80" />
-                        <p className="font-bold text-gray-600">
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <motion.div
+                            animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }}
+                            transition={{ repeat: Infinity, duration: 3 }}
+                        >
+                            <PartyPopper className="w-16 h-16 mb-4 text-amber-400 opacity-80" />
+                        </motion.div>
+                        <p className="font-black text-slate-600 text-lg">
                             {activeFilter === 'ALL' ? 'สถานการณ์ปกติ (All Clear)' : 'ไม่มีรายการในหมวดนี้'}
                         </p>
-                        <p className="text-xs">
+                        <p className="text-xs text-slate-400 font-bold mt-1">
                             {activeFilter === 'ALL' ? 'ไม่มีงานด่วนหรือค้างส่ง เยี่ยมมาก!' : 'ลองเลือกหมวดอื่นดูนะครับ'}
                         </p>
                     </div>
                 ) : (
-                    displayTasks.map(task => {
+                    displayTasks.map((task, idx) => {
                         const isContent = task.type === 'CONTENT';
-                        
-                        // Calculate Overdue Days for Color Grading
                         const today = new Date(); today.setHours(0,0,0,0);
                         const taskEnd = new Date(task.endDate); taskEnd.setHours(0,0,0,0);
                         const daysOverdue = differenceInCalendarDays(today, taskEnd);
 
-                        // --- VLOOKUP LOGIC ---
-                        // Lookup Status Label from MasterOptions
                         const lookupType = task.type === 'CONTENT' ? 'STATUS' : 'TASK_STATUS';
                         const statusOption = masterOptions.find(o => o.type === lookupType && o.key === task.status);
 
                         const statusLabel = statusOption ? statusOption.label : (STATUS_LABELS[task.status as Status] || task.status);
                         const statusColor = statusOption ? statusOption.color : (STATUS_COLORS[task.status as Status] || 'bg-gray-100 text-gray-600 border-gray-200');
-                        // ---------------------
 
-                        // Dynamic Severity Style
-                        let containerClass = "bg-white border-gray-100 hover:border-indigo-200";
-                        let stripClass = "bg-gray-300";
+                        let containerClass = "bg-white/40 border-white/60 hover:border-indigo-300 hover:bg-white/80";
+                        let stripClass = "bg-slate-200";
 
                         if (daysOverdue > 0) {
-                            // Late
                             if (daysOverdue > 7) {
-                                containerClass = "bg-red-100 border-red-300 shadow-sm hover:border-red-400"; // Severe
-                                stripClass = "bg-red-600 animate-pulse";
+                                containerClass = "bg-red-50/60 border-red-200 hover:border-red-400 hover:bg-red-50 shadow-sm shadow-red-100/50";
+                                stripClass = "bg-red-500 animate-pulse";
                             } else if (daysOverdue > 3) {
-                                containerClass = "bg-red-50 border-red-200 hover:border-red-300"; // Medium
-                                stripClass = "bg-red-500";
-                            } else {
-                                containerClass = "bg-red-50/40 border-red-100 hover:border-red-200"; // Light
+                                containerClass = "bg-red-50/40 border-red-100 hover:border-red-300 hover:bg-red-50/60";
                                 stripClass = "bg-red-400";
+                            } else {
+                                containerClass = "bg-red-50/20 border-red-100/50 hover:border-red-200 hover:bg-red-50/40";
+                                stripClass = "bg-red-300";
                             }
                         } else if (daysOverdue === 0) {
-                            // Today
-                            containerClass = "bg-orange-50/50 border-orange-100 hover:border-orange-200";
-                            stripClass = "bg-orange-500";
+                            containerClass = "bg-orange-50/30 border-orange-100 hover:border-orange-300 hover:bg-orange-50/50";
+                            stripClass = "bg-orange-400";
                         }
 
                         return (
-                            <div 
+                            <motion.div 
                                 key={task.id} 
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                whileHover={{ scale: 1.02, x: 5 }}
                                 onClick={() => onEditTask(task)}
                                 className={`
-                                    relative flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer group hover:shadow-md
+                                    relative flex items-center gap-4 p-4 rounded-3xl border backdrop-blur-sm transition-all cursor-pointer group hover:shadow-xl
                                     ${containerClass}
                                 `}
                             >
                                 {/* Left Strip Indicator */}
-                                <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${stripClass}`}></div>
+                                <div className={`absolute left-0 top-4 bottom-4 w-1.5 rounded-r-full ${stripClass}`}></div>
 
                                 <div className="pl-2 shrink-0">
                                     {getAssigneeAvatar(task)}
                                 </div>
                                 
                                 <div className="flex-1 min-w-0">
-                                    {/* Top Row: Type & Date */}
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded border ${isContent ? 'text-purple-600 bg-purple-50 border-purple-100' : 'text-blue-600 bg-blue-50 border-blue-100'}`}>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <div className={`flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full border ${isContent ? 'text-purple-600 bg-purple-50 border-purple-100' : 'text-blue-600 bg-blue-50 border-blue-100'}`}>
                                             {isContent ? <LayoutTemplate className="w-3 h-3"/> : <CheckSquare className="w-3 h-3"/>}
-                                            {isContent ? 'Content' : 'Task'}
+                                            {isContent ? 'CONTENT' : 'TASK'}
                                         </div>
                                         {getDelayBadge(new Date(task.endDate))}
                                     </div>
 
-                                    {/* Title */}
-                                    <h4 className="font-bold text-sm text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
+                                    <h4 className="font-black text-base text-slate-800 truncate group-hover:text-indigo-600 transition-colors tracking-tight">
                                         {task.title}
                                     </h4>
 
-                                    {/* Bottom Row: Status Badge (Correct Label) */}
-                                    <div className="mt-1.5 flex items-center">
-                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border truncate max-w-[150px] ${statusColor}`}>
+                                    <div className="mt-2 flex items-center">
+                                         <span className={`text-[10px] font-black px-3 py-1 rounded-full border truncate max-w-[180px] shadow-sm ${statusColor}`}>
                                             {statusLabel}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0">
-                                    <div className="p-1.5 bg-white border border-gray-200 rounded-lg text-gray-400 shadow-sm hover:text-indigo-600">
-                                        <ChevronRight className="w-4 h-4" />
+                                <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-all -translate-x-4 group-hover:translate-x-0">
+                                    <div className="p-2 bg-white rounded-2xl text-indigo-500 shadow-lg border border-indigo-50">
+                                        <ChevronRight className="w-5 h-5" />
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         );
                     })
                 )}
             </div>
 
             {/* --- Footer: View All --- */}
-            {/* Show "View All" button only if we are in 'ALL' filter and there are more items */}
             {activeFilter === 'ALL' && stats.total > 5 && (
-                <div className="p-3 border-t border-gray-100 bg-gray-50/50">
-                    <button 
+                <div className="p-4 border-t border-white/40 bg-white/30 backdrop-blur-md">
+                    <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={onNavigateToCalendar}
-                        className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all shadow-sm"
+                        className="w-full py-3.5 flex items-center justify-center gap-2 text-xs font-black text-slate-500 hover:text-indigo-600 hover:bg-white rounded-2xl border border-white/60 hover:border-indigo-100 transition-all shadow-sm uppercase tracking-widest"
                     >
-                        <CalendarClock className="w-3.5 h-3.5" />
+                        <CalendarClock className="w-4 h-4" />
                         ดูงานที่เหลืออีก {stats.total - 5} รายการ
-                    </button>
+                    </motion.button>
                 </div>
             )}
         </div>

@@ -147,21 +147,56 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const login = async () => {
+        // 1. Open a placeholder window IMMEDIATELY to satisfy Safari's user-interaction requirement
+        const authWindow = window.open('about:blank', 'google_auth', 'width=600,height=700');
+        
+        if (!authWindow) {
+            showToast('กรุณาอนุญาตการเปิดป๊อปอัพในเบราว์เซอร์ของคุณ เพื่อเชื่อมต่อ Google Drive', 'error');
+            return;
+        }
+
+        // Show a loading message in the placeholder window while fetching the URL
+        authWindow.document.write(`
+            <html>
+                <head>
+                    <title>Connecting to Google...</title>
+                    <style>
+                        body { 
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+                            height: 100vh; margin: 0; background: #f9fafb; color: #4b5563; text-align: center;
+                        }
+                        .spinner { 
+                            border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; 
+                            width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 16px; 
+                        }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                        h2 { font-size: 18px; margin: 0 0 8px 0; color: #1f2937; }
+                        p { font-size: 14px; margin: 0; color: #6b7280; }
+                    </style>
+                </head>
+                <body>
+                    <div class="spinner"></div>
+                    <h2>กำลังเชื่อมต่อกับ Google Drive</h2>
+                    <p>กรุณารอสักครู่ ระบบกำลังพาคุณไปยังหน้ายืนยันตัวตน...</p>
+                </body>
+            </html>
+        `);
+
         try {
+            // 2. Fetch the actual OAuth URL from our server
             const response = await fetch('/api/auth/google/url');
             const data = await response.json();
             
-            if (!response.ok) {
+            if (!response.ok || !data.url) {
                 throw new Error(data.error || 'Failed to get auth URL');
             }
             
-            if (!data.url) {
-                throw new Error('No URL returned from server');
-            }
-            
-            window.open(data.url, 'google_auth', 'width=600,height=700');
+            // 3. Update the existing window's location to the actual Google Auth URL
+            authWindow.location.href = data.url;
         } catch (error: any) {
             console.error('Login error:', error);
+            authWindow.close(); // Close the failed window
             showToast(error.message || 'ไม่สามารถเริ่มการเชื่อมต่อได้', 'error');
         }
     };

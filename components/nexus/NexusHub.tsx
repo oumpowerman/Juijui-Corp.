@@ -103,16 +103,19 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser }) => {
             let thumbnailUrl = undefined;
             let integrationTags: string[] = [];
 
-            // 1. Platform Specific Extraction (Fast & Reliable)
+            // 1. Platform Specific Extraction (Fast & Reliable - Source of Truth)
+            let rawTitle = '';
             if (platform === NexusPlatform.YOUTUBE || platform === NexusPlatform.TIKTOK) {
-                // Use noembed for fast, high-quality metadata
                 try {
                     const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
                     const res = await fetch(oembedUrl);
                     const data = await res.json();
-                    if (data.title) title = data.title;
+                    if (data.title) {
+                        title = data.title;
+                        rawTitle = data.title; // Keep the original title for AI context
+                    }
                     if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
-                    if (data.author_name) description = `By ${data.author_name} • ${platform.toLowerCase()}`;
+                    if (data.author_name) description = `โดย ${data.author_name} • ${platform.toLowerCase()}`;
                 } catch (e) {
                     console.warn(`${platform} oEmbed fallback failed`);
                 }
@@ -123,34 +126,43 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser }) => {
                 if (videoId) thumbnailUrl = getYouTubeThumbnail(videoId);
             }
 
-            // 2. AI Enrichment (Smart Fallback - Only if API Key is available and enabled)
+            // 2. AI Enrichment (Smart AI - Thai Language Focus)
             if (apiKey && aiEnabled) {
                 try {
                     const ai = new GoogleGenAI({ apiKey });
                     const response = await ai.models.generateContent({
                         model: "gemini-3-flash-preview",
-                        contents: `Extract high-quality metadata and tags for this URL: ${url}. 
-                        Platform: ${platform}.
+                        contents: `คุณคือ Nexus AI อัจฉริยะ หน้าที่ของคุณคือสกัดข้อมูลจาก URL นี้: ${url}
+                        แพลตฟอร์ม: ${platform}
+                        ชื่อที่ดึงมาได้เบื้องต้น: ${rawTitle || 'ไม่ทราบ'}
                         
-                        Specific Instructions:
-                        - YouTube/TikTok: Get the exact video title and a punchy summary.
-                        - Facebook/Instagram: Identify the post content or profile name.
-                        - Canva: Find the design name and creator if possible.
-                        - Google Drive/Sheet: Infer the file name from the URL or path.
-                        - Website: Get the site name and its main value proposition.
+                        คำสั่งพิเศษ:
+                        - ทุกอย่างต้องตอบเป็น "ภาษาไทย" (Thai Language)
+                        - หากมีชื่อที่ดึงมาได้ (Base Title) ให้ใช้ชื่อนั้นเป็นหลัก แต่สามารถขัดเกลาให้สละสลวยขึ้นได้
+                        - สรุปเนื้อหา (Description) ให้กระชับ น่าสนใจ และเป็นภาษาไทย
+                        - คิด Hashtags ภาษาไทยที่เกี่ยวข้อง 3-5 คำ (เช่น #ความรู้, #บันเทิง, #งานออกแบบ)
+                        - หากเป็น Google Drive/Sheet ให้พยายามเดาเนื้อหาจากชื่อไฟล์
                         
-                        Return ONLY a JSON object with:
-                        - "title": string
-                        - "description": string
-                        - "thumbnailUrl": string (optional)
-                        - "tags": string[] (3-5 relevant keywords like "tutorial", "work", "funny", "design", etc.)
-                        
-                        Make the title and description professional and concise.`,
+                        ตอบกลับในรูปแบบ JSON เท่านั้น:
+                        {
+                          "title": "ชื่อเรื่องภาษาไทย",
+                          "description": "คำอธิบายภาษาไทยสั้นๆ",
+                          "thumbnailUrl": "ลิงก์รูปภาพ (ถ้ามี)",
+                          "tags": ["แท็ก1", "แท็ก2", "แท็ก3"]
+                        }`,
                         config: { responseMimeType: "application/json" }
                     });
 
                     const aiData = JSON.parse(response.text || '{}');
-                    if (aiData.title && aiData.title !== "Untitled") title = aiData.title;
+                    
+                    // Smart Merge: Only overwrite title if we don't have a solid one or if AI title is significantly better/Thai version
+                    if (aiData.title && (!rawTitle || rawTitle.length < 5)) {
+                        title = aiData.title;
+                    } else if (aiData.title && rawTitle) {
+                        // If we have a raw title, maybe AI just translated it or cleaned it up
+                        title = aiData.title;
+                    }
+
                     if (aiData.description) description = aiData.description;
                     if (aiData.thumbnailUrl && !thumbnailUrl) thumbnailUrl = aiData.thumbnailUrl;
                     if (aiData.tags) integrationTags = aiData.tags;

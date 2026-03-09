@@ -1,13 +1,13 @@
 
 import React, { useMemo } from 'react';
-import { PenTool, Eraser, FileText, Edit3, Type, Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, Target, Rocket, Zap, TrendingUp, Trophy, Activity } from 'lucide-react';
+import { PenTool, Eraser, FileText, Edit3, Type, Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, Target, Rocket, Zap, TrendingUp, Trophy, Activity, Sparkles } from 'lucide-react';
 
 export type BackgroundTheme = 
   | 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
   | 'pastel-red' | 'pastel-orange' | 'pastel-yellow' | 'pastel-green' | 'pastel-blue' 
   | 'pastel-indigo' | 'pastel-purple' | 'pastel-pink' | 'pastel-rose' | 'pastel-teal'
   | 'pastel-cyan' | 'pastel-sky' | 'pastel-emerald' | 'pastel-lime' | 'pastel-amber'
-  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script' | 'inspector' | 'productivity';
+  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script' | 'inspector' | 'productivity' | 'rainbow';
 
 interface AppBackgroundProps {
     theme?: BackgroundTheme;
@@ -53,6 +53,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             script: 'from-amber-200 via-orange-100 to-yellow-300', // Base vibrant
             inspector: 'from-slate-900 via-slate-800 to-slate-950', // Dark professional desk
             productivity: 'from-slate-950 via-slate-900 to-emerald-950/30', // Strategic Mission Control
+            rainbow: 'from-pink-100 via-indigo-50 to-sky-100', // Soft pastel rainbow base
         };
 
         if (theme === 'script') {
@@ -99,20 +100,25 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     const [scribbles, setScribbles] = React.useState<any[]>([]);
 
     React.useEffect(() => {
-        if (theme !== 'script' && theme !== 'inspector' && theme !== 'productivity') {
+        if (theme !== 'script' && theme !== 'inspector' && theme !== 'productivity' && theme !== 'rainbow') {
             setElements([]);
             setScribbles([]);
             return;
         }
 
-        if (theme === 'script') {
-            const icons = [PenTool, Eraser, FileText, Edit3, Type];
-            const colors = [
-                'text-amber-500', 'text-orange-500', 'text-yellow-600', 
-                'text-red-500', 'text-blue-500', 'text-green-500', 
-                'text-purple-500', 'text-pink-500', 'text-teal-500',
-                'text-indigo-500', 'text-emerald-500', 'text-cyan-500'
-            ];
+        if (theme === 'script' || theme === 'rainbow') {
+            const icons = theme === 'rainbow' 
+                ? [Sparkles, Rocket, Zap, Coffee, Target, Trophy] 
+                : [PenTool, Eraser, FileText, Edit3, Type];
+            
+            const colors = theme === 'rainbow'
+                ? ['text-pink-400', 'text-sky-400', 'text-indigo-400', 'text-emerald-400', 'text-amber-400', 'text-rose-400']
+                : [
+                    'text-amber-500', 'text-orange-500', 'text-yellow-600', 
+                    'text-red-500', 'text-blue-500', 'text-green-500', 
+                    'text-purple-500', 'text-pink-500', 'text-teal-500',
+                    'text-indigo-500', 'text-emerald-500', 'text-cyan-500'
+                ];
 
             const newElements = Array.from({ length: 20 }).map((_, i) => ({
                 id: i,
@@ -187,8 +193,8 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             {/* Pattern Layer */}
             <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle, position: 'fixed' }} />
             
-            {/* Decorative Elements for Script, Inspector & Productivity Theme */}
-            {(theme === 'script' || theme === 'inspector' || theme === 'productivity') && (
+            {/* Decorative Elements for Script, Inspector, Productivity & Rainbow Theme */}
+            {(theme === 'script' || theme === 'inspector' || theme === 'productivity' || theme === 'rainbow') && (
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
                     {/* Desk Lamp Glow for Inspector */}
                     {theme === 'inspector' && (
@@ -198,6 +204,15 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
                     {/* Mission Control Glow for Productivity */}
                     {theme === 'productivity' && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    )}
+
+                    {/* Rainbow Glows */}
+                    {theme === 'rainbow' && (
+                        <>
+                            <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-pink-200/20 blur-[120px] rounded-full -translate-x-1/2 -translate-y-1/2" />
+                            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-sky-200/20 blur-[120px] rounded-full translate-x-1/2 translate-y-1/2" />
+                            <div className="absolute top-1/2 left-1/2 w-[800px] h-[800px] bg-indigo-100/10 blur-[150px] rounded-full -translate-x-1/2 -translate-y-1/2" />
+                        </>
                     )}
                     
                     {elements.map((el) => (

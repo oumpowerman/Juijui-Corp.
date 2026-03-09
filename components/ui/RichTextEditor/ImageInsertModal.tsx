@@ -1,5 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Link as LinkIcon, Upload, Check, Image as ImageIcon, Cloud, AlertCircle, Loader2 } from 'lucide-react';
 import { googleDriveService } from '../../../services/googleDriveService';
 import { supabase } from '../../../lib/supabase';
@@ -62,8 +64,6 @@ const ImageInsertModal: React.FC<ImageInsertModalProps> = ({ isOpen, onClose, on
             setError('Failed to get Google Auth URL');
         }
     };
-
-    if (!isOpen) return null;
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -133,153 +133,181 @@ const ImageInsertModal: React.FC<ImageInsertModalProps> = ({ isOpen, onClose, on
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="absolute inset-0" onClick={onClose}></div>
-            
-            <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-100 overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                        <ImageIcon className="w-5 h-5 text-indigo-500" />
-                        เพิ่มรูปภาพ (Insert Image)
-                    </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex p-2 bg-gray-100/50 mx-6 mt-6 rounded-2xl">
-                    <button 
-                        onClick={() => setActiveTab('upload')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+    const modalContent = (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
+                    />
+                    
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden relative z-10 pointer-events-auto"
                     >
-                        <Upload className="w-4 h-4" />
-                        อัปโหลด (Upload)
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('url')}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'url' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <LinkIcon className="w-4 h-4" />
-                        ลิงก์ URL
-                    </button>
-                </div>
-
-                <div className="p-6">
-                    {error && (
-                        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
-                            <AlertCircle className="w-4 h-4 shrink-0" />
-                            {error}
+                        {/* Header */}
+                        <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 className="font-black text-gray-800 flex items-center gap-2 text-sm uppercase tracking-tight">
+                                <ImageIcon className="w-5 h-5 text-indigo-500" />
+                                เพิ่มรูปภาพ
+                            </h3>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-                    )}
 
-                    {activeTab === 'upload' ? (
-                        <div className="space-y-4">
-                            {!isConnected ? (
-                                <div className="border-2 border-dashed border-indigo-100 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 bg-indigo-50/20">
-                                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
-                                        <Cloud className="w-8 h-8 text-indigo-500" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="font-bold text-gray-800">เชื่อมต่อ Google Drive</p>
-                                        <p className="text-xs text-gray-500 mt-1 max-w-[200px] mx-auto">
-                                            เราจะเก็บรูปภาพของคุณไว้ใน Google Drive เพื่อความรวดเร็วและประหยัดพื้นที่
-                                        </p>
-                                    </div>
-                                    <button 
-                                        onClick={handleConnect}
-                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
-                                    >
-                                        Connect Google Drive
-                                    </button>
+                        {/* Tabs */}
+                        <div className="flex p-2 bg-gray-100/50 mx-8 mt-8 rounded-2xl">
+                            <button 
+                                onClick={() => setActiveTab('upload')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Upload className="w-4 h-4" />
+                                อัปโหลด
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('url')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'url' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <LinkIcon className="w-4 h-4" />
+                                ลิงก์ URL
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            {error && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold"
+                                >
+                                    <AlertCircle className="w-5 h-5 shrink-0" />
+                                    {error}
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'upload' ? (
+                                <div className="space-y-4">
+                                    {!isConnected ? (
+                                        <div className="border-2 border-dashed border-indigo-100 rounded-[2rem] p-10 flex flex-col items-center justify-center gap-5 bg-indigo-50/20">
+                                            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center shadow-inner">
+                                                <Cloud className="w-10 h-10 text-indigo-500" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-black text-gray-800">เชื่อมต่อ Google Drive</p>
+                                                <p className="text-xs text-gray-500 mt-2 max-w-[240px] mx-auto leading-relaxed">
+                                                    เราจะเก็บรูปภาพของคุณไว้ใน Google Drive เพื่อความรวดเร็วและประหยัดพื้นที่
+                                                </p>
+                                            </div>
+                                            <motion.button 
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={handleConnect}
+                                                className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                                            >
+                                                Connect Google Drive
+                                            </motion.button>
+                                        </div>
+                                    ) : (
+                                        <motion.div 
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.99 }}
+                                            onClick={() => !isUploading && fileInputRef.current?.click()}
+                                            className={`border-2 border-dashed border-gray-200 rounded-[2rem] p-12 flex flex-col items-center justify-center gap-5 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer transition-all group ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                className="hidden" 
+                                                accept="image/*" 
+                                                onChange={handleFileChange} 
+                                                disabled={isUploading}
+                                            />
+                                            <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform relative shadow-inner">
+                                                {isUploading ? (
+                                                    <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+                                                ) : (
+                                                    <Upload className="w-10 h-10 text-indigo-500" />
+                                                )}
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-black text-gray-700 text-lg">
+                                                    {isUploading ? 'กำลังประมวลผล...' : 'คลิกเพื่อเลือกรูปภาพ'}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-2">
+                                                    {isUploading ? 'ระบบกำลังเลือกช่องทางที่เร็วที่สุด' : 'ระบบจะเลือกเก็บใน Google Drive หรือ Supabase ให้อัตโนมัติ'}
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                    
+                                    {!isConnected && !isUploading && (
+                                        <div className="p-5 bg-amber-50 rounded-[1.5rem] border border-amber-100 flex items-start gap-4">
+                                            <AlertCircle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-xs font-black text-amber-800 uppercase tracking-wider">แนะนำ: เชื่อมต่อ Google Drive</p>
+                                                <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                                                    หากไม่เชื่อมต่อ ระบบจะใช้ Supabase หรือ Base64 แทน ซึ่งอาจทำให้บทความโหลดช้าลง
+                                                </p>
+                                                <button 
+                                                    onClick={handleConnect}
+                                                    className="mt-2 text-[11px] font-black text-indigo-600 hover:underline"
+                                                >
+                                                    เชื่อมต่อตอนนี้เลย →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <div 
-                                    onClick={() => !isUploading && fileInputRef.current?.click()}
-                                    className={`border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer transition-all group ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        className="hidden" 
-                                        accept="image/*" 
-                                        onChange={handleFileChange} 
-                                        disabled={isUploading}
-                                    />
-                                    <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform relative">
-                                        {isUploading ? (
-                                            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                                        ) : (
-                                            <Upload className="w-8 h-8 text-indigo-500" />
-                                        )}
+                                <form onSubmit={handleUrlSubmit} className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1 tracking-widest">Image URL</label>
+                                        <input 
+                                            autoFocus
+                                            type="url"
+                                            className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all text-sm font-bold"
+                                            placeholder="https://example.com/image.jpg"
+                                            value={url}
+                                            onChange={e => setUrl(e.target.value)}
+                                        />
                                     </div>
-                                    <div className="text-center">
-                                        <p className="font-bold text-gray-700">
-                                            {isUploading ? 'กำลังประมวลผลรูปภาพ...' : 'คลิกเพื่อเลือกรูปภาพ'}
-                                        </p>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            {isUploading ? 'ระบบกำลังเลือกช่องทางที่เร็วที่สุดให้คุณ' : 'ระบบจะเลือกเก็บใน Google Drive หรือ Supabase ให้อัตโนมัติ'}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {!isConnected && !isUploading && (
-                                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs font-bold text-amber-800">แนะนำ: เชื่อมต่อ Google Drive</p>
-                                        <p className="text-[10px] text-amber-700 mt-0.5">
-                                            หากไม่เชื่อมต่อ ระบบจะใช้ Supabase หรือ Base64 แทน ซึ่งอาจทำให้บทความโหลดช้าลง
-                                        </p>
-                                        <button 
-                                            onClick={handleConnect}
-                                            className="mt-2 text-[10px] font-bold text-indigo-600 hover:underline"
-                                        >
-                                            เชื่อมต่อตอนนี้เลย →
-                                        </button>
-                                    </div>
-                                </div>
+                                    <motion.button 
+                                        whileTap={{ scale: 0.95 }}
+                                        type="submit"
+                                        disabled={!url.trim()}
+                                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Check className="w-5 h-5" />
+                                        แทรกรูปภาพ
+                                    </motion.button>
+                                </form>
                             )}
                         </div>
-                    ) : (
-                        <form onSubmit={handleUrlSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase ml-1">Image URL</label>
-                                <input 
-                                    autoFocus
-                                    type="url"
-                                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:bg-white outline-none transition-all text-sm"
-                                    placeholder="https://example.com/image.jpg"
-                                    value={url}
-                                    onChange={e => setUrl(e.target.value)}
-                                />
-                            </div>
-                            <button 
-                                type="submit"
-                                disabled={!url.trim()}
-                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 active:scale-95"
-                            >
-                                <Check className="w-5 h-5" />
-                                แทรกรูปภาพ (Insert Image)
-                            </button>
-                        </form>
-                    )}
-                </div>
 
-                <div className="px-6 pb-6">
-                    <button 
-                        onClick={onClose}
-                        className="w-full py-3 text-gray-400 hover:text-gray-600 font-bold text-sm transition-colors"
-                    >
-                        ยกเลิก
-                    </button>
+                        <div className="px-8 pb-8">
+                            <button 
+                                onClick={onClose}
+                                className="w-full py-4 text-gray-400 hover:text-gray-600 font-black text-sm transition-colors uppercase tracking-widest"
+                            >
+                                ยกเลิก
+                            </button>
+                        </div>
+                    </motion.div>
                 </div>
-            </div>
-        </div>
+            )}
+        </AnimatePresence>
     );
+
+    if (typeof document === 'undefined') return null;
+    return createPortal(modalContent, document.body);
 };
 
 export default ImageInsertModal;

@@ -81,9 +81,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 allowBase64: true,
             }),
             Link.configure({
-                openOnClick: false,
+                openOnClick: true,
                 autolink: true,
                 defaultProtocol: 'https',
+                HTMLAttributes: {
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    class: 'cursor-pointer text-indigo-600 underline',
+                },
+                linkOnPaste: true,
             }),
             BubbleMenuExtension,
             ...extensions, 
@@ -98,7 +104,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         },
         editorProps: {
             attributes: {
-                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic`,
+                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-indigo-600 [&_a]:underline [&_a]:cursor-pointer`,
                 style: `min-height: ${minHeight}; outline: none;`,
             },
             handleKeyDown: (view, event) => {

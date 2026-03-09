@@ -17,31 +17,49 @@ interface RichTextToolbarProps {
     openLinkModal: () => void;
 }
 
-const MenuButton = ({ onClick, isActive, icon: Icon, title, label }: any) => (
-    <button
+const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: any) => (
+    <motion.button
+        whileTap={!disabled ? { scale: 0.92 } : {}}
         onClick={onClick}
+        disabled={disabled}
         className={`
-            p-1.5 rounded-lg transition-all flex items-center justify-center
+            p-1.5 rounded-lg transition-all flex items-center justify-center relative
+            ${disabled ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'}
             ${isActive 
-                ? 'bg-indigo-100 text-indigo-600 shadow-inner' 
+                ? 'bg-indigo-50 text-indigo-600 shadow-[inset_0_1px_3px_rgba(79,70,229,0.1)]' 
                 : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}
         `}
         title={title}
         type="button"
     >
-        <Icon className="w-4 h-4" />
-        {label && <span className="ml-1 text-xs font-bold">{label}</span>}
-    </button>
+        <Icon className={`w-4 h-4 ${isActive ? 'scale-110' : ''}`} />
+        {label && <span className="ml-1.5 text-[10px] font-black uppercase tracking-wider">{label}</span>}
+        {isActive && (
+            <motion.div 
+                layoutId="active-indicator"
+                className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"
+            />
+        )}
+    </motion.button>
 );
 
-const Divider = () => <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />;
+const Divider = () => <div className="w-px h-4 bg-gray-200/60 mx-1 shrink-0" />;
 
 const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal }) => {
     const [isColorOpen, setIsColorOpen] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
     const colorMenuRef = useRef<HTMLDivElement>(null);
     const colorBtnRef = useRef<HTMLButtonElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Handle scroll for sticky shadow
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 10);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     // Click outside handler for Color Menu
     useEffect(() => {
@@ -59,6 +77,9 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
     const currentFontFamily = editor.getAttributes('textStyle').fontFamily || '';
     const currentFontSize = editor.getAttributes('textStyle').fontSize || '';
     const currentFontWeight = editor.getAttributes('textStyle').fontWeight || '400';
+
+    const canUndo = editor.can().undo();
+    const canRedo = editor.can().redo();
 
     const FONT_SIZE_OPTIONS = [
         { label: 'Auto', value: '' },
@@ -84,11 +105,18 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
     ];
 
     const handleImageUrlInsert = (url: string) => {
-        (editor.chain().focus() as any).setImage({ src: url }).run();
+        // Use insertContent for resizableImage to be more robust
+        editor.chain().focus().insertContent({
+            type: 'resizableImage',
+            attrs: { src: url }
+        }).run();
     };
 
     return (
-        <div className="flex items-center gap-1 p-2 border-b border-gray-100 bg-gray-50/80 backdrop-blur-sm sticky top-0 z-20 flex-wrap rounded-t-[2rem]">
+        <div className={`
+            flex items-center gap-1 p-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex-wrap rounded-t-[2rem] transition-shadow duration-300
+            ${isScrolled ? 'shadow-[0_4px_20px_rgba(0,0,0,0.03)]' : ''}
+        `}>
             
             {/* Image Insert Modal */}
             <ImageInsertModal 
@@ -101,12 +129,14 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).undo().run()} 
                 isActive={false} 
+                disabled={!canUndo}
                 icon={Undo} 
                 title="Undo" 
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).redo().run()} 
                 isActive={false} 
+                disabled={!canRedo}
                 icon={Redo} 
                 title="Redo" 
             />
@@ -169,16 +199,17 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
             </div>
 
             <div className="relative">
-                <button
+                <motion.button
+                    whileTap={{ scale: 0.95 }}
                     ref={colorBtnRef}
                     onClick={() => setIsColorOpen(!isColorOpen)}
-                    className="flex items-center gap-1 h-8 px-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-all active:scale-95"
+                    className="flex items-center gap-1.5 h-8 px-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-all active:scale-95"
                     title="Text Color"
                     type="button"
                 >
-                    <div className="w-4 h-4 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: currentColor }}></div>
-                    <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isColorOpen ? 'rotate-180' : ''}`} />
-                </button>
+                    <div className="w-3.5 h-3.5 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: currentColor }}></div>
+                    <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-300 ${isColorOpen ? 'rotate-180' : ''}`} />
+                </motion.button>
 
                 <AnimatePresence>
                     {isColorOpen && (
@@ -251,23 +282,19 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
                 title="Link" 
             />
             
-            <button 
+            <MenuButton 
                 onClick={() => setIsImageModalOpen(true)}
-                className="p-1.5 rounded-lg transition-all flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                isActive={false}
+                icon={ImageIcon}
                 title="Insert Image"
-                type="button"
-            >
-                <ImageIcon className="w-4 h-4" />
-            </button>
+            />
 
-            <button 
+            <MenuButton 
                 onClick={() => (editor.chain().focus() as any).setDrawing().run()}
-                className="p-1.5 rounded-lg transition-all flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                isActive={editor.isActive('drawing')}
+                icon={Palette}
                 title="Add Drawing"
-                type="button"
-            >
-                <Palette className="w-4 h-4" />
-            </button>
+            />
             
             <Divider />
             

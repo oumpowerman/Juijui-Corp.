@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
+import { motion, Variants } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../types';
 import TaskCategoryModal from '../TaskCategoryModal';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
-import WorkloadModal from '../workload/WorkloadModal'; // NEW
+import WorkloadModal from '../workload/WorkloadModal';
+import AppBackground from '../common/AppBackground';
 
 // Import Sub-components
 import DashboardHeader from './admin/DashboardHeader';
@@ -11,7 +13,7 @@ import StatCardsGrid from './admin/StatCardsGrid';
 import UrgentTasksWidget from './admin/UrgentTasksWidget';
 import WorkloadChart from './admin/WorkloadChart';
 import DutyRosterWidget from './admin/DutyRosterWidget';
-import AttendanceComparisonWidget from './admin/AttendanceComparisonWidget'; // NEW
+import AttendanceComparisonWidget from './admin/AttendanceComparisonWidget';
 import AdminDeadlineRequests from '../admin/AdminDeadlineRequests';
 
 interface DashboardProps {
@@ -22,8 +24,8 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onNavigateToCalendar: () => void;
   onOpenSettings: () => void;
-  onOpenNotifications?: () => void; // Added Prop
-  unreadCount?: number; // Added Prop for Notification Badge
+  onOpenNotifications?: () => void;
+  unreadCount?: number;
   onEditProfile: () => void;
   masterOptions?: MasterOption[];
   onRefreshMasterData?: () => Promise<void>;
@@ -41,10 +43,9 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     onOpenSettings,
     onOpenNotifications,
     unreadCount = 0,
-    masterOptions = [] // Default to empty array if not passed
+    masterOptions = []
 }) => {
   
-  // Use the new hook for logic
   const {
       timeRange, setTimeRange,
       customDays, setCustomDays,
@@ -52,8 +53,6 @@ const AdminDashboard: React.FC<DashboardProps> = ({
       configLoading,
       currentTheme,
       cardStats,
-      // urgentTasks, // REMOVED: Widget calculates itself now
-      // dueSoon,     // REMOVED: Widget calculates itself now
       chartData,
       progressPercentage,
       getTimeRangeLabel,
@@ -61,118 +60,149 @@ const AdminDashboard: React.FC<DashboardProps> = ({
       attendanceYesterday
   } = useDashboardStats(tasks, currentUser);
 
-  // UI State for Modal (kept here as it's UI coordination)
   const [modalOpen, setModalOpen] = useState(false);
-  const [isWorkloadOpen, setIsWorkloadOpen] = useState(false); // NEW
+  const [isWorkloadOpen, setIsWorkloadOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalTasks, setModalTasks] = useState<Task[]>([]);
   const [modalTheme, setModalTheme] = useState('blue');
 
   const handleCardClick = (title: string, tasks: Task[], theme: string) => {
     setModalTitle(title);
-    
-    // 🔥 SORTING: Sort tasks by end date (Ascending: Oldest/Overdue first)
     const sortedTasks = [...tasks].sort((a, b) => {
         const timeA = new Date(a.endDate).getTime();
         const timeB = new Date(b.endDate).getTime();
         return timeA - timeB;
     });
-
     setModalTasks(sortedTasks);
     setModalTheme(theme);
     setModalOpen(true);
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: 'spring', stiffness: 100, damping: 12 }
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      
-      {/* 1. Header Section */}
-      <DashboardHeader 
-          currentUser={currentUser}
-          currentThemeName={currentTheme.name}
-          timeRange={timeRange}
-          setTimeRange={setTimeRange}
-          customDays={customDays}
-          setCustomDays={setCustomDays}
-          viewScope={viewScope}
-          setViewScope={setViewScope}
-          onOpenSettings={onOpenSettings}
-          onOpenNotifications={onOpenNotifications} 
-          unreadCount={unreadCount} // Pass down to Header
-          getTimeRangeLabel={getTimeRangeLabel}
-          onOpenWorkload={() => setIsWorkloadOpen(true)} // Pass handler
-      />
+    <AppBackground 
+      theme="rainbow" 
+      pattern="dots" 
+      className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen"
+    >
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-8 pb-24 relative"
+      >
+        {/* 1. Header Section */}
+        <motion.div variants={itemVariants}>
+          <DashboardHeader 
+              currentUser={currentUser}
+              currentThemeName={currentTheme.name}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+              customDays={customDays}
+              setCustomDays={setCustomDays}
+              viewScope={viewScope}
+              setViewScope={setViewScope}
+              onOpenSettings={onOpenSettings}
+              onOpenNotifications={onOpenNotifications} 
+              unreadCount={unreadCount}
+              getTimeRangeLabel={getTimeRangeLabel}
+              onOpenWorkload={() => setIsWorkloadOpen(true)}
+          />
+        </motion.div>
 
-      {/* 2. Stats Grid (Themed) */}
-      <StatCardsGrid 
-          stats={cardStats}
-          loading={configLoading}
-          currentTheme={currentTheme}
-          onCardClick={handleCardClick}
-          timeRangeLabel={getTimeRangeLabel()}
-      />
-
-      {/* 3. Main Grid Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        {/* Left Column: Urgent Tasks (2 cols wide on large screens) */}
-        <div className="xl:col-span-2 space-y-6">
-            <UrgentTasksWidget 
-                tasks={tasks} // PASS ALL TASKS
-                channels={channels}
-                users={users} // PASS USERS for avatars
-                masterOptions={masterOptions} // PASS MASTER OPTIONS FOR VLOOKUP
-                currentUser={currentUser}
-                viewScope={viewScope}
-                onEditTask={onEditTask}
-                onNavigateToCalendar={onNavigateToCalendar}
-            />
-        </div>
-
-        {/* Right Column: Widgets (1 col wide) */}
-        <div className="xl:col-span-1 space-y-6 flex flex-col">
-          {/* Deadline Requests Widget */}
-          <div className="flex-shrink-0">
-             <AdminDeadlineRequests currentUser={currentUser} />
-          </div>
-
-          {/* New Attendance Widget */}
-          <div className="flex-shrink-0">
-             <AttendanceComparisonWidget 
-                todayStats={attendanceToday}
-                yesterdayStats={attendanceYesterday}
-             />
-          </div>
-
-          <WorkloadChart 
-              chartData={chartData}
-              progressPercentage={progressPercentage}
+        {/* 2. Stats Grid (Themed) */}
+        <motion.div variants={itemVariants}>
+          <StatCardsGrid 
+              stats={cardStats}
+              loading={configLoading}
+              currentTheme={currentTheme}
+              onCardClick={handleCardClick}
               timeRangeLabel={getTimeRangeLabel()}
           />
+        </motion.div>
+
+        {/* 3. Main Grid Layout */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           
-          <DutyRosterWidget users={users} />
+          {/* Left Column: Urgent Tasks */}
+          <motion.div variants={itemVariants} className="xl:col-span-2 space-y-8">
+              <UrgentTasksWidget 
+                  tasks={tasks}
+                  channels={channels}
+                  users={users}
+                  masterOptions={masterOptions}
+                  currentUser={currentUser}
+                  viewScope={viewScope}
+                  onEditTask={onEditTask}
+                  onNavigateToCalendar={onNavigateToCalendar}
+              />
+          </motion.div>
+
+          {/* Right Column: Widgets */}
+          <div className="xl:col-span-1 space-y-8 flex flex-col">
+            <motion.div variants={itemVariants} className="flex-shrink-0">
+               <AdminDeadlineRequests currentUser={currentUser} />
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="flex-shrink-0">
+               <AttendanceComparisonWidget 
+                  todayStats={attendanceToday}
+                  yesterdayStats={attendanceYesterday}
+               />
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <WorkloadChart 
+                  chartData={chartData}
+                  progressPercentage={progressPercentage}
+                  timeRangeLabel={getTimeRangeLabel()}
+              />
+            </motion.div>
+            
+            <motion.div variants={itemVariants}>
+              <DutyRosterWidget users={users} />
+            </motion.div>
+          </div>
         </div>
-      </div>
 
-      <TaskCategoryModal 
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={modalTitle}
-        tasks={modalTasks}
-        channels={channels}
-        onEditTask={onEditTask}
-        colorTheme={modalTheme}
-      />
+        <TaskCategoryModal 
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title={modalTitle}
+          tasks={modalTasks}
+          channels={channels}
+          onEditTask={onEditTask}
+          colorTheme={modalTheme}
+        />
 
-      {/* NEW Workload Modal */}
-      <WorkloadModal 
-        isOpen={isWorkloadOpen}
-        onClose={() => setIsWorkloadOpen(false)}
-        tasks={tasks}
-        users={users}
-        currentUser={currentUser}
-      />
-    </div>
+        <WorkloadModal 
+          isOpen={isWorkloadOpen}
+          onClose={() => setIsWorkloadOpen(false)}
+          tasks={tasks}
+          users={users}
+          currentUser={currentUser}
+        />
+      </motion.div>
+    </AppBackground>
   );
 };
 

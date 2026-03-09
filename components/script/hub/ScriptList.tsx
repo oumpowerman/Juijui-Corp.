@@ -190,16 +190,51 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
 
                         {/* Creator */}
                         <div className="hidden md:flex col-span-2 items-center gap-2 pt-1">
-                            <div className="relative">
-                                {script.author?.avatarUrl ? (
-                                    <img src={script.author.avatarUrl} className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover" />
-                                ) : (
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs border-2 border-white shadow-md">
-                                        {script.author?.name?.[0] || <UserIcon className="w-4 h-4"/>}
+                            {script.ideaOwnerId !== script.authorId ? (
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex -space-x-2">
+                                        {/* Idea Owner */}
+                                        <div className="relative z-10">
+                                            {script.ideaOwner?.avatarUrl ? (
+                                                <img src={script.ideaOwner.avatarUrl} className="w-7 h-7 rounded-full border-2 border-white shadow-sm object-cover" title={`Owner: ${script.ideaOwner.name}`} />
+                                            ) : (
+                                                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-[10px] border-2 border-white shadow-sm" title={`Owner: ${script.ideaOwner?.name}`}>
+                                                    {script.ideaOwner?.name?.[0] || <UserIcon className="w-3 h-3"/>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Author */}
+                                        <div className="relative z-0">
+                                            {script.author?.avatarUrl ? (
+                                                <img src={script.author.avatarUrl} className="w-7 h-7 rounded-full border-2 border-white shadow-sm object-cover" title={`Writer: ${script.author.name}`} />
+                                            ) : (
+                                                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-[10px] border-2 border-white shadow-sm" title={`Writer: ${script.author?.name}`}>
+                                                    {script.author?.name?.[0] || <UserIcon className="w-3 h-3"/>}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                            <span className="text-xs font-bold text-gray-600 truncate max-w-[80px]">{script.author?.name?.split(' ')[0]}</span>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[8px] font-black text-indigo-400 uppercase leading-none">Owner → Writer</span>
+                                        <span className="text-[10px] font-bold text-gray-600 truncate max-w-[70px] leading-tight">
+                                            {script.ideaOwner?.name.split(' ')[0]} → {script.author?.name.split(' ')[0]}
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative">
+                                        {script.author?.avatarUrl ? (
+                                            <img src={script.author.avatarUrl} className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs border-2 border-white shadow-md">
+                                                {script.author?.name?.[0] || <UserIcon className="w-4 h-4"/>}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-600 truncate max-w-[80px]">{script.author?.name?.split(' ')[0]}</span>
+                                </>
+                            )}
                         </div>
                         
                         {/* Status */}
@@ -305,16 +340,31 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         
                         {/* Prominent Creator Badge */}
                         <div className="flex items-center justify-between mb-3">
-                             <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-white pr-3 pl-1 py-1 rounded-full border border-indigo-50 shadow-sm w-fit">
-                                <div className="relative">
-                                     <img src={script.author?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200" />
-                                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] text-indigo-400 font-bold uppercase leading-none">Created by</span>
-                                    <span className="text-[10px] font-bold text-gray-700 leading-none">{script.author?.name.split(' ')[0]}</span>
-                                </div>
-                             </div>
+                             {script.ideaOwnerId !== script.authorId ? (
+                                 <div className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-indigo-50 pr-3 pl-1 py-1 rounded-full border border-amber-100 shadow-sm w-fit">
+                                    <div className="flex -space-x-2">
+                                         <img src={script.ideaOwner?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200 relative z-10" title={`Owner: ${script.ideaOwner?.name}`} />
+                                         <img src={script.author?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200 relative z-0" title={`Writer: ${script.author?.name}`} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] text-amber-500 font-black uppercase leading-none">Owner → Writer</span>
+                                        <span className="text-[10px] font-bold text-gray-700 leading-none">
+                                            {script.ideaOwner?.name.split(' ')[0]} → {script.author?.name.split(' ')[0]}
+                                        </span>
+                                    </div>
+                                 </div>
+                             ) : (
+                                 <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-white pr-3 pl-1 py-1 rounded-full border border-indigo-50 shadow-sm w-fit">
+                                    <div className="relative">
+                                         <img src={script.author?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200" />
+                                         <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] text-indigo-400 font-bold uppercase leading-none">Created by</span>
+                                        <span className="text-[10px] font-bold text-gray-700 leading-none">{script.author?.name.split(' ')[0]}</span>
+                                    </div>
+                                 </div>
+                             )}
                              
                              <span className="text-[10px] text-gray-400 font-bold flex items-center bg-gray-50 px-2 py-1 rounded-lg">
                                 <Clock className="w-3 h-3 mr-1"/> {format(script.updatedAt, 'd MMM')}

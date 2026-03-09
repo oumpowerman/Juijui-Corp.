@@ -147,7 +147,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                                 onClear={clearChannel}
                             />
 
-                            {/* 2. Owner Filter Row (New Component) */}
+                            {/* 2. Writer Filter Row (New Component) */}
                             <CreatorFilter 
                                 users={users}
                                 selectedIds={filterOwner}
@@ -262,7 +262,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         <button 
                             onClick={() => setIsStatusOpen(!isStatusOpen)}
                             className={`
-                                w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold border transition-all duration-500 shadow-sm
+                                w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black border transition-all duration-500 shadow-sm
                                 ${filterStatus !== 'ALL' 
                                     ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50' 
                                     : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/10'

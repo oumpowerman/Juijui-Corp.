@@ -61,7 +61,7 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                     {selectedIds.length > 0 ? (
                         <><Trash2 className="w-3.5 h-3.5 mr-2 animate-pulse" /> Clear ({selectedIds.length})</>
                     ) : (
-                        <><UserIcon className="w-3.5 h-3.5 mr-2 opacity-50" /> Creators</>
+                        <><UserIcon className="w-3.5 h-3.5 mr-2 opacity-50" /> Writers</>
                     )}
                 </button>
 
@@ -152,7 +152,7 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                     >
                         <div className="h-px bg-gradient-to-r from-transparent via-indigo-200 to-transparent w-full relative min-w-[100px]">
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[10px] font-black text-indigo-400 uppercase tracking-widest whitespace-nowrap">
-                                Selected Creators
+                                Selected Writers
                             </div>
                         </div>
                     </motion.div>

@@ -84,9 +84,8 @@ export const useScripts = (currentUser: User) => {
 
             // 2. Specific Filters (UPDATED: Support Multi-Select)
             if (options.filterOwner && options.filterOwner.length > 0) {
-                // Check if Author OR Idea Owner matches ANY of the selected IDs
-                // Using .in() for arrays
-                query = query.or(`author_id.in.(${options.filterOwner.join(',')}),idea_owner_id.in.(${options.filterOwner.join(',')})`);
+                // NEW LOGIC: Filter by Author (Writer) only to show active work
+                query = query.in('author_id', options.filterOwner);
             }
 
             if (options.filterChannel && options.filterChannel.length > 0) {
@@ -380,12 +379,13 @@ export const useScripts = (currentUser: User) => {
     // Fix: Updated to use @google/genai guidelines
     const generateScriptWithAI = async (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => {
         try {
-            if (!process.env.API_KEY) {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
                 showToast('API Key ไม่ถูกต้อง', 'error');
                 return null;
             }
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey });
 
             let finalPrompt = '';
             if (type === 'HOOK') {

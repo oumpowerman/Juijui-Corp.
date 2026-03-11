@@ -14,6 +14,7 @@ import WikiSidebar from './wiki/WikiSidebar';
 import WikiList from './wiki/WikiList';
 import WikiReader from './wiki/WikiReader';
 import WikiHandbook from './wiki/WikiHandbook';
+import NexusHub from './nexus/NexusHub';
 
 // Lazy Load Editor
 const WikiEditor = lazy(() => import('./wiki/WikiEditor'));
@@ -36,7 +37,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const [viewingArticle, setViewingArticle] = useState<WikiArticle | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
-    const [wikiMode, setWikiMode] = useState<'ARTICLES' | 'HANDBOOK'>('ARTICLES');
+    const [wikiMode, setWikiMode] = useState<'ARTICLES' | 'HANDBOOK' | 'NEXUS'>('ARTICLES');
     
     // Responsive & Layout State
     const [layoutMode, setLayoutMode] = useState<WikiLayoutMode>('STANDARD');
@@ -157,38 +158,18 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
 
     return (
         // Main Container: Fixed height relative to viewport to enable independent scrolling
-        <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-2xl relative ring-1 ring-white/50 font-sans isolate transition-all duration-500">
+        <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white/40 backdrop-blur-2xl rounded-[3rem] border border-white/60 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] relative ring-1 ring-white/50 font-sans isolate transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]">
             
-            {/* Background Decoration */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 z-50"></div>
+            {/* Background Decoration - More 3D & Pastel */}
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-300 z-50 opacity-80"></div>
+            <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-200/20 rounded-full blur-[100px] pointer-events-none animate-pulse"></div>
+            <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-pink-200/20 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: '2s' }}></div>
             
             {/* 1. LEFT SIDEBAR (Categories Tree) */}
             <div className={`
                 ${showSidebar ? 'lg:w-72 opacity-100' : 'lg:w-0 opacity-0'} 
-                hidden lg:flex flex-col border-r border-slate-100 bg-slate-50/80 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden
+                hidden lg:flex flex-col border-r border-white/40 bg-white/30 backdrop-blur-md transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden
             `}>
-                <div className="p-4 border-b border-slate-100 bg-white">
-                    <div className="flex bg-slate-100 p-1 rounded-2xl">
-                        <button 
-                            onClick={() => {
-                                setWikiMode('ARTICLES');
-                                setIsMobileListVisible(true);
-                            }}
-                            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'ARTICLES' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Articles
-                        </button>
-                        <button 
-                            onClick={() => {
-                                setWikiMode('HANDBOOK');
-                                setIsMobileListVisible(false);
-                            }}
-                            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Handbook
-                        </button>
-                    </div>
-                </div>
                 <WikiSidebar 
                     categories={categories}
                     selectedCategory={selectedCategory}
@@ -202,9 +183,9 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
             {/* 2. MIDDLE LIST (Articles) */}
             <div className={`
                 ${showList ? 'lg:w-96 opacity-100' : 'lg:w-0 opacity-0'}
-                border-r border-slate-100 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]
+                border-r border-white/40 min-w-0 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
                 ${isMobileListVisible ? 'flex w-full absolute inset-0 z-20 lg:static' : 'hidden lg:flex'}
-                flex-col bg-white overflow-hidden
+                flex-col bg-white/40 backdrop-blur-sm overflow-hidden
             `}>
                 <WikiList 
                     articles={filteredArticles}
@@ -222,12 +203,46 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 />
             </div>
 
-            {/* 3. RIGHT CONTENT (Reader / Editor / Handbook) */}
+            {/* 3. RIGHT CONTENT (Reader / Editor / Handbook / NexusHub) */}
             <div className={`
-                flex-1 bg-white flex flex-col relative transition-all duration-500 ease-in-out z-10 overflow-hidden
+                flex-1 bg-white/60 backdrop-blur-md flex flex-col relative transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] z-10 overflow-hidden
                 ${!isMobileListVisible ? 'absolute inset-0 z-30' : 'hidden lg:flex'}
             `}>
-                {wikiMode === 'HANDBOOK' ? (
+                {/* Tab Switch Header - Glassy & 3D */}
+                <div className="p-4 border-b border-white/40 bg-white/20 backdrop-blur-sm flex justify-center shrink-0">
+                    <div className="flex bg-white/40 backdrop-blur-md p-1.5 rounded-[2rem] w-full max-w-md shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_8px_16px_-4px_rgba(0,0,0,0.05)] border border-white/60">
+                        <button 
+                            onClick={() => {
+                                setWikiMode('ARTICLES');
+                                setIsMobileListVisible(true);
+                            }}
+                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'ARTICLES' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                        >
+                            Articles
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setWikiMode('HANDBOOK');
+                                setIsMobileListVisible(false);
+                            }}
+                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                        >
+                            Handbook
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setWikiMode('NEXUS');
+                                setIsMobileListVisible(false);
+                            }}
+                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'NEXUS' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                        >
+                            Nexus Hub
+                        </button>
+                    </div>
+                </div>
+                {wikiMode === 'NEXUS' ? (
+                    <NexusHub currentUser={currentUser} onNavigateMode={setWikiMode} />
+                ) : wikiMode === 'HANDBOOK' ? (
                     <WikiHandbook currentUser={currentUser} />
                 ) : isEditing ? (
                     <Suspense fallback={
@@ -265,19 +280,19 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                          <div className="absolute w-[400px] h-[400px] bg-pink-50/50 rounded-full blur-3xl bottom-0 left-0 pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
 
                         <div className="relative z-10 text-center animate-in zoom-in-95 duration-500 hover:scale-105 transition-transform px-6">
-                            <div className="w-32 h-32 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mb-6 mx-auto transform -rotate-6 ring-8 ring-white/50">
+                            <div className="w-32 h-32 bg-white/80 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] flex items-center justify-center mb-6 mx-auto transform -rotate-6 ring-8 ring-white/50 border border-white/60">
                                 <span className="text-6xl">📖</span>
                             </div>
-                            <h3 className="text-3xl font-black text-slate-700 mb-2 tracking-tight">Wiki Knowledge Base</h3>
+                            <h3 className="text-3xl font-bold text-slate-700 mb-2 tracking-tight">Wiki Knowledge Base</h3>
                             <p className="text-slate-500 font-medium max-w-sm mx-auto mb-8 leading-relaxed">
                                 คลังความรู้ประจำทีม เลือกหัวข้อจากด้านซ้าย <br/> เพื่อเริ่มอ่านหรือค้นหาข้อมูล
                             </p>
                             
                             <button 
                                 onClick={handleCreateStart}
-                                className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 flex items-center mx-auto gap-3 group"
+                                className="px-8 py-4 bg-gradient-to-r from-indigo-400 to-purple-400 text-white font-bold rounded-2xl shadow-[0_20px_40px_-12px_rgba(99,102,241,0.4)] hover:shadow-[0_25px_50px_-12px_rgba(99,102,241,0.5)] hover:-translate-y-1.5 transition-all active:scale-95 flex items-center mx-auto gap-3 group"
                             >
-                                <Sparkles className="w-5 h-5 text-yellow-300 fill-yellow-300 group-hover:spin" /> 
+                                <Sparkles className="w-5 h-5 text-yellow-200 fill-yellow-200 group-hover:rotate-12 transition-transform" /> 
                                 เขียนบทความใหม่
                             </button>
                         </div>

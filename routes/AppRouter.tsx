@@ -1,4 +1,5 @@
 
+// Trigger re-process
 import React, { useState, Suspense, lazy, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { ViewMode } from '../types';
@@ -14,6 +15,7 @@ import { useAutoJudge } from '../hooks/useAutoJudge';
 import { useLeaveRequests } from '../hooks/useLeaveRequests';
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
+import ShortcutManager from '../components/common/ShortcutManager';
 import { Loader2, Search, Inbox } from 'lucide-react';
 import { WorkboxProvider, useWorkboxContext } from '../context/WorkboxContext';
 import { GoogleDriveProvider } from '../context/GoogleDriveContext';
@@ -152,19 +154,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   useAutoJudge(currentUserProfile); 
   useGameEventListener(currentUserProfile, fetchProfile); 
 
-  // --- GLOBAL KEYBOARD SHORTCUTS ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        // Cmd/Ctrl + K = Command Palette
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            setIsCommandPaletteOpen(prev => !prev);
-        }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // --- GLOBAL KEYBOARD SHORTCUTS REMOVED (Moved to ShortcutManager) ---
 
   // --- DETECT LOCK NOTIFICATION ---
   const lockNotification = notifications.find(n => n.type === 'SYSTEM_LOCK_PENALTY' && !n.isRead);
@@ -445,6 +435,12 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           tasks={tasks}
           allUsers={allUsers}
       >
+          <ShortcutManager 
+              onNavigate={handleNavigate}
+              onAddTask={() => handleAddTask('TASK')}
+              onOpenProfile={() => setIsProfileModalOpen(true)}
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(prev => !prev)}
+          />
   
           {renderContent()}
   

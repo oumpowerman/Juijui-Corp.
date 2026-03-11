@@ -18,6 +18,7 @@ export const useMeetings = () => {
         title: m.title,
         date: new Date(m.date),
         content: m.content || '',
+        sheets: m.sheets || [],
         decisions: m.decisions || '', // Map decisions
         category: (m.category as MeetingCategory) || 'GENERAL',
         attendees: m.attendees || [],
@@ -113,6 +114,7 @@ export const useMeetings = () => {
             };
             if (updates.title) payload.title = updates.title;
             if (updates.content) payload.content = updates.content;
+            if (updates.sheets) payload.sheets = updates.sheets;
             if (updates.decisions) payload.decisions = updates.decisions; // Add logic
             
             // Fix Date update with validation

@@ -15,12 +15,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { extractYouTubeId, getYouTubeThumbnail, getPlatformConfig } from '../../utils/nexusUtils';
 import { GoogleGenAI } from "@google/genai";
 import AppBackground, { BackgroundTheme } from '../common/AppBackground';
+import { ArrowLeft } from 'lucide-react';
 
 interface NexusHubProps {
     currentUser: User;
+    onNavigateMode?: (mode: 'ARTICLES' | 'HANDBOOK' | 'NEXUS') => void;
 }
 
-const NexusHub: React.FC<NexusHubProps> = ({ currentUser }) => {
+const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
     const [integrations, setIntegrations] = useState<NexusIntegration[]>([]);
     const [activeTab, setActiveTab] = useState<'ALL' | 'SOCIAL' | 'PRODUCTIVITY' | 'DESIGN' | 'WEB'>('ALL');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -308,11 +310,22 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser }) => {
                     {/* Header Section */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                         <div className="space-y-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
-                                    <Share2 className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-4">
+                                {onNavigateMode && (
+                                    <button 
+                                        onClick={() => onNavigateMode('ARTICLES')}
+                                        className="p-2 hover:bg-white/50 rounded-xl transition-all text-slate-400 hover:text-indigo-600 group"
+                                        title="กลับไปหน้า Wiki"
+                                    >
+                                        <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+                                    </button>
+                                )}
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
+                                        <Share2 className="w-6 h-6 text-white" />
+                                    </div>
+                                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Nexus Hub</h1>
                                 </div>
-                                <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Nexus Hub</h1>
                             </div>
                             <p className="text-slate-500 font-medium max-w-md">
                                 ศูนย์กลางการจัดการเครื่องมือและทรัพยากรภายนอกทั้งหมด เชื่อมต่อ ดูตัวอย่าง และจัดการทุกอย่างได้ในที่เดียว
@@ -396,13 +409,13 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser }) => {
                     <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-6">
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
-                                <span className="text-xl font-black text-slate-800">{integrations.length}</span>
+                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
+                                <span className="text-xl font-bold text-slate-800">{integrations.length}</span>
                             </div>
                             <div className="w-px h-8 bg-slate-100" />
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
-                                <span className="text-xl font-black text-slate-800">เมื่อครู่</span>
+                                <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
+                                <span className="text-xl font-bold text-slate-800">เมื่อครู่</span>
                             </div>
                         </div>
                         

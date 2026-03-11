@@ -40,7 +40,7 @@ const NexusFilter: React.FC<NexusFilterProps> = ({
                             key={cat.id}
                             onClick={() => onTabChange(cat.id as any)}
                             className={`
-                                relative flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border
+                                relative flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[12px] font-black uppercase tracking-widest transition-all whitespace-nowrap border
                                 ${isActive 
                                     ? `${cat.color} text-white border-transparent shadow-xl scale-105 z-10` 
                                     : 'bg-white/50 backdrop-blur-md text-slate-500 border-white/50 hover:border-slate-300 hover:bg-white shadow-sm'
@@ -59,7 +59,7 @@ const NexusFilter: React.FC<NexusFilterProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2 mr-2 py-1.5 px-3 bg-slate-100 rounded-xl">
                         <TagIcon className="w-3 h-3 text-slate-500" />
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Tags</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tags</span>
                     </div>
                     
                     {availableTags.map(tag => {
@@ -69,7 +69,7 @@ const NexusFilter: React.FC<NexusFilterProps> = ({
                                 key={tag}
                                 onClick={() => onToggleTag(tag)}
                                 className={`
-                                    px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border
+                                    px-3 py-1.5 rounded-xl text-[12px] font-bold transition-all border
                                     ${isSelected 
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-105' 
                                         : 'bg-white/50 text-slate-600 border-white/50 hover:border-indigo-200 hover:bg-white'

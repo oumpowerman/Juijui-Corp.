@@ -11,7 +11,7 @@ interface TagFilterProps {
     filterOwner?: string[];
     filterChannel?: string[];
     filterCategory?: string;
-    filterStatus?: string;
+    filterStatus?: string[];
     searchQuery?: string;
 }
 
@@ -42,8 +42,8 @@ const TagFilter: React.FC<TagFilterProps> = ({
                 if (filterCategory && filterCategory !== 'ALL') {
                     query = query.eq('category', filterCategory);
                 }
-                if (filterStatus && filterStatus !== 'ALL') {
-                    query = query.eq('status', filterStatus);
+                if (filterStatus && filterStatus.length > 0 && !filterStatus.includes('ALL')) {
+                    query = query.in('status', filterStatus);
                 }
                 if (searchQuery) {
                     query = query.ilike('title', `%${searchQuery}%`);

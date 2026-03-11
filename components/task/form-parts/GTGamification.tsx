@@ -20,7 +20,7 @@ const GTGamification: React.FC<GTGamificationProps> = ({ difficulty, setDifficul
             <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-100 rounded-bl-full opacity-50 pointer-events-none"></div>
             <div className="flex justify-between items-center mb-4 relative z-10">
                 <span className="text-xs font-bold text-emerald-700 uppercase flex items-center tracking-wider"><Star className="w-4 h-4 mr-1 fill-emerald-500" /> XP Calculator</span>
-                <span className="text-xs font-black text-white bg-emerald-500 px-3 py-1 rounded-lg shadow-md shadow-emerald-200 border border-emerald-400">Proj: +{totalProjectedXP} XP</span>
+                <span className="text-md font-bold text-white bg-emerald-500 px-3 py-1 rounded-lg shadow-md shadow-emerald-200 border border-emerald-400">Proj: +{totalProjectedXP} XP</span>
             </div>
             <div className="grid grid-cols-2 gap-4 relative z-10">
                 <div>

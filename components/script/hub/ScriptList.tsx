@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ScriptSummary, Channel, MasterOption } from '../../../types';
+import { ScriptSummary, Channel, MasterOption, User } from '../../../types';
 import { FileText, Trash2, Clock, ListPlus, CheckCircle2, Search, Tag, RotateCcw, ArrowRightLeft, User as UserIcon, Layers, AlignLeft, List, Eye, Check, MonitorPlay } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -24,6 +24,42 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
     scripts, layoutMode, viewTab, isLoading, channels, masterOptions,
     onOpen, onToggleQueue, onDelete, onRestore, onDone 
 }) => {
+
+    const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+    const sortedScripts = React.useMemo(() => {
+        if (!sortConfig) return scripts;
+        return [...scripts].sort((a, b) => {
+            let aVal: any;
+            let bVal: any;
+
+            if (sortConfig.key === 'title') {
+                aVal = a.title;
+                bVal = b.title;
+            } else if (sortConfig.key === 'author') {
+                aVal = a.author?.name || '';
+                bVal = b.author?.name || '';
+            } else if (sortConfig.key === 'status') {
+                aVal = a.status;
+                bVal = b.status;
+            } else {
+                return 0;
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [scripts, sortConfig]);
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'asc' };
+        });
+    };
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name;
     const getCategoryLabel = (key?: string) => masterOptions.find(o => o.type === 'SCRIPT_CATEGORY' && o.key === key)?.label;
@@ -128,13 +164,19 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
             <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-xl flex flex-col relative z-10 premium-3d-card">
                 {premiumStyles}
                 <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-200 hidden md:grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                    <div className="col-span-6">Script Details</div>
-                    <div className="col-span-2">Creator</div>
-                    <div className="col-span-2 text-center">Status</div>
+                    <div className="col-span-6 cursor-pointer hover:text-indigo-600 flex items-center gap-1" onClick={() => handleSort('title')}>
+                        Script Details {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </div>
+                    <div className="col-span-2 cursor-pointer hover:text-indigo-600 flex items-center gap-1" onClick={() => handleSort('author')}>
+                        Creator {sortConfig?.key === 'author' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </div>
+                    <div className="col-span-2 text-center cursor-pointer hover:text-indigo-600 flex items-center justify-center gap-1" onClick={() => handleSort('status')}>
+                        Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </div>
                     <div className="col-span-2 text-right">Actions</div>
                 </div>
 
-                {scripts.map((script) => (
+                {sortedScripts.map((script) => (
                     <div 
                         key={script.id}
                         onClick={() => onOpen(script)}
@@ -288,7 +330,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative z-10">
             {premiumStyles}
-            {scripts.map(script => (
+            {sortedScripts.map(script => (
                 <div 
                     key={script.id}
                     className={`rounded-[2rem] border p-5 shadow-lg hover:border-indigo-300 transition-all flex flex-col relative group min-h-[280px] premium-3d-card glossy-shine-card ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100 grayscale-[0.5] hover:grayscale-0' : 'border-gray-100'}`}

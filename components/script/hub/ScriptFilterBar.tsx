@@ -29,8 +29,8 @@ interface ScriptFilterBarProps {
     setFilterTags: (val: string[]) => void;
 
     // NEW: Status & Sort
-    filterStatus: string;
-    setFilterStatus: (val: string) => void;
+    filterStatus: string[];
+    setFilterStatus: (val: string[]) => void;
     sortOrder: 'ASC' | 'DESC';
     setSortOrder: (val: 'ASC' | 'DESC') => void;
 
@@ -45,7 +45,7 @@ interface ScriptFilterBarProps {
 }
 
 // Define correct Script Lifecycle Statuses with styling
-const SCRIPT_STATUS_OPTIONS = [
+export const SCRIPT_STATUS_OPTIONS = [
     { key: 'ALL', label: 'ทุกสถานะ (All)', icon: Activity, color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' },
     { key: 'DRAFT', label: 'Draft (ร่าง)', icon: List, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
     { key: 'REVIEW', label: 'Review (รอตรวจ)', icon: Eye, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
@@ -263,7 +263,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                             onClick={() => setIsStatusOpen(!isStatusOpen)}
                             className={`
                                 w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black border transition-all duration-500 shadow-sm
-                                ${filterStatus !== 'ALL' 
+                                ${!filterStatus.includes('ALL')
                                     ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50' 
                                     : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/10'
                                 }
@@ -271,12 +271,18 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         >
                             <div className="flex items-center gap-2 overflow-hidden">
                                 {(() => {
-                                    const current = SCRIPT_STATUS_OPTIONS.find(o => o.key === filterStatus) || SCRIPT_STATUS_OPTIONS[0];
-                                    const Icon = current.icon;
+                                    const selected = SCRIPT_STATUS_OPTIONS.filter(o => filterStatus.includes(o.key));
+                                    if (selected.length === 0 || filterStatus.includes('ALL')) {
+                                        return (
+                                            <>
+                                                <Activity className="w-3.5 h-3.5 sm:w-4 h-4 text-slate-500 shrink-0" />
+                                                <span className="truncate max-w-[80px] sm:max-w-[100px]">ทุกสถานะ</span>
+                                            </>
+                                        );
+                                    }
                                     return (
                                         <>
-                                            <Icon className={`w-3.5 h-3.5 sm:w-4 h-4 ${current.color} shrink-0`} />
-                                            <span className="truncate max-w-[80px] sm:max-w-[100px]">{current.label}</span>
+                                            <span className="truncate max-w-[80px] sm:max-w-[100px]">{selected.map(s => s.label.split(' ')[0]).join(', ')}</span>
                                         </>
                                     );
                                 })()}
@@ -291,17 +297,25 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                                 </div>
                                 {SCRIPT_STATUS_OPTIONS.map(opt => {
                                     const Icon = opt.icon;
-                                    const isSelected = filterStatus === opt.key;
+                                    const isSelected = filterStatus.includes(opt.key);
                                     return (
                                         <button
                                             key={opt.key}
                                             onClick={() => {
-                                                setFilterStatus(opt.key);
-                                                setIsStatusOpen(false);
+                                                if (opt.key === 'ALL') {
+                                                    setFilterStatus(['ALL']);
+                                                } else {
+                                                    const next = filterStatus.includes('ALL') 
+                                                        ? [opt.key] 
+                                                        : filterStatus.includes(opt.key)
+                                                            ? filterStatus.filter(k => k !== opt.key)
+                                                            : [...filterStatus, opt.key];
+                                                    setFilterStatus(next.length === 0 ? ['ALL'] : next);
+                                                }
                                             }}
                                             className={`
                                                 w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200
-                                                ${isSelected 
+                                                ${filterStatus.includes(opt.key)
                                                     ? `${opt.bg} ${opt.color} shadow-sm ring-1 ${opt.border}` 
                                                     : 'text-slate-600 hover:bg-slate-50 hover:pl-4'
                                                 }

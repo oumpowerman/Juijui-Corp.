@@ -72,7 +72,7 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                         </div>
                         <div className="flex flex-col items-start text-left min-w-0">
                             <span className="text-[10px] font-bold opacity-80 uppercase tracking-wider">Current Status</span>
-                            <span className="text-lg font-black truncate w-full leading-none py-0.5 pb-1">
+                            <span className="text-lg font-medium truncate w-full leading-none py-0.5 pb-1">
                                 {currentStatusOpt?.label || 'Select Status'}
                             </span>
                         </div>

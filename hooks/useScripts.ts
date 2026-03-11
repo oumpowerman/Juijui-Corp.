@@ -16,7 +16,7 @@ interface FetchScriptsOptions {
     filterChannel?: string[]; // Changed to Array
     filterCategory?: string;
     filterTags?: string[]; // NEW: Multi-tag filter
-    filterStatus?: string;
+    filterStatus?: string[];
     sortOrder?: 'ASC' | 'DESC'; // NEW: Add Sort Order
     isDeepSearch?: boolean; // NEW: Deep search in content
 }
@@ -95,8 +95,8 @@ export const useScripts = (currentUser: User) => {
             if (options.filterCategory && options.filterCategory !== 'ALL') {
                 query = query.eq('category', options.filterCategory);
             }
-            if (options.filterStatus && options.filterStatus !== 'ALL') {
-                query = query.eq('status', options.filterStatus);
+            if (options.filterStatus && options.filterStatus.length > 0 && !options.filterStatus.includes('ALL')) {
+                query = query.in('status', options.filterStatus);
             }
 
             if (options.filterTags && options.filterTags.length > 0) {

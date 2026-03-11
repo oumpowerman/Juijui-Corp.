@@ -169,7 +169,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                                 key={tab.id}
                                 onClick={() => setViewMode(tab.id as any)}
                                 className={`
-                                    flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-300 ease-out flex items-center justify-center gap-2 whitespace-nowrap relative
+                                    flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all duration-300 ease-out flex items-center justify-center gap-2 whitespace-nowrap relative
                                     ${activeClass}
                                 `}
                             >

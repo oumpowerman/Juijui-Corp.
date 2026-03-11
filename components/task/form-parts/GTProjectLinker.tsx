@@ -171,11 +171,10 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
         return formatOptions.find(f => f.key === key)?.label || key;
     };
 
-    // Helper to get Status Label (Optional: if you have masterOptions for status too)
-    // For now, using raw status or mapping if needed.
+    // Helper to get Status Label
     const getStatusLabel = (status: string) => {
-        // You can map status keys to labels here if you have a mapping
-        return status.replace(/_/g, ' '); 
+        const option = masterOptions.find(o => o.type === 'STATUS' && o.key === status);
+        return option ? option.label : status.replace(/_/g, ' '); 
     };
 
     const handleViewContent = (e: React.MouseEvent) => {
@@ -187,7 +186,7 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
 
     return (
         <div className="space-y-3">
-             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center ml-1">
+             <label className="text-[12px] font-bold text-slate-400 uppercase tracking-widest flex items-center ml-1">
                 <LinkIcon className="w-3 h-3 mr-1.5" /> Project Association
             </label>
            
@@ -207,7 +206,7 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
                                 <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Linked to Parent</p>
                                 <ExternalLink className="w-3 h-3 text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <h4 className="font-black text-indigo-900 text-sm truncate group-hover:text-indigo-600 transition-colors">{resolvedParent.title}</h4>
+                            <h4 className="font-bold text-indigo-900 text-md truncate group-hover:text-indigo-600 transition-colors">{resolvedParent.title}</h4>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className={`text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase ${STATUS_COLORS[resolvedParent.status as Status] || 'bg-gray-100 text-gray-500'}`}>
                                     {getStatusLabel(resolvedParent.status)}
@@ -240,7 +239,7 @@ const GTProjectLinker: React.FC<Props> = ({ projectId, setProjectId, projects, c
                     <div className="p-2 bg-white rounded-full text-indigo-400 shadow-sm group-hover:scale-110 transition-transform">
                         <Search className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-indigo-400 group-hover:text-indigo-600">
+                    <span className="text-md font-medium text-indigo-400 group-hover:text-indigo-600">
                         เลือกโปรเจกต์หลัก (Select Parent Project)
                     </span>
                 </button>

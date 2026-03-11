@@ -30,7 +30,6 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'CALENDAR', label: 'ปฏิทิน & บอร์ด', icon: CalendarIcon }, 
       { view: 'CHAT', label: 'ห้องแชท', icon: MessageCircle },
       { view: 'TEAM', label: 'ทีมงาน', icon: Users },
-      { view: 'NEXUS', label: 'Nexus Hub', icon: Share2 },
       { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
       { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp }, 
     ]

@@ -182,7 +182,7 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-orange-100/40 to-transparent rounded-bl-full opacity-0 group-hover/container:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-100/30 rounded-tr-full opacity-0 group-hover/container:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
             
-            <label className="text-sm font-black text-slate-700 mb-5 uppercase tracking-tight flex items-center relative z-10">
+            <label className="text-md font-bold text-slate-700 mb-5 uppercase tracking-tight flex items-center relative z-10">
                 <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl mr-3 shadow-lg shadow-orange-200 text-white group-hover/container:scale-110 group-hover/container:rotate-3 transition-transform duration-500">
                     <Clapperboard className="w-5 h-5" />
                 </div>
@@ -193,7 +193,7 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
                 
                 {/* Shoot Date Input */}
                 <div className="relative group/date">
-                    <label className="text-[10px] font-bold text-slate-400 mb-1.5 block uppercase tracking-wider ml-1 group-focus-within/date:text-orange-500 transition-colors">
+                    <label className="text-[12px] font-bold text-slate-400 mb-1.5 block uppercase tracking-wider ml-1 group-focus-within/date:text-orange-500 transition-colors">
                         วันที่ถ่าย (Date)
                     </label>
                     <div className="relative overflow-hidden rounded-2xl bg-white border-2 border-gray-100 group-focus-within/date:border-orange-300 group-focus-within/date:ring-4 group-focus-within/date:ring-orange-50 group-hover/date:border-orange-200 transition-all duration-300 shadow-sm">
@@ -211,7 +211,7 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
 
                 {/* Location Autocomplete */}
                 <div ref={dropdownRef} className="relative group/loc z-50">
-                    <label className="text-[10px] font-bold text-slate-400 mb-1.5 block uppercase tracking-wider ml-1 group-focus-within/loc:text-indigo-500 transition-colors">
+                    <label className="text-[12px] font-bold text-slate-400 mb-1.5 block uppercase tracking-wider ml-1 group-focus-within/loc:text-indigo-500 transition-colors">
                         สถานที่ (Location)
                     </label>
                     

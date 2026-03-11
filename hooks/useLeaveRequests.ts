@@ -318,13 +318,13 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                      checkOutDateTime.setHours(hours, minutes, 0, 0);
                      if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
 
-                     const { data: log } = await supabase.from('attendance_logs').select('id').eq('user_id', request.userId).eq('date', shiftDateStr).single();
+                     const { data: log } = await supabase.from('attendance_logs').select('id, note').eq('user_id', request.userId).eq('date', shiftDateStr).maybeSingle();
                      
                      if (log) {
                         await supabase.from('attendance_logs').update({
                              check_out_time: checkOutDateTime.toISOString(),
                              status: 'COMPLETED',
-                             note: `[APPROVED CORRECTION] ${request.reason}`
+                             note: `${log.note || ''} [APPROVED CORRECTION] ${request.reason}`.trim()
                         }).eq('id', log.id);
                         await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
                             time: timeStr,

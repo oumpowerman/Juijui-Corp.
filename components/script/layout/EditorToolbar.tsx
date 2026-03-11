@@ -57,7 +57,16 @@ const EditorToolbar: React.FC = () => {
     // New State for Save Feedback
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
-    const textContent = content.replace(/<[^>]*>?/gm, '');
+    const cleanContentForTiming = (html: string) => {
+        return html
+            .replace(/\[.*?\]/g, '') // Remove [Stage Directions]
+            .replace(/<strong>.*?<\/strong>:\s*/g, '') // Remove Bold Character Names
+            .replace(/<[^>]*>?/gm, '') // Remove HTML Tags
+            .replace(/^[^\n:]+:\s*/gm, '') // Remove "Name: " at start of lines (fallback)
+            .trim();
+    };
+
+    const textContent = cleanContentForTiming(content);
     const estimatedSeconds = Math.ceil(textContent.length / 12); 
     const formattedDuration = `${Math.floor(estimatedSeconds / 60)}m ${estimatedSeconds % 60}s`;
     

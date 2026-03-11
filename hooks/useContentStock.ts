@@ -308,11 +308,14 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                     const eventType = payload.eventType;
                     const newRec = payload.new as any;
                     const oldRec = payload.old as any;
+                    
+                    console.log(`[Realtime] Event: ${eventType} on table 'contents'`);
 
                     if (eventType === 'UPDATE' || eventType === 'INSERT') {
                         await handleRealtimeUpdate(newRec.id);
                         if (eventType === 'INSERT') triggerCountRefresh();
                     } else if (eventType === 'DELETE') {
+                        console.log(`[Realtime] Deleting item: ${oldRec.id}`);
                         setContents(prev => prev.filter(item => item.id !== oldRec.id));
                         triggerCountRefresh();
                     }

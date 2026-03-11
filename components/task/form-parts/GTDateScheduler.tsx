@@ -98,7 +98,7 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
             <div className="grid grid-cols-2 gap-4">
                 {/* Start Date Display */}
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-gray-400 ml-1 uppercase tracking-widest">เริ่ม (Start Date)</label>
+                    <label className="block text-[12px] font-bold text-gray-400 ml-1 uppercase tracking-widest">เริ่ม (Start Date)</label>
                     <button 
                         type="button"
                         onClick={(e) => {
@@ -112,7 +112,7 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
                         `}
                     >
                         <CalendarIcon className={`w-5 h-5 ${activePicker === 'START' ? 'text-indigo-500' : 'text-gray-400'}`} />
-                        <span className={`text-sm font-black tracking-wide ${startDate ? 'text-slate-700' : 'text-gray-400'}`}>
+                        <span className={`text-sm font-bold tracking-wide ${startDate ? 'text-slate-700' : 'text-gray-400'}`}>
                             {formatDateDisplay(startDate)}
                         </span>
                     </button>
@@ -121,7 +121,7 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
                 {/* End Date Display */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                        <label className="block text-[10px] font-black text-gray-400 ml-1 uppercase tracking-widest">จบ (Due Date)</label>
+                        <label className="block text-[12px] font-bold text-gray-400 ml-1 uppercase tracking-widest">จบ (Due Date)</label>
                         {isEndDateLocked && (
                             <button 
                                 type="button" 
@@ -152,7 +152,7 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
                     >
                         <div className="flex items-center gap-3">
                             <CalendarIcon className={`w-5 h-5 ${activePicker === 'END' ? 'text-rose-500' : 'text-rose-300'}`} />
-                            <span className={`text-sm font-black tracking-wide ${endDate ? 'text-rose-700' : 'text-rose-300'}`}>
+                            <span className={`text-sm font-bold tracking-wide ${endDate ? 'text-rose-700' : 'text-rose-300'}`}>
                                 {formatDateDisplay(endDate)}
                             </span>
                         </div>

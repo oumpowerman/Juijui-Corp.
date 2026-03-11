@@ -57,7 +57,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const pageSize = 20;
     const [searchQuery, setSearchQuery] = useState('');
     const [filterOwner, setFilterOwner] = useState<string[]>([]); // Array of IDs
-    const [filterStatus, setFilterStatus] = useState<string>('ALL');
+    const [filterStatus, setFilterStatus] = useState<string[]>(['ALL']); // Changed to array
     const [filterChannel, setFilterChannel] = useState<string[]>([]); // Array of IDs
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterTags, setFilterTags] = useState<string[]>([]); // NEW: Multi-tag filter
@@ -66,13 +66,13 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
-{/*    // Effect: Fetch scripts when filters or page change
+    // Effect: Fetch scripts when filters or page change
     useEffect(() => {
         // Detect initial layout mode based on screen size
         const isMobile = window.innerWidth < 768;
         setLayoutMode(isMobile ? 'GRID' : 'LIST');
     }, []);
-*/}
+
     useEffect(() => {
         fetchScripts({
             page,
@@ -326,7 +326,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     filterStatus={filterStatus}
                     onTabChange={(tab, status) => {
                         setViewTab(tab);
-                        if (status) setFilterStatus(status);
+                        if (status) setFilterStatus([status]);
                         // We don't reset category here to allow filtered stats to stay
                     }}
                 />

@@ -23,7 +23,7 @@ const CFCrewSelector: React.FC<CFCrewSelectorProps> = ({
 
     return (
         <div className="space-y-4">
-            <label className="block text-base font-black text-gray-700 flex items-center">
+            <label className="block text-base font-bold text-gray-700 flex items-center">
                 <Users className="w-5 h-5 mr-2 text-indigo-500" /> ทีมงาน (Crew)
             </label>
             
@@ -35,7 +35,7 @@ const CFCrewSelector: React.FC<CFCrewSelectorProps> = ({
                 ].map((role) => (
                     <div key={role.label} className={`${role.bg} rounded-2xl p-4 border-2 ${role.border} ${role.hoverBorder} transition-colors group`}>
                         <div className="flex justify-between items-center mb-3">
-                            <span className={`text-xs font-black uppercase tracking-wide ${role.text}`}>{role.label}</span>
+                            <span className={`text-xs font-bold uppercase tracking-wide ${role.text}`}>{role.label}</span>
                             <span className="text-[10px] bg-white/50 px-2 py-0.5 rounded-full font-bold text-gray-500">{role.list.length} คน</span>
                         </div>
                         

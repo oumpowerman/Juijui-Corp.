@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, MeetingLog, Task, MeetingCategory, MasterOption } from '../types';
+import { User, MeetingLog, Task, MeetingCategory, MasterOption, MeetingNoteSheet } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
-import { FileText, Plus, Info, Sparkles, StickyNote, X, Save, Coffee } from 'lucide-react';
+import { FileText, Plus, Info, Sparkles, StickyNote, X, Save, Coffee, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { format, addDays } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Import New Components
 import MeetingListSidebar from './meeting/MeetingListSidebar';
+import MeetingMainHeader from './meeting/MeetingMainHeader';
 import MeetingDetail from './meeting/MeetingDetail';
 import MeetingActionModule from './meeting/MeetingActionModule';
 import InfoModal from './ui/InfoModal';
@@ -20,7 +22,7 @@ interface MeetingViewProps {
     masterOptions?: MasterOption[]; // Optional for now to support lazy load
 }
 
-type MeetingTab = 'NOTES' | 'ACTIONS' | 'DECISIONS';
+type MeetingTab = 'AGENDA' | 'NOTES' | 'FILES' | 'ACTIONS' | 'DECISIONS';
 
 const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, masterOptions = [] }) => {
     const { meetings, createMeeting, updateMeeting, deleteMeeting } = useMeetings();
@@ -32,13 +34,16 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     const [activeTab, setActiveTab] = useState<MeetingTab>('NOTES');
     const [isSaving, setIsSaving] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
     // Selected Meeting State (Controlled)
     const [title, setTitle] = useState('');
     const [date, setDate] = useState(new Date());
     const [category, setCategory] = useState<MeetingCategory>('GENERAL');
-    const [projectTag, setProjectTag] = useState('');
+    const [projectTags, setProjectTags] = useState<string[]>([]);
     const [content, setContent] = useState('');
+    const [sheets, setSheets] = useState<MeetingNoteSheet[]>([]); // New Sheets State
     const [decisions, setDecisions] = useState(''); // New Decisions State
     const [attendees, setAttendees] = useState<string[]>([]);
 
@@ -61,36 +66,48 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
             setTitle(selectedMeeting.title);
             setDate(selectedMeeting.date);
             setContent(selectedMeeting.content);
+            setSheets(selectedMeeting.sheets || []); // Sync Sheets
             setDecisions(selectedMeeting.decisions || ''); // Sync Decisions
             // Force cast for flexibility if legacy data exists
             setCategory((selectedMeeting.category as MeetingCategory) || 'GENERAL');
             setAttendees(selectedMeeting.attendees);
-            setProjectTag(selectedMeeting.tags?.[0] || ''); 
+            setProjectTags(selectedMeeting.tags || []); 
         }
     }, [selectedMeeting]);
 
-    // Auto-save debounce for content & decisions
+    // Auto-save debounce for content, decisions, and sheets
     useEffect(() => {
-        if (!selectedId) return;
+        if (!selectedId || !selectedMeeting) return;
+        
         const timer = setTimeout(() => {
-            if (selectedMeeting) {
-                if (content !== selectedMeeting.content) {
-                    handleUpdate('content', content);
-                }
-                if (decisions !== (selectedMeeting.decisions || '')) {
-                    handleUpdate('decisions', decisions);
-                }
+            // Only update if values actually changed from the last known meeting state
+            if (content !== selectedMeeting.content) {
+                handleUpdate('content', content);
+            }
+            
+            // Shallow comparison for sheets array is often enough if we treat it as immutable
+            // But since it's an array of objects, we check length and content of first/last or just trust the state update
+            // To be safe but fast, we only update if it's different from the meeting object
+            if (sheets !== selectedMeeting.sheets) {
+                handleUpdate('sheets', sheets);
+            }
+            
+            if (decisions !== (selectedMeeting.decisions || '')) {
+                handleUpdate('decisions', decisions);
             }
         }, 2000);
+        
         return () => clearTimeout(timer);
-    }, [content, decisions, selectedId]);
+    }, [content, decisions, sheets, selectedId]);
 
     const handleCreate = async () => {
         const id = await createMeeting('การประชุมครั้งใหม่...', new Date(), currentUser.id);
         if (id) {
             setSelectedId(id);
             setActiveTab('NOTES');
-            setProjectTag('');
+            setProjectTags([]);
+            setIsSidebarCollapsed(true); // Auto-hide on create
+            setIsHeaderCollapsed(true); // Auto-hide header on create
         }
     };
 
@@ -103,8 +120,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
 
     // --- Task Integration Handlers (Improved Context) ---
     const handleAddTask = async (taskTitle: string, assigneeId: string, type: 'TASK' | 'CONTENT', targetDate?: Date) => {
-        const tags = ['Meeting-Action'];
-        if (projectTag) tags.push(projectTag);
+        const tags = ['Meeting-Action', ...projectTags];
         
         // Date Logic
         const effectiveDate = targetDate || new Date();
@@ -184,7 +200,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-80px)] animate-in fade-in duration-500 overflow-hidden pb-4 md:pb-6 relative isolate">
+        <div className="flex flex-col h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] animate-in fade-in duration-500 overflow-hidden pb-2 md:pb-6 relative isolate">
             
             {/* Background Decoration (Cute Dots) */}
             <div className="absolute inset-0 -z-10 opacity-40 pointer-events-none" 
@@ -194,56 +210,96 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                 }}>
             </div>
             
-            {/* Top Bar */}
-            <div className="flex justify-between items-center mb-6 shrink-0 px-2 md:px-0 pt-2">
-                <div className="flex items-center gap-4">
-                    <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-3 rounded-2xl shadow-lg shadow-indigo-200 text-white transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                        <Coffee className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center">
-                            Meeting Room
-                            <span className="ml-2 text-2xl animate-bounce">💬</span>
-                        </h1>
-                        <p className="text-gray-500 text-sm font-bold bg-white/60 px-3 py-1 rounded-full w-fit backdrop-blur-sm border border-white/50">
-                            จดบันทึก ✦ ติดตามงาน ✦ ปิดจ็อบ
-                        </p>
-                    </div>
-                    <button 
-                        onClick={() => setIsInfoOpen(true)}
-                        className="p-2 bg-white text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all shadow-sm border border-indigo-100 ml-2 self-start mt-1 hover:scale-110 active:scale-95"
-                        title="คู่มือการใช้งาน"
+            {/* Top Bar (Header) */}
+            <AnimatePresence>
+                {!isHeaderCollapsed && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                        animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+                        exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="overflow-hidden"
                     >
-                        <Info className="w-5 h-5" />
-                    </button>
-                </div>
-                <button 
-                    onClick={handleCreate}
-                    className="flex items-center px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 group border-4 border-white/30"
+                        <MeetingMainHeader 
+                            onInfoOpen={() => setIsInfoOpen(true)}
+                            onCreateMeeting={handleCreate}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Header Toggle (When Collapsed) */}
+            {isHeaderCollapsed && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-center mb-2"
                 >
-                    <Plus className="w-5 h-5 mr-2 stroke-[3px] group-hover:rotate-90 transition-transform" /> 
-                    <span>เริ่มการประชุม</span>
-                </button>
-            </div>
+                    <button 
+                        onClick={() => setIsHeaderCollapsed(false)}
+                        className="px-6 py-1 bg-white/40 backdrop-blur-md border border-white/60 rounded-b-2xl text-[10px] font-bold text-indigo-400 hover:text-indigo-600 hover:bg-white/80 transition-all shadow-sm uppercase tracking-[0.2em] flex items-center gap-2 group"
+                    >
+                        <Plus className="w-3 h-3 group-hover:rotate-90 transition-transform" />
+                        Show Header
+                    </button>
+                </motion.div>
+            )}
 
             {/* Main Workspace */}
-            <div className="flex-1 flex gap-6 overflow-hidden bg-white/60 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/80 ring-1 ring-indigo-50 p-2 relative">
+            <div className="flex-1 flex gap-0 md:gap-6 overflow-hidden bg-white/60 backdrop-blur-xl rounded-t-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-white/80 ring-1 ring-indigo-50 p-1 md:p-2 relative">
                 
                 {/* Sidebar Container */}
-                <div className="hidden lg:flex flex-col bg-white/80 backdrop-blur-md rounded-[2rem] border border-indigo-50 shadow-sm overflow-hidden h-full w-80 shrink-0">
-                     <MeetingListSidebar 
-                        meetings={filteredMeetings}
-                        selectedId={selectedId}
-                        onSelect={setSelectedId}
-                        onDelete={deleteMeeting}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        masterOptions={masterOptions} // PASS MASTER OPTIONS
-                    />
-                </div>
+                <AnimatePresence mode="wait">
+                    {!isSidebarCollapsed && (
+                        <motion.div 
+                            initial={{ width: 0, opacity: 0, x: -20 }}
+                            animate={{ width: 'auto', opacity: 1, x: 0 }}
+                            exit={{ width: 0, opacity: 0, x: -20 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className={`flex flex-col bg-white/80 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] border border-indigo-50 shadow-sm overflow-hidden h-full shrink-0 relative z-[70] w-full md:w-[300px] absolute md:relative inset-1 md:inset-auto`}
+                        >
+                             <MeetingListSidebar 
+                                meetings={filteredMeetings}
+                                selectedId={selectedId}
+                                onSelect={(id) => {
+                                    setSelectedId(id);
+                                    setIsSidebarCollapsed(true); // Auto-hide on select
+                                    setIsHeaderCollapsed(true); // Auto-hide header on select
+                                }}
+                                onDelete={deleteMeeting}
+                                searchQuery={searchQuery}
+                                setSearchQuery={setSearchQuery}
+                                masterOptions={masterOptions}
+                            />
+                            
+                            {/* Collapse Button (Inside) */}
+                            <button 
+                                onClick={() => setIsSidebarCollapsed(true)}
+                                className="absolute top-1/2 -right-3 -translate-y-1/2 w-8 h-12 bg-white border border-indigo-100 rounded-xl shadow-lg flex items-center justify-center text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all z-50 group"
+                                title="ซ่อนแถบข้าง"
+                            >
+                                <PanelLeftClose className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Expand Button (When Collapsed) */}
+                {isSidebarCollapsed && (
+                    <motion.button 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        onClick={() => setIsSidebarCollapsed(false)}
+                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-8 md:w-10 h-12 md:h-16 bg-white/80 backdrop-blur-md border border-indigo-100 rounded-xl md:rounded-2xl shadow-xl flex flex-col items-center justify-center text-indigo-500 hover:text-indigo-700 hover:bg-white transition-all z-[60] group border-2 md:border-4 border-white/50"
+                        title="แสดงแถบข้าง"
+                    >
+                        <PanelLeftOpen className="w-5 h-5 md:w-6 md:h-6 group-hover:scale-125 transition-transform" />
+                        <div className="text-[7px] md:text-[8px] font-black uppercase tracking-tighter mt-0.5 md:mt-1">LIST</div>
+                    </motion.button>
+                )}
 
                 {/* Detail Container */}
-                <div className="flex-1 flex flex-col overflow-hidden relative bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/50">
+                <div className="flex-1 flex flex-col overflow-hidden relative bg-white rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/50">
                     {selectedMeeting ? (
                         <MeetingDetail 
                             meeting={selectedMeeting}
@@ -251,9 +307,10 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                             title={title} setTitle={setTitle}
                             date={date} setDate={setDate}
                             category={category} setCategory={setCategory}
-                            projectTag={projectTag} setProjectTag={setProjectTag}
+                            projectTags={projectTags} setProjectTags={setProjectTags}
                             attendees={attendees} onToggleAttendee={handleToggleAttendee}
                             content={content} setContent={setContent}
+                            sheets={sheets} setSheets={setSheets} // PASS SHEETS
                             decisions={decisions} setDecisions={setDecisions} 
                             activeTab={activeTab} setActiveTab={setActiveTab}
                             isSaving={isSaving} onBlurUpdate={handleUpdate}
@@ -262,7 +319,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                             <MeetingActionModule 
                                 users={users}
                                 tasks={tasks}
-                                projectTag={projectTag}
+                                projectTags={projectTags}
                                 meetingTitle={title} 
                                 meetingDate={date}
                                 onAddTask={handleAddTask}
@@ -270,16 +327,16 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                             />
                         </MeetingDetail>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-gray-300 bg-indigo-50/30 p-12 text-center relative overflow-hidden">
+                        <div className="flex-1 flex flex-col items-center justify-center text-gray-300 bg-indigo-50/30 p-6 md:p-12 text-center relative overflow-hidden">
                             {/* Empty State Decor */}
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-200/20 rounded-full blur-3xl animate-pulse"></div>
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 md:w-96 h-64 md:h-96 bg-indigo-200/20 rounded-full blur-3xl animate-pulse"></div>
                             
                             <div className="relative z-10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <div className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center mb-8 shadow-2xl shadow-indigo-100 border-4 border-white rotate-3 hover:rotate-6 transition-transform duration-500">
-                                    <Sparkles className="w-16 h-16 text-indigo-400" />
+                                <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center mb-6 md:mb-8 shadow-2xl shadow-indigo-100 border-4 border-white rotate-3 hover:rotate-6 transition-transform duration-500">
+                                    <Sparkles className="w-12 h-12 md:w-16 md:h-16 text-indigo-400" />
                                 </div>
-                                <h3 className="font-black text-3xl text-gray-700 mb-3 tracking-tight">พร้อมประชุมรึยัง?</h3>
-                                <p className="max-w-xs mx-auto text-gray-500 leading-relaxed font-medium bg-white/50 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/50">
+                                <h3 className="font-black text-xl md:text-3xl text-gray-700 mb-3 tracking-tight">พร้อมประชุมรึยัง?</h3>
+                                <p className="max-w-[200px] md:max-w-xs mx-auto text-[11px] md:text-sm text-gray-500 leading-relaxed font-medium bg-white/50 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/50">
                                     เลือกหัวข้อการประชุมจากทางซ้าย <br/>หรือกดปุ่ม <span className="text-indigo-600 font-bold">"เริ่มการประชุม"</span> เพื่อเริ่มเรื่องใหม่
                                 </p>
                             </div>

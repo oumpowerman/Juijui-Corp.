@@ -25,9 +25,14 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
     // Sync local state with props when modal opens or props change
     useEffect(() => {
         if (isOpen) {
-            setLocalSelected(isMulti ? selectedKeys : (selectedKey ? [selectedKey] : []));
+            const newValue = isMulti ? selectedKeys : (selectedKey ? [selectedKey] : []);
+            
+            // Only update if the value has actually changed to prevent infinite loops
+            if (JSON.stringify(newValue.sort()) !== JSON.stringify(localSelected.sort())) {
+                setLocalSelected(newValue);
+            }
         }
-    }, [isOpen, selectedKey, selectedKeys, isMulti]);
+    }, [isOpen, selectedKey, JSON.stringify(selectedKeys), isMulti]);
 
     if (!isOpen) return null;
 

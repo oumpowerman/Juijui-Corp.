@@ -4,99 +4,104 @@ import { BookOpen, Hash, List, Image as ImageIcon, Search, Heart, Sparkles, Pin 
 
 const WikiGuide: React.FC = () => {
     return (
-        <div className="space-y-8 font-sans">
+        <div className="space-y-10 font-sans">
             
             {/* Intro Card */}
-            <div className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-br from-cyan-400 to-blue-500 text-white p-8 rounded-[2.5rem] shadow-[0_20px_40px_-12px_rgba(6,182,212,0.3)] relative overflow-hidden border border-white/20 group">
                 <div className="relative z-10">
-                    <h4 className="text-xl font-black mb-2 flex items-center">
-                        📚 Wiki Library คือไรอ่ะ?
+                    <h4 className="text-2xl font-bold mb-3 flex items-center gap-3">
+                        <span className="text-3xl group-hover:scale-125 transition-transform duration-500 inline-block">📚</span> Wiki Library คือไรอ่ะ?
                     </h4>
-                    <p className="text-cyan-100 leading-relaxed font-medium">
+                    <p className="text-cyan-50 leading-relaxed font-bold opacity-90 text-lg">
                         คลังสมบัติของทีม! ไม่ต้องถามพี่เลี้ยงซ้ำๆ อีกต่อไป <br/>
                         คู่มือรับน้อง, วิธีใช้อุปกรณ์, หรือสูตรลัดต่างๆ รวมอยู่ที่นี่หมดแล้ว <br/>
-                        <span className="text-yellow-300 font-bold">"อ่านเอง นักเลงพอ!"</span> 😎
+                        <span className="text-yellow-300 font-bold drop-shadow-sm">"อ่านเอง นักเลงพอ!"</span> 😎
                     </p>
                 </div>
-                <div className="absolute right-[-20px] bottom-[-20px] opacity-20 rotate-12">
-                    <BookOpen className="w-32 h-32" />
+                <div className="absolute right-[-30px] bottom-[-30px] opacity-10 rotate-12 group-hover:rotate-45 transition-transform duration-1000">
+                    <BookOpen className="w-48 h-48" />
                 </div>
             </div>
 
             {/* Markdown Cheatsheet */}
-            <section className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
-                <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="w-5 h-5 text-indigo-500" />
-                    <h3 className="font-bold text-slate-700">สูตรโกงการเขียน (Markdown Tips) ✍️</h3>
+            <section className="bg-white/40 backdrop-blur-md border border-white/60 rounded-[2.5rem] p-8 relative overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-indigo-100/80 rounded-xl text-indigo-500 shadow-sm">
+                        <Sparkles className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-slate-700 text-lg">สูตรโกงการเขียน (Markdown Tips) ✍️</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 font-mono font-bold">#</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white/60 backdrop-blur-sm p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-4 hover:bg-white hover:shadow-md transition-all">
+                        <div className="w-10 h-10 bg-slate-100/80 rounded-xl flex items-center justify-center text-slate-400 font-mono font-bold border border-white/60 shadow-inner">#</div>
                         <div>
-                            <p className="text-xs font-bold text-gray-800">หัวข้อใหญ่ (Header)</p>
-                            <p className="text-[10px] text-gray-500 font-mono"># หัวข้อใหญ่มาก<br/>## หัวข้อรองลงมา</p>
+                            <p className="text-xs font-bold text-slate-700">หัวข้อใหญ่ (Header)</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5"># หัวข้อใหญ่มาก<br/>## หัวข้อรองลงมา</p>
                         </div>
                     </div>
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 font-mono font-bold">-</div>
+                    <div className="bg-white/60 backdrop-blur-sm p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-4 hover:bg-white hover:shadow-md transition-all">
+                        <div className="w-10 h-10 bg-slate-100/80 rounded-xl flex items-center justify-center text-slate-400 font-mono font-bold border border-white/60 shadow-inner">-</div>
                         <div>
-                            <p className="text-xs font-bold text-gray-800">รายการ (List)</p>
-                            <p className="text-[10px] text-gray-500 font-mono">- รายการที่ 1<br/>- รายการที่ 2</p>
+                            <p className="text-xs font-bold text-slate-700">รายการ (List)</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">- รายการที่ 1<br/>- รายการที่ 2</p>
                         </div>
                     </div>
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 font-mono font-bold">B</div>
+                    <div className="bg-white/60 backdrop-blur-sm p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-4 hover:bg-white hover:shadow-md transition-all">
+                        <div className="w-10 h-10 bg-slate-100/80 rounded-xl flex items-center justify-center text-slate-400 font-mono font-bold border border-white/60 shadow-inner">B</div>
                         <div>
-                            <p className="text-xs font-bold text-gray-800">ตัวหนา (Bold)</p>
-                            <p className="text-[10px] text-gray-500 font-mono">**ข้อความตัวหนา**</p>
+                            <p className="text-xs font-bold text-slate-700">ตัวหนา (Bold)</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">**ข้อความตัวหนา**</p>
                         </div>
                     </div>
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
-                            <ImageIcon className="w-4 h-4" />
+                    <div className="bg-white/60 backdrop-blur-sm p-4 rounded-2xl border border-white/80 shadow-sm flex items-center gap-4 hover:bg-white hover:shadow-md transition-all">
+                        <div className="w-10 h-10 bg-slate-100/80 rounded-xl flex items-center justify-center text-slate-400 border border-white/60 shadow-inner">
+                            <ImageIcon className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-gray-800">รูปภาพ (Image)</p>
-                            <p className="text-[10px] text-gray-500 font-mono">![คำอธิบาย](URL รูป)</p>
+                            <p className="text-xs font-bold text-slate-700">รูปภาพ (Image)</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">![คำอธิบาย](URL รูป)</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Navigation Tips */}
-            <section>
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <Search className="w-5 h-5 text-cyan-500" /> เทคนิคการหาของ
+            <section className="px-4">
+                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                    <div className="p-2 bg-cyan-100/80 rounded-xl text-cyan-500 shadow-sm">
+                        <Search className="w-5 h-5" />
+                    </div>
+                    เทคนิคการหาของ
                 </h3>
-                <div className="space-y-3">
-                    <div className="flex gap-3 items-start">
-                        <div className="p-2 bg-yellow-100 text-yellow-600 rounded-lg shrink-0">
-                            <Pin className="w-4 h-4" />
+                <div className="space-y-4">
+                    <div className="flex gap-5 items-start group">
+                        <div className="p-3 bg-yellow-100/80 text-yellow-600 rounded-2xl shrink-0 shadow-sm group-hover:scale-110 group-hover:rotate-12 transition-all border border-white/60">
+                            <Pin className="w-5 h-5" />
                         </div>
                         <div>
-                            <h5 className="font-bold text-gray-700 text-sm">Pinned Articles</h5>
-                            <p className="text-xs text-gray-500">เรื่องสำคัญๆ แอดมินจะปักหมุดไว้ด้านบนสุดเสมอ สังเกตป้าย Pinned สีเหลืองไว้นะ</p>
+                            <h5 className="font-bold text-slate-700 text-base mb-1">Pinned Articles</h5>
+                            <p className="text-xs text-slate-400 font-bold leading-relaxed opacity-80">เรื่องสำคัญๆ แอดมินจะปักหมุดไว้ด้านบนสุดเสมอ สังเกตป้าย Pinned สีเหลืองไว้นะ</p>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 items-start">
-                        <div className="p-2 bg-pink-100 text-pink-600 rounded-lg shrink-0">
-                            <Heart className="w-4 h-4" />
+                    <div className="flex gap-5 items-start group">
+                        <div className="p-3 bg-pink-100/80 text-pink-500 rounded-2xl shrink-0 shadow-sm group-hover:scale-110 group-hover:rotate-12 transition-all border border-white/60">
+                            <Heart className="w-5 h-5" />
                         </div>
                         <div>
-                            <h5 className="font-bold text-gray-700 text-sm">Helpful Votes</h5>
-                            <p className="text-xs text-gray-500">บทความไหนดี บทความไหนโดน กดปุ่ม "เป็นประโยชน์" ให้กำลังใจคนเขียนได้นะ</p>
+                            <h5 className="font-bold text-slate-700 text-base mb-1">Helpful Votes</h5>
+                            <p className="text-xs text-slate-400 font-bold leading-relaxed opacity-80">บทความไหนดี บทความไหนโดน กดปุ่ม "เป็นประโยชน์" ให้กำลังใจคนเขียนได้นะ</p>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 items-start">
-                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
-                            <List className="w-4 h-4" />
+                    <div className="flex gap-5 items-start group">
+                        <div className="p-3 bg-indigo-100/80 text-indigo-500 rounded-2xl shrink-0 shadow-sm group-hover:scale-110 group-hover:rotate-12 transition-all border border-white/60">
+                            <List className="w-5 h-5" />
                         </div>
                         <div>
-                            <h5 className="font-bold text-gray-700 text-sm">Table of Contents</h5>
-                            <p className="text-xs text-gray-500">บทความยาวเหยียด? ไม่ต้องกลัว! บนจอคอมฯ จะมีสารบัญด้านขวา กดข้ามไปอ่านหัวข้อที่ต้องการได้เลย</p>
+                            <h5 className="font-bold text-slate-700 text-base mb-1">Table of Contents</h5>
+                            <p className="text-xs text-slate-400 font-bold leading-relaxed opacity-80">บทความยาวเหยียด? ไม่ต้องกลัว! บนจอคอมฯ จะมีสารบัญด้านขวา กดข้ามไปอ่านหัวข้อที่ต้องการได้เลย</p>
                         </div>
                     </div>
                 </div>

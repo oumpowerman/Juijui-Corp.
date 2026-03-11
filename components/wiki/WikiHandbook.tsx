@@ -161,42 +161,42 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
     };
 
     if (isLoading) return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+        <div className="flex-1 flex flex-col items-center justify-center bg-white/20 backdrop-blur-md">
             <div className="relative">
-                <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-indigo-600 animate-pulse" />
+                <div className="w-16 h-16 border-4 border-indigo-500/10 border-t-indigo-400 rounded-full animate-spin shadow-[0_0_20px_rgba(99,102,241,0.2)]"></div>
+                <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-indigo-400 animate-pulse" />
             </div>
-            <p className="mt-4 text-slate-400 font-black text-xs uppercase tracking-widest">Initializing Command Center...</p>
+            <p className="mt-6 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] opacity-70">Initializing Command Center...</p>
         </div>
     );
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#f8fafc] overflow-hidden relative isolate">
+        <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden relative isolate">
             {/* Background Glows */}
-            <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-200/30 rounded-full blur-3xl -z-10"></div>
-            <div className="absolute top-1/2 -left-24 w-72 h-72 bg-purple-200/20 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-200/20 rounded-full blur-[100px] -z-10 animate-pulse"></div>
+            <div className="absolute top-1/2 -left-24 w-72 h-72 bg-purple-200/10 rounded-full blur-[80px] -z-10"></div>
 
             {/* --- TOP COMMAND BAR --- */}
-            <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-8 py-6 flex flex-col gap-6 shrink-0 z-20 shadow-sm">
+            <div className="bg-white/40 backdrop-blur-xl border-b border-white/40 px-8 py-6 flex flex-col gap-6 shrink-0 z-20 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.05)]">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-5">
                         <motion.div 
                             whileHover={{ rotate: 15, scale: 1.1 }}
-                            className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-indigo-200 relative group"
+                            className="w-14 h-14 bg-gradient-to-br from-indigo-400 to-purple-500 text-white rounded-[1.5rem] flex items-center justify-center shadow-[0_12px_24px_-8px_rgba(99,102,241,0.3)] border border-white/40 relative group"
                         >
                             <Sparkles className="w-7 h-7 group-hover:animate-spin-slow" />
-                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white animate-bounce"></div>
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-300 rounded-full border-2 border-white animate-bounce shadow-sm"></div>
                         </motion.div>
                         <div>
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tighter flex items-center gap-2">
-                                Wiki Handbook <span className="text-indigo-600">2.0</span>
+                            <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                                Wiki Handbook <span className="text-indigo-400 opacity-70">2.0</span>
                             </h2>
-                            <div className="flex items-center gap-3 mt-1">
-                                <span className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-full">
-                                    <Zap className="w-3 h-3 text-yellow-500 fill-yellow-500" /> Smart Command Center
+                            <div className="flex items-center gap-3 mt-1.5">
+                                <span className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-white/60 px-2.5 py-1 rounded-full border border-white/60 shadow-sm">
+                                    <Zap className="w-3 h-3 text-yellow-400 fill-yellow-400" /> Smart Command Center
                                 </span>
-                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
                                     {currentNode ? currentNode.title : 'Main Directory'}
                                 </span>
                             </div>
@@ -206,39 +206,39 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                     <div className="flex items-center gap-4">
                         {/* Search Bar */}
                         <div className="relative group hidden md:block">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
                             <input 
                                 type="text"
                                 placeholder="Search everything..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-72 pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-indigo-100 rounded-2xl text-sm font-bold focus:outline-none transition-all shadow-inner"
+                                className="w-72 pl-11 pr-4 py-3 bg-white/40 backdrop-blur-md border border-white/60 focus:bg-white focus:border-indigo-100 rounded-2xl text-sm font-bold focus:outline-none transition-all shadow-inner placeholder:font-normal"
                             />
                         </div>
 
                         {/* View Toggles */}
-                        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                        <div className="flex bg-white/40 backdrop-blur-md p-1 rounded-2xl border border-white/60 shadow-inner">
                             <button 
                                 onClick={() => setViewMode('GRID')}
-                                className={`p-2 rounded-xl transition-all ${viewMode === 'GRID' ? 'bg-white shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'GRID' ? 'bg-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.1)] text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                <LayoutGrid className="w-5 h-5" />
+                                <LayoutGrid className="w-4.5 h-4.5" />
                             </button>
                             <button 
                                 onClick={() => setViewMode('LIST')}
-                                className={`p-2 rounded-xl transition-all ${viewMode === 'LIST' ? 'bg-white shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'LIST' ? 'bg-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.1)] text-indigo-500 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                <List className="w-5 h-5" />
+                                <List className="w-4.5 h-4.5" />
                             </button>
                         </div>
 
                         {isAdmin && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-3">
                                 <motion.button 
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => handleCreate('FOLDER')}
-                                    className="flex items-center gap-2 px-5 py-3 bg-white border-2 border-slate-100 text-slate-600 font-black text-xs rounded-2xl hover:border-indigo-200 hover:text-indigo-600 transition-all shadow-sm"
+                                    className="flex items-center gap-2.5 px-5 py-3 bg-white/60 backdrop-blur-md border border-white/80 text-slate-600 font-bold text-xs rounded-2xl hover:bg-white hover:border-indigo-100 hover:text-indigo-500 transition-all shadow-sm"
                                 >
                                     <Folder className="w-4 h-4" /> Folder
                                 </motion.button>
@@ -246,7 +246,7 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                                     whileHover={{ scale: 1.05, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => handleCreate('PAGE')}
-                                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs rounded-2xl hover:shadow-xl hover:shadow-indigo-200 transition-all shadow-lg"
+                                    className="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-indigo-400 to-purple-500 text-white font-bold text-xs rounded-2xl hover:shadow-[0_16px_32px_-8px_rgba(99,102,241,0.4)] transition-all shadow-[0_12px_24px_-8px_rgba(99,102,241,0.3)] border border-white/20"
                                 >
                                     <Plus className="w-4 h-4 stroke-[3px]" /> Add Page
                                 </motion.button>
@@ -256,20 +256,20 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                 </div>
 
                 {/* Breadcrumbs & Quick Stats */}
-                <div className="flex items-center justify-between gap-6 border-t border-slate-50 pt-4">
+                <div className="flex items-center justify-between gap-6 border-t border-white/40 pt-4">
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
                         <button 
                             onClick={() => setCurrentParentId(null)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all ${!currentParentId ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${!currentParentId ? 'bg-indigo-50/80 text-indigo-500 border-indigo-100 shadow-sm' : 'bg-white/40 border-white/60 text-slate-400 hover:bg-white/60 hover:text-slate-600'}`}
                         >
-                            <BookOpen className="w-4 h-4" /> Handbook
+                            <BookOpen className="w-3.5 h-3.5" /> Handbook
                         </button>
                         {breadcrumbs.map((node, idx) => (
                             <React.Fragment key={node.id}>
-                                <ChevronRight className="w-3 h-3 text-slate-300 shrink-0" />
+                                <ChevronRight className="w-3 h-3 text-slate-300 shrink-0 opacity-50" />
                                 <button 
                                     onClick={() => setCurrentParentId(node.id)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${idx === breadcrumbs.length - 1 ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap ${idx === breadcrumbs.length - 1 ? 'bg-indigo-50/80 text-indigo-500 border-indigo-100 shadow-sm' : 'bg-white/40 border-white/60 text-slate-400 hover:bg-white/60 hover:text-slate-600'}`}
                                 >
                                     {node.title}
                                 </button>
@@ -277,57 +277,57 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-6">
                             <div className="flex flex-col items-end">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Total Guides</span>
-                                <span className="text-sm font-black text-slate-700">{stats.pages}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-0.5 opacity-70">Total Guides</span>
+                                <span className="text-sm font-bold text-slate-700">{stats.pages}</span>
                             </div>
-                            <div className="w-px h-6 bg-slate-100"></div>
+                            <div className="w-px h-6 bg-white/40"></div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Updated Weekly</span>
-                                <span className="text-sm font-black text-indigo-600">+{stats.recentlyUpdated}</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-0.5 opacity-70">Updated Weekly</span>
+                                <span className="text-sm font-bold text-indigo-400">+{stats.recentlyUpdated}</span>
                             </div>
                         </div>
-                        <div className="hidden lg:flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
-                            <Trophy className="w-4 h-4 text-emerald-600" />
-                            <span className="text-[10px] font-black text-emerald-700 uppercase">Team Efficiency: 98%</span>
+                        <div className="hidden lg:flex items-center gap-2.5 bg-emerald-50/60 backdrop-blur-sm px-4 py-2 rounded-xl border border-emerald-100 shadow-sm">
+                            <Trophy className="w-4 h-4 text-emerald-400" />
+                            <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Efficiency: 98%</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200/50">
                 <div className="max-w-7xl mx-auto">
                     {/* Welcome Banner (Only on Root) */}
                     {!currentParentId && !searchQuery && (
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="mb-10 p-8 rounded-[3rem] bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative overflow-hidden shadow-2xl shadow-indigo-200"
+                            className="mb-12 p-10 rounded-[3.5rem] bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative overflow-hidden shadow-[0_32px_64px_-16px_rgba(99,102,241,0.2)] border border-white/10"
                         >
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 animate-pulse"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2"></div>
                             
-                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                                <div className="w-24 h-24 bg-white/10 backdrop-blur-md rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner">
-                                    <Info className="w-10 h-10 text-indigo-300" />
+                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
+                                <div className="w-28 h-28 bg-white/10 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center border border-white/20 shadow-inner group">
+                                    <Info className="w-12 h-12 text-indigo-300 group-hover:scale-110 transition-transform duration-500" />
                                 </div>
                                 <div className="flex-1 text-center md:text-left">
-                                    <h3 className="text-3xl font-black tracking-tight mb-2">Welcome to the HQ Handbook</h3>
-                                    <p className="text-indigo-200 font-medium max-w-2xl leading-relaxed">
+                                    <h3 className="text-4xl font-bold tracking-tight mb-3">Welcome to the HQ Handbook</h3>
+                                    <p className="text-indigo-200/80 font-bold max-w-2xl leading-relaxed text-lg opacity-90">
                                         ศูนย์รวมข้อมูลและแนวทางการทำงานที่อัจฉริยะที่สุด ค้นหาคู่มือการทำงาน (Job Description), ขั้นตอนการปฏิบัติงาน (SOP) และเทคนิคต่างๆ ได้ที่นี่
                                     </p>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3">
-                                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                        <span className="text-xs font-black uppercase tracking-widest">Smart Search Enabled</span>
+                                <div className="flex flex-col gap-3">
+                                    <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-sm">
+                                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">Smart Search Enabled</span>
                                     </div>
-                                    <div className="bg-indigo-500/20 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3">
-                                        <Users className="w-4 h-4 text-indigo-300" />
-                                        <span className="text-xs font-black uppercase tracking-widest">{stats.folders} Active Folders</span>
+                                    <div className="bg-indigo-500/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-sm">
+                                        <Users className="w-5 h-5 text-indigo-300" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">{stats.folders} Active Folders</span>
                                     </div>
                                 </div>
                             </div>
@@ -337,7 +337,7 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                     {currentParentId && !searchQuery && (
                         <button 
                             onClick={handleBack}
-                            className="flex items-center gap-3 text-slate-400 hover:text-indigo-600 font-black text-xs mb-8 transition-all group bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm w-fit"
+                            className="flex items-center gap-3 text-slate-400 hover:text-indigo-500 font-bold text-[10px] uppercase tracking-wider mb-10 transition-all group bg-white/60 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/60 shadow-sm w-fit active:scale-95"
                         >
                             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> 
                             <span>Back to {breadcrumbs[breadcrumbs.length - 2]?.title || 'Main Directory'}</span>
@@ -345,30 +345,31 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                     )}
 
                     {filteredNodes.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-300 py-32">
+                        <div className="h-full flex flex-col items-center justify-center text-slate-300 py-40">
                             <motion.div 
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                className="w-32 h-32 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mb-6 border border-slate-100 relative"
+                                className="w-36 h-36 bg-white/60 backdrop-blur-md rounded-[3rem] shadow-xl flex items-center justify-center mb-8 border border-white/80 relative rotate-3"
                             >
-                                <Folder className="w-14 h-14 opacity-10 text-indigo-600" />
+                                <Folder className="w-16 h-16 opacity-10 text-indigo-500" />
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <Search className="w-8 h-8 text-slate-200 animate-pulse" />
+                                    <Search className="w-10 h-10 text-slate-200 animate-pulse" />
                                 </div>
+                                <div className="absolute -top-2 -right-2 w-10 h-10 bg-pink-300 rounded-full border-4 border-white shadow-md animate-bounce"></div>
                             </motion.div>
-                            <h4 className="font-black text-slate-800 text-lg">ไม่พบข้อมูลที่คุณต้องการ</h4>
-                            <p className="text-slate-400 font-medium text-sm mt-1">ลองเปลี่ยนคำค้นหา หรือสร้างหัวข้อใหม่ได้เลย</p>
+                            <h4 className="font-bold text-slate-800 text-xl tracking-tight">ไม่พบข้อมูลที่คุณต้องการ</h4>
+                            <p className="text-slate-400 font-bold text-xs mt-2 opacity-70">ลองเปลี่ยนคำค้นหา หรือสร้างหัวข้อใหม่ได้เลย ✨</p>
                             {isAdmin && (
                                 <button 
                                     onClick={() => handleCreate('FOLDER')}
-                                    className="mt-6 px-6 py-3 bg-indigo-50 text-indigo-600 font-black text-xs rounded-2xl hover:bg-indigo-100 transition-all"
+                                    className="mt-8 px-8 py-3.5 bg-indigo-50/80 text-indigo-600 font-bold text-xs rounded-2xl hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm active:scale-95"
                                 >
                                     + เริ่มต้นสร้างหัวข้อใหม่
                                 </button>
                             )}
                         </div>
                     ) : (
-                        <div className={viewMode === 'GRID' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
+                        <div className={viewMode === 'GRID' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" : "flex flex-col gap-4"}>
                             <AnimatePresence mode="popLayout">
                                 {filteredNodes.map((node, index) => (
                                     <motion.div
@@ -380,62 +381,62 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                                         transition={{ delay: index * 0.05 }}
                                         onClick={() => handleNodeClick(node)}
                                         className={`
-                                            group relative cursor-pointer transition-all duration-500
+                                            group relative cursor-pointer transition-all duration-500 isolate
                                             ${viewMode === 'GRID' 
-                                                ? 'bg-white p-7 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-100 hover:-translate-y-2' 
-                                                : 'bg-white px-6 py-4 rounded-[1.5rem] border border-slate-100 flex items-center gap-5 hover:bg-slate-50 hover:shadow-lg hover:shadow-slate-100'}
+                                                ? 'bg-white/60 backdrop-blur-md p-8 rounded-[3rem] border border-white/60 shadow-sm hover:shadow-[0_32px_64px_-16px_rgba(99,102,241,0.15)] hover:bg-white hover:border-indigo-100 hover:-translate-y-3' 
+                                                : 'bg-white/60 backdrop-blur-md px-8 py-5 rounded-[2rem] border border-white/60 flex items-center gap-6 hover:bg-white hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)] hover:border-indigo-100 hover:translate-x-2'}
                                         `}
                                     >
                                         {/* Colorful Icon Container */}
                                         <div className={`
-                                            shrink-0 flex items-center justify-center rounded-[1.5rem] transition-all duration-500 shadow-lg
-                                            ${viewMode === 'GRID' ? 'w-16 h-16 mb-6 group-hover:scale-110 group-hover:rotate-6' : 'w-12 h-12'}
+                                            shrink-0 flex items-center justify-center rounded-[2rem] transition-all duration-700 shadow-lg border border-white/40
+                                            ${viewMode === 'GRID' ? 'w-20 h-20 mb-8 group-hover:scale-110 group-hover:rotate-12' : 'w-14 h-14'}
                                             bg-gradient-to-br ${getNodeColor(index, node.type)} text-white
                                         `}>
                                             {getIcon(node.icon, node.type)}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 className={`font-black text-slate-800 truncate ${viewMode === 'GRID' ? 'text-lg' : 'text-base'}`}>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h4 className={`font-bold text-slate-800 truncate tracking-tight transition-colors group-hover:text-indigo-600 ${viewMode === 'GRID' ? 'text-xl' : 'text-lg'}`}>
                                                     {node.title}
                                                 </h4>
                                                 {node.type === 'FOLDER' && (
-                                                    <span className="bg-slate-100 text-slate-400 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter">Folder</span>
+                                                    <span className="bg-white/80 backdrop-blur-sm text-slate-400 text-[8px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider border border-white/60 shadow-sm">Folder</span>
                                                 )}
                                             </div>
                                             {node.description && (
-                                                <p className={`text-slate-400 font-bold leading-relaxed line-clamp-2 ${viewMode === 'GRID' ? 'text-xs' : 'text-[11px]'}`}>
+                                                <p className={`text-slate-400 font-bold leading-relaxed line-clamp-2 opacity-80 ${viewMode === 'GRID' ? 'text-xs' : 'text-[11px]'}`}>
                                                     {node.description}
                                                 </p>
                                             )}
                                         </div>
 
                                         {isAdmin && (
-                                            <div className="absolute top-5 right-5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+                                            <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
                                                 <button 
                                                     onClick={(e) => handleEdit(e, node)}
-                                                    className="p-2 bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 rounded-xl shadow-lg hover:scale-110 transition-all"
+                                                    className="p-2.5 bg-white/80 backdrop-blur-md border border-white/60 text-slate-400 hover:text-indigo-500 rounded-xl shadow-lg hover:scale-110 transition-all active:scale-90"
                                                 >
-                                                    <Edit3 className="w-3.5 h-3.5" />
+                                                    <Edit3 className="w-4 h-4" />
                                                 </button>
                                                 <button 
                                                     onClick={(e) => handleDelete(e, node)}
-                                                    className="p-2 bg-white border border-slate-100 text-slate-400 hover:text-red-600 rounded-xl shadow-lg hover:scale-110 transition-all"
+                                                    className="p-2.5 bg-white/80 backdrop-blur-md border border-white/60 text-slate-400 hover:text-red-500 rounded-xl shadow-lg hover:scale-110 transition-all active:scale-90"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         )}
 
                                         {node.type === 'FOLDER' && viewMode === 'GRID' && (
-                                            <div className="absolute bottom-7 right-7 text-slate-200 group-hover:text-indigo-400 transition-all group-hover:translate-x-1">
-                                                <ChevronRight className="w-7 h-7" />
+                                            <div className="absolute bottom-8 right-8 text-slate-200 group-hover:text-indigo-300 transition-all group-hover:translate-x-2">
+                                                <ChevronRight className="w-8 h-8" />
                                             </div>
                                         )}
 
                                         {/* Hover Glow Effect */}
-                                        <div className="absolute inset-0 rounded-[3rem] bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                                        <div className="absolute inset-0 rounded-[3rem] bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none -z-10"></div>
                                     </motion.div>
                                 ))}
                             </AnimatePresence>

@@ -133,7 +133,7 @@ const NexusCard: React.FC<NexusCardProps> = ({ integration, onDelete, onEdit, on
             {/* Content Area */}
             <div className="p-6 flex flex-col flex-1">
                 <div className="flex justify-between items-start gap-4 mb-2">
-                    <h3 className="font-black text-slate-800 text-lg line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors">
+                    <h3 className="font-bold text-slate-800 text-[22px] line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors">
                         {title}
                     </h3>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -191,7 +191,7 @@ const NexusCard: React.FC<NexusCardProps> = ({ integration, onDelete, onEdit, on
                         href={url} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                        className="flex items-center gap-1.5 text-[14px] font-bold text-indigo-600 uppercase tracking-widest hover:underline"
                     >
                         เปิด <ExternalLink className="w-3 h-3" />
                     </a>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Link as LinkIcon, Save, Type } from 'lucide-react';
+import { X, Link as LinkIcon, Save, Type, HardDrive, UploadCloud, Loader2 } from 'lucide-react';
+import { useGoogleDrive } from '../../hooks/useGoogleDrive';
+import { format } from 'date-fns';
 
 interface AddLinkModalProps {
     isOpen: boolean;
@@ -12,7 +14,39 @@ const AddLinkModal: React.FC<AddLinkModalProps> = ({ isOpen, onClose, onSave }) 
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
 
+    const driveUploadInputRef = useRef<HTMLInputElement>(null);
+    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+
     if (!isOpen) return null;
+
+    const handleDriveSelect = () => {
+        openDrivePicker((file: any) => {
+            onSave(file.name, file.url);
+            onClose();
+        });
+    };
+
+    const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const currentMonthFolder = format(new Date(), 'yyyy-MM');
+
+        try {
+            const result = await uploadFileToDrive(
+                file,
+                ['Meeting_Attachments', currentMonthFolder]
+            );
+            onSave(result.name, result.url);
+            onClose();
+        } catch (err) {
+            console.error('Drive upload failed:', err);
+        } finally {
+            if (driveUploadInputRef.current) {
+                driveUploadInputRef.current.value = '';
+            }
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,12 +65,39 @@ const AddLinkModal: React.FC<AddLinkModalProps> = ({ isOpen, onClose, onSave }) 
                     <X className="w-5 h-5" />
                 </button>
                 
-                <h3 className="text-xl font-black text-gray-800 mb-6 flex items-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
                     <span className="bg-indigo-100 p-2 rounded-xl mr-3 text-indigo-600"><LinkIcon className="w-5 h-5" /></span>
                     แนบไฟล์ / ลิงก์
                 </h3>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Google Drive Quick Actions */}
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button 
+                            type="button"
+                            onClick={handleDriveSelect}
+                            disabled={!isDriveReady}
+                            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveReady ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
+                        >
+                            <HardDrive className="w-3.5 h-3.5" /> เลือกจาก Drive
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => driveUploadInputRef.current?.click()}
+                            disabled={!isDriveReady || isUploading}
+                            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveReady ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
+                        >
+                            {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                            {isUploading ? 'กำลังอัป...' : 'อัปขึ้น Drive'}
+                        </button>
+                    </div>
+
+                    <div className="relative flex items-center gap-2 my-4">
+                        <div className="h-px bg-gray-100 flex-1"></div>
+                        <span className="text-[12px] font-bold text-gray-300 uppercase tracking-widest">หรือแปะลิงก์เอง</span>
+                        <div className="h-px bg-gray-100 flex-1"></div>
+                    </div>
+
                     <div className="space-y-1.5">
                         <label className="text-xs font-bold text-gray-400 uppercase ml-1">ชื่อเอกสาร / ไฟล์</label>
                         <div className="relative group">
@@ -74,6 +135,13 @@ const AddLinkModal: React.FC<AddLinkModalProps> = ({ isOpen, onClose, onSave }) 
                         <Save className="w-4 h-4 mr-2" /> บันทึก
                     </button>
                 </form>
+
+                <input 
+                    type="file" 
+                    ref={driveUploadInputRef} 
+                    className="hidden" 
+                    onChange={handleDriveUpload} 
+                />
             </div>
         </div>,
         document.body

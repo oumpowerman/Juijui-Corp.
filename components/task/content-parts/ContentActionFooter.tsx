@@ -42,7 +42,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                             title="ลบงานนี้"
                         >
                             <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="hidden md:inline-block ml-2 text-xs font-bold">ลบ</span>
+                            <span className="hidden md:inline-block ml-2 text-xs font-medium">ลบ</span>
                         </button>
                     )}
                 </div>
@@ -90,7 +90,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                     <button 
                         type="button" 
                         onClick={onCancel} 
-                        className="p-3 sm:px-5 sm:py-3 text-sm font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-2xl transition-colors active:scale-95 flex items-center justify-center"
+                        className="p-3 sm:px-5 sm:py-3 text-md font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-2xl transition-colors active:scale-95 flex items-center justify-center"
                         title="ยกเลิก"
                     >
                         <X className="w-5 h-5 sm:hidden" />
@@ -102,7 +102,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                         type="submit" 
                         disabled={isSaving}
                         className={`
-                            group relative flex items-center justify-center gap-2 px-5 py-3 sm:px-8 sm:py-3 text-white font-black text-sm rounded-2xl shadow-xl transition-all active:scale-95 overflow-hidden flex-1 sm:flex-none
+                            group relative flex items-center justify-center gap-2 px-5 py-3 sm:px-8 sm:py-3 text-white font-medium text-md rounded-2xl shadow-xl transition-all active:scale-95 overflow-hidden flex-1 sm:flex-none
                             ${mode === 'CREATE' 
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200' 
                                 : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200'

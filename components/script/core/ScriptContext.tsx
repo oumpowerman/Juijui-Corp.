@@ -186,7 +186,16 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [isGenerating, setIsGenerating] = useState(false);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const estimatedSeconds = Math.ceil(content.length / 12); 
+    const cleanContentForTiming = (html: string) => {
+        return html
+            .replace(/\[.*?\]/g, '') // Remove [Stage Directions]
+            .replace(/<strong>.*?<\/strong>:\s*/g, '') // Remove Bold Character Names
+            .replace(/<[^>]*>?/gm, '') // Remove HTML Tags
+            .replace(/^[^\n:]+:\s*/gm, '') // Remove "Name: " at start of lines (fallback)
+            .trim();
+    };
+
+    const estimatedSeconds = Math.ceil(cleanContentForTiming(content).length / 12); 
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
     const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
     

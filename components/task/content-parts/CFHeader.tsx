@@ -10,7 +10,7 @@ interface CFHeaderProps {
 const CFHeader: React.FC<CFHeaderProps> = ({ title, setTitle }) => {
     return (
         <div className="group relative">
-            <label className="block text-sm font-black text-indigo-900 mb-2 group-hover:text-indigo-600 transition-colors flex items-center uppercase tracking-tight">
+            <label className="block text-lg font-bold text-indigo-900 mb-2 group-hover:text-indigo-600 transition-colors flex items-center uppercase tracking-tight">
                 <Sparkles className="w-5 h-5 mr-1.5 text-yellow-400 fill-yellow-400 animate-pulse" /> 
                 หัวข้อคอนเทนต์ <span className="text-gray-400 text-xs font-normal ml-2">(Content Title)</span> <span className="text-red-500 ml-1">*</span>
             </label>

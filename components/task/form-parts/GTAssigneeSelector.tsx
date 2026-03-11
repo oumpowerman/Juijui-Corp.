@@ -44,7 +44,7 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
 
     return (
         <div className="bg-white p-5 rounded-[2rem] border-2 border-indigo-50 shadow-lg relative overflow-hidden group hover:border-indigo-100 transition-all duration-500">
-            <label className="block text-xl font-black text-indigo-900 mb-6 flex items-center tracking-tight relative z-10">
+            <label className="block text-xl font-bold text-indigo-900 mb-6 flex items-center tracking-tight relative z-10">
                 <span className="text-3xl mr-2 animate-bounce shadow-sm rounded-full bg-yellow-100 p-1">⚡️</span> 
                 ใครรับจบงานนี้? <span className="text-sm font-normal text-indigo-400 ml-2">(Assignee)</span>
             </label>
@@ -59,7 +59,7 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                     <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-200 text-indigo-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
                         <Users className="w-6 h-6" />
                     </div>
-                    <span className="text-base font-black">Solo (ฉายเดี่ยว) 🦸</span>
+                    <span className="text-base font-bold">Solo (ฉายเดี่ยว) 🦸</span>
                 </button>
                 
                 <button
@@ -70,7 +70,7 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                     <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'TEAM' ? 'bg-emerald-200 text-emerald-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
                         <Users className="w-6 h-6" />
                     </div>
-                    <span className="text-base font-black">Team (ช่วยกัน) 🤝</span>
+                    <span className="text-base font-bold">Team (ช่วยกัน) 🤝</span>
                 </button>
             </div>
 
@@ -101,7 +101,7 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                                     </div>
                                 )}
                             </div>
-                            <span className={`font-bold text-xs px-2 py-0.5 rounded-full transition-colors duration-300 ${isSelected ? (assigneeType === 'TEAM' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700') : 'text-gray-400 bg-gray-50'}`}>
+                            <span className={`font-medium text-md px-1 py-0.5 rounded-full transition-colors duration-300 ${isSelected ? (assigneeType === 'TEAM' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700') : 'text-gray-400 bg-gray-50'}`}>
                                 {user.name.split(' ')[0]}
                             </span>
                         </div>

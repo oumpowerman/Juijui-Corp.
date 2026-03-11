@@ -58,7 +58,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
             
             {/* Description Box (Pastel Style) */}
             <div className="group bg-indigo-50/30 p-5 rounded-[2rem] border-2 border-indigo-50 focus-within:bg-white focus-within:border-indigo-200 focus-within:shadow-lg focus-within:shadow-indigo-100/50 transition-all duration-300 relative">
-                <label className="block text-[13px] font-black text-indigo-400 mb-2 uppercase tracking-widest flex items-center gap-1 group-focus-within:text-indigo-600 transition-colors">
+                <label className="block text-[15px] font-bold text-indigo-400 mb-2 uppercase tracking-widest flex items-center gap-1 group-focus-within:text-indigo-600 transition-colors">
                     <FileText className="w-3 h-3" /> รายละเอียด (Details)
                 </label>
                 <div className="absolute top-4 right-4 opacity-10 pointer-events-none group-focus-within:opacity-20 transition-opacity">
@@ -78,7 +78,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                  
                 {/* 1. Priority Custom Dropdown */}
                 <div className="relative z-30" ref={priorityRef}>
-                    <label className="block text-[13px] font-black text-slate-600 uppercase mb-2 ml-1 tracking-tight">ความเร่งด่วน</label>
+                    <label className="block text-[13px] font-medium text-slate-600 uppercase mb-2 ml-1 tracking-tight">ความเร่งด่วน</label>
                     <button
                         type="button"
                         onClick={() => setIsPriorityOpen(!isPriorityOpen)}
@@ -89,7 +89,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                                 <PrioIcon className="w-6 h-6" />
                             </div>
                             <div className="text-left">
-                                <span className={`font-black text-base ${currentPrio.color.split(' ')[1]}`}>{currentPrio.label.split('(')[0]}</span>
+                                <span className={`font-medium  text-base ${currentPrio.color.split(' ')[1]}`}>{currentPrio.label.split('(')[0]}</span>
                             </div>
                         </div>
                         <div className="pr-3 text-gray-300 group-hover:text-gray-500 transition-colors">
@@ -126,7 +126,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
 
                 {/* 2. Status Custom Dropdown */}
                 <div className="relative z-20" ref={statusRef}>
-                    <label className="block text-[13px] font-black text-slate-600 uppercase mb-2 ml-1 tracking-tight">สถานะงาน</label>
+                    <label className="block text-[13px] font-medium  text-slate-600 uppercase mb-2 ml-1 tracking-tight">สถานะงาน</label>
                     <button
                         type="button"
                         onClick={() => setIsStatusOpen(!isStatusOpen)}
@@ -140,7 +140,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                                 <div className="flex items-center gap-2">
                                      {/* Status Dot */}
                                      <div className={`w-3 h-3 rounded-full shadow-inner animate-pulse ${statusColorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
-                                     <span className="font-black text-base text-slate-900 truncate tracking-tight">{currentStatusOpt?.label || status}</span>
+                                     <span className="font-medium  text-base text-slate-900 truncate tracking-tight">{currentStatusOpt?.label || status}</span>
                                 </div>
                             </div>
                         </div>
@@ -164,7 +164,7 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                                         <div className="flex items-center gap-3">
                                             {/* Color Pill */}
                                             <div className={`w-3 h-8 rounded-full ${isSelected ? 'bg-white/40' : opt.color.split(' ')[0].replace('bg-', 'bg-')}`}></div>
-                                            <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-slate-700'}`}>{opt.label}</span>
+                                            <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-700'}`}>{opt.label}</span>
                                         </div>
                                         {isSelected && <Check className="w-5 h-5 text-white" />}
                                     </button>

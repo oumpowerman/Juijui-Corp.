@@ -17,7 +17,7 @@ const CFDateAndStock: React.FC<CFDateAndStockProps> = ({
     return (
         <div className={`p-5 rounded-[1.5rem] border-2 transition-all duration-300 relative overflow-hidden ${isStock ? 'bg-gray-50 border-gray-200' : 'bg-white border-indigo-100 shadow-sm'}`}>
             <div className="flex justify-between items-center mb-3 relative z-10">
-                <label className="block text-xs font-black text-gray-500 uppercase tracking-wide flex items-center">
+                <label className="block text-s font-bold text-gray-500 uppercase tracking-wide flex items-center">
                     <CalendarDays className="w-4 h-4 mr-1.5" />
                     {isStock ? 'เก็บเข้าคลัง (Stock Mode)' : 'กำหนดวันลง (Schedule)'}
                 </label>

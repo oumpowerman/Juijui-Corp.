@@ -112,7 +112,7 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                 {/* Top Label */}
                 <div className="flex justify-between items-center w-full z-10">
                     <span className={`
-                        text-[10px] font-black uppercase tracking-widest transition-colors duration-300
+                        text-[12px] font-bold uppercase tracking-widest transition-colors duration-300
                         ${hasValue ? activeStyle.subText : 'text-gray-300'}
                     `}>
                         {label}
@@ -128,8 +128,8 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
 
                 {/* Main Value */}
                 <span className={`
-                    relative z-10 font-bold leading-tight transition-all duration-300 line-clamp-2 max-w-[85%]
-                    ${hasValue ? `text-lg ${activeStyle.text}` : 'text-sm text-gray-300 font-medium italic'}
+                    relative z-10 font-bold leading-tight transition-all duration-300 line-clamp-2 pr-8
+                    ${hasValue ? `text-lg ${activeStyle.text}` : 'text-md text-gray-300 font-medium italic'}
                 `}>
                     {value || placeholder}
                 </span>

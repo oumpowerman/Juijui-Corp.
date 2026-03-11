@@ -40,7 +40,7 @@ const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, agenda, onTo
                 {/* Header */}
                 <div className="px-6 py-6 border-b border-gray-100 bg-white flex justify-between items-center shrink-0 rounded-tl-[2.5rem]">
                     <div>
-                        <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                             <ListTodo className="w-6 h-6 text-indigo-600" />
                             วาระการประชุม (Agenda)
                         </h3>

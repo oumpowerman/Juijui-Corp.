@@ -193,8 +193,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
     };
 
     const handleDeleteTask = async () => {
+        console.log("handleDeleteTask called");
         const confirmed = await showConfirm('แน่ใจนะว่าจะลบงานนี้? การกระทำนี้ไม่สามารถย้อนกลับได้', 'ยืนยันการลบ');
         if (confirmed && initialData && onDelete) {
+            console.log("Delete confirmed, calling onDelete");
             onDelete(initialData.id);
             onClose();
         }

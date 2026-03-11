@@ -197,11 +197,18 @@ export interface MeetingAgendaItem {
     isCompleted: boolean;
 }
 
+export interface MeetingNoteSheet {
+    id: string;
+    title: string;
+    content: string;
+}
+
 export interface MeetingLog {
     id: string;
     title: string;
     date: Date;
     content: string;
+    sheets?: MeetingNoteSheet[];
     decisions?: string; 
     category: MeetingCategory; 
     attendees: string[];

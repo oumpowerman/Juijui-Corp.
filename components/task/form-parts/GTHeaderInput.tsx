@@ -19,7 +19,7 @@ const GTHeaderInput: React.FC<GTHeaderInputProps> = ({ title, setTitle, assignee
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-200 to-purple-200 rounded-3xl blur-xl opacity-0 group-focus-within/header:opacity-40 transition-opacity duration-700 pointer-events-none"></div>
 
             <div className="relative bg-white/80 backdrop-blur-sm p-4 rounded-[2rem] border-2 border-indigo-50 shadow-sm focus-within:border-indigo-300 focus-within:shadow-lg focus-within:shadow-indigo-100/50 transition-all duration-300">
-                <label className="block text-xs font-black text-indigo-400 mb-1 ml-2 uppercase tracking-widest flex items-center gap-1">
+                <label className="block text-xs font-bold text-indigo-400 mb-1 ml-2 uppercase tracking-widest flex items-center gap-1">
                      <Target className="w-3 h-3" /> 🎯 ชื่อภารกิจ (Mission Name) <span className="text-red-400">*</span>
                 </label>
                 
@@ -33,7 +33,7 @@ const GTHeaderInput: React.FC<GTHeaderInputProps> = ({ title, setTitle, assignee
                         value={title} 
                         onChange={(e) => setTitle(e.target.value)} 
                         className={`
-                            w-full pl-14 pr-4 py-3 bg-transparent border-none outline-none text-2xl font-black text-slate-800 placeholder:text-slate-300 placeholder:font-bold transition-all
+                            w-full pl-14 pr-4 py-3 bg-transparent border-none outline-none text-2xl font-bold text-slate-800 placeholder:text-slate-300 placeholder:font-bold transition-all
                             ${assigneeType === 'INDIVIDUAL' && suggestedTasks.length > 0 ? 'pr-14' : ''}
                         `}
                         placeholder="ตั้งชื่อภารกิจให้ปัง..." 
@@ -55,7 +55,7 @@ const GTHeaderInput: React.FC<GTHeaderInputProps> = ({ title, setTitle, assignee
 
             {/* Hint */}
             {assigneeType === 'INDIVIDUAL' && suggestedTasks.length > 0 && (
-                 <p className="text-[10px] text-indigo-300/80 mt-1.5 ml-4 font-bold">
+                 <p className="text-[12px] text-indigo-300/80 mt-1.5 ml-4 font-medium">
                     * กดปุ่มลิสต์ด้านขวา เพื่อเลือกงานตามตำแหน่งได้นะ
                  </p>
             )}

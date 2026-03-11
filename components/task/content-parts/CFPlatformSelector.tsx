@@ -25,7 +25,7 @@ const CFPlatformSelector: React.FC<CFPlatformSelectorProps> = ({
     return (
         <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <label className="block text-xs font-bold text-gray-500 mb-3 flex items-center">
+                <label className="block text-s font-bold text-gray-500 mb-3 flex items-center">
                     <MonitorPlay className="w-3.5 h-3.5 mr-1.5" /> แพลตฟอร์ม (Platforms)
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ const CFPlatformSelector: React.FC<CFPlatformSelectorProps> = ({
             {/* Published Links */}
             {targetPlatforms.length > 0 && (
                 <div className="space-y-2">
-                    <label className="block text-xs font-bold text-gray-400 ml-1">ลิงก์ผลงาน (Published Links)</label>
+                    <label className="block text-md font-medium text-gray-400 ml-1">ลิงก์ผลงาน (Published Links)</label>
                     <div className="space-y-2">
                         {targetPlatforms.map(platform => {
                             const Icon = PLATFORM_ICONS[platform as Platform];

@@ -67,7 +67,7 @@ interface ScriptStatsGridProps {
     filterTags: string[]; // NEW
     searchQuery: string; // NEW
     viewTab: 'QUEUE' | 'LIBRARY' | 'HISTORY';
-    filterStatus: string;
+    filterStatus: string[];
     refreshTrigger?: number; // NEW
     onTabChange: (tab: 'QUEUE' | 'LIBRARY' | 'HISTORY', status?: string) => void;
 }
@@ -188,7 +188,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 count={stats.library} 
                 icon={FileText} 
                 color="indigo" 
-                isActive={viewTab === 'LIBRARY' && filterStatus === 'ALL'}
+                isActive={viewTab === 'LIBRARY' && (filterStatus.includes('ALL') || filterStatus.length === 0)}
                 onClick={() => onTabChange('LIBRARY', 'ALL')}
             />
             <StatCard 
@@ -196,7 +196,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 count={stats.drafts} 
                 icon={Edit3} 
                 color="pink" 
-                isActive={viewTab === 'LIBRARY' && filterStatus === 'DRAFT'}
+                isActive={viewTab === 'LIBRARY' && filterStatus.includes('DRAFT')}
                 onClick={() => onTabChange('LIBRARY', 'DRAFT')}
             />
             <StatCard 

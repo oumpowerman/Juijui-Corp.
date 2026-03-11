@@ -8,7 +8,7 @@ export const useChatAI = (allUsers: User[], onAddTask: (task: Task) => void, isB
         if (!isBotEnabled) return;
 
         try {
-            const apiKey = process.env.API_KEY;
+            const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
                 console.warn("API Key Not Found. AI features disabled.");
                 return;

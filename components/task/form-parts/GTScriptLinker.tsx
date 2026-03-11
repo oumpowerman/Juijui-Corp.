@@ -27,7 +27,7 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
 
     // Derived Filters for Hook
     const filterOwner = filterMode === 'MINE' ? [currentUser.id] : [];
-    const filterStatus = filterMode === 'FINAL' ? 'FINAL' : 'ALL';
+    const filterStatus = filterMode === 'FINAL' ? ['FINAL'] : ['ALL'];
 
     const { scripts, fetchScripts, isLoading, totalCount } = useScripts(currentUser);
 

@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { MeetingLog, MeetingCategory, MasterOption } from '../../types';
-import { Search, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { Search, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Hash, Sparkles, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, endOfMonth, eachDayOfInterval, isToday, addMonths, isFuture, isSameDay, isSameMonth } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MeetingListSidebarProps {
     meetings: MeetingLog[];
@@ -17,7 +18,7 @@ interface MeetingListSidebarProps {
 
 type ViewTab = 'UPCOMING' | 'HISTORY';
 
-const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
+const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
     meetings, selectedId, onSelect, onDelete, searchQuery, setSearchQuery, currentUser, masterOptions
 }) => {
     // --- State ---
@@ -110,72 +111,74 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
         
         const isSelected = selectedId === meeting.id;
 
-        // Parse color for specific border ring logic if needed, or just use generic
-        // Simplify: Use colorClass directly as base
-        
         return (
-            <div 
+            <motion.div 
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
                 key={meeting.id} 
                 onClick={() => onSelect(meeting.id)}
                 className={`
-                    relative p-4 mb-3 rounded-2xl cursor-pointer transition-all duration-300 group border
+                    relative p-4 mb-4 rounded-[2rem] cursor-pointer transition-all duration-300 group border
                     ${isSelected 
-                        ? `bg-white border-indigo-400 shadow-lg scale-[1.02] z-10 ring-1 ring-indigo-100` 
-                        : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'
+                        ? `bg-white/90 backdrop-blur-md border-indigo-300 shadow-[0_15px_30px_-10px_rgba(99,102,241,0.2)] z-10 ring-4 ring-indigo-500/5` 
+                        : 'bg-white/60 backdrop-blur-sm border-white/80 hover:border-indigo-200 hover:shadow-lg shadow-sm'
                     }
                 `}
             >
                 {/* Left Accent Bar */}
-                <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${colorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
+                <div className={`absolute left-0 top-6 bottom-6 w-1.5 rounded-r-full opacity-70 ${colorClass.split(' ')[0].replace('bg-', 'bg-')}`}></div>
 
                 <div className="pl-3">
                     {/* Header: Date & Category */}
-                    <div className="flex justify-between items-center mb-2">
-                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider flex items-center gap-1.5 border ${colorClass}`}>
+                    <div className="flex justify-between items-center mb-3">
+                        <div className={`text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 border shadow-sm ${colorClass} backdrop-blur-md`}>
                             {label}
                         </div>
-                        <div className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md flex items-center">
-                            <Clock className="w-3 h-3 mr-1" />
+                        <div className="text-[9px] font-bold text-slate-400 bg-white/80 px-2 py-1 rounded-lg flex items-center shadow-sm border border-white/60">
+                            <Clock className="w-3 h-3 mr-1 text-indigo-400" />
                             {format(meeting.date, 'd MMM')}
                         </div>
                     </div>
 
                     {/* Title */}
-                    <h4 className={`font-bold text-sm mb-2 line-clamp-2 leading-snug ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                    <h4 className={`font-bold text-sm mb-3 line-clamp-2 leading-relaxed ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
                         {meeting.title || 'Untitled Meeting'}
                     </h4>
 
                     {/* Footer: Stats & Actions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                    <div className="flex items-center justify-between pt-3 border-t border-white/40">
                          <div className="flex items-center gap-2">
                             {/* Tags */}
                             {meeting.tags.length > 0 && (
-                                <span className="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium flex items-center">
+                                <span className="text-[8px] text-indigo-500 bg-indigo-50/50 px-2 py-0.5 rounded-full font-bold flex items-center border border-indigo-100/50">
                                     <Hash className="w-2.5 h-2.5 mr-0.5" />
                                     {meeting.tags[0]}
                                 </span>
                             )}
                             {/* Attendees */}
                             {meeting.attendees.length > 0 && (
-                                <div className="flex -space-x-1">
+                                <div className="flex -space-x-1.5">
                                     {meeting.attendees.slice(0,3).map((_, i) => (
-                                        <div key={i} className="w-4 h-4 rounded-full bg-gray-200 border border-white"></div>
+                                        <div key={i} className="w-5 h-5 rounded-full bg-slate-200 border-2 border-white shadow-sm"></div>
                                     ))}
-                                    {meeting.attendees.length > 3 && <div className="text-[8px] text-gray-400 ml-1">+{meeting.attendees.length - 3}</div>}
+                                    {meeting.attendees.length > 3 && <div className="text-[8px] text-slate-400 font-bold ml-2">+{meeting.attendees.length - 3}</div>}
                                 </div>
                             )}
                          </div>
 
                         <button 
                             onClick={(e) => { e.stopPropagation(); onDelete(meeting.id); }}
-                            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                            className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-rose-100"
                             title="ลบบันทึก"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         );
     };
 
@@ -185,32 +188,42 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
         .sort((a, b) => a.sortOrder - b.sortOrder);
 
     return (
-        <div className="w-80 bg-[#f8fafc] border-r border-gray-200 flex flex-col h-full shrink-0">
-            
+        <div className="w-full bg-slate-50/50 backdrop-blur-xl flex flex-col h-full shrink-0 relative overflow-hidden">
+            {/* Background Decor */}
+            <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-30">
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-200/40 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute top-1/2 -left-20 w-48 h-48 bg-purple-200/40 rounded-full blur-3xl" />
+            </div>
+
             {/* 1. Search & Filter Header */}
-            <div className="p-4 bg-white border-b border-gray-100 space-y-3 shadow-sm z-10">
-                <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+            <div className="p-3 md:p-4 bg-white/40 backdrop-blur-md border-b border-white/60 space-y-3 md:space-y-4 shadow-sm z-10">
+            <div className="relative group">
+                    <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400 group-focus-within:text-indigo-500 transition-all duration-300 z-10" />
                     <input 
                         type="text" 
                         placeholder="ค้นหาบันทึก..." 
-                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-medium"
+                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-white/60 border border-white/80 rounded-xl md:rounded-2xl text-[11px] md:text-sm focus:border-indigo-400 focus:bg-white focus:ring-4 md:focus:ring-8 focus:ring-indigo-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-inner text-center"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                     />
                 </div>
 
                 {/* Main Tabs */}
-                <div className="bg-gray-100 p-1 rounded-xl flex font-bold text-xs relative">
+                <div className="bg-slate-200/50 backdrop-blur-sm p-1 md:p-1.5 rounded-xl md:rounded-2xl flex font-medium text-[9px] font-kanit md:text-[12px] relative shadow-inner border border-white/40">
                     <button 
                         onClick={() => { setViewTab('UPCOMING'); setSelectedDate(null); }}
-                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex-1 py-2 md:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 uppercase tracking-widest relative ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-white text-indigo-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        นัดหมาย <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-500'}`}>{meetings.filter(m => isFuture(m.date) || isToday(m.date)).length}</span>
+                        <span className="relative">
+                            นัดหมาย
+                            <span className={`absolute -right-6 md:-right-7 top-1/2 -translate-y-1/2 px-1 md:px-1.5 py-0.5 rounded-full text-[7px] md:text-[8px] min-w-[16px] md:min-w-[18px] text-center ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
+                                {meetings.filter(m => isFuture(m.date) || isToday(m.date)).length}
+                            </span>
+                        </span>
                     </button>
                     <button 
                         onClick={() => { setViewTab('HISTORY'); setSelectedDate(null); }}
-                        className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-2 ${viewTab === 'HISTORY' && !selectedDate ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        className={`flex-1 py-2 md:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 uppercase tracking-widest ${viewTab === 'HISTORY' && !selectedDate ? 'bg-white text-indigo-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                         ประวัติเก่า
                     </button>
@@ -218,73 +231,102 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
             </div>
             
             {/* 2. Mini Calendar (Expandable) */}
-            <div className={`bg-white border-b border-gray-100 overflow-hidden transition-all duration-300 ${showCalendar ? 'max-h-[300px]' : 'max-h-0'}`}>
-                <div className="px-4 pb-4 pt-2">
-                    <div className="flex justify-between items-center mb-3">
-                        <button onClick={() => setCurrentNavDate(addMonths(currentNavDate, -1))} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400"><ChevronLeft className="w-4 h-4"/></button>
-                        <span className="text-sm font-black text-gray-800">{format(currentNavDate, 'MMMM yyyy')}</span>
-                        <button onClick={() => setCurrentNavDate(addMonths(currentNavDate, 1))} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400"><ChevronRight className="w-4 h-4"/></button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                        {['S','M','T','W','T','F','S'].map((d, i) => <span key={i} className="text-[9px] text-gray-400 font-bold uppercase">{d}</span>)}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                        {/* Add empty slots to align first day of month correctly */}
-                        {Array.from({ length: startOffset }).map((_, i) => (
-                            <div key={`empty-${i}`} />
-                        ))}
-                        {daysInMonth.map(day => {
-                            const dateStr = format(day, 'yyyy-MM-dd');
-                            const hasMeeting = meetingDays.has(dateStr);
-                            const isSelected = selectedDate && isSameDay(day, selectedDate);
-                            const isCurrent = isToday(day);
+            <AnimatePresence>
+                {showCalendar && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-white/40 backdrop-blur-md border-b border-white/60 overflow-hidden z-20"
+                    >
+                        <div className="px-3 md:px-4 pb-3 md:pb-4 pt-2 md:pt-3">
+                            <div className="flex justify-between items-center mb-3 md:mb-4">
+                                <button onClick={() => setCurrentNavDate(addMonths(currentNavDate, -1))} className="p-1.5 md:p-2 hover:bg-white/80 rounded-lg md:rounded-xl text-slate-400 transition-all active:scale-90 shadow-sm border border-white/60"><ChevronLeft className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
+                                <span className="text-xs md:text-sm font-bold text-slate-800 tracking-tight">{format(currentNavDate, 'MMMM yyyy')}</span>
+                                <button onClick={() => setCurrentNavDate(addMonths(currentNavDate, 1))} className="p-1.5 md:p-2 hover:bg-white/80 rounded-lg md:rounded-xl text-slate-400 transition-all active:scale-90 shadow-sm border border-white/60"><ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-0.5 md:gap-1 text-center mb-1 md:mb-2 max-w-[240px] md:max-w-[260px] mx-auto">
+                                {['S','M','T','W','T','F','S'].map((d, i) => (
+                                    <span key={i} className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center justify-center h-6 md:h-8">
+                                        {d}
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-0.5 md:gap-1 justify-items-center max-w-[240px] md:max-w-[260px] mx-auto">
+                                {Array.from({ length: startOffset }).map((_, i) => (
+                                    <div key={`empty-${i}`} className="h-7 w-7 md:h-9 md:w-9" />
+                                ))}
+                                {daysInMonth.map(day => {
+                                    const dateStr = format(day, 'yyyy-MM-dd');
+                                    const hasMeeting = meetingDays.has(dateStr);
+                                    const isSelected = selectedDate && isSameDay(day, selectedDate);
+                                    const isCurrent = isToday(day);
 
-                            return (
-                                <button
-                                    key={day.toString()}
-                                    onClick={() => setSelectedDate(isSelected ? null : day)}
-                                    className={`
-                                        h-8 rounded-xl text-xs font-medium flex items-center justify-center relative transition-all
-                                        ${isSelected ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'hover:bg-gray-50 text-gray-600'}
-                                        ${!isSameMonth(day, currentNavDate) ? 'opacity-20' : ''}
-                                        ${isCurrent && !isSelected ? 'text-indigo-600 font-bold border border-indigo-100 bg-indigo-50' : ''}
-                                    `}
-                                >
-                                    {format(day, 'd')}
-                                    {hasMeeting && !isSelected && (
-                                        <div className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-400"></div>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
+                                    return (
+                                        <motion.button
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            key={day.toString()}
+                                            onClick={() => {
+                                                setSelectedDate(isSelected ? null : day);
+                                                if (!isSelected) setShowCalendar(false); // Auto-hide on select
+                                            }}
+                                            className={`
+                                                h-7 w-7 md:h-9 md:w-9 rounded-lg md:rounded-2xl text-[10px] md:text-xs font-bold flex items-center justify-center relative transition-all duration-300
+                                                ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110 z-10' : 'hover:bg-white/80 text-slate-600 border border-transparent hover:border-white/80'}
+                                                ${!isSameMonth(day, currentNavDate) ? 'opacity-20' : ''}
+                                                ${isCurrent && !isSelected ? 'text-indigo-600 font-bold border-2 border-indigo-100 bg-indigo-50/50' : ''}
+                                            `}
+                                        >
+                                            {format(day, 'd')}
+                                            {hasMeeting && !isSelected && (
+                                                <div className="absolute bottom-1 w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.6)]"></div>
+                                            )}
+                                        </motion.button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Calendar Toggle Bar */}
             <button 
                 onClick={() => setShowCalendar(!showCalendar)}
-                className="w-full py-1.5 flex items-center justify-center bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-400 hover:text-indigo-500 hover:bg-indigo-50/50 transition-colors"
+                className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-md border-b border-white/60 font-kanit text-[12px] font-bold text-indigo-600 hover:text-indigo-700 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-pink-500/20 transition-all duration-500 uppercase tracking-[0.2em] group shadow-sm"
             >
-                {showCalendar ? 'ซ่อนปฏิทิน' : 'แสดงปฏิทิน'}
+                {showCalendar ? (
+                    <>
+                        <ChevronUp className="w-3 h-3 group-hover:-translate-y-0.5 transition-transform" />
+                        ซ่อนปฏิทิน
+                        <ChevronUp className="w-3 h-3 group-hover:-translate-y-0.5 transition-transform" />
+                    </>
+                ) : (
+                    <>
+                        <ChevronDown className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
+                        แสดงปฏิทิน
+                        <ChevronDown className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
+                    </>
+                )}
             </button>
 
             {/* 3. Category Filter Chips (Dynamic) */}
-            <div className="px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
+            <div className="px-3 md:px-4 py-3 md:py-4 flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide bg-white/20 backdrop-blur-md border-b border-white/60 shadow-sm sticky top-0 z-10">
                 <button 
                     onClick={() => setFilterCategory('ALL')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap border transition-all ${filterCategory === 'ALL' ? 'bg-gray-800 text-white border-gray-800 shadow' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === 'ALL' ? 'bg-slate-800 text-white border-slate-800 shadow-lg scale-105' : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
                 >
                     ทั้งหมด
                 </button>
                 {categoryOptions.map(opt => {
-                    const activeClass = `${opt.color} shadow-sm`;
+                    const activeClass = `${opt.color} shadow-lg scale-105 border-transparent`;
                     
                     return (
                         <button
                             key={opt.key}
                             onClick={() => setFilterCategory(opt.key)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap border transition-all ${filterCategory === opt.key ? activeClass : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}
+                            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === opt.key ? activeClass : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
                         >
                             {opt.label.split('(')[0]}
                         </button>
@@ -293,50 +335,68 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = ({
             </div>
             
             {/* 4. Scrollable List Area */}
-            <div className="flex-1 overflow-y-auto p-3 bg-[#f8fafc]">
-                {filteredMeetings.length === 0 ? (
-                    <div className="text-center py-16 flex flex-col items-center">
-                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-100">
-                            <CalendarIcon className="w-8 h-8 text-gray-300" />
-                        </div>
-                        <h4 className="text-gray-500 font-bold text-sm">ไม่พบการประชุม</h4>
-                        {viewTab === 'UPCOMING' && <p className="text-xs text-gray-400 mt-1">กด + ด้านบนเพื่อเริ่มนัดหมาย</p>}
-                    </div>
-                ) : (
-                    <>
-                        {groupedMeetings ? (
-                            // Grouped View (For History)
-                            Object.keys(groupedMeetings).map(group => (
-                                <div key={group} className="mb-6">
-                                    <div className="flex items-center gap-2 mb-3 px-1">
-                                        <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{group}</span>
-                                        <div className="h-px bg-gray-200 flex-1"></div>
-                                    </div>
-                                    <div>
-                                        {groupedMeetings[group].map(m => renderMeetingItem(m))}
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            // Flat View (For Upcoming or Single Date)
-                            <div className="space-y-1">
-                                {selectedDate && (
-                                    <div className="flex justify-between items-center mb-3 px-2">
-                                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                                            Filter: {format(selectedDate, 'd MMM yyyy')}
-                                        </span>
-                                        <button onClick={() => setSelectedDate(null)} className="text-[10px] text-gray-400 hover:text-red-500 underline">Clear</button>
-                                    </div>
-                                )}
-                                {filteredMeetings.map(m => renderMeetingItem(m))}
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-200/50">
+                <AnimatePresence mode="popLayout">
+                    {filteredMeetings.length === 0 ? (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="text-center py-20 flex flex-col items-center"
+                        >
+                            <div className="w-20 h-20 bg-white/60 backdrop-blur-md rounded-[2rem] flex items-center justify-center shadow-lg mb-6 border border-white/80">
+                                <CalendarIcon className="w-10 h-10 text-slate-200" />
                             </div>
-                        )}
-                    </>
-                )}
+                            <h4 className="text-slate-500 font-bold text-sm">ไม่พบการประชุม</h4>
+                            {viewTab === 'UPCOMING' && <p className="text-xs text-slate-400 mt-2 font-medium">กด + ด้านบนเพื่อเริ่มนัดหมาย</p>}
+                        </motion.div>
+                    ) : (
+                        <div className="space-y-2">
+                            {selectedDate && (
+                                <motion.div 
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="flex justify-between items-center mb-5 px-2"
+                                >
+                                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm flex items-center gap-2">
+                                        <Filter className="w-3 h-3" />
+                                        {format(selectedDate, 'd MMM yyyy')}
+                                    </span>
+                                    <button 
+                                        onClick={() => setSelectedDate(null)} 
+                                        className="text-[10px] font-bold text-slate-300 hover:text-rose-500 transition-colors uppercase tracking-widest flex items-center gap-1"
+                                    >
+                                        <X className="w-3 h-3" /> ล้าง
+                                    </button>
+                                </motion.div>
+                            )}
+                            
+                            {groupedMeetings ? (
+                                // Grouped View (For History)
+                                Object.keys(groupedMeetings).map(group => (
+                                    <div key={group} className="mb-8">
+                                        <div className="flex items-center gap-3 mb-4 px-2">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-200 shadow-[0_0_8px_rgba(199,210,254,0.8)]"></div>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{group}</span>
+                                            <div className="h-px bg-slate-200/50 flex-1"></div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {groupedMeetings[group].map(m => renderMeetingItem(m))}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                // Flat View (For Upcoming or Single Date)
+                                <div className="space-y-1">
+                                    {filteredMeetings.map(m => renderMeetingItem(m))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );
-};
+});
 
 export default MeetingListSidebar;

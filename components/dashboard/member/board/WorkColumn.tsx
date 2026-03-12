@@ -74,7 +74,7 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
     };
 
     const renderEmptyState = () => {
-        const style = "text-center py-12 text-[10px] font-bold border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-3 h-full min-h-[180px] transition-all duration-300";
+        const style = "text-center py-12 text-[14px] font-kanit font-medium border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-3 h-full min-h-[180px] transition-all duration-300";
         
         if (type === 'TODO') return (
             <div className={`${style} border-slate-200 text-slate-400 bg-slate-50/30`}>
@@ -131,13 +131,13 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
         >
             {/* Header */}
             <div className={`flex items-center justify-between mb-5 p-3.5 rounded-2xl border ${headerConfig.border} ${headerConfig.bg} backdrop-blur-md shadow-sm`}>
-                <div className={`flex items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.15em] ${headerConfig.text}`}>
+                <div className={`flex items-center gap-2.5 text-[14px] font-kanit font-bold uppercase tracking-[0.15em] ${headerConfig.text}`}>
                     <div className={`p-1.5 rounded-lg text-white ${headerConfig.accent} shadow-sm`}>
                         {headerConfig.icon}
                     </div>
                     {headerConfig.title}
                 </div>
-                <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl shadow-sm border transition-all duration-300 ${badgeColor}`}>
+                <span className={`text-[14px] font-black px-2.5 py-1 rounded-xl shadow-sm border transition-all duration-300 ${badgeColor}`}>
                     {tasks.length}
                 </span>
             </div>
@@ -167,7 +167,7 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
                 {(tasks.length > DISPLAY_LIMIT || type === 'DONE') && onViewAll && (
                     <button 
                         onClick={onViewAll} 
-                        className={`w-full py-3.5 text-[10px] font-black mt-2 border-t transition-all rounded-2xl uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] ${
+                        className={`w-full py-3.5 text-[12px] font-black mt-2 border-t transition-all rounded-2xl uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] ${
                             type === 'WAITING' ? 'text-amber-600 hover:bg-amber-500 hover:text-white border-amber-100 bg-amber-50/50' :
                             type === 'DONE' ? 'text-emerald-600 hover:bg-emerald-500 hover:text-white border-emerald-100 bg-emerald-50/50' :
                             'text-slate-500 hover:bg-slate-500 hover:text-white border-slate-100 bg-slate-50/50'

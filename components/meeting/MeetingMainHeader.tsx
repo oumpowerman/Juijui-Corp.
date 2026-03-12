@@ -20,7 +20,7 @@ const MeetingMainHeader: React.FC<MeetingMainHeaderProps> = ({ onInfoOpen, onCre
                     <Coffee className="w-6 h-6 md:w-8 md:h-8" />
                 </motion.div>
                 <div>
-                    <h1 className="text-xl md:text-3xl font-black text-gray-800 tracking-tight flex items-center">
+                    <h1 className="text-xl md:text-3xl font-bold text-gray-800 tracking-tight flex items-center">
                         Meeting Room
                         <span className="ml-2 text-lg md:text-2xl animate-bounce">💬</span>
                     </h1>

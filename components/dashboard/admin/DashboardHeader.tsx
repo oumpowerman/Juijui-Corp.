@@ -56,7 +56,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         <motion.h1 
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            className="text-4xl font-black text-slate-800 tracking-tighter flex items-center"
+                            className="text-4xl font-bold text-slate-800 tracking-tighter flex items-center"
                         >
                             ยินดีต้อนรับ, {currentUser.name.split(' ')[0]}! 
                             <motion.span 
@@ -74,7 +74,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.5 }}
-                                className="text-sm font-bold text-indigo-500/80 mt-2 flex items-center italic"
+                                className="text-sm font-kanit font-bold text-indigo-500/80 mt-2 flex items-center italic"
                             >
                                 <Sparkles className="w-4 h-4 mr-2 text-amber-400 animate-pulse" />
                                 "{randomGreeting}"

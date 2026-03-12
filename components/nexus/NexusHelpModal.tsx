@@ -185,7 +185,7 @@ const NexusHelpModal: React.FC<NexusHelpModalProps> = ({ isOpen, onClose }) => {
                                     )}
                                 </AnimatePresence>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                                    <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
                                         {selectedTopic ? helpItems.find(t => t.id === selectedTopic)?.title : 'ศูนย์ช่วยเหลือ'}
                                     </h3>
                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
@@ -238,7 +238,7 @@ const NexusHelpModal: React.FC<NexusHelpModalProps> = ({ isOpen, onClose }) => {
                                             <div className="relative z-10 space-y-2">
                                                 <h4 className="text-lg font-black tracking-tight">ต้องการความช่วยเหลือ?</h4>
                                                 <p className="text-xs text-indigo-100 font-medium">ทีมงานของเราพร้อมช่วยเหลือคุณตลอด 24 ชั่วโมง หากมีปัญหาในการใช้งาน</p>
-                                                <button className="mt-2 px-6 py-2.5 bg-white text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 transition-colors">
+                                                <button className="mt-2 px-6 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-[12px] uppercase tracking-widest hover:bg-indigo-50 transition-colors">
                                                     ติดต่อเรา
                                                 </button>
                                             </div>
@@ -255,7 +255,7 @@ const NexusHelpModal: React.FC<NexusHelpModalProps> = ({ isOpen, onClose }) => {
                         <div className="p-8 bg-slate-50/50 border-t border-slate-100 shrink-0">
                             <button 
                                 onClick={onClose}
-                                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 active:scale-95 transition-all"
+                                className="w-full py-4 bg-slate-100 font-kanit text-slate-500 rounded-2xl font-medium text-md uppercase tracking-widest hover:bg-slate-200 active:scale-95 transition-all"
                             >
                                 ปิดหน้าต่าง
                             </button>

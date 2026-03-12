@@ -304,8 +304,8 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
     });
 
     return (
-        <AppBackground theme={currentTheme} pattern="dots">
-            <div className="min-h-screen p-4 md:p-8">
+        <AppBackground theme={currentTheme} pattern="dots" className={onNavigateMode ? 'min-h-full' : 'min-h-screen'}>
+            <div className={`${onNavigateMode ? 'min-h-full' : 'min-h-screen'} p-4 md:p-8`}>
                 <div className="max-w-7xl mx-auto">
                     {/* Header Section */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
@@ -324,7 +324,7 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
                                     <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
                                         <Share2 className="w-6 h-6 text-white" />
                                     </div>
-                                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Nexus Hub</h1>
+                                    <h1 className="text-4xl font-bold text-slate-900 tracking-tighter">Nexus Hub</h1>
                                 </div>
                             </div>
                             <p className="text-slate-500 font-medium max-w-md">
@@ -398,8 +398,8 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
                             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
                                 <Sparkles className="w-10 h-10 text-slate-300" />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">ไม่พบการเชื่อมต่อ</h3>
-                            <p className="text-slate-500 font-medium max-w-xs mx-auto">
+                            <h3 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">ไม่พบการเชื่อมต่อ</h3>
+                            <p className="text-slate-500 font-kanit font-medium max-w-xs mx-auto">
                                 เริ่มต้นด้วยการวางลิงก์ด้านบนเพื่อเชื่อมต่อเครื่องมือภายนอกของคุณเข้ากับ Nexus
                             </p>
                         </motion.div>
@@ -409,13 +409,13 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
                     <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-6">
                             <div className="flex flex-col">
-                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
+                                <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
                                 <span className="text-xl font-bold text-slate-800">{integrations.length}</span>
                             </div>
                             <div className="w-px h-8 bg-slate-100" />
                             <div className="flex flex-col">
-                                <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
-                                <span className="text-xl font-bold text-slate-800">เมื่อครู่</span>
+                                <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
+                                <span className="text-xl font-kanit font-bold text-slate-800">เมื่อครู่</span>
                             </div>
                         </div>
                         

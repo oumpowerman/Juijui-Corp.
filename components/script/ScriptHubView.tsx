@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Script, MasterOption, ScriptSummary, Task } from '../../types';
 import { useScripts } from '../../hooks/useScripts';
 import { useChannels } from '../../hooks/useChannels';
@@ -41,7 +41,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
 
     // UI State
     const [activeScript, setActiveScript] = useState<Script | null>(null);
-    const [viewTab, setViewTab] = useState<'QUEUE' | 'LIBRARY' | 'HISTORY'>('QUEUE');
+    const [viewTab, setViewTab] = useState<'QUEUE' | 'LIBRARY' | 'HISTORY'>('LIBRARY');
     const [layoutMode, setLayoutMode] = useState<'GRID' | 'LIST'>('LIST'); 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
@@ -190,13 +190,13 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     };
     
     // --- PROMOTE LOGIC ---
-    const handlePromoteClick = (scriptId: string) => {
-        // We need the full script data (which we have in activeScript)
-        if (activeScript && activeScript.id === scriptId) {
+    const handlePromoteClick = useCallback((scriptId: string) => {
+        // Use the latest activeScript from state directly
+        if (activeScript) {
             setPromoteScriptData(activeScript);
             setIsPromoteModalOpen(true);
         }
-    };
+    }, [activeScript]);
 
     const handlePromoteSubmit = async (contentTask: Task) => {
         if (!promoteScriptData) return;
@@ -257,11 +257,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 
                 {/* Promote Modal Overlay */}
                 {isPromoteModalOpen && promoteScriptData && createPortal(
-                     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                     <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                         <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
                              <div className="px-8 py-5 border-b border-gray-100 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex justify-between items-center">
                                  <div>
-                                     <h3 className="text-xl font-black flex items-center gap-2">🚀 ส่งเข้าผลิต (Promote to Content)</h3>
+                                     <h3 className="text-xl font-bold flex items-center gap-2">🚀 ส่งเข้าผลิต (Promote to Content)</h3>
                                      <p className="text-sm text-orange-100">แปลงสคริปต์เป็นงานจริงในระบบ</p>
                                  </div>
                                  <button onClick={() => setIsPromoteModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
@@ -270,21 +270,14 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                              <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
                                  <ContentForm 
                                     // Pre-fill data from Script
-                                    initialData={{ 
-                                        type: 'CONTENT', 
-                                        title: promoteScriptData.title,
-                                        channelId: promoteScriptData.channelId,
-                                        category: promoteScriptData.category,
-                                        description: `Script Link: ${promoteScriptData.title}`, // Optional: Add context
-                                        // Default fields will be handled by useContentForm
-                                    } as any}
+                                    initialData={null}
+                                    sourceScript={promoteScriptData}
                                     channels={channels}
                                     users={users}
                                     masterOptions={masterOptions}
                                     currentUser={currentUser}
                                     onSave={handlePromoteSubmit}
                                     onClose={() => setIsPromoteModalOpen(false)}
-                                    // Hide Delete button
                                  />
                              </div>
                         </div>

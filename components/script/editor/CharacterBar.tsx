@@ -33,7 +33,7 @@ const CharacterBar: React.FC = () => {
                             handleInsertCharacter(char);
                         }}
                         className={`
-                            group relative px-4 py-2 text-xs font-black rounded-2xl transition-all duration-300 border-2 shadow-sm
+                            group relative px-4 py-2 text-sm font-kanit font-mediumsc rounded-2xl transition-all duration-300 border-2 shadow-sm
                             ${colorClass}
                             hover:scale-105 active:scale-95 active:rotate-2
                         `}
@@ -46,7 +46,7 @@ const CharacterBar: React.FC = () => {
             
             {/* Visual separator/adder hint (Functional via Config) */}
              <div className="w-px h-6 bg-gray-200 mx-1 shrink-0"></div>
-             <span className="text-[10px] text-gray-300 font-medium italic shrink-0">
+             <span className="text-[12px] text-gray-300 font-medium italic shrink-0">
                 Manage in <span className="font-bold">Settings ⚙️</span>
              </span>
         </div>

@@ -73,6 +73,8 @@ interface ScriptContextType {
     setIsChatPreviewOpen: (val: boolean) => void;
     isAIOpen: boolean;
     setIsAIOpen: (val: boolean) => void;
+    isFindReplaceOpen: boolean;
+    setIsFindReplaceOpen: (val: boolean) => void;
     isGenerating: boolean;
     setIsGenerating: (val: boolean) => void;
     isMetadataOpen: boolean;
@@ -176,6 +178,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
     const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
     const [isAIOpen, setIsAIOpen] = useState(false);
+    const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
     const [isMetadataOpen, setIsMetadataOpen] = useState(false);
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
@@ -535,6 +538,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isTeleprompterOpen, setIsTeleprompterOpen,
             isChatPreviewOpen, setIsChatPreviewOpen,
             isAIOpen, setIsAIOpen,
+            isFindReplaceOpen, setIsFindReplaceOpen,
             isGenerating, setIsGenerating,
             isMetadataOpen, setIsMetadataOpen,
             isCommentsOpen, setIsCommentsOpen,

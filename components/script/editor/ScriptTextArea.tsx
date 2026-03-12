@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useScriptContext } from '../core/ScriptContext';
 import RichTextEditor from '../../ui/RichTextEditor';
 import CharacterBar from './CharacterBar';
+import FindReplaceBar from '../tools/FindReplaceBar';
 import { MessageSquarePlus, Eye, Radio } from 'lucide-react';
 import { CommentMark } from './CommentExtension';
 
@@ -11,13 +12,199 @@ const ScriptTextArea: React.FC = () => {
         content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, zoomLevel,
         addComment, scrollToComment, editorInstance, 
         sendLiveUpdate, liveContent, isBroadcastConnected,
-        isAutoCharacter, characters, isFocusMode
+        isAutoCharacter, characters, isFocusMode,
+        isFindReplaceOpen, setIsFindReplaceOpen
     } = useScriptContext();
+
+    const [matchCount, setMatchCount] = useState({ current: 0, total: 0 });
+    const [lastSearch, setLastSearch] = useState('');
+    const [searchIndices, setSearchIndices] = useState<number[]>([]);
+
+    const handleFind = (query: string, direction: 'next' | 'prev' = 'next') => {
+        if (!editorInstance) return;
+
+        // Trigger visual highlighting in the editor
+        // @ts-ignore
+        editorInstance.commands.setSearchTerm(query);
+
+        if (!query) {
+            setMatchCount({ current: 0, total: 0 });
+            setSearchIndices([]);
+            return;
+        }
+
+        const doc = editorInstance.state.doc;
+        const text = doc.textBetween(0, doc.content.size, '\n');
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        const indices: number[] = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            // We need to map text index to prosemirror position
+            // This is tricky because of HTML tags. 
+            // A simpler way for now is to use the editor's search if available or just jump to text.
+            // Tiptap doesn't have a built-in search command in StarterKit.
+            indices.push(match.index);
+        }
+
+        setSearchIndices(indices);
+        setMatchCount(prev => ({ ...prev, total: indices.length }));
+
+        if (indices.length === 0) {
+            setMatchCount({ current: 0, total: 0 });
+            return;
+        }
+
+        // Find next/prev index relative to current selection
+        const { from } = editorInstance.state.selection;
+        // This mapping is still hard. Let's use a more robust way:
+        // Iterate through the document nodes to find text matches.
+        
+        let targetIndex = 0;
+        if (query === lastSearch) {
+            if (direction === 'next') {
+                targetIndex = (matchCount.current % indices.length);
+            } else {
+                targetIndex = (matchCount.current - 2 + indices.length) % indices.length;
+            }
+        }
+        
+        setMatchCount(prev => ({ ...prev, current: targetIndex + 1 }));
+        setLastSearch(query);
+
+        // For now, let's use a simpler "Find" that just selects the next occurrence of text
+        // using the editor's built-in text search capabilities if we can find them.
+        // Since we don't have a search extension, we'll do a manual search through the doc.
+        
+        let found = false;
+        let count = 0;
+        doc.descendants((node, pos) => {
+            if (found) return false;
+            if (node.isText && node.text) {
+                const start = node.text.toLowerCase().indexOf(query.toLowerCase());
+                if (start !== -1) {
+                    // This is still not perfect for "next/prev" but it's a start
+                    // To handle next/prev correctly we'd need to track which one we are on.
+                }
+            }
+        });
+
+        // BETTER APPROACH: Use a simple "Replace All" and "Find Next" logic
+        // For "Find Next", we can use the browser's window.find() as a fallback or 
+        // implement a proper Prosemirror search.
+        
+        // Let's implement a basic Prosemirror search:
+        let occurrences: { from: number, to: number }[] = [];
+        doc.descendants((node, pos) => {
+            if (node.isText && node.text) {
+                const m = node.text.matchAll(regex);
+                for (const match of m) {
+                    if (match.index !== undefined) {
+                        occurrences.push({
+                            from: pos + match.index,
+                            to: pos + match.index + match[0].length
+                        });
+                    }
+                }
+            }
+        });
+
+        if (occurrences.length > 0) {
+            setMatchCount(prev => ({ ...prev, total: occurrences.length }));
+            
+            let nextIdx = 0;
+            if (query === lastSearch) {
+                if (direction === 'next') {
+                    nextIdx = occurrences.findIndex(o => o.from > from);
+                    if (nextIdx === -1) nextIdx = 0;
+                } else {
+                    // Find previous: last one that is before 'from'
+                    for (let i = occurrences.length - 1; i >= 0; i--) {
+                        if (occurrences[i].from < from) {
+                            nextIdx = i;
+                            break;
+                        }
+                        if (i === 0) nextIdx = occurrences.length - 1;
+                    }
+                }
+            } else {
+                nextIdx = occurrences.findIndex(o => o.from >= from);
+                if (nextIdx === -1) nextIdx = 0;
+            }
+
+            const target = occurrences[nextIdx];
+            editorInstance.chain()
+                .focus()
+                .setTextSelection({ from: target.from, to: target.to })
+                .scrollIntoView()
+                .run();
+                
+            setMatchCount({ current: nextIdx + 1, total: occurrences.length });
+        } else {
+            setMatchCount({ current: 0, total: 0 });
+        }
+    };
+
+    const handleReplace = (find: string, replace: string) => {
+        if (!editorInstance || !find) return;
+        
+        const { from, to } = editorInstance.state.selection;
+        const selectedText = editorInstance.state.doc.textBetween(from, to);
+        
+        if (selectedText.toLowerCase() === find.toLowerCase()) {
+            editorInstance.chain().focus().insertContentAt({ from, to }, replace).run();
+            handleFind(find, 'next'); // Move to next
+        } else {
+            handleFind(find, 'next'); // Just find if not selected
+        }
+    };
+
+    const handleReplaceAll = (find: string, replace: string) => {
+        if (!editorInstance || !find) return;
+
+        const regex = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        let doc = editorInstance.state.doc;
+        let occurrences: { from: number, to: number }[] = [];
+        
+        doc.descendants((node, pos) => {
+            if (node.isText && node.text) {
+                const m = node.text.matchAll(regex);
+                for (const match of m) {
+                    if (match.index !== undefined) {
+                        occurrences.push({
+                            from: pos + match.index,
+                            to: pos + match.index + match[0].length
+                        });
+                    }
+                }
+            }
+        });
+
+        if (occurrences.length > 0) {
+            // Replace from back to front to keep positions valid
+            const chain = editorInstance.chain().focus();
+            for (let i = occurrences.length - 1; i >= 0; i--) {
+                chain.insertContentAt({ from: occurrences[i].from, to: occurrences[i].to }, replace);
+            }
+            chain.run();
+            setMatchCount({ current: 0, total: 0 });
+        }
+    };
 
     const lastCharIndexRef = useRef<number>(-1);
 
     const handleKeyDown = (view: any, event: KeyboardEvent) => {
-        if (!isAutoCharacter || isReadOnly || !editorInstance) return false;
+        if (isReadOnly || !editorInstance) return false;
+
+        // Handle Tab key
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            // Insert 4 spaces for indentation
+            editorInstance.chain().focus().insertContent('    ').run();
+            return true;
+        }
+
+        if (!isAutoCharacter) return false;
 
         if (event.key === 'Enter') {
             // Shift + Enter = Normal Newline
@@ -162,6 +349,22 @@ const ScriptTextArea: React.FC = () => {
                     )}
                 </div>
             )}
+
+            {/* Find & Replace Bar */}
+            <FindReplaceBar 
+                isOpen={isFindReplaceOpen}
+                onClose={() => {
+                    setIsFindReplaceOpen(false);
+                    if (editorInstance) {
+                        // @ts-ignore
+                        editorInstance.commands.setSearchTerm('');
+                    }
+                }}
+                onFind={handleFind}
+                onReplace={handleReplace}
+                onReplaceAll={handleReplaceAll}
+                matchCount={matchCount}
+            />
 
             {/* Dot Grid Pattern Background (Fixed behind) */}
             <div className="absolute inset-0 opacity-[0.3] pointer-events-none z-0" 

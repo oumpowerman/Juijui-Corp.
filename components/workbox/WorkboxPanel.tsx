@@ -85,10 +85,10 @@ const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUse
                                     </div>
                                 )}
                                 <div>
-                                    <h2 className="text-xl font-black text-gray-800">
+                                    <h2 className="text-[22px] font-bold text-gray-800">
                                         {selectedItemId ? 'รายละเอียดงาน' : 'WorkBox'}
                                     </h2>
-                                    <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">
+                                    <p className="text-sm font-kanit font-bold text-indigo-500 uppercase tracking-wider">
                                         {selectedItemId ? 'แก้ไขข้อมูลเพิ่มเติม' : 'กล่องเก็บงานชั่วคราว'}
                                     </p>
                                 </div>

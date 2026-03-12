@@ -15,6 +15,7 @@ import EditorLinkModal from '../EditorLinkModal';
 import { FontSize } from './FontSizeExtension';
 import { FontWeight } from './FontWeightExtension';
 import { DrawingExtension } from './DrawingExtension';
+import { SearchHighlightExtension } from './SearchHighlightExtension';
 import RichTextToolbar from './RichTextToolbar';
 
 export interface RichTextEditorProps {
@@ -77,6 +78,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             FontWeight,
             FontFamily,
             DrawingExtension,
+            SearchHighlightExtension,
             ResizableImage.configure({
                 allowBase64: true,
             }),
@@ -104,15 +106,69 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         },
         editorProps: {
             attributes: {
-                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-indigo-600 [&_a]:underline [&_a]:cursor-pointer`,
+                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} whitespace-pre-wrap [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_a]:text-indigo-600 [&_a]:underline [&_a]:cursor-pointer [&_p:empty]:min-h-[1em] [&_p:empty]:mb-4 [&_p>br:only-child]:min-h-[1em]`,
                 style: `min-height: ${minHeight}; outline: none;`,
             },
             handleKeyDown: (view, event) => {
-                if (event.key === 'Tab') {
-                    return false; 
-                }
                 if (onKeyDown) {
-                    return onKeyDown(view, event) as any;
+                    const result = onKeyDown(view, event);
+                    if (result === true) return true;
+                }
+                
+                if (event.key === 'Tab') {
+                    event.preventDefault();
+                    if (!editor) return true;
+
+                    const isList = editor.isActive('bulletList') || editor.isActive('orderedList');
+                    
+                    if (isList) {
+                        let handled = false;
+                        if (event.shiftKey) {
+                            handled = editor.chain().focus().liftListItem('listItem').run();
+                        } else {
+                            // Try normal sink first
+                            handled = editor.chain().focus().sinkListItem('listItem').run();
+                            
+                            // If sink failed (likely first item), we force indent by wrapping in another list
+                            if (!handled) {
+                                handled = editor.chain().focus().wrapInList(editor.isActive('bulletList') ? 'bulletList' : 'orderedList').run();
+                            }
+                        }
+                        
+                        if (handled) return true;
+                        
+                        // Fallback to spaces only if structural indent is impossible
+                        if (!event.shiftKey) {
+                            editor.chain().focus().insertContent('    ').run();
+                        }
+                    } else {
+                        // Normal text: Insert 4 spaces
+                        editor.chain().focus().insertContent('    ').run();
+                    }
+                    return true;
+                }
+
+                if (event.key === 'Backspace') {
+                    if (editor && !editor.isActive('bulletList') && !editor.isActive('orderedList')) {
+                        const { selection } = view.state;
+                        if (selection.empty) {
+                            const { $from } = selection;
+                            const pos = $from.pos;
+                            // Smart Backspace: If there are 4 spaces before cursor, delete them all at once
+                            if (pos >= 4) {
+                                try {
+                                    const textBefore = view.state.doc.textBetween(pos - 4, pos);
+                                    if (textBefore === '    ') {
+                                        event.preventDefault();
+                                        editor.chain().focus().deleteRange({ from: pos - 4, to: pos }).run();
+                                        return true;
+                                    }
+                                } catch (e) {
+                                    // Fallback for safety
+                                }
+                            }
+                        }
+                    }
                 }
                 return false;
             },

@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { Task } from '../types';
 
@@ -139,9 +140,9 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 };
                 const dbKey = sortKeyMap[sortConfig.key] || 'created_at';
                 
-                // Special handling: Only group by is_unscheduled when explicitly sorting by date columns
-                const isDateSort = sortConfig.key === 'publishDate' || sortConfig.key === 'date' || sortConfig.key === 'shootDate';
-                if (isDateSort) {
+                // Special handling: Only group by is_unscheduled when explicitly sorting by publish date columns
+                const isPublishDateSort = sortConfig.key === 'publishDate' || sortConfig.key === 'date';
+                if (isPublishDateSort) {
                     query = query.order('is_unscheduled', { ascending: true });
                 }
 
@@ -218,7 +219,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
         // Shoot Date Range Match
         if (task.shootDate) {
-             const taskShootStr = task.shootDate.toISOString().split('T')[0];
+             const taskShootStr = format(task.shootDate, 'yyyy-MM-dd');
              if (currentFilters.shootDateStart && taskShootStr < currentFilters.shootDateStart) return false;
              if (currentFilters.shootDateEnd && taskShootStr > currentFilters.shootDateEnd) return false;
         } else {

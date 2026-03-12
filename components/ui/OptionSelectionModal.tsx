@@ -61,13 +61,13 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 relative border-4 border-white">
                 
                 {/* Header */}
                 <div className={`px-8 py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
                     <div>
-                        <h3 className={`text-2xl font-black tracking-tight ${theme.text}`}>{title}</h3>
+                        <h3 className={`text-2xl font-bold tracking-tight ${theme.text}`}>{title}</h3>
                         <p className="text-gray-500 text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors text-gray-500 shadow-sm">
@@ -97,7 +97,7 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
                                         {isSelected && <div className={`p-1 rounded-full ${theme.activeBg} ${theme.text}`}><Check className="w-3 h-3 stroke-[4px]" /></div>}
                                     </div>
                                     
-                                    <h4 className={`font-black text-lg leading-tight mb-1 ${isSelected ? theme.text : 'text-gray-700'}`}>
+                                    <h4 className={`font-bold text-lg leading-tight mb-1 ${isSelected ? theme.text : 'text-gray-700'}`}>
                                         {option.label}
                                     </h4>
                                     

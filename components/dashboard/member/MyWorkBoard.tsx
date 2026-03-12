@@ -121,7 +121,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                             <Layers className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-black text-slate-800 tracking-tight leading-none">กระดานงานของฉัน</h3>
+                            <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-none">กระดานงานของฉัน</h3>
                             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">My Personal Work Board</p>
                         </div>
                     </div>

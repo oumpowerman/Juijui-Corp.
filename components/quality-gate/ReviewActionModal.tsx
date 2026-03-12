@@ -195,7 +195,7 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
                             <div className="relative">
                                 <MessageSquare className="absolute top-3 left-3 w-4 h-4 text-gray-400" />
                                 <textarea 
-                                    className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-300 outline-none text-sm min-h-[120px] resize-none"
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-100 focus:border-red-300 outline-none text-sm text-gray-800 min-h-[120px] resize-none"
                                     placeholder="เช่น เสียงเบาไปนิด, สีเพี้ยนช่วงนาทีที่ 2..."
                                     value={feedback}
                                     onChange={e => setFeedback(e.target.value)}

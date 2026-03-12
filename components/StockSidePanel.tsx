@@ -122,7 +122,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                             <Package className="w-5 h-5 text-indigo-600" />
                         </div>
                         <div>
-                            <h3 className="font-black text-sm leading-none">คลังงาน</h3>
+                            <h3 className="font-bold text-md leading-none">คลังงาน</h3>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Content Stock</p>
                         </div>
                     </div>
@@ -175,8 +175,8 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                 <Archive className="w-10 h-10 opacity-30" />
                             </div>
-                            <p className="text-sm font-bold text-gray-500">ไม่พบงานในคลัง</p>
-                            <p className="text-[10px] mt-1 text-gray-400 max-w-[200px]">ลองปรับตัวกรอง หรือเพิ่มงานใหม่และเลือก "Stock Mode"</p>
+                            <p className="text-md font-kanit font-bold text-gray-500">ไม่พบงานในคลัง</p>
+                            <p className="text-[14px] mt-1 text-gray-400 max-w-[200px]">ลองปรับตัวกรอง หรือเพิ่มงานใหม่และเลือก "Stock Mode"</p>
                         </div>
                     ) : (
                         stockTasks.map(task => {

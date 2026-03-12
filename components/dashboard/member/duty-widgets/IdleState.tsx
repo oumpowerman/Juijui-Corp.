@@ -107,10 +107,10 @@ const IdleState: React.FC<IdleStateProps> = ({ todayStatus, nextDuty, todaysDuti
                                         <Sun className="w-3 h-3 mr-1.5" /> FREE TIME
                                     </span>
                                 </div>
-                                <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+                                <h3 className="text-2xl font-bold text-slate-900 tracking-tight leading-none">
                                     ยังไม่มีเวรเร็วๆ นี้
                                 </h3>
-                                <p className="text-slate-500 text-sm mt-2 font-bold">
+                                <p className="text-slate-500 font-kanit text-sm mt-2 font-bold">
                                     พักผ่อนให้เต็มที่นะครับ
                                 </p>
                             </>

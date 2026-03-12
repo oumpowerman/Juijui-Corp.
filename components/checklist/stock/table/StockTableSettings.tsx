@@ -15,11 +15,11 @@ export interface ColumnConfig {
 export const AVAILABLE_COLUMNS: ColumnConfig[] = [
     { key: 'shortNote', label: 'โน้ตย่อ (สรุปสั้นๆ) 📝', icon: GripVertical, defaultVisible: true },
     { key: 'status', label: 'สถานะงาน (ถึงไหนแล้ว) 🚦', icon: GripVertical, defaultVisible: true },
-    { key: 'publishDate', label: 'วันลงงาน (ดีเดย์) 📅', icon: GripVertical, defaultVisible: true },
+    { key: 'publishDate', label: 'วันลงงาน 📅', icon: GripVertical, defaultVisible: true },
     { key: 'shootDate', label: 'วันถ่าย (ลุยยย) 🎥', icon: GripVertical, defaultVisible: true },
-    { key: 'ideaOwner', label: 'คนคิด (เจ้าของไอเดีย) 💡', icon: GripVertical, defaultVisible: true },
-    { key: 'editor', label: 'คนตัด (สายตัดต่อ) ✂️', icon: GripVertical, defaultVisible: true },
-    { key: 'helper', label: 'คนช่วย (ซัพพอร์ต) 🤝', icon: GripVertical, defaultVisible: true },
+    { key: 'ideaOwner', label: 'คนคิด 💡', icon: GripVertical, defaultVisible: true },
+    { key: 'editor', label: 'คนตัด ✂️', icon: GripVertical, defaultVisible: true },
+    { key: 'helper', label: 'คนช่วย 🤝', icon: GripVertical, defaultVisible: true },
 ];
 
 interface StockTableSettingsProps {

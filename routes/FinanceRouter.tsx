@@ -115,7 +115,7 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
 
                 <div className="flex flex-col xl:flex-row justify-between items-end gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-gray-800 flex items-center tracking-tight">
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center tracking-tight">
                             <span className="text-4xl mr-2">💰</span>
                             {isAdmin ? 'ระบบบัญชี & ทรัพยากร' : 'ข้อมูลเงินเดือน (My Salary)'}
                         </h1>

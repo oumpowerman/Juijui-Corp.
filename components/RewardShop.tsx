@@ -13,7 +13,7 @@ interface RewardShopProps {
 
 const RewardShop: React.FC<RewardShopProps> = ({ rewards, userPoints, onRedeem, onClose, onOpenHistory }) => {
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 border-4 border-purple-50">
                 
                 {/* Header */}
@@ -24,7 +24,7 @@ const RewardShop: React.FC<RewardShopProps> = ({ rewards, userPoints, onRedeem, 
                     
                     <div className="flex justify-between items-start relative z-10">
                         <div>
-                            <h2 className="text-2xl font-black flex items-center gap-2">
+                            <h2 className="text-2xl font-bold flex items-center gap-2">
                                 <Gift className="w-8 h-8 text-yellow-300" /> ร้านแลกของรางวัล
                             </h2>
                             <p className="text-purple-200 text-sm mt-1">Reward Redemption Center</p>

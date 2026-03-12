@@ -84,7 +84,7 @@ const StockTableHeader: React.FC<StockTableHeaderProps> = ({
 
     return (
         <thead>
-            <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-200 text-[12px] font-black text-black-400 uppercase tracking-widest">
+            <tr className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-200 text-[14px] font-kanit font-black text-black-400 uppercase tracking-widest">
                 {/* Fixed Title Column */}
                 <th 
                     className="px-6 py-4 sticky left-0 z-30 bg-gray-50/95 cursor-pointer hover:bg-gray-100 transition-colors shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] border-r border-gray-100"

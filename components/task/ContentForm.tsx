@@ -26,6 +26,7 @@ import ScriptEditor from '../script/ScriptEditor';
 interface ContentFormProps {
     initialData?: Task | null;
     selectedDate?: Date | null;
+    sourceScript?: Script | null; // NEW: Source script for promote flow
     channels: Channel[];
     users: User[];
     masterOptions: MasterOption[];
@@ -36,7 +37,7 @@ interface ContentFormProps {
 }
 
 const ContentForm: React.FC<ContentFormProps> = ({ 
-    initialData, selectedDate, channels, users, masterOptions, currentUser, onSave, onDelete, onClose 
+    initialData, selectedDate, sourceScript, channels, users, masterOptions, currentUser, onSave, onDelete, onClose 
 }) => {
     const { showToast } = useToast();
     const { showAlert, showConfirm } = useGlobalDialog(); 
@@ -78,6 +79,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
     } = useContentForm({
         initialData,
         selectedDate,
+        sourceScript,
         channels,
         masterOptions,
         onSave
@@ -96,10 +98,21 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     setScriptId(script.id); // Sync hook state
                 }
                 setIsLoadingScript(false);
+            } else if (sourceScript) {
+                // NEW: If new content but has sourceScript, show it as linked
+                setLinkedScript({
+                    id: sourceScript.id,
+                    title: sourceScript.title,
+                    status: sourceScript.status,
+                    updatedAt: sourceScript.updatedAt,
+                    author: sourceScript.author,
+                    channelId: sourceScript.channelId
+                } as ScriptSummary);
+                setScriptId(sourceScript.id);
             }
         };
         checkScript();
-    }, [initialData?.id]);
+    }, [initialData?.id, sourceScript]);
 
     const handleCreateScript = async () => {
         if (!initialData?.id) {
@@ -387,6 +400,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     {/* 3. Script Integration - Updated for Linking */}
                     <CFScriptLinker 
                         hasContentId={!!initialData?.id}
+                        sourceScript={sourceScript}
                         linkedScript={linkedScript}
                         isLoadingScript={isLoadingScript}
                         onOpenScript={handleOpenScript}

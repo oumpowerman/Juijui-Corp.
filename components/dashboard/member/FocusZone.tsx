@@ -216,7 +216,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
 
             {/* Title & Tabs */}
             <div className="flex flex-col gap-4 relative z-10 px-1">
-                <h3 className="text-lg font-black text-slate-700 flex items-center">
+                <h3 className="text-[24px] font-bold text-slate-700 flex items-center">
                     <div className="p-2 bg-white rounded-xl shadow-sm mr-3 text-red-500 animate-pulse">
                          <Siren className="w-5 h-5" />
                     </div>

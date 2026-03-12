@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2, Maximize2, Minimize2, Zap, ZapOff } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2, Maximize2, Minimize2, Zap, ZapOff, Tag, Hash, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ScriptStatus } from '../../../types';
 import { useScriptContext } from '../core/ScriptContext';
@@ -33,6 +34,7 @@ const EditorToolbar: React.FC = () => {
         onClose,
         setIsAIOpen, setIsTeleprompterOpen,
         isChatPreviewOpen, setIsChatPreviewOpen,
+        isFindReplaceOpen, setIsFindReplaceOpen,
         setIsMetadataOpen,
         setContent,
         users, ideaOwnerId,
@@ -42,7 +44,8 @@ const EditorToolbar: React.FC = () => {
         isScriptOwner, 
         isCommentsOpen, setIsCommentsOpen, comments,
         isFocusMode, setIsFocusMode,
-        isAutoCharacter, setIsAutoCharacter
+        isAutoCharacter, setIsAutoCharacter,
+        category, tags, masterOptions
     } = useScriptContext();
     
     const { showToast } = useToast();
@@ -72,12 +75,8 @@ const EditorToolbar: React.FC = () => {
     
     // Find Owner for Print logic
     const owner = users.find(u => u.id === ideaOwnerId);
-    
-    const magicLink = shareToken ? `${window.location.origin}/s/${shareToken}` : '';
-    const isAnyMenuOpen = showStatusMenu || showTemplates || showZoomMenu;
-    const openCommentCount = comments.filter(c => c.status === 'OPEN').length;
 
-    const handleManualSave = async () => {
+    const handleManualSave = useCallback(async () => {
         if (isSaving) return;
         
         // Trigger save (false = show toast if implemented in context, but we handle visual here too)
@@ -86,9 +85,9 @@ const EditorToolbar: React.FC = () => {
         // Show success state
         setShowSaveSuccess(true);
         setTimeout(() => setShowSaveSuccess(false), 2000);
-    };
+    }, [isSaving, handleSave]);
 
-    const handlePrint = () => {
+    const handlePrint = useCallback(() => {
         handlePrintScript({
             title,
             content,
@@ -96,7 +95,60 @@ const EditorToolbar: React.FC = () => {
             ownerName: owner?.name,
             formattedDuration
         });
-    };
+    }, [title, content, scriptType, owner, formattedDuration]);
+
+    // --- KEYBOARD SHORTCUTS ---
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Don't trigger if typing in an input or textarea (unless it's Ctrl+S)
+            const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+            const isMod = e.metaKey || e.ctrlKey;
+            const isAlt = e.altKey;
+
+            // Save: Ctrl+S (Always allow)
+            if (isMod && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                handleManualSave();
+                return;
+            }
+
+            // Find: Ctrl+F
+            if (isMod && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                setIsFindReplaceOpen(!isFindReplaceOpen);
+                return;
+            }
+
+            // Other shortcuts (Only if not in input)
+            if (isInput) return;
+
+            if (isAlt) {
+                switch (e.key.toLowerCase()) {
+                    case 'a': e.preventDefault(); setIsAIOpen(true); break;
+                    case 't': e.preventDefault(); setIsTeleprompterOpen(true); break;
+                    case 'f': e.preventDefault(); setIsFindReplaceOpen(!isFindReplaceOpen); break;
+                    case 'c': e.preventDefault(); setIsChatPreviewOpen(!isChatPreviewOpen); break;
+                    case 'k': e.preventDefault(); setShowConfig(true); break;
+                    case 'm': e.preventDefault(); setIsMetadataOpen(true); break;
+                    case 'f': e.preventDefault(); setIsFocusMode(!isFocusMode); break;
+                    case 'p': e.preventDefault(); handlePrint(); break;
+                    case 's': e.preventDefault(); setShowShareModal(true); break;
+                    case 'n': e.preventDefault(); setIsCommentsOpen(!isCommentsOpen); break;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        handleManualSave, handlePrint, isFocusMode, isChatPreviewOpen, isCommentsOpen, 
+        setIsAIOpen, setIsTeleprompterOpen, setIsChatPreviewOpen, setShowConfig, 
+        setIsMetadataOpen, setIsFocusMode, setShowShareModal, setIsCommentsOpen
+    ]);
+
+    const magicLink = shareToken ? `${window.location.origin}/s/${shareToken}` : '';
+    const isAnyMenuOpen = showStatusMenu || showTemplates || showZoomMenu;
+    const openCommentCount = comments.filter(c => c.status === 'OPEN').length;
 
     const handleSelectTemplate = async (tplContent: string) => {
         const confirmed = await showConfirm(
@@ -196,6 +248,36 @@ const EditorToolbar: React.FC = () => {
                                 <span className="flex items-center shrink-0" title="Estimated Reading Time">
                                     <Clock className="w-3 h-3 mr-1 text-orange-400" /> {formattedDuration}
                                 </span>
+
+                                {category && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="flex items-center gap-1.5 shrink-0 bg-pink-50 px-2.5 py-0.5 rounded-full border border-pink-100 text-pink-600 shadow-sm"
+                                    >
+                                        <Tag className="w-3 h-3" />
+                                        <span className="font-black uppercase tracking-tighter">{masterOptions.find(o => o.key === category)?.label || category}</span>
+                                    </motion.div>
+                                )}
+
+                                {tags && tags.length > 0 && (
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <AnimatePresence>
+                                            {tags.map((tag, idx) => (
+                                                <motion.div 
+                                                    key={tag} 
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: idx * 0.05 }}
+                                                    className="flex items-center gap-0.5 shrink-0 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all cursor-default group/tag"
+                                                >
+                                                    <Hash className="w-2.5 h-2.5 opacity-40 group-hover/tag:opacity-100 group-hover/tag:scale-110 transition-all" />
+                                                    <span className="font-bold">{tag}</span>
+                                                </motion.div>
+                                            ))}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -349,6 +431,14 @@ const EditorToolbar: React.FC = () => {
                             <MessageSquare className="w-4 h-4" />
                         </button>
                     )}
+
+                    <button 
+                        onClick={() => setIsFindReplaceOpen(!isFindReplaceOpen)} 
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm hover:-translate-y-0.5 active:translate-y-0 shrink-0 ${isFindReplaceOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
+                        title="Find & Replace (Ctrl+F)"
+                    >
+                        <Search className="w-4 h-4" />
+                    </button>
 
                     <button 
                         onClick={() => setShowConfig(true)} 

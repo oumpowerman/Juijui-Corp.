@@ -22,52 +22,52 @@ const ShortcutManager: React.FC<ShortcutManagerProps> = ({
                 // Prevent default for handled shortcuts
                 const handled = true;
 
-                switch (e.key.toLowerCase()) {
+                switch (e.code) {
                     // Workspace Group (Numbers)
-                    case '1':
+                    case 'Digit1':
                         onNavigate('DASHBOARD');
                         break;
-                    case '2':
+                    case 'Digit2':
                         onNavigate('CALENDAR');
                         break;
-                    case '3':
+                    case 'Digit3':
                         onNavigate('CHAT');
                         break;
-                    case '4':
+                    case 'Digit4':
                         onNavigate('WEEKLY');
                         break;
                     
                     // Production Group (Letters)
-                    case 's':
+                    case 'KeyS':
                         onNavigate('SCRIPT_HUB');
                         break;
-                    case 'm':
+                    case 'KeyM':
                         onNavigate('MEETINGS');
                         break;
-                    case 'c':
+                    case 'KeyC':
                         onNavigate('CHECKLIST');
                         break;
-                    case 'k':
+                    case 'KeyK':
                         onNavigate('STOCK');
                         break;
 
                     // Admin & Management
-                    case 'q':
+                    case 'KeyQ':
                         onNavigate('QUALITY_GATE');
                         break;
-                    case 'g':
+                    case 'KeyG':
                         onNavigate('GOALS');
                         break;
-                    case 'd':
+                    case 'KeyD':
                         onNavigate('DUTY');
                         break;
 
                     // Quick Actions
-                    case 'n':
+                    case 'KeyN':
                         e.preventDefault();
                         onAddTask();
                         break;
-                    case 'p':
+                    case 'KeyP':
                         e.preventDefault();
                         onOpenProfile();
                         break;
@@ -83,7 +83,7 @@ const ShortcutManager: React.FC<ShortcutManagerProps> = ({
             }
 
             // Keep existing Ctrl/Cmd + K for Command Palette
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            if ((e.metaKey || e.ctrlKey) && e.code === 'KeyK') {
                 e.preventDefault();
                 onOpenCommandPalette();
             }

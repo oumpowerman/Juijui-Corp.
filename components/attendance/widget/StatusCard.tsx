@@ -425,12 +425,12 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     </div>
                 ) : !isAuthenticated ? (
                     <div className="flex flex-col items-center gap-2">
-                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                        <p className="text-[12px] text-gray-400 flex items-center gap-1">
                             <CloudOff className="w-3 h-3" /> ยังไม่ได้เชื่อมต่อ Google Drive
                         </p>
                         <button 
                             onClick={onConnectDrive}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                            className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 rounded-full text-[14px] font-black uppercase tracking-wider transition-all active:scale-95"
                         >
                             <Cloud className="w-3 h-3" /> เชื่อมต่อเพื่อสำรองรูปภาพ
                         </button>

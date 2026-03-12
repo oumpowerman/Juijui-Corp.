@@ -3,7 +3,8 @@ import React, { useState, useMemo, Suspense, lazy } from 'react';
 import { WikiArticle, User, MasterOption } from '../types';
 import { useWiki } from '../hooks/useWiki';
 import { useMasterData } from '../hooks/useMasterData';
-import { FileText, Loader2, Sparkles } from 'lucide-react';
+import { FileText, Loader2, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import InfoModal from './ui/InfoModal';
 import WikiGuide from './wiki/WikiGuide';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -38,6 +39,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     const [wikiMode, setWikiMode] = useState<'ARTICLES' | 'HANDBOOK' | 'NEXUS'>('ARTICLES');
+    const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
     
     // Responsive & Layout State
     const [layoutMode, setLayoutMode] = useState<WikiLayoutMode>('STANDARD');
@@ -92,12 +94,20 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
         setViewingArticle(article);
         setIsEditing(false);
         setIsMobileListVisible(false); 
+        // Auto-collapse header when reading to maximize space
+        setIsHeaderCollapsed(true);
+        // Smart Auto-Focus: Collapse sidebar when reading
+        setLayoutMode('FOCUS');
     };
 
     const handleBackToList = () => {
         // Only clear viewing article if we are not editing an existing one
         if (!isEditing) {
             setViewingArticle(null);
+            // Expand header when going back to list
+            setIsHeaderCollapsed(false);
+            // Expand sidebar when going back to list
+            setLayoutMode('STANDARD');
         }
         setIsEditing(false);
         setIsMobileListVisible(true);
@@ -143,6 +153,15 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
         }
     };
 
+    const handleSetWikiMode = (mode: 'ARTICLES' | 'HANDBOOK' | 'NEXUS') => {
+        setWikiMode(mode);
+        if (mode === 'ARTICLES') {
+            setIsMobileListVisible(true);
+        } else {
+            setIsMobileListVisible(false);
+        }
+    };
+
     // --- Layout Controllers ---
     const cycleLayoutMode = () => {
         setLayoutMode(prev => {
@@ -155,6 +174,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     // Calculate visibility based on layout mode (Desktop only logic)
     const showSidebar = layoutMode === 'STANDARD';
     const showList = (layoutMode === 'STANDARD' || layoutMode === 'FOCUS') && wikiMode === 'ARTICLES';
+    const showTabHeader = layoutMode !== 'ZEN' && !isHeaderCollapsed;
 
     return (
         // Main Container: Fixed height relative to viewport to enable independent scrolling
@@ -209,39 +229,60 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                 ${!isMobileListVisible ? 'absolute inset-0 z-30' : 'hidden lg:flex'}
             `}>
                 {/* Tab Switch Header - Glassy & 3D */}
-                <div className="p-4 border-b border-white/40 bg-white/20 backdrop-blur-sm flex justify-center shrink-0">
-                    <div className="flex bg-white/40 backdrop-blur-md p-1.5 rounded-[2rem] w-full max-w-md shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_8px_16px_-4px_rgba(0,0,0,0.05)] border border-white/60">
-                        <button 
-                            onClick={() => {
-                                setWikiMode('ARTICLES');
-                                setIsMobileListVisible(true);
-                            }}
-                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'ARTICLES' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                <AnimatePresence initial={false}>
+                    {showTabHeader && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="p-4 border-b border-white/40 bg-white/20 backdrop-blur-sm flex justify-center shrink-0 overflow-hidden relative group"
                         >
-                            Articles
-                        </button>
-                        <button 
-                            onClick={() => {
-                                setWikiMode('HANDBOOK');
-                                setIsMobileListVisible(false);
-                            }}
-                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
-                        >
-                            Handbook
-                        </button>
-                        <button 
-                            onClick={() => {
-                                setWikiMode('NEXUS');
-                                setIsMobileListVisible(false);
-                            }}
-                            className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'NEXUS' ? 'bg-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
-                        >
-                            Nexus Hub
-                        </button>
+                            <div className="flex bg-white/40 backdrop-blur-md p-1.5 rounded-[2rem] w-full max-w-md shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_8px_16px_-4px_rgba(0,0,0,0.05)] border border-white/60">
+                                <button 
+                                    onClick={() => handleSetWikiMode('ARTICLES')}
+                                    className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'ARTICLES' ? 'bg-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                                >
+                                    Articles
+                                </button>
+                                <button 
+                                    onClick={() => handleSetWikiMode('HANDBOOK')}
+                                    className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'HANDBOOK' ? 'bg-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                                >
+                                    Handbook
+                                </button>
+                                <button 
+                                    onClick={() => handleSetWikiMode('NEXUS')}
+                                    className={`flex-1 py-2.5 rounded-[1.5rem] text-xs font-bold transition-all duration-300 ${wikiMode === 'NEXUS' ? 'bg-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.1)] text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/20'}`}
+                                >
+                                    Nexus Hub
+                                </button>
+                            </div>
+
+                            {/* Collapse Toggle Button */}
+                            <button 
+                                onClick={() => setIsHeaderCollapsed(true)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-indigo-400 hover:bg-white/40 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                title="Collapse Menu"
+                            >
+                                <ChevronUp className="w-4 h-4" />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Expand Handle (Visible when collapsed) */}
+                {isHeaderCollapsed && layoutMode !== 'ZEN' && (
+                    <div className="h-1.5 w-full bg-white/10 hover:bg-indigo-400/30 cursor-pointer transition-all flex justify-center group z-50" onClick={() => setIsHeaderCollapsed(false)}>
+                        <div className="w-12 h-1 bg-slate-200 rounded-full mt-0.5 group-hover:bg-indigo-400 transition-colors"></div>
+                        <div className="absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChevronDown className="w-3 h-3 text-indigo-500 -mt-1" />
+                        </div>
                     </div>
-                </div>
+                )}
                 {wikiMode === 'NEXUS' ? (
-                    <NexusHub currentUser={currentUser} onNavigateMode={setWikiMode} />
+                    <div className="flex-1 overflow-y-auto scrollbar-hide">
+                        <NexusHub currentUser={currentUser} onNavigateMode={handleSetWikiMode} />
+                    </div>
                 ) : wikiMode === 'HANDBOOK' ? (
                     <WikiHandbook currentUser={currentUser} />
                 ) : isEditing ? (
@@ -272,6 +313,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                         onToggleHelpful={toggleHelpful}
                         layoutMode={layoutMode}
                         onCycleLayout={cycleLayoutMode}
+                        setLayoutMode={setLayoutMode}
                     />
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30 relative overflow-hidden">

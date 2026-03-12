@@ -50,7 +50,7 @@ const GlobalDialog: React.FC = () => {
                 </div>
 
                 <div className="text-center mb-6">
-                    {title && <h3 className="text-xl font-black text-gray-800 mb-2">{title}</h3>}
+                    {title && <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>}
                     <p className="text-gray-600 text-sm leading-relaxed font-medium">
                         {message}
                     </p>

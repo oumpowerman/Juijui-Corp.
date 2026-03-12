@@ -54,9 +54,18 @@ export const useWiki = (currentUser?: User) => {
         fetchArticles();
 
         const channel = supabase
-            .channel('realtime-wiki')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'wiki_articles' }, () => fetchArticles())
-            .subscribe();
+            .channel('wiki-articles-changes')
+            .on(
+                'postgres_changes', 
+                { event: '*', schema: 'public', table: 'wiki_articles' }, 
+                (payload) => {
+                    console.log('Realtime Wiki Update:', payload);
+                    fetchArticles();
+                }
+            )
+            .subscribe((status) => {
+                console.log('Wiki Realtime Status:', status);
+            });
 
         return () => {
             supabase.removeChannel(channel);
@@ -77,9 +86,30 @@ export const useWiki = (currentUser?: User) => {
                 updated_by: currentUser.id
             };
 
-            const { error } = await supabase.from('wiki_articles').insert(payload);
+            const { data, error } = await supabase.from('wiki_articles').insert(payload).select().single();
             if (error) throw error;
             
+            // Optimistic update (optional if realtime is fast, but good for UX)
+            if (data) {
+                const mapped = {
+                    id: data.id,
+                    title: data.title,
+                    category: data.category,
+                    content: data.content,
+                    targetRoles: data.target_roles || ['ALL'],
+                    createdAt: new Date(data.created_at),
+                    lastUpdated: new Date(data.updated_at),
+                    isPinned: data.is_pinned,
+                    coverImage: data.cover_image,
+                    helpfulCount: data.helpful_count || 0,
+                    createdBy: data.created_by,
+                    updatedBy: data.updated_by,
+                    author: { name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' },
+                    lastEditor: { name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' }
+                };
+                setArticles(prev => [mapped, ...prev]);
+            }
+
             showToast('สร้างคู่มือใหม่เรียบร้อย 🎉', 'success');
         } catch (err: any) {
             console.error(err);
@@ -94,16 +124,19 @@ export const useWiki = (currentUser?: User) => {
                 updated_at: new Date().toISOString(),
                 updated_by: currentUser.id
             };
-            if (updates.title) payload.title = updates.title;
-            if (updates.content) payload.content = updates.content;
-            if (updates.category) payload.category = updates.category;
-            if (updates.targetRoles) payload.target_roles = updates.targetRoles;
+            if (updates.title !== undefined) payload.title = updates.title;
+            if (updates.content !== undefined) payload.content = updates.content;
+            if (updates.category !== undefined) payload.category = updates.category;
+            if (updates.targetRoles !== undefined) payload.target_roles = updates.targetRoles;
             if (updates.isPinned !== undefined) payload.is_pinned = updates.isPinned;
             if (updates.coverImage !== undefined) payload.cover_image = updates.coverImage;
             if (updates.helpfulCount !== undefined) payload.helpful_count = updates.helpfulCount;
 
             const { error } = await supabase.from('wiki_articles').update(payload).eq('id', id);
             if (error) throw error;
+
+            // Optimistic update
+            setArticles(prev => prev.map(a => a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a));
 
             showToast('อัปเดตคู่มือเรียบร้อย ✅', 'success');
         } catch (err: any) {
@@ -115,6 +148,10 @@ export const useWiki = (currentUser?: User) => {
         try {
             const { error } = await supabase.from('wiki_articles').delete().eq('id', id);
             if (error) throw error;
+            
+            // Optimistic update
+            setArticles(prev => prev.filter(a => a.id !== id));
+            
             showToast('ลบคู่มือแล้ว 🗑️', 'info');
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');

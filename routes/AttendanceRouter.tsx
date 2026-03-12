@@ -61,7 +61,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-white/60 backdrop-blur-xl p-6 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5">
                     <div>
-                        <h1 className="text-3xl font-black text-gray-800 flex items-center tracking-tight">
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center tracking-tight">
                             <span className="text-4xl mr-2">⏱️</span>
                             ระบบลงเวลา (Time Tracking)
                         </h1>

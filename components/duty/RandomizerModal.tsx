@@ -172,7 +172,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 2px, transparent 0)', backgroundSize: '20px 20px' }}></div>
                     
                     <div className="relative z-10 text-white">
-                        <h3 className="text-2xl font-black flex items-center gap-2">
+                        <h3 className="text-2xl font-bold flex items-center gap-2">
                             {stage === 'DRAFT' ? <Sparkles className="w-6 h-6 text-yellow-300" /> : <Dices className="w-6 h-6 text-yellow-300" />}
                             {stage === 'DRAFT' ? 'ตรวจสอบตาราง (Review)' : 'สุ่มเวร (Randomizer)'}
                         </h3>
@@ -297,19 +297,19 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                             <div>
                                 <div className="flex justify-between items-end mb-4 px-2">
                                     <div>
-                                        <h4 className="text-sm font-black text-gray-700">ผู้ท้าชิง (Participants)</h4>
-                                        <p className="text-[10px] text-gray-400 font-medium">เลือกคนที่จะร่วมชะตากรรม</p>
+                                        <h4 className="text-md font-kanit font-bold text-gray-700">ผู้ท้าชิง (Participants)</h4>
+                                        <p className="text-[14px] font-kanit text-gray-400 font-medium">เลือกคนที่จะร่วมชะตากรรม</p>
                                     </div>
                                     <div className="flex gap-2">
                                         <button 
                                             onClick={() => setSelectedIds(users.map(u => u.id))} 
-                                            className="text-[10px] bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                                            className="text-[12px] bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-200 transition-colors"
                                         >
                                             Select All
                                         </button>
                                         <button 
                                             onClick={() => setSelectedIds([])} 
-                                            className="text-[10px] bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                                            className="text-[12px] bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:bg-gray-200 transition-colors"
                                         >
                                             Clear
                                         </button>
@@ -342,7 +342,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                                                         </div>
                                                     )}
                                                 </div>
-                                                <span className={`text-[10px] font-bold truncate w-full text-center ${isSelected ? 'text-green-700' : 'text-gray-500'}`}>
+                                                <span className={`text-[12px] font-kanit font-medium truncate w-full text-center ${isSelected ? 'text-green-700' : 'text-gray-500'}`}>
                                                     {u.name.split(' ')[0]}
                                                 </span>
                                             </button>
@@ -377,7 +377,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                 <div className="p-5 border-t border-gray-100 bg-white flex justify-between items-center shrink-0">
                     <button 
                         onClick={stage === 'CONFIG' ? onClose : handleReset} 
-                        className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-2xl transition-colors text-sm"
+                        className="px-6 py-3 text-gray-500 font-kanit font-medium hover:bg-gray-100 rounded-2xl transition-colors text-md"
                     >
                         {stage === 'CONFIG' ? 'ยกเลิก' : 'สุ่มใหม่'}
                     </button>

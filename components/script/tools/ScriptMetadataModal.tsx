@@ -91,7 +91,7 @@ const ScriptMetadataModal: React.FC = () => {
                         {/* Writer Selection */}
                         <div className="space-y-3 bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm">
                             <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <label className="text-[14px] font-kanit font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Edit3 className="w-3 h-3" /> Writer (ผู้รับผิดชอบเขียนบท)
                                 </label>
                                 {!canEdit && (
@@ -143,7 +143,7 @@ const ScriptMetadataModal: React.FC = () => {
                                     );
                                 })}
                             </div>
-                            <p className="text-[9px] text-slate-400 italic">
+                            <p className="text-[12px] text-slate-400 italic">
                                 * เปลี่ยนคนเขียนบทเพื่อให้งานไปปรากฏในคิวของคนนั้น
                             </p>
                         </div>
@@ -151,7 +151,7 @@ const ScriptMetadataModal: React.FC = () => {
                         {/* Idea Owner Selection */}
                         <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm opacity-80">
                             <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <label className="text-[12px] font-kanit font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Users className="w-3 h-3" /> Idea Owner (เจ้าของไอเดีย)
                                 </label>
                             </div>
@@ -200,7 +200,7 @@ const ScriptMetadataModal: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         {/* Channel Dropdown */}
                         <div className="space-y-2 relative" ref={channelRef}>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                            <label className="text-[12px] font-kanit font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                                 <Layout className="w-3 h-3" /> Channel
                             </label>
                             <button
@@ -266,7 +266,7 @@ const ScriptMetadataModal: React.FC = () => {
 
                         {/* Category Dropdown */}
                         <div className="space-y-2 relative" ref={categoryRef}>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                            <label className="text-[12px] font-kanit font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                                 <Type className="w-3 h-3" /> Category
                             </label>
                             <button

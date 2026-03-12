@@ -79,7 +79,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
                 </div>
 
                 {/* Name & Mobile Greeting */}
-                <h1 className="text-xl lg:text-2xl font-black text-gray-800 tracking-tight mt-1 truncate">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-800 tracking-tight mt-1 truncate">
                     สวัสดี, {user.name.split(' ')[0]}! 👋
                 </h1>
                 

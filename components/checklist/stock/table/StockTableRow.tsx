@@ -77,17 +77,46 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                 className="px-6 py-5 sticky left-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top border-r border-gray-100 transition-colors"
                 style={{ width: columnWidths['title'] || 350 }}
             >
-                <div className="font-bold text-gray-800 group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug mb-2" title={task.title}>
+                <div className="font-medium font-kanit text-[18px] text-gray-800 group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug mb-2" title={task.title}>
                     {task.title}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`text-[9px] px-2 py-0.5 rounded-full border font-black uppercase tracking-tight ${channelStyle}`}>{channel?.name || '-'}</span>
                     {task.contentFormats && task.contentFormats.length > 0 ? (
-                        task.contentFormats.map(fmt => (
-                            <span key={fmt} className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-black flex items-center">
-                                {getFormatLabel(fmt)}
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-black flex items-center">
+                                {getFormatLabel(task.contentFormats[0])}
                             </span>
-                        ))
+                            {task.contentFormats.length > 1 && (
+                                <div className="relative group/tooltip">
+                                    <motion.span 
+                                        whileHover={{ scale: 1.2, rotate: [0, -10, 10, -10, 0] }}
+                                        transition={{ 
+                                            scale: { type: "spring", stiffness: 400, damping: 10 },
+                                            rotate: { duration: 0.4, ease: "easeInOut" }
+                                        }}
+                                        className="text-[9px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full border border-purple-200 font-black cursor-help flex items-center justify-center"
+                                    >
+                                        +{task.contentFormats.length - 1}
+                                    </motion.span>
+                                    
+                                    {/* Custom Animated Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-300 translate-y-2 group-hover/tooltip:translate-y-0 z-50">
+                                        <div className="bg-white/90 backdrop-blur-xl text-purple-900 text-[10px] font-black px-3 py-2 rounded-2xl shadow-2xl shadow-purple-200/50 border border-purple-100 flex flex-col gap-1.5 min-w-max">
+                                            <div className="text-[8px] text-purple-500 uppercase tracking-widest mb-0.5 opacity-70">Format อื่นๆ</div>
+                                            {task.contentFormats.slice(1).map(f => (
+                                                <div key={f} className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.4)]" />
+                                                    {getFormatLabel(f)}
+                                                </div>
+                                            ))}
+                                            {/* Arrow */}
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-[6px] border-transparent border-t-white/90" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         task.contentFormat && <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-black flex items-center">{getFormatLabel(task.contentFormat)}</span>
                     )}
@@ -163,7 +192,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                     <div className="flex flex-col items-center">
                                         <div className="flex items-center gap-1 text-[10px] text-indigo-500 font-black bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                                             <Video className="w-3 h-3" />
-                                            {format(new Date(task.shootDate), 'd MMM')}
+                                            {format(new Date(task.shootDate), 'd MMM yy', { locale: th })}
                                         </div>
                                     </div>
                                 ) : (

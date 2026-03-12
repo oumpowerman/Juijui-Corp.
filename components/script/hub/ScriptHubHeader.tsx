@@ -19,7 +19,7 @@ const ScriptHubHeader: React.FC<ScriptHubHeaderProps> = ({ onCreateClick, onInfo
                          <div className="p-2 bg-rose-100 rounded-xl text-rose-600 shadow-sm">
                             <FileText className="w-8 h-8" />
                         </div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
                             Script Hub
                         </h1>
                         {/* Info Button */}

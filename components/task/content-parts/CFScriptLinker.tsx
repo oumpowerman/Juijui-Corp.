@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 
 interface CFScriptLinkerProps {
     hasContentId: boolean;
+    sourceScript?: any | null; // NEW
     linkedScript: ScriptSummary | null;
     isLoadingScript: boolean;
     onOpenScript: () => void;
@@ -66,7 +67,7 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-sans">
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-indigo-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-sans">
             <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-rose-100">
                 
                 {/* Header */}
@@ -170,12 +171,13 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
 };
 
 const CFScriptLinker: React.FC<CFScriptLinkerProps> = ({ 
-    hasContentId, linkedScript, isLoadingScript, onOpenScript, onCreateScript, onLinkScript, onUnlinkScript, currentUser
+    hasContentId, sourceScript, linkedScript, isLoadingScript, onOpenScript, onCreateScript, onLinkScript, onUnlinkScript, currentUser
 }) => {
     const [isSelectorOpen, setIsSelectorOpen] = useState(false);
     
     // Protection: If task is new (no ID yet), don't allow script creation to prevent orphaned records
-    if (!hasContentId) {
+    // EXCEPT if we have a sourceScript (Promote flow)
+    if (!hasContentId && !sourceScript) {
         return (
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center justify-between opacity-80">
                 <div className="flex items-center gap-3">

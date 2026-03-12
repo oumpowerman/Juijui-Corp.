@@ -51,7 +51,7 @@ const NexusSettingsModal: React.FC<NexusSettingsModalProps> = ({
                                     <Settings className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">ตั้งค่า</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900 tracking-tight">ตั้งค่า</h3>
                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Nexus Configuration</p>
                                 </div>
                             </div>
@@ -66,7 +66,7 @@ const NexusSettingsModal: React.FC<NexusSettingsModalProps> = ({
                         <div className="p-8 space-y-8 max-h-[65vh] overflow-y-auto no-scrollbar">
                             {/* AI Settings */}
                             <div className="space-y-4">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                                <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                                     <Sparkles className="w-3 h-3" /> ปัญญาประดิษฐ์ (AI)
                                 </h4>
                                 <div 
@@ -93,7 +93,7 @@ const NexusSettingsModal: React.FC<NexusSettingsModalProps> = ({
 
                             {/* Theme Settings */}
                             <div className="space-y-4">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                                <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                                     <Palette className="w-3 h-3" /> ธีมการแสดงผล
                                 </h4>
                                 <div className="grid grid-cols-4 gap-3">
@@ -119,7 +119,7 @@ const NexusSettingsModal: React.FC<NexusSettingsModalProps> = ({
 
                             {/* Data Management */}
                             <div className="space-y-4">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                                <h4 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                                     <Database className="w-3 h-3" /> การจัดการข้อมูล
                                 </h4>
                                 <button 
@@ -142,7 +142,7 @@ const NexusSettingsModal: React.FC<NexusSettingsModalProps> = ({
                         <div className="p-8 bg-slate-50/50 border-t border-slate-100">
                             <button 
                                 onClick={onClose}
-                                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200"
+                                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-kanit font-medium text-sm uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200"
                             >
                                 เสร็จสิ้น
                             </button>

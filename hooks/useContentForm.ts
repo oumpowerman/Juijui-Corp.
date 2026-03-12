@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { format, isValid } from 'date-fns';
-import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType } from '../types';
+import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType, Script } from '../types';
 
 interface UseContentFormProps {
     initialData?: Task | null;
     selectedDate?: Date | null;
+    sourceScript?: Script | null; // NEW: Source script for promote flow
     channels: Channel[];
     masterOptions: MasterOption[];
     onSave: (task: Task) => void;
 }
 
-export const useContentForm = ({ initialData, selectedDate, channels, masterOptions, onSave }: UseContentFormProps) => {
+export const useContentForm = ({ initialData, selectedDate, sourceScript, channels, masterOptions, onSave }: UseContentFormProps) => {
     // --- State ---
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -101,21 +102,23 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setScriptId(initialData.scriptId); // Link script
         } else {
             // Defaults for New Content
-            setTitle('');
-            setDescription('');
+            setTitle(sourceScript?.title || '');
+            setDescription(sourceScript ? `Script Link: ${sourceScript.title}` : '');
             setRemark('');
             const defaultDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
             setStartDate(defaultDate);
             setEndDate(defaultDate);
             setIsStock(false);
             
+            // DYNAMIC DEFAULT STATUS: Take the first one from sorted list
             const defaultStatus = statusOptions.find(o => o.isDefault)?.key || (statusOptions.length > 0 ? statusOptions[0].key : 'TODO');
             setStatus(defaultStatus);
             
             setPriority('MEDIUM');
-            setTags([]);
+            setTags(sourceScript?.tags || []);
             
-            if (channels.length > 0) setChannelId(channels[0].id);
+            if (sourceScript?.channelId) setChannelId(sourceScript.channelId);
+            else if (channels.length > 0) setChannelId(channels[0].id);
             else setChannelId('');
 
             setTargetPlatforms(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
@@ -125,23 +128,23 @@ export const useContentForm = ({ initialData, selectedDate, channels, masterOpti
             setContentFormat(defaultFormat);
             setContentFormats(defaultFormat ? [defaultFormat] : []);
             
-            const defaultCat = categoryOptions.find(o => o.isDefault);
-            setCategory(defaultCat ? defaultCat.key : '');
+            const defaultCat = sourceScript?.category || categoryOptions.find(o => o.isDefault)?.key || '';
+            setCategory(defaultCat);
 
             setShootDate('');
             setShootLocation('');
             
-            setIdeaOwnerIds([]);
+            setIdeaOwnerIds(sourceScript?.ideaOwnerId ? [sourceScript.ideaOwnerId] : []);
             setEditorIds([]);
             setAssigneeIds([]);
             setAssets([]);
             setPerformance(undefined);
             setPublishedLinks({});
-            setScriptId(undefined);
+            setScriptId(sourceScript?.id); // Linkage
         }
         setError('');
         setIsSaving(false);
-    }, [initialData, selectedDate, channels, masterOptions]); 
+    }, [initialData, selectedDate, sourceScript, channels, masterOptions]); 
 
     // --- Handlers ---
     const handleSubmit = async (e: React.FormEvent) => {

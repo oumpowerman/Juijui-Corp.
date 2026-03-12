@@ -304,7 +304,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                             <CalendarDays className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-gray-800 tracking-tight">Duty Roster</h2>
+                            <h2 className="text-xl font-kanit font-bold text-gray-800 tracking-tight">Duty Roster</h2>
                             <p className="text-xs text-gray-500 font-bold">ตารางเวรประจำสัปดาห์</p>
                         </div>
                     </div>

@@ -42,25 +42,25 @@ const AssetTreeSidebar: React.FC<AssetTreeSidebarProps> = ({
     };
 
     return (
-        <div className="w-full lg:w-64 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px] lg:h-auto shrink-0">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                <h3 className="font-bold text-gray-700 flex items-center text-sm">
-                    <FolderOpen className="w-4 h-4 mr-2 text-indigo-500" /> Asset Browser
+        <div className="w-full lg:w-64 pastel-glass-cute overflow-hidden flex flex-col h-[500px] lg:h-auto shrink-0 transition-all duration-500">
+            <div className="p-5 border-b-2 border-pink-100 bg-white/40 backdrop-blur-md">
+                <h3 className="font-bold text-purple-800 flex items-center text-[20px] tracking-wide">
+                    <FolderOpen className="w-5 h-5 mr-2 text-pink-500 animate-bounce" /> Asset Browser ✨
                 </h3>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 
                 {/* ROOT ALL */}
                 <div 
                     onClick={() => onSelect('ALL', 'ALL')}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-all ${selectedGroup === 'ALL' ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 cute-3d-button ${selectedGroup === 'ALL' ? 'bg-pink-500 text-white font-black shadow-lg scale-[1.02]' : 'bg-white/60 text-purple-700 hover:bg-pink-50 hover:text-pink-600 font-bold'}`}
                 >
-                    <LayoutGrid className="w-4 h-4" />
-                    <span className="text-xs">ทรัพย์สินทั้งหมด (All)</span>
+                    <LayoutGrid className={`w-5 h-5 ${selectedGroup === 'ALL' ? 'text-white' : 'text-purple-400'}`} />
+                    <span className="text-sm">ทรัพย์สินทั้งหมด (All)</span>
                 </div>
 
-                <div className="h-px bg-gray-100 my-2 mx-2"></div>
+                <div className="h-0.5 bg-gradient-to-r from-transparent via-pink-200 to-transparent my-4 mx-2"></div>
 
                 {/* DYNAMIC GROUPS */}
                 {treeData.map(group => {
@@ -69,39 +69,40 @@ const AssetTreeSidebar: React.FC<AssetTreeSidebarProps> = ({
                     const isGroupSelected = selectedGroup === group.key;
                     
                     return (
-                        <div key={group.key}>
+                        <div key={group.key} className="mb-2">
                             <div 
-                                className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all group ${isGroupSelected && selectedCategory === 'ALL' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
+                                className={`flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 group cute-3d-button ${isGroupSelected && selectedCategory === 'ALL' ? 'bg-purple-100 border-2 border-purple-300 text-purple-800 font-black shadow-md scale-[1.02]' : 'bg-white/40 border-2 border-transparent text-purple-600 hover:bg-white/80 hover:border-pink-200 font-bold'}`}
                                 onClick={() => {
                                     onSelect(group.key as AssetGroup, 'ALL');
                                     toggleNode(group.key);
                                 }}
                             >
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     {/* Default Box icon, can add logic to map specific icons later based on key */}
-                                    <Box className={`w-4 h-4 ${isGroupSelected ? 'text-indigo-500' : 'text-gray-400'}`} />
-                                    <span className="text-xs truncate max-w-[120px]" title={group.label}>{group.label}</span>
+                                    <Box className={`w-5 h-5 transition-transform duration-300 group-hover:rotate-12 ${isGroupSelected ? 'text-purple-600' : 'text-pink-400'}`} />
+                                    <span className="text-sm truncate max-w-[120px]" title={group.label}>{group.label}</span>
                                 </div>
-                                <div onClick={(e) => { e.stopPropagation(); toggleNode(group.key); }} className="p-1 rounded hover:bg-gray-200/50">
-                                    {isGroupExpanded ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+                                <div onClick={(e) => { e.stopPropagation(); toggleNode(group.key); }} className={`p-1.5 rounded-xl transition-colors ${isGroupSelected ? 'bg-purple-200 hover:bg-purple-300' : 'hover:bg-pink-100'}`}>
+                                    {isGroupExpanded ? <ChevronDown className={`w-4 h-4 ${isGroupSelected ? 'text-purple-700' : 'text-pink-500'}`} /> : <ChevronRight className={`w-4 h-4 ${isGroupSelected ? 'text-purple-700' : 'text-pink-500'}`} />}
                                 </div>
                             </div>
 
                             {/* Children Categories */}
                             {isGroupExpanded && group.children.length > 0 && (
-                                <div className="ml-4 pl-3 border-l border-gray-100 space-y-0.5 mt-1 relative animate-in slide-in-from-left-1 duration-200">
+                                <div className="ml-6 pl-4 border-l-2 border-pink-200 space-y-1.5 mt-2 relative animate-in slide-in-from-left-2 duration-300">
                                     {group.children.map(cat => (
                                         <div 
                                             key={`${group.key}-${cat.key}`}
                                             onClick={() => onSelect(group.key as AssetGroup, cat.key)}
                                             className={`
-                                                flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all text-xs
+                                                flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-300 text-sm cute-3d-button
                                                 ${selectedCategory === cat.key && selectedGroup === group.key
-                                                    ? 'bg-white border border-indigo-100 text-indigo-600 font-bold shadow-sm' 
-                                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'}
+                                                    ? 'bg-white border-2 border-pink-300 text-pink-600 font-black shadow-md scale-[1.02] translate-x-1' 
+                                                    : 'bg-white/30 border-2 border-transparent text-purple-600 hover:bg-white/80 hover:border-pink-200 hover:text-pink-500 font-bold hover:translate-x-1'
+                                                }
                                             `}
                                         >
-                                            <div className={`w-1.5 h-1.5 rounded-full ${cat.color ? cat.color.replace('text-', 'bg-') : 'bg-gray-300'}`}></div>
+                                            <div className={`w-2 h-2 rounded-full transition-colors shadow-sm ${selectedCategory === cat.key ? 'bg-pink-500 animate-pulse' : (cat.color ? cat.color.replace('text-', 'bg-') : 'bg-purple-300')}`}></div>
                                             <span className="truncate">{cat.label}</span>
                                         </div>
                                     ))}
@@ -112,8 +113,8 @@ const AssetTreeSidebar: React.FC<AssetTreeSidebarProps> = ({
                 })}
                 
                 {treeData.length === 0 && (
-                    <div className="text-center py-4 text-xs text-gray-400">
-                        ยังไม่มีกลุ่มทรัพย์สิน <br/> (ไปที่ Admin ▶ Master Data)
+                    <div className="text-center py-6 text-sm font-bold text-purple-400 bg-white/50 rounded-2xl border-2 border-dashed border-purple-200">
+                        ยังไม่มีกลุ่มทรัพย์สิน 🥺<br/> <span className="text-xs text-pink-400 mt-1 block">(ไปที่ Admin ▶ Master Data)</span>
                     </div>
                 )}
 

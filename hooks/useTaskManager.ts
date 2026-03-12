@@ -35,6 +35,7 @@ export const useTaskManager = (sessionUser: any) => {
   // 6. Checklist Hook
   const { 
     checklistPresets, activeChecklistItems, loadChecklistData,
+    activePresetId, activePresetName,
     handleToggleChecklist, handleAddChecklistItem, handleDeleteChecklistItem, handleResetChecklist,
     handleLoadPreset, handleAddPreset, handleDeletePreset
   } = useChecklist();
@@ -93,6 +94,8 @@ export const useTaskManager = (sessionUser: any) => {
     // Checklist State
     checklistPresets,
     activeChecklistItems,
+    activePresetId,
+    activePresetName,
     
     // UI State
     isModalOpen,

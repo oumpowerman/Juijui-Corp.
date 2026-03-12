@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
+import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, CheckCircle2, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
 import { InventoryItem, MasterOption, AssetGroup } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
@@ -9,7 +9,9 @@ interface InventoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     inventoryItems: InventoryItem[];
+    currentChecklistItems?: { id: string; text: string }[]; // Updated to include ID
     onAdd: (text: string, categoryId: string) => void;
+    onRemove?: (id: string) => void; // New prop
     // Updated: Now accepts optional assetGroup
     onAddItem: (name: string, desc: string, catId: string, img?: File, assetGroup?: string) => Promise<boolean>;
     onUpdateItem: (id: string, updates: Partial<InventoryItem>, img?: File) => Promise<boolean>;
@@ -18,7 +20,7 @@ interface InventoryModalProps {
 }
 
 const InventoryModal: React.FC<InventoryModalProps> = ({ 
-    isOpen, onClose, inventoryItems, onAdd, onAddItem, onUpdateItem, onDeleteItem, masterOptions 
+    isOpen, onClose, inventoryItems, currentChecklistItems = [], onAdd, onRemove, onAddItem, onUpdateItem, onDeleteItem, masterOptions 
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
     
@@ -346,17 +348,40 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 content-start">
                                 {filteredItems.map(item => {
                                     const subCat = subCats.find(s => s.key === item.categoryId);
+                                    const checklistItem = currentChecklistItems.find(ci => ci.text.toLowerCase() === item.name.toLowerCase());
+                                    const isAlreadyInChecklist = !!checklistItem;
+
                                     return (
-                                        <div key={item.id} onClick={() => handleOpenDetail(item)} className="bg-white border border-gray-200 rounded-2xl p-3 flex flex-col gap-2 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
+                                        <div key={item.id} onClick={() => handleOpenDetail(item)} className={`bg-white border rounded-2xl p-3 flex flex-col gap-2 transition-all cursor-pointer group relative overflow-hidden ${isAlreadyInChecklist ? 'border-green-200 bg-green-50/20' : 'border-gray-200 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1'}`}>
                                             <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden relative border border-gray-100">
                                                 {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" /> : <Box className="w-8 h-8 text-gray-300" />}
-                                                <button onClick={(e) => { e.stopPropagation(); onAdd(item.name, item.categoryId); }} className="absolute bottom-2 right-2 p-2 bg-indigo-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all hover:bg-indigo-700 active:scale-95" title="เพิ่มลงรายการทันที"><Plus className="w-4 h-4 stroke-[3px]" /></button>
+                                                
+                                                {isAlreadyInChecklist ? (
+                                                    <div className="absolute inset-0 bg-green-500/10 backdrop-blur-[1px] flex items-center justify-center">
+                                                        <div className="bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                                                            <Check className="w-4 h-4 stroke-[4px]" />
+                                                        </div>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); if(onRemove && checklistItem) onRemove(checklistItem.id); }} 
+                                                            className="absolute bottom-2 right-2 p-2 bg-red-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all hover:bg-red-600 active:scale-95" 
+                                                            title="นำออกจากกระเป๋า"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={(e) => { e.stopPropagation(); onAdd(item.name, item.categoryId); }} className="absolute bottom-2 right-2 p-2 bg-indigo-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all hover:bg-indigo-700 active:scale-95" title="เพิ่มลงรายการทันที">
+                                                        <Plus className="w-4 h-4 stroke-[3px]" />
+                                                    </button>
+                                                )}
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</h4>
+                                                <h4 className={`font-bold text-sm truncate ${isAlreadyInChecklist ? 'text-green-700' : 'text-gray-800'}`} title={item.name}>{item.name}</h4>
                                                 <div className="flex justify-between items-center mt-1">
-                                                    <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full truncate max-w-[70%]">{subCat ? subCat.label.split(' ')[0] : item.categoryId}</span>
-                                                    {item.description && <Info className="w-3 h-3 text-gray-300" />}
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full truncate max-w-[70%] ${isAlreadyInChecklist ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {subCat ? subCat.label.split(' ')[0] : item.categoryId}
+                                                    </span>
+                                                    {isAlreadyInChecklist && <span className="text-[9px] font-black text-green-500 uppercase tracking-tighter">In Bag</span>}
                                                 </div>
                                             </div>
                                         </div>
@@ -369,19 +394,26 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                 {filteredItems.map(item => {
                                     const subCat = subCats.find(s => s.key === item.categoryId);
                                     const parentL1 = subCat ? mainCats.find(m => m.key === subCat.parentKey) : null;
+                                    const checklistItem = currentChecklistItems.find(ci => ci.text.toLowerCase() === item.name.toLowerCase());
+                                    const isAlreadyInChecklist = !!checklistItem;
                                     
                                     return (
-                                        <div key={item.id} onClick={() => handleOpenDetail(item)} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group">
+                                        <div key={item.id} onClick={() => handleOpenDetail(item)} className={`flex items-center gap-4 p-3 rounded-xl border transition-all cursor-pointer group ${isAlreadyInChecklist ? 'bg-green-50/30 border-green-100' : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'}`}>
                                             {/* Image */}
-                                            <div className="w-12 h-12 bg-gray-50 rounded-lg shrink-0 overflow-hidden border border-gray-100 flex items-center justify-center">
+                                            <div className="w-12 h-12 bg-gray-50 rounded-lg shrink-0 overflow-hidden border border-gray-100 flex items-center justify-center relative">
                                                 {item.imageUrl ? <img src={item.imageUrl} className="w-full h-full object-cover" /> : <Box className="w-5 h-5 text-gray-300" />}
+                                                {isAlreadyInChecklist && (
+                                                    <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                                                        <Check className="w-4 h-4 text-green-600 stroke-[4px]" />
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="font-bold text-gray-800 text-sm truncate">{item.name}</h4>
-                                                    {item.description && <Info className="w-3 h-3 text-gray-300 shrink-0" />}
+                                                    <h4 className={`font-bold text-sm truncate ${isAlreadyInChecklist ? 'text-green-700' : 'text-gray-800'}`}>{item.name}</h4>
+                                                    {isAlreadyInChecklist && <span className="text-[8px] font-black bg-green-500 text-white px-1 rounded uppercase">In Bag</span>}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-xs">
                                                     {parentL1 && (
@@ -397,12 +429,21 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                             </div>
 
                                             {/* Action */}
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); onAdd(item.name, item.categoryId); }} 
-                                                className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold shrink-0"
-                                            >
-                                                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">เลือก</span>
-                                            </button>
+                                            {isAlreadyInChecklist ? (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); if(onRemove && checklistItem) onRemove(checklistItem.id); }} 
+                                                    className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold shrink-0"
+                                                >
+                                                    <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">นำออก</span>
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); onAdd(item.name, item.categoryId); }} 
+                                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold shrink-0"
+                                                >
+                                                    <Plus className="w-4 h-4" /> <span className="hidden sm:inline">เลือก</span>
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -465,7 +506,29 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                                             <button onClick={handleEditClick} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
                                             <button onClick={async () => { if(await showConfirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
                                         </div>
-                                        <button onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"><Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า</button>
+                                        {(() => {
+                                            const checklistItem = currentChecklistItems.find(ci => ci.text.toLowerCase() === viewingItem.name.toLowerCase());
+                                            return checklistItem ? (
+                                                <button 
+                                                    onClick={async () => { 
+                                                        if(await showConfirm(`ต้องการนำ "${viewingItem.name}" ออกจากกระเป๋าใช่หรือไม่?`, 'ยืนยันการนำออก')) { 
+                                                            if(onRemove) onRemove(checklistItem.id); 
+                                                            setViewingItem(null); 
+                                                        } 
+                                                    }} 
+                                                    className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center"
+                                                >
+                                                    <Trash2 className="w-5 h-5 mr-2" /> นำออกจากกระเป๋า
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} 
+                                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"
+                                                >
+                                                    <Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า
+                                                </button>
+                                            );
+                                        })()}
                                     </>
                                 )}
                             </div>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChecklistPreset, InventoryItem } from '../../types';
 import { X, Save, Search, Plus, Trash2, Package, LayoutGrid, List, Box, CheckCircle2 } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface PresetEditorModalProps {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface PresetEditorModalProps {
 const PresetEditorModal: React.FC<PresetEditorModalProps> = ({ 
     isOpen, onClose, preset, inventoryItems, onSave 
 }) => {
+    const { showConfirm } = useGlobalDialog();
     const [name, setName] = useState(preset.name);
     const [currentItems, setCurrentItems] = useState<{ text: string; categoryId: string }[]>(preset.items || []);
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,8 +42,12 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
         setCurrentItems(prev => [...prev, { text: item.name, categoryId: item.categoryId }]);
     };
 
-    const handleRemoveItem = (index: number) => {
-        setCurrentItems(prev => prev.filter((_, i) => i !== index));
+    const handleRemoveItem = async (index: number) => {
+        const item = currentItems[index];
+        const confirmed = await showConfirm(`คุณต้องการลบ "${item.text}" ออกจากชุดอุปกรณ์นี้ใช่หรือไม่?`, 'ลบรายการออกจาก Preset');
+        if (confirmed) {
+            setCurrentItems(prev => prev.filter((_, i) => i !== index));
+        }
     };
 
     const handleSave = () => {

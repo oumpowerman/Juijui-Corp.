@@ -39,7 +39,7 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
     return (
         <div className="glass-card rounded-[2.5rem] p-6 h-full flex flex-col shadow-indigo-100/50">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg tracking-tight">
+                <h3 className="font-bold text-slate-800 flex items-center gap-3 text-lg tracking-tight">
                     <span className="p-2 bg-indigo-50 text-indigo-500 rounded-2xl shadow-sm border border-indigo-100">
                         <UserCheck className="w-5 h-5" />
                     </span>

@@ -184,9 +184,9 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
                             <Siren className={`w-7 h-7 ${stats.overdue > 0 ? 'animate-pulse' : ''}`} />
                         </motion.div>
                         <div>
-                            <h3 className="font-black text-2xl tracking-tighter text-slate-800">งานด่วน (Priority)</h3>
+                            <h3 className="font-bold text-2xl tracking-tighter text-slate-800">งานด่วน (Priority)</h3>
                             <div className="flex items-center gap-2 mt-1">
-                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                <p className="text-[14px] text-slate-400 font-black uppercase tracking-widest">
                                     {activeFilter === 'ALL' ? (viewScope === 'ME' ? 'เฉพาะงานของคุณ' : 'ภาพรวมทั้งทีม') : `กรอง: ${activeFilter}`}
                                 </p>
                                 {activeFilter !== 'ALL' && (

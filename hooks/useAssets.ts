@@ -170,20 +170,43 @@ export const useAssets = () => {
         return () => { supabase.removeChannel(channel); };
     }, [fetchStats]);
 
-    const saveAsset = async (asset: Partial<InventoryItem>, file?: File) => {
+    const saveAsset = async (asset: Partial<InventoryItem>, file?: File, driveOptions?: { isDriveReady: boolean, uploadFileToDrive: (file: File, path: string[]) => Promise<any> }) => {
         try {
             let imageUrl = asset.imageUrl;
 
             if (file) {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `asset-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars')
-                    .upload(`inventory/${fileName}`, file);
+                let uploaded = false;
 
-                if (uploadError) throw uploadError;
-                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
-                imageUrl = urlData.publicUrl;
+                // Try Google Drive first if available
+                if (driveOptions?.isDriveReady) {
+                    try {
+                        const result = await driveOptions.uploadFileToDrive(file, ['Assets', asset.assetGroup || 'General']);
+                        imageUrl = result.thumbnailUrl || result.url;
+                        if (imageUrl) {
+                            uploaded = true;
+                            showToast('บันทึกลง Google Drive สำเร็จ ✅', 'success');
+                        }
+                    } catch (driveErr) {
+                        console.error("Drive Upload Error:", driveErr);
+                        // Fallback will happen below
+                    }
+                }
+
+                // Fallback to Supabase Storage
+                if (!uploaded) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `asset-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage
+                        .from('avatars')
+                        .upload(`inventory/${fileName}`, file);
+
+                    if (uploadError) throw uploadError;
+                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
+                    imageUrl = urlData.publicUrl;
+                    if (driveOptions?.isDriveReady) {
+                        showToast('บันทึกผ่านระบบสำรอง (Supabase) เรียบร้อย', 'info');
+                    }
+                }
             }
 
             const payload: any = {

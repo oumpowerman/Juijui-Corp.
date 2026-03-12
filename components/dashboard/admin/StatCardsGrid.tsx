@@ -113,7 +113,7 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                         )}
 
                         <div className="relative z-10">
-                            <p className={`text-[10px] tracking-[0.2em] font-black uppercase opacity-60 ${iconColor}`}>
+                            <p className={`text-[14px] font-kanit tracking-[0.2em] font-bold uppercase opacity-60 ${iconColor}`}>
                                 {stat.label}
                             </p>
                         </div>
@@ -130,7 +130,7 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                             </div>
                             
                             <div className="flex items-center mt-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm">
                                     ดูรายการ <ArrowRight className="w-3 h-3 ml-1.5" />
                                 </span>
                             </div>

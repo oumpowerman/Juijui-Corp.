@@ -22,6 +22,8 @@ interface ShootChecklistProps {
     
     // Props below are kept for interface compatibility but we will override with local hook for instant updates
     presets: ChecklistPreset[];
+    activePresetId?: string | null;
+    activePresetName?: string | null;
     onLoadPreset: (id: string, clearFirst?: boolean) => void;
     onAddPreset: (name: string, inventoryIds?: string[]) => void;
     onDeletePreset: (id: string) => void;
@@ -33,6 +35,8 @@ interface ShootChecklistProps {
 const ShootChecklist: React.FC<ShootChecklistProps> = ({ 
     items, onToggle, onAdd, onDelete, onReset,
     presets: initialPresets, // Rename to avoid conflict
+    activePresetId: propActivePresetId,
+    activePresetName: propActivePresetName,
     onLoadPreset: propOnLoadPreset, 
     onAddPreset: propOnAddPreset, 
     onDeletePreset: propOnDeletePreset,
@@ -61,7 +65,6 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
     const [isInfoOpen, setIsInfoOpen] = useState(false); 
     
     // UI State
-    const [activePresetId, setActivePresetId] = useState<string | null>(null);
     const [quickAddText, setQuickAddText] = useState('');
     const [activeCategoryForQuickAdd, setActiveCategoryForQuickAdd] = useState<string | null>(null);
 
@@ -81,10 +84,9 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
             if (confirmed) {
                 // Use Prop function to ensure Parent State updates (Visual Sync)
                 propOnLoadPreset('CLEAR');
-                setActivePresetId(null);
             }
         } else {
-            setActivePresetId(presetId);
+            const preset = checklistPresets.find(p => p.id === presetId);
             // Use Prop function to ensure Parent State updates (Visual Sync)
             propOnLoadPreset(presetId, true); // Exclusive load
         }
@@ -146,6 +148,12 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
 
     const handleQuickAdd = (l1Key: string) => {
         if(quickAddText.trim()) {
+            // Check for duplicates
+            const isDuplicate = items.some(i => i.text.toLowerCase() === quickAddText.trim().toLowerCase());
+            if (isDuplicate) {
+                // We can use a toast here if we had access to it, but for now let's just not add
+                return;
+            }
             onAdd(quickAddText, l1Key);
             setQuickAddText('');
         }
@@ -177,7 +185,18 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                             <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
                                 จัดเป๋าออกกอง 🎒
                             </h1>
-                            <p className="text-gray-500 mt-1 font-medium">Smart Packer & Inventory</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-gray-500 font-medium">Smart Packer & Inventory</p>
+                                {propActivePresetName && (
+                                    <>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-black border border-indigo-100 flex items-center gap-1 animate-in zoom-in duration-300">
+                                            <Layout className="w-3 h-3" />
+                                            Active: {propActivePresetName}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                         <button 
                             onClick={() => setIsInfoOpen(true)}
@@ -204,7 +223,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                 key={p.id}
                                 className={`
                                     flex items-center rounded-full border text-xs font-bold transition-all pr-1 pl-4 py-1 cursor-pointer
-                                    ${activePresetId === p.id 
+                                    ${propActivePresetId === p.id 
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200' 
                                         : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'}
                                 `}
@@ -215,7 +234,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                 {/* Edit Button */}
                                 <button 
                                     onClick={(e) => handleEditPresetClick(e, p)}
-                                    className={`p-1 rounded-full hover:bg-white/20 transition-colors ${activePresetId === p.id ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                                    className={`p-1 rounded-full hover:bg-white/20 transition-colors ${propActivePresetId === p.id ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
                                 >
                                     <Edit2 className="w-3 h-3" />
                                 </button>
@@ -341,13 +360,6 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                             {!item.isChecked && (
                                                 <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100" />
                                             )}
-
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                                                className="absolute right-2 text-gray-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
                                         </div>
                                     ))}
 
@@ -384,7 +396,15 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                 isOpen={isInventoryModalOpen}
                 onClose={() => setIsInventoryModalOpen(false)}
                 inventoryItems={inventoryItems}
-                onAdd={onAdd}
+                currentChecklistItems={items.map(i => ({ id: i.id, text: i.text }))} // Pass items with ID
+                onAdd={(text, catId) => {
+                    // Duplicate check
+                    const isDuplicate = items.some(i => i.text.toLowerCase() === text.toLowerCase());
+                    if (!isDuplicate) {
+                        onAdd(text, catId);
+                    }
+                }}
+                onRemove={onDelete} // Pass onDelete as onRemove
                 onAddItem={handleAddInventoryItem}
                 onUpdateItem={handleUpdateInventoryItem}
                 onDeleteItem={handleDeleteInventoryItem}

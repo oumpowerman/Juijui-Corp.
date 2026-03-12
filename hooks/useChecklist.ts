@@ -15,6 +15,8 @@ export const useChecklist = () => {
     const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
     const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [checklistPresets, setChecklistPresets] = useState<ChecklistPreset[]>([]);
+    const [activePresetId, setActivePresetId] = useState<string | null>(null);
+    const [activePresetName, setActivePresetName] = useState<string | null>(null);
     
     // --- 1. Fetching Logic ---
     const loadChecklistData = async () => {
@@ -35,7 +37,7 @@ export const useChecklist = () => {
                 })));
             }
 
-            // Fetch Inventory (Updated to map ALL fields including asset_group and consumables)
+            // Fetch Inventory
             const { data: invData, error: invError } = await supabase
                 .from('inventory_items')
                 .select('*')
@@ -49,16 +51,12 @@ export const useChecklist = () => {
                     description: i.description, 
                     categoryId: i.category_id,
                     imageUrl: i.image_url,
-                    
-                    // Fixed: Map Consumable & New Fields
                     itemType: i.item_type || 'FIXED', 
                     quantity: i.quantity || 0,
                     unit: i.unit,
                     minThreshold: i.min_threshold,
                     maxCapacity: i.max_capacity,
                     tags: i.tags || [],
-
-                    // Asset Registry Fields
                     assetGroup: i.asset_group as AssetGroup,
                     purchasePrice: i.purchase_price,
                     purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
@@ -77,11 +75,30 @@ export const useChecklist = () => {
 
             if (presetError) console.error("Error fetching presets:", presetError);
             if (presetData) {
-                setChecklistPresets(presetData.map((p: any) => ({
+                const mappedPresets = presetData.map((p: any) => ({
                     id: p.id,
                     name: p.name,
                     items: p.items || []
-                })));
+                }));
+                setChecklistPresets(mappedPresets);
+
+                // Fetch Active Preset Metadata from master_options
+                const { data: configData } = await supabase
+                    .from('master_options')
+                    .select('*')
+                    .eq('type', 'CHECKLIST_CONFIG')
+                    .eq('key', 'ACTIVE_PRESET_ID')
+                    .maybeSingle();
+
+                if (configData) {
+                    const pId = configData.label;
+                    setActivePresetId(pId);
+                    const activeP = mappedPresets.find(p => p.id === pId);
+                    setActivePresetName(activeP ? activeP.name : null);
+                } else {
+                    setActivePresetId(null);
+                    setActivePresetName(null);
+                }
             }
 
         } catch (err) {
@@ -99,6 +116,7 @@ export const useChecklist = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options', filter: 'type=eq.CHECKLIST_CONFIG' }, () => loadChecklistData())
             .subscribe();
 
         return () => {
@@ -247,12 +265,42 @@ export const useChecklist = () => {
         }
     };
 
-    // --- 5. Preset Logic (No Changes needed here) ---
+    // --- 5. Preset Logic ---
     
+    const updateGlobalActivePreset = async (presetId: string | null) => {
+        try {
+            const { data: existing } = await supabase
+                .from('master_options')
+                .select('id')
+                .eq('type', 'CHECKLIST_CONFIG')
+                .eq('key', 'ACTIVE_PRESET_ID')
+                .maybeSingle();
+
+            if (existing) {
+                await supabase
+                    .from('master_options')
+                    .update({ label: presetId || '' })
+                    .eq('id', existing.id);
+            } else {
+                await supabase
+                    .from('master_options')
+                    .insert({
+                        type: 'CHECKLIST_CONFIG',
+                        key: 'ACTIVE_PRESET_ID',
+                        label: presetId || '',
+                        sort_order: 999
+                    });
+            }
+        } catch (err) {
+            console.error("Update Global Preset Error:", err);
+        }
+    };
+
     const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
         if (presetId === 'CLEAR') {
             setActiveChecklistItems([]); 
             await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
+            await updateGlobalActivePreset(null);
             showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
             loadChecklistData();
             return;
@@ -276,6 +324,7 @@ export const useChecklist = () => {
             try {
                 if (clearFirst) {
                     await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
+                    await updateGlobalActivePreset(presetId);
                 }
 
                 const itemsToInsert = preset.items.map(i => ({
@@ -368,6 +417,8 @@ export const useChecklist = () => {
         checklistPresets,
         activeChecklistItems,
         inventoryItems,
+        activePresetId,
+        activePresetName,
         
         loadChecklistData,
         handleToggleChecklist,

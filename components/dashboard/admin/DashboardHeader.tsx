@@ -87,7 +87,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                             </div>
                         )}
                         
-                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-3 flex items-center gap-2">
+                         <p className="text-slate-600 text-[12x] font-kanit font-bold uppercase tracking-widest mt-3 flex items-center gap-2">
                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                              ภาพรวมในช่วง: <span className="text-slate-600">{getTimeRangeLabel()}</span>
                         </p>

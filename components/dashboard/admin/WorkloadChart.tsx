@@ -14,7 +14,7 @@ const WorkloadChart: React.FC<WorkloadChartProps> = ({ chartData, progressPercen
         <div className="glass-card rounded-[2.5rem] p-8 flex flex-col items-center justify-center min-h-[350px] shadow-indigo-100/50 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-100/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
             
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8 self-start flex items-center gap-2">
+            <h3 className="text-[14px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 self-start flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
                 ความคืบหน้างาน 📈 ({timeRangeLabel})
             </h3>

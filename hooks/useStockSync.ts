@@ -1,22 +1,33 @@
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Task } from '../types';
 
 /**
- * Hybrid Sync Hook V2 (Smart Deep Check)
+ * Hybrid Sync Hook V2 (Smart Deep Check) - Optimized for Performance
  * Watches for changes in the global `tasks` state and syncs to local pagination.
- * Performs comprehensive checks on critical fields including arrays (owners/editors).
+ * Uses a Map for O(1) lookups to handle tens of thousands of tasks efficiently.
  */
 export const useStockSync = (
     globalTasks: Task[],
     paginatedContents: Task[],
     updateLocalItem: (task: Task) => void
 ) => {
+    // Create a Map of global tasks for O(1) lookup
+    // This runs only when globalTasks changes
+    const globalTasksMap = useMemo(() => {
+        const map = new Map<string, Task>();
+        for (const task of globalTasks) {
+            map.set(task.id, task);
+        }
+        return map;
+    }, [globalTasks]);
+
     useEffect(() => {
         if (globalTasks.length === 0 || paginatedContents.length === 0) return;
 
         paginatedContents.forEach(localTask => {
-            const globalMatch = globalTasks.find(g => g.id === localTask.id);
+            // O(1) lookup instead of O(N) Array.find()
+            const globalMatch = globalTasksMap.get(localTask.id);
             
             if (globalMatch) {
                 // --- Deep Comparison Helpers ---
@@ -60,5 +71,5 @@ export const useStockSync = (
                 }
             }
         });
-    }, [globalTasks, paginatedContents, updateLocalItem]);
+    }, [globalTasksMap, paginatedContents, updateLocalItem]);
 };

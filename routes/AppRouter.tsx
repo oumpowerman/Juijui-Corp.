@@ -117,6 +117,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     
     checklistPresets,
     activeChecklistItems,
+    activePresetId,
+    activePresetName,
     
     isModalOpen, editingTask, selectedDate, notificationSettings, lockedTaskType,
     setIsModalOpen, setEditingTask,
@@ -308,6 +310,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       onDelete={handleDeleteChecklistItem}
                       onReset={handleResetChecklist}
                       presets={checklistPresets}
+                      activePresetId={activePresetId}
+                      activePresetName={activePresetName}
                       onLoadPreset={handleLoadPreset}
                       onAddPreset={handleAddPreset}
                       onDeletePreset={handleDeletePreset}

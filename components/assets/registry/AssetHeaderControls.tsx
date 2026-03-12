@@ -138,25 +138,25 @@ const AssetHeaderControls: React.FC<AssetHeaderControlsProps> = ({
     };
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-2 rounded-2xl border border-gray-200 shadow-sm sticky top-2 z-30 transition-all duration-300">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between pastel-glass-cute p-3 rounded-3xl sticky top-2 z-30 transition-all duration-300">
             
             {/* Search & Tag Filter */}
-            <div className="relative flex-1 w-full flex items-center gap-2">
+            <div className="relative flex-1 w-full flex items-center gap-3">
                 {expandedStack && (
                     <button 
                         onClick={() => setExpandedStack(null)}
-                        className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-200 flex items-center gap-1 font-bold text-xs whitespace-nowrap"
+                        className="p-3 rounded-2xl bg-pink-100 text-pink-600 hover:bg-pink-200 transition-colors border-2 border-pink-200 flex items-center gap-1 font-black text-sm whitespace-nowrap cute-3d-button"
                     >
-                        <ChevronLeft className="w-4 h-4" /> Back
+                        <ChevronLeft className="w-5 h-5" /> กลับ
                     </button>
                 )}
                 
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
                     <input 
                         type="text" 
                         placeholder={expandedStack ? `ค้นหาในกลุ่ม ${expandedStack}...` : "ค้นหาชื่อ, S/N, กลุ่ม..."}
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-100 transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-white/60 border-2 border-purple-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-purple-200/50 focus:border-purple-300 transition-all placeholder:text-purple-300 text-purple-800 shadow-inner"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -167,50 +167,50 @@ const AssetHeaderControls: React.FC<AssetHeaderControlsProps> = ({
                     <div className="relative">
                         <button 
                             onClick={() => setIsTagFilterOpen(!isTagFilterOpen)}
-                            className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all whitespace-nowrap ${filterTag ? 'bg-pink-50 border-pink-200 text-pink-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                            className={`p-3 rounded-2xl border-2 flex items-center gap-2 text-sm font-black transition-all whitespace-nowrap cute-3d-button ${filterTag ? 'bg-pink-100 border-pink-300 text-pink-600' : 'bg-white/80 border-purple-100 text-purple-500 hover:bg-purple-50 hover:border-purple-200'}`}
                             title="Filter by Tag"
                         >
-                            <Hash className="w-4 h-4" /> {filterTag ? filterTag : 'Tags'}
+                            <Hash className="w-5 h-5" /> {filterTag ? filterTag : 'แท็ก'}
                         </button>
                         
                         {isTagFilterOpen && (
-                            <div className="absolute top-full right-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-gray-200 z-50 w-64 animate-in fade-in zoom-in-95">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">Filter by Tag</label>
-                                <div className="flex gap-2 mb-2">
+                            <div className="absolute top-full right-0 mt-3 pastel-glass-cute p-4 rounded-3xl shadow-2xl border-2 border-pink-100 z-50 w-72 animate-in fade-in zoom-in-95">
+                                <label className="text-xs font-black text-pink-400 uppercase mb-3 block">กรองด้วยแท็ก</label>
+                                <div className="flex gap-2 mb-3">
                                     <input 
                                         type="text" 
                                         autoFocus
-                                        placeholder="Enter tag..."
-                                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-indigo-400"
+                                        placeholder="พิมพ์แท็ก..."
+                                        className="flex-1 border-2 border-purple-100 bg-white/80 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-pink-300 focus:ring-4 focus:ring-pink-100 transition-all text-purple-800"
                                         value={tempTagInput}
                                         onChange={e => setTempTagInput(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleSetTagFilter()}
                                     />
-                                    <button onClick={() => handleSetTagFilter()} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700">
-                                        <Check className="w-4 h-4" />
+                                    <button onClick={() => handleSetTagFilter()} className="bg-gradient-to-r from-pink-400 to-purple-400 text-white p-2 rounded-xl hover:opacity-90 cute-3d-button">
+                                        <Check className="w-5 h-5" />
                                     </button>
                                 </div>
                                 
                                 {/* Suggestions */}
-                                <div className="max-h-40 overflow-y-auto space-y-1">
+                                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                                     {tagSuggestions.length > 0 ? (
                                         tagSuggestions.map(tag => (
                                             <button 
                                                 key={tag}
                                                 onClick={() => handleSetTagFilter(tag)}
-                                                className="w-full text-left px-2 py-1.5 text-xs font-bold text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors flex items-center gap-2"
+                                                className="w-full text-left px-3 py-2 text-sm font-bold text-purple-600 hover:bg-pink-100 hover:text-pink-600 rounded-xl transition-colors flex items-center gap-2"
                                             >
-                                                <Hash className="w-3 h-3 opacity-50" /> {tag}
+                                                <Hash className="w-4 h-4 opacity-50" /> {tag}
                                             </button>
                                         ))
                                     ) : (
-                                        <p className="text-[10px] text-gray-300 text-center py-2">ไม่พบ Tag ที่ตรงกัน</p>
+                                        <p className="text-xs text-purple-300 text-center py-3 font-bold">ไม่พบแท็กที่ตรงกัน 🥺</p>
                                     )}
                                 </div>
 
                                 {filterTag && (
-                                    <button onClick={() => { setFilterTag(''); setTempTagInput(''); setIsTagFilterOpen(false); }} className="w-full mt-2 text-xs text-red-500 hover:bg-red-50 py-1.5 rounded-lg border border-transparent hover:border-red-100">
-                                        Clear Filter
+                                    <button onClick={() => { setFilterTag(''); setTempTagInput(''); setIsTagFilterOpen(false); }} className="w-full mt-3 text-sm font-bold text-red-500 hover:bg-red-100 py-2 rounded-xl border-2 border-transparent hover:border-red-200 transition-all">
+                                        ล้างตัวกรอง
                                     </button>
                                 )}
                             </div>
@@ -220,71 +220,71 @@ const AssetHeaderControls: React.FC<AssetHeaderControlsProps> = ({
             </div>
 
             {/* Import / Export / Create */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
                 {/* Import Group */}
                 {!expandedStack && (
-                    <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-100 hidden sm:flex">
+                    <div className="flex items-center gap-1 bg-white/50 p-1.5 rounded-2xl border-2 border-purple-100 hidden sm:flex shadow-inner">
                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
                         <button 
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isImporting}
-                            className="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center transition-colors disabled:opacity-50 shadow-sm"
-                            title="Import CSV"
+                            className="px-3 py-2 text-sm font-black text-purple-500 hover:text-pink-500 hover:bg-white rounded-xl flex items-center transition-all disabled:opacity-50 cute-3d-button"
+                            title="นำเข้า CSV"
                         >
-                            {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1"/> : <Upload className="w-3.5 h-3.5 mr-1" />} 
-                            Import
+                            {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5"/> : <Upload className="w-4 h-4 mr-1.5" />} 
+                            นำเข้า
                         </button>
-                        <div className="w-px h-4 bg-gray-300"></div>
+                        <div className="w-0.5 h-6 bg-purple-200 rounded-full mx-1"></div>
                         <button 
                             onClick={handleDownloadTemplate}
-                            className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg flex items-center transition-colors shadow-sm"
-                            title="Download Template"
+                            className="px-3 py-2 text-sm font-black text-purple-400 hover:text-pink-500 hover:bg-white rounded-xl flex items-center transition-all cute-3d-button"
+                            title="โหลดเทมเพลต"
                         >
-                            <Download className="w-3.5 h-3.5 mr-1" /> Template
+                            <Download className="w-4 h-4 mr-1.5" /> เทมเพลต
                         </button>
                     </div>
                 )}
 
                 <button 
                     onClick={() => setShowIncompleteOnly(!showIncompleteOnly)}
-                    className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${showIncompleteOnly ? 'bg-orange-50 border-orange-200 text-orange-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                    className={`p-3 rounded-2xl border-2 flex items-center gap-2 text-sm font-black transition-all cute-3d-button ${showIncompleteOnly ? 'bg-orange-100 border-orange-300 text-orange-600 animate-pulse' : 'bg-white/80 border-purple-100 text-purple-400 hover:bg-purple-50 hover:text-purple-600'}`}
                     title="แสดงเฉพาะที่ข้อมูลไม่ครบ"
                 >
-                    <AlertTriangle className="w-4 h-4" />
+                    <AlertTriangle className="w-5 h-5" />
                 </button>
 
-                <div className="flex bg-gray-100 p-1 rounded-xl shrink-0 border border-gray-200">
-                    <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-lg transition-all ${viewMode === 'LIST' ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}><List className="w-4 h-4"/></button>
-                    <button onClick={() => setViewMode('GRID')} className={`p-2 rounded-lg transition-all ${viewMode === 'GRID' ? 'bg-white shadow text-indigo-600' : 'text-gray-400'}`}><LayoutGrid className="w-4 h-4"/></button>
+                <div className="flex bg-purple-100/50 p-1.5 rounded-2xl shrink-0 border-2 border-purple-100 shadow-inner">
+                    <button onClick={() => setViewMode('LIST')} className={`p-2.5 rounded-xl transition-all font-bold ${viewMode === 'LIST' ? 'bg-white shadow-md text-pink-500 scale-105' : 'text-purple-400 hover:text-purple-600'}`}><List className="w-5 h-5"/></button>
+                    <button onClick={() => setViewMode('GRID')} className={`p-2.5 rounded-xl transition-all font-bold ${viewMode === 'GRID' ? 'bg-white shadow-md text-pink-500 scale-105' : 'text-purple-400 hover:text-purple-600'}`}><LayoutGrid className="w-5 h-5"/></button>
                 </div>
                 
                 {/* Selection Mode Toggle with Animation */}
                  <button 
                     onClick={() => setIsSelectionMode(!isSelectionMode)}
                     className={`
-                        px-4 py-2.5 rounded-xl border-2 flex items-center gap-2 text-xs font-bold transition-all shadow-sm active:scale-95
+                        px-5 py-3 rounded-2xl border-2 flex items-center gap-2 text-sm font-black transition-all cute-3d-button
                         ${isSelectionMode 
-                            ? 'bg-red-50 border-red-200 text-red-600 ring-2 ring-red-100 ring-offset-1' 
-                            : 'bg-white border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'}
+                            ? 'bg-red-100 border-red-300 text-red-600 animate-pulse' 
+                            : 'bg-white/80 border-purple-100 text-purple-500 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200'}
                     `}
                     title="เลือกรายการ (Selection Mode)"
                 >
                     {isSelectionMode ? (
                         <>
-                            <X className="w-4 h-4" /> Cancel
+                            <X className="w-5 h-5" /> ยกเลิก
                         </>
                     ) : (
                         <>
-                            <CheckSquare className="w-4 h-4" /> Select
+                            <CheckSquare className="w-5 h-5" /> เลือก
                         </>
                     )}
                 </button>
 
                 <button 
                     onClick={onCreate}
-                    className="flex items-center px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 whitespace-nowrap"
+                    className="flex items-center px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-400 text-white rounded-2xl text-sm font-black shadow-lg shadow-pink-200 hover:shadow-xl hover:shadow-pink-300 transition-all cute-3d-button whitespace-nowrap animate-wiggle-hover"
                 >
-                    <Plus className="w-4 h-4 mr-2 stroke-[3px]" /> เพิ่มของใหม่
+                    <Plus className="w-5 h-5 mr-2 stroke-[3px]" /> เพิ่มของใหม่
                 </button>
             </div>
         </div>

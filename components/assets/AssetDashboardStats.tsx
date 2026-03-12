@@ -17,90 +17,94 @@ const AssetDashboardStats: React.FC<AssetDashboardStatsProps> = ({ stats }) => {
     // Calculate health
     const healthyCount = stats.count - (stats.damaged + stats.lost);
     const healthData = [
-        { name: 'Good', value: healthyCount, color: '#22c55e' }, // Green
-        { name: 'Damaged', value: stats.damaged, color: '#f97316' }, // Orange
-        { name: 'Lost', value: stats.lost, color: '#ef4444' }, // Red
+        { name: 'Good', value: healthyCount, color: '#f472b6' }, // Pink
+        { name: 'Damaged', value: stats.damaged, color: '#fb923c' }, // Orange
+        { name: 'Lost', value: stats.lost, color: '#f87171' }, // Red
     ].filter(d => d.value > 0);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
             
             {/* Total Value */}
-            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between relative overflow-hidden group">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
+            <div className="pastel-glass-cute p-5 flex flex-col justify-between relative overflow-hidden group cute-3d-button animate-wiggle-hover">
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-pink-200 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500"></div>
                 <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-2 text-indigo-600">
-                        <div className="p-2 bg-indigo-50 rounded-xl"><DollarSign className="w-5 h-5" /></div>
-                        <span className="text-xs font-bold uppercase tracking-wide">Total Value</span>
+                    <div className="flex items-center gap-2 mb-2 text-pink-500">
+                        <div className="p-2 bg-pink-100 rounded-2xl shadow-inner"><DollarSign className="w-6 h-6" /></div>
+                        <span className="text-sm font-black uppercase tracking-wide">มูลค่ารวม (Total Value)</span>
                     </div>
-                    <h3 className="text-2xl font-black text-gray-800">฿ {stats.totalValue.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black text-gray-800 mt-2">฿ {stats.totalValue.toLocaleString()}</h3>
                 </div>
             </div>
 
             {/* Total Count */}
-            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between relative overflow-hidden group">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
+            <div className="pastel-glass-cute p-5 flex flex-col justify-between relative overflow-hidden group cute-3d-button animate-wiggle-hover">
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-200 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500"></div>
                 <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-2 text-blue-600">
-                        <div className="p-2 bg-blue-50 rounded-xl"><Box className="w-5 h-5" /></div>
-                        <span className="text-xs font-bold uppercase tracking-wide">Asset Count</span>
+                    <div className="flex items-center gap-2 mb-2 text-purple-500">
+                        <div className="p-2 bg-purple-100 rounded-2xl shadow-inner"><Box className="w-6 h-6" /></div>
+                        <span className="text-sm font-black uppercase tracking-wide">จำนวนของ (Asset Count)</span>
                     </div>
-                    <h3 className="text-2xl font-black text-gray-800">{stats.count.toLocaleString()} <span className="text-sm text-gray-400 font-medium">Items</span></h3>
+                    <h3 className="text-3xl font-black text-gray-800 mt-2">{stats.count.toLocaleString()} <span className="text-sm text-purple-400 font-bold">ชิ้น</span></h3>
                 </div>
             </div>
 
             {/* Health Chart */}
-            <div className="lg:col-span-2 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-6 relative">
-                 <div className="h-24 w-24 relative shrink-0">
+            <div className="lg:col-span-2 pastel-glass-cute p-5 flex items-center gap-6 relative cute-3d-button animate-wiggle-hover">
+                 <div className="h-28 w-28 relative shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
                                 data={healthData}
                                 cx="50%"
                                 cy="50%"
-                                innerRadius={25}
-                                outerRadius={40}
-                                paddingAngle={5}
+                                innerRadius={30}
+                                outerRadius={50}
+                                paddingAngle={8}
                                 dataKey="value"
                                 stroke="none"
+                                cornerRadius={10}
                             >
                                 {healthData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
                             </Pie>
-                            <Tooltip />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                                itemStyle={{ fontWeight: 'bold' }}
+                            />
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <ShieldCheck className="w-5 h-5 text-gray-300" />
+                        <ShieldCheck className="w-6 h-6 text-pink-300 animate-pulse" />
                     </div>
                  </div>
 
                  <div className="flex-1 grid grid-cols-2 gap-4">
                      <div>
-                         <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Status Overview</p>
-                         <div className="space-y-1">
-                             <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                 <span className="w-2 h-2 rounded-full bg-green-500"></span> {healthyCount} Good
+                         <p className="text-xs text-pink-400 uppercase font-black mb-2">สถานะของ (Status)</p>
+                         <div className="space-y-2">
+                             <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-white/50 px-3 py-1.5 rounded-xl">
+                                 <span className="w-3 h-3 rounded-full bg-pink-400 shadow-sm"></span> {healthyCount} สภาพดี
                              </div>
-                             <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                 <span className="w-2 h-2 rounded-full bg-orange-500"></span> {stats.damaged} Fix/Bad
+                             <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-white/50 px-3 py-1.5 rounded-xl">
+                                 <span className="w-3 h-3 rounded-full bg-orange-400 shadow-sm"></span> {stats.damaged} ส่งซ่อม/พัง
                              </div>
-                             <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                                 <span className="w-2 h-2 rounded-full bg-red-500"></span> {stats.lost} Lost
+                             <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-white/50 px-3 py-1.5 rounded-xl">
+                                 <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm"></span> {stats.lost} สูญหาย
                              </div>
                          </div>
                      </div>
                      <div className="flex flex-col justify-center">
                          {stats.warrantyAlert > 0 ? (
-                             <div className="bg-red-50 text-red-600 px-3 py-2 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2">
-                                 <AlertTriangle className="w-4 h-4" />
-                                 {stats.warrantyAlert} Expiring
+                             <div className="bg-red-100 text-red-600 px-4 py-3 rounded-2xl text-sm font-black border-2 border-red-200 flex items-center gap-2 shadow-sm animate-bounce">
+                                 <AlertTriangle className="w-5 h-5" />
+                                 {stats.warrantyAlert} ชิ้นใกล้หมดประกัน!
                              </div>
                          ) : (
-                             <div className="bg-green-50 text-green-600 px-3 py-2 rounded-xl text-xs font-bold border border-green-100 flex items-center gap-2">
-                                 <ShieldCheck className="w-4 h-4" />
-                                 Warranty OK
+                             <div className="bg-green-100 text-green-600 px-4 py-3 rounded-2xl text-sm font-black border-2 border-green-200 flex items-center gap-2 shadow-sm">
+                                 <ShieldCheck className="w-5 h-5" />
+                                 ประกันยังโอเคอยู่!
                              </div>
                          )}
                      </div>

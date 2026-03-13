@@ -142,6 +142,37 @@ app.get('/api/auth/google/token', async (req, res) => {
     }
 });
 
+// Helper function to get or create a folder
+async function getOrCreateFolder(drive: any, folderName: string, parentId?: string) {
+    let query = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    if (parentId) {
+        query += ` and '${parentId}' in parents`;
+    }
+
+    const response = await drive.files.list({
+        q: query,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+    });
+
+    if (response.data.files && response.data.files.length > 0) {
+        return response.data.files[0].id;
+    }
+
+    const fileMetadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: parentId ? [parentId] : []
+    };
+
+    const folder = await drive.files.create({
+        requestBody: fileMetadata,
+        fields: 'id',
+    });
+
+    return folder.data.id;
+}
+
 // 4. Upload to Google Drive
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => {
@@ -165,9 +196,17 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
         
         const drive = google.drive({ version: 'v3', auth: localAuthClient });
 
+        // Professional Folder Structure: Juijui_Planner_Assets -> Script_Images
+        const rootFolderName = 'Juijui_Planner_Assets';
+        const subFolderName = 'Script_Images';
+
+        const rootFolderId = await getOrCreateFolder(drive, rootFolderName);
+        const scriptFolderId = await getOrCreateFolder(drive, subFolderName, rootFolderId);
+
         const fileMetadata = {
-            name: `juijui-upload-${Date.now()}-${req.file.originalname}`,
-            parents: [] // You could specify a folder ID here
+            name: `script-img-${Date.now()}-${req.file.originalname}`,
+            mimeType: req.file.mimetype,
+            parents: [scriptFolderId] 
         };
 
         const media = {
@@ -178,7 +217,7 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
         const file = await drive.files.create({
             requestBody: fileMetadata,
             media: media,
-            fields: 'id, webViewLink, webContentLink'
+            fields: 'id'
         });
 
         const fileId = file.data.id;
@@ -192,15 +231,12 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
             }
         });
 
-        // Construct a direct link (Note: Google Drive direct links can be tricky)
-        // This is a common pattern for direct image display
-        const directLink = `https://lh3.googleusercontent.com/u/0/d/${fileId}`;
-        // Alternative: https://drive.google.com/uc?export=view&id=${fileId}
-        const fallbackLink = `https://drive.google.com/uc?export=view&id=${fileId}`;
-
+        // Construct a direct link using lh3.googleusercontent.com which is more reliable for embedding
+        const directLink = `https://lh3.googleusercontent.com/d/${fileId}`;
+        
         res.json({ 
             id: fileId,
-            url: fallbackLink 
+            url: directLink 
         });
     } catch (error) {
         console.error('Upload error:', error);

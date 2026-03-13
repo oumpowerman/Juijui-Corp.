@@ -11,6 +11,8 @@ const ImageNodeView: React.FC<NodeViewProps> = ({ node, updateAttributes, delete
     const { src, width, height, align } = node.attrs;
     const [resizing, setResizing] = useState(false);
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,15 +75,35 @@ const ImageNodeView: React.FC<NodeViewProps> = ({ node, updateAttributes, delete
         <NodeViewWrapper className={`relative group transition-all duration-200 ${alignmentClasses[align as keyof typeof alignmentClasses] || alignmentClasses.center}`}>
             <div 
                 ref={containerRef}
-                className={`relative inline-block ${selected ? 'ring-2 ring-indigo-500 rounded-lg' : ''}`}
+                className={`relative inline-block ${selected ? 'ring-2 ring-indigo-500 rounded-lg' : ''} bg-gray-50 min-h-[100px] min-w-[200px] flex items-center justify-center overflow-hidden`}
                 style={{ width: align === 'full' ? '100%' : width, height: 'auto' }}
             >
+                {isLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-50/80 backdrop-blur-sm z-10">
+                        <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">กำลังโหลดรูปภาพ...</span>
+                    </div>
+                )}
+
+                {hasError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-red-50 z-10 p-4 text-center">
+                        <X className="w-8 h-8 text-red-400" />
+                        <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">โหลดรูปภาพไม่สำเร็จ</span>
+                        <p className="text-[9px] text-red-300 max-w-[150px]">ลิงก์อาจหมดอายุหรือไม่มีสิทธิ์เข้าถึง</p>
+                    </div>
+                )}
+
                 <img 
                     ref={imgRef}
                     src={src} 
                     alt="" 
-                    className="w-full h-auto rounded-lg block"
+                    className={`w-full h-auto rounded-lg block transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
                     referrerPolicy="no-referrer"
+                    onLoad={() => setIsLoading(false)}
+                    onError={() => {
+                        setIsLoading(false);
+                        setHasError(true);
+                    }}
                 />
 
                 {/* Floating Toolbar (Only when selected) */}

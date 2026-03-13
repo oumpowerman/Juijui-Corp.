@@ -74,11 +74,15 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
         >
             {/* 1. Title (Fixed) */}
             <td 
-                className="px-6 py-5 sticky left-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top border-r border-gray-100 transition-colors"
+                className="px-6 py-5 sticky left-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] align-top border-r border-gray-100 transition-colors overflow-hidden"
                 style={{ width: columnWidths['title'] || 350 }}
             >
-                <div className="font-medium font-kanit text-[18px] text-gray-800 group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug mb-2" title={task.title}>
-                    {task.title}
+                <div className="relative">
+                    <div className="font-medium font-kanit text-[18px] text-gray-800 group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug mb-2" title={task.title}>
+                        {task.title}
+                    </div>
+                    {/* Subtle fade for long text */}
+                    <div className="absolute bottom-2 right-0 w-12 h-4 bg-gradient-to-r from-transparent to-white group-hover:to-indigo-50 pointer-events-none" />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`text-[9px] px-2 py-0.5 rounded-full border font-black uppercase tracking-tight ${channelStyle}`}>{channel?.name || '-'}</span>
@@ -133,7 +137,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                 switch (key) {
                     case 'shortNote':
                         return (
-                            <td key={key} className="px-4 py-5 align-top" style={{ width }}>
+                            <td key={key} className="px-4 py-5 align-top hidden md:table-cell" style={{ width }}>
                                 <div className="flex items-start gap-2">
                                     <FileText className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
                                     <p className="text-[11px] text-slate-500 line-clamp-3 leading-relaxed italic">
@@ -147,7 +151,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         const textClass = statusInfo.color.split(' ').find(c => c.startsWith('text-')) || 'text-gray-700';
                         
                         return (
-                            <td key={key} className="px-4 py-5 text-center align-middle" style={{ width }}>
+                            <td key={key} className="px-4 py-5 text-center align-middle hidden md:table-cell" style={{ width }}>
                                 <div className="relative w-full h-7 bg-gray-100 rounded-full overflow-hidden border border-gray-200 shadow-inner group/status">
                                     {/* Progress Fill */}
                                     <motion.div 
@@ -175,7 +179,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         );
                     case 'publishDate':
                         return (
-                            <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap" style={{ width }}>
+                            <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap hidden md:table-cell" style={{ width }}>
                                 {task.isUnscheduled ? (
                                     <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-lg font-black uppercase tracking-tighter">Unscheduled</span>
                                 ) : (
@@ -187,7 +191,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         );
                     case 'shootDate':
                         return (
-                            <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap" style={{ width }}>
+                            <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap hidden md:table-cell" style={{ width }}>
                                 {task.shootDate ? (
                                     <div className="flex flex-col items-center">
                                         <div className="flex items-center gap-1 text-[10px] text-indigo-500 font-black bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
@@ -201,18 +205,18 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                             </td>
                         );
                     case 'ideaOwner':
-                        return <td key={key} className="px-2 py-5 text-center align-middle" style={{ width }}>{renderUserAvatars(task.ideaOwnerIds)}</td>;
+                        return <td key={key} className="px-2 py-5 text-center align-middle hidden md:table-cell" style={{ width }}>{renderUserAvatars(task.ideaOwnerIds)}</td>;
                     case 'editor':
-                        return <td key={key} className="px-2 py-5 text-center align-middle" style={{ width }}>{renderUserAvatars(task.editorIds)}</td>;
+                        return <td key={key} className="px-2 py-5 text-center align-middle hidden md:table-cell" style={{ width }}>{renderUserAvatars(task.editorIds)}</td>;
                     case 'helper':
-                        return <td key={key} className="px-2 py-5 text-center align-middle" style={{ width }}>{renderUserAvatars(task.assigneeIds)}</td>;
+                        return <td key={key} className="px-2 py-5 text-center align-middle hidden md:table-cell" style={{ width }}>{renderUserAvatars(task.assigneeIds)}</td>;
                     default:
                         return null;
                 }
             })}
 
             {/* 7. Actions (Fixed) */}
-            <td className="px-4 py-5 text-right sticky right-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle border-l border-gray-100 transition-colors">
+            <td className="px-4 py-5 text-right sticky right-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle border-l border-gray-100 transition-colors hidden lg:table-cell">
                 <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm">
                         <MoreHorizontal className="w-4 h-4" />

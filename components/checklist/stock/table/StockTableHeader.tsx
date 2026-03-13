@@ -114,7 +114,7 @@ const StockTableHeader: React.FC<StockTableHeaderProps> = ({
                             onDragOver={(e) => handleDragOver(e, index)}
                             onDrop={(e) => handleDrop(e, index)}
                             onDragLeave={() => setDragOverIndex(null)}
-                            className={`px-4 py-4 text-center cursor-pointer hover:bg-gray-100 transition-all relative group ${dragOverIndex === index ? 'bg-indigo-50 border-x-2 border-indigo-200' : ''}`}
+                            className={`px-4 py-4 text-center cursor-pointer hover:bg-gray-100 transition-all relative group hidden md:table-cell ${dragOverIndex === index ? 'bg-indigo-50 border-x-2 border-indigo-200' : ''}`}
                             style={{ width: columnWidths[key] || 150 }}
                             onClick={() => onSort(key)}
                         >
@@ -133,7 +133,7 @@ const StockTableHeader: React.FC<StockTableHeaderProps> = ({
                 })}
 
                 {/* Fixed Action Column */}
-                <th className="px-4 py-4 text-center sticky right-0 z-30 bg-gray-50/95 w-[80px] border-l border-gray-100 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                <th className="px-4 py-4 text-center sticky right-0 z-30 bg-gray-50/95 w-[80px] border-l border-gray-100 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] hidden lg:table-cell">
                     จัดการ (ปุ่มกด) ⚙️
                 </th>
             </tr>

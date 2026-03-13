@@ -15,6 +15,7 @@ import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 import StockFilterBar from './stock/StockFilterBar';
 import StockTable from './stock/StockTable';
 import StockInventoryModal from './stock/inventory/StockInventoryModal';
+import StockCountBadge from './stock/StockCountBadge.tsx';
 
 interface ContentStockProps {
   tasks: Task[]; // Sync Source
@@ -188,6 +189,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                   <h1 className="text-3xl font-bold text-gray-800 flex items-center mb-3 tracking-tight">
                       <span className="text-4xl mr-2">📑</span>
                       รายการคอนเทนต์ (All Content)
+                      <StockCountBadge count={totalCount} isLoading={isLoading} />
                   </h1>
 
                   {/* Quick Channel Chips */}

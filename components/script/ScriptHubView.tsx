@@ -163,6 +163,12 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     };
 
     const handleDeleteScript = async (id: string) => {
+        const script = scripts.find(s => s.id === id);
+        if (script && script.authorId !== currentUser.id && script.ideaOwnerId !== currentUser.id) {
+            showAlert("คุณไม่ใช่เจ้าของสคริปต์นี้ ไม่สามารถลบได้", "ไม่อนุญาต");
+            return;
+        }
+
         const confirmed = await showConfirm(
             'สคริปต์จะถูกลบถาวรและไม่สามารถกู้คืนได้',
             '⚠️ ยืนยันการลบสคริปต์?'
@@ -247,6 +253,12 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     };
 
     const handleTogglePersonal = async (id: string, currentStatus: boolean) => {
+        const script = scripts.find(s => s.id === id);
+        if (script && script.authorId !== currentUser.id && script.ideaOwnerId !== currentUser.id) {
+            showAlert("คุณไม่ใช่เจ้าของสคริปต์นี้ ไม่สามารถเปลี่ยนสถานะได้", "ไม่อนุญาต");
+            return;
+        }
+
         const actionText = currentStatus ? 'ย้ายเข้าส่วนกลาง (Public Hub)' : 'เก็บเข้าพื้นที่ส่วนตัว (My Studio)';
         const confirmed = await showConfirm(
             `คุณต้องการ ${actionText} ใช่หรือไม่?`,
@@ -401,6 +413,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                 channels={channels}
                                 masterOptions={masterOptions}
                                 mode={mode}
+                                currentUser={currentUser}
                                 onOpen={handleOpenScript}
                                 
                                 // Pass wrapped handlers

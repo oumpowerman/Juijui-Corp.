@@ -14,6 +14,7 @@ interface ScriptListProps {
     channels: Channel[];
     masterOptions: MasterOption[];
     mode?: ScriptHubMode; // NEW
+    currentUser: User; // NEW
     
     // Actions
     onOpen: (script: ScriptSummary) => void;
@@ -26,9 +27,14 @@ interface ScriptListProps {
 
 const ScriptList: React.FC<ScriptListProps> = React.memo(({ 
     scripts, layoutMode, viewTab, isLoading, channels, masterOptions, mode = 'HUB',
+    currentUser,
     onOpen, onToggleQueue, onDelete, onRestore, onDone, onTogglePersonal
 }) => {
     const isStudio = mode === 'STUDIO';
+
+    const isOwner = (script: ScriptSummary) => {
+        return script.authorId === currentUser.id || script.ideaOwnerId === currentUser.id;
+    };
 
     const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
@@ -321,7 +327,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                     </button>
                                 </>
                             )}
-                            {onTogglePersonal && (
+                            {onTogglePersonal && isOwner(script) && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onTogglePersonal(script.id, script.isPersonal || false); }}
                                     className={`p-2 rounded-lg bg-white border border-gray-200 shadow-sm transition-colors ${script.isPersonal ? 'text-indigo-600 hover:bg-indigo-50' : 'text-rose-600 hover:bg-rose-50'}`}
@@ -330,12 +336,14 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                     {script.isPersonal ? <Users className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
                                 </button>
                             )}
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onDelete(script.id); }} 
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isOwner(script) && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onDelete(script.id); }} 
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -367,9 +375,11 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                 </span>
                             )}
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); onDelete(script.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-50 rounded-lg">
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        {isOwner(script) && (
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(script.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-red-50 rounded-lg">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
 
                     <h3 onClick={() => onOpen(script)} className={`font-black text-gray-800 text-lg mb-2 cursor-pointer line-clamp-2 leading-tight transition-colors ${isStudio ? 'hover:text-indigo-600' : 'hover:text-rose-600'}`}>
@@ -437,7 +447,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
 
                         {/* Actions */}
                         <div className="flex items-center justify-end gap-2">
-                            {onTogglePersonal && (
+                            {onTogglePersonal && isOwner(script) && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onTogglePersonal(script.id, script.isPersonal || false); }}
                                     className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all active:scale-95 border ${script.isPersonal ? (isStudio ? 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100' : 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100') : (isStudio ? 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100' : 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100')}`}

@@ -212,7 +212,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
                 />
             </div>
 
-            <div className="overflow-x-auto flex-1 scrollbar-hide">
+            <div className="overflow-x-auto flex-1 scrollbar-hide relative">
                 <table className="w-full text-left border-collapse table-fixed">
                     <StockTableHeader 
                         columnOrder={columnOrder}
@@ -249,6 +249,9 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
                         </AnimatePresence>
                     </tbody>
                 </table>
+                
+                {/* Right Edge Fade Overlay for Mobile */}
+                <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-50 md:hidden" />
             </div>
 
             {/* Pagination Footer */}

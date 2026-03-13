@@ -77,9 +77,9 @@ export const useScripts = (currentUser: User) => {
             // 1. Tab Filter
             if (options.isPersonal !== undefined) {
                 query = query.eq('is_personal', options.isPersonal);
-                // If in personal mode, only show scripts owned by the current user
+                // If in personal mode, only show scripts where user is author OR idea owner
                 if (options.isPersonal) {
-                    query = query.eq('author_id', currentUser.id);
+                    query = query.or(`author_id.eq.${currentUser.id},idea_owner_id.eq.${currentUser.id}`);
                 }
             }
 
@@ -269,6 +269,7 @@ export const useScripts = (currentUser: User) => {
             if (updates.isInShootQueue !== undefined) payload.is_in_shoot_queue = updates.isInShootQueue;
             if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
             if (updates.shareToken !== undefined) payload.share_token = updates.shareToken;
+            if (updates.isPersonal !== undefined) payload.is_personal = updates.isPersonal;
             
             // --- FIX: Add Missing Metadata Fields ---
             if (updates.channelId !== undefined) payload.channel_id = updates.channelId;

@@ -70,6 +70,8 @@ interface ScriptStatsGridProps {
     filterStatus: string[];
     refreshTrigger?: number; // NEW
     onTabChange: (tab: 'QUEUE' | 'LIBRARY' | 'HISTORY', status?: string) => void;
+    isPersonal?: boolean; // NEW
+    currentUser?: { id: string }; // NEW
 }
 
 const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
@@ -81,7 +83,9 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
     viewTab,
     filterStatus,
     refreshTrigger, // NEW
-    onTabChange
+    onTabChange,
+    isPersonal,
+    currentUser
 }) => {
     const [stats, setStats] = useState({
         queue: 0,
@@ -97,6 +101,14 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
             // Base filter helper
             const applyFilters = (query: any) => {
                 let q = query;
+                
+                if (isPersonal !== undefined) {
+                    q = q.eq('is_personal', isPersonal);
+                    if (isPersonal && currentUser) {
+                        q = q.eq('author_id', currentUser.id);
+                    }
+                }
+
                 if (filterOwner.length > 0) {
                     q = q.or(`author_id.in.(${filterOwner.join(',')}),idea_owner_id.in.(${filterOwner.join(',')})`);
                 }
@@ -141,7 +153,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
         } finally {
             setIsLoading(false);
         }
-    }, [filterOwner, filterChannel, filterCategory, filterTags, searchQuery]); // ADDED searchQuery
+    }, [filterOwner, filterChannel, filterCategory, filterTags, searchQuery, isPersonal, currentUser]); // ADDED isPersonal, currentUser
 
     // Use a ref to track the latest fetchStats to avoid re-subscribing unnecessarily
     const fetchStatsRef = useRef(fetchStats);
@@ -179,7 +191,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 label="ถ่ายวันนี้ (Queue)" 
                 count={stats.queue} 
                 icon={Clapperboard} 
-                color="orange" 
+                color={isPersonal ? "violet" : "orange"} 
                 isActive={viewTab === 'QUEUE'}
                 onClick={() => onTabChange('QUEUE', 'ALL')}
             />
@@ -187,7 +199,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 label="คลังบท (Library)" 
                 count={stats.library} 
                 icon={FileText} 
-                color="indigo" 
+                color={isPersonal ? "blue" : "indigo"} 
                 isActive={viewTab === 'LIBRARY' && (filterStatus.includes('ALL') || filterStatus.length === 0)}
                 onClick={() => onTabChange('LIBRARY', 'ALL')}
             />
@@ -195,7 +207,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 label="แบบร่าง (Drafts)" 
                 count={stats.drafts} 
                 icon={Edit3} 
-                color="pink" 
+                color={isPersonal ? "sky" : "pink"} 
                 isActive={viewTab === 'LIBRARY' && filterStatus.includes('DRAFT')}
                 onClick={() => onTabChange('LIBRARY', 'DRAFT')}
             />
@@ -203,7 +215,7 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
                 label="เสร็จแล้ว (History)" 
                 count={stats.history} 
                 icon={CheckCircle2} 
-                color="emerald" 
+                color={isPersonal ? "indigo" : "emerald"} 
                 isActive={viewTab === 'HISTORY'}
                 onClick={() => onTabChange('HISTORY', 'ALL')}
             />

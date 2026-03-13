@@ -13,8 +13,10 @@ import InfoModal from '../ui/InfoModal'; // Import
 import ScriptGuide from './hub/ScriptGuide'; // Import
 import ScriptCategoryFilter from './hub/ScriptCategoryFilter';
 import ScriptStatsGrid from './hub/ScriptStatsGrid';
+import ScriptModeSwitcher, { ScriptHubMode } from './hub/ScriptModeSwitcher';
 import AppBackground from '../common/AppBackground';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
 import ContentForm from '../task/ContentForm'; // IMPORT
 import { createPortal } from 'react-dom'; // IMPORT
@@ -24,9 +26,10 @@ import { createPortal } from 'react-dom'; // IMPORT
 interface ScriptHubViewProps {
     currentUser: User;
     users: User[]; 
+    initialMode?: ScriptHubMode;
 }
 
-const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => {
+const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initialMode = 'HUB' }) => {
     // Hooks
     const { 
         scripts, totalCount, isLoading, 
@@ -47,6 +50,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
     const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
     const [refreshStatsKey, setRefreshStatsKey] = useState(0); // NEW: Trigger for stats refresh
+    const [mode, setMode] = useState<ScriptHubMode>(initialMode); // NEW: Mode switcher
 
     // Promote State
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
@@ -85,9 +89,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
             filterTags, // NEW
             filterStatus,
             sortOrder, // NEW
-            isDeepSearch // NEW
+            isDeepSearch, // NEW
+            isPersonal: mode === 'STUDIO' ? true : false // Filter based on mode
         });
-    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch, fetchScripts]);
+    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch, fetchScripts, mode]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -97,14 +102,21 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     const scriptCategories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
 
     const handleCreateSubmit = async (data: any) => {
-        const id = await createScript(data);
+        const id = await createScript({
+            ...data,
+            isPersonal: mode === 'STUDIO' // Set isPersonal based on current mode
+        });
         if (id) {
             // Optional: Immediately open the new script
             const fullScript = await getScriptById(id);
             if (fullScript) setActiveScript(fullScript);
         }
         // Refetch list to show new item
-        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch });
+        fetchScripts({ 
+            page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
+            filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch,
+            isPersonal: mode === 'STUDIO'
+        });
         setRefreshStatsKey(prev => prev + 1);
     };
 
@@ -234,6 +246,22 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
         }
     };
 
+    const handleTogglePersonal = async (id: string, currentStatus: boolean) => {
+        const actionText = currentStatus ? 'ย้ายเข้าส่วนกลาง (Public Hub)' : 'เก็บเข้าพื้นที่ส่วนตัว (My Studio)';
+        const confirmed = await showConfirm(
+            `คุณต้องการ ${actionText} ใช่หรือไม่?`,
+            'ยืนยันการเปลี่ยนสถานะการมองเห็น'
+        );
+        
+        if (confirmed) {
+            const success = await updateScript(id, { isPersonal: !currentStatus });
+            if (success) {
+                setRefreshStatsKey(prev => prev + 1);
+                fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isPersonal: mode === 'STUDIO' });
+            }
+        }
+    };
+
     // If Editor is open, show full screen editor
     if (activeScript) {
         return (
@@ -247,7 +275,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                     currentUser={currentUser}
                     onClose={() => { 
                         setActiveScript(null); 
-                        fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, sortOrder }); 
+                        fetchScripts({ 
+                            page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
+                            filterCategory, filterStatus, sortOrder,
+                            isPersonal: mode === 'STUDIO'
+                        }); 
                         setRefreshStatsKey(prev => prev + 1);
                     }} 
                     onSave={updateScript} 
@@ -289,7 +321,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
     }
 
     return (
-        <AppBackground theme="script" pattern="dots" className="pb-24">
+        <AppBackground 
+            theme={mode === 'STUDIO' ? 'pastel-indigo' : 'script'} 
+            pattern="dots" 
+            className="pb-24"
+        >
             {isFetchingDetail && (
                 <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
                     <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
@@ -305,106 +341,127 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 <ScriptHubHeader 
                     onCreateClick={() => setIsCreateModalOpen(true)} 
                     onInfoClick={() => setIsInfoOpen(true)} 
+                    mode={mode}
+                    onModeChange={setMode}
                 />
 
-                {/* 2. Dashboard Stats Grid */}
-                <ScriptStatsGrid 
-                    refreshTrigger={refreshStatsKey}
-                    filterOwner={filterOwner}
-                    filterChannel={filterChannel}
-                    filterCategory={filterCategory}
-                    filterTags={filterTags} // NEW
-                    searchQuery={searchQuery} // NEW
-                    viewTab={viewTab}
-                    filterStatus={filterStatus}
-                    onTabChange={(tab, status) => {
-                        setViewTab(tab);
-                        if (status) setFilterStatus([status]);
-                        // We don't reset category here to allow filtered stats to stay
-                    }}
-                />
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={mode}
+                        initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
+                        transition={{ 
+                            duration: 0.4, 
+                            ease: [0.23, 1, 0.32, 1] // Custom cubic-bezier for premium feel
+                        }}
+                        className="space-y-8"
+                    >
+                        {/* 2. Dashboard Stats Grid */}
+                        <ScriptStatsGrid 
+                            refreshTrigger={refreshStatsKey}
+                            filterOwner={filterOwner}
+                            filterChannel={filterChannel}
+                            filterCategory={filterCategory}
+                            filterTags={filterTags} // NEW
+                            searchQuery={searchQuery} // NEW
+                            viewTab={viewTab}
+                            filterStatus={filterStatus}
+                            isPersonal={mode === 'STUDIO'}
+                            currentUser={currentUser}
+                            onTabChange={(tab, status) => {
+                                setViewTab(tab);
+                                if (status) setFilterStatus([status]);
+                                // We don't reset category here to allow filtered stats to stay
+                            }}
+                        />
 
-                {/* 4. Filter Bar & List */}
-                <div className="space-y-4">
-                     <ScriptFilterBar 
-                        layoutMode={layoutMode} setLayoutMode={setLayoutMode}
-                        searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-                        filterOwner={filterOwner} setFilterOwner={setFilterOwner}
-                        filterChannel={filterChannel} setFilterChannel={setFilterChannel}
-                        filterCategory={filterCategory} setFilterCategory={setFilterCategory}
-                        filterTags={filterTags} setFilterTags={setFilterTags} // NEW
-                        // NEW PROPS
-                        filterStatus={filterStatus} setFilterStatus={setFilterStatus}
-                        sortOrder={sortOrder} setSortOrder={setSortOrder}
-                        isDeepSearch={isDeepSearch} setIsDeepSearch={setIsDeepSearch}
-                        users={users} channels={channels} masterOptions={masterOptions}
-                    />
+                        {/* 4. Filter Bar & List */}
+                        <div className="space-y-4">
+                             <ScriptFilterBar 
+                                layoutMode={layoutMode} setLayoutMode={setLayoutMode}
+                                searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                                filterOwner={filterOwner} setFilterOwner={setFilterOwner}
+                                filterChannel={filterChannel} setFilterChannel={setFilterChannel}
+                                filterCategory={filterCategory} setFilterCategory={setFilterCategory}
+                                filterTags={filterTags} setFilterTags={setFilterTags} // NEW
+                                // NEW PROPS
+                                filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                                sortOrder={sortOrder} setSortOrder={setSortOrder}
+                                isDeepSearch={isDeepSearch} setIsDeepSearch={setIsDeepSearch}
+                                users={users} channels={channels} masterOptions={masterOptions}
+                                mode={mode}
+                            />
 
-                    <ScriptList 
-                        scripts={scripts}
-                        layoutMode={layoutMode}
-                        viewTab={viewTab}
-                        isLoading={isLoading}
-                        channels={channels}
-                        masterOptions={masterOptions}
-                        onOpen={handleOpenScript}
-                        
-                        // Pass wrapped handlers
-                        onToggleQueue={handleToggleQueue}
-                        onDelete={handleDeleteScript}
-                        onRestore={handleRestoreScript}
-                        onDone={handleDoneScript}
-                    />
+                            <ScriptList 
+                                scripts={scripts}
+                                layoutMode={layoutMode}
+                                viewTab={viewTab}
+                                isLoading={isLoading}
+                                channels={channels}
+                                masterOptions={masterOptions}
+                                mode={mode}
+                                onOpen={handleOpenScript}
+                                
+                                // Pass wrapped handlers
+                                onToggleQueue={handleToggleQueue}
+                                onDelete={handleDeleteScript}
+                                onRestore={handleRestoreScript}
+                                onDone={handleDoneScript}
+                                onTogglePersonal={handleTogglePersonal}
+                            />
 
-                    {/* Pagination Controls */}
-                    {totalCount > 0 && (
-                        <div className="
-                        flex items-center justify-between pt-4
-                        p-4 rounded-3xl
-                        bg-white/70
-                        backdrop-blur-xl
-                        border border-white/40
-                        shadow-[0_20px_60px_rgba(0,0,0,0.18)]
-                        animate-breathe
-                        relative overflow-hidden
-                        ">
+                            {/* Pagination Controls */}
+                            {totalCount > 0 && (
+                                <div className="
+                                flex items-center justify-between pt-4
+                                p-4 rounded-3xl
+                                bg-white/70
+                                backdrop-blur-xl
+                                border border-white/40
+                                shadow-[0_20px_60px_rgba(0,0,0,0.18)]
+                                animate-breathe
+                                relative overflow-hidden
+                                ">
 
-                        <div className="absolute inset-0 pointer-events-none">
-                            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent"/>
+                                <div className="absolute inset-0 pointer-events-none">
+                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent"/>
 
-                               {/* pastel glow */}
-                            <div className="
-                                absolute -top-10 -left-10 w-[200%] h-[200%]
-                                opacity-30 blur-3xl
-                                animate-pastel
-                            "/>
+                                       {/* pastel glow */}
+                                    <div className="
+                                        absolute -top-10 -left-10 w-[200%] h-[200%]
+                                        opacity-30 blur-3xl
+                                        animate-pastel
+                                    "/>
+                                </div>
+
+                                    <div className="text-xs text-gray-500 font-medium">
+                                        แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => handlePageChange(page - 1)} 
+                                            disabled={page === 1}
+                                            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                        <span className="text-sm font-bold text-gray-700 px-2">
+                                            หน้า {page} / {totalPages}
+                                        </span>
+                                        <button 
+                                            onClick={() => handlePageChange(page + 1)} 
+                                            disabled={page === totalPages}
+                                            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-
-                            <div className="text-xs text-gray-500 font-medium">
-                                แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => handlePageChange(page - 1)} 
-                                    disabled={page === 1}
-                                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    <ChevronLeft className="w-4 h-4 text-gray-600" />
-                                </button>
-                                <span className="text-sm font-bold text-gray-700 px-2">
-                                    หน้า {page} / {totalPages}
-                                </span>
-                                <button 
-                                    onClick={() => handlePageChange(page + 1)} 
-                                    disabled={page === totalPages}
-                                    className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    <ChevronRight className="w-4 h-4 text-gray-600" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                    </motion.div>
+                </AnimatePresence>
             </div>
 
             <CreateScriptModal 
@@ -415,6 +472,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users }) => 
                 masterOptions={masterOptions}
                 users={users}
                 currentUser={currentUser}
+                mode={mode}
             />
 
             {/* INFO MODAL */}

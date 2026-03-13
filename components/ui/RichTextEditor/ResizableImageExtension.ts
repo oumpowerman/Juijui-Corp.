@@ -10,9 +10,10 @@ export const ResizableImage = Image.extend({
     return {
       ...this.parent?.(),
       width: {
-        default: '100%',
+        default: 'auto',
         renderHTML: attributes => ({
           width: attributes.width,
+          style: `max-width: 100%; height: auto;`,
         }),
       },
       height: {

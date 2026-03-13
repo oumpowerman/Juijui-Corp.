@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag, Hash, Check, ChevronDown, AlignLeft, Type, Search } from 'lucide-react';
 import { Channel, MasterOption, ScriptType, User } from '../../../types';
 import SmartTagInput from './SmartTagInput';
+import { ScriptHubMode } from './ScriptModeSwitcher';
 
 interface CreateScriptModalProps {
     isOpen: boolean;
@@ -13,9 +14,20 @@ interface CreateScriptModalProps {
     masterOptions: MasterOption[];
     users: User[];
     currentUser: User;
+    mode?: ScriptHubMode;
 }
 
-const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, onSubmit, channels, masterOptions, users, currentUser }) => {
+const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    onSubmit, 
+    channels, 
+    masterOptions, 
+    users, 
+    currentUser,
+    mode = 'HUB'
+}) => {
+    const isStudio = mode === 'STUDIO';
     const [title, setTitle] = useState('');
     const [channelId, setChannelId] = useState('');
     const [category, setCategory] = useState('');
@@ -173,40 +185,56 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ isOpen, onClose, 
                             <form id="create-script-form" onSubmit={handleSubmit} className="space-y-6">
                                 
                                 {/* 0. Creator Selection */}
-                                <div className="space-y-3">
+                                <div className={`space-y-3 transition-opacity duration-300 ${isStudio ? 'opacity-80' : ''}`}>
                                     <label className="text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center">
                                         <Users className="w-3.5 h-3.5 mr-1.5" /> Idea Owner (เจ้าของไอเดีย)
+                                        {isStudio && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">STUDIO MODE: LOCKED</span>}
                                     </label>
-                                    <p className="text-[12px] text-slate-400 ml-1 -mt-2 mb-2 italic opacity-70">* คุณจะถูกตั้งเป็นคนเขียนบท (Writer) โดยอัตโนมัติ</p>
-                                    <div className="flex flex-wrap gap-3">
-                                        {activeUsers.map(user => (
-                                            <button
-                                                key={user.id}
-                                                type="button"
-                                                onClick={() => setIdeaOwnerId(user.id)}
-                                                className={`relative group transition-all duration-300 ${ideaOwnerId === user.id ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
-                                                title={user.name}
-                                            >
-                                                <div className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${ideaOwnerId === user.id ? 'border-purple-400 shadow-lg ring-4 ring-purple-50' : 'border-white shadow-sm'}`}>
-                                                    {user.avatarUrl ? (
-                                                        <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-sm">
-                                                            {user.name.charAt(0)}
+                                    <p className="text-[12px] text-slate-400 ml-1 -mt-2 mb-2 italic opacity-70">
+                                        {isStudio 
+                                            ? '* ในโหมด Studio คุณจะเป็นเจ้าของไอเดียและคนเขียนบทโดยอัตโนมัติ' 
+                                            : '* คุณจะถูกตั้งเป็นคนเขียนบท (Writer) โดยอัตโนมัติ'
+                                        }
+                                    </p>
+                                    <div className={`flex flex-wrap gap-3 ${isStudio ? 'pointer-events-none' : ''}`}>
+                                        {activeUsers.map(user => {
+                                            const isSelected = ideaOwnerId === user.id;
+                                            const isCurrentUser = user.id === currentUser.id;
+                                            
+                                            // In Studio mode, only show current user or highlight current user
+                                            if (isStudio && !isCurrentUser) return null;
+
+                                            return (
+                                                <button
+                                                    key={user.id}
+                                                    type="button"
+                                                    onClick={() => !isStudio && setIdeaOwnerId(user.id)}
+                                                    className={`relative group transition-all duration-300 ${isSelected ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
+                                                    title={user.name}
+                                                >
+                                                    <div className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all ${isSelected ? 'border-purple-400 shadow-lg ring-4 ring-purple-50' : 'border-white shadow-sm'}`}>
+                                                        {user.avatarUrl ? (
+                                                            <img src={user.avatarUrl} className="w-full h-full object-cover" alt={user.name} referrerPolicy="no-referrer" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-sm">
+                                                                {user.name.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="absolute -top-1 -right-1 bg-gradient-to-br from-pink-500 to-purple-500 text-white rounded-full p-0.5 shadow-md">
+                                                            <Check className="w-3 h-3" />
                                                         </div>
                                                     )}
-                                                </div>
-                                                {ideaOwnerId === user.id && (
-                                                    <div className="absolute -top-1 -right-1 bg-gradient-to-br from-pink-500 to-purple-500 text-white rounded-full p-0.5 shadow-md">
-                                                        <Check className="w-3 h-3" />
-                                                    </div>
-                                                )}
-                                                {/* Tooltip */}
-                                                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                    {user.name}
-                                                </div>
-                                            </button>
-                                        ))}
+                                                    {/* Tooltip */}
+                                                    {!isStudio && (
+                                                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                            {user.name}
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

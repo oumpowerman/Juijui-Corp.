@@ -1,8 +1,10 @@
 
 import React from 'react';
 import { ScriptSummary, Channel, MasterOption, User } from '../../../types';
-import { FileText, Trash2, Clock, ListPlus, CheckCircle2, Search, Tag, RotateCcw, ArrowRightLeft, User as UserIcon, Layers, AlignLeft, List, Eye, Check, MonitorPlay } from 'lucide-react';
+import { FileText, Trash2, Clock, ListPlus, CheckCircle2, Search, Tag, RotateCcw, ArrowRightLeft, User as UserIcon, Users, Layers, AlignLeft, List, Eye, Check, MonitorPlay } from 'lucide-react';
 import { format } from 'date-fns';
+
+import { ScriptHubMode } from './ScriptModeSwitcher';
 
 interface ScriptListProps {
     scripts: ScriptSummary[];
@@ -11,6 +13,7 @@ interface ScriptListProps {
     isLoading: boolean;
     channels: Channel[];
     masterOptions: MasterOption[];
+    mode?: ScriptHubMode; // NEW
     
     // Actions
     onOpen: (script: ScriptSummary) => void;
@@ -18,12 +21,14 @@ interface ScriptListProps {
     onDelete: (id: string) => void;
     onRestore: (id: string) => void; 
     onDone: (id: string) => void;
+    onTogglePersonal?: (id: string, current: boolean) => void; // NEW
 }
 
 const ScriptList: React.FC<ScriptListProps> = React.memo(({ 
-    scripts, layoutMode, viewTab, isLoading, channels, masterOptions,
-    onOpen, onToggleQueue, onDelete, onRestore, onDone 
+    scripts, layoutMode, viewTab, isLoading, channels, masterOptions, mode = 'HUB',
+    onOpen, onToggleQueue, onDelete, onRestore, onDone, onTogglePersonal
 }) => {
+    const isStudio = mode === 'STUDIO';
 
     const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
@@ -69,7 +74,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
             DRAFT: { label: 'Draft', icon: List, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
             REVIEW: { label: 'Review', icon: Eye, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
             FINAL: { label: 'Final', icon: Check, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-            SHOOTING: { label: 'Shooting', icon: MonitorPlay, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200' },
+            SHOOTING: { label: 'Shooting', icon: isStudio ? 'text-indigo-700' : 'text-rose-700', bg: isStudio ? 'bg-indigo-50' : 'bg-rose-50', border: isStudio ? 'border-indigo-200' : 'border-rose-200' },
             DONE: { label: 'Done', icon: CheckCircle2, color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
         }[status] || { label: status, icon: FileText, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200' };
 
@@ -86,7 +91,9 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
     const premiumStyles = (
         <style>{`
             .premium-3d-card {
-                background: linear-gradient(135deg, rgba(236, 239, 255, 0.9) 0%, rgba(255, 245, 255, 0.8) 100%);
+                background: ${isStudio 
+                    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.9) 0%, rgba(245, 243, 255, 0.8) 100%)' 
+                    : 'linear-gradient(135deg, rgba(236, 239, 255, 0.9) 0%, rgba(255, 245, 255, 0.8) 100%)'};
                 backdrop-filter: blur(10px);
                 border: 1px solid rgba(255, 255, 255, 0.6);
                 box-shadow: 
@@ -98,9 +105,9 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
             .premium-3d-card:hover {
                 transform: translateY(-6px) scale(1.01);
                 box-shadow: 
-                    0 20px 40px -10px rgba(99, 102, 241, 0.12),
+                    0 20px 40px -10px ${isStudio ? 'rgba(79, 70, 229, 0.12)' : 'rgba(99, 102, 241, 0.12)'},
                     0 10px 20px -5px rgba(0, 0, 0, 0.05);
-                border-color: rgba(99, 102, 241, 0.2);
+                border-color: ${isStudio ? 'rgba(79, 70, 229, 0.2)' : 'rgba(99, 102, 241, 0.2)'};
             }
             .glossy-shine-card {
                 position: relative;
@@ -139,7 +146,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
         return (
             <div className="py-32 text-center text-gray-400 flex flex-col items-center">
                 {premiumStyles}
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                <div className={`w-8 h-8 border-4 rounded-full animate-spin mb-4 ${isStudio ? 'border-indigo-200 border-t-indigo-600' : 'border-rose-200 border-t-rose-600'}`}></div>
                 <p>กำลังโหลดสคริปต์...</p>
             </div>
         );
@@ -164,13 +171,13 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
             <div className="bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 overflow-hidden shadow-xl flex flex-col relative z-10 premium-3d-card">
                 {premiumStyles}
                 <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-200 hidden md:grid grid-cols-12 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                    <div className="col-span-6 cursor-pointer hover:text-indigo-600 flex items-center gap-1" onClick={() => handleSort('title')}>
+                    <div className={`col-span-6 cursor-pointer flex items-center gap-1 transition-colors ${isStudio ? 'hover:text-indigo-600' : 'hover:text-rose-600'}`} onClick={() => handleSort('title')}>
                         Script Details {sortConfig?.key === 'title' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </div>
-                    <div className="col-span-2 cursor-pointer hover:text-indigo-600 flex items-center gap-1" onClick={() => handleSort('author')}>
+                    <div className={`col-span-2 cursor-pointer flex items-center gap-1 transition-colors ${isStudio ? 'hover:text-indigo-600' : 'hover:text-rose-600'}`} onClick={() => handleSort('author')}>
                         Creator {sortConfig?.key === 'author' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </div>
-                    <div className="col-span-2 text-center cursor-pointer hover:text-indigo-600 flex items-center justify-center gap-1" onClick={() => handleSort('status')}>
+                    <div className={`col-span-2 text-center cursor-pointer flex items-center justify-center gap-1 transition-colors ${isStudio ? 'hover:text-indigo-600' : 'hover:text-rose-600'}`} onClick={() => handleSort('status')}>
                         Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </div>
                     <div className="col-span-2 text-right">Actions</div>
@@ -181,7 +188,8 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         key={script.id}
                         onClick={() => onOpen(script)}
                         className={`
-                            grid grid-cols-12 items-start gap-4 p-4 border-b border-indigo-100 hover:bg-indigo-50/30 transition-colors cursor-pointer group last:border-b-0
+                            grid grid-cols-12 items-start gap-4 p-4 border-b transition-colors cursor-pointer group last:border-b-0
+                            ${isStudio ? 'border-indigo-100 hover:bg-indigo-50/30' : 'border-rose-100 hover:bg-rose-50/30'}
                             ${viewTab === 'HISTORY' ? 'opacity-70 grayscale hover:grayscale-0 hover:opacity-100' : ''}
                         `}
                     >
@@ -192,7 +200,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                    <h3 className="font-semibold text-gray-800 text-md truncate group-hover:text-indigo-700 transition-colors">{script.title}</h3>
+                                    <h3 className={`font-semibold text-gray-800 text-md truncate transition-colors ${isStudio ? 'group-hover:text-indigo-700' : 'group-hover:text-rose-700'}`}>{script.title}</h3>
                                 </div>
                                 
                                 {script.objective && (
@@ -210,14 +218,14 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                     )}
                                     {/* Category */}
                                     {script.category && (
-                                        <span className="flex items-center text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 font-medium">
+                                        <span className={`flex items-center px-1.5 py-0.5 rounded border font-medium ${isStudio ? 'text-indigo-500 bg-indigo-50 border-indigo-100' : 'text-rose-500 bg-rose-50 border-rose-100'}`}>
                                             <Layers className="w-2.5 h-2.5 mr-1" />
                                             {getCategoryLabel(script.category)}
                                         </span>
                                     )}
                                     {/* Tags */}
                                     {script.tags && script.tags.length > 0 && (
-                                        <span className="flex items-center text-pink-500 bg-pink-50 px-1.5 py-0.5 rounded border border-pink-100 font-medium">
+                                        <span className={`flex items-center px-1.5 py-0.5 rounded border font-medium ${isStudio ? 'text-sky-500 bg-sky-50 border-sky-100' : 'text-pink-500 bg-pink-50 border-pink-100'}`}>
                                             <Tag className="w-2.5 h-2.5 mr-1" />
                                             {script.tags.slice(0, 2).join(', ')}
                                             {script.tags.length > 2 && ` +${script.tags.length - 2}`}
@@ -250,14 +258,14 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                             {script.author?.avatarUrl ? (
                                                 <img src={script.author.avatarUrl} className="w-7 h-7 rounded-full border-2 border-white shadow-sm object-cover" title={`Writer: ${script.author.name}`} />
                                             ) : (
-                                                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-[10px] border-2 border-white shadow-sm" title={`Writer: ${script.author?.name}`}>
+                                                <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] border-2 border-white shadow-sm ${isStudio ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`} title={`Writer: ${script.author?.name}`}>
                                                     {script.author?.name?.[0] || <UserIcon className="w-3 h-3"/>}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                     <div className="flex flex-col min-w-0">
-                                        <span className="text-[8px] font-black text-indigo-400 uppercase leading-none">Owner → Writer</span>
+                                        <span className={`text-[8px] font-black uppercase leading-none ${isStudio ? 'text-indigo-400' : 'text-rose-400'}`}>Owner → Writer</span>
                                         <span className="text-[10px] font-bold text-gray-600 truncate max-w-[70px] leading-tight">
                                             {script.ideaOwner?.name.split(' ')[0]} → {script.author?.name.split(' ')[0]}
                                         </span>
@@ -269,7 +277,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                         {script.author?.avatarUrl ? (
                                             <img src={script.author.avatarUrl} className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover" />
                                         ) : (
-                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs border-2 border-white shadow-md">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border-2 border-white shadow-md ${isStudio ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
                                                 {script.author?.name?.[0] || <UserIcon className="w-4 h-4"/>}
                                             </div>
                                         )}
@@ -289,7 +297,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                             {viewTab === 'LIBRARY' && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onToggleQueue(script.id, false); }}
-                                    className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg bg-white border border-gray-200 shadow-sm transition-colors"
+                                    className={`p-2 rounded-lg bg-white border border-gray-200 shadow-sm transition-colors ${isStudio ? 'text-indigo-600 hover:bg-indigo-100' : 'text-rose-600 hover:bg-rose-100'}`}
                                     title="Add to Queue"
                                 >
                                     <ListPlus className="w-4 h-4" />
@@ -313,6 +321,15 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                                     </button>
                                 </>
                             )}
+                            {onTogglePersonal && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onTogglePersonal(script.id, script.isPersonal || false); }}
+                                    className={`p-2 rounded-lg bg-white border border-gray-200 shadow-sm transition-colors ${script.isPersonal ? 'text-indigo-600 hover:bg-indigo-50' : 'text-rose-600 hover:bg-rose-50'}`}
+                                    title={script.isPersonal ? 'Publish to Hub' : 'Make Personal'}
+                                >
+                                    {script.isPersonal ? <Users className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
+                                </button>
+                            )}
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onDelete(script.id); }} 
                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -333,12 +350,17 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
             {sortedScripts.map(script => (
                 <div 
                     key={script.id}
-                    className={`rounded-[2rem] border p-5 shadow-lg hover:border-indigo-300 transition-all flex flex-col relative group min-h-[280px] premium-3d-card glossy-shine-card ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100 grayscale-[0.5] hover:grayscale-0' : 'border-gray-100'}`}
+                    className={`rounded-[2rem] border p-5 shadow-lg transition-all flex flex-col relative group min-h-[280px] premium-3d-card glossy-shine-card ${isStudio ? 'hover:border-indigo-300' : 'hover:border-rose-300'} ${viewTab === 'HISTORY' ? 'border-gray-200 opacity-80 hover:opacity-100 grayscale-[0.5] hover:grayscale-0' : 'border-gray-100'}`}
                 >
                     {/* Header */}
                     <div className="flex justify-between items-start mb-3">
                         <div className="flex gap-2 items-center">
                             {renderStatusBadge(script.status)}
+                            {script.isPersonal && (
+                                <span className={`px-2 py-1 rounded-lg border font-bold text-[10px] flex items-center gap-1 ${isStudio ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                    <UserIcon className="w-3 h-3" /> Personal
+                                </span>
+                            )}
                             {script.channelId && (
                                 <span className="text-[10px] bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-200 font-bold max-w-[100px] truncate">
                                     {getChannelName(script.channelId)}
@@ -350,7 +372,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         </button>
                     </div>
 
-                    <h3 onClick={() => onOpen(script)} className="font-black text-gray-800 text-lg mb-2 cursor-pointer hover:text-indigo-600 line-clamp-2 leading-tight transition-colors">
+                    <h3 onClick={() => onOpen(script)} className={`font-black text-gray-800 text-lg mb-2 cursor-pointer line-clamp-2 leading-tight transition-colors ${isStudio ? 'hover:text-indigo-600' : 'hover:text-rose-600'}`}>
                         {script.title}
                     </h3>
                     
@@ -364,12 +386,12 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                     {/* Metadata Tags */}
                     <div className="flex flex-wrap gap-2 mb-auto content-start">
                         {script.category && (
-                            <div className="flex items-center text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                            <div className={`flex items-center text-[10px] font-bold px-2.5 py-1 rounded-full border ${isStudio ? 'text-indigo-600 bg-indigo-50 border-indigo-100' : 'text-rose-600 bg-rose-50 border-rose-100'}`}>
                                 <Layers className="w-3 h-3 mr-1" /> {getCategoryLabel(script.category)}
                             </div>
                         )}
                         {script.tags && script.tags.length > 0 && (
-                            <div className="flex items-center text-[10px] text-pink-600 font-bold bg-pink-50 px-2.5 py-1 rounded-full border border-pink-100">
+                            <div className={`flex items-center text-[10px] font-bold px-2.5 py-1 rounded-full border ${isStudio ? 'text-sky-600 bg-sky-50 border-sky-100' : 'text-pink-600 bg-pink-50 border-pink-100'}`}>
                                 <Tag className="w-3 h-3 mr-1" /> 
                                 {script.tags.slice(0, 2).join(', ')}
                                 {script.tags.length > 2 && ` +${script.tags.length - 2}`}
@@ -383,26 +405,26 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         {/* Prominent Creator Badge */}
                         <div className="flex items-center justify-between mb-3">
                              {script.ideaOwnerId !== script.authorId ? (
-                                 <div className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-indigo-50 pr-3 pl-1 py-1 rounded-full border border-amber-100 shadow-sm w-fit">
+                                 <div className={`flex items-center gap-2 pr-3 pl-1 py-1 rounded-full border shadow-sm w-fit ${isStudio ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100' : 'bg-gradient-to-r from-amber-50 to-indigo-50 border-amber-100'}`}>
                                     <div className="flex -space-x-2">
                                          <img src={script.ideaOwner?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200 relative z-10" title={`Owner: ${script.ideaOwner?.name}`} />
                                          <img src={script.author?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200 relative z-0" title={`Writer: ${script.author?.name}`} />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[8px] text-amber-500 font-black uppercase leading-none">Owner → Writer</span>
+                                        <span className={`text-[8px] font-black uppercase leading-none ${isStudio ? 'text-blue-500' : 'text-amber-500'}`}>Owner → Writer</span>
                                         <span className="text-[10px] font-bold text-gray-700 leading-none">
                                             {script.ideaOwner?.name.split(' ')[0]} → {script.author?.name.split(' ')[0]}
                                         </span>
                                     </div>
                                  </div>
                              ) : (
-                                 <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-white pr-3 pl-1 py-1 rounded-full border border-indigo-50 shadow-sm w-fit">
+                                 <div className={`flex items-center gap-2 pr-3 pl-1 py-1 rounded-full border shadow-sm w-fit ${isStudio ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-50' : 'bg-gradient-to-r from-rose-50 to-white border-rose-50'}`}>
                                     <div className="relative">
                                          <img src={script.author?.avatarUrl} className="w-6 h-6 rounded-full object-cover border-2 border-white shadow-md bg-gray-200" />
-                                         <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
+                                         <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${isStudio ? 'bg-indigo-400' : 'bg-green-400'}`}></div>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[8px] text-indigo-400 font-bold uppercase leading-none">Created by</span>
+                                        <span className={`text-[8px] font-bold uppercase leading-none ${isStudio ? 'text-indigo-400' : 'text-rose-400'}`}>Created by</span>
                                         <span className="text-[10px] font-bold text-gray-700 leading-none">{script.author?.name.split(' ')[0]}</span>
                                     </div>
                                  </div>
@@ -414,11 +436,20 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2">
+                            {onTogglePersonal && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onTogglePersonal(script.id, script.isPersonal || false); }}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all active:scale-95 border ${script.isPersonal ? (isStudio ? 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100' : 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100') : (isStudio ? 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100' : 'text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-100')}`}
+                                >
+                                    {script.isPersonal ? <Users className="w-4 h-4" /> : <UserIcon className="w-4 h-4" />}
+                                    {script.isPersonal ? 'Publish' : 'Personal'}
+                                </button>
+                            )}
                             {viewTab === 'LIBRARY' && (
                                 <button 
                                     onClick={() => onToggleQueue(script.id, false)}
-                                    className="flex items-center gap-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl transition-all shadow-md shadow-indigo-100 active:scale-95 w-full justify-center"
+                                    className={`flex items-center gap-1.5 text-xs font-black text-white px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 w-full justify-center ${isStudio ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-100'}`}
                                 >
                                     <ListPlus className="w-4 h-4" />
                                     เข้าคิวถ่าย
@@ -446,7 +477,7 @@ const ScriptList: React.FC<ScriptListProps> = React.memo(({
                             {viewTab === 'HISTORY' && (
                                 <button 
                                     onClick={() => onRestore(script.id)}
-                                    className="flex items-center justify-center w-full gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 py-2 rounded-xl hover:bg-indigo-100 transition-colors"
+                                    className={`flex items-center justify-center w-full gap-1.5 text-xs font-bold py-2 rounded-xl transition-colors ${isStudio ? 'text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100' : 'text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100'}`}
                                 >
                                     <ArrowRightLeft className="w-3.5 h-3.5" /> นำกลับมาใช้
                                 </button>

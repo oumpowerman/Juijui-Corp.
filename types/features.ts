@@ -109,6 +109,7 @@ export interface ScriptSummary {
     locker?: { name: string; avatarUrl: string };
     shareToken?: string;
     isPublic?: boolean;
+    isPersonal?: boolean;
 }
 
 export interface Script extends ScriptSummary {

@@ -1,32 +1,54 @@
 
 import React from 'react';
-import { FileText, Plus, Sparkles, Info } from 'lucide-react';
+import { FileText, Plus, Sparkles, Info, User } from 'lucide-react';
+import ScriptModeSwitcher, { ScriptHubMode } from './ScriptModeSwitcher';
 
 interface ScriptHubHeaderProps {
     onCreateClick: () => void;
     onInfoClick?: () => void; // New prop
+    mode: ScriptHubMode;
+    onModeChange: (mode: ScriptHubMode) => void;
 }
 
-const ScriptHubHeader: React.FC<ScriptHubHeaderProps> = ({ onCreateClick, onInfoClick }) => {
+const ScriptHubHeader: React.FC<ScriptHubHeaderProps> = ({ 
+    onCreateClick, 
+    onInfoClick, 
+    mode = 'HUB',
+    onModeChange
+}) => {
+    const isStudio = mode === 'STUDIO';
+
     return (
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 relative overflow-hidden group">
+        <div className={`bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 relative overflow-hidden group transition-all duration-500`}>
             {/* Decorative Background */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-rose-50 to-orange-50 rounded-bl-[100px] opacity-60 pointer-events-none transition-transform duration-700 group-hover:scale-110"></div>
+            <div className={`
+                absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl rounded-bl-[100px] opacity-60 pointer-events-none transition-transform duration-700 group-hover:scale-110
+                ${isStudio ? 'from-indigo-50 to-violet-50' : 'from-rose-50 to-orange-50'}
+            `}></div>
+
+            {/* Mode Switcher - Top Right */}
+            <div className="absolute top-4 right-4 z-20">
+                <ScriptModeSwitcher 
+                    mode={mode} 
+                    onChange={onModeChange} 
+                    className="scale-90 origin-top-right opacity-80 hover:opacity-100 transition-opacity"
+                />
+            </div>
             
             <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                         <div className="p-2 bg-rose-100 rounded-xl text-rose-600 shadow-sm">
-                            <FileText className="w-8 h-8" />
+                         <div className={`p-2 rounded-xl shadow-sm transition-colors duration-500 ${isStudio ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {isStudio ? <User className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-                            Script Hub
+                            {isStudio ? 'My Studio' : 'Script Hub'}
                         </h1>
                         {/* Info Button */}
                         {onInfoClick && (
                             <button 
                                 onClick={onInfoClick}
-                                className="p-1.5 bg-white/80 hover:bg-white text-gray-400 hover:text-rose-500 rounded-full transition-all shadow-sm border border-gray-100 active:scale-95"
+                                className={`p-1.5 bg-white/80 hover:bg-white rounded-full transition-all shadow-sm border border-gray-100 active:scale-95 ${isStudio ? 'text-gray-400 hover:text-indigo-500' : 'text-gray-400 hover:text-rose-500'}`}
                                 title="คู่มือการใช้งาน"
                             >
                                 <Info className="w-5 h-5" />
@@ -34,21 +56,26 @@ const ScriptHubHeader: React.FC<ScriptHubHeaderProps> = ({ onCreateClick, onInfo
                         )}
                     </div>
                     <p className="text-gray-500 font-medium max-w-lg leading-relaxed">
-                        ศูนย์รวมบทและสคริปต์ จัดการไอเดีย ร่างบท และส่งไม้ต่อให้ทีม Production ได้อย่างลื่นไหล
+                        {isStudio 
+                            ? 'พื้นที่สร้างสรรค์ส่วนตัวของคุณ จัดการไอเดีย ร่างบท และเตรียมความพร้อมก่อนแชร์ให้ทีม'
+                            : 'ศูนย์รวมบทและสคริปต์ จัดการไอเดีย ร่างบท และส่งไม้ต่อให้ทีม Production ได้อย่างลื่นไหล'
+                        }
                     </p>
                 </div>
 
                 <button 
                     onClick={onCreateClick}
-                    className="
+                    className={`
                         group relative flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl
-                        bg-gradient-to-r from-rose-600 to-pink-600 
                         text-white font-black text-sm
-                        shadow-xl shadow-rose-200
-                        hover:shadow-rose-300 hover:-translate-y-1 hover:scale-[1.02]
-                        active:scale-95 active:translate-y-0
                         transition-all duration-300
-                    "
+                        ${isStudio 
+                            ? 'bg-gradient-to-r from-indigo-600 to-violet-600 shadow-xl shadow-indigo-200 hover:shadow-indigo-300' 
+                            : 'bg-gradient-to-r from-rose-600 to-pink-600 shadow-xl shadow-rose-200 hover:shadow-rose-300'
+                        }
+                        hover:-translate-y-1 hover:scale-[1.02]
+                        active:scale-95 active:translate-y-0
+                    `}
                 >
                     <Plus className="w-5 h-5 stroke-[3px]" />
                     <span className="relative z-10 drop-shadow-sm">สร้างสคริปต์ใหม่</span>

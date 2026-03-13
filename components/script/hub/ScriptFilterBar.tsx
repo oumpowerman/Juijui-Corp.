@@ -10,6 +10,8 @@ import CreatorFilter from './CreatorFilter';
 import TagFilter from './TagFilter';
 import ScriptCategoryFilter from './ScriptCategoryFilter';
 
+import { ScriptHubMode } from './ScriptModeSwitcher';
+
 interface ScriptFilterBarProps {
     layoutMode: 'GRID' | 'LIST';
     setLayoutMode: (mode: 'GRID' | 'LIST') => void;
@@ -42,6 +44,7 @@ interface ScriptFilterBarProps {
     users: User[];
     channels: Channel[];
     masterOptions: MasterOption[];
+    mode?: ScriptHubMode; // NEW
 }
 
 // Define correct Script Lifecycle Statuses with styling
@@ -64,8 +67,10 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
     filterStatus, setFilterStatus,
     sortOrder, setSortOrder,
     isDeepSearch, setIsDeepSearch,
-    users, channels, masterOptions
+    users, channels, masterOptions,
+    mode = 'HUB'
 }) => {
+    const isStudio = mode === 'STUDIO';
     // Local state for debouncing search input
     const [localSearch, setLocalSearch] = useState(searchQuery);
     const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -117,7 +122,9 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
         <div className="flex flex-col gap-4 p-1">
             <style>{`
                 .premium-3d-container {
-                    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.7) 100%);
+                    background: ${isStudio 
+                        ? 'linear-gradient(135deg, rgba(245, 243, 255, 0.8) 0%, rgba(239, 246, 255, 0.7) 100%)' 
+                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.7) 100%)'};
                     backdrop-filter: blur(12px);
                     border: 1px solid rgba(255, 255, 255, 0.6);
                     box-shadow: 
@@ -188,12 +195,12 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
             <div className="premium-3d-container p-2.5 rounded-[1.5rem] sticky top-2 z-[50] flex flex-col lg:flex-row gap-3 lg:gap-4 items-center transition-all duration-500 hover:shadow-xl">
                 <div className="flex-1 w-full relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="w-4.5 h-4.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <Search className={`w-4.5 h-4.5 text-gray-400 transition-colors ${isStudio ? 'group-focus-within:text-violet-500' : 'group-focus-within:text-indigo-500'}`} />
                     </div>
                     <input 
                         type="text" 
                         placeholder={isDeepSearch ? "ค้นหาคำในเนื้อหาบทสคริปต์..." : "ค้นหาสคริปต์ (ชื่อ, แท็ก)..."} 
-                        className={`w-full pl-11 pr-12 py-2.5 bg-white/50 border rounded-xl focus:ring-4 outline-none transition-all text-sm font-black text-gray-700 placeholder:text-gray-400/80 shadow-inner ${isDeepSearch ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-400' : 'border-gray-200/60 focus:ring-indigo-500/10 focus:border-indigo-300'}`}
+                        className={`w-full pl-11 pr-12 py-2.5 bg-white/50 border rounded-xl focus:ring-4 outline-none transition-all text-sm font-black text-gray-700 placeholder:text-gray-400/80 shadow-inner ${isDeepSearch ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-400' : (isStudio ? 'border-violet-200 focus:ring-violet-500/10 focus:border-violet-300' : 'border-gray-200/60 focus:ring-indigo-500/10 focus:border-indigo-300')}`}
                         value={localSearch}
                         onChange={e => setLocalSearch(e.target.value)}
                     />
@@ -223,8 +230,8 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         className={`
                             flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black transition-all duration-500 border shadow-sm
                             ${isFilterExpanded 
-                                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-200' 
-                                : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600'
+                                ? (isStudio ? 'bg-violet-600 text-white border-violet-500 shadow-violet-200' : 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-200') 
+                                : (isStudio ? 'bg-white text-gray-600 border-gray-200 hover:border-violet-200 hover:text-violet-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600')
                             }
                         `}
                     >
@@ -233,7 +240,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         {(filterOwner.length > 0 || filterChannel.length > 0 || filterTags.length > 0 || (filterCategory && filterCategory !== 'ALL')) && (
                             <span className={`
                                 flex items-center justify-center w-4 h-4 sm:w-5 h-5 rounded-full text-[9px] sm:text-[10px] font-black
-                                ${isFilterExpanded ? 'bg-white text-indigo-600' : 'bg-indigo-600 text-white'}
+                                ${isFilterExpanded ? 'bg-white text-indigo-600' : (isStudio ? 'bg-violet-600 text-white' : 'bg-indigo-600 text-white')}
                             `}>
                                 {filterOwner.length + filterChannel.length + filterTags.length + (filterCategory !== 'ALL' ? 1 : 0)}
                             </span>
@@ -248,8 +255,8 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         className={`
                             p-2.5 rounded-xl transition-all duration-500 border shadow-sm active:scale-95
                             ${sortOrder === 'DESC' 
-                                ? 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50' 
-                                : 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white border-transparent shadow-md'
+                                ? (isStudio ? 'bg-white text-violet-600 border-violet-100 hover:bg-violet-50' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50') 
+                                : (isStudio ? 'bg-gradient-to-br from-violet-500 to-blue-600 text-white border-transparent shadow-md' : 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white border-transparent shadow-md')
                             }
                         `}
                         title={sortOrder === 'DESC' ? 'ล่าสุดไปเก่าสุด' : 'เก่าสุดไปล่าสุด'}
@@ -264,7 +271,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                             className={`
                                 w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3 sm:px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black border transition-all duration-500 shadow-sm
                                 ${!filterStatus.includes('ALL')
-                                    ? 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50' 
+                                    ? (isStudio ? 'bg-gradient-to-br from-violet-50 to-white text-violet-700 border-violet-200 ring-4 ring-violet-50/50' : 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200 ring-4 ring-indigo-50/50') 
                                     : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/10'
                                 }
                             `}
@@ -339,13 +346,13 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                     <div className="flex bg-gray-100/50 backdrop-blur-sm p-1 rounded-xl shrink-0 border border-gray-200/60 shadow-inner">
                         <button 
                             onClick={() => setLayoutMode('GRID')} 
-                            className={`p-2 rounded-lg transition-all duration-500 ${layoutMode === 'GRID' ? 'bg-white shadow-md text-indigo-600 scale-110 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'}`}
+                            className={`p-2 rounded-lg transition-all duration-500 ${layoutMode === 'GRID' ? (isStudio ? 'bg-white shadow-md text-violet-600 scale-110 ring-1 ring-black/5' : 'bg-white shadow-md text-indigo-600 scale-110 ring-1 ring-black/5') : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'}`}
                         >
                             <LayoutGrid className="w-4.5 h-4.5" />
                         </button>
                         <button 
                             onClick={() => setLayoutMode('LIST')} 
-                            className={`p-2 rounded-lg transition-all duration-500 ${layoutMode === 'LIST' ? 'bg-white shadow-md text-indigo-600 scale-110 ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'}`}
+                            className={`p-2 rounded-lg transition-all duration-500 ${layoutMode === 'LIST' ? (isStudio ? 'bg-white shadow-md text-violet-600 scale-110 ring-1 ring-black/5' : 'bg-white shadow-md text-indigo-600 scale-110 ring-1 ring-black/5') : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'}`}
                         >
                             <List className="w-4.5 h-4.5" />
                         </button>

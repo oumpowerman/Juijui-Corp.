@@ -105,11 +105,15 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
     ];
 
     const handleImageUrlInsert = (url: string) => {
-        // Use insertContent for resizableImage to be more robust
-        editor.chain().focus().insertContent({
-            type: 'resizableImage',
-            attrs: { src: url }
-        }).run();
+        // Use a small delay to ensure the modal is closing and focus can be returned to editor
+        setTimeout(() => {
+            if (editor) {
+                editor.chain().focus().insertContent({
+                    type: 'resizableImage',
+                    attrs: { src: url }
+                }).run();
+            }
+        }, 50);
     };
 
     return (

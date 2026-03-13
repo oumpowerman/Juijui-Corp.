@@ -240,8 +240,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     // Handle external content updates
     useEffect(() => {
+        // Only update if content is different AND editor is not focused
         if (editor && !editor.isFocused && content !== editor.getHTML()) {
-            editor.commands.setContent(content, false);
+            // Use a small delay to avoid race conditions with modal closing
+            const timer = setTimeout(() => {
+                if (editor && !editor.isFocused) {
+                    editor.commands.setContent(content, false);
+                }
+            }, 100);
+            return () => clearTimeout(timer);
         }
     }, [content, editor]);
 

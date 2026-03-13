@@ -19,6 +19,7 @@ interface FetchScriptsOptions {
     filterStatus?: string[];
     sortOrder?: 'ASC' | 'DESC'; // NEW: Add Sort Order
     isDeepSearch?: boolean; // NEW: Deep search in content
+    isPersonal?: boolean; // NEW: Filter for personal workspace
 }
 
 export const useScripts = (currentUser: User) => {
@@ -53,7 +54,8 @@ export const useScripts = (currentUser: User) => {
         lockedAt: s.locked_at ? new Date(s.locked_at) : undefined,
         locker: s.locker ? { name: s.locker.full_name, avatarUrl: s.locker.avatar_url } : undefined,
         shareToken: s.share_token,
-        isPublic: s.is_public
+        isPublic: s.is_public,
+        isPersonal: s.is_personal
     });
 
     const fetchScripts = useCallback(async (options: FetchScriptsOptions) => {
@@ -65,7 +67,7 @@ export const useScripts = (currentUser: User) => {
                 .select(`
                     id, title, status, version, author_id, content_id, created_at, updated_at, 
                     estimated_duration, script_type, is_in_shoot_queue, channel_id, category, tags, objective,
-                    idea_owner_id, locked_by, locked_at, share_token, is_public,
+                    idea_owner_id, locked_by, locked_at, share_token, is_public, is_personal,
                     author:profiles!scripts_author_id_fkey(full_name, avatar_url),
                     idea_owner:profiles!scripts_idea_owner_id_fkey(full_name, avatar_url),
                     locker:profiles!scripts_locked_by_fkey(full_name, avatar_url),
@@ -73,6 +75,14 @@ export const useScripts = (currentUser: User) => {
                 `, { count: 'exact' });
 
             // 1. Tab Filter
+            if (options.isPersonal !== undefined) {
+                query = query.eq('is_personal', options.isPersonal);
+                // If in personal mode, only show scripts owned by the current user
+                if (options.isPersonal) {
+                    query = query.eq('author_id', currentUser.id);
+                }
+            }
+
             if (options.viewTab === 'QUEUE') {
                 query = query.eq('is_in_shoot_queue', true);
             } else if (options.viewTab === 'HISTORY') {
@@ -191,7 +201,7 @@ export const useScripts = (currentUser: User) => {
                 .select(`
                     id, title, status, version, author_id, content_id, created_at, updated_at, 
                     estimated_duration, script_type, is_in_shoot_queue, channel_id, category, tags, objective,
-                    idea_owner_id, locked_by, locked_at, share_token, is_public,
+                    idea_owner_id, locked_by, locked_at, share_token, is_public, is_personal,
                     author:profiles!scripts_author_id_fkey(full_name, avatar_url),
                     idea_owner:profiles!scripts_idea_owner_id_fkey(full_name, avatar_url),
                     locker:profiles!scripts_locked_by_fkey(full_name, avatar_url)
@@ -224,7 +234,8 @@ export const useScripts = (currentUser: User) => {
                 category: scriptData.category || null,
                 tags: scriptData.tags || [],
                 objective: scriptData.objective || '',
-                is_in_shoot_queue: false
+                is_in_shoot_queue: false,
+                is_personal: scriptData.isPersonal !== undefined ? scriptData.isPersonal : true // Default to personal for new scripts
             };
 
             const { data, error } = await supabase.from('scripts').insert(payload).select().single();

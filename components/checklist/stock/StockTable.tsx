@@ -43,7 +43,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
     totalCount, currentPage, onPageChange, itemsPerPage,
     onEdit, onSchedule, onAddToWorkbox
 }) => {
-    const { setIsDragging } = useWorkboxContext();
+    const { setIsDragging, items: workboxItems } = useWorkboxContext();
     
     // Column States
     const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(
@@ -235,6 +235,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
                                 columnOrder={columnOrder}
                                 columnWidths={columnWidths}
                                 statusProgress={getStatusProgress(task.status as string)}
+                                isInWorkbox={workboxItems.some(item => item.id === task.id)}
                                 renderUserAvatars={renderUserAvatars}
                                 formatDateDisplay={formatDateDisplay}
                                 onEdit={onEdit}

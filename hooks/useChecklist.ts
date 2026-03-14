@@ -113,7 +113,28 @@ export const useChecklist = () => {
         // Subscribe to all changes in these tables
         const channel = supabase
             .channel('checklist-all-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, () => loadChecklistData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    const newItem: ChecklistItem = {
+                        id: payload.new.id,
+                        text: payload.new.text,
+                        isChecked: payload.new.is_checked,
+                        categoryId: payload.new.category_id
+                    };
+                    setActiveChecklistItems(prev => {
+                        if (prev.some(i => i.id === newItem.id)) return prev;
+                        return [...prev, newItem];
+                    });
+                } else if (payload.eventType === 'UPDATE') {
+                    setActiveChecklistItems(prev => prev.map(item => 
+                        item.id === payload.new.id 
+                            ? { ...item, text: payload.new.text, isChecked: payload.new.is_checked, categoryId: payload.new.category_id } 
+                            : item
+                    ));
+                } else if (payload.eventType === 'DELETE') {
+                    setActiveChecklistItems(prev => prev.filter(item => item.id !== payload.old.id));
+                }
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options', filter: 'type=eq.CHECKLIST_CONFIG' }, () => loadChecklistData())

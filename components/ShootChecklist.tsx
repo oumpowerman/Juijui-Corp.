@@ -2,7 +2,6 @@
 import React, { useState, useMemo } from 'react';
 import { Camera, Mic, Box, Plus, Trash2, Lightbulb, Layout, CheckCircle2, Archive, RotateCcw, PackageOpen, PlusCircle, Compass, Info, Edit2, Check, ArrowRight } from 'lucide-react';
 import { ChecklistItem, ChecklistPreset, MasterOption, InventoryItem } from '../types';
-import VibrantChecklistBackground from './common/VibrantChecklistBackground';
 import MentorTip from './MentorTip';
 import { useChecklist } from '../hooks/useChecklist';
 import InventoryModal from './checklist/InventoryModal';
@@ -173,9 +172,8 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
         : undefined;
 
     return (
-        <VibrantChecklistBackground className="pb-20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-500">
-                <MentorTip variant="pink" messages={["กดที่การ์ดเพื่อดูรูปก่อนเช็ค (Verify Mode)", "กดปุ่มดินสอที่ Preset เพื่อแก้ไขรายการข้างในได้แล้วนะ!"]} />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-500">
+            <MentorTip variant="pink" messages={["กดที่การ์ดเพื่อดูรูปก่อนเช็ค (Verify Mode)", "กดปุ่มดินสอที่ Preset เพื่อแก้ไขรายการข้างในได้แล้วนะ!"]} />
 
             {/* Header & Controls */}
             <div className="flex flex-col gap-4">
@@ -450,8 +448,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
             >
                 <ChecklistGuide />
             </InfoModal>
-            </div>
-        </VibrantChecklistBackground>
+        </div>
     );
 };
 

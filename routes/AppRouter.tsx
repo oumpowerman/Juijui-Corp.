@@ -19,6 +19,7 @@ import ShortcutManager from '../components/common/ShortcutManager';
 import { Loader2, Search, Inbox } from 'lucide-react';
 import { WorkboxProvider, useWorkboxContext } from '../context/WorkboxContext';
 import { GoogleDriveProvider } from '../context/GoogleDriveContext';
+import VibrantChecklistBackground from '../components/common/VibrantChecklistBackground';
 import WorkboxPanel from '../components/workbox/WorkboxPanel';
 import WorkboxTrigger from '../components/workbox/WorkboxTrigger';
 
@@ -303,6 +304,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               );
             case 'CHECKLIST':
               return (
+                <VibrantChecklistBackground className="pb-20">
                   <ShootChecklist 
                       items={activeChecklistItems}
                       onToggle={handleToggleChecklist}
@@ -318,6 +320,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       onOpenSettings={() => setIsNotifSettingsOpen(true)}
                       masterOptions={masterOptions}
                   />
+                </VibrantChecklistBackground>
               );
             case 'CHANNELS':
             case 'MASTER_DATA':

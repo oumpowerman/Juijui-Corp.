@@ -15,7 +15,7 @@ interface WorkCardProps {
     columnType: 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 }
 
-const WorkCard: React.FC<WorkCardProps> = ({ task, users, masterOptions, isDraggable, onDragStart, onClick, columnType }) => {
+const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptions, isDraggable, onDragStart, onClick, columnType }) => {
     const assigneeId = task.assigneeIds?.[0] || task.ideaOwnerIds?.[0];
     const user = users.find(u => u.id === assigneeId);
 
@@ -91,7 +91,11 @@ const WorkCard: React.FC<WorkCardProps> = ({ task, users, masterOptions, isDragg
             {/* Title with Type Icon */}
             <div className="flex items-start gap-2">
                 {typeConfig.icon}
-                <h4 className={`font-bold text-sm line-clamp-2 leading-snug transition-colors ${columnType === 'DOING' ? 'text-indigo-900 group-hover:text-indigo-600' : 'text-gray-700'}`}>
+                <h4 className={`
+                    font-bold text-sm line-clamp-2 leading-snug transition-colors
+                    ${columnType === 'DOING' ? 'text-indigo-900 group-hover:text-indigo-600' : 'text-gray-700'}
+                    ${columnType === 'DONE' ? 'line-through decoration-gray-400 text-gray-400' : ''}
+                `}>
                     {task.title}
                 </h4>
             </div>
@@ -123,6 +127,6 @@ const WorkCard: React.FC<WorkCardProps> = ({ task, users, masterOptions, isDragg
             </div>
         </div>
     );
-};
+});
 
 export default WorkCard;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { WorkboxItem } from '../types/features';
 import { User } from '../types/core';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ interface WorkboxContextType {
     updateItem: (id: string, updates: Partial<WorkboxItem>) => Promise<void>;
     deleteItem: (id: string) => Promise<void>;
     clearCompleted: () => Promise<void>;
+    reorderItems: (newItems: WorkboxItem[]) => Promise<void>;
     refresh: () => Promise<void>;
 }
 
@@ -22,6 +23,8 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
     const [items, setItems] = useState<WorkboxItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDragging, setIsDragging] = useState(false);
+    const isReorderingRef = useRef(false);
+    const reorderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const { showToast } = useToast();
 
     const fetchWorkbox = useCallback(async () => {
@@ -68,7 +71,25 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
                     table: 'workbox_items',
                     filter: `user_id=eq.${currentUser.id}`,
                 },
-                () => fetchWorkbox()
+                (payload) => {
+                    // Skip updates if we are currently reordering locally
+                    if (isReorderingRef.current) return;
+
+                    if (payload.eventType === 'INSERT') {
+                        const newItem = payload.new as WorkboxItem;
+                        setItems(prev => {
+                            if (prev.some(i => i.id === newItem.id)) return prev;
+                            return [...prev, newItem].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                        });
+                    } else if (payload.eventType === 'UPDATE') {
+                        const updatedItem = payload.new as WorkboxItem;
+                        setItems(prev => prev.map(item => 
+                            item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+                        ).sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                    } else if (payload.eventType === 'DELETE') {
+                        setItems(prev => prev.filter(item => item.id !== payload.old.id));
+                    }
+                }
             )
             .subscribe();
 
@@ -79,6 +100,27 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
 
     const addItem = async (item: Partial<WorkboxItem>) => {
         if (!currentUser?.id) return;
+        
+        // --- DUPLICATE CHECK ---
+        const isDuplicate = items.some(existingItem => {
+            // 1. If it's a content item, check by content_id
+            if (item.content_id && existingItem.content_id === item.content_id) {
+                return true;
+            }
+            
+            // 2. If it's a manual checklist/task (no content_id), check by title (case-insensitive)
+            // Only check if both have titles and no content_id
+            if (!item.content_id && !existingItem.content_id && item.title && existingItem.title) {
+                return existingItem.title.trim().toLowerCase() === item.title.trim().toLowerCase();
+            }
+            
+            return false;
+        });
+
+        if (isDuplicate) {
+            showToast('รายการนี้มีอยู่ใน WorkBox แล้ว ⚠️', 'warning');
+            return;
+        }
         
         const tempId = crypto.randomUUID();
         const optimisticItem: WorkboxItem = {
@@ -169,6 +211,46 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
         }
     };
 
+    const reorderItems = async (newItems: WorkboxItem[]) => {
+        // 1. Set local state immediately for snappy UI
+        setItems(newItems);
+        
+        // 2. Set reordering lock to ignore incoming Supabase updates for a moment
+        isReorderingRef.current = true;
+
+        // 3. Debounce the DB sync to prevent spamming
+        if (reorderTimeoutRef.current) clearTimeout(reorderTimeoutRef.current);
+        
+        reorderTimeoutRef.current = setTimeout(async () => {
+            try {
+                // Prepare minimal update payload
+                const updates = newItems.map((item, index) => ({
+                    id: item.id,
+                    user_id: currentUser?.id,
+                    order_index: index,
+                    // We must include required fields for upsert if they aren't handled by DB defaults
+                    title: item.title,
+                    type: item.type
+                }));
+
+                const { error } = await supabase
+                    .from('workbox_items')
+                    .upsert(updates, { onConflict: 'id' });
+
+                if (error) throw error;
+            } catch (err: any) {
+                console.error('Error reordering workbox:', err);
+                showToast('ไม่สามารถบันทึกลำดับใหม่ได้', 'error');
+                fetchWorkbox(); // Revert to server state on error
+            } finally {
+                // Release lock after a short delay to ensure DB state has propagated
+                setTimeout(() => {
+                    isReorderingRef.current = false;
+                }, 1000);
+            }
+        }, 500); // 500ms debounce
+    };
+
     return (
         <WorkboxContext.Provider value={{ 
             items, 
@@ -178,7 +260,8 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
             addItem, 
             updateItem, 
             deleteItem, 
-            clearCompleted, 
+            clearCompleted,
+            reorderItems,
             refresh: fetchWorkbox 
         }}>
             {children}

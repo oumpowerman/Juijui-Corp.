@@ -10,7 +10,7 @@ import { Task } from '../types';
 export const useStockSync = (
     globalTasks: Task[],
     paginatedContents: Task[],
-    updateLocalItem: (task: Task) => void
+    updateLocalItem: (task: Task, isDelete?: boolean) => void
 ) => {
     // Create a Map of global tasks for O(1) lookup
     // This runs only when globalTasks changes
@@ -23,17 +23,22 @@ export const useStockSync = (
     }, [globalTasks]);
 
     useEffect(() => {
-        if (globalTasks.length === 0 || paginatedContents.length === 0) return;
+        // Guard: If globalTasks is empty but we haven't checked if it's still loading, 
+        // we might accidentally delete everything. 
+        if (globalTasks.length === 0) {
+            // If we have local items but global is empty, it MIGHT be a real deletion of all items,
+            // but more likely it's just loading. We skip sync to be safe.
+            return;
+        }
 
+        // 1. Sync Updates & Deletions (Iterate Local List)
         paginatedContents.forEach(localTask => {
-            // O(1) lookup instead of O(N) Array.find()
             const globalMatch = globalTasksMap.get(localTask.id);
             
             if (globalMatch) {
                 // --- Deep Comparison Helpers ---
                 const arraysDiff = (a: any[] = [], b: any[] = []) => {
                     if (a.length !== b.length) return true;
-                    // Sort before compare to ignore order
                     const sortedA = [...a].sort();
                     const sortedB = [...b].sort();
                     return JSON.stringify(sortedA) !== JSON.stringify(sortedB);
@@ -54,10 +59,9 @@ export const useStockSync = (
                     globalMatch.contentFormat !== localTask.contentFormat ||
                     globalMatch.pillar !== localTask.pillar ||
                     globalMatch.category !== localTask.category ||
-                    // Date Checks
+                    globalMatch.isUnscheduled !== localTask.isUnscheduled ||
                     dateDiff(globalMatch.endDate, localTask.endDate) ||
                     dateDiff(globalMatch.shootDate, localTask.shootDate) ||
-                    // Array Checks (Critical for People/Tags)
                     arraysDiff(globalMatch.contentFormats, localTask.contentFormats) ||
                     arraysDiff(globalMatch.ideaOwnerIds, localTask.ideaOwnerIds) ||
                     arraysDiff(globalMatch.editorIds, localTask.editorIds) ||
@@ -66,10 +70,34 @@ export const useStockSync = (
                     arraysDiff(globalMatch.tags, localTask.tags);
 
                 if (hasChanged) {
-                     // Inject Update: This triggers the UI update immediately without waiting for DB roundtrip
+                     console.log(`[StockSync] Updating local item: ${localTask.id}`);
                      updateLocalItem(globalMatch);
+                }
+            } else {
+                // Item exists locally but NOT globally -> It was DELETED from TaskContext
+                console.log(`[StockSync] Deleting local item (not in global): ${localTask.id}`);
+                updateLocalItem({ id: localTask.id } as Task, true);
+            }
+        });
+
+        // 2. Sync Additions (Iterate Global List)
+        const now = new Date().getTime();
+        globalTasks.forEach(globalTask => {
+            if (globalTask.type === 'CONTENT') {
+                const existsLocally = paginatedContents.some(t => t.id === globalTask.id);
+                if (!existsLocally) {
+                    const createdAt = globalTask.createdAt ? new Date(globalTask.createdAt).getTime() : 0;
+                    
+                    // Heuristic: If created in the last 2 minutes, or if it has NO createdAt (optimistic),
+                    // we try to add it. updateLocalItem will check if it matches current filters.
+                    const isNew = !globalTask.createdAt || (now - createdAt < 120000);
+                    
+                    if (isNew) {
+                        console.log(`[StockSync] Adding new global item to local: ${globalTask.id}`);
+                        updateLocalItem(globalTask);
+                    }
                 }
             }
         });
-    }, [globalTasksMap, paginatedContents, updateLocalItem]);
+    }, [globalTasksMap, paginatedContents, updateLocalItem, globalTasks]);
 };

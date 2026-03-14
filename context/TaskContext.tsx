@@ -129,7 +129,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 2. Fetch TASKS
         try {
-            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)'`);
+            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
             if (!isAllLoaded) {
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }
@@ -193,11 +193,47 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchTasks();
         console.log('🔌 [TaskContext] Connecting to Realtime...');
 
+        const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {
+            if (payload.eventType === 'INSERT') {
+                // For INSERT, we fetch the full record to get joins (like contents.title)
+                // But we only fetch the specific record to avoid full reload
+                const fetchSingle = async () => {
+                    const table = type === 'TASK' ? 'tasks' : 'contents';
+                    let query = supabase.from(table).select(
+                        type === 'TASK' 
+                            ? `*, contents (title), task_reviews(*)` 
+                            : `*, task_reviews(*)`
+                    ).eq('id', payload.new.id).single();
+                    
+                    const { data } = await query;
+                    if (data) {
+                        const newTask = mapSupabaseToTask(data, type);
+                        setTasks(prev => {
+                            if (prev.some(t => t.id === newTask.id)) return prev;
+                            return [...prev, newTask];
+                        });
+                    }
+                };
+                fetchSingle();
+            } else if (payload.eventType === 'UPDATE') {
+                setTasks(prev => prev.map(t => {
+                    if (t.id === payload.new.id) {
+                        // Merge payload.new into existing task
+                        // Note: payload.new uses snake_case, mapSupabaseToTask handles it
+                        return { ...t, ...mapSupabaseToTask(payload.new, type) };
+                    }
+                    return t;
+                }));
+            } else if (payload.eventType === 'DELETE') {
+                setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+            }
+        };
+
         const channel = supabase
             .channel('global-tasks-channel-main') // Unique channel for Context
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTasks())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (p) => handleIncrementalUpdate(p, 'TASK'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (p) => handleIncrementalUpdate(p, 'CONTENT'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks()) // Reviews still full fetch for simplicity
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') console.log('✅ [TaskContext] Realtime Connected!');
             });
@@ -206,7 +242,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('🔌 [TaskContext] Disconnecting...');
             supabase.removeChannel(channel); 
         };
-    }, [fetchTasks]); // Depends on fetchTasks (which depends on dateRange) -> Re-subscribes on range change
+    }, [fetchTasks, mapSupabaseToTask]); // Added mapSupabaseToTask to dependencies
 
     return (
         <TaskContext.Provider value={{

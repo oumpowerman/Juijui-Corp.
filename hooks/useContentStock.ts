@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { Task } from '../types';
 
@@ -38,7 +38,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         filtersRef.current = filters;
     }, [searchQuery, filters]);
 
-    const mapSupabaseToTask = (data: any): Task => ({
+    const mapSupabaseToTask = useCallback((data: any): Task => ({
         id: data.id,
         type: 'CONTENT',
         title: data.title,
@@ -47,6 +47,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         priority: data.priority,
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),
+        createdAt: new Date(data.created_at),
         channelId: data.channel_id,
         // Safety: Ensure arrays are never null
         tags: Array.isArray(data.tags) ? data.tags : [],
@@ -79,7 +80,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
              reviewerId: r.reviewer_id, status: r.status, feedback: r.feedback, isCompleted: r.is_completed
         })) : [],
         logs: []
-    });
+    }), []);
 
     const fetchContents = useCallback(async (isBackground = false) => {
         if (!isBackground) setIsLoading(true);
@@ -112,10 +113,14 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 query = query.not('shoot_date', 'is', null);
             }
             if (filters.shootDateStart) {
-                query = query.gte('shoot_date', filters.shootDateStart);
+                // Start of the day (00:00:00)
+                const startDate = startOfDay(parseISO(filters.shootDateStart));
+                query = query.gte('shoot_date', startDate.toISOString());
             }
             if (filters.shootDateEnd) {
-                query = query.lte('shoot_date', filters.shootDateEnd);
+                // End of the day (23:59:59.999)
+                const endDate = endOfDay(parseISO(filters.shootDateEnd));
+                query = query.lte('shoot_date', endDate.toISOString());
             }
 
             // Fixed: "Stock Only" logic
@@ -174,7 +179,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             if (!isBackground) setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [page, pageSize, searchQuery, filters, sortConfig]);
+    }, [page, pageSize, searchQuery, filters, sortConfig, mapSupabaseToTask]);
 
     // Initial Fetch
     useEffect(() => {
@@ -231,7 +236,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         return true;
     };
 
-    const handleRealtimeUpdate = async (id: string) => {
+    const handleRealtimeUpdate = useCallback(async (id: string) => {
         try {
             const { data, error } = await supabase
                 .from('contents')
@@ -252,8 +257,6 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                         return prevList.map(item => item.id === id ? fullTask : item);
                     } else {
                         // For inserts/moves into view, we append to top to show activity
-                        // But strictly, pagination might miss it if we just prepend.
-                        // This acts as a "live stream" of updates.
                         return [fullTask, ...prevList]; 
                     }
                 } else {
@@ -268,35 +271,55 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         } catch (err) {
             console.error("Smart Hydration Error:", err);
         }
-    };
+    }, [mapSupabaseToTask]);
+
+    const triggerCountRefresh = useCallback(() => {
+        // Background refresh to update total counts
+        fetchContentsRef.current(true); 
+    }, []);
 
     // Manual Update Function (Bridge for Global State Sync)
-    const updateLocalItem = (task: Task) => {
+    const updateLocalItem = useCallback((task: Task, isDelete: boolean = false) => {
         // Immediate update without DB fetch (Optimistic from Global State)
         setContents(prevList => {
             const exists = prevList.some(item => item.id === task.id);
+            
+            if (isDelete) {
+                if (exists) {
+                    setTotalCount(prev => Math.max(0, prev - 1));
+                    return prevList.filter(item => item.id !== task.id);
+                }
+                return prevList;
+            }
+
             const isMatch = checkDoesItMatchFilters(task);
 
             if (isMatch) {
                 if (exists) {
                      return prevList.map(item => item.id === task.id ? task : item);
                 }
-                 return prevList;
+                
+                // Handle Addition: If it matches filters and doesn't exist locally,
+                // we add it to the top (especially if we are on page 1)
+                setTotalCount(prev => prev + 1);
+                return [task, ...prevList];
             } else {
-                if (exists) return prevList.filter(item => item.id !== task.id);
+                // Handle Filter Mismatch: Remove from local list if it was there
+                if (exists) {
+                    return prevList.filter(item => item.id !== task.id);
+                }
                 return prevList;
             }
         });
-    };
+    }, []);
 
     // Realtime Subscription
     useEffect(() => {
         let refreshTimeout: ReturnType<typeof setTimeout>;
-        const triggerCountRefresh = () => {
+        const debouncedCountRefresh = () => {
             clearTimeout(refreshTimeout);
             refreshTimeout = setTimeout(() => {
-                // Background refresh to update total counts
-                fetchContentsRef.current(true); 
+                triggerCountRefresh();
             }, 2000); 
         };
 
@@ -314,11 +337,11 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
                     if (eventType === 'UPDATE' || eventType === 'INSERT') {
                         await handleRealtimeUpdate(newRec.id);
-                        if (eventType === 'INSERT') triggerCountRefresh();
+                        if (eventType === 'INSERT') debouncedCountRefresh();
                     } else if (eventType === 'DELETE') {
                         console.log(`[Realtime] Deleting item: ${oldRec.id}`);
                         setContents(prev => prev.filter(item => item.id !== oldRec.id));
-                        triggerCountRefresh();
+                        debouncedCountRefresh();
                     }
                 }
             )
@@ -328,7 +351,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             supabase.removeChannel(channel);
             clearTimeout(refreshTimeout);
         };
-    }, []);
+    }, [handleRealtimeUpdate, triggerCountRefresh]);
 
     return { contents, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem };
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { 
     X, 
     Trash2, 
@@ -21,6 +21,7 @@ import {
 import { WorkboxItem } from '../../types/features';
 import { User } from '../../types/core';
 import { useWorkboxContext } from '../../context/WorkboxContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import Skeleton from '../ui/Skeleton';
 
 interface WorkboxPanelProps {
@@ -29,8 +30,92 @@ interface WorkboxPanelProps {
     currentUser: User;
 }
 
+const WorkboxItemCard: React.FC<{ 
+    item: WorkboxItem; 
+    onSelect: () => void;
+    onToggle: (e: React.MouseEvent) => void;
+    onDelete: (e: React.MouseEvent) => void;
+}> = ({ item, onSelect, onToggle, onDelete }) => {
+    const dragControls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={item}
+            dragListener={false}
+            dragControls={dragControls}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileDrag={{ 
+                scale: 1.02, 
+                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                zIndex: 100,
+                backgroundColor: "rgb(249 250 251)"
+            }}
+            className={`
+                group flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer select-none
+                ${item.is_completed 
+                    ? 'bg-gray-50 border-gray-100 opacity-60' 
+                    : 'bg-white border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-100'
+                }
+            `}
+            onClick={onSelect}
+        >
+            <button 
+                onClick={onToggle}
+                className={`transition-colors shrink-0 ${item.is_completed ? 'text-green-500' : 'text-gray-300 hover:text-indigo-500'}`}
+            >
+                {item.is_completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+            </button>
+
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                    {item.type === 'CONTENT' ? (
+                        <Package className="w-3 h-3 text-indigo-400" />
+                    ) : item.type === 'TASK' ? (
+                        <CheckSquare className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                        <ClipboardList className="w-3 h-3 text-amber-400" />
+                    )}
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                        {item.type}
+                    </span>
+                    {item.progress !== undefined && item.progress > 0 && (
+                        <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {item.progress}%
+                        </span>
+                    )}
+                </div>
+                <h4 className={`text-sm font-bold truncate ${item.is_completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                    {item.title}
+                </h4>
+                {item.notes && (
+                    <p className="text-[10px] text-gray-400 truncate italic mt-0.5">
+                        {item.notes}
+                    </p>
+                )}
+            </div>
+
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button 
+                    onClick={onDelete}
+                    className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
+                <div 
+                    className="p-2 text-gray-300 cursor-grab active:cursor-grabbing touch-none"
+                    onPointerDown={(e) => dragControls.start(e)}
+                >
+                    <GripVertical className="w-4 h-4" />
+                </div>
+            </div>
+        </Reorder.Item>
+    );
+};
+
 const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUser }) => {
-    const { items, isLoading, updateItem, deleteItem, addItem, clearCompleted } = useWorkboxContext();
+    const { items, isLoading, updateItem, deleteItem, addItem, clearCompleted, reorderItems } = useWorkboxContext();
+    const { showConfirm } = useGlobalDialog();
     const [newItemTitle, setNewItemTitle] = useState('');
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
@@ -254,75 +339,26 @@ const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUse
                                                 <p className="text-xs text-gray-400 mt-1">ลาก Content จาก Stock มาวางที่นี่ได้เลย!</p>
                                             </div>
                                         ) : (
-                                            items.map((item) => (
-                                                <motion.div
-                                                    layout
-                                                    key={item.id}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    className={`
-                                                        group flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer
-                                                        ${item.is_completed 
-                                                            ? 'bg-gray-50 border-gray-100 opacity-60' 
-                                                            : 'bg-white border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-100'
-                                                        }
-                                                    `}
-                                                    onClick={() => setSelectedItemId(item.id)}
-                                                >
-                                                    <button 
-                                                        onClick={(e) => {
+                                            <Reorder.Group axis="y" values={items} onReorder={reorderItems} className="space-y-3">
+                                                {items.map((item) => (
+                                                    <WorkboxItemCard 
+                                                        key={item.id}
+                                                        item={item}
+                                                        onSelect={() => setSelectedItemId(item.id)}
+                                                        onToggle={(e) => {
                                                             e.stopPropagation();
                                                             updateItem(item.id, { is_completed: !item.is_completed });
                                                         }}
-                                                        className={`transition-colors ${item.is_completed ? 'text-green-500' : 'text-gray-300 hover:text-indigo-500'}`}
-                                                    >
-                                                        {item.is_completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
-                                                    </button>
-
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-0.5">
-                                                            {item.type === 'CONTENT' ? (
-                                                                <Package className="w-3 h-3 text-indigo-400" />
-                                                            ) : item.type === 'TASK' ? (
-                                                                <CheckSquare className="w-3 h-3 text-emerald-400" />
-                                                            ) : (
-                                                                <ClipboardList className="w-3 h-3 text-amber-400" />
-                                                            )}
-                                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
-                                                                {item.type}
-                                                            </span>
-                                                            {item.progress !== undefined && item.progress > 0 && (
-                                                                <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
-                                                                    {item.progress}%
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <h4 className={`text-sm font-bold truncate ${item.is_completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                                                            {item.title}
-                                                        </h4>
-                                                        {item.notes && (
-                                                            <p className="text-[10px] text-gray-400 truncate italic mt-0.5">
-                                                                {item.notes}
-                                                            </p>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
+                                                        onDelete={async (e) => {
+                                                            e.stopPropagation();
+                                                            const confirmed = await showConfirm(`ต้องการลบ "${item.title}" ใช่หรือไม่?`, 'ยืนยันการลบรายการ 🗑️');
+                                                            if (confirmed) {
                                                                 deleteItem(item.id);
-                                                            }}
-                                                            className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                        <div className="p-2 text-gray-300 cursor-grab active:cursor-grabbing">
-                                                            <GripVertical className="w-4 h-4" />
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            ))
+                                                            }
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Reorder.Group>
                                         )}
                                     </div>
                                 </>
@@ -338,7 +374,12 @@ const WorkboxPanel: React.FC<WorkboxPanelProps> = ({ isOpen, onClose, currentUse
                                     </div>
                                     {completedCount > 0 && (
                                         <button 
-                                            onClick={clearCompleted}
+                                            onClick={async () => {
+                                                const confirmed = await showConfirm('ต้องการล้างรายการที่เสร็จแล้วทั้งหมดใช่หรือไม่?', 'ยืนยันการล้างรายการ 🧹');
+                                                if (confirmed) {
+                                                    clearCompleted();
+                                                }
+                                            }}
                                             className="text-xs font-black text-rose-500 hover:underline"
                                         >
                                             ล้างรายการที่เสร็จแล้ว

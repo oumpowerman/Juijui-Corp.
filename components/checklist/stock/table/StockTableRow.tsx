@@ -15,6 +15,7 @@ interface StockTableRowProps {
     columnOrder: ColumnKey[];
     columnWidths: Record<string, number>;
     statusProgress: number; // 0-100
+    isInWorkbox?: boolean;
     renderUserAvatars: (userIds: string[] | undefined) => React.ReactNode;
     formatDateDisplay: (date: Date | undefined, type: 'PUBLISH' | 'SHOOT') => React.ReactNode;
     onEdit: (task: Task) => void;
@@ -34,6 +35,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     columnOrder,
     columnWidths,
     statusProgress,
+    isInWorkbox = false,
     renderUserAvatars,
     formatDateDisplay,
     onEdit,
@@ -227,10 +229,14 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                     {onAddToWorkbox && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); onAddToWorkbox(task); }} 
-                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-white rounded-xl transition-all shadow-sm" 
-                            title="เก็บเข้า WorkBox"
+                            className={`p-2 rounded-xl transition-all shadow-sm ${
+                                isInWorkbox 
+                                    ? 'text-amber-600 bg-amber-50 border border-amber-100' 
+                                    : 'text-gray-400 hover:text-amber-600 hover:bg-white'
+                            }`}
+                            title={isInWorkbox ? "อยู่ใน WorkBox แล้ว" : "เก็บเข้า WorkBox"}
                         >
-                            <Inbox className="w-4 h-4" />
+                            <Inbox className={`w-4 h-4 ${isInWorkbox ? 'fill-current' : ''}`} />
                         </button>
                     )}
                 </div>

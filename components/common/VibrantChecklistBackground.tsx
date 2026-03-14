@@ -8,7 +8,8 @@ interface VibrantChecklistBackgroundProps {
     className?: string;
 }
 
-const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({ children, className = "" }) => {
+// Suggestion 3: Use React.memo with a custom comparator to make visuals perfectly stable
+const BackgroundVisuals = React.memo(() => {
     // Pastel colors for the rainbow/random effect
     const pastelGradients = [
         'from-sky-100 via-blue-50 to-indigo-100',
@@ -47,7 +48,7 @@ const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({
     }, []);
 
     return (
-        <div className={`relative min-h-screen w-full overflow-hidden ${className}`}>
+        <>
             {/* 1. Animated Gradient Background */}
             <motion.div 
                 className={`fixed inset-0 bg-gradient-to-br ${randomGradient} pointer-events-none z-0`}
@@ -103,6 +104,14 @@ const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({
                     </motion.div>
                 ))}
             </div>
+        </>
+    );
+}, () => true); // Never re-render the visuals
+
+const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({ children, className = "" }) => {
+    return (
+        <div className={`relative min-h-screen w-full overflow-hidden ${className}`}>
+            <BackgroundVisuals />
 
             {/* 4. Content Layer */}
             <div className="relative z-10">

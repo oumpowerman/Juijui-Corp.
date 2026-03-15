@@ -9,10 +9,10 @@ export const DEFAULT_CHIPS: ChipConfig[] = [
 ];
 
 export const COLOR_THEMES = [
-    { id: 'indigo', bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', activeBg: 'bg-indigo-600', ring: 'ring-indigo-500' },
-    { id: 'rose', bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', activeBg: 'bg-rose-600', ring: 'ring-rose-500' },
-    { id: 'emerald', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', ring: 'ring-emerald-500' },
-    { id: 'amber', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', activeBg: 'bg-amber-600', ring: 'ring-amber-500' },
-    { id: 'sky', bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200', activeBg: 'bg-sky-600', ring: 'ring-sky-500' },
-    { id: 'purple', bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', activeBg: 'bg-purple-600', ring: 'ring-purple-500' },
+    { id: 'indigo', bg: 'bg-indigo-50', text: 'text-indigo-500', border: 'border-indigo-100', activeBg: 'bg-indigo-400', ring: 'ring-indigo-300' },
+    { id: 'rose', bg: 'bg-rose-50', text: 'text-rose-500', border: 'border-rose-100', activeBg: 'bg-rose-400', ring: 'ring-rose-300' },
+    { id: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-500', border: 'border-emerald-100', activeBg: 'bg-emerald-400', ring: 'ring-emerald-300' },
+    { id: 'amber', bg: 'bg-amber-50', text: 'text-amber-500', border: 'border-amber-100', activeBg: 'bg-amber-400', ring: 'ring-amber-300' },
+    { id: 'sky', bg: 'bg-sky-50', text: 'text-sky-500', border: 'border-sky-100', activeBg: 'bg-sky-400', ring: 'ring-sky-300' },
+    { id: 'purple', bg: 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-100', activeBg: 'bg-purple-400', ring: 'ring-purple-300' },
 ];

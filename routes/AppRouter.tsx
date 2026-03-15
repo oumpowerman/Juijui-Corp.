@@ -243,6 +243,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   tasks={tasks}
                   channels={channels}
                   users={allUsers}
+                  currentUser={currentUserProfile}
                   masterOptions={masterOptions}
                   onSelectTask={handleEditTask}
                   onSelectDate={handleSelectDate}

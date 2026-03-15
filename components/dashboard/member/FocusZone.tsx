@@ -198,7 +198,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce-slow">
                     <CheckCircle2 className="w-12 h-12 text-emerald-500" />
                 </div>
-                <h2 className="text-xl font-black text-emerald-800 mb-1">
+                <h2 className="text-xl font-bold text-emerald-800 mb-1">
                     ว่างจัง... ฮูเล่! ✨
                 </h2>
                 <p className="text-emerald-600/70 text-sm font-medium">

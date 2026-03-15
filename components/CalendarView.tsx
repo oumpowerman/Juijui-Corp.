@@ -22,6 +22,7 @@ interface CalendarViewProps {
   tasks: Task[];
   channels: Channel[];
   users: User[];
+  currentUser: User;
   masterOptions?: MasterOption[];
   onSelectTask: (task: Task) => void;
   onSelectDate: (date: Date, type?: TaskType) => void;
@@ -42,6 +43,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     tasks, 
     channels, 
     users, 
+    currentUser,
     masterOptions = [],
     onSelectTask, 
     onSelectDate, 
@@ -70,7 +72,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       saveChip, deleteChip,
       handleDragStart, handleDragOver, handleDrop: internalHandleDrop, setDragOverDate, dragOverDate,
       isManageModalOpen, setIsManageModalOpen
-  } = useCalendar({ tasks, onMoveTask: (t) => handleMoveAttempt(t) });
+  } = useCalendar({ 
+      tasks, 
+      userId: currentUser.id,
+      onMoveTask: (t) => handleMoveAttempt(t) 
+  });
 
   // --- Delay Logic ---
   const [delayModalOpen, setDelayModalOpen] = useState(false);

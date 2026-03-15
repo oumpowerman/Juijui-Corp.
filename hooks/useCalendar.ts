@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { addMonths, endOfMonth, endOfWeek, isSameDay } from 'date-fns';
-import { Task, ChipConfig } from '../types';
+import { supabase } from '../lib/supabase';
+import { Task, ChipConfig, FilterType } from '../types';
 import { DEFAULT_CHIPS } from '../constants';
 
 interface UseCalendarProps {
     tasks: Task[];
+    userId?: string;
     onMoveTask: (task: Task) => void;
 }
 
-export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
+export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => {
     // --- Navigation State ---
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isExpanded, setIsExpanded] = useState(false);
@@ -20,34 +22,76 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
     
     const [activeChipIds, setActiveChipIds] = useState<string[]>([]);
     
-    const [customChips, setCustomChips] = useState<ChipConfig[]>(() => {
-        try {
-            const saved = localStorage.getItem('juijui_smart_chips');
-            if (!saved || saved === 'undefined' || saved === 'null') {
-                return DEFAULT_CHIPS;
-            }
-            const parsed = JSON.parse(saved);
-            return Array.isArray(parsed) ? parsed : DEFAULT_CHIPS;
-        } catch (e) {
-            console.error("Failed to load chips, resetting to default:", e);
-            return DEFAULT_CHIPS;
-        }
-    });
+    const [customChips, setCustomChips] = useState<ChipConfig[]>([]);
 
     const [showFilters, setShowFilters] = useState(true);
     const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
     const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
+    // --- Fetch Custom Chips from DB ---
+    const fetchCustomChips = useCallback(async () => {
+        if (!userId) return;
+        try {
+            // 1. Fetch existing filters
+            const { data, error } = await supabase
+                .from('smart_filters')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+            
+            // 2. If NO filters exist, SEED the default ones into DB
+            if (data && data.length === 0) {
+                const seedData = DEFAULT_CHIPS.map(chip => ({
+                    id: chip.id,
+                    user_id: userId,
+                    label: chip.label,
+                    type: chip.type,
+                    value: chip.value,
+                    color_theme: chip.colorTheme,
+                    scope: chip.scope || 'CONTENT',
+                    mode: chip.mode || 'INCLUDE'
+                }));
+
+                const { error: seedError } = await supabase
+                    .from('smart_filters')
+                    .insert(seedData);
+
+                if (seedError) throw seedError;
+
+                // Set state to default chips immediately after seeding
+                setCustomChips(DEFAULT_CHIPS);
+                return;
+            }
+
+            // 3. If filters exist, use them as the Source of Truth
+            if (data) {
+                const dbChips: ChipConfig[] = data.map(d => ({
+                    id: d.id,
+                    label: d.label,
+                    type: d.type as FilterType,
+                    value: d.value,
+                    colorTheme: d.color_theme,
+                    scope: d.scope,
+                    mode: d.mode
+                }));
+
+                setCustomChips(dbChips);
+            }
+        } catch (err) {
+            console.error('Failed to fetch/seed smart filters:', err);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        fetchCustomChips();
+    }, [fetchCustomChips]);
+
     useEffect(() => {
         setActiveChipIds([]);
         setShowFilters(true);
     }, [viewMode]);
-
-    useEffect(() => {
-        if(customChips && Array.isArray(customChips)) {
-            localStorage.setItem('juijui_smart_chips', JSON.stringify(customChips));
-        }
-    }, [customChips]);
 
     const nextMonth = useCallback(() => setCurrentDate(prev => addMonths(prev, 1)), []);
     const prevMonth = useCallback(() => setCurrentDate(prev => addMonths(prev, -1)), []);
@@ -117,7 +161,10 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
         return tasks.filter(task => isSameDay(day, task.endDate) && !task.isUnscheduled);
     }, [tasks]);
 
-    const saveChip = (chip: ChipConfig) => {
+    const saveChip = async (chip: ChipConfig) => {
+        if (!userId) return;
+
+        // Optimistic Update
         setCustomChips(prev => {
             const current = Array.isArray(prev) ? prev : [];
             if (current.find(c => c.id === chip.id)) {
@@ -126,11 +173,44 @@ export const useCalendar = ({ tasks, onMoveTask }: UseCalendarProps) => {
                 return [...current, chip];
             }
         });
+
+        try {
+            const { error } = await supabase
+                .from('smart_filters')
+                .upsert({
+                    id: chip.id,
+                    user_id: userId,
+                    label: chip.label,
+                    type: chip.type,
+                    value: chip.value,
+                    color_theme: chip.colorTheme,
+                    scope: chip.scope || 'CONTENT',
+                    mode: chip.mode || 'INCLUDE',
+                    updated_at: new Date().toISOString()
+                });
+            if (error) throw error;
+        } catch (err) {
+            console.error('Failed to save smart filter:', err);
+        }
     };
 
-    const deleteChip = (id: string) => {
+    const deleteChip = async (id: string) => {
+        if (!userId) return;
+
+        // Optimistic Update
         setCustomChips(prev => (Array.isArray(prev) ? prev : []).filter(c => c.id !== id));
         setActiveChipIds(prev => prev.filter(cId => cId !== id));
+
+        try {
+            const { error } = await supabase
+                .from('smart_filters')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', userId);
+            if (error) throw error;
+        } catch (err) {
+            console.error('Failed to delete smart filter:', err);
+        }
     };
 
     const toggleChip = (id: string) => {

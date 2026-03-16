@@ -192,7 +192,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const cleanContentForTiming = (html: string) => {
         return html
             .replace(/\[.*?\]/g, '') // Remove [Stage Directions]
-            .replace(/<strong>.*?<\/strong>:\s*/g, '') // Remove Bold Character Names
+            .replace(/\(.*?\)/g, '') // Remove (Parenthetical Notes)
+            .replace(/<strong>.*?:?<\/strong>:?\s*/g, '') // Remove Bold Character Names (handles : inside or outside)
             .replace(/<[^>]*>?/gm, '') // Remove HTML Tags
             .replace(/^[^\n:]+:\s*/gm, '') // Remove "Name: " at start of lines (fallback)
             .trim();

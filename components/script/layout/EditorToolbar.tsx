@@ -63,7 +63,8 @@ const EditorToolbar: React.FC = () => {
     const cleanContentForTiming = (html: string) => {
         return html
             .replace(/\[.*?\]/g, '') // Remove [Stage Directions]
-            .replace(/<strong>.*?<\/strong>:\s*/g, '') // Remove Bold Character Names
+            .replace(/\(.*?\)/g, '') // Remove (Parenthetical Notes)
+            .replace(/<strong>.*?:?<\/strong>:?\s*/g, '') // Remove Bold Character Names (handles : inside or outside)
             .replace(/<[^>]*>?/gm, '') // Remove HTML Tags
             .replace(/^[^\n:]+:\s*/gm, '') // Remove "Name: " at start of lines (fallback)
             .trim();
@@ -130,7 +131,7 @@ const EditorToolbar: React.FC = () => {
                     case 'c': e.preventDefault(); setIsChatPreviewOpen(!isChatPreviewOpen); break;
                     case 'k': e.preventDefault(); setShowConfig(true); break;
                     case 'm': e.preventDefault(); setIsMetadataOpen(true); break;
-                    case 'z': e.preventDefault(); setIsFocusMode(!isFocusMode); break;
+                    case 'f': e.preventDefault(); setIsFocusMode(!isFocusMode); break;
                     case 'p': e.preventDefault(); handlePrint(); break;
                     case 's': e.preventDefault(); setShowShareModal(true); break;
                     case 'n': e.preventDefault(); setIsCommentsOpen(!isCommentsOpen); break;

@@ -15,6 +15,7 @@ import ScriptCategoryFilter from './hub/ScriptCategoryFilter';
 import ScriptStatsGrid from './hub/ScriptStatsGrid';
 import ScriptModeSwitcher, { ScriptHubMode } from './hub/ScriptModeSwitcher';
 import AppBackground from '../common/AppBackground';
+import ScriptLabView from './lab/ScriptLabView';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
@@ -273,6 +274,19 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
             }
         }
     };
+
+    // If Lab mode is open, show full screen lab
+    if (mode === 'LAB') {
+        return (
+            <ScriptLabView 
+                currentUser={currentUser}
+                users={users}
+                channels={channels}
+                masterOptions={masterOptions}
+                onClose={() => setMode('HUB')}
+            />
+        );
+    }
 
     // If Editor is open, show full screen editor
     if (activeScript) {

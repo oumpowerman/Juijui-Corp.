@@ -42,6 +42,7 @@
     "react-dom": "^18.2.0",
     "react-easy-crop": "^5.0.4",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^2.1.7",
     "react-virtualized-auto-sizer": "^1.0.24",
     "react-virtuoso": "^4.7.0",
     "react-window": "^1.8.10",

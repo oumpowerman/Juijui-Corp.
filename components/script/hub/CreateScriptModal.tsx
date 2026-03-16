@@ -15,6 +15,8 @@ interface CreateScriptModalProps {
     users: User[];
     currentUser: User;
     mode?: ScriptHubMode;
+    initialTitle?: string;
+    initialContent?: string;
 }
 
 const CreateScriptModal: React.FC<CreateScriptModalProps> = ({ 
@@ -25,10 +27,12 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
     masterOptions, 
     users, 
     currentUser,
-    mode = 'HUB'
+    mode = 'HUB',
+    initialTitle = '',
+    initialContent = ''
 }) => {
     const isStudio = mode === 'STUDIO';
-    const [title, setTitle] = useState('');
+    const [title, setTitle] = useState(initialTitle);
     const [channelId, setChannelId] = useState('');
     const [category, setCategory] = useState('');
     const [scriptType, setScriptType] = useState<ScriptType>('MONOLOGUE');
@@ -36,6 +40,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
     const [objective, setObjective] = useState('');
     const [ideaOwnerId, setIdeaOwnerId] = useState(currentUser.id);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [content, setContent] = useState(initialContent);
     
     // Custom Dropdown State
     const [isChannelOpen, setIsChannelOpen] = useState(false);
@@ -48,7 +53,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
     // Reset form when modal opens
     useEffect(() => {
         if (isOpen) {
-            setTitle('');
+            setTitle(initialTitle || '');
             setChannelId('');
             setCategory('');
             setScriptType('MONOLOGUE');
@@ -60,8 +65,9 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
             setIsCategoryOpen(false);
             setChannelSearch('');
             setCategorySearch('');
+            setContent(initialContent || '');
         }
-    }, [isOpen, currentUser.id]);
+    }, [isOpen, currentUser.id, initialTitle, initialContent]);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -112,7 +118,8 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
             tags,
             objective,
             ideaOwnerId,
-            authorId: currentUser.id
+            authorId: currentUser.id,
+            content // Include the pre-filled content
         });
         setIsSubmitting(false);
         onClose();
@@ -300,7 +307,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                                             <input 
                                                                 autoFocus
                                                                 type="text"
-                                                                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold outline-none focus:border-blue-300 transition-all"
+                                                                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-blue-300 transition-all"
                                                                 placeholder="ค้นหาช่อง..."
                                                                 value={channelSearch}
                                                                 onChange={e => setChannelSearch(e.target.value)}
@@ -332,7 +339,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                                                             {c.name.charAt(0)}
                                                                         </div>
                                                                     )}
-                                                                    <span className="font-bold text-sm">{c.name}</span>
+                                                                    <span className="font-bold text-sm text-slate-700">{c.name}</span>
                                                                     {channelId === c.id && <Check className="w-4 h-4 ml-auto text-blue-500" />}
                                                                 </button>
                                                             ))
@@ -381,7 +388,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                                             <input 
                                                                 autoFocus
                                                                 type="text"
-                                                                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold outline-none focus:border-pink-300 transition-all"
+                                                                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-pink-300 transition-all"
                                                                 placeholder="ค้นหาหมวดหมู่..."
                                                                 value={categorySearch}
                                                                 onChange={e => setCategorySearch(e.target.value)}
@@ -406,7 +413,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                                                     onClick={() => { setCategory(c.key); setIsCategoryOpen(false); }}
                                                                     className={`w-full flex items-center justify-between p-2.5 rounded-lg transition-colors ${category === c.key ? 'bg-pink-50 text-pink-600' : 'hover:bg-slate-50'}`}
                                                                 >
-                                                                    <span className="font-bold text-sm">{c.label}</span>
+                                                                    <span className="font-bold text-sm text-slate-700">{c.label}</span>
                                                                     {category === c.key && <Check className="w-4 h-4 text-pink-500" />}
                                                                 </button>
                                                             ))

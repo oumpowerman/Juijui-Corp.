@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, Loader2, ExternalLink, PlusCircle, AlertCircle, Link as LinkIcon, X, Search, CheckCircle2, User, Calendar, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
 import { ScriptSummary } from '../../../types';
@@ -22,7 +22,7 @@ interface CFScriptLinkerProps {
 const ITEMS_PER_PAGE = 8;
 
 // Internal Modal Component for selecting script
-const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpen: boolean, onClose: () => void, onSelect: (id: string) => Promise<void>, currentUser: any }) => {
+const ScriptSelectorModal = React.memo(({ isOpen, onClose, onSelect, currentUser }: { isOpen: boolean, onClose: () => void, onSelect: (id: string) => Promise<void>, currentUser: any }) => {
     const [search, setSearch] = useState('');
     const [filterMode, setFilterMode] = useState<'ALL' | 'MINE' | 'FINAL'>('ALL');
     const [page, setPage] = useState(1);
@@ -30,11 +30,11 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
     // Selection state
     const [selectingId, setSelectingId] = useState<string | null>(null);
 
-    // Derived Filters
-    const filterOwner = filterMode === 'MINE' ? [currentUser.id] : [];
-    const filterStatus = filterMode === 'FINAL' ? ['FINAL'] : ['ALL'];
-
     const { scripts, fetchScripts, isLoading, totalCount } = useScripts(currentUser);
+
+    // Derived Filters - Memoized for performance
+    const filterOwner = useMemo(() => filterMode === 'MINE' ? [currentUser.id] : [], [filterMode, currentUser.id]);
+    const filterStatus = useMemo(() => filterMode === 'FINAL' ? ['FINAL'] : ['ALL'], [filterMode]);
 
     // Fetch on change
     useEffect(() => {
@@ -47,12 +47,13 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
                     viewTab: 'LIBRARY', // Search in Library
                     filterOwner,
                     filterStatus,
-                    sortOrder: 'DESC'
+                    sortOrder: 'DESC',
+                    isPersonal: false // CRITICAL: Filter out "Studio" (Private) scripts
                 });
             }, 300); // Debounce
             return () => clearTimeout(timer);
         }
-    }, [isOpen, search, page, filterMode]);
+    }, [isOpen, search, page, filterOwner, filterStatus, fetchScripts]);
 
     if (!isOpen) return null;
 
@@ -168,7 +169,7 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
         </div>,
         document.body
     );
-};
+});
 
 const CFScriptLinker: React.FC<CFScriptLinkerProps> = ({ 
     hasContentId, sourceScript, linkedScript, isLoadingScript, onOpenScript, onCreateScript, onLinkScript, onUnlinkScript, currentUser

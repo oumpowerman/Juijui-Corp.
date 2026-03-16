@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import { useScriptContext } from '../core/ScriptContext';
 import { Lock, Zap } from 'lucide-react';
 
@@ -12,8 +13,13 @@ const EditorShell: React.FC<EditorShellProps> = ({ children }) => {
     const { isReadOnly, lockerUser, forceTakeover } = useScriptContext();
 
     return createPortal(
-        // CHANGED: z-[100] -> z-[1000] to overlay above TaskModal (z-200) and other layers
-        <div className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] animate-in slide-in-from-bottom-10 font-sans">
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 1.02, filter: 'blur(10px)' }}
+            transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] font-sans overflow-hidden"
+        >
             {/* Lock Notification Banner */}
             {isReadOnly && (
                 <div className="bg-amber-100 px-4 py-2 flex items-center justify-between text-amber-900 border-b border-amber-200 shrink-0">
@@ -40,7 +46,7 @@ const EditorShell: React.FC<EditorShellProps> = ({ children }) => {
             )}
             
             {children}
-        </div>,
+        </motion.div>,
         document.body
     );
 };

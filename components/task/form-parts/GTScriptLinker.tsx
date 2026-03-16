@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Loader2, Link, PlusCircle, X, Search, CheckCircle2, User, Calendar, Filter, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
 import { ScriptSummary } from '../../../types';
 import { useScripts } from '../../../hooks/useScripts';
@@ -19,17 +19,17 @@ interface GTScriptLinkerProps {
 
 const ITEMS_PER_PAGE = 10;
 
-const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpen: boolean, onClose: () => void, onSelect: (id: string) => void, currentUser: any }) => {
+const ScriptSelectorModal = React.memo(({ isOpen, onClose, onSelect, currentUser }: { isOpen: boolean, onClose: () => void, onSelect: (id: string) => void, currentUser: any }) => {
     // Advanced Filters State
     const [search, setSearch] = useState('');
     const [filterMode, setFilterMode] = useState<'ALL' | 'MINE' | 'FINAL'>('ALL');
     const [page, setPage] = useState(1);
 
-    // Derived Filters for Hook
-    const filterOwner = filterMode === 'MINE' ? [currentUser.id] : [];
-    const filterStatus = filterMode === 'FINAL' ? ['FINAL'] : ['ALL'];
-
     const { scripts, fetchScripts, isLoading, totalCount } = useScripts(currentUser);
+
+    // Derived Filters for Hook - Memoized for performance
+    const filterOwner = useMemo(() => filterMode === 'MINE' ? [currentUser.id] : [], [filterMode, currentUser.id]);
+    const filterStatus = useMemo(() => filterMode === 'FINAL' ? ['FINAL'] : ['ALL'], [filterMode]);
 
     // Fetch on change
     useEffect(() => {
@@ -41,12 +41,13 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
                     searchQuery: search, 
                     viewTab: 'LIBRARY',
                     filterOwner,
-                    filterStatus
+                    filterStatus,
+                    isPersonal: false // CRITICAL: Filter out "Studio" (Private) scripts
                 });
             }, 300); // Debounce search
             return () => clearTimeout(timer);
         }
-    }, [isOpen, search, page, filterMode]);
+    }, [isOpen, search, page, filterOwner, filterStatus, fetchScripts]);
 
     if (!isOpen) return null;
 
@@ -192,7 +193,7 @@ const ScriptSelectorModal = ({ isOpen, onClose, onSelect, currentUser }: { isOpe
         </div>,
         document.body
     );
-};
+});
 
 const GTScriptLinker: React.FC<GTScriptLinkerProps> = ({ 
     scriptId, linkedScript, isLoadingScript, onSelectScript, onCreateScript, onOpenScript, onUnlink, currentUser 

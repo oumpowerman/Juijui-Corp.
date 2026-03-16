@@ -223,17 +223,19 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const createPicker = (token: string, onSelect: ((file: any) => void) | null) => {
         const view = new window.google.picker.View(window.google.picker.ViewId.DOCS);
-        view.setMimeTypes('image/png,image/jpeg,video/mp4,application/pdf,application/vnd.google-apps.document,application/vnd.google-apps.spreadsheet');
+        view.setMimeTypes('image/png,image/jpeg,image/heic,image/heif,video/mp4,application/pdf,application/vnd.google-apps.document,application/vnd.google-apps.spreadsheet');
         const picker = new window.google.picker.PickerBuilder()
             .addView(view).setOAuthToken(token).setDeveloperKey(API_KEY)
             .setCallback((data: any) => {
                 if (data[window.google.picker.Response.ACTION] === window.google.picker.Action.PICKED) {
                     const doc = data[window.google.picker.Response.DOCUMENTS][0];
                     if (onSelect) onSelect({
+                        id: doc[window.google.picker.Document.ID],
                         name: doc[window.google.picker.Document.NAME],
                         url: doc[window.google.picker.Document.URL],
                         mimeType: doc[window.google.picker.Document.MIME_TYPE],
-                        iconUrl: doc[window.google.picker.Document.ICON_URL]
+                        iconUrl: doc[window.google.picker.Document.ICON_URL],
+                        thumbnailUrl: doc[window.google.picker.Document.THUMBNAIL_URL]
                     });
                 }
             }).build();

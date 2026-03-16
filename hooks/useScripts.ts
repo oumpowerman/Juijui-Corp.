@@ -20,6 +20,7 @@ interface FetchScriptsOptions {
     sortOrder?: 'ASC' | 'DESC'; // NEW: Add Sort Order
     isDeepSearch?: boolean; // NEW: Deep search in content
     isPersonal?: boolean; // NEW: Filter for personal workspace
+    append?: boolean; // NEW: Append results instead of replacing
 }
 
 export const useScripts = (currentUser: User) => {
@@ -59,7 +60,7 @@ export const useScripts = (currentUser: User) => {
     });
 
     const fetchScripts = useCallback(async (options: FetchScriptsOptions) => {
-        setIsLoading(true);
+        if (!options.append) setIsLoading(true);
         try {
             // OPTIMIZATION: Select specific columns excluding 'content'
             let query = supabase
@@ -145,7 +146,12 @@ export const useScripts = (currentUser: User) => {
             if (error) throw error;
 
             if (data) {
-                setScripts(data.map(mapScriptSummary));
+                const newScripts = data.map(mapScriptSummary);
+                if (options.append) {
+                    setScripts(prev => [...prev, ...newScripts]);
+                } else {
+                    setScripts(newScripts);
+                }
                 setTotalCount(count || 0);
             }
         } catch (err: any) {
@@ -154,7 +160,7 @@ export const useScripts = (currentUser: User) => {
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, currentUser.id]);
 
     // Initial Realtime
     useEffect(() => {

@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Channel, MasterOption, ScriptSummary } from '../../../types';
 import { useScripts } from '../../../hooks/useScripts';
-import { Search, Filter, Plus, FileText, User as UserIcon, Calendar, Hash, Loader2, X, Check, TrendingUp } from 'lucide-react';
+import { Search, Filter, Plus, FileText, User as UserIcon, Calendar, Hash, Loader2, X, Check, TrendingUp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabase';
 import { useRef } from 'react';
 import { ChevronDown } from "lucide-react";
+import LabScriptItem from './LabScriptItem';
 
 interface LabSidebarProps {
     currentUser: User;
@@ -14,10 +15,11 @@ interface LabSidebarProps {
     channels: Channel[];
     masterOptions: MasterOption[];
     onAddScript: (script: ScriptSummary) => void;
+    refreshTrigger?: number;
 }
 
 const LabSidebar: React.FC<LabSidebarProps> = ({ 
-    currentUser, users, channels, masterOptions, onAddScript 
+    currentUser, users, channels, masterOptions, onAddScript, refreshTrigger = 0
 }) => {
     const { scripts, isLoading, fetchScripts, totalCount } = useScripts(currentUser);
     
@@ -27,12 +29,17 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterOwner, setFilterOwner] = useState<string[]>([]);
     const [filterTags, setFilterTags] = useState<string[]>([]);
+    const [isDeepSearch, setIsDeepSearch] = useState(false);
     const [tagInput, setTagInput] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [isLoadingTags, setIsLoadingTags] = useState(false);
     const tagContainerRef = useRef<HTMLDivElement>(null);
+
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const pageSize = 20;
 
     // Fetch tag statistics
     useEffect(() => {
@@ -106,16 +113,37 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
     useEffect(() => {
         fetchScripts({
             page: 1,
-            pageSize: 50, // Load more for sidebar
+            pageSize,
             searchQuery,
             filterChannel,
             filterCategory,
             filterOwner,
             filterTags,
             viewTab: 'LIBRARY',
-            isPersonal: false // Show all public scripts
+            isPersonal: false, // Show all public scripts
+            isDeepSearch,
+            append: false
         });
-    }, [searchQuery, filterChannel, filterCategory, filterOwner, filterTags, fetchScripts]);
+        setPage(1);
+    }, [searchQuery, filterChannel, filterCategory, filterOwner, filterTags, fetchScripts, refreshTrigger, isDeepSearch]);
+
+    const handleLoadMore = () => {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchScripts({
+            page: nextPage,
+            pageSize,
+            searchQuery,
+            filterChannel,
+            filterCategory,
+            filterOwner,
+            filterTags,
+            viewTab: 'LIBRARY',
+            isPersonal: false,
+            isDeepSearch,
+            append: true
+        });
+    };
 
     const categories = masterOptions.filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive);
 
@@ -147,11 +175,18 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-indigo-400 transition-colors" />
                     <input 
                         type="text"
-                        placeholder="ค้นหาสคริปต์..."
+                        placeholder={isDeepSearch ? "ค้นหาในเนื้อหาบท..." : "ค้นหาสคริปต์..."}
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all font-kanit font-bold"
+                        className={`w-full pl-10 pr-12 py-2.5 bg-white/5 border rounded-xl text-sm font-bold outline-none transition-all font-kanit font-bold ${isDeepSearch ? 'border-rose-500/50 focus:ring-rose-500/20' : 'border-white/10 focus:ring-indigo-500/50'}`}
                     />
+                    <button
+                        onClick={() => setIsDeepSearch(!isDeepSearch)}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${isDeepSearch ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-white/20 hover:text-white/40 hover:bg-white/5'}`}
+                        title={isDeepSearch ? "ปิด Deep Search" : "เปิด Deep Search (ค้นหาในเนื้อหา)"}
+                    >
+                        <Sparkles className={`w-3.5 h-3.5 ${isDeepSearch ? 'animate-pulse' : ''}`} />
+                    </button>
                 </div>
                 
                 <button 
@@ -379,44 +414,45 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
 
             {/* Script List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                {isLoading ? (
+                {isLoading && page === 1 ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-3 opacity-30">
                         <Loader2 className="w-8 h-8 animate-spin" />
                         <p className="text-xs font-black">กำลังโหลดคลังสคริปต์...</p>
                     </div>
                 ) : scripts.length > 0 ? (
-                    scripts.map(script => (
-                        <div 
-                            key={script.id}
-                            className="group p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer relative overflow-hidden"
-                            onClick={() => onAddScript(script)}
-                        >
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1 overflow-hidden">
-                                    <h4 className="text-md font-medium text-white truncate group-hover:text-indigo-400 transition-colors">{script.title}</h4>
-                                    <div className="flex items-center gap-2 text-[10px] text-white/50">
-                                        <UserIcon className="w-3 h-3" />
-                                        <span className="truncate">{script.author?.name || 'Unknown'}</span>
-                                    </div>
-                                </div>
-                                <button className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-500 hover:text-white">
-                                    <Plus className="w-4 h-4" />
+                    <>
+                        {scripts.map(script => (
+                            <LabScriptItem 
+                                key={script.id}
+                                script={script}
+                                channels={channels}
+                                masterOptions={masterOptions}
+                                onAdd={onAddScript}
+                            />
+                        ))}
+                        
+                        {scripts.length < totalCount && (
+                            <div className="pt-2 pb-6">
+                                <button
+                                    onClick={handleLoadMore}
+                                    disabled={isLoading}
+                                    className="w-full py-3 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:bg-white/10 hover:text-white/60 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            กำลังโหลด...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-3 h-3" />
+                                            โหลดเพิ่มเติม ({totalCount - scripts.length} รายการ)
+                                        </>
+                                    )}
                                 </button>
                             </div>
-                            
-                            {/* Tags/Meta */}
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                                {script.channelId && (
-                                    <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded text-[8px] font-black uppercase">
-                                        {channels.find(c => c.id === script.channelId)?.name || 'Unknown Channel'}
-                                    </span>
-                                )}
-                                <span className="px-1.5 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[8px] font-black uppercase">
-                                    {script.category}
-                                </span>
-                            </div>
-                        </div>
-                    ))
+                        )}
+                    </>
                 ) : (
                     <div className="text-center py-20 opacity-20">
                         <FileText className="w-12 h-12 mx-auto mb-3" />

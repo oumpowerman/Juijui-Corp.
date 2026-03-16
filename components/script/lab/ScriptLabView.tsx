@@ -30,7 +30,7 @@ export interface LabSequenceItem {
 const ScriptLabView: React.FC<ScriptLabViewProps> = ({ 
     currentUser, users, channels, masterOptions, onClose 
 }) => {
-    const { createScript, getScriptById } = useScripts(currentUser);
+    const { createScript, getScriptById, updateScript } = useScripts(currentUser);
     const { showConfirm, showAlert } = useGlobalDialog();
 
     // State
@@ -39,6 +39,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
     const [labTitle, setLabTitle] = useState(`Lab Mix - ${new Date().toLocaleDateString()}`);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [pendingMergedContent, setPendingMergedContent] = useState('');
+    const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
     
     // Panel visibility
     const [isSidebarVisible, setIsSidebarVisible] = useState(true);
@@ -108,8 +109,41 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
             });
 
             if (newScriptId) {
-                showAlert("บันทึกสคริปต์ใหม่เรียบร้อยแล้ว! คุณสามารถดูได้ที่หน้า Studio", "สำเร็จ");
-                if (onClose) onClose();
+                // --- NEW: Update source scripts to mark them as used ---
+                const uniqueSourceIds = Array.from(new Set(
+                    sequence
+                        .filter(item => item.type === 'SCRIPT' && item.scriptId)
+                        .map(item => item.scriptId as string)
+                ));
+
+                for (const sourceId of uniqueSourceIds) {
+                    try {
+                        const original = await getScriptById(sourceId);
+                        if (original) {
+                            const usedSuffix = '(Used in Lab)';
+                            const newTitle = original.title.includes(usedSuffix) 
+                                ? original.title 
+                                : `${original.title} ${usedSuffix}`;
+                            
+                            const newTags = Array.from(new Set([...(original.tags || []), 'UsedInLab']));
+                            
+                            await updateScript(sourceId, {
+                                title: newTitle,
+                                tags: newTags
+                            });
+                        }
+                    } catch (updateErr) {
+                        console.error(`Failed to update source script ${sourceId}:`, updateErr);
+                        // Don't block the whole process if one update fails
+                    }
+                }
+
+                // Trigger sidebar refresh
+                setSidebarRefreshKey(prev => prev + 1);
+
+                showAlert("บันทึกสคริปต์ใหม่เรียบร้อยแล้ว! และอัปเดตสถานะสคริปต์ต้นฉบับให้แล้ว", "สำเร็จ");
+                // Removed auto-close to let user see the "Used" badges in sidebar
+                // if (onClose) onClose(); 
             }
         } catch (error) {
             console.error('Error creating script from lab:', error);
@@ -120,7 +154,13 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-[#0a0a0f] text-white flex flex-col overflow-hidden font-kanit font-bold">
+        <motion.div 
+            initial={{ opacity: 0, scale: 1.05, filter: 'blur(15px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.95, filter: 'blur(15px)' }}
+            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed inset-0 z-[100] bg-[#0a0a0f] text-white flex flex-col overflow-hidden font-kanit font-bold"
+        >
             {/* Header */}
             <header className="h-20 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between px-8 shrink-0">
                 <div className="flex items-center gap-4">
@@ -185,6 +225,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                                     channels={channels}
                                     masterOptions={masterOptions}
                                     onAddScript={handleAddScript}
+                                    refreshTrigger={sidebarRefreshKey}
                                 />
                             </Panel>
                             <PanelResizeHandle className="w-1 bg-white/5 hover:bg-indigo-500/50 transition-colors cursor-col-resize" />
@@ -231,7 +272,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                 initialTitle={labTitle}
                 initialContent={pendingMergedContent}
             />
-        </div>
+        </motion.div>
     );
 };
 

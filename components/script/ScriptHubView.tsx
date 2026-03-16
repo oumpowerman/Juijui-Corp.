@@ -53,6 +53,14 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [refreshStatsKey, setRefreshStatsKey] = useState(0); // NEW: Trigger for stats refresh
     const [mode, setMode] = useState<ScriptHubMode>(initialMode); // NEW: Mode switcher
 
+    // Guard: Prevent LAB mode on mobile
+    useEffect(() => {
+        const isMobile = window.innerWidth < 768;
+        if (isMobile && mode === 'LAB') {
+            setMode('HUB');
+        }
+    }, [mode]);
+
     // Promote State
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
     const [promoteScriptData, setPromoteScriptData] = useState<Script | null>(null);
@@ -275,241 +283,248 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         }
     };
 
-    // If Lab mode is open, show full screen lab
-    if (mode === 'LAB') {
-        return (
-            <ScriptLabView 
-                currentUser={currentUser}
-                users={users}
-                channels={channels}
-                masterOptions={masterOptions}
-                onClose={() => setMode('HUB')}
-            />
-        );
-    }
-
-    // If Editor is open, show full screen editor
-    if (activeScript) {
-        return (
-            <>
-                <ScriptEditor 
-                    key={activeScript.id} // FORCE REMOUNT ON SCRIPT CHANGE
-                    script={activeScript} 
-                    users={users}
-                    channels={channels} // Pass channels
-                    masterOptions={masterOptions} // Pass masterOptions
-                    currentUser={currentUser}
-                    onClose={() => { 
-                        setActiveScript(null); 
-                        fetchScripts({ 
-                            page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
-                            filterCategory, filterStatus, sortOrder,
-                            isPersonal: mode === 'STUDIO'
-                        }); 
-                        setRefreshStatsKey(prev => prev + 1);
-                    }} 
-                    onSave={updateScript} 
-                    onGenerateAI={generateScriptWithAI}
-                    onPromote={handlePromoteClick} // Pass handler
-                />
-                
-                {/* Promote Modal Overlay */}
-                {isPromoteModalOpen && promoteScriptData && createPortal(
-                     <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                        <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
-                             <div className="px-8 py-5 border-b border-gray-100 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex justify-between items-center">
-                                 <div>
-                                     <h3 className="text-xl font-bold flex items-center gap-2">🚀 ส่งเข้าผลิต (Promote to Content)</h3>
-                                     <p className="text-sm text-orange-100">แปลงสคริปต์เป็นงานจริงในระบบ</p>
-                                 </div>
-                                 <button onClick={() => setIsPromoteModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
-                             </div>
-                             
-                             <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
-                                 <ContentForm 
-                                    // Pre-fill data from Script
-                                    initialData={null}
-                                    sourceScript={promoteScriptData}
-                                    channels={channels}
-                                    users={users}
-                                    masterOptions={masterOptions}
-                                    currentUser={currentUser}
-                                    onSave={handlePromoteSubmit}
-                                    onClose={() => setIsPromoteModalOpen(false)}
-                                 />
-                             </div>
-                        </div>
-                     </div>,
-                     document.body
-                )}
-            </>
-        );
-    }
-
+    // --- RENDER LOGIC WITH ANIMATIONS ---
     return (
         <AppBackground 
             theme={mode === 'STUDIO' ? 'pastel-indigo' : 'script'} 
             pattern="dots" 
-            className="pb-24"
+            className={!activeScript && mode !== 'LAB' ? "pb-24" : ""}
         >
-            {isFetchingDetail && (
-                <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
-                        <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-                        <span className="text-sm font-bold text-gray-700">กำลังโหลดเนื้อหา...</span>
-                    </div>
-                </div>
-            )}
-
-            <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
-                
-                {/* 1. Header with Info Button */}
-                <ScriptHubHeader 
-                    onCreateClick={() => setIsCreateModalOpen(true)} 
-                    onInfoClick={() => setIsInfoOpen(true)} 
-                    mode={mode}
-                    onModeChange={setMode}
-                />
-
-                <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
+                {mode === 'LAB' ? (
                     <motion.div
-                        key={mode}
-                        initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
-                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                        exit={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
-                        transition={{ 
-                            duration: 0.4, 
-                            ease: [0.23, 1, 0.32, 1] // Custom cubic-bezier for premium feel
-                        }}
-                        className="space-y-8"
+                        key="lab-view"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100]"
                     >
-                        {/* 2. Dashboard Stats Grid */}
-                        <ScriptStatsGrid 
-                            refreshTrigger={refreshStatsKey}
-                            filterOwner={filterOwner}
-                            filterChannel={filterChannel}
-                            filterCategory={filterCategory}
-                            filterTags={filterTags} // NEW
-                            searchQuery={searchQuery} // NEW
-                            viewTab={viewTab}
-                            filterStatus={filterStatus}
-                            isPersonal={mode === 'STUDIO'}
+                        <ScriptLabView 
                             currentUser={currentUser}
-                            onTabChange={(tab, status) => {
-                                setViewTab(tab);
-                                if (status) setFilterStatus([status]);
-                                // We don't reset category here to allow filtered stats to stay
-                            }}
+                            users={users}
+                            channels={channels}
+                            masterOptions={masterOptions}
+                            onClose={() => setMode('HUB')}
+                        />
+                    </motion.div>
+                ) : activeScript ? (
+                    <motion.div
+                        key="editor-view"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100]"
+                    >
+                        <ScriptEditor 
+                            key={activeScript.id} 
+                            script={activeScript} 
+                            users={users}
+                            channels={channels}
+                            masterOptions={masterOptions}
+                            currentUser={currentUser}
+                            onClose={() => { 
+                                setActiveScript(null); 
+                                fetchScripts({ 
+                                    page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
+                                    filterCategory, filterStatus, sortOrder,
+                                    isPersonal: mode === 'STUDIO'
+                                }); 
+                                setRefreshStatsKey(prev => prev + 1);
+                            }} 
+                            onSave={updateScript} 
+                            onGenerateAI={generateScriptWithAI}
+                            onPromote={handlePromoteClick}
+                        />
+                        
+                        {isPromoteModalOpen && promoteScriptData && createPortal(
+                            <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                                <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
+                                    <div className="px-8 py-5 border-b border-gray-100 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-xl font-bold flex items-center gap-2">🚀 ส่งเข้าผลิต (Promote to Content)</h3>
+                                            <p className="text-sm text-orange-100">แปลงสคริปต์เป็นงานจริงในระบบ</p>
+                                        </div>
+                                        <button onClick={() => setIsPromoteModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                                    </div>
+                                    
+                                    <div className="flex-1 overflow-hidden flex flex-col bg-slate-50">
+                                        <ContentForm 
+                                            initialData={null}
+                                            sourceScript={promoteScriptData}
+                                            channels={channels}
+                                            users={users}
+                                            masterOptions={masterOptions}
+                                            currentUser={currentUser}
+                                            onSave={handlePromoteSubmit}
+                                            onClose={() => setIsPromoteModalOpen(false)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>,
+                            document.body
+                        )}
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="hub-view"
+                        initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                        transition={{ 
+                            duration: 0.5, 
+                            ease: [0.23, 1, 0.32, 1] 
+                        }}
+                    >
+                        {isFetchingDetail && (
+                            <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
+                                <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
+                                    <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                                    <span className="text-sm font-bold text-gray-700">กำลังโหลดเนื้อหา...</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+                            
+                            {/* 1. Header with Info Button */}
+                            <ScriptHubHeader 
+                                onCreateClick={() => setIsCreateModalOpen(true)} 
+                                onInfoClick={() => setIsInfoOpen(true)} 
+                                mode={mode}
+                                onModeChange={setMode}
+                            />
+
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={mode}
+                                    initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
+                                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                                    exit={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
+                                    transition={{ 
+                                        duration: 0.4, 
+                                        ease: [0.23, 1, 0.32, 1] 
+                                    }}
+                                    className="space-y-8"
+                                >
+                                    {/* 2. Dashboard Stats Grid */}
+                                    <ScriptStatsGrid 
+                                        refreshTrigger={refreshStatsKey}
+                                        filterOwner={filterOwner}
+                                        filterChannel={filterChannel}
+                                        filterCategory={filterCategory}
+                                        filterTags={filterTags}
+                                        searchQuery={searchQuery}
+                                        viewTab={viewTab}
+                                        filterStatus={filterStatus}
+                                        isPersonal={mode === 'STUDIO'}
+                                        currentUser={currentUser}
+                                        onTabChange={(tab, status) => {
+                                            setViewTab(tab);
+                                            if (status) setFilterStatus([status]);
+                                        }}
+                                    />
+
+                                    {/* 4. Filter Bar & List */}
+                                    <div className="space-y-4">
+                                        <ScriptFilterBar 
+                                            layoutMode={layoutMode} setLayoutMode={setLayoutMode}
+                                            searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                                            filterOwner={filterOwner} setFilterOwner={setFilterOwner}
+                                            filterChannel={filterChannel} setFilterChannel={setFilterChannel}
+                                            filterCategory={filterCategory} setFilterCategory={setFilterCategory}
+                                            filterTags={filterTags} setFilterTags={setFilterTags}
+                                            filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                                            sortOrder={sortOrder} setSortOrder={setSortOrder}
+                                            isDeepSearch={isDeepSearch} setIsDeepSearch={setIsDeepSearch}
+                                            users={users} channels={channels} masterOptions={masterOptions}
+                                            mode={mode}
+                                        />
+
+                                        <ScriptList 
+                                            scripts={scripts}
+                                            layoutMode={layoutMode}
+                                            viewTab={viewTab}
+                                            isLoading={isLoading}
+                                            channels={channels}
+                                            masterOptions={masterOptions}
+                                            mode={mode}
+                                            currentUser={currentUser}
+                                            onOpen={handleOpenScript}
+                                            onToggleQueue={handleToggleQueue}
+                                            onDelete={handleDeleteScript}
+                                            onRestore={handleRestoreScript}
+                                            onDone={handleDoneScript}
+                                            onTogglePersonal={handleTogglePersonal}
+                                        />
+
+                                        {/* Pagination Controls */}
+                                        {totalCount > 0 && (
+                                            <div className="
+                                            flex items-center justify-between pt-4
+                                            p-4 rounded-3xl
+                                            bg-white/70
+                                            backdrop-blur-xl
+                                            border border-white/40
+                                            shadow-[0_20px_60px_rgba(0,0,0,0.18)]
+                                            animate-breathe
+                                            relative overflow-hidden
+                                            ">
+                                                <div className="absolute inset-0 pointer-events-none">
+                                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent"/>
+                                                    <div className="absolute -top-10 -left-10 w-[200%] h-[200%] opacity-30 blur-3xl animate-pastel"/>
+                                                </div>
+
+                                                <div className="text-xs text-gray-500 font-medium">
+                                                    แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => handlePageChange(page - 1)} 
+                                                        disabled={page === 1}
+                                                        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    >
+                                                        <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                                    </button>
+                                                    <span className="text-sm font-bold text-gray-700 px-2">
+                                                        หน้า {page} / {totalPages}
+                                                    </span>
+                                                    <button 
+                                                        onClick={() => handlePageChange(page + 1)} 
+                                                        disabled={page === totalPages}
+                                                        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    >
+                                                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
+
+                        <CreateScriptModal 
+                            isOpen={isCreateModalOpen}
+                            onClose={() => setIsCreateModalOpen(false)}
+                            onSubmit={handleCreateSubmit}
+                            channels={channels}
+                            masterOptions={masterOptions}
+                            users={users}
+                            currentUser={currentUser}
+                            mode={mode}
                         />
 
-                        {/* 4. Filter Bar & List */}
-                        <div className="space-y-4">
-                             <ScriptFilterBar 
-                                layoutMode={layoutMode} setLayoutMode={setLayoutMode}
-                                searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-                                filterOwner={filterOwner} setFilterOwner={setFilterOwner}
-                                filterChannel={filterChannel} setFilterChannel={setFilterChannel}
-                                filterCategory={filterCategory} setFilterCategory={setFilterCategory}
-                                filterTags={filterTags} setFilterTags={setFilterTags} // NEW
-                                // NEW PROPS
-                                filterStatus={filterStatus} setFilterStatus={setFilterStatus}
-                                sortOrder={sortOrder} setSortOrder={setSortOrder}
-                                isDeepSearch={isDeepSearch} setIsDeepSearch={setIsDeepSearch}
-                                users={users} channels={channels} masterOptions={masterOptions}
-                                mode={mode}
-                            />
-
-                            <ScriptList 
-                                scripts={scripts}
-                                layoutMode={layoutMode}
-                                viewTab={viewTab}
-                                isLoading={isLoading}
-                                channels={channels}
-                                masterOptions={masterOptions}
-                                mode={mode}
-                                currentUser={currentUser}
-                                onOpen={handleOpenScript}
-                                
-                                // Pass wrapped handlers
-                                onToggleQueue={handleToggleQueue}
-                                onDelete={handleDeleteScript}
-                                onRestore={handleRestoreScript}
-                                onDone={handleDoneScript}
-                                onTogglePersonal={handleTogglePersonal}
-                            />
-
-                            {/* Pagination Controls */}
-                            {totalCount > 0 && (
-                                <div className="
-                                flex items-center justify-between pt-4
-                                p-4 rounded-3xl
-                                bg-white/70
-                                backdrop-blur-xl
-                                border border-white/40
-                                shadow-[0_20px_60px_rgba(0,0,0,0.18)]
-                                animate-breathe
-                                relative overflow-hidden
-                                ">
-
-                                <div className="absolute inset-0 pointer-events-none">
-                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent"/>
-
-                                       {/* pastel glow */}
-                                    <div className="
-                                        absolute -top-10 -left-10 w-[200%] h-[200%]
-                                        opacity-30 blur-3xl
-                                        animate-pastel
-                                    "/>
-                                </div>
-
-                                    <div className="text-xs text-gray-500 font-medium">
-                                        แสดง {((page - 1) * pageSize) + 1} ถึง {Math.min(page * pageSize, totalCount)} จาก {totalCount} รายการ
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => handlePageChange(page - 1)} 
-                                            disabled={page === 1}
-                                            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
-                                        </button>
-                                        <span className="text-sm font-bold text-gray-700 px-2">
-                                            หน้า {page} / {totalPages}
-                                        </span>
-                                        <button 
-                                            onClick={() => handlePageChange(page + 1)} 
-                                            disabled={page === totalPages}
-                                            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            <ChevronRight className="w-4 h-4 text-gray-600" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        {/* INFO MODAL */}
+                        <InfoModal 
+                            isOpen={isInfoOpen}
+                            onClose={() => setIsInfoOpen(false)}
+                            title="คู่มือ Script Hub"
+                        >
+                            <ScriptGuide />
+                        </InfoModal>
                     </motion.div>
-                </AnimatePresence>
-            </div>
-
-            <CreateScriptModal 
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSubmit={handleCreateSubmit}
-                channels={channels}
-                masterOptions={masterOptions}
-                users={users}
-                currentUser={currentUser}
-                mode={mode}
-            />
-
-            {/* INFO MODAL */}
-            <InfoModal 
-                isOpen={isInfoOpen}
-                onClose={() => setIsInfoOpen(false)}
-                title="คู่มือ Script Hub"
-            >
-                <ScriptGuide />
-            </InfoModal>
+                )}
+            </AnimatePresence>
         </AppBackground>
     );
 };

@@ -248,7 +248,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
                 </div>
             )}
 
-            <div className="relative z-10">
+            <div className="relative">
                 {children}
             </div>
         </div>

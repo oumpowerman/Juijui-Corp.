@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../../types';
-import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone } from 'lucide-react';
+import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone, Sparkles, Star } from 'lucide-react';
 import { isPast, isToday, addDays, isBefore, differenceInCalendarDays, startOfDay } from 'date-fns';
 import TaskCategoryModal from '../../TaskCategoryModal';
 import { isTaskCompleted, STATUS_LABELS } from '../../../constants';
@@ -194,16 +195,94 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
 
     if (urgentTasks.length === 0 && reviseTasks.length === 0) {
         return (
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[2.5rem] p-8 text-center shadow-sm border-4 border-white flex flex-col items-center justify-center h-full min-h-[300px]">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce-slow">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                </div>
-                <h2 className="text-xl font-bold text-emerald-800 mb-1">
-                    ว่างจัง... ฮูเล่! ✨
-                </h2>
-                <p className="text-emerald-600/70 text-sm font-medium">
-                    ไม่มีงานด่วนหรือแก้ไข พักผ่อนได้เลย
-                </p>
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 rounded-[2.5rem] p-8 text-center shadow-xl border-4 border-white flex flex-col items-center justify-center h-full min-h-[300px] relative overflow-hidden">
+                {/* Decorative Sparkles */}
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 10, -10, 0],
+                        opacity: [0.3, 0.6, 0.3]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    className="absolute top-10 left-10 text-emerald-300"
+                >
+                    <Sparkles className="w-8 h-8" />
+                </motion.div>
+                <motion.div 
+                    animate={{ 
+                        scale: [1, 1.5, 1],
+                        opacity: [0.2, 0.5, 0.2]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity, delay: 1 }}
+                    className="absolute bottom-12 right-12 text-teal-300"
+                >
+                    <Star className="w-6 h-6 fill-current" />
+                </motion.div>
+                <motion.div 
+                    animate={{ 
+                        y: [0, -10, 0],
+                        opacity: [0.2, 0.4, 0.2]
+                    }}
+                    transition={{ duration: 5, repeat: Infinity, delay: 0.5 }}
+                    className="absolute top-20 right-16 text-emerald-200"
+                >
+                    <Sparkles className="w-5 h-5" />
+                </motion.div>
+
+                {/* Main Icon with Glow */}
+                <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ 
+                        scale: 1, 
+                        opacity: 1,
+                        rotate: [0, -5, 5, -5, 0]
+                    }}
+                    transition={{ 
+                        scale: { type: "spring", stiffness: 200, damping: 10 },
+                        rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    className="relative mb-6"
+                >
+                    <div className="absolute inset-0 bg-emerald-400 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg relative z-10 border-4 border-emerald-50">
+                        <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                    </div>
+                    
+                    {/* Floating mini stars around icon */}
+                    <motion.div 
+                        animate={{ y: [-5, 5, -5], x: [-2, 2, -2] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="absolute -top-2 -right-2 text-yellow-400"
+                    >
+                        <Star className="w-5 h-5 fill-current" />
+                    </motion.div>
+                </motion.div>
+
+                <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                >
+                    <h2 className="text-xl font-bold text-emerald-800 mb-2 relative inline-block">
+                        <span className="relative z-10">ว่างจัง... ฮูเล่! ✨</span>
+                        <motion.div 
+                            animate={{ 
+                                opacity: [0, 1, 0],
+                                scale: [0.8, 1.2, 0.8],
+                                x: [-20, 120, -20]
+                            }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent skew-x-12 pointer-events-none"
+                        />
+                    </h2>
+                    <p className="text-emerald-600/80 text-sm font-medium max-w-[200px] mx-auto leading-relaxed">
+                        ไม่มีงานด่วนหรือแก้ไขให้กวนใจ<br/>
+                        <span className="text-emerald-500 font-black">พักผ่อนให้เต็มที่เลยนะ! 🌈</span>
+                    </p>
+                </motion.div>
+
+                {/* Bottom decorative wave or dots */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-200 to-transparent opacity-50"></div>
             </div>
         );
     }

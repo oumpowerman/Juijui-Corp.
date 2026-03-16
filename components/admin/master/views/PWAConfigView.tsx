@@ -29,6 +29,7 @@ const PWAConfigView: React.FC<PWAConfigViewProps> = ({ masterOptions, onUpdate, 
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
+    const [targetSize, setTargetSize] = useState<192 | 512>(192); // Default to 192 for manifest compatibility
 
     // Find existing configs
     const nameConfig = masterOptions.find(o => o.type === 'PWA_CONFIG' && o.key === 'APP_NAME');
@@ -151,9 +152,9 @@ const PWAConfigView: React.FC<PWAConfigViewProps> = ({ masterOptions, onUpdate, 
 
             if (!ctx) return;
 
-            // Set canvas size to 512x512 for high quality PWA icon
-            canvas.width = 512;
-            canvas.height = 512;
+            // Set canvas size based on selection
+            canvas.width = targetSize;
+            canvas.height = targetSize;
 
             ctx.drawImage(
                 image,
@@ -163,8 +164,8 @@ const PWAConfigView: React.FC<PWAConfigViewProps> = ({ masterOptions, onUpdate, 
                 croppedAreaPixels.height,
                 0,
                 0,
-                512,
-                512
+                targetSize,
+                targetSize
             );
 
             const base64Image = canvas.toDataURL('image/png');
@@ -365,15 +366,23 @@ const PWAConfigView: React.FC<PWAConfigViewProps> = ({ masterOptions, onUpdate, 
                     <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <div>
-                                <h3 className="font-black text-xl text-gray-800 tracking-tight">ปรับแต่งไอคอน (1:1)</h3>
+                                <h3 className="font-black text-xl text-gray-800 tracking-tight">ปรับแต่งไอคอน ({targetSize}x{targetSize})</h3>
                                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Crop your app icon</p>
                             </div>
-                            <button 
-                                onClick={() => { setIsCropping(false); setImageToCrop(null); }}
-                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                                <X className="w-6 h-6 text-gray-400" />
-                            </button>
+                            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+                                <button 
+                                    onClick={() => setTargetSize(192)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${targetSize === 192 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    192PX (FAST)
+                                </button>
+                                <button 
+                                    onClick={() => setTargetSize(512)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${targetSize === 512 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    512PX (HD)
+                                </button>
+                            </div>
                         </div>
 
                         <div className="relative flex-1 min-h-[400px] bg-gray-900">

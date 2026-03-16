@@ -16,7 +16,9 @@ import { FontSize } from './FontSizeExtension';
 import { FontWeight } from './FontWeightExtension';
 import { DrawingExtension } from './DrawingExtension';
 import { SearchHighlightExtension } from './SearchHighlightExtension';
+import { ParagraphFormatting } from './ParagraphFormattingExtension';
 import RichTextToolbar from './RichTextToolbar';
+import { FormattingSettings } from './FormattingPanel';
 
 export interface RichTextEditorProps {
     content: string;
@@ -46,6 +48,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Modal State
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [currentLinkUrl, setCurrentLinkUrl] = useState('');
+    const [isFormattingOpen, setIsFormattingOpen] = useState(false);
 
     const bubbleMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -77,6 +80,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             FontSize,
             FontWeight,
             FontFamily,
+            ParagraphFormatting,
             DrawingExtension,
             SearchHighlightExtension,
             ResizableImage.configure({
@@ -303,6 +307,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <RichTextToolbar 
                     editor={editor} 
                     openLinkModal={openLinkModal} 
+                    isFormattingOpen={isFormattingOpen}
+                    setIsFormattingOpen={setIsFormattingOpen}
                 />
             )}
 

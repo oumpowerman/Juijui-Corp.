@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AttendanceLog, LeaveType, LocationDef, AttendanceStats, LeaveRequest } from '../../../types/attendance';
 import { User } from '../../../types';
 import { MapPin, LogOut, LogIn, CheckCircle2, Cloud, CloudOff, Sparkles, Coffee, Calendar, Flame, Briefcase, AlertTriangle, Palmtree, Hourglass, AlertCircle, ShieldCheck, ArrowRight, ArrowUpRight, Loader2, RefreshCw } from 'lucide-react';
@@ -190,6 +191,106 @@ const StatusCard: React.FC<StatusCardProps> = ({
 
     return (
         <div className="space-y-3 relative z-10">
+            {/* GOOGLE DRIVE STATUS BANNER (NEW TOP POSITION) */}
+            <div className="mb-2 animate-in fade-in slide-in-from-top-1 duration-500">
+                {!isDriveReady ? (
+                    <div className={`p-3 rounded-2xl border transition-all ${isTimeout ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                        {isTimeout ? (
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-rose-100 p-2 rounded-full text-rose-500">
+                                        <CloudOff className="w-4 h-4" />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[11px] font-bold text-rose-800">Drive Connection Timeout</p>
+                                        <p className="text-[9px] text-rose-600">การเชื่อมต่อล้มเหลว กรุณาลองใหม่</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={handleRetry} 
+                                    className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-rose-600 transition-colors shadow-sm"
+                                >
+                                    Retry
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                <div className="flex-1">
+                                    <p className="text-[11px] font-medium text-slate-500">กำลังเตรียมระบบ Google Drive...</p>
+                                    <div className="mt-1.5 w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-indigo-400 transition-all duration-1000 ease-linear" 
+                                            style={{ width: `${(loadingTime / 20) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : !isAuthenticated ? (
+                    <motion.div 
+                        animate={{ 
+                            backgroundColor: ["rgba(255, 241, 242, 0.5)", "rgba(255, 228, 230, 0.8)", "rgba(255, 241, 242, 0.5)"],
+                            borderColor: ["rgba(251, 113, 133, 0.2)", "rgba(251, 113, 133, 0.5)", "rgba(251, 113, 133, 0.2)"]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                        className="border rounded-2xl p-3 flex items-center justify-between shadow-sm relative overflow-hidden"
+                    >
+                        {/* Urgent Background Pulse */}
+                        <motion.div 
+                            animate={{ opacity: [0, 0.1, 0] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="absolute inset-0 bg-red-500 pointer-events-none"
+                        />
+
+                        <div className="flex items-center gap-3 relative z-10">
+                            <motion.div 
+                                animate={{ rotate: [-10, 10, -10] }}
+                                transition={{ duration: 0.5, repeat: Infinity, ease: "linear" }}
+                                className="bg-white p-2 rounded-full text-rose-500 shadow-sm border border-rose-100"
+                            >
+                                <AlertTriangle className="w-5 h-5" />
+                            </motion.div>
+                            <div className="text-left">
+                                <p className="text-[11px] font-black text-rose-900 uppercase tracking-tight flex items-center gap-1">
+                                    Backup System Disabled
+                                </p>
+                                <p className="text-[9px] text-rose-600 font-bold leading-tight">
+                                    เสี่ยงข้อมูลสูญหาย! กรุณาเชื่อมต่อ Drive ทันที
+                                </p>
+                            </div>
+                        </div>
+                        <motion.button 
+                            onClick={onConnectDrive}
+                            animate={{ 
+                                scale: [1, 1.1, 1],
+                                boxShadow: [
+                                    "0 0 0px rgba(225, 29, 72, 0)",
+                                    "0 0 20px rgba(225, 29, 72, 0.5)",
+                                    "0 0 0px rgba(225, 29, 72, 0)"
+                                ]
+                            }}
+                            transition={{ 
+                                duration: 1, 
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                            }}
+                            whileHover={{ scale: 1.15, boxShadow: "0 0 25px rgba(225, 29, 72, 0.7)" }}
+                            whileTap={{ scale: 0.9 }}
+                            className="bg-rose-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all relative z-10"
+                        >
+                            Fix Now
+                        </motion.button>
+                    </motion.div>
+                ) : (
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-2.5 flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Google Drive Connected</span>
+                    </div>
+                )}
+            </div>
+
             {/* OUTDATED SESSION BANNER (Persistent) */}
             {isSessionOutdated && (
                 <div className="bg-orange-100 border border-orange-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2 mb-2">
@@ -384,64 +485,6 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 </>
             )}
             
-            {/* Google Drive Status & Connection */}
-            <div className="mt-4 pt-3 border-t border-gray-50">
-                {!isDriveReady ? (
-                    <div className="flex flex-col items-center gap-2">
-                        {isTimeout ? (
-                            <>
-                                <div className="flex items-center gap-1.5 text-[12px] text-red-500 font-bold">
-                                    <AlertCircle className="w-3 h-3" />
-                                    <span>การเชื่อมต่อ Drive ล้มเหลว (Timeout)</span>
-                                </div>
-                                <button 
-                                    onClick={handleRetry}
-                                    className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-full text-[12px] font-bold transition-all active:scale-95"
-                                >
-                                    <RefreshCw className="w-3 h-3" /> ลองเชื่อมต่อใหม่อีกครั้ง
-                                </button>
-                                <p className="text-[9px] text-gray-400 text-center px-4">
-                                    คุณยังสามารถลงเวลาได้ปกติ รูปภาพจะถูกเก็บในระบบสำรอง
-                                </p>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center gap-1">
-                                <div className="flex items-center justify-center gap-2 text-[12px] text-orange-400 font-bold">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>
-                                        {loadingTime > 10 
-                                            ? 'การเชื่อมต่อช้า... กำลังพยายามอีกครั้ง' 
-                                            : 'กำลังโหลดระบบ Google Drive...'}
-                                    </span>
-                                </div>
-                                <div className="w-24 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-orange-400 transition-all duration-1000 ease-linear"
-                                        style={{ width: `${(loadingTime / 20) * 100}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ) : !isAuthenticated ? (
-                    <div className="flex flex-col items-center gap-2">
-                        <p className="text-[12px] text-gray-400 flex items-center gap-1">
-                            <CloudOff className="w-3 h-3" /> ยังไม่ได้เชื่อมต่อ Google Drive
-                        </p>
-                        <button 
-                            onClick={onConnectDrive}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 rounded-full text-[14px] font-black uppercase tracking-wider transition-all active:scale-95"
-                        >
-                            <Cloud className="w-3 h-3" /> เชื่อมต่อเพื่อสำรองรูปภาพ
-                        </button>
-                    </div>
-                ) : (
-                    <p className="text-[10px] text-emerald-500 font-bold text-center flex items-center justify-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> 
-                        เชื่อมต่อ Google Drive แล้ว (สำรองรูปภาพอัตโนมัติ)
-                    </p>
-                )}
-            </div>
         </div>
     );
 };

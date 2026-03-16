@@ -131,7 +131,7 @@ const EditorToolbar: React.FC = () => {
                     case 'c': e.preventDefault(); setIsChatPreviewOpen(!isChatPreviewOpen); break;
                     case 'k': e.preventDefault(); setShowConfig(true); break;
                     case 'm': e.preventDefault(); setIsMetadataOpen(true); break;
-                    case 'f': e.preventDefault(); setIsFocusMode(!isFocusMode); break;
+                    case 'z': e.preventDefault(); setIsFocusMode(!isFocusMode); break;
                     case 'p': e.preventDefault(); handlePrint(); break;
                     case 's': e.preventDefault(); setShowShareModal(true); break;
                     case 'n': e.preventDefault(); setIsCommentsOpen(!isCommentsOpen); break;

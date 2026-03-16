@@ -5,16 +5,19 @@ import {
     Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3, 
     Quote, Undo, Redo, Strikethrough, Type, ChevronDown, Check, Plus, 
     Link as LinkIcon, Image as ImageIcon, MousePointer2, Palette,
-    Type as TypeIcon, Baseline, Settings2
+    Type as TypeIcon, Baseline, Settings2, AlignLeft
 } from 'lucide-react';
 import { PRESET_COLORS, PRESET_FONTS } from './constants';
 import ImageInsertModal from './ImageInsertModal';
 import ToolbarDropdown from './ToolbarDropdown';
+import FormattingPanel, { FormattingSettings } from './FormattingPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface RichTextToolbarProps {
     editor: Editor;
     openLinkModal: () => void;
+    isFormattingOpen: boolean;
+    setIsFormattingOpen: (isOpen: boolean) => void;
 }
 
 const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: any) => (
@@ -45,7 +48,12 @@ const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: a
 
 const Divider = () => <div className="w-px h-4 bg-gray-200/60 mx-1 shrink-0" />;
 
-const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal }) => {
+const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ 
+    editor, 
+    openLinkModal,
+    isFormattingOpen,
+    setIsFormattingOpen
+}) => {
     const [isColorOpen, setIsColorOpen] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -321,6 +329,27 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ editor, openLinkModal
                 icon={Quote} 
                 title="Quote" 
             />
+
+            <Divider />
+
+            {/* 6. Advanced Formatting */}
+            <div className="relative">
+                <MenuButton 
+                    onClick={() => setIsFormattingOpen(!isFormattingOpen)}
+                    isActive={isFormattingOpen}
+                    icon={AlignLeft}
+                    title="Paragraph Formatting"
+                    label="Format"
+                />
+                <AnimatePresence>
+                    {isFormattingOpen && (
+                        <FormattingPanel 
+                            editor={editor}
+                            onClose={() => setIsFormattingOpen(false)}
+                        />
+                    )}
+                </AnimatePresence>
+            </div>
             
         </div>
     );

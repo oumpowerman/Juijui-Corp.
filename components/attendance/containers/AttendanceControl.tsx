@@ -122,6 +122,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 onSwitchToLeave={() => { setIsCheckInModalOpen(false); onOpenLeave(); }} // Handled by parent
                 approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
                 hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
+                isDriveConnected={isDriveAuthenticated}
             />
         </div>
     );

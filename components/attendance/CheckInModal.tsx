@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, CheckCircle2, CloudOff } from 'lucide-react';
 import { calculateDistance, OFFICE_COORDS, getRandomPose } from '../../lib/locationUtils';
 import { WorkLocation, LocationDef } from '../../types/attendance';
 import CameraView from './CameraView';
@@ -23,12 +23,13 @@ interface CheckInModalProps {
     onSwitchToLeave?: () => void;
     approvedWFH?: boolean; // NEW PROP
     hasLateRequest?: boolean; // NEW PROP
+    isDriveConnected?: boolean; // NEW PROP
 }
 
 type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
-    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest, isDriveConnected 
 }) => {
     const { showAlert } = useGlobalDialog();
     const [step, setStep] = useState<Step>('LOCATION');
@@ -184,7 +185,22 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                             {compressing ? 'กำลังบีบอัดภาพ...' : isSubmitting ? 'กำลังอัปโหลดข้อมูล...' : `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm"><X className="w-5 h-5"/></button>
+                    <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end mr-2">
+                            {isDriveConnected ? (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                    <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">Drive Ready</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-100 rounded-full animate-pulse">
+                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                    <span className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">เชื่อมต่อ Drive ไม่สำเร็จ</span>
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={onClose} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm"><X className="w-5 h-5"/></button>
+                    </div>
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto relative">

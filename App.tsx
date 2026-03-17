@@ -65,6 +65,12 @@ function App() {
             changed = true;
           }
           
+          // Store a short version of the name for the icon label
+          if (name) {
+            const shortName = name.split(' ')[0].substring(0, 12);
+            localStorage.setItem('pwa_app_short_name', shortName);
+          }
+          
           // If config changed, we might need a reload to refresh the dynamic manifest in index.html
           // but we do it gently or just update DOM for now
           if (changed) {

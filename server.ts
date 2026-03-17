@@ -251,8 +251,10 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
         server: { middlewareMode: true },
         appType: 'spa',
     });
+    app.use(express.static(path.join(__dirname, 'public')));
     app.use(vite.middlewares);
 } else if (!process.env.VERCEL) {
+    app.use(express.static(path.join(__dirname, 'public')));
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, 'dist', 'index.html'));

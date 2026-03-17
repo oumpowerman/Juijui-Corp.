@@ -98,6 +98,32 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+// --- INSTANT PWA SYNC (Inspired by HoneyMoney) ---
+// This runs immediately before React mounts to ensure the UI feels snappy
+try {
+  const cachedName = localStorage.getItem('pwa_app_name');
+  const cachedIcon = localStorage.getItem('pwa_app_icon');
+
+  if (cachedName) {
+    document.title = cachedName;
+    const metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (metaTitle) metaTitle.setAttribute('content', cachedName);
+  }
+
+  if (cachedIcon) {
+    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (appleIcon) appleIcon.setAttribute('href', cachedIcon);
+    
+    // Also update favicon if it's a standard link
+    const favicon = document.querySelector('link[rel="icon"]');
+    if (favicon && !favicon.getAttribute('href')?.startsWith('data:image/svg')) {
+      favicon.setAttribute('href', cachedIcon);
+    }
+  }
+} catch (e) {
+  console.warn("PWA Sync failed:", e);
+}
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>

@@ -70,7 +70,23 @@ const PWAConfigView: React.FC<PWAConfigViewProps> = ({ masterOptions, onUpdate, 
             }
 
             await Promise.all(promises);
-            setMessage({ text: 'บันทึกการตั้งค่า PWA เรียบร้อยแล้ว! (อาจต้อง Refresh เพื่อเห็นผล)', type: 'success' });
+
+            // --- INSTANT CACHE SYNC (Inspired by HoneyMoney) ---
+            try {
+                localStorage.setItem('pwa_app_name', appName);
+                localStorage.setItem('pwa_app_icon', appIcon);
+                
+                // Update current DOM immediately
+                document.title = appName;
+                const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+                if (appleIcon) appleIcon.setAttribute('href', appIcon);
+                const metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+                if (metaTitle) metaTitle.setAttribute('content', appName);
+            } catch (e) {
+                console.warn("Failed to sync PWA cache:", e);
+            }
+
+            setMessage({ text: 'บันทึกการตั้งค่า PWA เรียบร้อยแล้ว! ไอคอนจะเปลี่ยนทันทีในเครื่องนี้', type: 'success' });
         } catch (error) {
             console.error('Error saving PWA config:', error);
             setMessage({ text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', type: 'error' });

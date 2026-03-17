@@ -38,19 +38,10 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- GLOBAL PWA SYNC (Optimized: Once every 24 hours) ---
+  // --- GLOBAL PWA SYNC (Optimized: Background sync on every load) ---
   useEffect(() => {
     const syncPWAConfig = async () => {
       try {
-        const lastSync = localStorage.getItem('pwa_last_sync');
-        const now = Date.now();
-        const ONE_DAY = 24 * 60 * 60 * 1000;
-
-        // Skip if synced recently (within 24h) AND we already have the data
-        if (lastSync && (now - parseInt(lastSync)) < ONE_DAY && localStorage.getItem('pwa_app_icon')) {
-          return;
-        }
-
         const { data } = await supabase
           .from('master_options')
           .select('key, label')
@@ -60,20 +51,30 @@ function App() {
           const name = data.find(i => i.key === 'APP_NAME')?.label;
           const icon = data.find(i => i.key === 'APP_ICON')?.label;
 
-          if (name) {
+          const currentName = localStorage.getItem('pwa_app_name');
+          const currentIcon = localStorage.getItem('pwa_app_icon');
+
+          let changed = false;
+
+          if (name && name !== currentName) {
             localStorage.setItem('pwa_app_name', name);
-            document.title = name;
-            const metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-            if (metaTitle) metaTitle.setAttribute('content', name);
+            changed = true;
           }
-          if (icon) {
+          if (icon && icon !== currentIcon) {
             localStorage.setItem('pwa_app_icon', icon);
-            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-            if (appleIcon) appleIcon.setAttribute('href', icon);
+            changed = true;
           }
           
-          // Mark as synced
-          localStorage.setItem('pwa_last_sync', now.toString());
+          // If config changed, we might need a reload to refresh the dynamic manifest in index.html
+          // but we do it gently or just update DOM for now
+          if (changed) {
+            console.log("PWA Config updated, applying changes...");
+            if (name) document.title = name;
+            if (icon) {
+                const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+                if (appleIcon) appleIcon.setAttribute('href', icon);
+            }
+          }
         }
       } catch (e) {
         console.warn("PWA Sync failed:", e);

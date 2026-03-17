@@ -10,13 +10,66 @@
     <meta name="theme-color" content="#4F46E5">
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
+    <link id="manifest-link" rel="manifest" href="/manifest.json">
     
     <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link id="apple-icon" rel="apple-touch-icon" href="/icon-192.png">
     
     <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <link id="favicon" rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    
+    <script>
+        // --- DYNAMIC PWA MANIFEST (Improved for Validation) ---
+        (function() {
+            try {
+                const name = localStorage.getItem('pwa_app_name') || 'Juijui Planner';
+                const icon = localStorage.getItem('pwa_app_icon') || '/icon-192.png';
+                const startUrl = window.location.origin + '/';
+                
+                // Update Title & Meta
+                document.title = name;
+                
+                // Update Apple Icon
+                const appleIcon = document.getElementById('apple-icon');
+                if (appleIcon) appleIcon.href = icon;
+                
+                // Update Favicon
+                const favicon = document.getElementById('favicon');
+                if (favicon) favicon.href = icon;
+
+                // Generate Dynamic Manifest Blob
+                const manifest = {
+                    "name": name,
+                    "short_name": name.split(' ')[0], // Use shorter name for icon label
+                    "start_url": startUrl,
+                    "display": "standalone",
+                    "background_color": "#f8fafc",
+                    "theme_color": "#4F46E5",
+                    "icons": [
+                        { 
+                            "src": icon, 
+                            "sizes": "192x192", 
+                            "type": icon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                            "purpose": "any" 
+                        },
+                        { 
+                            "src": icon, 
+                            "sizes": "512x512", 
+                            "type": icon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                            "purpose": "any" 
+                        }
+                    ]
+                };
+                
+                const stringManifest = JSON.stringify(manifest);
+                const blob = new Blob([stringManifest], {type: 'application/manifest+json'});
+                const manifestURL = URL.createObjectURL(blob);
+                document.getElementById('manifest-link').setAttribute('href', manifestURL);
+            } catch (e) {
+                console.warn("Dynamic manifest failed:", e);
+            }
+        })();
+    </script>
     
     <title>Juijui Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -172,18 +225,5 @@
     <!-- Dedicated Portal Root to avoid removeChild errors -->
     <div id="portal-root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch(registrationError => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
-        }
-    </script>
 </body>
 </html>

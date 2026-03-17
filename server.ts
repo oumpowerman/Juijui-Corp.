@@ -7,19 +7,12 @@ import cookieSession from 'cookie-session';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
-import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 const app = express();
-
-// Initialize Supabase for server-side use
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Trust proxy is required for secure cookies behind a reverse proxy (like in AI Studio)
 app.set('trust proxy', 1);
@@ -182,115 +175,6 @@ async function getOrCreateFolder(drive: any, folderName: string, parentId?: stri
 
 // 4. Upload to Google Drive
 const upload = multer({ storage: multer.memoryStorage() });
-
-// --- PWA Dynamic Manifest ---
-app.get('/manifest.json', async (req, res) => {
-    try {
-        const { data: options } = await supabase
-            .from('master_options')
-            .select('*')
-            .eq('type', 'PWA_CONFIG');
-
-        const name = options?.find(o => o.key === 'APP_NAME')?.label || 'Juijui Planner';
-        // Fallback to a solid indigo square data URI if no icon is set to prevent "failed to load" errors
-        const defaultIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAAQMAAADO7iXSAAAABlBMVEUvRuX///+679yVAAAAAnRSTlP/AOW3MEoAAAA0SURBVHja7cEBDAAAAMOg+VPf4ARVAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbhp4AAGvIF4lAAAAAElFTkSuQmCC";
-        const icon = options?.find(o => o.key === 'APP_ICON')?.label || defaultIcon;
-        const themeColor = '#4F46E5';
-
-        const manifest = {
-            "name": name,
-            "short_name": name.split(' ')[0],
-            "description": "A professional script planning and asset management tool.",
-            "start_url": "/",
-            "display": "standalone",
-            "background_color": themeColor,
-            "theme_color": themeColor,
-            "icons": [
-                {
-                    "src": icon,
-                    "sizes": "192x192",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": icon,
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                }
-            ],
-            "screenshots": [
-                {
-                    "src": icon,
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "form_factor": "wide",
-                    "label": "Application Home"
-                },
-                {
-                    "src": icon,
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "label": "Application Home"
-                }
-            ]
-        };
-
-        res.json(manifest);
-    } catch (error) {
-        console.error('Error serving manifest:', error);
-        res.sendFile(path.join(__dirname, 'manifest.json'));
-    }
-});
-
-// --- Dynamic Index.html Injection ---
-const serveDynamicIndex = async (req: any, res: any, next: any) => {
-    // Only intercept root or index.html requests
-    if (req.path !== '/' && req.path !== '/index.html') {
-        return next();
-    }
-
-    try {
-        const { data: options } = await supabase
-            .from('master_options')
-            .select('*')
-            .eq('type', 'PWA_CONFIG');
-
-        const name = options?.find(o => o.key === 'APP_NAME')?.label || 'Juijui Planner';
-        const icon = options?.find(o => o.key === 'APP_ICON')?.label || '/icon-192.png';
-
-        let indexPath = path.join(__dirname, 'index.html');
-        // In production, use the built index.html
-        if (process.env.NODE_ENV === 'production') {
-            indexPath = path.join(__dirname, 'dist', 'index.html');
-        }
-
-        if (!fs.existsSync(indexPath)) {
-            return next();
-        }
-
-        let html = fs.readFileSync(indexPath, 'utf8');
-        
-        // Inject dynamic values
-        html = html.replace(/<title>.*?<\/title>/, `<title>${name}</title>`);
-        html = html.replace(/<link rel="apple-touch-icon" href=".*?">/, `<link rel="apple-touch-icon" href="${icon}">`);
-        html = html.replace(/<meta name="apple-mobile-web-app-title" content=".*?">/, `<meta name="apple-mobile-web-app-title" content="${name}">`);
-        
-        // If the tag doesn't exist, add it
-        if (!html.includes('apple-mobile-web-app-title')) {
-            html = html.replace('</head>', `    <meta name="apple-mobile-web-app-title" content="${name}">\n</head>`);
-        }
-
-        res.send(html);
-    } catch (error) {
-        console.error('Error serving dynamic index:', error);
-        next();
-    }
-};
-
-// Use the dynamic index middleware BEFORE Vite or static serving
-app.get(['/', '/index.html'], serveDynamicIndex);
-
 app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => {
     const tokens = (req.session as any).tokens;
     if (!tokens) {

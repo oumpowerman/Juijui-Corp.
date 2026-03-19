@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { extractYouTubeId, getYouTubeThumbnail, getPlatformConfig } from '../../utils/nexusUtils';
 import { GoogleGenAI } from "@google/genai";
 import AppBackground, { BackgroundTheme } from '../common/AppBackground';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { ArrowLeft } from 'lucide-react';
 
 interface NexusHubProps {
@@ -23,6 +24,7 @@ interface NexusHubProps {
 }
 
 const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
+    const { showConfirm } = useGlobalDialog();
     const [integrations, setIntegrations] = useState<NexusIntegration[]>([]);
     const [activeTab, setActiveTab] = useState<'ALL' | 'SOCIAL' | 'PRODUCTIVITY' | 'DESIGN' | 'WEB'>('ALL');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -64,8 +66,8 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
         localStorage.setItem('nexus_theme', theme);
     };
 
-    const handleClearCache = () => {
-        if (window.confirm('คุณต้องการล้างข้อมูลแคชทั้งหมดหรือไม่? (ข้อมูลในฐานข้อมูลจะไม่หายไป)')) {
+    const handleClearCache = async () => {
+        if (await showConfirm('คุณต้องการล้างข้อมูลแคชทั้งหมดหรือไม่? (ข้อมูลในฐานข้อมูลจะไม่หายไป)')) {
             localStorage.removeItem(`nexus_integrations_${currentUser.id}`);
             fetchIntegrations();
         }

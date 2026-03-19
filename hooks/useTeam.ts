@@ -97,7 +97,7 @@ export const useTeam = () => {
 
     // Setup Realtime Subscription for Profiles
     useEffect(() => {
-        fetchTeamMembers(); // Initial fetch
+        // fetchTeamMembers(); // Disable initial fetchTeamMembers on mount - managed by useTaskManager
 
         const channel = supabase
             .channel('realtime-profiles')

@@ -9,6 +9,7 @@ import { supabase } from '../../../../lib/supabase'; // Needed for direct insert
 interface AttendanceRulesViewProps {
     masterOptions: MasterOption[];
     onUpdate: (option: MasterOption) => Promise<boolean>;
+    onAdd: (option: Omit<MasterOption, 'id'>) => Promise<boolean>;
     onCreate: (type: string) => void;
     onEdit: (option: MasterOption) => void;
     onDelete: (id: string) => void;
@@ -59,7 +60,7 @@ const ScoreInput = ({
 };
 
 const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({ 
-    masterOptions, onUpdate, onCreate, onEdit, onDelete 
+    masterOptions, onUpdate, onAdd, onCreate, onEdit, onDelete 
 }) => {
     // Game Config Context (For Syncing Scores)
     const { config, updateConfigValue } = useGameConfig();
@@ -110,12 +111,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 await onUpdate({ ...existing, label: val });
             } else {
                  // Insert new if missing
-                 await supabase.from('master_options').insert({
+                 await onAdd({
                     type: 'WORK_CONFIG',
                     key: key,
                     label: val,
-                    is_active: true,
-                    sort_order: 0
+                    color: '',
+                    isActive: true,
+                    sortOrder: 0
                 });
             }
         };
@@ -135,12 +137,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 await onUpdate({ ...existing, label: val });
             } else {
                 // Insert new if missing
-                await supabase.from('master_options').insert({
+                await onAdd({
                     type: 'WORK_CONFIG',
                     key: key,
                     label: val,
-                    is_active: true,
-                    sort_order: 0
+                    color: '',
+                    isActive: true,
+                    sortOrder: 0
                 });
             }
         };

@@ -32,7 +32,10 @@ interface UserStat {
     logs: AttendanceLog[];
 }
 
+import { useMasterData } from '../../hooks/useMasterData';
+
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
+    const { masterOptions } = useMasterData();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -74,17 +77,12 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
     // Load Config
     useEffect(() => {
-        const loadConfig = async () => {
-             const { data } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
-             if(data) {
-                 const start = data.find(c => c.key === 'START_TIME')?.label || '10:00';
-                 const buffer = parseInt(data.find(c => c.key === 'LATE_BUFFER')?.label || '0');
-                 setStartTime(start);
-                 setLateBuffer(buffer);
-             }
-        };
-        loadConfig();
-    }, []);
+        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
+        const start = workConfig.find(c => c.key === 'START_TIME')?.label || '10:00';
+        const buffer = parseInt(workConfig.find(c => c.key === 'LATE_BUFFER')?.label || '0');
+        setStartTime(start);
+        setLateBuffer(buffer);
+    }, [masterOptions]);
 
     // Fetch Logs for the selected month
     useEffect(() => {

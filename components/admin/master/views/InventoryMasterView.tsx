@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { MasterOption } from '../../../../types';
 import { Package, Plus, CornerDownRight, Edit2, Trash2, Box, Layers, Archive, Info } from 'lucide-react';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface InventoryMasterViewProps {
     masterOptions: MasterOption[];
@@ -17,6 +18,7 @@ const InventoryMasterView: React.FC<InventoryMasterViewProps> = ({
     masterOptions, onEdit, onCreate, onDelete, 
     setSelectedParentId, selectedParentId, setIsEditing 
 }) => {
+    const { showConfirm } = useGlobalDialog();
     
     // Level 1: Asset Groups (e.g. PRODUCTION, OFFICE, IT)
     const l1Options = masterOptions.filter(o => o.type === 'INV_CAT_L1').sort((a,b) => a.sortOrder - b.sortOrder);
@@ -87,7 +89,10 @@ const InventoryMasterView: React.FC<InventoryMasterViewProps> = ({
                                     <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); if(confirm('ลบกลุ่มนี้? (ข้อมูลย่อยอาจค้าง)')) onDelete(l1.id); }} 
+                                    onClick={async (e) => { 
+                                        e.stopPropagation(); 
+                                        if(await showConfirm('ลบกลุ่มนี้? (ข้อมูลย่อยอาจค้าง)')) onDelete(l1.id); 
+                                    }} 
                                     className={`p-1.5 rounded-lg transition-colors ${selectedParentId === l1.key ? 'text-indigo-200 hover:text-red-300 hover:bg-white/20' : 'text-gray-400 hover:text-red-600 hover:bg-white'}`}
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -148,7 +153,12 @@ const InventoryMasterView: React.FC<InventoryMasterViewProps> = ({
                                         <button onClick={() => onEdit(l2)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-lg">
                                             <Edit2 className="w-3.5 h-3.5" />
                                         </button>
-                                        <button onClick={() => { if(confirm('ลบหมวดนี้?')) onDelete(l2.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-50 rounded-lg">
+                                        <button 
+                                            onClick={async () => { 
+                                                if(await showConfirm('ลบหมวดนี้?')) onDelete(l2.id); 
+                                            }} 
+                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-50 rounded-lg"
+                                        >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>

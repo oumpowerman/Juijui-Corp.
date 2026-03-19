@@ -20,7 +20,6 @@ import LocationMasterView from './admin/master/views/LocationMasterView';
 import GameConfigTuner from './admin/game-tuner'; // Updated Import (Modular)
 import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
 import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
-import PWAConfigView from './admin/master/views/PWAConfigView';
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -164,15 +163,10 @@ const MasterDataManager: React.FC = () => {
                             <AttendanceRulesView 
                                 masterOptions={masterOptions}
                                 onUpdate={updateMasterOption}
+                                onAdd={addMasterOption}
                                 onCreate={handleCreate}
                                 onEdit={handleEdit}
                                 onDelete={deleteMasterOption}
-                            />
-                        ) : activeTab === 'PWA_CONFIG' ? (
-                            <PWAConfigView 
-                                masterOptions={masterOptions}
-                                onUpdate={updateMasterOption}
-                                onAdd={addMasterOption}
                             />
                         ) : activeTab === 'GREETINGS' ? (
                             <div className="animate-in slide-in-from-bottom-2 space-y-6">

@@ -5,6 +5,8 @@ import { KPIRecord, MasterOption, IndividualGoal, KPIConfig, KPIStats, IDPItem, 
 import { useToast } from '../context/ToastContext';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
+import { useMasterData } from './useMasterData';
+
 const DEFAULT_CONFIG: KPIConfig = {
     id: 'default', roleTarget: 'ALL', 
     weightOkr: 50, weightBehavior: 30, weightAttendance: 20,
@@ -13,6 +15,7 @@ const DEFAULT_CONFIG: KPIConfig = {
 };
 
 export const useKPI = () => {
+    const { masterOptions } = useMasterData();
     const [kpiRecords, setKpiRecords] = useState<KPIRecord[]>([]);
     const [goals, setGoals] = useState<IndividualGoal[]>([]);
     const [idpItems, setIdpItems] = useState<IDPItem[]>([]); 
@@ -45,17 +48,12 @@ export const useKPI = () => {
         try {
             await fetchConfig(); // Load config first
 
-            // Fetch Criteria
-            const { data: criteriaData } = await supabase
-                .from('master_options')
-                .select('*')
-                .eq('type', 'KPI_CRITERIA')
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true });
+            // Fetch Criteria (Now from context)
+            const criteriaData = masterOptions.filter(o => o.type === 'KPI_CRITERIA' && o.isActive);
             
-            if (criteriaData) {
+            if (criteriaData.length > 0) {
                 setCriteria(criteriaData.map((c: any) => ({
-                    id: c.id, type: c.type, key: c.key, label: c.label, color: c.color, sortOrder: c.sort_order, isActive: c.is_active
+                    id: c.id, type: c.type, key: c.key, label: c.label, color: c.color, sortOrder: c.sortOrder, isActive: c.isActive
                 })));
             }
 
@@ -120,7 +118,13 @@ export const useKPI = () => {
         }
     };
 
-    // --- Dynamic Stats Calculation ---
+    // Re-sync criteria when masterOptions change
+    useEffect(() => {
+        const criteriaData = masterOptions.filter(o => o.type === 'KPI_CRITERIA' && o.isActive);
+        setCriteria(criteriaData.map((c: any) => ({
+            id: c.id, type: c.type, key: c.key, label: c.label, color: c.color, sortOrder: c.sortOrder, isActive: c.isActive
+        })));
+    }, [masterOptions]);
     const fetchUserStats = useCallback(async (userId: string, date: Date): Promise<KPIStats> => {
         const start = format(startOfMonth(date), 'yyyy-MM-dd');
         const end = format(endOfMonth(date), 'yyyy-MM-dd');

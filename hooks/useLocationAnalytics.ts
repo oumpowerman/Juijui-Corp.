@@ -4,9 +4,12 @@ import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, isWithinInterval, subDays, differenceInCalendarDays } from 'date-fns';
 import { LocationStat } from '../types';
 
+import { useMasterData } from './useMasterData';
+
 export type DateRangeType = 'THIS_MONTH' | 'LAST_3_MONTHS' | 'THIS_YEAR' | 'ALL_TIME' | 'CUSTOM';
 
 export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Date, customEnd?: Date) => {
+    const { masterOptions } = useMasterData();
     const [rawData, setRawData] = useState<any[]>([]);
     const [masterLocations, setMasterLocations] = useState<{label: string, color: string}[]>([]); // Store Master Location Data
     const [isLoading, setIsLoading] = useState(true);
@@ -33,27 +36,16 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch Content Usage
-            const contentPromise = supabase
+            // Fetch Content Usage
+            const { data, error } = await supabase
                 .from('contents')
                 .select('id, title, shoot_date, shoot_location, status, content_format')
                 .not('shoot_location', 'is', null)
                 .not('shoot_date', 'is', null)
                 .order('shoot_date', { ascending: false });
 
-            // 2. Fetch Master Data Locations (To show 0-visit locations)
-            const masterPromise = supabase
-                .from('master_options')
-                .select('label, color')
-                .eq('type', 'SHOOT_LOCATION')
-                .eq('is_active', true);
-
-            const [contentRes, masterRes] = await Promise.all([contentPromise, masterPromise]);
-
-            if (contentRes.error) throw contentRes.error;
-            
-            setRawData(contentRes.data || []);
-            setMasterLocations(masterRes.data?.map((m: any) => ({ label: m.label, color: m.color })) || []);
+            if (error) throw error;
+            setRawData(data || []);
 
         } catch (err) {
             console.error("Fetch location stats failed", err);
@@ -63,10 +55,16 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
     };
 
     useEffect(() => {
+        const locs = masterOptions
+            .filter(opt => opt.type === 'SHOOT_LOCATION' && opt.isActive)
+            .map(m => ({ label: m.label, color: m.color || '#6366f1' }));
+        setMasterLocations(locs);
+    }, [masterOptions]);
+
+    useEffect(() => {
         fetchData();
         const channel = supabase.channel('realtime-location-v7-unified')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, () => fetchData()) // Listen to Master changes too
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, []);

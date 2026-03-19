@@ -3,6 +3,7 @@ import React from 'react';
 import { MasterOption } from '../../../../types';
 import { Briefcase, Plus, User, Edit2, Trash2, Award, X, ChevronRight, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface PositionMasterViewProps {
     masterOptions: MasterOption[];
@@ -15,6 +16,7 @@ interface PositionMasterViewProps {
 const PositionMasterView: React.FC<PositionMasterViewProps> = ({ 
     masterOptions, onEdit, onCreate, onDelete, setSelectedParentId 
 }) => {
+    const { showConfirm } = useGlobalDialog();
     const positions = masterOptions.filter(o => o.type === 'POSITION').sort((a,b) => a.sortOrder - b.sortOrder);
     const responsibilities = masterOptions.filter(o => o.type === 'RESPONSIBILITY').sort((a,b) => a.sortOrder - b.sortOrder);
 
@@ -68,7 +70,9 @@ const PositionMasterView: React.FC<PositionMasterViewProps> = ({
                                     <button onClick={() => onEdit(pos)} className="p-2 bg-white/80 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl shadow-sm transition-colors">
                                         <Edit2 className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => { if(confirm('Delete this position?')) onDelete(pos.id); }} className="p-2 bg-white/80 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl shadow-sm transition-colors">
+                                    <button onClick={async () => { 
+                                        if(await showConfirm('Delete this position?')) onDelete(pos.id); 
+                                    }} className="p-2 bg-white/80 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl shadow-sm transition-colors">
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>

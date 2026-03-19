@@ -43,7 +43,7 @@ export const useWeeklyQuests = () => {
 
     // Realtime Subscription
     useEffect(() => {
-        fetchQuests();
+        // fetchQuests(); // Disable initial fetchQuests on mount - managed by useTaskManager
 
         const channel = supabase
             .channel('realtime-weekly-quests')

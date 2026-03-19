@@ -4,8 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { AttendanceStats } from '../../types/attendance';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { checkIsLate } from '../../lib/attendanceUtils';
+import { useMasterData } from '../useMasterData';
 
 export const useAttendanceStats = (userId: string) => {
+    const { masterOptions } = useMasterData();
     const [stats, setStats] = useState<AttendanceStats>({
         totalDays: 0,
         lateDays: 0,
@@ -31,7 +33,8 @@ export const useAttendanceStats = (userId: string) => {
                 .gte('date', start)
                 .lte('date', end);
 
-            const { data: configData } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+            // Fetch Config (Now from context)
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '0');
 

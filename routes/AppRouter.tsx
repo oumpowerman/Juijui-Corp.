@@ -160,7 +160,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // --- GLOBAL KEYBOARD SHORTCUTS REMOVED (Moved to ShortcutManager) ---
 
   // --- DETECT LOCK NOTIFICATION ---
-  const lockNotification = notifications.find(n => n.type === 'SYSTEM_LOCK_PENALTY' && !n.isRead);
+  const lockNotification = undefined; 
 
   const handleToggleNotification = () => {
       // Changed: Do NOT mark as viewed immediately upon opening
@@ -201,7 +201,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   }
 
   if (!currentUserProfile) {
-     return <div className="p-10 text-center text-gray-500">ไม่พบข้อมูลผู้ใช้ (User Profile Not Found)</div>;
+     return <div className="p-10 text-center text-gray-500">ไม่พบข้อมูลโปรไฟล์ผู้ใช้ (User Profile Not Found)</div>;
   }
   
   if (!currentUserProfile.isApproved) {
@@ -420,7 +420,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return <NexusHub currentUser={currentUserProfile} />;
 
             default:
-              return <div className="p-10 text-center text-gray-500">Coming Soon...</div>;
+              return <div className="p-10 text-center text-gray-500">เร็วๆ นี้... (Coming Soon)</div>;
           }
         })()}
       </Suspense>
@@ -530,14 +530,18 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   );
 };
 
+import { MasterDataProvider } from '../context/MasterDataContext';
+
 const AppRouter: React.FC<{ user: any }> = ({ user }) => {
   const { currentUserProfile } = useAuth(user);
 
   return (
     <GoogleDriveProvider>
+     <MasterDataProvider>
       <WorkboxProvider currentUser={currentUserProfile}>
         <AppRouterInner user={user} />
       </WorkboxProvider>
+     </MasterDataProvider>
     </GoogleDriveProvider>
   );
 };

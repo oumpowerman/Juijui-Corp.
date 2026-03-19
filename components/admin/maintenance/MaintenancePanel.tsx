@@ -14,7 +14,7 @@ const MaintenancePanel: React.FC = () => {
         isCleaning, performCleanup
     } = useMaintenance();
 
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog();
 
     // --- Tab State ---
     const [activeTab, setActiveTab] = useState<'BACKUP' | 'CLEANUP'>('BACKUP');
@@ -74,7 +74,7 @@ const MaintenancePanel: React.FC = () => {
         if (cleanupSelection.tasks) totalToDelete += analysisResult.taskCount;
 
         if (totalToDelete === 0) {
-            alert('กรุณาเลือกรายการที่จะลบอย่างน้อย 1 รายการ');
+            await showAlert('กรุณาเลือกรายการที่จะลบอย่างน้อย 1 รายการ');
             return;
         }
 

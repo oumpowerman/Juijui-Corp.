@@ -530,13 +530,13 @@ export const useAutoJudge = (currentUser: User | null) => {
                         continue;
                     }
 
-                    // 3. เช็คว่ามี Notification ที่ยังไม่อ่านค้างอยู่หรือไม่ (กันเด้งซ้ำหน้าจอ)
+                    // 3. เช็คว่าเคยมี Notification ของวันนี้ส่งไปหรือยัง (กันส่งซ้ำจนรกตาราง)
+                    // ปรับปรุง: ไม่เช็ค is_read เพื่อให้ถ้าเคยส่งไปแล้ว (แม้จะอ่านแล้ว) ก็ไม่ต้องส่งใหม่
                     const { data: notifyData } = await supabase
                         .from('notifications')
                         .select('id')
                         .eq('user_id', currentUser.id)
                         .eq('type', 'SYSTEM_LOCK_PENALTY')
-                        .eq('is_read', false)
                         .ilike('message', `%${log.date}%`)
                         .limit(1);
 

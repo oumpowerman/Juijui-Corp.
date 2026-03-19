@@ -5,11 +5,14 @@ import { ChecklistItem, ChecklistPreset, InventoryItem, AssetCondition, AssetGro
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext'; 
 
+import { useMasterData } from './useMasterData';
+
 const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
 export const useChecklist = () => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog(); 
+    const { masterOptions } = useMasterData();
     
     // Data States
     const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
@@ -82,13 +85,8 @@ export const useChecklist = () => {
                 }));
                 setChecklistPresets(mappedPresets);
 
-                // Fetch Active Preset Metadata from master_options
-                const { data: configData } = await supabase
-                    .from('master_options')
-                    .select('*')
-                    .eq('type', 'CHECKLIST_CONFIG')
-                    .eq('key', 'ACTIVE_PRESET_ID')
-                    .maybeSingle();
+                // Fetch Active Preset Metadata from master_options (Now from context)
+                const configData = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
 
                 if (configData) {
                     const pId = configData.label;
@@ -137,7 +135,6 @@ export const useChecklist = () => {
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options', filter: 'type=eq.CHECKLIST_CONFIG' }, () => loadChecklistData())
             .subscribe();
 
         return () => {
@@ -145,7 +142,19 @@ export const useChecklist = () => {
         };
     }, []);
 
-    // --- 3. Active List Logic ---
+    // Re-sync active preset when masterOptions change
+    useEffect(() => {
+        const configData = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
+        if (configData) {
+            const pId = configData.label;
+            setActivePresetId(pId);
+            const activeP = checklistPresets.find(p => p.id === pId);
+            setActivePresetName(activeP ? activeP.name : null);
+        } else {
+            setActivePresetId(null);
+            setActivePresetName(null);
+        }
+    }, [masterOptions, checklistPresets]);
     
     const handleToggleChecklist = async (id: string, currentStatus: boolean) => {
         // Optimistic UI Update

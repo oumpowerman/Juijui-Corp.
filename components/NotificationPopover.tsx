@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, Settings, X, CheckSquare, Zap, Users, Info } from 'lucide-react';
 import { AppNotification, Task, ViewMode } from '../types';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { LeaveRequest } from '../types/attendance';
 import NotificationList, { NotificationTab } from './notification/NotificationList';
 
@@ -25,6 +26,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkAllRead, onNavigate,
     onApproveLeave, onRejectLeave, leaveRequests = []
 }) => {
+    const { showAlert } = useGlobalDialog();
     const [activeTab, setActiveTab] = useState<NotificationTab>('ALL');
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -69,7 +71,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 }
             }
         } else {
-            alert(`${action} Notification ${id} (Mock Action)`);
+            await showAlert(`${action} Notification ${id} (Mock Action)`);
         }
         
         if (onDismiss) onDismiss(id);

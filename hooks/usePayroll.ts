@@ -5,10 +5,12 @@ import { PayrollCycle, PayrollSlip, User, DeductionItem } from '../types';
 import { useToast } from '../context/ToastContext';
 import { endOfMonth, format } from 'date-fns';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useMasterData } from './useMasterData';
 
 export const usePayroll = (currentUser: User) => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
+    const { masterOptions } = useMasterData();
     const [cycles, setCycles] = useState<PayrollCycle[]>([]);
     const [currentSlips, setCurrentSlips] = useState<PayrollSlip[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -96,8 +98,8 @@ export const usePayroll = (currentUser: User) => {
                 return;
             }
 
-            // 1. Fetch Configs (Rates)
-            const { data: configOpts } = await supabase.from('master_options').select('key, label').eq('type', 'PAYROLL_CONFIG');
+            // 1. Fetch Configs (Rates) (Now from context)
+            const configOpts = masterOptions.filter(o => o.type === 'PAYROLL_CONFIG');
             const lateRate = Number(configOpts?.find(o => o.key === 'LATE_PENALTY')?.label) || 0;
             const absentRate = Number(configOpts?.find(o => o.key === 'ABSENT_PENALTY')?.label) || 0;
             const dutyRate = Number(configOpts?.find(o => o.key === 'MISSED_DUTY_PENALTY')?.label) || 0;

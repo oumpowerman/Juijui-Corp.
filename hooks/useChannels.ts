@@ -30,7 +30,7 @@ export const useChannels = () => {
 
     // Realtime Subscription
     useEffect(() => {
-        fetchChannels();
+        // fetchChannels(); // Disable initial fetchChannels on mount - managed by useTaskManager
 
         const channel = supabase
             .channel('realtime-channels')

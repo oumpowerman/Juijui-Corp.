@@ -6,8 +6,10 @@ import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
 import { calculateCheckOutStatus, checkIsLate } from '../../lib/attendanceUtils';
+import { useMasterData } from '../useMasterData';
 
 export const useAttendanceActions = (userId: string) => {
+    const { masterOptions } = useMasterData();
     const [isActionLoading, setIsActionLoading] = useState(false);
     const { showToast } = useToast();
     const { processAction } = useGamification();
@@ -26,7 +28,7 @@ export const useAttendanceActions = (userId: string) => {
         setIsActionLoading(true);
         try {
             const now = new Date();
-            const { data: configData } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
             const isLate = checkIsLate(now, startTimeStr, buffer);
@@ -152,7 +154,7 @@ export const useAttendanceActions = (userId: string) => {
         setIsActionLoading(true);
         try {
             const now = new Date();
-            const { data: configData } = await supabase.from('master_options').select('key, label').eq('type', 'WORK_CONFIG');
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
             const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
             const minHours = parseFloat(minHoursStr) || 9;
 

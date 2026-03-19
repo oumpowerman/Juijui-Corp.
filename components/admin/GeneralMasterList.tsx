@@ -2,6 +2,7 @@
 import React from 'react';
 import { MasterOption } from '../../types';
 import { Edit2, Trash2, Database, Plus, Loader2 } from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface GeneralMasterListProps {
     typeLabel: string;
@@ -13,6 +14,7 @@ interface GeneralMasterListProps {
 }
 
 const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, options, loading, onAdd, onEdit, onDelete }) => {
+    const { showConfirm } = useGlobalDialog();
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2">
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -42,7 +44,9 @@ const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, option
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => onEdit(option)} className="p-1.5 text-gray-400 hover:text-indigo-600 bg-gray-50 hover:bg-white rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                    <button onClick={() => { if(confirm('ลบข้อมูลนี้?')) onDelete(option.id); }} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-white rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={async () => { 
+                                        if(await showConfirm('ลบข้อมูลนี้?')) onDelete(option.id); 
+                                    }} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-white rounded-lg"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ))}

@@ -190,7 +190,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // --- REALTIME CONNECTION (SINGLE INSTANCE) ---
     useEffect(() => {
-        fetchTasks();
+        // fetchTasks(); // Disable initial fetchTasks on mount - managed by useTaskManager
         console.log('🔌 [TaskContext] Connecting to Realtime...');
 
         const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {

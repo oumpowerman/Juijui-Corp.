@@ -14,7 +14,7 @@ interface LocationMasterViewProps {
 const LocationMasterView: React.FC<LocationMasterViewProps> = ({ 
     masterOptions, onAdd, onUpdate, onDelete 
 }) => {
-    const { showAlert } = useGlobalDialog();
+    const { showAlert, showConfirm } = useGlobalDialog();
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -292,7 +292,9 @@ const LocationMasterView: React.FC<LocationMasterViewProps> = ({
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button 
-                                            onClick={() => { if(confirm(`ลบสถานที่ "${loc.label}" นี้?`)) onDelete(loc.id); }}
+                                            onClick={async () => { 
+                                                if(await showConfirm(`ลบสถานที่ "${loc.label}" นี้?`)) onDelete(loc.id); 
+                                            }}
                                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />

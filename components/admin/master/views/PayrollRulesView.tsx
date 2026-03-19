@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { MasterOption } from '../../../../types';
 import { Coins, Save, AlertCircle, Loader2 } from 'lucide-react';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface PayrollRulesViewProps {
     masterOptions: MasterOption[];
@@ -16,6 +17,7 @@ const REQUIRED_CONFIGS = [
 ];
 
 const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUpdate, onAdd }) => {
+    const { showAlert } = useGlobalDialog();
     const [values, setValues] = useState<Record<string, string>>({});
     const [isSaving, setIsSaving] = useState(false);
 
@@ -53,10 +55,10 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
                     });
                 }
             }
-            alert('บันทึกค่าปรับเรียบร้อย ✅');
+            await showAlert('บันทึกค่าปรับเรียบร้อย ✅');
         } catch (error) {
             console.error(error);
-            alert('เกิดข้อผิดพลาดในการบันทึก');
+            await showAlert('เกิดข้อผิดพลาดในการบันทึก');
         } finally {
             setIsSaving(false);
         }

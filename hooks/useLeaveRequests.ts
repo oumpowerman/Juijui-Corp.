@@ -296,7 +296,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                             check_out_time: checkOutDateTime.toISOString(),
                             work_type: 'OFFICE', 
                             status: 'COMPLETED',   
-                            note: `${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`
+                            note: `${existingLog?.note || ''} ${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`.trim()
                         };
                         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                      } else {
@@ -308,7 +308,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                             check_in_time: checkInDateTime.toISOString(),
                             work_type: 'OFFICE', 
                             status: 'WORKING',   
-                            note: `${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`
+                            note: `${existingLog?.note || ''} ${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`.trim()
                         };
                         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                      }
@@ -392,13 +392,26 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             // C. LEAVES (Sick, Vacation, etc.)
             else if (LEAVE_TYPES.includes(request.type)) {
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
-                const logs = days.map(day => ({
-                    user_id: request.userId,
-                    date: format(day, 'yyyy-MM-dd'),
-                    work_type: 'LEAVE',
-                    status: 'LEAVE',
-                    note: `[APPROVED LEAVE: ${request.type}] ${request.reason}`
-                }));
+                const dateStrings = days.map(d => format(d, 'yyyy-MM-dd'));
+
+                // Fetch existing logs for these dates to preserve notes
+                const { data: existingLogs } = await supabase
+                    .from('attendance_logs')
+                    .select('date, note')
+                    .eq('user_id', request.userId)
+                    .in('date', dateStrings);
+
+                const logs = days.map(day => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const existing = existingLogs?.find(l => l.date === dateStr);
+                    return {
+                        user_id: request.userId,
+                        date: dateStr,
+                        work_type: 'LEAVE',
+                        status: 'LEAVE',
+                        note: `${existing?.note || ''} [APPROVED LEAVE: ${request.type}] ${request.reason}`.trim()
+                    };
+                });
 
                 const { error: logError } = await supabase.from('attendance_logs').upsert(logs, { onConflict: 'user_id, date' });
                 if (logError) throw logError;

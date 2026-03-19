@@ -15,7 +15,7 @@ interface PresetEditorModalProps {
 const PresetEditorModal: React.FC<PresetEditorModalProps> = ({ 
     isOpen, onClose, preset, inventoryItems, onSave 
 }) => {
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog();
     const [name, setName] = useState(preset.name);
     const [currentItems, setCurrentItems] = useState<{ text: string; categoryId: string }[]>(preset.items || []);
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,8 +50,11 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
         }
     };
 
-    const handleSave = () => {
-        if (!name.trim()) return alert('กรุณาใส่ชื่อ Preset');
+    const handleSave = async () => {
+        if (!name.trim()) {
+            await showAlert('กรุณาใส่ชื่อ Preset');
+            return;
+        }
         onSave(preset.id, name, currentItems);
         onClose();
     };

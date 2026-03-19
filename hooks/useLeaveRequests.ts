@@ -21,8 +21,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             let query = supabase
                 .from('leave_requests')
                 .select(`
-                    id, user_id, type, start_date, end_date, reason, attachment_url, 
-                    status, approver_id, created_at, rejection_reason,
+                    *,
                     profiles:profiles!leave_requests_user_id_fkey (id, full_name, avatar_url, position)
                 `)
                 .order('created_at', { ascending: false });
@@ -270,7 +269,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                      // Check if log exists first
                      const { data: existingLog } = await supabase
                         .from('attendance_logs')
-                        .select('id, user_id, date, status, note')
+                        .select('*')
                         .eq('user_id', request.userId)
                         .eq('date', shiftDateStr)
                         .maybeSingle();
@@ -428,7 +427,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));
 
         try {
-            const { data: req } = await supabase.from('leave_requests').select('id, type, user_id, start_date, end_date').eq('id', id).single();
+            const { data: req } = await supabase.from('leave_requests').select('*').eq('id', id).single();
             await supabase.from('leave_requests').update({ 
                     status: 'REJECTED', 
                     approver_id: currentUser.id,

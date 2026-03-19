@@ -65,7 +65,7 @@ const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHisto
             {/* Header */}
             <div className="flex justify-between items-center mb-8 relative z-10">
                 <div className="flex flex-col">
-                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                    <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
                         <motion.div 
                             whileHover={{ rotate: 360, scale: 1.2 }}
                             transition={{ type: "spring", stiffness: 260, damping: 20 }}
@@ -126,12 +126,12 @@ const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHisto
                                         <Icon className="w-5 h-5" />
                                     </motion.div>
                                     <div>
-                                        <span className="text-sm font-kanit font-medium text-slate-700 block leading-none">{theme.label}</span>
+                                        <span className="text-sm font-black text-slate-700 block leading-none">{theme.label}</span>
                                         <span className={`text-[10px] font-bold ${theme.accent} uppercase tracking-widest`}>{type}</span>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Remaining</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Remaining</p>
                                     <div className="flex items-baseline gap-1">
                                         <span className={`text-2xl font-black tracking-tighter ${remaining === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
                                             {remaining}

@@ -88,12 +88,11 @@ const StockCountBadge: React.FC<StockCountBadgeProps> = ({ count, isLoading }) =
                     </motion.div>
                 </AnimatePresence>
                 
-                <div className="flex flex-col -space-y3">
+                <div className="flex flex-col space-y-1">
                     <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">
                         Items
                     </span>
                     <span className="text-[8px] font-bold text-indigo-300 uppercase tracking-tighter leading-none">
-                        
                         In Stock
                     </span>
                 </div>

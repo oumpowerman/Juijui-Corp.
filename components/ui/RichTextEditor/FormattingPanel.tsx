@@ -111,7 +111,7 @@ const FormattingPanel: React.FC<FormattingPanelProps> = ({ editor, onClose }) =>
             className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[60] overflow-hidden"
         >
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-50">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-800 flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-800 flex items-center gap-2">
                     <AlignLeft className="w-3.5 h-3.5 text-indigo-500" />
                     Selection Style
                 </h3>

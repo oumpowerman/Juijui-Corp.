@@ -31,7 +31,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
         try {
             let query = supabase
                 .from('contents')
-                .select('id, title, pillar, category, status, channel_id, content_format, content_formats, created_at')
+                .select('*')
                 .eq('is_unscheduled', true);
             
             if (selectedChannel !== 'ALL') {

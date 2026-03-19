@@ -89,15 +89,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         try {
             let query = supabase
                 .from('contents')
-                .select(`
-                    id, title, status, priority, start_date, end_date, created_at, 
-                    channel_id, tags, target_platform, pillar, content_format, 
-                    content_formats, category, remark, is_unscheduled, 
-                    assignee_ids, idea_owner_ids, editor_ids, assets,
-                    assignee_type, difficulty, estimated_hours, caution, importance, 
-                    published_links, shoot_date, shoot_location,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
-                `, { count: 'exact' });
+                .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`, { count: 'exact' });
 
             // 1. Search
             if (searchQuery) {
@@ -248,15 +240,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         try {
             const { data, error } = await supabase
                 .from('contents')
-                .select(`
-                    id, title, status, priority, start_date, end_date, created_at, 
-                    channel_id, tags, target_platform, pillar, content_format, 
-                    content_formats, category, remark, is_unscheduled, 
-                    assignee_ids, idea_owner_ids, editor_ids, assets,
-                    assignee_type, difficulty, estimated_hours, caution, importance, 
-                    published_links, shoot_date, shoot_location,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
-                `)
+                .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`)
                 .eq('id', id)
                 .single();
 

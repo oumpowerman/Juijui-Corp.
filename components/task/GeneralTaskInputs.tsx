@@ -87,7 +87,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     
     // --- Script Linking Logic (Local to Form) ---
     const { 
-        getScriptSummaryById, 
+        getScriptById, 
         createScript 
     } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
 
@@ -100,7 +100,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         const fetchLinked = async () => {
             if (scriptId) {
                 setIsLoadingScript(true);
-                const script = await getScriptSummaryById(scriptId);
+                const script = await getScriptById(scriptId);
                 if (script) setLinkedScript(script);
                 setIsLoadingScript(false);
             } else {
@@ -108,7 +108,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             }
         };
         fetchLinked();
-    }, [scriptId, getScriptSummaryById]);
+    }, [scriptId]);
 
     // Handle Create Script
     const handleCreateScriptSubmit = async (data: any) => {
@@ -183,18 +183,15 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             if (status === 'WAITING' && initialData?.id) {
                 const { data } = await supabase
                     .from('task_logs')
-                    .select('user_id, profiles(full_name)')
+                    .select('user_id, users(name)')
                     .eq('task_id', initialData.id)
                     .eq('action', 'SENT_TO_QC')
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
                 
-                if (data && (data as any).profiles) {
-                    const profile = Array.isArray((data as any).profiles) 
-                        ? (data as any).profiles[0] 
-                        : (data as any).profiles;
-                    setQcSenderName(profile?.full_name || 'Unknown');
+                if (data && (data as any).users) {
+                    setQcSenderName((data as any).users.name);
                 }
             }
         };

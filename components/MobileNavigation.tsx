@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     LayoutGrid, Calendar as CalendarIcon, MessageCircle, Menu, X, 
@@ -12,9 +12,8 @@ import {
 import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
-import SidebarBadge from './SidebarBadge';
-import { SidebarBadges } from '../hooks/useSidebarBadges';
-const CommandPalette = lazy(() => import('../components/ui/CommandPalette'));
+import SidebarBadge from './SidebarBadge.tsx';
+import CommandPalette from '../components/ui/CommandPalette'
 
 interface MobileNavigationProps {
     currentUser: User;
@@ -27,7 +26,6 @@ interface MobileNavigationProps {
     unreadChatCount: number;
     tasks: Task[];
     users: User[];
-    badges?: SidebarBadges;
 }
 
 // --- Menu Configuration (Synced with Sidebar) ---
@@ -95,31 +93,12 @@ interface MobileMenuButtonProps {
     onNavigate: (v: ViewMode) => void;
     currentUser: User;
     unreadChatCount: number;
-    badges?: SidebarBadges;
 }
 
 const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({ 
-    view, icon: Icon, label, color, currentView, onNavigate, currentUser, unreadChatCount, badges
+    view, icon: Icon, label, color, currentView, onNavigate, currentUser, unreadChatCount 
 }) => {
     const isActive = currentView === view;
-
-    const getBadgeCount = (v: string) => {
-        if (!badges) return undefined;
-        switch (v) {
-            case 'QUALITY_GATE': return badges.qualityGate;
-            case 'FEEDBACK': return badges.feedback;
-            case 'TEAM': return badges.memberApproval;
-            case 'DUTY': return badges.myDuty;
-            case 'ATTENDANCE': return badges.attendanceApproval;
-            case 'FINANCE': return badges.financeTrip;
-            case 'DASHBOARD': return badges.dashboard;
-            case 'KPI': return badges.kpi;
-            case 'WIKI': return badges.wiki;
-            case 'CHAT': return badges.chat;
-            default: return undefined;
-        }
-    };
-
     return (
         <button
             onClick={() => onNavigate(view)}
@@ -140,7 +119,7 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({
                 <SidebarBadge 
                     view={view} 
                     currentUser={currentUser} 
-                    count={view === 'CHAT' ? unreadChatCount : getBadgeCount(view)}
+                    count={view === 'CHAT' ? unreadChatCount : undefined}
                 />
             </div>
         </button>
@@ -148,7 +127,7 @@ const MobileMenuButton: React.FC<MobileMenuButtonProps> = ({
 };
 
 const MobileNavigation: React.FC<MobileNavigationProps> = ({ 
-    currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, onOpenTask, unreadChatCount, tasks, users, badges
+    currentUser, currentView, onNavigate, onAddTask, onLogout, onEditProfile, onOpenTask, unreadChatCount, tasks, users 
 }) => {
     const { showAlert } = useGlobalDialog();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -156,23 +135,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
     const [isIOS, setIsIOS] = useState(false);
     const [activePanel, setActivePanel] = useState<'MENU' | 'SEARCH'>('MENU');
     const containerRef = React.useRef<HTMLDivElement>(null);
-
-    const getBadgeCount = (v: string) => {
-        if (!badges) return undefined;
-        switch (v) {
-            case 'QUALITY_GATE': return badges.qualityGate;
-            case 'FEEDBACK': return badges.feedback;
-            case 'TEAM': return badges.memberApproval;
-            case 'DUTY': return badges.myDuty;
-            case 'ATTENDANCE': return badges.attendanceApproval;
-            case 'FINANCE': return badges.financeTrip;
-            case 'DASHBOARD': return badges.dashboard;
-            case 'KPI': return badges.kpi;
-            case 'WIKI': return badges.wiki;
-            case 'CHAT': return badges.chat;
-            default: return undefined;
-        }
-    };
 
     // Theme Logic
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
@@ -304,7 +266,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                                     <SidebarBadge 
                                         view={item.view as ViewMode} 
                                         currentUser={currentUser} 
-                                        count={item.view === 'CHAT' ? unreadChatCount : getBadgeCount(item.view)}
+                                        count={item.view === 'CHAT' ? unreadChatCount : undefined}
                                     />
                                 </div>
                             </button>
@@ -460,7 +422,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                                                                 <SidebarBadge 
                                                                     view={item.view} 
                                                                     currentUser={currentUser} 
-                                                                    count={item.view === 'CHAT' ? unreadChatCount : getBadgeCount(item.view)}
+                                                                    count={item.view === 'CHAT' ? unreadChatCount : undefined}
                                                                 />
                                                             </div>
                                                         </button>
@@ -476,20 +438,18 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
                             {/* PANEL 2: SEARCH / COMMAND PALETTE */}
                             <div className="w-1/2 h-full flex flex-col bg-white">
-                                <Suspense fallback={<div>Loading...</div>}>
-                                    <CommandPalette 
-                                        currentUser={currentUser}
-                                        tasks={tasks}
-                                        menuGroups={MOBILE_MENU_GROUPS}
-                                        onNavigate={onNavigate}
-                                        onAddTask={onAddTask}
-                                        onEditProfile={onEditProfile}
-                                        onLogout={onLogout}
-                                        onOpenTask={onOpenTask}
-                                        onClose={() => setIsMenuOpen(false)}
-                                        isActive={isMenuOpen && activePanel === 'SEARCH'}
-                                    />
-                                </Suspense>
+                                <CommandPalette 
+                                    currentUser={currentUser}
+                                    tasks={tasks}
+                                    menuGroups={MOBILE_MENU_GROUPS}
+                                    onNavigate={onNavigate}
+                                    onAddTask={onAddTask}
+                                    onEditProfile={onEditProfile}
+                                    onLogout={onLogout}
+                                    onOpenTask={onOpenTask}
+                                    onClose={() => setIsMenuOpen(false)}
+                                    isActive={isMenuOpen && activePanel === 'SEARCH'}
+                                />
                             </div>
                         </motion.div>
                     </div>

@@ -48,12 +48,7 @@ export const useAuth = (sessionUser: any) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select(`
-                    id, email, full_name, role, avatar_url, position, phone_number, bio, feeling,
-                    is_approved, is_active, xp, level, available_points, hp, max_hp, death_count,
-                    work_status, leave_start_date, leave_end_date, last_read_chat_at, last_read_notification_at,
-                    work_days, base_salary, bank_account, bank_name, sso_included, tax_type, line_user_id
-                `)
+                .select('*')
                 .eq('id', sessionUser.id)
                 .single();
 

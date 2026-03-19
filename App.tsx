@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from './lib/supabase';
 import AuthPage from './components/AuthPage';
 import AppRouter from './routes/AppRouter';
@@ -8,7 +7,6 @@ import PublicScriptViewer from './components/public/PublicScriptViewer';
 import { TaskProvider } from './context/TaskContext';
 import { GameConfigProvider } from './context/GameConfigContext'; // NEW
 import { Loader2 } from 'lucide-react';
-import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 
 function App() {
   // --- ROUTING CHECK: Magic Link (Script Share) ---
@@ -40,6 +38,57 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // --- GLOBAL PWA SYNC (Optimized: Background sync on every load) ---
+  useEffect(() => {
+    const syncPWAConfig = async () => {
+      try {
+        const { data } = await supabase
+          .from('master_options')
+          .select('key, label')
+          .eq('type', 'PWA_CONFIG');
+
+        if (data) {
+          const name = data.find(i => i.key === 'APP_NAME')?.label;
+          const icon = data.find(i => i.key === 'APP_ICON')?.label;
+
+          const currentName = localStorage.getItem('pwa_app_name');
+          const currentIcon = localStorage.getItem('pwa_app_icon');
+
+          let changed = false;
+
+          if (name && name !== currentName) {
+            localStorage.setItem('pwa_app_name', name);
+            changed = true;
+          }
+          if (icon && icon !== currentIcon) {
+            localStorage.setItem('pwa_app_icon', icon);
+            changed = true;
+          }
+          
+          // Store a short version of the name for the icon label
+          if (name) {
+            const shortName = name.split(' ')[0].substring(0, 12);
+            localStorage.setItem('pwa_app_short_name', shortName);
+          }
+          
+          // If config changed, we might need a reload to refresh the dynamic manifest in index.html
+          // but we do it gently or just update DOM for now
+          if (changed) {
+            console.log("PWA Config updated, applying changes...");
+            if (name) document.title = name;
+            if (icon) {
+                const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+                if (appleIcon) appleIcon.setAttribute('href', icon);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("PWA Sync failed:", e);
+      }
+    };
+    syncPWAConfig();
+  }, []);
+
   if (loading) {
      return (
         <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -54,14 +103,11 @@ function App() {
 
   // Wrap authenticated app in Providers
   return (
-    <>
-      <GlobalRealtimeSync />
-      <GameConfigProvider>
-        <TaskProvider>
-          <AppRouter user={session.user} />
-        </TaskProvider>
-      </GameConfigProvider>
-    </>
+    <GameConfigProvider>
+      <TaskProvider>
+        <AppRouter user={session.user} />
+      </TaskProvider>
+    </GameConfigProvider>
   );
 }
 

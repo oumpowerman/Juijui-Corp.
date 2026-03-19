@@ -268,8 +268,12 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 />
                                 <RuleCard 
                                     icon={ArrowRightCircle} colorTheme="blue" title="การคืนคะแนนขาดงาน" delay={0.4}
-                                    stats={{ hp: Math.abs(rules.ABSENT?.hp || -20) }}
-                                    description="หากถูกระบบหัก HP จากการขาดงาน แต่ต่อมาส่งคำขอแก้เวลาเข้างานและได้รับการอนุมัติ ระบบจะคืน HP ให้เต็มจำนวน"
+                                    stats={{ hp: Math.abs(rules.ABSENT_REFUND?.hp || 15) }}
+                                    description={
+                                        <span>
+                                            หากถูกระบบหัก HP จากการขาดงาน แต่ต่อมาส่งคำขอแก้เวลาเข้างานและได้รับการอนุมัติ ระบบจะคืน HP ให้ <span className="font-bold text-blue-600">{Math.abs(rules.ABSENT_REFUND?.hp || 15)} HP</span> (สรุปคือเสีย {Math.abs((rules.ABSENT?.hp || -20) + (rules.ABSENT_REFUND?.hp || 15))} HP เป็นค่าปรับความล่าช้าในการแจ้ง)
+                                        </span>
+                                    }
                                 />
                             </motion.div>
                         )}

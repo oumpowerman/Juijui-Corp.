@@ -1,5 +1,5 @@
 {
-  "name": "Juijui Planner",
-  "description": "A collaborative team content scheduler and planner designed for small teams. Features a calendar view, team workload management, and task tracking.",
-  "requestFramePermissions": ["camera", "geolocation"]
+  "description": "A professional script planning and asset management tool with Google Drive integration.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "name": "Juijui Planner V10"
 }

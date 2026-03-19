@@ -92,8 +92,17 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     return (
         <div className="bg-white rounded-3xl shadow-lg border border-indigo-50 p-6 relative overflow-hidden">
             <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none ${todayLog ? 'bg-green-400' : 'bg-orange-400'}`}></div>
+            
+            {/* Info Button */}
+            <button 
+                onClick={() => setIsRulesModalOpen(true)}
+                className="absolute top-4 right-4 w-8 h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center transition-colors z-10 shadow-sm border border-indigo-100"
+                title="กฎการลงเวลา"
+            >
+                <Info className="w-4 h-4" />
+            </button>
 
-            <LiveClock onOpenRules={() => setIsRulesModalOpen(true)} />
+            <LiveClock />
 
             <StatusCard 
                 user={user}

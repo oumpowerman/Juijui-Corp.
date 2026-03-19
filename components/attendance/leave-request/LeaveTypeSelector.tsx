@@ -26,7 +26,7 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                     </div>
                     <div className="text-left">
                         <span className="font-black text-blue-800 text-sm block">Work From Home</span>
-                        <span className="text-[13px] font-kanit font-medium  text-blue-600 font-medium">ขออนุญาตทำงานที่บ้าน</span>
+                        <span className="text-[10px] text-blue-600 font-medium">ขออนุญาตทำงานที่บ้าน</span>
                     </div>
                 </div>
             </button>
@@ -46,7 +46,7 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 transition-colors ${th.bg} ${th.text}`}>
                             <Icon className="w-6 h-6" />
                         </div>
-                        <span className="font-bold font-sarabun text-gray-700 text-xs group-hover:text-indigo-600 text-center leading-tight">{opt.label}</span>
+                        <span className="font-bold text-gray-700 text-xs group-hover:text-indigo-600 text-center leading-tight">{opt.label}</span>
                     </button>
                 );
             })}

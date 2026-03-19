@@ -159,7 +159,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                     <h3 className="text-3xl font-bold tracking-tight leading-none mb-2 drop-shadow-md">
                                         เริ่มต้นไอเดียใหม่
                                     </h3>
-                                    <p className="text-white/90 text-md font-kanit font-medium">วางโครงเรื่องให้เป๊ะ ก่อนเริ่มเขียนบทจริง</p>
+                                    <p className="text-white/90 text-md font-medium">วางโครงเรื่องให้เป๊ะ ก่อนเริ่มเขียนบทจริง</p>
                                 </div>
                                 <motion.button 
                                     whileTap={{ scale: 0.9 }}
@@ -254,7 +254,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                         type="text" 
                                         autoFocus
                                         required
-                                        className="w-full px-4 pb-3 bg-transparent border-none outline-none text-slate-800 font-kanit font-medium text-2xl tracking-tight placeholder:text-slate-300"
+                                        className="w-full px-4 pb-3 bg-transparent border-none outline-none text-slate-800 font-black text-xl placeholder:text-slate-200 placeholder:font-bold"
                                         placeholder="เช่น Vlog พาเที่ยว..."
                                         value={title}
                                         onChange={e => setTitle(e.target.value)}

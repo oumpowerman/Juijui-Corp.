@@ -1,5 +1,4 @@
 
-import { useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Duty, User, DutySwap } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -8,7 +7,7 @@ import { format } from 'date-fns';
 export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
     const { showToast } = useToast();
 
-    const requestSwap = useCallback(async (ownDutyId: string, targetDutyId: string) => {
+    const requestSwap = async (ownDutyId: string, targetDutyId: string) => {
         if (!currentUser) return;
         try {
             const ownDuty = duties.find(d => d.id === ownDutyId);
@@ -45,9 +44,9 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
         } catch (err: any) {
             showToast('ส่งคำขอไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [currentUser, duties, showToast]);
+    };
 
-    const respondSwap = useCallback(async (swapId: string, accept: boolean) => {
+    const respondSwap = async (swapId: string, accept: boolean) => {
         try {
             const { data: swap } = await supabase.from('duty_swaps').select('own_duty_id, target_duty_id, requestor_id').eq('id', swapId).single();
             if (!swap) return;
@@ -97,7 +96,7 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
         } catch (err: any) {
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
-    }, [showToast]);
+    };
 
     return {
         requestSwap,

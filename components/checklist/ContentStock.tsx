@@ -15,7 +15,7 @@ import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 import StockFilterBar from './stock/StockFilterBar';
 import StockTable from './stock/StockTable';
 import StockInventoryModal from './stock/inventory/StockInventoryModal';
-import StockCountBadge from './stock/StockCountBadge.tsx';
+import StockCountBadge from './stock/StockCountBadge';
 
 interface ContentStockProps {
   tasks: Task[]; // Sync Source

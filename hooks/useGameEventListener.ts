@@ -169,6 +169,9 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
                 (payload) => {
                     const log = payload.new;
                     
+                    // ✨ ROBUST SYNC: Trigger profile refresh if callback provided
+                    if (onEvent) onEvent();
+
                     // --- INTELLIGENT GROUPING STRATEGY ---
                     // จัดกลุ่ม Event ที่มักจะเกิดรัวๆ พร้อมกัน
                     let groupKey = `single_${log.id}`; // Default: No grouping

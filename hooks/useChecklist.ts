@@ -4,128 +4,152 @@ import { supabase } from '../lib/supabase';
 import { ChecklistItem, ChecklistPreset, InventoryItem, AssetCondition, AssetGroup } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext'; 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
 export const useChecklist = () => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog(); 
-    const queryClient = useQueryClient();
     
-    // --- 1. Fetching Logic (React Query) ---
-
-    // Fetch Active List
-    const { data: activeChecklistItems = [] } = useQuery({
-        queryKey: ['active_checklist_items'],
-        queryFn: async () => {
-            const { data, error } = await supabase
+    // Data States
+    const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+    const [checklistPresets, setChecklistPresets] = useState<ChecklistPreset[]>([]);
+    const [activePresetId, setActivePresetId] = useState<string | null>(null);
+    const [activePresetName, setActivePresetName] = useState<string | null>(null);
+    
+    // --- 1. Fetching Logic ---
+    const loadChecklistData = async () => {
+        try {
+            // Fetch Active List
+            const { data: activeData, error: activeError } = await supabase
                 .from('active_checklist_items')
-                .select('id, text, is_checked, category_id, created_at')
+                .select('*')
                 .order('created_at', { ascending: true });
             
-            if (error) throw error;
-            return (data || []).map((i: any) => ({
-                id: i.id,
-                text: i.text,
-                isChecked: i.is_checked,
-                categoryId: i.category_id
-            })) as ChecklistItem[];
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
+            if (activeError) console.error("Error fetching active items:", activeError);
+            if (activeData) {
+                setActiveChecklistItems(activeData.map((i: any) => ({
+                    id: i.id,
+                    text: i.text,
+                    isChecked: i.is_checked,
+                    categoryId: i.category_id
+                })));
+            }
 
-    // Fetch Inventory
-    const { data: inventoryItems = [] } = useQuery({
-        queryKey: ['inventory_items'],
-        queryFn: async () => {
-            const { data, error } = await supabase
+            // Fetch Inventory
+            const { data: invData, error: invError } = await supabase
                 .from('inventory_items')
-                .select('id, name, description, category_id, image_url, item_type, quantity, unit, min_threshold, max_capacity, tags, asset_group, purchase_price, purchase_date, serial_number, warranty_expire, condition, current_holder_id, created_at')
+                .select('*')
                 .order('created_at', { ascending: false }); 
             
-            if (error) throw error;
-            return (data || []).map((i: any) => ({
-                id: i.id,
-                name: i.name,
-                description: i.description, 
-                categoryId: i.category_id,
-                imageUrl: i.image_url,
-                itemType: i.item_type || 'FIXED', 
-                quantity: i.quantity || 0,
-                unit: i.unit,
-                minThreshold: i.min_threshold,
-                maxCapacity: i.max_capacity,
-                tags: i.tags || [],
-                assetGroup: i.asset_group as AssetGroup,
-                purchasePrice: i.purchase_price,
-                purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
-                serialNumber: i.serial_number,
-                warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
-                condition: i.condition as AssetCondition,
-                currentHolderId: i.current_holder_id
-            })) as InventoryItem[];
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
+            if (invError) console.error("Error fetching inventory:", invError);
+            if (invData) {
+                setInventoryItems(invData.map((i: any) => ({
+                    id: i.id,
+                    name: i.name,
+                    description: i.description, 
+                    categoryId: i.category_id,
+                    imageUrl: i.image_url,
+                    itemType: i.item_type || 'FIXED', 
+                    quantity: i.quantity || 0,
+                    unit: i.unit,
+                    minThreshold: i.min_threshold,
+                    maxCapacity: i.max_capacity,
+                    tags: i.tags || [],
+                    assetGroup: i.asset_group as AssetGroup,
+                    purchasePrice: i.purchase_price,
+                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
+                    serialNumber: i.serial_number,
+                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
+                    condition: i.condition as AssetCondition,
+                    currentHolderId: i.current_holder_id
+                })));
+            }
 
-    // Fetch Presets
-    const { data: checklistPresets = [] } = useQuery({
-        queryKey: ['checklist_presets_db'],
-        queryFn: async () => {
-            const { data, error } = await supabase
+            // Fetch Presets
+            const { data: presetData, error: presetError } = await supabase
                 .from('checklist_presets_db')
-                .select('id, name, items')
+                .select('*')
                 .order('name', { ascending: true });
 
-            if (error) throw error;
-            return (data || []).map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                items: p.items || []
-            })) as ChecklistPreset[];
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
+            if (presetError) console.error("Error fetching presets:", presetError);
+            if (presetData) {
+                const mappedPresets = presetData.map((p: any) => ({
+                    id: p.id,
+                    name: p.name,
+                    items: p.items || []
+                }));
+                setChecklistPresets(mappedPresets);
 
-    // Fetch Active Preset Metadata from master_options
-    const { data: activePresetConfig } = useQuery({
-        queryKey: ['master_options', 'CHECKLIST_CONFIG', 'ACTIVE_PRESET_ID'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('master_options')
-                .select('id, label, type, key')
-                .eq('type', 'CHECKLIST_CONFIG')
-                .eq('key', 'ACTIVE_PRESET_ID')
-                .maybeSingle();
+                // Fetch Active Preset Metadata from master_options
+                const { data: configData } = await supabase
+                    .from('master_options')
+                    .select('*')
+                    .eq('type', 'CHECKLIST_CONFIG')
+                    .eq('key', 'ACTIVE_PRESET_ID')
+                    .maybeSingle();
 
-            if (error) throw error;
-            return data;
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
+                if (configData) {
+                    const pId = configData.label;
+                    setActivePresetId(pId);
+                    const activeP = mappedPresets.find(p => p.id === pId);
+                    setActivePresetName(activeP ? activeP.name : null);
+                } else {
+                    setActivePresetId(null);
+                    setActivePresetName(null);
+                }
+            }
 
-    const activePresetId = activePresetConfig?.label || null;
-    const activePresetName = checklistPresets.find(p => p.id === activePresetId)?.name || null;
-
-    // Helper to invalidate queries
-    const loadChecklistData = () => {
-        queryClient.invalidateQueries({ queryKey: ['active_checklist_items'] });
-        queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
-        queryClient.invalidateQueries({ queryKey: ['checklist_presets_db'] });
-        queryClient.invalidateQueries({ queryKey: ['master_options', 'CHECKLIST_CONFIG', 'ACTIVE_PRESET_ID'] });
+        } catch (err) {
+            console.error("Load Checklist Data Error:", err);
+        }
     };
 
     // --- 2. Realtime Subscriptions ---
-    // Moved to GlobalRealtimeSync to avoid multiple subscriptions
+    useEffect(() => {
+        loadChecklistData();
+
+        // Subscribe to all changes in these tables
+        const channel = supabase
+            .channel('checklist-all-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    const newItem: ChecklistItem = {
+                        id: payload.new.id,
+                        text: payload.new.text,
+                        isChecked: payload.new.is_checked,
+                        categoryId: payload.new.category_id
+                    };
+                    setActiveChecklistItems(prev => {
+                        if (prev.some(i => i.id === newItem.id)) return prev;
+                        return [...prev, newItem];
+                    });
+                } else if (payload.eventType === 'UPDATE') {
+                    setActiveChecklistItems(prev => prev.map(item => 
+                        item.id === payload.new.id 
+                            ? { ...item, text: payload.new.text, isChecked: payload.new.is_checked, categoryId: payload.new.category_id } 
+                            : item
+                    ));
+                } else if (payload.eventType === 'DELETE') {
+                    setActiveChecklistItems(prev => prev.filter(item => item.id !== payload.old.id));
+                }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadChecklistData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options', filter: 'type=eq.CHECKLIST_CONFIG' }, () => loadChecklistData())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     // --- 3. Active List Logic ---
     
     const handleToggleChecklist = async (id: string, currentStatus: boolean) => {
         // Optimistic UI Update
-        queryClient.setQueryData(['active_checklist_items'], (old: ChecklistItem[] | undefined) => 
-            old ? old.map(item => item.id === id ? { ...item, isChecked: !currentStatus } : item) : []
-        );
+        setActiveChecklistItems(prev => prev.map(item => item.id === id ? { ...item, isChecked: !currentStatus } : item));
         
         try {
             await supabase.from('active_checklist_items').update({ is_checked: !currentStatus }).eq('id', id);
@@ -151,9 +175,7 @@ export const useChecklist = () => {
     const handleDeleteChecklistItem = async (id: string) => {
         try {
             await supabase.from('active_checklist_items').delete().eq('id', id);
-            queryClient.setQueryData(['active_checklist_items'], (old: ChecklistItem[] | undefined) => 
-                old ? old.filter(i => i.id !== id) : []
-            );
+            setActiveChecklistItems(prev => prev.filter(i => i.id !== id));
         } catch (err) { console.error(err); }
     };
   
@@ -161,9 +183,7 @@ export const useChecklist = () => {
         const confirmed = await showConfirm('รีเซ็ตสถานะเช็คลิสต์ทั้งหมด?', 'ยืนยันการรีเซ็ต');
         
         if (confirmed) {
-            queryClient.setQueryData(['active_checklist_items'], (old: ChecklistItem[] | undefined) => 
-                old ? old.map(i => ({ ...i, isChecked: false })) : []
-            );
+            setActiveChecklistItems(prev => prev.map(i => ({ ...i, isChecked: false })));
             
             try {
                 await supabase.from('active_checklist_items').update({ is_checked: false }).neq('id', NIL_UUID); 
@@ -260,9 +280,7 @@ export const useChecklist = () => {
                 const { error } = await supabase.from('inventory_items').delete().eq('id', id);
                 if (error) throw error;
                 
-                queryClient.setQueryData(['inventory_items'], (old: InventoryItem[] | undefined) => 
-                    old ? old.filter(i => i.id !== id) : []
-                );
+                setInventoryItems(prev => prev.filter(i => i.id !== id));
                 showToast('ลบจากคลังแล้ว', 'info');
             } catch (err) { console.error(err); }
         }
@@ -301,7 +319,7 @@ export const useChecklist = () => {
 
     const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
         if (presetId === 'CLEAR') {
-            queryClient.setQueryData(['active_checklist_items'], []); 
+            setActiveChecklistItems([]); 
             await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
             await updateGlobalActivePreset(null);
             showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
@@ -319,11 +337,9 @@ export const useChecklist = () => {
             }));
 
             if (clearFirst) {
-                queryClient.setQueryData(['active_checklist_items'], tempItems); 
+                setActiveChecklistItems(tempItems); 
             } else {
-                queryClient.setQueryData(['active_checklist_items'], (old: ChecklistItem[] | undefined) => 
-                    old ? [...old, ...tempItems] : tempItems
-                ); 
+                setActiveChecklistItems(prev => [...prev, ...tempItems]); 
             }
 
             try {
@@ -386,9 +402,9 @@ export const useChecklist = () => {
     
     const handleUpdatePreset = async (id: string, name: string, items: { text: string; categoryId: string }[]) => {
         try {
-            queryClient.setQueryData(['checklist_presets_db'], (old: ChecklistPreset[] | undefined) => 
-                old ? old.map(p => p.id === id ? { ...p, name, items } : p) : []
-            );
+            setChecklistPresets(prev => prev.map(p => 
+                p.id === id ? { ...p, name, items } : p
+            ));
 
             const { error } = await supabase.from('checklist_presets_db').update({
                 name,

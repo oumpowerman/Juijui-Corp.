@@ -1,9 +1,8 @@
 
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, ReviewSession } from '../types';
 import { addMonths, endOfMonth, format } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
 
 // Helper to replace startOfMonth
 const getStartOfMonth = (date: Date) => {
@@ -17,26 +16,21 @@ interface TaskContextType {
     setDateRange: React.Dispatch<React.SetStateAction<{ start: Date; end: Date }>>;
     isFetching: boolean;
     isAllLoaded: boolean;
-    currentUser: any;
-    setCurrentUser: (user: any) => void;
-    setOptimisticTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-    setDeletedTaskIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-    fetchTasks: (forceAll?: boolean) => Promise<void>;
+    fetchTasks: () => Promise<void>;
     fetchAllTasks: () => void;
     checkAndExpandRange: (targetDate: Date) => void;
     fetchSubTasks: (contentId: string) => Promise<Task[]>;
-    fetchTaskDetail: (id: string, type: 'CONTENT' | 'TASK') => Promise<Task | null>;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [isFetching, setIsFetching] = useState(false);
     const [isAllLoaded, setIsAllLoaded] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null);
-    const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]);
-    const [deletedTaskIds, setDeletedTaskIds] = useState<Set<string>>(new Set());
 
     // --- Date Windowing State ---
+    // Default: Load 3 months back and 3 months forward
     const [dateRange, setDateRange] = useState<{ start: Date, end: Date }>({
         start: addMonths(getStartOfMonth(new Date()), -3),
         end: addMonths(endOfMonth(new Date()), 3)
@@ -77,7 +71,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             contentFormat: data.content_format || data.contentFormat,
             contentFormats: Array.isArray(data.content_formats) ? data.content_formats : (data.content_format ? [data.content_format] : []),
             category: data.category,
-            remark: data.remark || '',
+            remark: data.remark,
             startDate: new Date(startDateVal),
             endDate: new Date(endDateVal),
             createdAt: new Date(data.created_at),
@@ -95,137 +89,67 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             estimatedHours: data.estimated_hours || 0,
             assigneeType: data.assignee_type || 'TEAM',
             targetPosition: data.target_position,
-            caution: data.caution || '',
-            importance: data.importance || '',
+            caution: data.caution,
+            importance: data.importance,
             publishedLinks: data.published_links || {},
             shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
             shootLocation: data.shoot_location || undefined,
             contentId: data.content_id,
             showOnBoard: data.show_on_board,
             parentContentTitle: data.contents?.title,
-            scriptId: data.script_id
+            scriptId: data.script_id // Map script_id correctly here
         };
     }, []);
 
-    const isMemberOnly = currentUser && currentUser.role !== 'ADMIN';
-    const userId = currentUser?.id;
-    const startStr = dateRange.start.toISOString();
-    const endStr = dateRange.end.toISOString();
+    const fetchTasks = useCallback(async () => {
+        // Prevent spinner flickering on background refresh
+        // Only show spinner if we have no tasks yet (initial load)
+        if (tasks.length === 0) setIsFetching(true); 
+        
+        let newTasks: Task[] = [];
+        const startStr = dateRange.start.toISOString();
+        const endStr = dateRange.end.toISOString();
 
-    // 1. Fetch CONTENTS
-    const { data: contents = [], isLoading: isLoadingContents, refetch: refetchContents } = useQuery({
-        queryKey: ['contents', userId, startStr, endStr, isAllLoaded],
-        queryFn: async () => {
-            if (!currentUser) return [];
+        // 1. Fetch CONTENTS
+        try {
             let query = supabase
                 .from('contents')
-                .select(`
-                    id, title, status, priority, start_date, end_date, created_at, 
-                    channel_id, tags, target_platform, pillar, content_format, 
-                    content_formats, category, is_unscheduled, 
-                    assignee_ids, idea_owner_ids, editor_ids, performance,
-                    difficulty, estimated_hours, assignee_type, target_position,
-                    published_links, shoot_date, shoot_location,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)
-                `);
+                .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`);
             
             if (!isAllLoaded) {
                 query = query.or(`is_unscheduled.eq.true,and(end_date.gte.${startStr},start_date.lte.${endStr})`);
             }
 
-            if (isMemberOnly && userId) {
-                query = query.or(`assignee_ids.cs.{${userId}},idea_owner_ids.cs.{${userId}},editor_ids.cs.{${userId}}`);
+            const { data: contentsData, error: contentsError } = await query;
+            if (contentsError) console.warn("Contents fetch warning:", contentsError.message);
+            else if (contentsData) {
+                newTasks = [...newTasks, ...contentsData.map(d => mapSupabaseToTask(d, 'CONTENT'))];
             }
+        } catch (err) { console.error('Contents Fetch error:', err); }
 
-            const { data, error } = await query;
-            if (error) throw error;
-            return (data || []).map(d => mapSupabaseToTask(d, 'CONTENT'));
-        },
-        enabled: !!currentUser,
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
-
-    // 2. Fetch TASKS
-    const { data: dbTasks = [], isLoading: isLoadingTasks, refetch: refetchTasksQuery } = useQuery({
-        queryKey: ['tasks', userId, startStr, endStr, isAllLoaded],
-        queryFn: async () => {
-            if (!currentUser) return [];
-            let query = supabase.from('tasks').select(`
-                id, title, status, priority, start_date, end_date, created_at,
-                assignee_ids, difficulty, estimated_hours, assignee_type, 
-                target_position, content_id, show_on_board, script_id,
-                contents (title), 
-                task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, task_id)
-            `);
+        // 2. Fetch TASKS
+        try {
+            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
             if (!isAllLoaded) {
                 query = query.gte('end_date', startStr).lte('start_date', endStr);
             }
             query = query.or('content_id.is.null,show_on_board.eq.true');
 
-            if (isMemberOnly && userId) {
-                query = query.contains('assignee_ids', [userId]);
+            const { data: tasksData } = await query;
+            if (tasksData) {
+                newTasks = [...newTasks, ...tasksData.map(d => mapSupabaseToTask(d, 'TASK'))];
             }
+        } catch (err) { console.error('Tasks Fetch error:', err); }
 
-            const { data, error } = await query;
-            if (error) throw error;
-            return (data || []).map(d => mapSupabaseToTask(d, 'TASK'));
-        },
-        enabled: !!currentUser,
-        staleTime: 1000 * 60 * 5, // 5 minutes
-    });
+        setTasks(newTasks);
+        setIsFetching(false);
+    }, [dateRange, isAllLoaded, mapSupabaseToTask]);
 
-    // Merge everything
-    const tasks = useMemo(() => {
-        const merged = [...contents, ...dbTasks];
-        
-        // Filter out deleted
-        let result = merged.filter(t => !deletedTaskIds.has(t.id));
-        
-        // Apply optimistic updates
-        const taskMap = new Map(result.map(t => [t.id, t]));
-        optimisticTasks.forEach(ot => taskMap.set(ot.id, ot));
-        
-        return Array.from(taskMap.values());
-    }, [contents, dbTasks, optimisticTasks, deletedTaskIds]);
-
-    const fetchTasks = useCallback(async () => {
-        await Promise.all([refetchContents(), refetchTasksQuery()]);
-        // Clear optimistic state on manual refetch
-        setOptimisticTasks([]);
-        setDeletedTaskIds(new Set());
-    }, [refetchContents, refetchTasksQuery]);
-
-    const fetchTaskDetail = useCallback(async (id: string, type: 'CONTENT' | 'TASK'): Promise<Task | null> => {
-        try {
-            const table = type === 'CONTENT' ? 'contents' : 'tasks';
-            const { data, error } = await supabase
-                .from(table)
-                .select(`
-                    *,
-                    contents (title),
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, task_id, content_id)
-                `)
-                .eq('id', id)
-                .single();
-
-            if (error) throw error;
-            return data ? mapSupabaseToTask(data, type) : null;
-        } catch (err) {
-            console.error('Fetch task detail failed', err);
-            return null;
-        }
-    }, [mapSupabaseToTask]);
-
-    const fetchSubTasks = useCallback(async (contentId: string): Promise<Task[]> => {
+    const fetchSubTasks = async (contentId: string): Promise<Task[]> => {
         try {
             const { data, error } = await supabase
                 .from('tasks')
-                .select(`
-                    id, title, status, priority, start_date, end_date, created_at,
-                    assignee_ids, difficulty, estimated_hours, assignee_type, 
-                    target_position, caution, importance, content_id, show_on_board, script_id,
-                    task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, task_id)
-                `)
+                .select('*')
                 .eq('content_id', contentId)
                 .order('created_at', { ascending: true });
 
@@ -235,7 +159,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Fetch sub-tasks failed', err);
             return [];
         }
-    }, [mapSupabaseToTask]);
+    };
 
     const checkAndExpandRange = useCallback((targetDate: Date) => {
         if (isAllLoaded) return; 
@@ -254,6 +178,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (needsUpdate) {
+            console.log(`Expanding data range: ${format(newStart, 'yyyy-MM')} to ${format(newEnd, 'yyyy-MM')}`);
             setDateRange({ start: newStart, end: newEnd });
         }
     }, [dateRange, isAllLoaded]);
@@ -263,15 +188,68 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAllLoaded(true);
     }, [isAllLoaded]);
 
+    // --- REALTIME CONNECTION (SINGLE INSTANCE) ---
+    useEffect(() => {
+        fetchTasks();
+        console.log('🔌 [TaskContext] Connecting to Realtime...');
+
+        const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {
+            if (payload.eventType === 'INSERT') {
+                // For INSERT, we fetch the full record to get joins (like contents.title)
+                // But we only fetch the specific record to avoid full reload
+                const fetchSingle = async () => {
+                    const table = type === 'TASK' ? 'tasks' : 'contents';
+                    let query = supabase.from(table).select(
+                        type === 'TASK' 
+                            ? `*, contents (title), task_reviews(*)` 
+                            : `*, task_reviews(*)`
+                    ).eq('id', payload.new.id).single();
+                    
+                    const { data } = await query;
+                    if (data) {
+                        const newTask = mapSupabaseToTask(data, type);
+                        setTasks(prev => {
+                            if (prev.some(t => t.id === newTask.id)) return prev;
+                            return [...prev, newTask];
+                        });
+                    }
+                };
+                fetchSingle();
+            } else if (payload.eventType === 'UPDATE') {
+                setTasks(prev => prev.map(t => {
+                    if (t.id === payload.new.id) {
+                        // Merge payload.new into existing task
+                        // Note: payload.new uses snake_case, mapSupabaseToTask handles it
+                        return { ...t, ...mapSupabaseToTask(payload.new, type) };
+                    }
+                    return t;
+                }));
+            } else if (payload.eventType === 'DELETE') {
+                setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+            }
+        };
+
+        const channel = supabase
+            .channel('global-tasks-channel-main') // Unique channel for Context
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (p) => handleIncrementalUpdate(p, 'TASK'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (p) => handleIncrementalUpdate(p, 'CONTENT'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks()) // Reviews still full fetch for simplicity
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') console.log('✅ [TaskContext] Realtime Connected!');
+            });
+
+        return () => { 
+            console.log('🔌 [TaskContext] Disconnecting...');
+            supabase.removeChannel(channel); 
+        };
+    }, [fetchTasks, mapSupabaseToTask]); // Added mapSupabaseToTask to dependencies
+
     return (
         <TaskContext.Provider value={{
-            tasks, setTasks: setOptimisticTasks as any,
-            setOptimisticTasks, setDeletedTaskIds,
+            tasks, setTasks,
             dateRange, setDateRange,
-            isFetching: isLoadingContents || isLoadingTasks, 
-            isAllLoaded,
-            currentUser, setCurrentUser,
-            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks, fetchTaskDetail
+            isFetching, isAllLoaded,
+            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks
         }}>
             {children}
         </TaskContext.Provider>

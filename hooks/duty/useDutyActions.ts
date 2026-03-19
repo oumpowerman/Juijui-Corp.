@@ -1,5 +1,4 @@
 
-import { useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Duty, DutyConfig, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -8,7 +7,7 @@ import { format, addDays } from 'date-fns';
 export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.SetStateAction<Duty[]>>, config?: any) => {
     const { showToast } = useToast();
 
-    const saveConfigs = useCallback(async (newConfigs: DutyConfig[]) => {
+    const saveConfigs = async (newConfigs: DutyConfig[]) => {
         try {
             // Bulk upsert to prevent performance issues (N+1 queries)
             const payload = newConfigs.map(config => ({
@@ -27,9 +26,9 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
         } catch (err: any) {
             showToast('บันทึกกติกาไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [showToast]);
+    };
 
-    const addDuty = useCallback(async (title: string, assigneeId: string, date: Date) => {
+    const addDuty = async (title: string, assigneeId: string, date: Date) => {
         try {
             const dateStr = format(date, 'yyyy-MM-dd');
             const { error } = await supabase.from('duties').insert({
@@ -43,9 +42,9 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
         } catch (err: any) {
             showToast('เพิ่มไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [showToast]);
+    };
 
-    const toggleDuty = useCallback(async (id: string) => {
+    const toggleDuty = async (id: string) => {
         const duty = duties.find(d => d.id === id);
         if (!duty) return;
         
@@ -64,9 +63,9 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
             setDuties(prev => prev.map(d => d.id === id ? { ...d, isDone: !newStatus } : d));
             showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [duties, setDuties, showToast]);
+    };
 
-    const deleteDuty = useCallback(async (id: string) => {
+    const deleteDuty = async (id: string) => {
         try {
             const { error } = await supabase.from('duties').delete().eq('id', id);
             if (error) throw error;
@@ -74,9 +73,9 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [showToast]);
+    };
 
-    const cleanupOldDuties = useCallback(async () => {
+    const cleanupOldDuties = async () => {
         const cleanupDays = config?.SYSTEM_MAINTENANCE?.duty_cleanup_days || 90;
         const cutoffDate = format(addDays(new Date(), -cleanupDays), 'yyyy-MM-dd');
         
@@ -90,9 +89,9 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
         } catch (err: any) {
             showToast('ล้างข้อมูลล้มเหลว: ' + err.message, 'error');
         }
-    }, [config, showToast]);
+    };
 
-    const clearFutureDutiesForUser = useCallback(async (userId: string) => {
+    const clearFutureDutiesForUser = async (userId: string) => {
         try {
             const todayStr = format(new Date(), 'yyyy-MM-dd');
             const { error } = await supabase
@@ -107,7 +106,7 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
         } catch (err: any) {
             showToast('เคลียร์ตารางเวรไม่สำเร็จ: ' + err.message, 'error');
         }
-    }, [showToast]);
+    };
 
     return {
         saveConfigs,

@@ -14,11 +14,12 @@ interface WorkColumnProps {
     isDroppable: boolean;
     onDropTask: (taskId: string, targetType: ColumnType) => void;
     onOpenTask: (task: Task) => void;
+    onDeleteTask?: (taskId: string) => void;
     onViewAll?: () => void;
 }
 
 const WorkColumn: React.FC<WorkColumnProps> = ({ 
-    type, tasks, users, masterOptions, isDroppable, onDropTask, onOpenTask, onViewAll 
+    type, tasks, users, masterOptions, isDroppable, onDropTask, onOpenTask, onDeleteTask, onViewAll 
 }) => {
     
     // Header Config
@@ -158,6 +159,7 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
                                 e.dataTransfer.effectAllowed = "move";
                             }}
                             onClick={onOpenTask}
+                            onDelete={onDeleteTask}
                         />
                     ))
                 ) : (

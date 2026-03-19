@@ -2,8 +2,9 @@
 import React from 'react';
 import { Task, User, Status, MasterOption } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
-import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare } from 'lucide-react';
+import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface WorkCardProps {
     task: Task;
@@ -12,12 +13,28 @@ interface WorkCardProps {
     isDraggable: boolean;
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
+    onDelete?: (taskId: string) => void;
     columnType: 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 }
 
-const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptions, isDraggable, onDragStart, onClick, columnType }) => {
+const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptions, isDraggable, onDragStart, onClick, onDelete, columnType }) => {
+    const { showConfirm } = useGlobalDialog();
     const assigneeId = task.assigneeIds?.[0] || task.ideaOwnerIds?.[0];
     const user = users.find(u => u.id === assigneeId);
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!onDelete) return;
+
+        const confirmed = await showConfirm(
+            `คุณแน่ใจหรือไม่ว่าต้องการลบงาน "${task.title}"?`,
+            'ยืนยันการลบงาน 🗑️'
+        );
+
+        if (confirmed) {
+            onDelete(task.id);
+        }
+    };
 
     // --- Type Config ---
     const isContent = task.type === 'CONTENT';
@@ -119,11 +136,23 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
                     </span>
                 )}
 
-                {columnType !== 'DONE' && columnType !== 'WAITING' && !task.contentFormat && (
-                    <div className={`p-1 rounded-full transition-colors ${columnType === 'DOING' ? 'bg-indigo-50 text-indigo-500' : 'bg-gray-50 text-gray-300'}`}>
-                        <ArrowRight className="w-3 h-3" />
-                    </div>
-                )}
+                <div className="flex items-center gap-1">
+                    {onDelete && (
+                        <button 
+                            onClick={handleDelete}
+                            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            title="ลบงาน"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+
+                    {columnType !== 'DONE' && columnType !== 'WAITING' && !task.contentFormat && (
+                        <div className={`p-1 rounded-full transition-colors ${columnType === 'DOING' ? 'bg-indigo-50 text-indigo-500' : 'bg-gray-50 text-gray-300'}`}>
+                            <ArrowRight className="w-3 h-3" />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

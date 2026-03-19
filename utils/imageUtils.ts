@@ -56,3 +56,19 @@ export const fileToBase64 = (file: File | Blob): Promise<string> => {
         reader.onerror = (error) => reject(error);
     });
 };
+
+/**
+ * Transforms common image URLs to direct links (e.g. Google Drive)
+ */
+export const getDirectImageUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Handle Google Drive sharing links
+    const driveMatch = url.match(/\/(?:d|file\/d|open\?id=)([a-zA-Z0-9_-]+)/);
+    if (driveMatch && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
+        const fileId = driveMatch[1];
+        return `https://lh3.googleusercontent.com/u/0/d/${fileId}`;
+    }
+    
+    return url;
+};

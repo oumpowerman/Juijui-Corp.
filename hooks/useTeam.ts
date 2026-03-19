@@ -1,13 +1,12 @@
 
-import { useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Role, WorkStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useTeam = () => {
-    const queryClient = useQueryClient();
+    const [allUsers, setAllUsers] = useState<User[]>([]);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
 
@@ -48,35 +47,96 @@ export const useTeam = () => {
         taxType: u.tax_type || 'WHT_3'
     });
 
-    const { data: allUsers = [], isLoading, refetch: fetchTeamMembers } = useQuery({
-        queryKey: ['profiles'],
-        queryFn: async () => {
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            const isAdmin = currentUser?.user_metadata?.role === 'ADMIN';
-            
-            let query = supabase
+    // Helper to map partial DB updates to User fields
+    const mapDBToUserUpdates = (u: any): Partial<User> => {
+        const updates: Partial<User> = {};
+        if ('full_name' in u) updates.name = u.full_name;
+        if ('role' in u) updates.role = u.role;
+        if ('avatar_url' in u) updates.avatarUrl = u.avatar_url;
+        if ('position' in u) updates.position = u.position;
+        if ('phone_number' in u) updates.phoneNumber = u.phone_number;
+        if ('bio' in u) updates.bio = u.bio;
+        if ('feeling' in u) updates.feeling = u.feeling;
+        if ('is_approved' in u) updates.isApproved = u.is_approved;
+        if ('is_active' in u) updates.isActive = u.is_active;
+        if ('xp' in u) updates.xp = u.xp;
+        if ('level' in u) updates.level = u.level;
+        if ('available_points' in u) updates.availablePoints = u.available_points;
+        if ('hp' in u) updates.hp = u.hp;
+        if ('max_hp' in u) updates.maxHp = u.max_hp;
+        if ('death_count' in u) updates.deathCount = u.death_count;
+        if ('work_status' in u) updates.workStatus = u.work_status;
+        if ('work_days' in u) updates.workDays = u.work_days;
+        if ('base_salary' in u) updates.baseSalary = u.base_salary;
+        if ('bank_account' in u) updates.bankAccount = u.bank_account;
+        if ('bank_name' in u) updates.bankName = u.bank_name;
+        if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
+        if ('tax_type' in u) updates.taxType = u.tax_type;
+        return updates;
+    };
+
+    const fetchTeamMembers = async () => {
+        try {
+            // Select all columns or explicitly list new ones if needed
+            const { data, error } = await supabase
                 .from('profiles')
-                .select(`
-                    id, email, full_name, role, avatar_url, position, phone_number, bio, feeling,
-                    is_approved, is_active, xp, level, available_points, hp, max_hp, death_count,
-                    work_status, leave_start_date, leave_end_date, last_read_chat_at, last_read_notification_at,
-                    work_days${isAdmin ? ', base_salary, bank_account, bank_name, sso_included, tax_type' : ''}
-                `)
+                .select('*')
                 .order('full_name', { ascending: true });
                 
-            const { data, error } = await query;
-            if (error) throw error;
-            return data.map(mapProfileToUser);
-        },
-        staleTime: 1000 * 60 * 10, // 10 minutes
-    });
+            if (error) {
+                console.error("Supabase Error fetching team:", error.message);
+                throw error;
+            }
+            if (data) {
+                setAllUsers(data.map(mapProfileToUser));
+            }
+        } catch (err: any) { 
+            console.error('Fetch team failed', err);
+        }
+    };
+
+    // Setup Realtime Subscription for Profiles
+    useEffect(() => {
+        fetchTeamMembers(); // Initial fetch
+
+        const channel = supabase
+            .channel('realtime-profiles')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'profiles' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setAllUsers(prev => {
+                            if (prev.some(u => u.id === payload.new.id)) return prev;
+                            return [...prev, mapProfileToUser(payload.new)];
+                        });
+                        showToast(`มีสมาชิกใหม่สมัครเข้ามา: ${payload.new.full_name || 'Unknown'}`, 'info');
+                    } 
+                    else if (payload.eventType === 'UPDATE') {
+                        setAllUsers(prev => prev.map(u => 
+                            u.id === payload.new.id ? { ...u, ...mapDBToUserUpdates(payload.new) } : u
+                        ));
+                    } 
+                    else if (payload.eventType === 'DELETE') {
+                        setAllUsers(prev => prev.filter(u => u.id !== payload.old.id));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     const approveMember = async (userId: string) => {
         try {
             const { error } = await supabase.from('profiles').update({ is_approved: true }).eq('id', userId);
             if (error) throw error;
             
-            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isApproved: true } : u));
+            
             showToast('อนุมัติสมาชิกเรียบร้อย! 🎉', 'success');
         } catch (err: any) {
             showToast('อนุมัติไม่สำเร็จ: ' + err.message, 'error');
@@ -84,13 +144,16 @@ export const useTeam = () => {
     };
 
     const removeMember = async (userId: string) => {
+        // Fix: Replaced native confirm with showConfirm
         const confirmed = await showConfirm('แน่ใจนะครับว่าจะลบสมาชิกคนนี้?', 'ลบสมาชิกออกจากทีม');
         if(!confirmed) return;
         try {
             const { error } = await supabase.from('profiles').delete().eq('id', userId);
             if (error) throw error;
 
-            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            // Update Local State Immediately
+            setAllUsers(prev => prev.filter(u => u.id !== userId));
+
             showToast('ลบสมาชิกออกจากทีมแล้ว', 'warning');
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
@@ -103,13 +166,16 @@ export const useTeam = () => {
             const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', userId);
             if (error) throw error;
 
-            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: newStatus } : u));
+
             showToast(newStatus ? 'เปิดใช้งาน User แล้ว ✅' : 'พักงาน User ชั่วคราว 💤', 'info');
         } catch (err: any) {
             showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
+    // NEW: Function for Admin to update member info (Expanded)
     const updateMember = async (userId: string, updates: any) => {
         try {
             const payload: any = {};
@@ -128,7 +194,9 @@ export const useTeam = () => {
             const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
             if (error) throw error;
             
-            queryClient.invalidateQueries({ queryKey: ['profiles'] });
+            // Update Local State Immediately
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+
             showToast('อัปเดตข้อมูลสมาชิกสำเร็จ ✨', 'success');
             return true;
         } catch (err: any) {
@@ -137,20 +205,24 @@ export const useTeam = () => {
         }
     };
 
+    // NEW: Function for immediate local stat adjustment (Optimistic UI)
     const adjustStatsLocally = (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => {
-        // Optimistic update using queryClient
-        queryClient.setQueryData(['profiles'], (old: User[] | undefined) => {
-            if (!old) return [];
-            return old.map(u => {
-                if (u.id === userId) {
-                    const newHp = adjustments.hp !== undefined ? Math.min(u.maxHp, Math.max(0, u.hp + adjustments.hp)) : u.hp;
-                    const newXp = adjustments.xp !== undefined ? Math.max(0, u.xp + adjustments.xp) : u.xp;
-                    const newPoints = adjustments.points !== undefined ? Math.max(0, u.availablePoints + adjustments.points) : u.availablePoints;
-                    return { ...u, hp: newHp, xp: newXp, availablePoints: newPoints };
-                }
-                return u;
-            });
-        });
+        setAllUsers(prev => prev.map(u => {
+            if (u.id === userId) {
+                const newHp = adjustments.hp !== undefined ? Math.min(u.maxHp, Math.max(0, u.hp + adjustments.hp)) : u.hp;
+                const newXp = adjustments.xp !== undefined ? Math.max(0, u.xp + adjustments.xp) : u.xp;
+                const newPoints = adjustments.points !== undefined ? Math.max(0, u.availablePoints + adjustments.points) : u.availablePoints;
+                
+                // Note: Level calculation is usually done on server/hook but we can approximate or wait for realtime
+                return {
+                    ...u,
+                    hp: newHp,
+                    xp: newXp,
+                    availablePoints: newPoints
+                };
+            }
+            return u;
+        }));
     };
 
     return {
@@ -161,6 +233,6 @@ export const useTeam = () => {
         toggleUserStatus,
         updateMember,
         adjustStatsLocally,
-        isLoading
+        setAllUsers
     };
 };

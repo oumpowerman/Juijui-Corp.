@@ -54,7 +54,7 @@ const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
                             <item.icon className={`w-5 h-5 ${item.color}`} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[12px] font-kanit text-gray-400 font-medium uppercase tracking-widest mb-0.5">{item.label}</p>
+                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{item.label}</p>
                             <p className="text-xl font-black text-slate-800 tracking-tight">{item.value}</p>
                         </div>
                         <div className={`absolute top-4 right-4 transition-transform duration-300 ${activeDetail === item.key ? 'rotate-180' : ''}`}>

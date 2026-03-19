@@ -176,7 +176,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in">
-            <div className="bg-white/90 backdrop-blur-2xl w-full max-w-4xl rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col md:flex-row max-h-[650px] border border-white/50 animate-modal-pop relative">
+            <div className="bg-white/90 backdrop-blur-2xl w-full max-w-4xl rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col md:flex-row h-[650px] border border-white/50 animate-modal-pop relative">
                 
                 {/* Decorative Glows */}
                 <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
@@ -244,15 +244,15 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                 </div>
 
                 {/* Right: Editor */}
-                <div className="flex-1 bg-white/40 p-6 md:p-10 pt-8 md:pt-10 overflow-y-auto relative scrollbar-thin z-10">
+                <div className="flex-1 bg-white/40 p-6 md:p-10 pt-16 md:pt-20 overflow-y-auto relative scrollbar-thin z-10">
                     <button onClick={onClose} className="absolute top-8 right-8 p-3 text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-md rounded-2xl transition-all duration-300 z-20 active:scale-90">
                         <X className="w-5 h-5" />
                     </button>
 
                     {editingChip ? (
-                        <div className="max-w-md mx-auto flex flex-col animate-fade-in">
-                            <div className="text-center mb-6">
-                                <div className={`w-16 h-16 rounded-[2rem] mx-auto mb-6 flex items-center justify-center shadow-2xl transition-all duration-500 transform hover:rotate-6 ${editingChip.mode === 'EXCLUDE' ? 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-200' : (COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-indigo-500 shadow-indigo-200')} animate-float`}>
+                        <div className="max-w-md mx-auto h-full flex flex-col animate-fade-in pb-12">
+                            <div className="text-center mb-10">
+                                <div className={`w-20 h-20 rounded-[2rem] mx-auto mb-6 flex items-center justify-center shadow-2xl transition-all duration-500 transform hover:rotate-6 ${editingChip.mode === 'EXCLUDE' ? 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-200' : (COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-indigo-500 shadow-indigo-200')} animate-float`}>
                                     {editingChip.mode === 'EXCLUDE' ? <Ban className="w-10 h-10 text-white" /> : <Filter className="w-10 h-10 text-white" />}
                                 </div>
                                 <h3 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -261,7 +261,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                 <div className="h-1 w-12 bg-indigo-500 mx-auto mt-3 rounded-full opacity-50" />
                             </div>
 
-                            <form onSubmit={handleSaveSubmit} className="space-y-5">
+                            <form onSubmit={handleSaveSubmit} className="space-y-8">
                                 {/* Mode Selector */}
                                 <div className="bg-white/60 backdrop-blur-sm p-5 rounded-[2rem] border border-slate-200/50 shadow-sm">
                                     <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-4">1. โหมดการกรอง (Mode)</label>
@@ -374,7 +374,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="pt-4 px-6 pb-6 flex gap-4">
+                                <div className="pt-8 flex gap-4">
                                     <button type="button" onClick={() => setEditingChip(null)} className="flex-1 py-4 text-slate-500 hover:text-slate-700 font-kanit font-bold hover:bg-slate-100 rounded-2xl transition-all duration-300 active:scale-95">ยกเลิก</button>
                                     <button type="submit" className="flex-1 py-4 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 text-white font-kanit font-bold rounded-2xl shadow-lg shadow-purple-300/60 hover:shadow-purple-400/70 hover:-translate-y-1 hover:scale-[1.02] hover:brightness-110 transition-all duration-300 active:scale-95 flex items-center justify-center group">
                                         <Save className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform duration-300 " /> บันทึกการตั้งค่า

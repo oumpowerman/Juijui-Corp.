@@ -89,7 +89,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     // Data Hooks
     const { quests } = useWeeklyQuests();
     const { goals } = useGoals(currentUser);
-    const { handleSaveTask } = useTasks(); 
+    const { handleSaveTask, handleDeleteTask } = useTasks(); 
     const { duties, setDuties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 
     // --- 🧩 Draggable Widgets Logic ---
@@ -262,6 +262,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             currentUser={currentUser} 
                             onOpenTask={onEditTask}
                             onUpdateTask={(t) => handleSaveTask(t, null)} 
+                            onDeleteTask={handleDeleteTask}
                         />
                     </div>
                 );

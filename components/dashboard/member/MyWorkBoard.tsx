@@ -18,11 +18,12 @@ interface MyWorkBoardProps {
     currentUser: User;
     onOpenTask: (task: Task) => void;
     onUpdateTask?: (task: Task) => void;
+    onDeleteTask?: (taskId: string) => void;
 }
 
 type ColumnType = 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 
-const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask }) => {
+const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask, onDeleteTask }) => {
     const { showAlert } = useGlobalDialog();
     const [activeModalColumn, setActiveModalColumn] = useState<ColumnType | null>(null);
     const [isDoneHistoryOpen, setIsDoneHistoryOpen] = useState(false);
@@ -146,6 +147,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                         isDroppable={true}
                         onDropTask={handleDropTask}
                         onOpenTask={onOpenTask}
+                        onDeleteTask={onDeleteTask}
                         onViewAll={() => setActiveModalColumn('TODO')}
                     />
 
@@ -157,6 +159,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                         isDroppable={true}
                         onDropTask={handleDropTask}
                         onOpenTask={onOpenTask}
+                        onDeleteTask={onDeleteTask}
                         onViewAll={() => setActiveModalColumn('DOING')}
                     />
 
@@ -168,6 +171,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                         isDroppable={false}
                         onDropTask={() => {}}
                         onOpenTask={onOpenTask}
+                        onDeleteTask={onDeleteTask}
                         onViewAll={() => setActiveModalColumn('WAITING')}
                     />
 
@@ -179,6 +183,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ tasks, masterOptions, users, 
                         isDroppable={isAdmin}
                         onDropTask={handleDropTask}
                         onOpenTask={onOpenTask}
+                        onDeleteTask={onDeleteTask}
                         onViewAll={() => setIsDoneHistoryOpen(true)}
                     />
                 </div>

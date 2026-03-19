@@ -119,12 +119,6 @@ const LawTuner: React.FC<LawTunerProps> = ({
                 <div className="grid grid-cols-1 gap-4 relative z-10">
                     {masterOptions
                         .filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY')
-                        .reduce((acc: any[], current: any) => {
-                            if (!acc.find(item => item.key === current.key)) {
-                                acc.push(current);
-                            }
-                            return acc;
-                        }, [])
                         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
                         .map((option, index) => {
                             const key = option.key;

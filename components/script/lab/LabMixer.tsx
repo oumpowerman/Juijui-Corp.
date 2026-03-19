@@ -115,8 +115,8 @@ const LabMixer: React.FC<LabMixerProps> = ({
                             <Plus className="w-10 h-10" />
                         </div>
                         <div className="max-w-xs">
-                            <p className="text-md font-medium uppercase tracking-widest mb-2">ยังไม่มีรายการใน Mixer</p>
-                            <p className="text-sm font-thin">เลือกสคริปต์จากคลังด้านซ้าย หรือเพิ่ม Bridge เพื่อเริ่มผสมเนื้อหา</p>
+                            <p className="text-sm font-black uppercase tracking-widest mb-2">ยังไม่มีรายการใน Mixer</p>
+                            <p className="text-xs font-medium">เลือกสคริปต์จากคลังด้านซ้าย หรือเพิ่ม Bridge เพื่อเริ่มผสมเนื้อหา</p>
                         </div>
                     </div>
                 )}

@@ -178,8 +178,6 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
             fetchStats();
         }
 
-        let debounceTimer: NodeJS.Timeout;
-
         // 📡 ดักฟังแบบ Real-time: ทันทีที่มีการเพิ่ม/ลบ Log คะแนน (game_logs)
         const channel = supabase
             .channel('leaderboard-realtime-sync')
@@ -187,17 +185,12 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'game_logs' }, 
                 () => {
-                    // Debounce fetchStats to prevent request storm during rapid log updates
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        fetchStats();
-                    }, 2000); // 2 seconds debounce
+                    fetchStats(); // Re-fetch data on any log change
                 }
             )
             .subscribe();
 
         return () => {
-            clearTimeout(debounceTimer);
             supabase.removeChannel(channel);
         };
     }, [users, timeRange]); // ทำงานใหม่ถ้า User list เปลี่ยน หรือเปลี่ยนโหมดเวลา

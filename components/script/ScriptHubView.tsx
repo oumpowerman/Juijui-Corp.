@@ -35,9 +35,16 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [searchParams, setSearchParams] = useSearchParams(); // NEW
 
     // Hooks
+    const { 
+        scripts, totalCount, isLoading, 
+        fetchScripts, getScriptById,
+        createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI,
+        promoteToContent // NEW
+    } = useScripts(currentUser);
+    
     const { channels } = useChannels();
     const { masterOptions } = useMasterData();
-    const { showConfirm, showAlert } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog(); // USE DIALOG
 
     // UI State
     const [activeScript, setActiveScript] = useState<Script | null>(null);
@@ -45,8 +52,9 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [layoutMode, setLayoutMode] = useState<'GRID' | 'LIST'>('LIST'); 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
-    const [isInfoOpen, setIsInfoOpen] = useState(false);
-    const [mode, setMode] = useState<ScriptHubMode>(initialMode);
+    const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
+    const [refreshStatsKey, setRefreshStatsKey] = useState(0); // NEW: Trigger for stats refresh
+    const [mode, setMode] = useState<ScriptHubMode>(initialMode); // NEW: Mode switcher
 
     // Guard: Prevent LAB mode on mobile
     useEffect(() => {
@@ -74,38 +82,33 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [filterCategory, setFilterCategory] = useState<string>('ALL');
     const [filterTags, setFilterTags] = useState<string[]>([]); // NEW: Multi-tag filter
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC'); // NEW SORT STATE
-
-    // Memoize fetch options for TanStack Query
-    const fetchOptions = useMemo(() => ({
-        page,
-        pageSize,
-        searchQuery,
-        viewTab,
-        filterOwner,
-        filterChannel,
-        filterCategory,
-        filterTags,
-        filterStatus,
-        sortOrder,
-        isDeepSearch,
-        isPersonal: mode === 'STUDIO'
-    }), [page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch, mode]);
-
-    // Hooks
-    const { 
-        scripts, totalCount, isLoading, 
-        getScriptById,
-        createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI,
-        promoteToContent
-    } = useScripts(currentUser, fetchOptions);
+    // const [isDeepSearch, setIsDeepSearch] = useState(false); // REMOVED: Now from URL
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    // Effect: Detect initial layout mode
+    // Effect: Fetch scripts when filters or page change
     useEffect(() => {
+        // Detect initial layout mode based on screen size
         const isMobile = window.innerWidth < 768;
         setLayoutMode(isMobile ? 'GRID' : 'LIST');
     }, []);
+
+    useEffect(() => {
+        fetchScripts({
+            page,
+            pageSize,
+            searchQuery,
+            viewTab,
+            filterOwner,
+            filterChannel,
+            filterCategory,
+            filterTags, // NEW
+            filterStatus,
+            sortOrder, // NEW
+            isDeepSearch, // NEW
+            isPersonal: mode === 'STUDIO' ? true : false // Filter based on mode
+        });
+    }, [page, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch, fetchScripts, mode]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -117,12 +120,20 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const handleCreateSubmit = async (data: any) => {
         const id = await createScript({
             ...data,
-            isPersonal: mode === 'STUDIO'
+            isPersonal: mode === 'STUDIO' // Set isPersonal based on current mode
         });
         if (id) {
+            // Optional: Immediately open the new script
             const fullScript = await getScriptById(id);
             if (fullScript) setActiveScript(fullScript);
         }
+        // Refetch list to show new item
+        fetchScripts({ 
+            page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
+            filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch,
+            isPersonal: mode === 'STUDIO'
+        });
+        setRefreshStatsKey(prev => prev + 1);
     };
 
     const handleOpenScript = async (summary: ScriptSummary) => {
@@ -146,6 +157,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     // --- WRAPPED HANDLERS WITH GLOBAL MODAL ---
     
     const handleToggleQueue = async (id: string, currentStatus: boolean) => {
+        // currentStatus: true = in queue, false = not in queue
         const actionText = currentStatus ? 'นำออกจากคิวถ่ายทำ (เก็บเข้าคลัง)' : 'ย้ายเข้าคิวถ่ายทำ (Active Queue)';
         const confirmed = await showConfirm(
             `คุณต้องการ ${actionText} ใช่หรือไม่?`,
@@ -155,6 +167,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         if (confirmed) {
             const success = await toggleShootQueue(id, currentStatus);
             if (success) {
+                setRefreshStatsKey(prev => prev + 1);
+                // If we were in LIBRARY, move to QUEUE. If in QUEUE, move to LIBRARY.
                 if (viewTab === 'LIBRARY') {
                     setViewTab('QUEUE');
                 } else if (viewTab === 'QUEUE') {
@@ -177,6 +191,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         );
         if (confirmed) {
             await deleteScript(id);
+            setRefreshStatsKey(prev => prev + 1);
         }
     };
 
@@ -188,6 +203,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         if (confirmed) {
             const success = await updateScript(id, { status: 'DONE', isInShootQueue: false });
             if (success) {
+                setRefreshStatsKey(prev => prev + 1);
                 setViewTab('HISTORY');
             }
         }
@@ -201,6 +217,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         if (confirmed) {
             const success = await updateScript(id, { status: 'DRAFT', isInShootQueue: false });
             if (success) {
+                setRefreshStatsKey(prev => prev + 1);
                 setViewTab('LIBRARY');
             }
         }
@@ -208,6 +225,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     
     // --- PROMOTE LOGIC ---
     const handlePromoteClick = useCallback((scriptId: string) => {
+        // Use the latest activeScript from state directly
         if (activeScript) {
             setPromoteScriptData(activeScript);
             setIsPromoteModalOpen(true);
@@ -217,6 +235,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const handlePromoteSubmit = async (contentTask: Task) => {
         if (!promoteScriptData) return;
 
+        // Extract payload from Task object (ContentForm returns a Task object)
+        // We need to strip ID if it's auto-generated in form, but here we want DB to generate
         const payload = {
             title: contentTask.title,
             description: contentTask.description,
@@ -229,6 +249,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
             pillar: contentTask.pillar,
             category: contentTask.category,
             is_unscheduled: contentTask.isUnscheduled,
+            // Add creator as idea owner by default if not set? 
+            // ContentForm already handles this via `ideaOwnerIds`
             idea_owner_ids: contentTask.ideaOwnerIds,
             editor_ids: contentTask.editorIds,
             assignee_ids: contentTask.assigneeIds,
@@ -240,6 +262,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         if (success) {
             setIsPromoteModalOpen(false);
             setPromoteScriptData(null);
+            // Refresh Active Script to show linked content status
             const refreshed = await getScriptById(promoteScriptData.id);
             if (refreshed) setActiveScript(refreshed);
         }
@@ -259,7 +282,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         );
         
         if (confirmed) {
-            await updateScript(id, { isPersonal: !currentStatus });
+            const success = await updateScript(id, { isPersonal: !currentStatus });
+            if (success) {
+                setRefreshStatsKey(prev => prev + 1);
+                fetchScripts({ page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterTags, filterStatus, sortOrder, isPersonal: mode === 'STUDIO' });
+            }
         }
     };
 
@@ -305,6 +332,12 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             initialSearchQuery={isDeepSearch ? searchQuery : undefined}
                             onClose={() => { 
                                 setActiveScript(null); 
+                                fetchScripts({ 
+                                    page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
+                                    filterCategory, filterStatus, sortOrder, isDeepSearch,
+                                    isPersonal: mode === 'STUDIO'
+                                }); 
+                                setRefreshStatsKey(prev => prev + 1);
                             }} 
                             onSave={updateScript} 
                             onGenerateAI={generateScriptWithAI}
@@ -383,6 +416,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                 >
                                     {/* 2. Dashboard Stats Grid */}
                                     <ScriptStatsGrid 
+                                        refreshTrigger={refreshStatsKey}
                                         filterOwner={filterOwner}
                                         filterChannel={filterChannel}
                                         filterCategory={filterCategory}

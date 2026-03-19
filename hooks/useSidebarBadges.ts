@@ -10,7 +10,11 @@ export interface SidebarBadges {
     memberApproval: number;
     myDuty: number;
     attendanceApproval: number;
-    financeTrip: number; // NEW: Finance Trip Badge
+    financeTrip: number;
+    dashboard: number;
+    kpi: number;
+    wiki: number;
+    chat: number;
 }
 
 export const useSidebarBadges = (currentUser: User) => {
@@ -20,7 +24,11 @@ export const useSidebarBadges = (currentUser: User) => {
         memberApproval: 0,
         myDuty: 0,
         attendanceApproval: 0,
-        financeTrip: 0 // Init
+        financeTrip: 0,
+        dashboard: 0,
+        kpi: 0,
+        wiki: 0,
+        chat: 0
     });
 
     const fetchBadges = async () => {
@@ -30,14 +38,16 @@ export const useSidebarBadges = (currentUser: User) => {
 
         try {
             // 1. Quality Gate Logic (Pending Reviews)
-            let qgQuery = supabase.from('task_reviews').select('id, task:tasks!inner(assignee_ids, idea_owner_ids, editor_ids)', { count: 'exact', head: false }).eq('status', 'PENDING');
+            let qgQuery = supabase.from('task_reviews')
+                .select('id, task:tasks!inner(assignee_ids, idea_owner_ids, editor_ids)', { count: 'exact', head: false })
+                .eq('status', 'PENDING');
             
-            const { data: qgData } = await qgQuery;
+            const { data: qgData, count: qgTotalCount } = await qgQuery;
             let qgCount = 0;
             
             if (qgData) {
                 if (isAdmin) {
-                    qgCount = qgData.length;
+                    qgCount = qgTotalCount || 0;
                 } else {
                     qgCount = qgData.filter((r: any) => {
                          const t = r.task;
@@ -86,8 +96,7 @@ export const useSidebarBadges = (currentUser: User) => {
                 leaveCount = count || 0;
             }
 
-            // 6. Finance Trip Detection (NEW)
-            // Logic: Count groupings of unlinked contents
+            // 6. Finance Trip Detection
             let tripCount = 0;
             if (isAdmin) {
                 const { data: unlinkedData } = await supabase
@@ -110,13 +119,52 @@ export const useSidebarBadges = (currentUser: User) => {
                 }
             }
 
+            // 7. Dashboard Overdue Tasks
+            const { count: overdueCount } = await supabase
+                .from('tasks')
+                .select('id', { count: 'exact', head: true })
+                .contains('assignee_ids', [currentUser.id])
+                .lt('end_date', todayStr)
+                .not('status', 'eq', 'COMPLETED');
+
+            // 8. KPI Approval
+            let kpiCount = 0;
+            if (isAdmin) {
+                const monthKey = format(new Date(), 'yyyy-MM');
+                const { count } = await supabase
+                    .from('kpi_records')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('month_key', monthKey)
+                    .eq('status', 'PENDING');
+                kpiCount = count || 0;
+            }
+
+            // 9. Wiki Updates
+            const threshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+            const { count: wikiCount } = await supabase
+                .from('wiki_articles')
+                .select('id', { count: 'exact', head: true })
+                .gt('updated_at', threshold);
+
+            // 10. Chat Unread
+            const lastRead = currentUser.lastReadChatAt || new Date(0);
+            const { count: chatCount } = await supabase
+                .from('team_messages')
+                .select('*', { count: 'exact', head: true })
+                .gt('created_at', lastRead.toISOString())
+                .neq('user_id', currentUser.id);
+
             setBadges({
                 qualityGate: qgCount,
                 feedback: fbCount,
                 memberApproval: maCount,
                 myDuty: dutyCount || 0,
                 attendanceApproval: leaveCount,
-                financeTrip: tripCount
+                financeTrip: tripCount,
+                dashboard: overdueCount || 0,
+                kpi: kpiCount,
+                wiki: wikiCount || 0,
+                chat: chatCount || 0
             });
 
         } catch (err) {
@@ -134,8 +182,12 @@ export const useSidebarBadges = (currentUser: User) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchBadges)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, fetchBadges)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, fetchBadges) // Listen to content changes for Trip Badge
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, fetchBadges) // Listen to trips
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_records' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wiki_articles' }, fetchBadges)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'team_messages' }, fetchBadges)
             .subscribe();
 
         return () => {

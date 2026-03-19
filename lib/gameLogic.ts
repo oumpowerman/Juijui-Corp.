@@ -52,7 +52,10 @@ export const DEFAULT_GAME_CONFIG = {
         LEAVE: { xp: 0, hp: 0, coins: 0 },
         EARLY_LEAVE: { xp: 0, hp: 0, coins: 0 },
         WFH: { xp: 10, hp: 0, coins: 0 },
-        SITE: { xp: 20, hp: 0, coins: 10 }
+        SITE: { xp: 20, hp: 0, coins: 10 },
+        FORGOT_CHECKOUT: { xp: 0, hp: -10, coins: 0 },
+        CORRECTION_REFUND: { xp: 0, hp: 5, coins: 0 },
+        ABSENT_REFUND: { xp: 0, hp: 15, coins: 0 } // Partial refund for absence correction (15/20)
     },
 
     // KPI Rewards (New Section)
@@ -304,6 +307,40 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                  message: `หายตัวไปเลย (No Show)${dateStr}`,
                  details: 'CRITICAL PENALTY'
              };
+        }
+
+        case 'ATTENDANCE_FORGOT_CHECKOUT': {
+            const rule = attendanceRules.FORGOT_CHECKOUT || { xp: 0, hp: -10, coins: 0 };
+            const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: `ลืมตอกบัตรออกข้ามวัน!${dateStr}`,
+                details: `${rule.hp} HP`
+            };
+        }
+
+        case 'ATTENDANCE_CORRECTION_REFUND': {
+            const rule = attendanceRules.CORRECTION_REFUND || { xp: 0, hp: 5, coins: 0 };
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: context.originalDescription || `คืนค่า HP จากการแก้เวลาออกงาน`,
+                details: `+${rule.hp} HP`
+            };
+        }
+
+        case 'ATTENDANCE_ABSENT_REFUND': {
+            const rule = attendanceRules.ABSENT_REFUND || { xp: 0, hp: 15, coins: 0 };
+            return {
+                xp: rule.xp,
+                hp: rule.hp,
+                coins: rule.coins,
+                message: context.originalDescription || `คืนค่า HP จากการแก้สถานะขาดงาน`,
+                details: `+${rule.hp} HP`
+            };
         }
         
         case 'ATTENDANCE_EARLY_LEAVE': {

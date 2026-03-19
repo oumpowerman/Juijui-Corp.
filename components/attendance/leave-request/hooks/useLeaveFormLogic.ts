@@ -24,6 +24,7 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
     const [endTime, setEndTime] = useState('18:00'); // New state for FORGOT_BOTH
     const [otHours, setOtHours] = useState(2);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isReviewing, setIsReviewing] = useState(false);
 
     const initialDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : '';
 
@@ -33,6 +34,7 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         setEndDate(d);
         setReason(initialReason || '');
         setFile(null);
+        setIsReviewing(false);
         
         // Set sensible defaults based on type
         if (selectedType === 'FORGOT_CHECKOUT') {
@@ -49,14 +51,17 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         setOtHours(2);
     }, [initialDateStr, initialReason, selectedType]);
 
-    const handleSubmit = async (selectedType: string) => {
-        if (!selectedType) return;
-        
+    const handleReview = () => {
         if (!reason.trim()) {
             showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
+        setIsReviewing(true);
+    };
 
+    const handleSubmit = async (selectedType: string) => {
+        if (!selectedType) return;
+        
         setIsSubmitting(true);
 
         let finalFile = file;
@@ -112,6 +117,9 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
         endTime, setEndTime,
         otHours, setOtHours,
         isSubmitting,
+        isReviewing,
+        setIsReviewing,
+        handleReview,
         handleSubmit
     };
 };

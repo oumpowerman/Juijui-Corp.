@@ -28,17 +28,6 @@ interface AssetRegistryViewProps {
 const ITEMS_PER_PAGE = 20;
 
 const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOptions }) => {
-    // Core Hook
-    const { 
-        assets, totalCount, stats, 
-        saveAsset, deleteAsset, cloneAsset, importAssets, fetchAssets, updateStock, 
-        batchGroupAssets, batchUngroupAssets,
-        isLoading, allTags 
-    } = useAssets();
-    
-    const { showConfirm } = useGlobalDialog();
-    const { isReady: isDriveReady, uploadFileToDrive } = useGoogleDriveContext();
-
     // --- Local State ---
     const [activeTab, setActiveTab] = useState<InventoryType>('FIXED');
     const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +38,27 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
     const [filterCategory, setFilterCategory] = useState<string | 'ALL'>('ALL');
     const [filterTag, setFilterTag] = useState('');
     const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
+
+    // Core Hook - Now reactive to state changes
+    const { 
+        assets, totalCount, stats, 
+        saveAsset, deleteAsset, cloneAsset, importAssets, fetchAssets, updateStock, 
+        batchGroupAssets, batchUngroupAssets,
+        isLoading, allTags 
+    } = useAssets({
+        page: currentPage,
+        pageSize: ITEMS_PER_PAGE,
+        search,
+        group: filterGroup,
+        categoryId: filterCategory,
+        showIncomplete: showIncompleteOnly,
+        tag: filterTag || undefined,
+        itemType: activeTab
+    });
     
+    const { showConfirm } = useGlobalDialog();
+    const { isReady: isDriveReady, uploadFileToDrive } = useGoogleDriveContext();
+
     // View
     const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('LIST');
     const [expandedStack, setExpandedStack] = useState<string | null>(null);
@@ -60,19 +69,10 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
     const [editingAsset, setEditingAsset] = useState<any>(null);
     const [cloningAsset, setCloningAsset] = useState<InventoryItem | null>(null);
 
-    // --- Data Fetching Wrapper (Instant UI Refresh) ---
+    // --- Data Fetching Wrapper (Now just a refetch trigger if needed) ---
     const refreshList = useCallback(() => {
-        fetchAssets({
-            page: currentPage,
-            pageSize: ITEMS_PER_PAGE,
-            search,
-            group: filterGroup,
-            categoryId: filterCategory,
-            showIncomplete: showIncompleteOnly,
-            tag: filterTag || undefined,
-            itemType: activeTab
-        });
-    }, [currentPage, search, filterGroup, filterCategory, showIncompleteOnly, filterTag, activeTab, fetchAssets]);
+        fetchAssets();
+    }, [fetchAssets]);
 
     // --- Custom Hooks (Logic Extraction) ---
     // 1. Grouping & Stacking Logic
@@ -91,23 +91,15 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
     } = useAssetSelection({ 
         batchGroupAssets: async (ids, label) => {
             const success = await batchGroupAssets(ids, label);
-            if (success) refreshList();
             return success;
         }, 
         batchUngroupAssets: async (ids) => {
             const success = await batchUngroupAssets(ids);
-            if (success) refreshList();
             return success;
         }
     });
 
-    // Initial Fetch & Filter Changes
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            refreshList();
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [refreshList]);
+    // Initial Fetch & Filter Changes - REMOVED manual useEffect as useAssets is now reactive
 
     // Handlers
     const handleTabChange = (type: InventoryType) => {

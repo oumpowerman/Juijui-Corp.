@@ -8,9 +8,11 @@ import { useMasterData } from '../../../hooks/useMasterData';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { format } from 'date-fns';
+import { Info } from 'lucide-react';
 import StatusCard from '../widget/StatusCard';
 import CheckInModal from '../CheckInModal';
 import LiveClock from '../widget/LiveClock';
+import AttendanceRulesModal from '../AttendanceRulesModal';
 
 interface AttendanceControlProps {
     user: User;
@@ -20,13 +22,14 @@ interface AttendanceControlProps {
 }
 
 const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActiveLeave, onLeaveSubmit, onOpenLeave }) => {
-    const { todayLog, outdatedLog, isLoading, refresh } = useAttendanceStatus(user.id);
+    const { todayLog, outdatedLogs, isLoading, refresh } = useAttendanceStatus(user.id);
     const { checkIn, checkOut } = useAttendanceActions(user.id);
     const { masterOptions } = useMasterData();
     const { uploadFileToDrive, isReady: isDriveReady, isAuthenticated: isDriveAuthenticated, login: connectDrive, retry: retryDrive } = useGoogleDrive();
     const { showAlert, showConfirm } = useGlobalDialog();
 
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+    const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
     const availableLocations = useMemo(() => {
         const locs = masterOptions.filter(o => o.type === 'WORK_LOCATION');
@@ -89,13 +92,13 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     return (
         <div className="bg-white rounded-3xl shadow-lg border border-indigo-50 p-6 relative overflow-hidden">
             <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none ${todayLog ? 'bg-green-400' : 'bg-orange-400'}`}></div>
-            
-            <LiveClock />
+
+            <LiveClock onOpenRules={() => setIsRulesModalOpen(true)} />
 
             <StatusCard 
                 user={user}
                 todayLog={todayLog}
-                outdatedLog={outdatedLog}
+                outdatedLogs={outdatedLogs}
                 stats={{ totalDays: 0, lateDays: 0, onTimeDays: 0, absentDays: 0, totalHours: 0, currentStreak: 0 }} // Stats handled separately
                 todayActiveLeave={todayActiveLeave}
                 onCheckOut={handleCheckOut}
@@ -123,6 +126,11 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
                 hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
                 isDriveConnected={isDriveAuthenticated}
+            />
+
+            <AttendanceRulesModal 
+                isOpen={isRulesModalOpen} 
+                onClose={() => setIsRulesModalOpen(false)} 
             />
         </div>
     );

@@ -9,11 +9,12 @@ interface LawTunerProps {
     setLocalConfig: (config: any) => void;
     setIsDirty: (dirty: boolean) => void;
     getAttendanceLabel: (key: string) => string;
-    getAttendanceColor: (key: string) => string; // Added prop for color
+    getAttendanceColor: (key: string) => string;
+    masterOptions: any[];
 }
 
 const LawTuner: React.FC<LawTunerProps> = ({ 
-    localConfig, handleChange, setLocalConfig, setIsDirty, getAttendanceLabel, getAttendanceColor 
+    localConfig, handleChange, setLocalConfig, setIsDirty, getAttendanceLabel, getAttendanceColor, masterOptions 
 }) => {
 
     const handleRuleChange = (key: string, field: 'xp' | 'hp' | 'coins', val: number) => {
@@ -116,30 +117,41 @@ const LawTuner: React.FC<LawTunerProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4 relative z-10">
-                    {Object.entries(localConfig.ATTENDANCE_RULES || {}).map(([key, rule]: [string, any], index) => {
-                        const label = getAttendanceLabel(key);
-                        const colorClass = getAttendanceColor(key); // Get color from props
-                        
-                        return (
-                            <motion.div
-                                key={key}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="relative pl-4"
-                            >
-                                {/* Color Indicator Bar */}
-                                <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${colorClass.replace('bg-', 'bg-').replace('text-', 'bg-').split(' ')[0] || 'bg-slate-300'}`}></div>
-                                
-                                <RuleEditor 
-                                    label={label}
-                                    ruleKey={key}
-                                    rule={rule}
-                                    onChange={handleRuleChange}
-                                />
-                            </motion.div>
-                        );
-                    })}
+                    {masterOptions
+                        .filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY')
+                        .reduce((acc: any[], current: any) => {
+                            if (!acc.find(item => item.key === current.key)) {
+                                acc.push(current);
+                            }
+                            return acc;
+                        }, [])
+                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                        .map((option, index) => {
+                            const key = option.key;
+                            const label = option.label;
+                            const colorClass = option.color || 'bg-slate-500';
+                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
+                            
+                            return (
+                                <motion.div
+                                    key={key}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="relative pl-4"
+                                >
+                                    {/* Color Indicator Bar */}
+                                    <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${colorClass.replace('bg-', 'bg-').replace('text-', 'bg-').split(' ')[0] || 'bg-slate-300'}`}></div>
+                                    
+                                    <RuleEditor 
+                                        label={label}
+                                        ruleKey={key}
+                                        rule={rule}
+                                        onChange={handleRuleChange}
+                                    />
+                                </motion.div>
+                            );
+                        })}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-6 text-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     * <b>Tip:</b> การตั้งค่า HP ติดลบจะถือเป็นบทลงโทษ (Penalty) ส่วน XP ที่เป็นบวกจะถือเป็นรางวัล (Reward) <br/>

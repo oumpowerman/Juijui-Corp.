@@ -39,6 +39,7 @@ export interface AttendanceStats {
     absentDays: number;
     totalHours: number;
     currentStreak: number; // NEW: Track consecutive on-time days
+    monthlyLogs?: AttendanceLog[]; // NEW: For detailed view
 }
 
 // --- NEW: Leave Request Types (Updated) ---

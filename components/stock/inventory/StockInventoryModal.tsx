@@ -29,7 +29,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
         try {
             const { data, error } = await supabase
                 .from('contents')
-                .select('*')
+                .select('id, title, pillar, category, status, content_format, created_at')
                 .eq('is_unscheduled', true);
 
             if (error) throw error;

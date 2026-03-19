@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Duty, DutyConfig, DutySwap, AnnualHoliday } from '../../types';
 import { format, subMonths, addMonths } from 'date-fns';
 
-export const useDutyData = () => {
+export const useDutyData = (currentUser?: any) => {
     const [duties, setDuties] = useState<Duty[]>([]);
     const [configs, setConfigs] = useState<DutyConfig[]>([]);
     const [swapRequests, setSwapRequests] = useState<DutySwap[]>([]);
@@ -15,8 +15,8 @@ export const useDutyData = () => {
     const fetchCalendarMetadata = useCallback(async () => {
         try {
             const [hRes, eRes] = await Promise.all([
-                supabase.from('annual_holidays').select('*').eq('is_active', true),
-                supabase.from('calendar_exceptions').select('*')
+                supabase.from('annual_holidays').select('id, name, day, month, type_key, is_active').eq('is_active', true),
+                supabase.from('calendar_exceptions').select('id, date, description, type')
             ]);
             if (hRes.data) setAnnualHolidays(hRes.data.map((h: any) => ({
                 id: h.id, name: h.name, day: h.day, month: h.month, typeKey: h.type_key, isActive: h.is_active
@@ -27,15 +27,16 @@ export const useDutyData = () => {
         }
     }, []);
 
-    const fetchDuties = useCallback(async () => {
+    const fetchDuties = useCallback(async (currentUser?: any) => {
         try {
-            // Fetch only relevant duties (2 months ago to 6 months ahead) to prevent scalability issues
-            const startDate = format(subMonths(new Date(), 2), 'yyyy-MM-dd');
-            const endDate = format(addMonths(new Date(), 6), 'yyyy-MM-dd');
+            const isAdmin = currentUser?.role === 'ADMIN';
+            // Fetch only relevant duties (1 month ago to 3 months ahead for members, 2/6 for admins)
+            const startDate = format(subMonths(new Date(), isAdmin ? 2 : 1), 'yyyy-MM-dd');
+            const endDate = format(addMonths(new Date(), isAdmin ? 6 : 3), 'yyyy-MM-dd');
 
             const { data, error } = await supabase
                 .from('duties')
-                .select('*')
+                .select('id, title, assignee_id, date, is_done, proof_image_url, is_penalized, penalty_status, appeal_reason, appeal_proof_url, abandoned_at, cleared_by_system')
                 .gte('date', startDate)
                 .lte('date', endDate)
                 .order('date', { ascending: true });
@@ -68,7 +69,7 @@ export const useDutyData = () => {
         try {
             const { data, error } = await supabase
                 .from('duty_configs')
-                .select('*')
+                .select('day_of_week, required_people, task_titles')
                 .order('day_of_week', { ascending: true });
 
             if (error) throw error;
@@ -89,7 +90,7 @@ export const useDutyData = () => {
             const { data, error } = await supabase
                 .from('duty_swaps')
                 .select(`
-                    *,
+                    id, requestor_id, target_duty_id, own_duty_id, status, created_at,
                     requestor:profiles!duty_swaps_requestor_id_fkey(full_name, avatar_url),
                     target_duty:duties!duty_swaps_target_duty_id_fkey(title, date, assignee_id),
                     own_duty:duties!duty_swaps_own_duty_id_fkey(title, date, assignee_id)
@@ -118,7 +119,7 @@ export const useDutyData = () => {
     }, []);
 
     useEffect(() => {
-        fetchDuties();
+        fetchDuties(currentUser);
         fetchConfigs();
         fetchSwapRequests();
         fetchCalendarMetadata();
@@ -179,6 +180,13 @@ export const useDutyData = () => {
         };
     }, [fetchDuties, fetchConfigs, fetchSwapRequests, fetchCalendarMetadata]);
 
+    const refreshData = useCallback(() => {
+        fetchDuties(currentUser);
+        fetchConfigs();
+        fetchSwapRequests();
+        fetchCalendarMetadata();
+    }, [fetchDuties, fetchConfigs, fetchSwapRequests, fetchCalendarMetadata, currentUser]);
+
     return {
         duties,
         setDuties,
@@ -188,11 +196,6 @@ export const useDutyData = () => {
         isLoading,
         annualHolidays,
         calendarExceptions,
-        refreshData: () => {
-            fetchDuties();
-            fetchConfigs();
-            fetchSwapRequests();
-            fetchCalendarMetadata();
-        }
+        refreshData
     };
 };

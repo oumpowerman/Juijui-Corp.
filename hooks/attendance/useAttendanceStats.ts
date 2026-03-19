@@ -26,7 +26,7 @@ export const useAttendanceStats = (userId: string) => {
 
             const { data, error } = await supabase
                 .from('attendance_logs')
-                .select('date, check_in_time, check_out_time, status') 
+                .select('id, user_id, date, check_in_time, check_out_time, status, work_type, note') 
                 .eq('user_id', userId)
                 .gte('date', start)
                 .lte('date', end);
@@ -111,7 +111,17 @@ export const useAttendanceStats = (userId: string) => {
                 onTimeDays: onTimeCount,
                 absentDays: 0, 
                 totalHours: Math.round(totalHours),
-                currentStreak
+                currentStreak,
+                monthlyLogs: data?.map((log: any) => ({
+                    id: log.id,
+                    userId: log.user_id,
+                    date: log.date,
+                    checkInTime: log.check_in_time ? new Date(log.check_in_time) : null,
+                    checkOutTime: log.check_out_time ? new Date(log.check_out_time) : null,
+                    workType: log.work_type as any,
+                    status: log.status as any,
+                    note: log.note
+                })) || []
             });
         } catch (err) {
             console.error("Fetch stats failed", err);

@@ -24,7 +24,10 @@ export const useKPI = () => {
 
     // 1. Fetch Config
     const fetchConfig = async () => {
-        const { data } = await supabase.from('kpi_configs').select('*').eq('is_active', true).single();
+        const { data } = await supabase.from('kpi_configs')
+            .select('id, role_target, weight_okr, weight_behavior, weight_attendance, penalty_late_per_time, penalty_absent_per_day, penalty_missed_duty_per_time, is_active')
+            .eq('is_active', true)
+            .single();
         if (data) {
             setConfig({
                 id: data.id,
@@ -48,7 +51,7 @@ export const useKPI = () => {
             // Fetch Criteria
             const { data: criteriaData } = await supabase
                 .from('master_options')
-                .select('*')
+                .select('id, type, key, label, color, sort_order, is_active')
                 .eq('type', 'KPI_CRITERIA')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
@@ -60,7 +63,8 @@ export const useKPI = () => {
             }
 
             // Fetch Records
-            const { data: recordData } = await supabase.from('kpi_records').select('*');
+            const { data: recordData } = await supabase.from('kpi_records')
+                .select('id, user_id, evaluator_id, month_key, scores, self_scores, manager_feedback, feedback, self_feedback, development_plan, status, total_score, max_score, updated_at, stats_snapshot, final_score_breakdown');
             if (recordData) {
                 setKpiRecords(recordData.map((r: any) => ({
                     id: r.id,
@@ -83,7 +87,8 @@ export const useKPI = () => {
             }
 
             // Fetch Goals
-            const { data: goalData } = await supabase.from('individual_goals').select('*');
+            const { data: goalData } = await supabase.from('individual_goals')
+                .select('id, user_id, month_key, title, target_value, actual_value, unit');
             if (goalData) {
                 setGoals(goalData.map((g: any) => ({
                     id: g.id, userId: g.user_id, monthKey: g.month_key, title: g.title, targetValue: g.target_value, actualValue: g.actual_value, unit: g.unit
@@ -91,7 +96,9 @@ export const useKPI = () => {
             }
 
             // Fetch IDP Items
-            const { data: idpData } = await supabase.from('idp_items').select('*').order('created_at', { ascending: true });
+            const { data: idpData } = await supabase.from('idp_items')
+                .select('id, user_id, month_key, topic, action_plan, status, created_at')
+                .order('created_at', { ascending: true });
             if (idpData) {
                 setIdpItems(idpData.map((i: any) => ({
                     id: i.id, userId: i.user_id, monthKey: i.month_key, topic: i.topic, actionPlan: i.action_plan, status: i.status
@@ -99,7 +106,8 @@ export const useKPI = () => {
             }
 
             // Fetch Peer Reviews (New)
-            const { data: reviewData } = await supabase.from('kpi_peer_reviews').select('*, from_user:profiles!kpi_peer_reviews_from_user_id_fkey(full_name, avatar_url)');
+            const { data: reviewData } = await supabase.from('kpi_peer_reviews')
+                .select('id, from_user_id, to_user_id, month_key, message, badge, created_at, from_user:profiles!kpi_peer_reviews_from_user_id_fkey(full_name, avatar_url)');
             if (reviewData) {
                 setPeerReviews(reviewData.map((r: any) => ({
                     id: r.id,
@@ -127,7 +135,7 @@ export const useKPI = () => {
         
         // 1. Attendance: Late & Absent
         const { data: attLogs } = await supabase.from('attendance_logs')
-            .select('*')
+            .select('status, work_type, check_in_time')
             .eq('user_id', userId)
             .gte('date', start).lte('date', end);
         
@@ -144,7 +152,7 @@ export const useKPI = () => {
 
         // 2. Duties: Assigned & Missed
         const { data: duties } = await supabase.from('duties')
-            .select('*')
+            .select('id, penalty_status')
             .eq('assignee_id', userId)
             .gte('date', start).lte('date', end);
 

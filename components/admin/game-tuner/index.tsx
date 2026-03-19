@@ -46,13 +46,13 @@ const GameConfigTuner = () => {
 
     // Helper to get label from Master Data
     const getAttendanceLabel = (key: string) => {
-        const option = masterOptions.find(o => o.key === key && (o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE'));
+        const option = masterOptions.find(o => o.key === key && (o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY'));
         return option ? option.label : key;
     };
 
     // Helper to get color from Master Data
     const getAttendanceColor = (key: string) => {
-        const option = masterOptions.find(o => o.key === key && (o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE'));
+        const option = masterOptions.find(o => o.key === key && (o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY'));
         return option ? option.color || 'bg-slate-500' : 'bg-slate-500';
     };
 
@@ -190,7 +190,7 @@ const GameConfigTuner = () => {
                     >
                         {activeTab === 'ECONOMY' && <EconomyTuner localConfig={localConfig} handleChange={handleChange} />}
                         {activeTab === 'QUESTS' && <QuestsTuner localConfig={localConfig} handleChange={handleChange} setLocalConfig={setLocalConfig} setIsDirty={setIsDirty} />}
-                        {activeTab === 'LAW' && <LawTuner localConfig={localConfig} handleChange={handleChange} setLocalConfig={setLocalConfig} setIsDirty={setIsDirty} getAttendanceLabel={getAttendanceLabel} getAttendanceColor={getAttendanceColor} />}
+                        {activeTab === 'LAW' && <LawTuner localConfig={localConfig} handleChange={handleChange} setLocalConfig={setLocalConfig} setIsDirty={setIsDirty} getAttendanceLabel={getAttendanceLabel} getAttendanceColor={getAttendanceColor} masterOptions={masterOptions} />}
                         {activeTab === 'SHOP' && <ShopTuner localConfig={localConfig} handleChange={handleChange} />}
                     </motion.div>
                 </AnimatePresence>

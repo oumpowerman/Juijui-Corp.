@@ -7,7 +7,7 @@ import { mapAttendanceLog } from './shared';
 
 export const useAttendanceStatus = (userId: string) => {
     const [todayLog, setTodayLog] = useState<AttendanceLog | null>(null);
-    const [outdatedLog, setOutdatedLog] = useState<AttendanceLog | null>(null);
+    const [outdatedLogs, setOutdatedLogs] = useState<AttendanceLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -16,23 +16,23 @@ export const useAttendanceStatus = (userId: string) => {
         setIsLoading(true);
         try {
             // A. Get LATEST Active Session (Could be today or past)
-            const { data: activeLog } = await supabase
+            const { data: activeLogs } = await supabase
                 .from('attendance_logs')
                 .select('*')
                 .eq('user_id', userId)
                 .in('status', ['WORKING', 'PENDING_VERIFY'])
                 .is('check_out_time', null)
-                .order('date', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+                .order('date', { ascending: false });
 
-            if (activeLog) {
-                const mapped = mapAttendanceLog(activeLog);
-                if (mapped.date === todayDateStr) {
-                    setTodayLog(mapped);
-                    setOutdatedLog(null);
-                } else {
-                    setOutdatedLog(mapped);
+            if (activeLogs && activeLogs.length > 0) {
+                const mappedLogs = activeLogs.map(mapAttendanceLog);
+                const todayActive = mappedLogs.find(l => l.date === todayDateStr);
+                const pastActive = mappedLogs.filter(l => l.date !== todayDateStr);
+
+                setTodayLog(todayActive || null);
+                setOutdatedLogs(pastActive);
+
+                if (!todayActive) {
                     const { data: todayRecord } = await supabase
                         .from('attendance_logs')
                         .select('*')
@@ -49,7 +49,7 @@ export const useAttendanceStatus = (userId: string) => {
                     .eq('date', todayDateStr)
                     .maybeSingle();
                 setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
-                setOutdatedLog(null);
+                setOutdatedLogs([]);
             }
         } catch (err) {
             console.error("Error fetching attendance status:", err);
@@ -77,5 +77,5 @@ export const useAttendanceStatus = (userId: string) => {
         };
     }, [userId, fetchStatus]);
 
-    return { todayLog, outdatedLog, isLoading, refresh: fetchStatus };
+    return { todayLog, outdatedLogs, isLoading, refresh: fetchStatus };
 };

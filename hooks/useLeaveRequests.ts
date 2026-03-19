@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
 import { useGamification } from './useGamification';
 import { useGoogleDrive } from './useGoogleDrive';
+import { getWorkingDaysDifference } from '../lib/attendanceUtils';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -20,7 +21,8 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             let query = supabase
                 .from('leave_requests')
                 .select(`
-                    *,
+                    id, user_id, type, start_date, end_date, reason, attachment_url, 
+                    status, approver_id, created_at, rejection_reason,
                     profiles:profiles!leave_requests_user_id_fkey (id, full_name, avatar_url, position)
                 `)
                 .order('created_at', { ascending: false });
@@ -105,6 +107,17 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         if (!currentUser) return false;
         try {
             const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+            // --- NEW: 3-Day Rule for Corrections ---
+            const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
+            if (CORRECTION_TYPES.includes(type)) {
+                const workingDaysDiff = getWorkingDaysDifference(startDate, new Date());
+                if (workingDaysDiff > 3) {
+                    showToast('เกินกำหนด 3 วันทำการ ไม่สามารถส่งคำขอย้อนหลังได้ครับ', 'error');
+                    return false;
+                }
+            }
+
             // Check for pending/approved request of same type on same day
             const { data: existingRequest } = await supabase
                 .from('leave_requests')
@@ -257,7 +270,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                      // Check if log exists first
                      const { data: existingLog } = await supabase
                         .from('attendance_logs')
-                        .select('*')
+                        .select('id, user_id, date, status, note')
                         .eq('user_id', request.userId)
                         .eq('date', shiftDateStr)
                         .maybeSingle();
@@ -273,6 +286,10 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                             .eq('id', existingLog.id);
                      } else if (request.type === 'FORGOT_BOTH') {
                         const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
+                        
+                        // Keep track of original status for audit
+                        const originalStatusNote = existingLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
+
                         const payload = {
                             user_id: request.userId,
                             date: shiftDateStr,
@@ -280,24 +297,38 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                             check_out_time: checkOutDateTime.toISOString(),
                             work_type: 'OFFICE', 
                             status: 'COMPLETED',   
-                            note: `[APPROVED FORGOT_BOTH] ${request.reason}`
+                            note: `${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`
                         };
                         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                      } else {
                         // For Forgot Check-in or Late Entry without log: Create/Upsert
+                        const originalStatusNote = existingLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
                         const payload = {
                             user_id: request.userId,
                             date: shiftDateStr,
                             check_in_time: checkInDateTime.toISOString(),
                             work_type: 'OFFICE', 
                             status: 'WORKING',   
-                            note: `[APPROVED ${request.type}] ${request.reason}`
+                            note: `${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`
                         };
                         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                      }
                      
                      if (request.type !== 'FORGOT_BOTH') {
                         await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+                     }
+
+                     // --- NEW: HP Refund Logic ---
+                     // If the original log was ABSENT, we assume useAutoJudge penalized them.
+                     // We refund the HP because the admin approved the correction.
+                     if (existingLog?.status === 'ABSENT') {
+                         await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                             originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
+                         });
+                     } else if (existingLog?.note?.includes('[SYSTEM] Penalized')) {
+                         await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                             originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                         });
                      }
 
                      await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
@@ -318,7 +349,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                      checkOutDateTime.setHours(hours, minutes, 0, 0);
                      if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
 
-                     const { data: log } = await supabase.from('attendance_logs').select('id, note').eq('user_id', request.userId).eq('date', shiftDateStr).maybeSingle();
+                     const { data: log } = await supabase.from('attendance_logs').select('id, note, status').eq('user_id', request.userId).eq('date', shiftDateStr).maybeSingle();
                      
                      if (log) {
                         await supabase.from('attendance_logs').update({
@@ -330,6 +361,17 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                             time: timeStr,
                             date: shiftDateStr
                         });
+
+                        // --- NEW: HP Refund Logic for FORGOT_CHECKOUT ---
+                        if (log.status === 'ABSENT') {
+                            await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                                originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                            });
+                        } else if (log.note?.includes('[SYSTEM] Penalized')) {
+                            await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                                originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                            });
+                        }
                      } else {
                          // Fallback: Create a full log if missing
                          const defaultStart = new Date(request.startDate);
@@ -386,7 +428,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));
 
         try {
-            const { data: req } = await supabase.from('leave_requests').select('*').eq('id', id).single();
+            const { data: req } = await supabase.from('leave_requests').select('id, type, user_id, start_date, end_date').eq('id', id).single();
             await supabase.from('leave_requests').update({ 
                     status: 'REJECTED', 
                     approver_id: currentUser.id,

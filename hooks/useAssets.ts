@@ -1,8 +1,9 @@
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { InventoryItem, AssetCondition, AssetGroup, InventoryType } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface FetchParams {
     page: number;
@@ -10,25 +11,19 @@ interface FetchParams {
     search: string;
     group: AssetGroup | 'ALL';
     categoryId?: string | 'ALL';
-    tag?: string; // New filter
+    tag?: string;
     showIncomplete?: boolean;
-    itemType?: InventoryType; // New filter
+    itemType?: InventoryType;
 }
 
-export const useAssets = () => {
-    const [assets, setAssets] = useState<InventoryItem[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
-    const [globalStats, setGlobalStats] = useState({ totalValue: 0, count: 0, damaged: 0, lost: 0, warrantyAlert: 0 });
-    
-    // New: Store all unique tags for suggestions
-    const [allTags, setAllTags] = useState<string[]>([]);
-    
+export const useAssets = (params?: FetchParams) => {
+    const queryClient = useQueryClient();
     const { showToast } = useToast();
 
-    // 1. Fetch Global Stats (Separate from paginated list)
-    const fetchStats = useCallback(async () => {
-        try {
+    // 1. Fetch Global Stats
+    const { data: globalStats = { totalValue: 0, count: 0, damaged: 0, lost: 0, warrantyAlert: 0, allTags: [] as string[] } } = useQuery({
+        queryKey: ['inventory_stats'],
+        queryFn: async () => {
             const { data, error } = await supabase
                 .from('inventory_items')
                 .select('purchase_price, condition, warranty_expire, tags, item_type');
@@ -36,9 +31,7 @@ export const useAssets = () => {
             if (error) throw error;
 
             if (data) {
-                // Filter only FIXED assets for value calculation typically, but keep robust
                 const fixedAssets = data.filter(a => a.item_type !== 'CONSUMABLE');
-                
                 const totalValue = fixedAssets.reduce((sum, a) => sum + (Number(a.purchase_price) || 0), 0);
                 const count = fixedAssets.length;
                 const damaged = fixedAssets.filter(a => a.condition === 'DAMAGED' || a.condition === 'REPAIR').length;
@@ -50,64 +43,50 @@ export const useAssets = () => {
                     return days > 0 && days <= 30;
                 }).length;
 
-                setGlobalStats({ totalValue, count, damaged, lost, warrantyAlert });
-                
-                // Extract Unique Tags for Autocomplete
                 const tagsSet = new Set<string>();
                 data.forEach((item: any) => {
                     if (Array.isArray(item.tags)) {
                         item.tags.forEach((t: string) => tagsSet.add(t));
                     }
                 });
-                setAllTags(Array.from(tagsSet).sort());
+
+                return {
+                    totalValue,
+                    count,
+                    damaged,
+                    lost,
+                    warrantyAlert,
+                    allTags: Array.from(tagsSet).sort()
+                };
             }
-        } catch (err) {
-            console.error("Fetch stats failed", err);
-        }
-    }, []);
+            return { totalValue: 0, count: 0, damaged: 0, lost: 0, warrantyAlert: 0, allTags: [] };
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
 
     // 2. Fetch Paginated Assets
-    const fetchAssets = useCallback(async (params: FetchParams) => {
-        setIsLoading(true);
-        try {
+    const { data: assetsData, isLoading, refetch: fetchAssets } = useQuery({
+        queryKey: ['inventory_items', params],
+        queryFn: async () => {
+            if (!params) return { assets: [], totalCount: 0 };
+
             let query = supabase
                 .from('inventory_items')
                 .select(`
-                    *,
+                    id, name, description, category_id, image_url, item_type, group_label,
+                    purchase_price, purchase_date, serial_number, warranty_expire, condition,
+                    current_holder_id, asset_group, quantity, unit, min_threshold, max_capacity,
+                    tags, created_at,
                     holder:profiles!inventory_items_current_holder_id_fkey(full_name, avatar_url)
                 `, { count: 'exact' });
 
-            // Apply Type Filter (Important for separating tabs)
-            if (params.itemType) {
-                query = query.eq('item_type', params.itemType);
-            }
+            if (params.itemType) query = query.eq('item_type', params.itemType);
+            if (params.group !== 'ALL') query = query.eq('asset_group', params.group);
+            if (params.categoryId && params.categoryId !== 'ALL') query = query.eq('category_id', params.categoryId);
+            if (params.search) query = query.or(`name.ilike.%${params.search}%,serial_number.ilike.%${params.search}%,group_label.ilike.%${params.search}%`);
+            if (params.tag) query = query.contains('tags', [params.tag]);
+            if (params.showIncomplete) query = query.or('purchase_price.is.null,purchase_price.eq.0,purchase_date.is.null');
 
-            // Apply Group Filter
-            if (params.group !== 'ALL') {
-                query = query.eq('asset_group', params.group);
-            }
-
-            // Apply Category Filter
-            if (params.categoryId && params.categoryId !== 'ALL') {
-                query = query.eq('category_id', params.categoryId);
-            }
-
-            // Apply Search
-            if (params.search) {
-                query = query.or(`name.ilike.%${params.search}%,serial_number.ilike.%${params.search}%,group_label.ilike.%${params.search}%`);
-            }
-
-            // Apply Tag Filter (New)
-            if (params.tag) {
-                query = query.contains('tags', [params.tag]);
-            }
-
-            // Apply Incomplete Filter
-            if (params.showIncomplete) {
-                query = query.or('purchase_price.is.null,purchase_price.eq.0,purchase_date.is.null');
-            }
-
-            // Pagination logic
             const from = (params.page - 1) * params.pageSize;
             const to = from + params.pageSize - 1;
 
@@ -117,58 +96,38 @@ export const useAssets = () => {
 
             if (error) throw error;
 
-            if (data) {
-                setAssets(data.map((i: any) => ({
-                    id: i.id,
-                    name: i.name,
-                    description: i.description,
-                    categoryId: i.category_id,
-                    imageUrl: i.image_url,
-                    
-                    itemType: i.item_type || 'FIXED', // Default
-                    groupLabel: i.group_label, // Map group_label
-                    
-                    // Fixed Asset Fields
-                    purchasePrice: Number(i.purchase_price || 0),
-                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
-                    serialNumber: i.serial_number,
-                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
-                    condition: i.condition as AssetCondition,
-                    currentHolderId: i.current_holder_id,
-                    assetGroup: i.asset_group as AssetGroup,
-                    holder: i.holder ? { name: i.holder.full_name, avatarUrl: i.holder.avatar_url } : undefined,
-                    
-                    // Consumable Fields
-                    quantity: i.quantity || 0,
-                    unit: i.unit || 'ชิ้น',
-                    minThreshold: i.min_threshold || 0,
-                    maxCapacity: i.max_capacity || 0,
+            const mappedAssets = (data || []).map((i: any) => ({
+                id: i.id,
+                name: i.name,
+                description: i.description,
+                categoryId: i.category_id,
+                imageUrl: i.image_url,
+                itemType: i.item_type || 'FIXED',
+                groupLabel: i.group_label,
+                purchasePrice: Number(i.purchase_price || 0),
+                purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
+                serialNumber: i.serial_number,
+                warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
+                condition: i.condition as AssetCondition,
+                currentHolderId: i.current_holder_id,
+                assetGroup: i.asset_group as AssetGroup,
+                holder: i.holder ? { name: i.holder.full_name, avatarUrl: i.holder.avatar_url } : undefined,
+                quantity: i.quantity || 0,
+                unit: i.unit || 'ชิ้น',
+                minThreshold: i.min_threshold || 0,
+                maxCapacity: i.max_capacity || 0,
+                tags: i.tags || [],
+                createdAt: i.created_at ? new Date(i.created_at) : undefined
+            }));
 
-                    tags: i.tags || [],
-                    createdAt: i.created_at ? new Date(i.created_at) : undefined
-                })));
-                setTotalCount(count || 0);
-            }
-        } catch (err) {
-            console.error("Fetch assets failed", err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+            return { assets: mappedAssets, totalCount: count || 0 };
+        },
+        enabled: !!params,
+        staleTime: 1000 * 60 * 2, // 2 minutes
+    });
 
-    // Initial Load & Realtime Sync
-    useEffect(() => {
-        fetchStats();
-        // Subscriptions
-        const channel = supabase
-            .channel('realtime-assets-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
-                fetchStats();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchStats]);
+    const assets = assetsData?.assets || [];
+    const totalCount = assetsData?.totalCount || 0;
 
     const saveAsset = async (asset: Partial<InventoryItem>, file?: File, driveOptions?: { isDriveReady: boolean, uploadFileToDrive: (file: File, path: string[]) => Promise<any> }) => {
         try {
@@ -176,8 +135,6 @@ export const useAssets = () => {
 
             if (file) {
                 let uploaded = false;
-
-                // Try Google Drive first if available
                 if (driveOptions?.isDriveReady) {
                     try {
                         const result = await driveOptions.uploadFileToDrive(file, ['Assets', asset.assetGroup || 'General']);
@@ -188,11 +145,9 @@ export const useAssets = () => {
                         }
                     } catch (driveErr) {
                         console.error("Drive Upload Error:", driveErr);
-                        // Fallback will happen below
                     }
                 }
 
-                // Fallback to Supabase Storage
                 if (!uploaded) {
                     const fileExt = file.name.split('.').pop();
                     const fileName = `asset-${Date.now()}.${fileExt}`;
@@ -217,10 +172,9 @@ export const useAssets = () => {
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
                 tags: asset.tags || [],
-                group_label: asset.groupLabel || null // Save group_label
+                group_label: asset.groupLabel || null
             };
 
-            // Conditionally add fields based on Type
             if (asset.itemType === 'CONSUMABLE') {
                 payload.quantity = asset.quantity;
                 payload.unit = asset.unit;
@@ -242,7 +196,8 @@ export const useAssets = () => {
                 await supabase.from('inventory_items').insert(payload);
                 showToast('เพิ่มรายการใหม่สำเร็จ', 'success');
             }
-            fetchStats(); // Explicit refresh
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
             return true;
         } catch (err: any) {
             showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
@@ -256,7 +211,8 @@ export const useAssets = () => {
             if (error) throw error;
             
             showToast('ลบข้อมูลเรียบร้อย', 'info');
-            fetchStats();
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
             return true;
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
@@ -264,7 +220,6 @@ export const useAssets = () => {
         }
     };
 
-    // New: Batch Update for Grouping
     const batchGroupAssets = async (ids: string[], groupLabel: string) => {
         try {
             const { error } = await supabase
@@ -273,9 +228,8 @@ export const useAssets = () => {
                 .in('id', ids);
 
             if (error) throw error;
-            
             showToast(`รวมกลุ่ม ${ids.length} รายการเรียบร้อย ✅`, 'success');
-            // No need to manually fetch if realtime is on, but we can return true
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
             return true;
         } catch (err: any) {
              showToast('รวมกลุ่มไม่สำเร็จ: ' + err.message, 'error');
@@ -283,7 +237,6 @@ export const useAssets = () => {
         }
     };
     
-    // New: Batch Ungroup
     const batchUngroupAssets = async (ids: string[]) => {
          try {
             const { error } = await supabase
@@ -293,6 +246,7 @@ export const useAssets = () => {
 
             if (error) throw error;
             showToast(`ยกเลิกกลุ่ม ${ids.length} รายการแล้ว`, 'info');
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
             return true;
         } catch (err: any) {
              showToast('ยกเลิกไม่สำเร็จ: ' + err.message, 'error');
@@ -300,23 +254,19 @@ export const useAssets = () => {
         }
     };
 
-    // Clone Function
     const cloneAsset = async (asset: InventoryItem, amount: number) => {
         try {
-            // Only Fixed Assets should use Clone in this way usually, but let's allow it
             const copies = Array.from({ length: amount }).map((_, i) => ({
-                name: asset.name, // Use same name for easier grouping, or append Copy
+                name: asset.name,
                 description: asset.description,
                 category_id: asset.categoryId,
                 image_url: asset.imageUrl,
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
-                group_label: asset.groupLabel || asset.name, // If no group label, use name as group
+                group_label: asset.groupLabel || asset.name,
                 tags: asset.tags || [],
-                
-                // Copy conditional fields
                 ...(asset.itemType === 'CONSUMABLE' ? {
-                    quantity: 0, // Reset qty for new entry
+                    quantity: 0,
                     unit: asset.unit,
                     min_threshold: asset.minThreshold,
                     max_capacity: asset.maxCapacity
@@ -333,7 +283,8 @@ export const useAssets = () => {
             if (error) throw error;
             
             showToast(`Clone ทรัพย์สินเพิ่ม ${amount} รายการแล้ว`, 'success');
-            fetchStats();
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
             return true;
         } catch (err: any) {
             showToast('Clone ไม่สำเร็จ: ' + err.message, 'error');
@@ -341,7 +292,6 @@ export const useAssets = () => {
         }
     };
 
-    // Import from CSV
     const importAssets = async (items: any[]) => {
         try {
             const payload = items.map(item => ({
@@ -351,7 +301,7 @@ export const useAssets = () => {
                 asset_group: item.assetGroup || 'OFFICE',
                 condition: 'GOOD',
                 purchase_price: 0,
-                item_type: 'FIXED', // Default to Fixed for import simplicity unless sophisticated
+                item_type: 'FIXED',
                 quantity: 1,
                 tags: [] 
             }));
@@ -360,7 +310,8 @@ export const useAssets = () => {
             if (error) throw error;
 
             showToast(`นำเข้าข้อมูล ${items.length} รายการสำเร็จ!`, 'success');
-            fetchStats();
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
             return true;
         } catch (err: any) {
             console.error(err);
@@ -369,9 +320,7 @@ export const useAssets = () => {
         }
     };
 
-    // New: Quick Update Stock
     const updateStock = async (id: string, newQuantity: number) => {
-        // Optimistic UI update should be handled by caller, this is just the API call
         try {
             const { error } = await supabase
                 .from('inventory_items')
@@ -379,7 +328,7 @@ export const useAssets = () => {
                 .eq('id', id);
             
             if (error) throw error;
-            // No toast to avoid spamming
+            queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
             return true;
         } catch (err: any) {
             showToast('อัปเดตสต็อคไม่สำเร็จ', 'error');
@@ -391,7 +340,7 @@ export const useAssets = () => {
         assets,
         totalCount,
         stats: globalStats,
-        allTags,
+        allTags: globalStats.allTags,
         isLoading,
         saveAsset,
         deleteAsset,
@@ -399,8 +348,8 @@ export const useAssets = () => {
         importAssets,
         fetchAssets,
         updateStock,
-        batchGroupAssets, // Export
-        batchUngroupAssets, // Export
-        refreshStats: fetchStats
+        batchGroupAssets,
+        batchUngroupAssets,
+        refreshStats: () => queryClient.invalidateQueries({ queryKey: ['inventory_stats'] })
     };
 };

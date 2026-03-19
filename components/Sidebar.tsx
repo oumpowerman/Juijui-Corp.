@@ -2,8 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2 } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
-import SidebarBadge from './SidebarBadge.tsx';
+import SidebarBadge from './SidebarBadge';
 import NotificationPill from './NotificationPill';
+import { SidebarBadges } from '../hooks/useSidebarBadges';
 
 interface SidebarProps {
   currentUser: User;
@@ -16,6 +17,7 @@ interface SidebarProps {
   systemUnreadCount?: number; 
   isCollapsed: boolean;
   onToggleCollapse: (val: boolean) => void;
+  badges?: SidebarBadges;
 }
 
 
@@ -83,7 +85,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   unreadChatCount,
   systemUnreadCount = 0,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  badges
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
 
@@ -134,6 +137,23 @@ const Sidebar: React.FC<SidebarProps> = ({
       case 'MEETING': return 'bg-purple-500';
       default: return 'bg-gray-400';
     }
+  };
+
+  const getBadgeCount = (view: string) => {
+      if (!badges) return undefined;
+      switch (view) {
+          case 'QUALITY_GATE': return badges.qualityGate;
+          case 'FEEDBACK': return badges.feedback;
+          case 'TEAM': return badges.memberApproval;
+          case 'DUTY': return badges.myDuty;
+          case 'ATTENDANCE': return badges.attendanceApproval;
+          case 'FINANCE': return badges.financeTrip;
+          case 'DASHBOARD': return badges.dashboard;
+          case 'KPI': return badges.kpi;
+          case 'WIKI': return badges.wiki;
+          case 'CHAT': return badges.chat;
+          default: return undefined;
+      }
   };
 
   return (
@@ -227,7 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                             view={item.view as ViewMode} 
                                             currentUser={currentUser} 
                                             collapsed={true} 
-                                            count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                            count={item.view === 'CHAT' ? unreadChatCount : getBadgeCount(item.view)}
                                          />
                                      </div>
                                 )}
@@ -243,7 +263,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <SidebarBadge 
                                     view={item.view as ViewMode} 
                                     currentUser={currentUser} 
-                                    count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                                    count={item.view === 'CHAT' ? unreadChatCount : getBadgeCount(item.view)}
                                 />
                              </div>
                           )}

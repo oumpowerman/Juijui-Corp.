@@ -1,117 +1,19 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment } from '../../../types';
+import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment, ScriptSheet } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { Editor } from '@tiptap/core';
 import { useScriptComments } from '../../../hooks/useScriptComments';
 import { useScriptBroadcast } from '../../../hooks/useScriptBroadcast';
-
-interface ScriptContextType {
-    // Data State
-    content: string;
-    setContent: (val: string) => void;
-    title: string;
-    setTitle: (val: string) => void;
-    status: ScriptStatus;
-    setStatus: (val: ScriptStatus) => void;
-    changeStatus: (val: ScriptStatus) => Promise<void>; 
-    scriptType: ScriptType;
-    setScriptType: (val: ScriptType) => void;
-    characters: string[];
-    setCharacters: (val: string[]) => void;
-    saveCharacters: (chars: string[]) => Promise<void>;
-    renameCharacter: (oldName: string, newName: string) => Promise<void>; // NEW
-    ideaOwnerId: string | undefined;
-    setIdeaOwnerId: (val: string | undefined) => void;
-    authorId: string | undefined;
-    setAuthorId: (val: string | undefined) => void;
-    
-    // Metadata State
-    contentId: string | undefined;
-    channelId: string | undefined;
-    setChannelId: (val: string | undefined) => void;
-    category: string | undefined;
-    setCategory: (val: string | undefined) => void;
-    tags: string[];
-    setTags: (val: string[]) => void;
-    objective: string;
-    setObjective: (val: string) => void;
-
-    // View State
-    zoomLevel: number;
-    setZoomLevel: (val: number) => void;
-    
-    // Share State
-    isPublic: boolean;
-    shareToken: string | undefined;
-    handleToggleShare: () => Promise<void>;
-
-    // UI State
-    isSaving: boolean;
-    lastSaved: Date;
-    setEditorInstance: (editor: Editor | null) => void; 
-    editorInstance: Editor | null;
-
-    // Lock System State
-    lockStatus: 'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE';
-    lockerUser: { name: string; avatarUrl: string } | null;
-    isReadOnly: boolean;
-    forceTakeover: () => Promise<void>;
-    
-    // View State
-    isFocusMode: boolean;
-    setIsFocusMode: (val: boolean) => void;
-    isAutoCharacter: boolean;
-    setIsAutoCharacter: (val: boolean) => void;
-    
-    // Tools State
-    isTeleprompterOpen: boolean;
-    setIsTeleprompterOpen: (val: boolean) => void;
-    isChatPreviewOpen: boolean;
-    setIsChatPreviewOpen: (val: boolean) => void;
-    isAIOpen: boolean;
-    setIsAIOpen: (val: boolean) => void;
-    isFindReplaceOpen: boolean;
-    setIsFindReplaceOpen: (val: boolean) => void;
-    isGenerating: boolean;
-    setIsGenerating: (val: boolean) => void;
-    isMetadataOpen: boolean;
-    setIsMetadataOpen: (val: boolean) => void;
-    
-    // Comments State
-    isCommentsOpen: boolean;
-    setIsCommentsOpen: (val: boolean) => void;
-    comments: ScriptComment[];
-    addComment: (content: string, highlightId?: string, selectedText?: string) => Promise<boolean>;
-    resolveComment: (id: string) => Promise<void>;
-    deleteComment: (id: string) => Promise<void>;
-    scrollToComment: (highlightId: string) => void;
-    activeCommentId: string | null; 
-    setActiveCommentId: (id: string | null) => void; 
-
-    // Actions
-    handleSave: (silent?: boolean) => Promise<void>;
-    handleGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<void>;
-    handleInsertCharacter: (charName: string) => void;
-    onPromote: () => void;
-    
-    // Realtime Broadcast
-    sendLiveUpdate: (content: string) => void;
-    liveContent: string | null;
-    isBroadcastConnected: boolean;
-    
-    // Permissions
-    isScriptOwner: boolean;
-    currentUser: User;
-
-    // External Props
-    users: any[];
-    channels: Channel[];
-    masterOptions: MasterOption[];
-    onClose: () => void;
-}
+import { useScriptSearchNavigator } from '../../../hooks/useScriptSearchNavigator';
+import { cleanContentForTiming, estimateDurationSeconds } from './scriptUtils';
+import { useScriptLocking } from './useScriptLocking';
+import { useScriptSheets } from './useScriptSheets';
+import { useScriptPersistence } from './useScriptPersistence';
+import { useScriptUI } from './useScriptUI';
+import { ScriptContextType, ScriptProviderProps } from './ScriptContext.types';
 
 const ScriptContext = createContext<ScriptContextType | undefined>(undefined);
 
@@ -121,28 +23,29 @@ export const useScriptContext = () => {
     return context;
 };
 
-interface ScriptProviderProps {
-    script: Script;
-    users: any[];
-    channels: Channel[];
-    masterOptions: MasterOption[];
-    currentUser: User; 
-    onClose: () => void;
-    onSave: (id: string, updates: Partial<Script>) => Promise<any>;
-    onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
-    onPromote: () => void;
-    children: React.ReactNode;
-}
-
 export const ScriptProvider: React.FC<ScriptProviderProps> = ({ 
-    children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI, onPromote 
+    children, script, users, channels, masterOptions, currentUser, onClose, onSave, onGenerateAI, onPromote, initialSearchQuery 
 }) => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
     
     const { comments, addComment: addCommentHook, resolveComment: resolveCommentHook, deleteComment: deleteCommentHook } = useScriptComments(script.id);
 
-    const [content, setContent] = useState(script.content || '');
+    const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+
+    const {
+        mainContent, setMainContent,
+        sheets, setSheets,
+        activeSheetId, setActiveSheetId,
+        content, setContent,
+        addSheet, deleteSheet, renameSheet
+    } = useScriptSheets({
+        initialContent: script.content || '',
+        initialSheets: script.sheets || [],
+        editorInstance,
+        showConfirm
+    });
+
     const [title, setTitle] = useState(script.title);
     const [status, setStatus] = useState<ScriptStatus>(script.status);
     const [scriptType, setScriptType] = useState<ScriptType>(script.scriptType || 'MONOLOGUE');
@@ -161,53 +64,76 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const [isPublic, setIsPublic] = useState(script.isPublic || false);
     const [shareToken, setShareToken] = useState<string | undefined>(script.shareToken);
 
-    const [lockStatus, setLockStatus] = useState<'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE'>('FREE');
-    const [lockerUser, setLockerUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
-
-    const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
-
-    const [isSaving, setIsSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date>(new Date());
-    
-    const isDirtyRef = useRef(false);
-    const latestStateRef = useRef({ 
-        title, content, status, scriptType, characters, ideaOwnerId, authorId,
-        channelId, category, tags, objective 
+    const { lockStatus, lockerUser, acquireLock, releaseLock, forceTakeover } = useScriptLocking({
+        scriptId: script.id,
+        currentUser,
+        users,
+        showConfirm,
+        showToast
     });
-    
-    const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
-    const [isChatPreviewOpen, setIsChatPreviewOpen] = useState(false);
-    const [isAIOpen, setIsAIOpen] = useState(false);
-    const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
-    const [isMetadataOpen, setIsMetadataOpen] = useState(false);
-    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-    const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
-    
-    const [isFocusMode, setIsFocusMode] = useState(false);
-    const [isAutoCharacter, setIsAutoCharacter] = useState(false);
-    
-    const [isGenerating, setIsGenerating] = useState(false);
-    const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const cleanContentForTiming = (html: string) => {
-        return html
-            .replace(/\[.*?\]/g, '') // Remove [Stage Directions]
-            .replace(/\(.*?\)/g, '') // Remove (Parenthetical Notes)
-            .replace(/<strong>.*?:?<\/strong>:?\s*/g, '') // Remove Bold Character Names (handles : inside or outside)
-            .replace(/<[^>]*>?/gm, '') // Remove HTML Tags
-            .replace(/^[^\n:]+:\s*/gm, '') // Remove "Name: " at start of lines (fallback)
-            .trim();
-    };
+    const { 
+        pendingHighlight, 
+        setPendingHighlight, 
+        findFirstMatch 
+    } = useScriptSearchNavigator();
 
-    const estimatedSeconds = Math.ceil(cleanContentForTiming(content).length / 12); 
+    // Handle initial search highlight when script is loaded
+    useEffect(() => {
+        if (script && initialSearchQuery) {
+            const match = findFirstMatch(initialSearchQuery, script.content, script.sheets || []);
+            if (match) {
+                console.log("[ScriptContext] Match found in sheet:", match.sheetId);
+                // If match is in a different sheet, switch to it
+                if (match.sheetId !== activeSheetId) {
+                    if (match.sheetId === 'main') {
+                        setActiveSheetId('main');
+                    } else {
+                        setActiveSheetId(match.sheetId);
+                    }
+                }
+                // Set the actual search query as pending highlight (more reliable than snippet)
+                setPendingHighlight(initialSearchQuery);
+            } else {
+                console.log("[ScriptContext] No match found for:", initialSearchQuery);
+            }
+        }
+    }, [script, initialSearchQuery, findFirstMatch]);
+    
+    const {
+        isTeleprompterOpen, setIsTeleprompterOpen,
+        isChatPreviewOpen, setIsChatPreviewOpen,
+        isAIOpen, setIsAIOpen,
+        isFindReplaceOpen, setIsFindReplaceOpen,
+        isMetadataOpen, setIsMetadataOpen,
+        isCommentsOpen, setIsCommentsOpen,
+        activeCommentId, setActiveCommentId,
+        isFocusMode, setIsFocusMode,
+        isAutoCharacter, setIsAutoCharacter,
+        isGenerating, setIsGenerating
+    } = useScriptUI();
+
+    const estimatedSeconds = estimateDurationSeconds(content); 
     const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
     const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
+
+    const { isSaving, setIsSaving, lastSaved, setLastSaved, isDirtyRef, handleSave } = useScriptPersistence({
+        script, title, content, mainContent, status, scriptType, characters,
+        ideaOwnerId, authorId, channelId, category, tags, objective,
+        sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave
+    });
     
-    const { sendLiveUpdate, liveContent, isConnected: isBroadcastConnected } = useScriptBroadcast(
+    const { sendLiveUpdate: sendLiveUpdateRaw, liveUpdate, isConnected: isBroadcastConnected } = useScriptBroadcast(
         script.id, 
         currentUser.id, 
         lockStatus === 'LOCKED_BY_ME'
     );
+
+    const sendLiveUpdate = (newContent: string) => {
+        sendLiveUpdateRaw(newContent, activeSheetId);
+    };
+
+    const liveContent = liveUpdate?.sheetId === activeSheetId ? liveUpdate.content : null;
 
     const addComment = async (text: string, highlightId?: string, selectedText?: string) => {
         const success = await addCommentHook(currentUser.id, text, highlightId, selectedText);
@@ -314,156 +240,29 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         await deleteCommentHook(id);
     };
 
-    const acquireLock = async () => {
-        try {
-            const { error } = await supabase
-                .from('scripts')
-                .update({ 
-                    locked_by: currentUser.id, 
-                    locked_at: new Date().toISOString() 
-                })
-                .eq('id', script.id);
-            if (error) throw error;
-            setLockStatus('LOCKED_BY_ME');
-            setLockerUser(currentUser);
-        } catch (err) { console.error("Failed to acquire lock:", err); }
-    };
+    const replaceAllAcrossSheets = (find: string, replace: string) => {
+        if (!find) return;
+        const regex = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        
+        // Update all states
+        setMainContent(prev => prev.replace(regex, replace));
+        setSheets(prev => prev.map(s => ({
+            ...s,
+            content: s.content.replace(regex, replace)
+        })));
+        setContent(prev => prev.replace(regex, replace));
 
-    const refreshLock = async () => {
-        if (lockStatus !== 'LOCKED_BY_ME') return;
-        await supabase.from('scripts').update({ locked_at: new Date().toISOString() }).eq('id', script.id);
-    };
-
-    const releaseLock = async () => {
-        if (lockStatus === 'LOCKED_BY_ME') {
-             await supabase.from('scripts').update({ locked_by: null }).eq('id', script.id);
-        }
-    };
-
-    const forceTakeover = async () => {
-        const confirmed = await showConfirm(
-            `ยืนยันจะแย่งสิทธิ์การแก้ไขจาก ${lockerUser?.name}?`,
-            'แย่งสิทธิ์การแก้ไข'
-        );
-        if (confirmed) {
-            await acquireLock();
-            showToast('แย่งสิทธิ์การแก้ไขเรียบร้อย 😈', 'success');
-        }
-    };
-
-    useEffect(() => {
-        const checkLock = async () => {
-            const { data } = await supabase.from('scripts').select('locked_by, locked_at').eq('id', script.id).single();
-            if (data) {
-                if (data.locked_by && data.locked_by !== currentUser.id) {
-                    setLockStatus('LOCKED_BY_OTHER');
-                    const locker = users.find(u => u.id === data.locked_by);
-                    setLockerUser(locker ? { id: locker.id, name: locker.name, avatarUrl: locker.avatarUrl } : { id: data.locked_by, name: 'Unknown', avatarUrl: '' });
-                } else {
-                    await acquireLock();
-                }
+        // Update editor if active
+        if (editorInstance) {
+            const currentHTML = editorInstance.getHTML();
+            const newHTML = currentHTML.replace(regex, replace);
+            if (currentHTML !== newHTML) {
+                editorInstance.commands.setContent(newHTML, false);
             }
-        };
-        checkLock();
-
-        const channel = supabase.channel(`script-lock-${script.id}`)
-            .on('presence', { event: 'sync' }, () => {
-                // Presence sync logic if needed
-            })
-            .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-                // GHOST LOCK CLEANUP: 
-                // If the person who left was the current locker, and we are NOT the locker,
-                // we help clear the DB lock so it's FREE for everyone.
-                leftPresences.forEach((p: any) => {
-                    if (p.user?.id === lockerUser?.id && lockStatus === 'LOCKED_BY_OTHER') {
-                        console.log("Locker left, clearing ghost lock...");
-                        supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then(() => {
-                            setLockStatus('FREE');
-                            setLockerUser(null);
-                        });
-                    }
-                });
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts', filter: `id=eq.${script.id}` }, (payload) => {
-                const newLockedBy = payload.new.locked_by;
-                if (newLockedBy === currentUser.id) {
-                    setLockStatus('LOCKED_BY_ME');
-                    setLockerUser({ id: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl });
-                } else if (newLockedBy === null) {
-                    setLockStatus('FREE');
-                    setLockerUser(null);
-                    if (lockStatus === 'LOCKED_BY_OTHER') {
-                        acquireLock();
-                        showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
-                    }
-                } else {
-                    setLockStatus('LOCKED_BY_OTHER');
-                    const locker = users.find(u => u.id === newLockedBy);
-                    setLockerUser(locker ? { id: locker.id, name: locker.name, avatarUrl: locker.avatarUrl } : { id: newLockedBy, name: 'Unknown', avatarUrl: '' });
-                }
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    await channel.track({
-                        user: currentUser,
-                        onlineAt: new Date().toISOString(),
-                        isLocker: lockStatus === 'LOCKED_BY_ME'
-                    });
-                }
-            });
-
-        return () => { supabase.removeChannel(channel); };
-    }, [lockStatus, lockerUser?.id]);
-
-    useEffect(() => {
-        latestStateRef.current = { title, content, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective };
-    }, [title, content, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective]);
-
-    useEffect(() => {
-        if (lockStatus === 'LOCKED_BY_ME') {
-            refreshLock();
-            heartbeatRef.current = setInterval(refreshLock, 60000);
-        } else {
-            if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         }
-        return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
-    }, [lockStatus]);
-
-    useEffect(() => {
-        if (isReadOnly) return; 
-        if (content !== script.content || title !== script.title) {
-            isDirtyRef.current = true;
-        }
-        const timer = setTimeout(() => {
-            if (isDirtyRef.current) {
-                handleSave(true);
-            }
-        }, 3000);
-        return () => clearTimeout(timer);
-    }, [content, title, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective, isReadOnly]);
-
-    useEffect(() => {
-        return () => {
-            if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
-                const data = latestStateRef.current;
-                onSave(script.id, { title: data.title, content: data.content, status: data.status }).catch(console.error);
-            }
-            if (lockStatus === 'LOCKED_BY_ME') {
-                supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then();
-            }
-        };
-    }, [lockStatus]);
-
-    const handleSave = async (silent = false) => {
-        if (isReadOnly) return;
-        setIsSaving(true);
-        await onSave(script.id, { 
-            title, content, status, estimatedDuration: estimatedSeconds,
-            scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective
-        });
-        setLastSaved(new Date());
-        setIsSaving(false);
-        isDirtyRef.current = false;
+        
+        isDirtyRef.current = true;
+        showToast(`แทนที่คำว่า "${find}" ทั้งหมดเรียบร้อยแล้ว`, 'success');
     };
 
     const changeStatus = async (newStatus: ScriptStatus) => {
@@ -547,13 +346,16 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             activeCommentId, setActiveCommentId,
             sendLiveUpdate, liveContent, isBroadcastConnected,
             handleSave,
+            replaceAllAcrossSheets,
             handleGenerateAI: handleGenerateAIWrapper,
             handleInsertCharacter,
             onPromote, 
             isScriptOwner,
             currentUser,
             users, channels, masterOptions,
-            onClose: handleCloseWrapper
+            onClose: handleCloseWrapper,
+            sheets, activeSheetId, setActiveSheetId, addSheet, deleteSheet, renameSheet,
+            pendingHighlight, setPendingHighlight
         }}>
             {children}
         </ScriptContext.Provider>

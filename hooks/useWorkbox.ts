@@ -16,7 +16,7 @@ export const useWorkbox = (currentUser: User | null) => {
         try {
             const { data, error } = await supabase
                 .from('workbox_items')
-                .select('*')
+                .select('id, user_id, title, description, type, content_id, is_completed, order_index, created_at')
                 .eq('user_id', currentUser.id)
                 .order('order_index', { ascending: true });
 

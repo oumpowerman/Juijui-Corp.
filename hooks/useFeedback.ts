@@ -18,7 +18,7 @@ export const useFeedback = (currentUser: User) => {
             const { data, error } = await supabase
                 .from('feedbacks')
                 .select(`
-                    *,
+                    id, type, content, status, is_anonymous, created_at, user_id,
                     profiles (full_name, avatar_url),
                     feedback_votes (user_id),
                     feedback_comments (id),

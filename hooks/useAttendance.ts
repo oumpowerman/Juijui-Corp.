@@ -18,7 +18,7 @@ import { useAttendanceAlerts } from './attendance/useAttendanceAlerts';
 export type { AttendanceFilters };
 
 export const useAttendance = (userId: string) => {
-    const { todayLog, outdatedLog, isLoading: isStatusLoading, refresh: refreshStatus } = useAttendanceStatus(userId);
+    const { todayLog, outdatedLogs, isLoading: isStatusLoading, refresh: refreshStatus } = useAttendanceStatus(userId);
     const { checkIn, manualCheckIn, checkOut, isActionLoading } = useAttendanceActions(userId);
     const { stats, isStatsLoading, refreshStats } = useAttendanceStats(userId);
     const { getAttendanceLogs, isHistoryLoading } = useAttendanceHistory(userId);
@@ -34,7 +34,7 @@ export const useAttendance = (userId: string) => {
 
     return {
         todayLog,
-        outdatedLog,
+        outdatedLogs,
         actionRequiredLog,
         stats,
         isLoading,

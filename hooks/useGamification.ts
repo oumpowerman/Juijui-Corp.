@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useGameConfig } from '../context/GameConfigContext';
-import { User, ShopItem, GameActionType } from '../types';
+import { User, ShopItem, GameActionType, GameLog } from '../types';
 import { updateGameStats } from '../lib/gamification/gameStats';
 import { logGameAction } from '../lib/gamification/gameLogs';
 import { handleDeathSequence } from '../lib/gamification/deathSystem';
@@ -122,14 +122,27 @@ export const useGamification = (currentUser: User | null = null) => {
         }
     }, []);
 
-    const fetchGameLogs = useCallback(async (userId: string) => {
-        const { data } = await supabase
+    const fetchGameLogs = useCallback(async (userId: string): Promise<GameLog[]> => {
+        const { data, error } = await supabase
             .from('game_logs')
-            .select('*')
+            .select('id, user_id, action_type, xp_change, hp_change, jp_change, description, created_at, related_id')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(50);
-        return data || [];
+        
+        if (error) return [];
+        
+        return (data || []).map((log: any) => ({
+            id: log.id,
+            userId: log.user_id,
+            actionType: log.action_type,
+            xpChange: log.xp_change,
+            hpChange: log.hp_change,
+            jpChange: log.jp_change,
+            description: log.description,
+            createdAt: new Date(log.created_at),
+            relatedId: log.related_id
+        }));
     }, []);
 
     return {

@@ -18,6 +18,7 @@ interface ScriptEditorProps {
     channels: Channel[]; // New
     masterOptions: MasterOption[]; // New
     currentUser: User; 
+    initialSearchQuery?: string; // NEW
     onClose: () => void;
     onSave: (id: string, updates: Partial<Script>) => Promise<any>;
     onGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<string | null>;
@@ -74,7 +75,11 @@ const ScriptEditorContent: React.FC = () => {
 // Root Component
 const ScriptEditor: React.FC<ScriptEditorProps> = (props) => {
     return (
-        <ScriptProvider {...props} onPromote={() => props.onPromote(props.script.id)}>
+        <ScriptProvider 
+            {...props} 
+            initialSearchQuery={props.initialSearchQuery}
+            onPromote={() => props.onPromote(props.script.id)}
+        >
             <ScriptEditorContent />
         </ScriptProvider>
     );

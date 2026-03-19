@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: boolean) => {
-    const [liveContent, setLiveContent] = useState<string | null>(null);
+    const [liveUpdate, setLiveUpdate] = useState<{ content: string, sheetId: string } | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const channelRef = useRef<any>(null);
     const lastBroadcastRef = useRef<number>(0);
@@ -19,7 +19,10 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
                 // If we are the writer, ignore incoming broadcasts (to prevent loops)
                 if (!isWriter) {
                     if (payload.payload.content) {
-                        setLiveContent(payload.payload.content);
+                        setLiveUpdate({ 
+                            content: payload.payload.content, 
+                            sheetId: payload.payload.sheetId || 'main' 
+                        });
                     }
                 }
             })
@@ -36,7 +39,7 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
     }, [scriptId, isWriter]);
 
     // Throttle the broadcast to avoid flooding the socket
-    const sendLiveUpdate = useCallback((content: string) => {
+    const sendLiveUpdate = useCallback((content: string, sheetId: string = 'main') => {
         if (!channelRef.current || !isWriter) return;
 
         const now = Date.now();
@@ -45,14 +48,14 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
             channelRef.current.send({
                 type: 'broadcast',
                 event: 'remote_update',
-                payload: { content, userId }
+                payload: { content, userId, sheetId }
             });
             lastBroadcastRef.current = now;
         }
     }, [isWriter, userId]);
 
     return {
-        liveContent,
+        liveUpdate,
         sendLiveUpdate,
         isConnected
     };

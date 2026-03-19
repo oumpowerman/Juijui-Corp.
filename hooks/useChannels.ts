@@ -1,52 +1,32 @@
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Channel } from '../types';
 import { useToast } from '../context/ToastContext';
 
 export const useChannels = () => {
-    const [channels, setChannels] = useState<Channel[]>([]);
+    const queryClient = useQueryClient();
     const { showToast } = useToast();
 
-    const fetchChannels = async () => {
-        try {
-            // Order by created_at to keep list stable
+    const { data: channels = [], isLoading, refetch } = useQuery({
+        queryKey: ['channels'],
+        queryFn: async () => {
             const { data, error } = await supabase
                 .from('channels')
                 .select('*')
                 .order('created_at', { ascending: true });
                 
             if (error) throw error;
-            if (data) {
-                // Ensure platforms is an array
-                setChannels(data.map((c:any) => ({
-                    ...c,
-                    platforms: Array.isArray(c.platforms) ? c.platforms : (c.platform ? [c.platform] : ['OTHER']),
-                    logoUrl: c.logo_url // Map DB to Type
-                })));
-            }
-        } catch (err) { console.error('Fetch channels failed', err); }
-    };
-
-    // Realtime Subscription
-    useEffect(() => {
-        fetchChannels();
-
-        const channel = supabase
-            .channel('realtime-channels')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'channels' },
-                () => {
-                    fetchChannels();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, []);
+            
+            return (data || []).map((c: any) => ({
+                ...c,
+                platforms: Array.isArray(c.platforms) ? c.platforms : (c.platform ? [c.platform] : ['OTHER']),
+                logoUrl: c.logo_url // Map DB to Type
+            })) as Channel[];
+        },
+        staleTime: 1000 * 60 * 10, // 10 minutes (Channels are relatively static)
+    });
 
     const handleAddChannel = async (channel: Channel, file?: File): Promise<boolean> => {
         try {
@@ -81,7 +61,8 @@ export const useChannels = () => {
                 console.error("Supabase Error (Insert Channel):", error);
                 throw error;
             }
-            await fetchChannels(); 
+            
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
             showToast('เพิ่มแบรนด์ใหม่สำเร็จ 🎉', 'success');
             return true;
         } catch (dbError: any) {
@@ -119,7 +100,8 @@ export const useChannels = () => {
             const { error } = await supabase.from('channels').update(payload).eq('id', updatedChannel.id);
             
             if (error) throw error;
-            await fetchChannels();
+            
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
             showToast('อัปเดตข้อมูลสำเร็จ ✨', 'success');
             return true;
         } catch (dbError: any) {
@@ -133,6 +115,8 @@ export const useChannels = () => {
         try {
             const { error } = await supabase.from('channels').delete().eq('id', channelId);
             if (error) throw error;
+            
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
             showToast('ลบแบรนด์สำเร็จ 🗑️', 'warning');
             return true;
         } catch (dbError) {
@@ -143,7 +127,8 @@ export const useChannels = () => {
 
     return {
         channels,
-        fetchChannels,
+        isLoading,
+        fetchChannels: refetch,
         handleAddChannel,
         handleUpdateChannel,
         handleDeleteChannel

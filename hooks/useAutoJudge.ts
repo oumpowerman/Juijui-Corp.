@@ -111,22 +111,24 @@ export const useAutoJudge = (currentUser: User | null) => {
                 .from('leave_requests')
                 .select('*')
                 .eq('user_id', currentUser.id)
-                .eq('status', 'APPROVED')
+                .in('status', ['APPROVED', 'PENDING']) // ✅ ดึงทั้ง APPROVED และ PENDING
                 .gte('end_date', format(addDays(today, -lookbackDays), 'yyyy-MM-dd')); // ดูย้อนหลังตาม Config
 
             // ฟังก์ชันเช็คว่าผู้ใช้อยู่ระหว่างลาหรือไม่ในวันที่ระบุ
             const isUserOnLeave = (dateStr: string) => {
-                if (!userLeaves) return false;
+                if (!userLeaves) return { onLeave: false, status: null };
                 const checkDate = new Date(dateStr); 
                 checkDate.setHours(12, 0, 0, 0); // เที่ยงวันป้องกันเรื่อง timezone
 
-                return userLeaves.some(leave => {
+                const leave = userLeaves.find(leave => {
                     const start = new Date(leave.start_date);
                     start.setHours(0, 0, 0, 0);
                     const end = new Date(leave.end_date);
                     end.setHours(23, 59, 59, 999);
                     return checkDate >= start && checkDate <= end;
                 });
+
+                return leave ? { onLeave: true, status: leave.status } : { onLeave: false, status: null };
             };
 
             // =========================================================
@@ -144,20 +146,21 @@ export const useAutoJudge = (currentUser: User | null) => {
                 .eq('assignee_id', currentUser.id)
                 .lt('date', todayStr) // เวรที่ผ่านมาแล้ว
                 .eq('is_done', false) // ยังไม่เสร็จ
+                .eq('cleared_by_system', false) // ✅ ป้องกันการดึงเวรที่ระบบเคลียร์ไปแล้วมาประมวลผลซ้ำ
                 .neq('penalty_status', 'ACCEPTED_FAULT')
                 .neq('penalty_status', 'LATE_COMPLETED')
                 .neq('penalty_status', 'EXCUSED');
 
             if (!dutyError && missedDuties && missedDuties.length > 0) {
                 // Check if user has a NEW duty today (to trigger Negligence Protocol)
-                const { data: todayDuty } = await supabase
+                const { data: todayDutyData } = await supabase
                     .from('duties')
                     .select('id')
                     .eq('assignee_id', currentUser.id)
                     .eq('date', todayStr)
-                    .maybeSingle();
+                    .limit(1);
                 
-                const hasNewDutyToday = !!todayDuty;
+                const hasNewDutyToday = todayDutyData && todayDutyData.length > 0;
 
                 for (const duty of missedDuties) {
                     if (isProcessingRef.current.has(duty.id)) continue;
@@ -176,32 +179,48 @@ export const useAutoJudge = (currentUser: User | null) => {
                     // If user has an ABANDONED duty that hasn't been cleared, AND a new duty arrives today
                     if (duty.penalty_status === 'ABANDONED' && !duty.cleared_by_system) {
                          if (hasNewDutyToday) {
-                             isProcessingRef.current.add(duty.id);
-                             console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
+                             const lockKey = `negligence-${duty.id}`;
+                             if (isProcessingRef.current.has(lockKey)) continue;
                              
-                             // 1. Penalize (Heavy) - Use Config Value
-                             await processAction(currentUser.id, 'DUTY_MISSED', { 
-                                 ...duty, 
-                                 reason: 'NEGLIGENCE_PROTOCOL', 
-                                 customPenalty: negligencePenalty,
-                                 description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
-                             });
+                             // ✅ ตรวจสอบจาก game_logs อีกชั้นว่าเคยโดน Negligence Penalty สำหรับเวรนี้ไปหรือยัง
+                             const { data: existingNegligence } = await supabase
+                                 .from('game_logs')
+                                 .select('id')
+                                 .eq('user_id', currentUser.id)
+                                 .eq('action_type', 'DUTY_MISSED')
+                                 .eq('related_id', duty.id)
+                                 .ilike('description', '%เพิกเฉย%')
+                                 .limit(1);
 
-                             // 2. Clear Duty
-                             await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+                             if (!existingNegligence || existingNegligence.length === 0) {
+                                 isProcessingRef.current.add(lockKey);
+                                 console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
+                                 
+                                 // 1. Penalize (Heavy) - Use Config Value
+                                 await processAction(currentUser.id, 'DUTY_MISSED', { 
+                                     ...duty, 
+                                     reason: 'NEGLIGENCE_PROTOCOL', 
+                                     customPenalty: negligencePenalty,
+                                     description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
+                                 });
 
-                             // 3. Trigger Lock Screen (via Notification)
-                             await supabase.from('notifications').insert({
-                                 user_id: currentUser.id,
-                                 type: 'SYSTEM_LOCK_PENALTY', // Special Type
-                                 title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
-                                 message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
-                                 is_read: false,
-                                 link_path: 'DUTY',
-                                 metadata: { hp: -negligencePenalty }
-                             });
-                             
-                             isProcessingRef.current.delete(duty.id);
+                                 // 2. Clear Duty
+                                 await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+
+                                 // 3. Trigger Lock Screen (via Notification)
+                                 await supabase.from('notifications').insert({
+                                     user_id: currentUser.id,
+                                     type: 'SYSTEM_LOCK_PENALTY', // Special Type
+                                     title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
+                                     message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
+                                     is_read: false,
+                                     link_path: 'DUTY',
+                                     metadata: { hp: -negligencePenalty }
+                                 });
+                             } else {
+                                 // ถ้ามี Log แล้วแต่ยังไม่ถูกเคลียร์ ให้เคลียร์ซ้ำเพื่อความชัวร์
+                                 await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+                             }
                          }
                          continue; // Skip standard processing for abandoned duties
                     }
@@ -217,9 +236,14 @@ export const useAutoJudge = (currentUser: User | null) => {
                     }
 
                     // ถ้าวันที่ต้องทำเวร "ลาป่วย/ลากิจ" -> ยกประโยชน์ให้ (Excused)
-                    if (isUserOnLeave(dutyDateStr)) {
-                        console.log(`[AutoJudge] Excusing duty ${duty.id} because user was on leave.`);
-                        await supabase.from('duties').update({ penalty_status: 'EXCUSED', is_done: true }).eq('id', duty.id);
+                    const leaveCheck = isUserOnLeave(dutyDateStr);
+                    if (leaveCheck.onLeave) {
+                        if (leaveCheck.status === 'APPROVED') {
+                            console.log(`[AutoJudge] Excusing duty ${duty.id} because user was on leave.`);
+                            await supabase.from('duties').update({ penalty_status: 'EXCUSED', is_done: true }).eq('id', duty.id);
+                        } else {
+                            console.log(`[AutoJudge] Deferring duty ${duty.id} penalty because leave is PENDING.`);
+                        }
                         continue;
                     }
                     
@@ -278,7 +302,11 @@ export const useAutoJudge = (currentUser: User | null) => {
 
                     // 3. เช็คว่า "วันนี้" ลาหรือไม่? (Humanity Check)
                     // Note: Task usually count holidays unless strict, but we skip if user is on leave
-                    if (isUserOnLeave(todayStr)) {
+                    const leaveCheck = isUserOnLeave(todayStr);
+                    if (leaveCheck.onLeave) {
+                        if (leaveCheck.status === 'PENDING') {
+                            console.log(`[AutoJudge] Deferring task ${task.id} penalty because leave is PENDING.`);
+                        }
                         continue;
                     }
                     
@@ -327,54 +355,220 @@ export const useAutoJudge = (currentUser: User | null) => {
                 
                 // 1. ข้ามถ้า "วันนี้" ไม่ใช่วันทำงาน หรือ เป็นวันหยุด หรือ ลา
                 const wasWorkingDay = isWorkingDay(checkDate, holidays, exceptions, currentUser);
-                if (!wasWorkingDay || isUserOnLeave(checkDateStr) || isHolidayOrException(checkDate, holidays, exceptions)) {
+                const leaveCheck = isUserOnLeave(checkDateStr);
+                
+                if (!wasWorkingDay || leaveCheck.onLeave || isHolidayOrException(checkDate, holidays, exceptions)) {
+                    // ✅ ถ้าลาแบบ PENDING ให้ส่ง Notification แจ้งเตือนว่าระงับการหักคะแนนไว้ก่อน
+                    if (leaveCheck.onLeave && leaveCheck.status === 'PENDING') {
+                        const notifyKey = `DEFER-ABSENT-${checkDateStr}`;
+                        if (!isProcessingRef.current.has(notifyKey)) {
+                            isProcessingRef.current.add(notifyKey);
+                            
+                            // เช็คว่าเคยแจ้งเตือนไปหรือยัง
+                            const { data: notifyData } = await supabase
+                                .from('notifications')
+                                .select('id')
+                                .eq('user_id', currentUser.id)
+                                .eq('type', 'INFO')
+                                .ilike('message', `%ระงับการหักคะแนนขาดงาน%${checkDateStr}%`)
+                                .limit(1);
+
+                            if (!notifyData || notifyData.length === 0) {
+                                await supabase.from('notifications').insert({
+                                    user_id: currentUser.id,
+                                    type: 'INFO',
+                                    title: 'ℹ️ การหักคะแนนถูกระงับชั่วคราว',
+                                    message: `การหักคะแนนขาดงานของวันที่ ${checkDateStr} ถูกระงับไว้ชั่วคราว เนื่องจากคุณมีใบลาที่รอการอนุมัติ หากใบลาถูกปฏิเสธ ระบบจะดำเนินการหักคะแนนตามปกติ`,
+                                    is_read: false,
+                                    link_path: 'LEAVE'
+                                });
+                            }
+                        }
+                    }
                     continue;
                 }
 
                 // 2. ดูว่ามีการลงเวลาไหม?
-                const { data: attendance } = await supabase
+                const { data: attendanceData } = await supabase
                     .from('attendance_logs')
                     .select('id, status')
                     .eq('user_id', currentUser.id)
                     .eq('date', checkDateStr)
-                    .maybeSingle();
+                    .limit(1);
+
+                const attendance = attendanceData && attendanceData.length > 0 ? attendanceData[0] : null;
 
                 // 3. ถ้าไม่มี Log เลย หรือมี Log แต่สถานะไม่ใช่การทำงาน/ลา (เช่น อาจจะเป็น Log เปล่าที่ระบบสร้างค้างไว้)
                 if (!attendance) {
                      // เช็คว่าเคยโดนหักคะแนน Absent ของวันนี้ไปหรือยัง (กันหักซ้ำ)
                      const absentLockKey = `ABSENT-${checkDateStr}`;
 
-                     // 1. เช็คจาก game_logs โดยใช้ related_id (ชัวร์ที่สุด)
-                     const { data: existingPenalty } = await supabase
-                        .from('game_logs')
-                        .select('id')
-                        .eq('user_id', currentUser.id)
-                        .eq('action_type', 'ATTENDANCE_ABSENT')
-                        .eq('related_id', absentLockKey)
-                        .maybeSingle();
-                     
-                     if (!existingPenalty && !isProcessingRef.current.has(absentLockKey)) {
+                     if (!isProcessingRef.current.has(absentLockKey)) {
+                         // ✅ ตรวจสอบจาก game_logs อีกชั้นว่าเคยโดนหักคะแนน Absent ของวันนี้ไปหรือยัง
+                         const { data: absentPenaltyData } = await supabase
+                             .from('game_logs')
+                             .select('id')
+                             .eq('user_id', currentUser.id)
+                             .eq('action_type', 'ATTENDANCE_ABSENT')
+                             .ilike('description', `%ABSENT_DATE:${checkDateStr}%`)
+                             .limit(1);
+
+                         if (absentPenaltyData && absentPenaltyData.length > 0) {
+                             // ถ้ามี Penalty ใน Log แล้วแต่ไม่มี Attendance Log (อาจจะเกิด Error ตอน Insert)
+                             // ให้สร้าง Attendance Log ให้สมบูรณ์เพื่อหยุด Loop
+                             await supabase.from('attendance_logs').insert({
+                                 user_id: currentUser.id,
+                                 date: checkDateStr,
+                                 status: 'ABSENT',
+                                 work_type: 'OFFICE',
+                                 note: '[SYSTEM] Auto-marked as Absent (Log Recovery)'
+                             });
+                             continue;
+                         }
+
                          isProcessingRef.current.add(absentLockKey);
 
-                         // Insert Absent Log
-                         await supabase.from('attendance_logs').insert({
+                         // Insert Absent Log and get the ID
+                         const { data: newLog, error: insertError } = await supabase.from('attendance_logs').insert({
                              user_id: currentUser.id,
                              date: checkDateStr,
                              status: 'ABSENT',
                              work_type: 'OFFICE',
                              note: '[SYSTEM] Auto-marked as Absent by Judge (Lookback Catch-up)'
-                         });
+                         }).select('id').single();
                          
-                         // หักคะแนนขาดงาน (ส่ง absentLockKey ไปเป็น id เพื่อบันทึกใน related_id)
-                         await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
-                             date: checkDateStr,
-                             id: absentLockKey 
-                         });
+                         if (!insertError && newLog) {
+                             // หักคะแนนขาดงาน
+                             await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
+                                 date: checkDateStr,
+                                 id: newLog.id,
+                                 reason: `ABSENT_DATE:${checkDateStr}` // ✅ ใส่เพื่อให้ตรวจสอบซ้ำได้แม่นยำ
+                             });
+                             
+                             console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
+                         } else {
+                             console.error("[AutoJudge] Failed to insert absent log:", insertError);
+                         }
                          
-                         console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
-                         
-                         isProcessingRef.current.delete(absentLockKey);
+                         // Note: We don't delete from isProcessingRef here to prevent re-processing in the same session
                      }
+                }
+            }
+
+            // =========================================================
+            // SECTION D: AUTO-CLEANUP OLD CORRECTION REQUESTS
+            // =========================================================
+            const { data: oldRequests } = await supabase
+                .from('leave_requests')
+                .select('id, user_id, type')
+                .eq('status', 'PENDING')
+                .in('type', ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'])
+                .lt('created_at', format(subDays(today, 7), 'yyyy-MM-dd')); // 7 calendar days for admin to approve
+
+            if (oldRequests && oldRequests.length > 0) {
+                for (const req of oldRequests) {
+                    if (isProcessingRef.current.has(`cleanup-${req.id}`)) continue;
+                    isProcessingRef.current.add(`cleanup-${req.id}`);
+
+                    await supabase.from('leave_requests').update({
+                        status: 'REJECTED',
+                        rejection_reason: 'ระบบยกเลิกอัตโนมัติ (เกินกำหนดเวลาตรวจสอบ 7 วัน)'
+                    }).eq('id', req.id);
+
+                    await supabase.from('notifications').insert({
+                        user_id: req.user_id,
+                        type: 'INFO',
+                        title: '❌ คำขอถูกยกเลิกอัตโนมัติ',
+                        message: `รายการ: ${req.type}\nเหตุผล: เกินกำหนดเวลาตรวจสอบ 7 วัน`,
+                        is_read: false,
+                        link_path: 'ATTENDANCE'
+                    });
+
+                    console.log(`[AutoJudge] Auto-rejected old request ${req.id}`);
+                    isProcessingRef.current.delete(`cleanup-${req.id}`);
+                }
+            }
+
+            // =========================================================
+            // SECTION E: FORGOTTEN CHECKOUT PENALTY (ลืมตอกบัตรออกข้ามวัน)
+            // =========================================================
+            const { data: forgotCheckoutLogs } = await supabase
+                .from('attendance_logs')
+                .select('id, date, note')
+                .eq('user_id', currentUser.id)
+                .eq('status', 'WORKING')
+                .is('check_out_time', null)
+                .lt('date', todayStr); // ข้ามวันแล้ว
+
+            if (forgotCheckoutLogs && forgotCheckoutLogs.length > 0) {
+                for (const log of forgotCheckoutLogs) {
+                    const lockKey = `FORGOT-OUT-${log.id}`;
+                    if (isProcessingRef.current.has(lockKey)) continue;
+
+                    // 1. เช็คว่ามีคำขอแก้เวลา (Correction Request) ที่รออนุมัติของวันนี้หรือไม่
+                    const correctionCheck = isUserOnLeave(log.date);
+                    if (correctionCheck.onLeave && correctionCheck.status === 'PENDING') {
+                        console.log(`[AutoJudge] Deferring forgot checkout penalty for ${log.date} because correction is PENDING.`);
+                        continue;
+                    }
+                    
+                    // 2. ตรวจสอบจาก game_logs โดยใช้ Tag เฉพาะ (Robust Check)
+                    const { data: penaltyData } = await supabase
+                        .from('game_logs')
+                        .select('id')
+                        .eq('user_id', currentUser.id)
+                        .eq('action_type', 'ATTENDANCE_FORGOT_CHECKOUT')
+                        .ilike('description', `%[FORGOT_OUT_DATE:${log.date}]%`)
+                        .limit(1);
+
+                    if (penaltyData && penaltyData.length > 0) {
+                        // ✅ Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop
+                        await supabase.from('attendance_logs').update({
+                            status: 'ACTION_REQUIRED',
+                            note: `${log.note || ''} [SYSTEM] Status recovered (Penalized)`.trim()
+                        }).eq('id', log.id);
+                        continue;
+                    }
+
+                    // 3. เช็คว่ามี Notification ที่ยังไม่อ่านค้างอยู่หรือไม่ (กันเด้งซ้ำหน้าจอ)
+                    const { data: notifyData } = await supabase
+                        .from('notifications')
+                        .select('id')
+                        .eq('user_id', currentUser.id)
+                        .eq('type', 'SYSTEM_LOCK_PENALTY')
+                        .eq('is_read', false)
+                        .ilike('message', `%${log.date}%`)
+                        .limit(1);
+
+                    if (!notifyData || notifyData.length === 0) {
+                        isProcessingRef.current.add(lockKey);
+
+                        // Update status to ACTION_REQUIRED
+                        await supabase.from('attendance_logs').update({
+                            status: 'ACTION_REQUIRED',
+                            note: `${log.note || ''} [SYSTEM] Penalized for forgotten checkout`.trim()
+                        }).eq('id', log.id);
+                        
+                        // Penalty: Deduct HP
+                        await processAction(currentUser.id, 'ATTENDANCE_FORGOT_CHECKOUT', {
+                            date: log.date,
+                            id: log.id,
+                            reason: `FORGOT_OUT_DATE:${log.date}` // ✅ ใส่ Tag เพื่อให้ตรวจสอบซ้ำได้แม่นยำ
+                        });
+
+                        await supabase.from('notifications').insert({
+                            user_id: currentUser.id,
+                            type: 'SYSTEM_LOCK_PENALTY',
+                            title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
+                            message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
+                            is_read: false,
+                            link_path: 'ATTENDANCE',
+                            metadata: { hp: -10, logId: log.id }
+                        });
+
+                        console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);
+                        // We don't delete from isProcessingRef to keep it locked in this session
+                    }
                 }
             }
 

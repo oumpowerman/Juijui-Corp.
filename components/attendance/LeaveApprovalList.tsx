@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase, User, Info, ChevronDown, Filter } from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase, User, Info, ChevronDown, Filter, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { LeaveRequest } from '../../types/attendance';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getWorkingDaysDifference } from '../../lib/attendanceUtils';
 
 interface LeaveApprovalListProps {
     requests: LeaveRequest[];
@@ -237,6 +238,16 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                                 <div className="flex flex-wrap items-center gap-2 mb-2">
                                                     <h4 className="font-black text-gray-800 text-lg leading-none">{req.user?.name || 'Unknown'}</h4>
                                                     {getTypeBadge(req.type)}
+                                                    
+                                                    {/* NEW: Expiration Warning */}
+                                                    {req.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type) && (
+                                                        getWorkingDaysDifference(req.createdAt, new Date()) >= 2 && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-50 text-red-600 border-red-100 flex items-center gap-1 animate-pulse">
+                                                                <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
+                                                            </span>
+                                                        )
+                                                    )}
+
                                                     <span className="text-[10px] text-gray-400 font-mono ml-auto">
                                                         {format(req.createdAt, 'd MMM HH:mm')}
                                                     </span>

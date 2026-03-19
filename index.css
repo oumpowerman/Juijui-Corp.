@@ -1,9 +1,138 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kanit:wght@400;500;600;700&family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "react-datepicker/dist/react-datepicker.css";
+
+.custom-calendar {
+    border: none !important;
+    border-radius: 2.5rem !important;
+    box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.25) !important;
+    background: white !important;
+    padding: 1rem !important;
+    width: auto !important;
+}
+
+.react-datepicker__month-container {
+    width: 320px !important; /* Wider calendar */
+}
+
+.react-datepicker__day-name, .react-datepicker__day {
+    width: 3rem !important; /* Larger days */
+    line-height: 3rem !important;
+    margin: 0.15rem !important;
+}
+
+/* Modern Time Picker Styling */
+.react-datepicker__time-container {
+    border-left: 1px solid rgba(99, 102, 241, 0.1) !important;
+    width: 180px !important; /* Significantly wider for better presence */
+}
+
+.react-datepicker--time-only .react-datepicker__time-container {
+    width: 100% !important; /* Full width when time only */
+    min-width: 250px !important;
+}
+
+.react-datepicker--time-only .react-datepicker__time-box {
+    width: 100% !important;
+}
+
+.react-datepicker__header--time {
+    background: white !important;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1) !important;
+    padding: 1.25rem 0 !important;
+}
+
+.react-datepicker-time__header {
+    font-family: 'Kanit', sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.15em !important;
+    color: #6366f1 !important;
+}
+
+.react-datepicker__time-list {
+    background: white !important;
+    padding: 0.75rem 0 !important;
+}
+
+.react-datepicker__time-list-item {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    padding: 1rem 0 !important;
+    margin: 0.4rem 0.75rem !important;
+    border-radius: 1rem !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid transparent !important;
+}
+
+.react-datepicker__time-list-item:hover {
+    background: #f5f7ff !important;
+    color: #6366f1 !important;
+    border-color: rgba(99, 102, 241, 0.1) !important;
+    transform: translateX(2px);
+}
+
+.react-datepicker__time-list-item--selected {
+    background: #6366f1 !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Calendar Header Styling */
+.react-datepicker__header {
+    background: white !important;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.05) !important;
+    padding-top: 1rem !important;
+}
+
+.react-datepicker__current-month {
+    font-family: 'Kanit', sans-serif !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.react-datepicker__day-name {
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+    width: 2.5rem !important;
+    line-height: 2.5rem !important;
+}
+
+.react-datepicker__day {
+    width: 2.5rem !important;
+    line-height: 2.5rem !important;
+    border-radius: 0.75rem !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    transition: all 0.2s ease !important;
+}
+
+.react-datepicker__day:hover {
+    background: #f5f7ff !important;
+    color: #6366f1 !important;
+}
+
+.react-datepicker__day--selected {
+    background: #6366f1 !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+    background: transparent !important;
+    color: #6366f1 !important;
+    border: 2px solid #6366f1 !important;
+}
 
 @layer base {
   body {

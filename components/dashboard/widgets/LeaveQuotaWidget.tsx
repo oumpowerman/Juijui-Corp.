@@ -1,81 +1,174 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
-import { DEFAULT_QUOTAS, LEAVE_THEMES } from '../../attendance/leave-request/constants';
-import { Palmtree, HeartPulse, Briefcase, ChevronRight, PieChart } from 'lucide-react';
+import { DEFAULT_QUOTAS } from '../../attendance/leave-request/constants';
+import { Palmtree, HeartPulse, Briefcase, ChevronRight, Sparkles, Star, Cloud } from 'lucide-react';
 
 interface LeaveQuotaWidgetProps {
     leaveUsage: LeaveUsage;
     onHistoryClick?: () => void;
 }
 
+const PASTEL_THEMES: Record<string, any> = {
+    'VACATION': { 
+        bg: 'bg-[#E0F7FA]', 
+        text: 'text-[#00ACC1]', 
+        bar: 'bg-gradient-to-r from-[#4DD0E1] to-[#00BCD4]', 
+        glow: 'shadow-[0_0_15px_rgba(0,188,212,0.4)]',
+        icon: Palmtree,
+        label: 'พักร้อน',
+        accent: 'text-[#80DEEA]'
+    },
+    'SICK': { 
+        bg: 'bg-[#FCE4EC]', 
+        text: 'text-[#D81B60]', 
+        bar: 'bg-gradient-to-r from-[#F06292] to-[#E91E63]', 
+        glow: 'shadow-[0_0_15px_rgba(233,30,99,0.4)]',
+        icon: HeartPulse,
+        label: 'ลาป่วย',
+        accent: 'text-[#F8BBD0]'
+    },
+    'PERSONAL': { 
+        bg: 'bg-[#F3E5F5]', 
+        text: 'text-[#8E24AA]', 
+        bar: 'bg-gradient-to-r from-[#BA68C8] to-[#9C27B0]', 
+        glow: 'shadow-[0_0_15px_rgba(156,39,176,0.4)]',
+        icon: Briefcase,
+        label: 'ลากิจ',
+        accent: 'text-[#E1BEE7]'
+    }
+};
+
 const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHistoryClick }) => {
-    
-    // Define which types to show in the widget
     const displayTypes: LeaveType[] = ['VACATION', 'SICK', 'PERSONAL'];
 
     return (
-        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-6 relative overflow-hidden">
+        <div className="bg-white rounded-[3rem] border-4 border-[#F8F9FA] shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-8 relative overflow-hidden group">
             
+            {/* Background Decor - Cute Floating Elements */}
+            <motion.div 
+                animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-4 right-10 text-[#FFD54F] opacity-20"
+            >
+                <Star className="w-8 h-8 fill-current" />
+            </motion.div>
+            <motion.div 
+                animate={{ x: [0, 10, 0], y: [0, 5, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                className="absolute bottom-10 left-4 text-[#B2EBF2] opacity-30"
+            >
+                <Cloud className="w-12 h-12 fill-current" />
+            </motion.div>
+
             {/* Header */}
-            <div className="flex justify-between items-center mb-6 relative z-10">
-                <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
-                    <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                        <PieChart className="w-5 h-5" />
-                    </span>
-                    วันลาคงเหลือ (My Quota)
-                </h3>
+            <div className="flex justify-between items-center mb-8 relative z-10">
+                <div className="flex flex-col">
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                        <motion.div 
+                            whileHover={{ rotate: 360, scale: 1.2 }}
+                            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                            className="p-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-2xl shadow-lg shadow-indigo-200"
+                        >
+                            <Sparkles className="w-5 h-5" />
+                        </motion.div>
+                        <span className="tracking-tight">โควตาวันลา</span>
+                    </h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-14">My Leave Quota</p>
+                </div>
+                
                 {onHistoryClick && (
-                    <button 
+                    <motion.button 
+                        whileHover={{ x: 5 }}
                         onClick={onHistoryClick}
-                        className="text-xs font-bold text-gray-400 hover:text-indigo-600 flex items-center transition-colors"
+                        className="px-4 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-2xl text-xs font-black transition-all flex items-center gap-1 border border-slate-100"
                     >
-                        ประวัติ <ChevronRight className="w-4 h-4 ml-1" />
-                    </button>
+                        ประวัติ <ChevronRight className="w-4 h-4" />
+                    </motion.button>
                 )}
             </div>
 
             {/* Quota Bars */}
-            <div className="space-y-5 relative z-10">
-                {displayTypes.map((type) => {
+            <div className="space-y-8 relative z-10">
+                {displayTypes.map((type, index) => {
                     const limit = DEFAULT_QUOTAS[type] || 0;
                     const used = leaveUsage[type] || 0;
                     const remaining = Math.max(0, limit - used);
                     const percentUsed = Math.min(100, (used / limit) * 100);
                     
-                    const theme = LEAVE_THEMES[type] || LEAVE_THEMES['DEFAULT'];
+                    const theme = PASTEL_THEMES[type];
                     const Icon = theme.icon;
 
                     return (
-                        <div key={type} className="group">
-                            <div className="flex justify-between items-end mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Icon className={`w-4 h-4 ${theme.text} opacity-70`} />
-                                    <span className="text-xs font-bold text-gray-600">{type === 'VACATION' ? 'พักร้อน' : type === 'SICK' ? 'ลาป่วย' : 'ลากิจ'}</span>
+                        <motion.div 
+                            key={type}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="relative"
+                        >
+                            <div className="flex justify-between items-end mb-3 px-1">
+                                <div className="flex items-center gap-3">
+                                    <motion.div 
+                                        animate={{ 
+                                            rotate: [0, -10, 10, -10, 0],
+                                            scale: [1, 1.1, 1]
+                                        }}
+                                        transition={{ 
+                                            duration: 2, 
+                                            repeat: Infinity, 
+                                            repeatDelay: 3 + index,
+                                            ease: "easeInOut" 
+                                        }}
+                                        className={`p-2.5 ${theme.bg} ${theme.text} rounded-2xl shadow-sm border border-white`}
+                                    >
+                                        <Icon className="w-5 h-5" />
+                                    </motion.div>
+                                    <div>
+                                        <span className="text-sm font-kanit font-medium text-slate-700 block leading-none">{theme.label}</span>
+                                        <span className={`text-[10px] font-bold ${theme.accent} uppercase tracking-widest`}>{type}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs font-medium text-gray-500">
-                                    เหลือ <span className={`font-black text-sm ${remaining === 0 ? 'text-red-500' : 'text-gray-800'}`}>{remaining}</span> / {limit} วัน
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Remaining</p>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className={`text-2xl font-black tracking-tighter ${remaining === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
+                                            {remaining}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-400">/ {limit} วัน</span>
+                                    </div>
                                 </div>
                             </div>
                             
-                            {/* Progress Track */}
-                            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden border border-gray-200 shadow-inner relative">
-                                {/* Bar */}
-                                <div 
-                                    className={`h-full rounded-full transition-all duration-1000 ease-out relative ${theme.bar}`} 
-                                    style={{ width: `${percentUsed}%` }}
+                            {/* Progress Track - 3D Style */}
+                            <div className="h-5 w-full bg-slate-100 rounded-full p-1 border border-slate-200/50 shadow-inner relative group/bar overflow-hidden">
+                                {/* Bar with Glow and Gradient */}
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${percentUsed}%` }}
+                                    transition={{ duration: 1.5, ease: "circOut" }}
+                                    className={`h-full rounded-full relative ${theme.bar} ${theme.glow} border border-white/30`}
                                 >
-                                    {/* Shimmer Effect on Bar */}
-                                    <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite]"></div>
-                                </div>
+                                    {/* Glass Shine Effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent h-1/2 rounded-full"></div>
+                                    
+                                    {/* Animated Shimmer */}
+                                    <motion.div 
+                                        animate={{ x: ['-100%', '200%'] }}
+                                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-1/2 h-full skew-x-[-20deg]"
+                                    />
+                                </motion.div>
                             </div>
-                        </div>
+                        </motion.div>
                     );
                 })}
             </div>
 
-            {/* Background Decor */}
-            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gray-50 rounded-full blur-3xl pointer-events-none"></div>
+            {/* Bottom Decor */}
+            <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-50 rounded-full blur-[80px] opacity-60 pointer-events-none"></div>
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-purple-50 rounded-full blur-[80px] opacity-60 pointer-events-none"></div>
         </div>
     );
 };

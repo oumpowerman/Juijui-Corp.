@@ -1,8 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAttendanceStats } from '../../../hooks/attendance/useAttendanceStats';
 import { AttendanceStats as StatsType } from '../../../types/attendance';
-import { TrendingUp, Clock, Calendar, AlertCircle } from 'lucide-react';
+import { TrendingUp, Clock, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import AttendanceDetailCards from './AttendanceDetailCards';
 
 interface AttendanceStatsProps {
     userId: string;
@@ -10,31 +12,67 @@ interface AttendanceStatsProps {
 
 const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
     const { stats, isStatsLoading } = useAttendanceStats(userId);
+    const [activeDetail, setActiveDetail] = useState<'LATE' | 'ON_TIME' | 'STREAK' | 'HOURS' | null>(null);
 
     if (isStatsLoading) return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-pulse">
         {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl"></div>)}
     </div>;
 
     const statItems = [
-        { label: 'Streak', value: `${stats.currentStreak} วัน`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
-        { label: 'ชั่วโมงงาน', value: `${stats.totalHours} ชม.`, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'มาสาย', value: `${stats.lateDays} ครั้ง`, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50' },
-        { label: 'มาตรงเวลา', value: `${stats.onTimeDays} วัน`, icon: Calendar, color: 'text-green-500', bg: 'bg-green-50' },
+        { key: 'STREAK', label: 'Streak', value: `${stats.currentStreak} วัน`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-100' },
+        { key: 'HOURS', label: 'ชั่วโมงงาน', value: `${stats.totalHours} ชม.`, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-100' },
+        { key: 'LATE', label: 'มาสาย', value: `${stats.lateDays} ครั้ง`, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-100' },
+        { key: 'ON_TIME', label: 'มาตรงเวลา', value: `${stats.onTimeDays} วัน`, icon: Calendar, color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-100' },
     ];
 
+    const toggleDetail = (key: string) => {
+        if (activeDetail === key) {
+            setActiveDetail(null);
+        } else {
+            setActiveDetail(key as any);
+        }
+    };
+
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {statItems.map((item, idx) => (
-                <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${item.bg}`}>
-                        <item.icon className={`w-5 h-5 ${item.color}`} />
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-500 font-medium">{item.label}</p>
-                        <p className="text-lg font-bold text-gray-900">{item.value}</p>
-                    </div>
-                </div>
-            ))}
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {statItems.map((item, idx) => (
+                    <motion.button 
+                        key={idx} 
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => toggleDetail(item.key)}
+                        className={`
+                            p-4 rounded-[2rem] border transition-all flex items-center gap-4 relative group text-left
+                            ${activeDetail === item.key 
+                                ? `bg-white ${item.border} shadow-xl ring-4 ring-indigo-50/50` 
+                                : 'bg-white/60 backdrop-blur-md border-gray-100 shadow-sm hover:bg-white hover:shadow-md'
+                            }
+                        `}
+                    >
+                        <div className={`p-3 rounded-2xl ${item.bg} shadow-sm group-hover:scale-110 transition-transform`}>
+                            <item.icon className={`w-5 h-5 ${item.color}`} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[12px] font-kanit text-gray-400 font-medium uppercase tracking-widest mb-0.5">{item.label}</p>
+                            <p className="text-xl font-black text-slate-800 tracking-tight">{item.value}</p>
+                        </div>
+                        <div className={`absolute top-4 right-4 transition-transform duration-300 ${activeDetail === item.key ? 'rotate-180' : ''}`}>
+                            <ChevronDown className={`w-4 h-4 ${activeDetail === item.key ? 'text-indigo-500' : 'text-gray-300 opacity-0 group-hover:opacity-100'}`} />
+                        </div>
+                    </motion.button>
+                ))}
+            </div>
+
+            <AnimatePresence>
+                {activeDetail && (
+                    <AttendanceDetailCards 
+                        logs={stats.monthlyLogs || []} 
+                        type={activeDetail} 
+                        onClose={() => setActiveDetail(null)} 
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -39,7 +39,6 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     MAINTENANCE: { label: 'Maintenance', icon: HardDrive, desc: 'ดูแลรักษาระบบ (Backup, Cleanup)', group: 'SYSTEM' },
     WIKI_CATEGORY: { label: 'Wiki Categories', icon: BookOpen, desc: 'หมวดหมู่ของคู่มือการทำงาน (Wiki)', group: 'SYSTEM' },
     PAYROLL_RULES: { label: 'Payroll Rules', icon: Coins, desc: 'ตั้งค่าอัตราค่าปรับ (หักเงิน) สำหรับการขาด/ลา/สาย', group: 'SYSTEM' },
-    PWA_CONFIG: { label: 'PWA & App Icon', icon: Monitor, desc: 'ตั้งค่าชื่อแอปและไอคอนสำหรับติดตั้งบนมือถือ (iOS/Android)', group: 'SYSTEM' },
 };
 
 interface MasterTabNavigationProps {
@@ -89,7 +88,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
             {/* GROUP: SYSTEM */}
             <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">System Config</div>
-                    {['GAME_TUNING', 'PAYROLL_RULES', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY', 'PWA_CONFIG'].map(key => renderTabButton(key))}
+                    {['GAME_TUNING', 'PAYROLL_RULES', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY'].map(key => renderTabButton(key))}
             </div>
         </div>
     );

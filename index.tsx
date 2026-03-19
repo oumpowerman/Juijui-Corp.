@@ -1,12 +1,24 @@
 
 import React, { ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App'; 
 import { ToastProvider } from './context/ToastContext';
 import { GlobalDialogProvider } from './context/GlobalDialogContext';
 import GlobalDialog from './components/GlobalDialog';
 
-
+// Initialize TanStack Query Client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -98,33 +110,8 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-// --- INSTANT PWA SYNC (Inspired by HoneyMoney) ---
-// This runs immediately before React mounts to ensure the UI feels snappy
-try {
-  const cachedName = localStorage.getItem('pwa_app_name');
-  const cachedIcon = localStorage.getItem('pwa_app_icon');
-
-  if (cachedName) {
-    document.title = cachedName;
-    const metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    if (metaTitle) metaTitle.setAttribute('content', cachedName);
-  }
-
-  if (cachedIcon) {
-    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-    if (appleIcon) appleIcon.setAttribute('href', cachedIcon);
-    
-    // Also update favicon if it's a standard link
-    const favicon = document.querySelector('link[rel="icon"]');
-    if (favicon && !favicon.getAttribute('href')?.startsWith('data:image/svg')) {
-      favicon.setAttribute('href', cachedIcon);
-    }
-  }
-} catch (e) {
-  console.warn("PWA Sync failed:", e);
-}
-
 // --- SERVICE WORKER REGISTRATION ---
+/* 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -132,17 +119,22 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.error('SW registration failed:', err));
   });
 }
+*/
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <ToastProvider>
-        <GlobalDialogProvider>
-          <App />
-          <GlobalDialog />
-        </GlobalDialogProvider>
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <ToastProvider>
+            <GlobalDialogProvider>
+              <App />
+              <GlobalDialog />
+            </GlobalDialogProvider>
+          </ToastProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

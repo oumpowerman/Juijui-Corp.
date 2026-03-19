@@ -125,7 +125,7 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
             append: false
         });
         setPage(1);
-    }, [searchQuery, filterChannel, filterCategory, filterOwner, filterTags, fetchScripts, refreshTrigger, isDeepSearch]);
+    }, [searchQuery, filterChannel, filterCategory, filterOwner, filterTags, refreshTrigger, isDeepSearch]); // Removed fetchScripts from dependencies
 
     const handleLoadMore = () => {
         const nextPage = page + 1;

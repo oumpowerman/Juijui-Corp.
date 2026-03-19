@@ -4,6 +4,7 @@ import Sidebar from '../Sidebar';
 import MobileNavigation from '../MobileNavigation';
 import ConnectionStatus from '../ConnectionStatus';
 import { User, ViewMode, TaskType } from '../../types';
+import { useSidebarBadges } from '../../hooks/useSidebarBadges';
 
 interface AppShellProps {
     currentUser: User;
@@ -39,6 +40,7 @@ const AppShell: React.FC<AppShellProps> = ({
     children 
 }) => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+    const { badges } = useSidebarBadges(currentUser);
 
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
 
@@ -58,6 +60,7 @@ const AppShell: React.FC<AppShellProps> = ({
                 systemUnreadCount={systemUnreadCount} // Added
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={setIsSidebarCollapsed}
+                badges={badges}
             />
 
             {/* Main Content Area */}
@@ -79,6 +82,7 @@ const AppShell: React.FC<AppShellProps> = ({
                 unreadChatCount={chatUnreadCount}
                 tasks={tasks}
                 users={allUsers}
+                badges={badges}
             />
         </div>
     );

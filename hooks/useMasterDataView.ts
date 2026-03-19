@@ -20,7 +20,7 @@ export type MasterTab =
     // QC
     | 'REJECTION_REASON'
     // System
-    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY' | 'GAME_TUNING' | 'PAYROLL_RULES' | 'PWA_CONFIG'; 
+    | 'REWARDS' | 'GREETINGS' | 'DASHBOARD' | 'MAINTENANCE' | 'WIKI_CATEGORY' | 'GAME_TUNING' | 'PAYROLL_RULES'; 
 
 export const useMasterDataView = () => {
     // --- Hooks ---

@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useScriptContext } from '../core/ScriptContext';
 import RichTextEditor from '../../ui/RichTextEditor';
 import CharacterBar from './CharacterBar';
+import SheetBar from './SheetBar';
 import FindReplaceBar from '../tools/FindReplaceBar';
 import { MessageSquarePlus, Eye, Radio } from 'lucide-react';
 import { CommentMark } from './CommentExtension';
@@ -13,14 +14,15 @@ const ScriptTextArea: React.FC = () => {
         addComment, scrollToComment, editorInstance, 
         sendLiveUpdate, liveContent, isBroadcastConnected,
         isAutoCharacter, characters, isFocusMode,
-        isFindReplaceOpen, setIsFindReplaceOpen
+        isFindReplaceOpen, setIsFindReplaceOpen, replaceAllAcrossSheets,
+        pendingHighlight, setPendingHighlight
     } = useScriptContext();
 
     const [matchCount, setMatchCount] = useState({ current: 0, total: 0 });
     const [lastSearch, setLastSearch] = useState('');
     const [searchIndices, setSearchIndices] = useState<number[]>([]);
 
-    const handleFind = (query: string, direction: 'next' | 'prev' = 'next') => {
+    const handleFind = useCallback((query: string, direction: 'next' | 'prev' = 'next') => {
         if (!editorInstance) return;
 
         // Trigger visual highlighting in the editor
@@ -40,10 +42,6 @@ const ScriptTextArea: React.FC = () => {
         let match;
 
         while ((match = regex.exec(text)) !== null) {
-            // We need to map text index to prosemirror position
-            // This is tricky because of HTML tags. 
-            // A simpler way for now is to use the editor's search if available or just jump to text.
-            // Tiptap doesn't have a built-in search command in StarterKit.
             indices.push(match.index);
         }
 
@@ -55,45 +53,8 @@ const ScriptTextArea: React.FC = () => {
             return;
         }
 
-        // Find next/prev index relative to current selection
         const { from } = editorInstance.state.selection;
-        // This mapping is still hard. Let's use a more robust way:
-        // Iterate through the document nodes to find text matches.
         
-        let targetIndex = 0;
-        if (query === lastSearch) {
-            if (direction === 'next') {
-                targetIndex = (matchCount.current % indices.length);
-            } else {
-                targetIndex = (matchCount.current - 2 + indices.length) % indices.length;
-            }
-        }
-        
-        setMatchCount(prev => ({ ...prev, current: targetIndex + 1 }));
-        setLastSearch(query);
-
-        // For now, let's use a simpler "Find" that just selects the next occurrence of text
-        // using the editor's built-in text search capabilities if we can find them.
-        // Since we don't have a search extension, we'll do a manual search through the doc.
-        
-        let found = false;
-        let count = 0;
-        doc.descendants((node, pos) => {
-            if (found) return false;
-            if (node.isText && node.text) {
-                const start = node.text.toLowerCase().indexOf(query.toLowerCase());
-                if (start !== -1) {
-                    // This is still not perfect for "next/prev" but it's a start
-                    // To handle next/prev correctly we'd need to track which one we are on.
-                }
-            }
-        });
-
-        // BETTER APPROACH: Use a simple "Replace All" and "Find Next" logic
-        // For "Find Next", we can use the browser's window.find() as a fallback or 
-        // implement a proper Prosemirror search.
-        
-        // Let's implement a basic Prosemirror search:
         let occurrences: { from: number, to: number }[] = [];
         doc.descendants((node, pos) => {
             if (node.isText && node.text) {
@@ -118,7 +79,6 @@ const ScriptTextArea: React.FC = () => {
                     nextIdx = occurrences.findIndex(o => o.from > from);
                     if (nextIdx === -1) nextIdx = 0;
                 } else {
-                    // Find previous: last one that is before 'from'
                     for (let i = occurrences.length - 1; i >= 0; i--) {
                         if (occurrences[i].from < from) {
                             nextIdx = i;
@@ -140,10 +100,25 @@ const ScriptTextArea: React.FC = () => {
                 .run();
                 
             setMatchCount({ current: nextIdx + 1, total: occurrences.length });
+            setLastSearch(query);
         } else {
             setMatchCount({ current: 0, total: 0 });
         }
-    };
+    }, [editorInstance, lastSearch, matchCount.current]);
+
+    // Auto-highlight and scroll when opening from search
+    useEffect(() => {
+        if (editorInstance && pendingHighlight) {
+            console.log("[ScriptTextArea] Auto-highlighting:", pendingHighlight);
+            // Small delay to ensure content is fully rendered
+            const timer = setTimeout(() => {
+                handleFind(pendingHighlight, 'next');
+                // Clear the highlight so it doesn't re-trigger on every sheet switch
+                setPendingHighlight(null);
+            }, 800); // Increased delay slightly
+            return () => clearTimeout(timer);
+        }
+    }, [editorInstance, pendingHighlight, handleFind, setPendingHighlight]);
 
     const handleReplace = (find: string, replace: string) => {
         if (!editorInstance || !find) return;
@@ -160,35 +135,8 @@ const ScriptTextArea: React.FC = () => {
     };
 
     const handleReplaceAll = (find: string, replace: string) => {
-        if (!editorInstance || !find) return;
-
-        const regex = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        let doc = editorInstance.state.doc;
-        let occurrences: { from: number, to: number }[] = [];
-        
-        doc.descendants((node, pos) => {
-            if (node.isText && node.text) {
-                const m = node.text.matchAll(regex);
-                for (const match of m) {
-                    if (match.index !== undefined) {
-                        occurrences.push({
-                            from: pos + match.index,
-                            to: pos + match.index + match[0].length
-                        });
-                    }
-                }
-            }
-        });
-
-        if (occurrences.length > 0) {
-            // Replace from back to front to keep positions valid
-            const chain = editorInstance.chain().focus();
-            for (let i = occurrences.length - 1; i >= 0; i--) {
-                chain.insertContentAt({ from: occurrences[i].from, to: occurrences[i].to }, replace);
-            }
-            chain.run();
-            setMatchCount({ current: 0, total: 0 });
-        }
+        replaceAllAcrossSheets(find, replace);
+        setMatchCount({ current: 0, total: 0 });
     };
 
     const lastCharIndexRef = useRef<number>(-1);
@@ -440,6 +388,8 @@ const ScriptTextArea: React.FC = () => {
                                 )}
                             />
                         </div>
+                        
+                        <SheetBar />
                     </div>
 
                 </div>

@@ -1,6 +1,33 @@
 
 import { differenceInMinutes, addMinutes, isBefore, setHours, setMinutes, parse } from 'date-fns';
 
+/**
+ * Calculates the number of working days (excluding weekends) between two dates.
+ */
+export const getWorkingDaysDifference = (startDate: Date, endDate: Date): number => {
+    let count = 0;
+    let current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+    let end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+
+    // Ensure current is before end
+    if (current > end) {
+        const temp = current;
+        current = end;
+        end = temp;
+    }
+
+    while (current < end) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) { // Not Sunday and Not Saturday
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    return count;
+};
+
 export interface CheckOutCalculationResult {
     status: 'COMPLETED' | 'EARLY_LEAVE';
     isDurationMet: boolean;

@@ -33,9 +33,11 @@ export const useMeetings = () => {
     const fetchMeetings = async () => {
         setIsLoading(true);
         try {
+            // OPTIMIZATION: Select specific columns. Exclude 'content' if it's potentially large
+            // and not needed for the list view.
             const { data, error } = await supabase
                 .from('meeting_logs')
-                .select('*')
+                .select('id, title, date, category, attendees, tags, agenda, assets, created_at, updated_at, author_id')
                 .order('date', { ascending: false });
 
             if (error) throw error;

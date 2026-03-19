@@ -16,13 +16,17 @@ export const logGameAction = async (
     try {
         // 1. 📝 Log: บันทึกประวัติการทำรายการ (สำคัญมาก! ตัวนี้จะไปกระตุ้น Toast ให้เด้ง)
         // เราบันทึก `result.message` ลงใน description เลย เพื่อให้ Listener อ่านไปแสดงผลได้ทันที
+        const description = context.reason 
+            ? `${result.message} [${context.reason}]` 
+            : result.message;
+
         await supabase.from('game_logs').insert({
             user_id: userId,
             action_type: action,
             xp_change: result.xp,
             hp_change: result.hp,
             jp_change: result.coins + bonusCoins,
-            description: result.message,
+            description: description,
             related_id: context.id || null
         });
 

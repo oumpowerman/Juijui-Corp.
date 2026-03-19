@@ -12,6 +12,7 @@ interface LabBlockProps {
     onRemove: () => void;
     onUpdateContent: (content: string) => void;
     onUpdateTitle: (title: string) => void;
+    onUpdateSheet?: (sheetId: string) => void;
 }
 
 // Helper to strip HTML for the small snippet
@@ -24,7 +25,7 @@ const getSnippet = (html: string) => {
 };
 
 const LabBlock: React.FC<LabBlockProps> = React.memo(({ 
-    item, onRemove, onUpdateContent, onUpdateTitle 
+    item, onRemove, onUpdateContent, onUpdateTitle, onUpdateSheet
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -100,6 +101,21 @@ const LabBlock: React.FC<LabBlockProps> = React.memo(({
                                 <span className="text-[9px] text-white/20 font-black uppercase tracking-widest shrink-0 bg-white/5 px-1.5 py-0.5 rounded">
                                     {item.type}
                                 </span>
+                                
+                                {item.type === 'SCRIPT' && item.sheets && item.sheets.length > 0 && (
+                                    <select
+                                        value={item.activeSheetId || 'main'}
+                                        onChange={(e) => onUpdateSheet?.(e.target.value)}
+                                        className="bg-indigo-500/10 border border-indigo-500/20 rounded px-2 py-0.5 text-[10px] font-bold text-indigo-400 outline-none cursor-pointer hover:bg-indigo-500/20 transition-all font-kanit"
+                                    >
+                                        <option value="main" className="bg-[#1a1a2e] text-white">หน้าหลัก</option>
+                                        {item.sheets.map(sheet => (
+                                            <option key={sheet.id} value={sheet.id} className="bg-[#1a1a2e] text-white">
+                                                {sheet.title}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                             <p className="text-[10px] text-white/60 truncate font-medium italic mt-0.5 block w-full">
                                 {getSnippet(item.content) || (item.type === 'BRIDGE' ? 'Empty bridge...' : 'Empty script...')}

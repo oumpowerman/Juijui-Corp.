@@ -19,7 +19,7 @@ import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 interface StatusCardProps {
     user: User;
     todayLog: AttendanceLog | null;
-    outdatedLog: AttendanceLog | null; // NEW
+    outdatedLogs: AttendanceLog[]; // NEW
     stats: AttendanceStats;
     todayActiveLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
@@ -39,7 +39,7 @@ interface StatusCardProps {
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
-    user, todayLog, outdatedLog, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, isAuthenticated, onConnectDrive, onRetryDrive, onRefresh, availableLocations, onNavigateToHistory,
+    user, todayLog, outdatedLogs, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, isAuthenticated, onConnectDrive, onRetryDrive, onRefresh, availableLocations, onNavigateToHistory,
     startTime, lateBuffer
 }) => {
     const { showAlert } = useGlobalDialog(); 
@@ -128,37 +128,39 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const isCheckedIn = !!todayLog && !isLeaveLog; 
     
     // --- OUTDATED SESSION CHECK ---
-    const isSessionOutdated = !!outdatedLog;
+    const isSessionOutdated = outdatedLogs && outdatedLogs.length > 0;
 
     const isAdmin = user.role === 'ADMIN';
     
     // Recovery Logic
-    const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+    const [recoveryLogDate, setRecoveryLogDate] = useState<string | null>(null);
     // Check-out Verification Logic
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
     const { leaveUsage } = useLeaveRequests(user); 
 
     const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        if (isAdmin && outdatedLog) {
+        const targetLog = outdatedLogs.find(l => l.date === recoveryLogDate);
+        if (isAdmin && targetLog) {
             try {
                 const timeMatch = reason.match(/\[TIME:(\d{2}:\d{2})\]/);
                 const timeStr = timeMatch ? timeMatch[1] : '18:00'; 
                 
-                const logDate = format(new Date(outdatedLog.date), 'yyyy-MM-dd');
+                const logDate = format(new Date(targetLog.date), 'yyyy-MM-dd');
                 const fullDateTimeStr = `${logDate}T${timeStr}:00`;
                 
                 const { error } = await supabase.from('attendance_logs')
                     .update({
                         check_out_time: new Date(fullDateTimeStr).toISOString(),
                         status: 'COMPLETED',
-                        note: `${outdatedLog.note || ''} [ADMIN FIXED: ${reason}]`.trim()
+                        note: `${targetLog.note || ''} [ADMIN FIXED: ${reason}]`.trim()
                     })
-                    .eq('id', outdatedLog.id);
+                    .eq('id', targetLog.id);
 
                 if (error) throw error;
                 
                 showToast('แก้ไขเวลาออกเรียบร้อย (Admin Override) ✅', 'success');
+                setRecoveryLogDate(null);
                 if (onRefresh) onRefresh();
                 return true;
 
@@ -170,7 +172,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         } else {
             const success = await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
             if (success) {
-                setIsRecoveryModalOpen(false); 
+                setRecoveryLogDate(null); 
                 await showAlert(
                     'ระบบได้รับข้อมูลเวลาออกงานของคุณแล้ว สถานะของวันนี้จะเปลี่ยนเป็น "รอตรวจสอบ (Pending)" กรุณารอ Admin อนุมัติครับ',
                     'ส่งคำขอเรียบร้อยแล้ว! ✅'
@@ -292,32 +294,32 @@ const StatusCard: React.FC<StatusCardProps> = ({
             </div>
 
             {/* OUTDATED SESSION BANNER (Persistent) */}
-            {isSessionOutdated && (
-                <div className="bg-orange-100 border border-orange-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2 mb-2">
+            {isSessionOutdated && outdatedLogs.map(log => (
+                <div key={log.id} className="bg-orange-100 border border-orange-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2 mb-2">
                     <div className="flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 text-orange-600" />
                         <div className="text-left">
-                            <p className="text-xs font-bold text-orange-800">ลืมตอกบัตรออกเมื่อวาน!</p>
-                            <p className="text-[10px] text-orange-600">กรุณาแจ้งเวลาออกย้อนหลังด้วยครับ</p>
+                            <p className="text-xs font-bold text-orange-800">ลืมตอกบัตรออก!</p>
+                            <p className="text-[10px] text-orange-600">วันที่ {format(new Date(log.date), 'd MMM yyyy', { locale: th })}</p>
                         </div>
                     </div>
                     <button 
-                        onClick={() => setIsRecoveryModalOpen(true)}
+                        onClick={() => setRecoveryLogDate(log.date)}
                         className="bg-orange-500 text-white px-3 py-1 rounded-lg text-[10px] font-bold shadow-sm hover:bg-orange-600 transition-colors"
                     >
                         แจ้งเวลาออก
                     </button>
-                    
-                    <LeaveRequestModal 
-                        isOpen={isRecoveryModalOpen}
-                        onClose={() => setIsRecoveryModalOpen(false)}
-                        onSubmit={handleRecoverySubmit}
-                        leaveUsage={leaveUsage}
-                        fixedType="FORGOT_CHECKOUT"
-                        initialDate={new Date(outdatedLog!.date)}
-                    />
                 </div>
-            )}
+            ))}
+
+            <LeaveRequestModal 
+                isOpen={!!recoveryLogDate}
+                onClose={() => setRecoveryLogDate(null)}
+                onSubmit={handleRecoverySubmit}
+                leaveUsage={leaveUsage}
+                fixedType="FORGOT_CHECKOUT"
+                initialDate={recoveryLogDate ? new Date(recoveryLogDate) : new Date()}
+            />
 
             {/* State 4: Finished Work Today */}
             {isCheckedOut ? (

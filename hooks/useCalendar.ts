@@ -35,7 +35,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
             // 1. Fetch existing filters
             const { data, error } = await supabase
                 .from('smart_filters')
-                .select('*')
+                .select('id, user_id, label, type, value, color_theme, scope, mode, created_at')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: true });
 

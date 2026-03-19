@@ -128,7 +128,14 @@ export const useFinance = (currentUser?: any) => {
         try {
             const { data, count, error } = await supabase
                 .from('finance_transactions')
-                .select(`*, profiles:created_by (full_name, avatar_url), target_user:target_user_id (full_name, avatar_url), contents (title)`, { count: 'exact' })
+                .select(`
+                    id, amount, net_amount, type, category_key, description, date, 
+                    status, payment_method, attachment_url, created_at, updated_at,
+                    user_id, target_user_id, content_id,
+                    profiles:created_by (full_name, avatar_url), 
+                    target_user:target_user_id (full_name, avatar_url), 
+                    contents (title)
+                `, { count: 'exact' })
                 .gte('date', start)
                 .lte('date', end)
                 .order('date', { ascending: false })
@@ -152,7 +159,12 @@ export const useFinance = (currentUser?: any) => {
             // 1. Fetch Existing Trips
             const { data: tripsData, error } = await supabase
                 .from('shoot_trips')
-                .select(`*, finance_transactions (id, amount, net_amount, type, category_key, name), contents (id, title, content_format, status, shoot_date, shoot_location)`)
+                .select(`
+                    id, title, location_name, date, status, 
+                    budget, actual_cost, created_at, updated_at,
+                    finance_transactions (id, amount, net_amount, type, category_key, name), 
+                    contents (id, title, content_format, status, shoot_date, shoot_location)
+                `)
                 .order('date', { ascending: false });
 
             if (error) throw error;

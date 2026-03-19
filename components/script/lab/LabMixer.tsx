@@ -25,11 +25,12 @@ interface LabMixerProps {
     onRemoveItem: (id: string) => void;
     onUpdateItemContent: (id: string, content: string) => void;
     onUpdateItemTitle: (id: string, title: string) => void;
+    onUpdateItemSheet?: (id: string, sheetId: string) => void;
     onAddBridge: () => void;
 }
 
 const LabMixer: React.FC<LabMixerProps> = ({ 
-    sequence, setSequence, onRemoveItem, onUpdateItemContent, onUpdateItemTitle, onAddBridge 
+    sequence, setSequence, onRemoveItem, onUpdateItemContent, onUpdateItemTitle, onUpdateItemSheet, onAddBridge 
 }) => {
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -102,6 +103,7 @@ const LabMixer: React.FC<LabMixerProps> = ({
                                         onRemove={() => onRemoveItem(item.id)}
                                         onUpdateContent={(content) => onUpdateItemContent(item.id, content)}
                                         onUpdateTitle={(title) => onUpdateItemTitle(item.id, title)}
+                                        onUpdateSheet={(sheetId) => onUpdateItemSheet?.(item.id, sheetId)}
                                     />
                                 ))}
                             </div>

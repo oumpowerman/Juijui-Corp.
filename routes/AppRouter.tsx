@@ -46,7 +46,7 @@ const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
 const FinanceRouter = lazy(() => import('./FinanceRouter'));
 const AdminRouter = lazy(() => import('./AdminRouter'));
-import CommandPalette from '../components/ui/CommandPalette';
+const CommandPalette = lazy(() => import('../components/ui/CommandPalette')); 
 
 // --- LAZY LOAD MODALS ---
 const TaskModal = lazy(() => import('../components/TaskModal'));

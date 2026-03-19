@@ -25,6 +25,8 @@ export interface LabSequenceItem {
     type: 'SCRIPT' | 'BRIDGE';
     title: string;
     content: string;
+    activeSheetId?: string;
+    sheets?: any[]; // Using any[] to avoid circular dependency or complex imports if not needed, but ScriptSheet[] is better
 }
 
 const ScriptLabView: React.FC<ScriptLabViewProps> = ({ 
@@ -54,7 +56,9 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                 scriptId: fullScript.id,
                 type: 'SCRIPT',
                 title: fullScript.title,
-                content: fullScript.content || ''
+                content: fullScript.content || '',
+                activeSheetId: 'main',
+                sheets: fullScript.sheets || []
             };
             setSequence(prev => [...prev, newItem]);
         }
@@ -80,6 +84,24 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
 
     const handleUpdateItemTitle = (id: string, newTitle: string) => {
         setSequence(prev => prev.map(item => item.id === id ? { ...item, title: newTitle } : item));
+    };
+
+    const handleUpdateItemSheet = async (id: string, sheetId: string) => {
+        const item = sequence.find(i => i.id === id);
+        if (!item || !item.scriptId) return;
+
+        const fullScript = await getScriptById(item.scriptId);
+        if (!fullScript) return;
+
+        let newContent = '';
+        if (sheetId === 'main') {
+            newContent = fullScript.content || '';
+        } else {
+            const sheet = fullScript.sheets?.find(s => s.id === sheetId);
+            newContent = sheet?.content || '';
+        }
+
+        setSequence(prev => prev.map(i => i.id === id ? { ...i, activeSheetId: sheetId, content: newContent } : i));
     };
 
     const handleSaveAsNew = async () => {
@@ -240,6 +262,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                             onRemoveItem={handleRemoveItem}
                             onUpdateItemContent={handleUpdateItemContent}
                             onUpdateItemTitle={handleUpdateItemTitle}
+                            onUpdateItemSheet={handleUpdateItemSheet}
                             onAddBridge={handleAddBridge}
                         />
                     </Panel>

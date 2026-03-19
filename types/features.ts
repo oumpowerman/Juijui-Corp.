@@ -84,6 +84,12 @@ export interface PeerReview {
 export type ScriptType = 'MONOLOGUE' | 'DIALOGUE';
 export type ScriptStatus = 'DRAFT' | 'REVIEW' | 'FINAL' | 'SHOOTING' | 'DONE';
 
+export interface ScriptSheet {
+    id: string;
+    title: string;
+    content: string;
+}
+
 export interface ScriptSummary {
     id: string;
     title: string;
@@ -110,6 +116,7 @@ export interface ScriptSummary {
     shareToken?: string;
     isPublic?: boolean;
     isPersonal?: boolean;
+    sheets?: ScriptSheet[];
 }
 
 export interface Script extends ScriptSummary {

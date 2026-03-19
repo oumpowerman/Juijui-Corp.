@@ -177,14 +177,42 @@ const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffCont
 export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     // Consume state and fetchers from Context
     const { 
-        tasks, setTasks, 
-        fetchTasks, fetchSubTasks, 
+        tasks, setTasks, setOptimisticTasks, setDeletedTaskIds,
+        fetchTasks, fetchSubTasks, fetchTaskDetail,
         checkAndExpandRange, fetchAllTasks, 
-        isFetching 
+        isFetching, setCurrentUser
     } = useTaskContext();
     
     const { showToast } = useToast();
     const { processAction } = useGamification();
+
+    // --- OPTIMISTIC HELPERS ---
+    const updateOptimistic = useCallback((t: Task) => {
+        setOptimisticTasks(prev => {
+            const index = prev.findIndex(item => item.id === t.id);
+            if (index !== -1) {
+                const next = [...prev];
+                next[index] = t;
+                return next;
+            }
+            return [...prev, t];
+        });
+        setDeletedTaskIds(prev => {
+            if (!prev.has(t.id)) return prev;
+            const next = new Set(prev);
+            next.delete(t.id);
+            return next;
+        });
+    }, [setOptimisticTasks, setDeletedTaskIds]);
+
+    const removeOptimistic = useCallback((id: string) => {
+        setOptimisticTasks(prev => prev.filter(item => item.id !== id));
+        setDeletedTaskIds(prev => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+        });
+    }, [setOptimisticTasks, setDeletedTaskIds]);
 
     // --- ACTIONS (Write Operations) ---
     // Updated signature to accept Context Data for Diffing
@@ -248,16 +276,10 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             const previousTasks = [...tasks];
             
             // Update Context State Immediately
-            if (tasks.some(t => t.id === task.id)) {
-                if (task.contentId && task.showOnBoard === false) {
-                     setTasks(prev => prev.filter(t => t.id !== task.id));
-                } else {
-                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
-                }
+            if (task.contentId && task.showOnBoard === false) {
+                 removeOptimistic(task.id);
             } else {
-                if (task.contentId && task.showOnBoard === true) {
-                    setTasks(prev => [...prev, task]);
-                }
+                 updateOptimistic(task);
             }
             
             if (!task.contentId && setIsModalOpen) {
@@ -318,7 +340,11 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
 
             } catch (dbError: any) {
                 console.error(dbError);
-                setTasks(previousTasks); // Rollback
+                if (existingTask) {
+                    updateOptimistic(existingTask);
+                } else {
+                    setOptimisticTasks(prev => prev.filter(t => t.id !== task.id));
+                }
                 showToast('บันทึกไม่สำเร็จ: ' + dbError.message, 'error');
             }
         } 
@@ -345,8 +371,8 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 }
 
                 // Update Context State (if suitable for list)
-                if (!task.contentId) {
-                    setTasks(prev => [...prev, task]);
+                if (!task.contentId || task.showOnBoard === true) {
+                    updateOptimistic(task);
                     if (setIsModalOpen) setIsModalOpen(false);
                 }
 
@@ -373,16 +399,17 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     const handleDelayTask = async (taskId: string, newDate: Date, reason: string, userId: string) => {
         const previousTasks = [...tasks];
         
+        const targetTask = tasks.find(t => t.id === taskId);
+        if (!targetTask) return;
+
         // Optimistic
-        setTasks(prev => prev.map(t => t.id === taskId ? { 
-            ...t, 
+        updateOptimistic({ 
+            ...targetTask, 
             startDate: newDate, 
             endDate: newDate 
-        } : t));
+        });
 
         try {
-            const targetTask = tasks.find(t => t.id === taskId);
-            if (!targetTask) return;
             const table = targetTask.type === 'CONTENT' ? 'contents' : 'tasks';
 
             const { error: taskError } = await supabase
@@ -409,7 +436,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             showToast('บันทึกการเลื่อนงานแล้ว ⏳', 'warning');
 
         } catch (err: any) {
-            setTasks(previousTasks); // Rollback
+            updateOptimistic(targetTask); // Rollback
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
     };
@@ -417,7 +444,12 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     const handleDeleteTask = async (taskId: string) => {
         const previousTasks = [...tasks];
         
-        setTasks(prev => prev.filter(t => t.id !== taskId));
+        setDeletedTaskIds(prev => {
+            const next = new Set(prev);
+            next.add(taskId);
+            return next;
+        });
+        
         if (setIsModalOpen) setIsModalOpen(false);
         showToast('ลบเรียบร้อย', 'info');
 
@@ -429,7 +461,12 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             if (error) throw error;
             
         } catch (dbError) {
-             setTasks(previousTasks); // Rollback
+             // Rollback
+             setDeletedTaskIds(prev => {
+                const next = new Set(prev);
+                next.delete(taskId);
+                return next;
+             });
              showToast('ลบไม่สำเร็จ (กู้คืนข้อมูล)', 'error');
         }
     };
@@ -478,7 +515,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         // 4. Send Notifications to Admins
         try {
             const { data: admins } = await supabase
-                .from('users')
+                .from('profiles')
                 .select('id')
                 .eq('role', 'ADMIN')
                 .eq('is_active', true);
@@ -527,12 +564,14 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         tasks,
         fetchTasks,
         fetchSubTasks,
+        fetchTaskDetail,
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,
         handleSendToQC,
         checkAndExpandRange,
         fetchAllTasks,
-        isFetching
+        isFetching,
+        setCurrentUser
     };
 };

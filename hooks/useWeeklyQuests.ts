@@ -8,12 +8,20 @@ export const useWeeklyQuests = () => {
     const [quests, setQuests] = useState<WeeklyQuest[]>([]);
     const { showToast } = useToast();
 
-    const fetchQuests = async () => {
+    const fetchQuests = async (forceAll: boolean = false) => {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('weekly_quests')
                 .select('*')
                 .order('created_at', { ascending: false });
+
+            if (!forceAll) {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                query = query.gte('week_start_date', thirtyDaysAgo.toISOString());
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 

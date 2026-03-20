@@ -10,6 +10,7 @@ import { GameConfigProvider } from './context/GameConfigContext';
 import { MasterDataProvider } from './context/MasterDataContext';
 import { GoogleDriveProvider } from './context/GoogleDriveContext';
 import { WorkboxProvider } from './context/WorkboxContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { useAuth } from './hooks/useAuth';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 import { Loader2 } from 'lucide-react';
@@ -78,14 +79,16 @@ function AuthenticatedApp({ user }: { user: any }) {
   return (
     <GoogleDriveProvider>
       <MasterDataProvider>
-        <WorkboxProvider currentUser={currentUserProfile}>
-          <GameConfigProvider>
-            <TaskProvider>
-              <GlobalRealtimeSync />
-              <AppRouter user={user} />
-            </TaskProvider>
-          </GameConfigProvider>
-        </WorkboxProvider>
+        <NotificationProvider currentUser={currentUserProfile}>
+          <WorkboxProvider currentUser={currentUserProfile}>
+            <GameConfigProvider>
+              <TaskProvider>
+                <GlobalRealtimeSync />
+                <AppRouter user={user} />
+              </TaskProvider>
+            </GameConfigProvider>
+          </WorkboxProvider>
+        </NotificationProvider>
       </MasterDataProvider>
     </GoogleDriveProvider>
   );

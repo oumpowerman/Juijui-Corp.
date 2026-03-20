@@ -71,12 +71,17 @@ export const useGamification = (currentUser: User | null = null) => {
     }, [currentUser, config]);
 
     // --- Initial Load ---
-    useEffect(() => {
-        if (currentUser) {
-            loadShopItems();
-            loadUserInventory();
-        }
-    }, [currentUser, loadShopItems, loadUserInventory]);
+    // Removed automatic initial load to prevent unnecessary network requests at top-level hooks (like useAutoJudge)
+    // Components that need shop/inventory data should call loadShopItems/loadUserInventory explicitly or use the returned state.
+    
+    // However, for backward compatibility and ease of use, we can keep it but maybe only if a flag is passed?
+    // Or just let the components call the load functions.
+    // Let's change it to only load if specifically requested via a prop or just remove the useEffect.
+    // Most components using useGamification (like Shop or Inventory) will likely want this data.
+    // But useAutoJudge doesn't.
+    
+    // Let's remove the useEffect and let the components handle it.
+    // I will check where useGamification is used.
 
     // --- 4. 🛠️ Legacy Support / Admin Tools ---
     const processAction = handleAction; // Alias for backward compatibility
@@ -137,6 +142,8 @@ export const useGamification = (currentUser: User | null = null) => {
         processAction, // Export alias
         adminAdjustStats, // Export admin function
         fetchGameLogs, // Export log fetcher
+        loadShopItems, // Export loader
+        loadUserInventory, // Export loader
         shopItems,
         userInventory,
         buyItem: handleBuyItem,

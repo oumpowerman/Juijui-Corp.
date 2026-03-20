@@ -157,6 +157,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                             {/* 2. Writer Filter Row (New Component) */}
                             <CreatorFilter 
                                 users={users}
+                                channels={channels}
                                 selectedIds={filterOwner}
                                 onToggle={(id) => toggleFilter(id, filterOwner, setFilterOwner)}
                                 onClear={clearOwner}

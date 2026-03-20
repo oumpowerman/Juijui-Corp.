@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { User } from '../../../types';
+import { User, Channel } from '../../../types';
 import { Trash2, User as UserIcon, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CreatorFilterProps {
     users: User[];
+    channels: Channel[];
     selectedIds: string[];
     onToggle: (id: string) => void;
     onClear: () => void;
@@ -13,6 +14,7 @@ interface CreatorFilterProps {
 
 const CreatorFilter: React.FC<CreatorFilterProps> = ({
     users,
+    channels,
     selectedIds,
     onToggle,
     onClear

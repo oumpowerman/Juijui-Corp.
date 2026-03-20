@@ -3,16 +3,31 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AnnualHoliday } from '../types';
 import { useGamification } from './useGamification';
-import { useGameConfig } from '../context/GameConfigContext'; // Import Config
+import { useGameConfig } from '../context/GameConfigContext';
+import { useNotificationContext } from '../context/NotificationContext';
 import { addDays, format, isBefore, subDays, differenceInCalendarDays, isSameDay } from 'date-fns';
 import { isTaskCompleted } from '../constants';
 
 export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
-    const { config } = useGameConfig(); // Use Game Config from DB
+    const { config } = useGameConfig();
+    const { gameLogs, notifications } = useNotificationContext();
     
-    // Ref to track items currently being processed to prevent duplicate penalties in the same session
     const isProcessingRef = useRef<Set<string>>(new Set());
+
+    // Helper to check if a penalty already exists in memory
+    const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
+        return gameLogs.some(log => {
+            const matchType = log.action_type === actionType;
+            const matchId = !relatedId || log.related_id === relatedId;
+            const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
+            return matchType && matchId && matchDesc;
+        });
+    };
+
+    const hasNotification = (type: string, messageMatch: string) => {
+        return notifications.some(n => n.type === type && n.message && n.message.includes(messageMatch));
+    };
 
     /**
      * 🛠️ HELPER: ตรวจสอบว่าเป็นวันทำงานหรือไม่?
@@ -182,17 +197,10 @@ export const useAutoJudge = (currentUser: User | null) => {
                              const lockKey = `negligence-${duty.id}`;
                              if (isProcessingRef.current.has(lockKey)) continue;
                              
-                             // ✅ ตรวจสอบจาก game_logs อีกชั้นว่าเคยโดน Negligence Penalty สำหรับเวรนี้ไปหรือยัง
-                             const { data: existingNegligence } = await supabase
-                                 .from('game_logs')
-                                 .select('id')
-                                 .eq('user_id', currentUser.id)
-                                 .eq('action_type', 'DUTY_MISSED')
-                                 .eq('related_id', duty.id)
-                                 .ilike('description', '%เพิกเฉย%')
-                                 .limit(1);
+                             // ✅ ตรวจสอบจาก game_logs ใน Context ว่าเคยโดน Negligence Penalty หรือยัง
+                             const alreadyPenalized = hasPenaltyInLogs('DUTY_MISSED', duty.id, 'เพิกเฉย');
 
-                             if (!existingNegligence || existingNegligence.length === 0) {
+                             if (!alreadyPenalized) {
                                  isProcessingRef.current.add(lockKey);
                                  console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
                                  
@@ -364,16 +372,10 @@ export const useAutoJudge = (currentUser: User | null) => {
                         if (!isProcessingRef.current.has(notifyKey)) {
                             isProcessingRef.current.add(notifyKey);
                             
-                            // เช็คว่าเคยแจ้งเตือนไปหรือยัง
-                            const { data: notifyData } = await supabase
-                                .from('notifications')
-                                .select('id')
-                                .eq('user_id', currentUser.id)
-                                .eq('type', 'INFO')
-                                .ilike('message', `%ระงับการหักคะแนนขาดงาน%${checkDateStr}%`)
-                                .limit(1);
+                            // เช็คว่าเคยแจ้งเตือนไปหรือยังใน Context
+                            const alreadyNotified = hasNotification('INFO', `ระงับการหักคะแนนขาดงาน%${checkDateStr}`);
 
-                            if (!notifyData || notifyData.length === 0) {
+                            if (!alreadyNotified) {
                                 await supabase.from('notifications').insert({
                                     user_id: currentUser.id,
                                     type: 'INFO',
@@ -404,16 +406,10 @@ export const useAutoJudge = (currentUser: User | null) => {
                      const absentLockKey = `ABSENT-${checkDateStr}`;
 
                      if (!isProcessingRef.current.has(absentLockKey)) {
-                         // ✅ ตรวจสอบจาก game_logs อีกชั้นว่าเคยโดนหักคะแนน Absent ของวันนี้ไปหรือยัง
-                         const { data: absentPenaltyData } = await supabase
-                             .from('game_logs')
-                             .select('id')
-                             .eq('user_id', currentUser.id)
-                             .eq('action_type', 'ATTENDANCE_ABSENT')
-                             .ilike('description', `%ABSENT_DATE:${checkDateStr}%`)
-                             .limit(1);
+                         // ✅ ตรวจสอบจาก game_logs ใน Context ว่าเคยโดนหักคะแนน Absent หรือยัง
+                         const alreadyPenalized = hasPenaltyInLogs('ATTENDANCE_ABSENT', undefined, `ABSENT_DATE:${checkDateStr}`);
 
-                         if (absentPenaltyData && absentPenaltyData.length > 0) {
+                         if (alreadyPenalized) {
                              // ถ้ามี Penalty ใน Log แล้วแต่ไม่มี Attendance Log (อาจจะเกิด Error ตอน Insert)
                              // ให้สร้าง Attendance Log ให้สมบูรณ์เพื่อหยุด Loop
                              await supabase.from('attendance_logs').insert({
@@ -512,16 +508,10 @@ export const useAutoJudge = (currentUser: User | null) => {
                         continue;
                     }
                     
-                    // 2. ตรวจสอบจาก game_logs โดยใช้ Tag เฉพาะ (Robust Check)
-                    const { data: penaltyData } = await supabase
-                        .from('game_logs')
-                        .select('id')
-                        .eq('user_id', currentUser.id)
-                        .eq('action_type', 'ATTENDANCE_FORGOT_CHECKOUT')
-                        .ilike('description', `%[FORGOT_OUT_DATE:${log.date}]%`)
-                        .limit(1);
+                    // 2. ตรวจสอบจาก game_logs ใน Context (Robust Check)
+                    const alreadyPenalized = hasPenaltyInLogs('ATTENDANCE_FORGOT_CHECKOUT', undefined, `[FORGOT_OUT_DATE:${log.date}]`);
 
-                    if (penaltyData && penaltyData.length > 0) {
+                    if (alreadyPenalized) {
                         // ✅ Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop
                         await supabase.from('attendance_logs').update({
                             status: 'ACTION_REQUIRED',
@@ -530,17 +520,10 @@ export const useAutoJudge = (currentUser: User | null) => {
                         continue;
                     }
 
-                    // 3. เช็คว่าเคยมี Notification ของวันนี้ส่งไปหรือยัง (กันส่งซ้ำจนรกตาราง)
-                    // ปรับปรุง: ไม่เช็ค is_read เพื่อให้ถ้าเคยส่งไปแล้ว (แม้จะอ่านแล้ว) ก็ไม่ต้องส่งใหม่
-                    const { data: notifyData } = await supabase
-                        .from('notifications')
-                        .select('id')
-                        .eq('user_id', currentUser.id)
-                        .eq('type', 'SYSTEM_LOCK_PENALTY')
-                        .ilike('message', `%${log.date}%`)
-                        .limit(1);
+                    // 3. เช็คว่าเคยมี Notification ของวันนี้ส่งไปหรือยัง ใน Context
+                    const alreadyNotified = hasNotification('SYSTEM_LOCK_PENALTY', log.date);
 
-                    if (!notifyData || notifyData.length === 0) {
+                    if (!alreadyNotified) {
                         isProcessingRef.current.add(lockKey);
 
                         // Update status to ACTION_REQUIRED
@@ -556,6 +539,8 @@ export const useAutoJudge = (currentUser: User | null) => {
                             reason: `FORGOT_OUT_DATE:${log.date}` // ✅ ใส่ Tag เพื่อให้ตรวจสอบซ้ำได้แม่นยำ
                         });
 
+                        const forgotCheckoutPenalty = config?.ATTENDANCE_RULES?.FORGOT_CHECKOUT?.hp ?? -10;
+
                         await supabase.from('notifications').insert({
                             user_id: currentUser.id,
                             type: 'SYSTEM_LOCK_PENALTY',
@@ -563,7 +548,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                             message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
                             is_read: false,
                             link_path: 'ATTENDANCE',
-                            metadata: { hp: -10, logId: log.id }
+                            metadata: { hp: forgotCheckoutPenalty, logId: log.id }
                         });
 
                         console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);

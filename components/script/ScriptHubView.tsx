@@ -42,7 +42,14 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         promoteToContent // NEW
     } = useScripts(currentUser);
     
-    const { channels } = useChannels();
+    const { channels, fetchChannels } = useChannels();
+
+    // Initial fetch for channels if empty
+    useEffect(() => {
+        if (channels.length === 0) {
+            fetchChannels();
+        }
+    }, [fetchChannels, channels.length]);
     const { masterOptions } = useMasterData();
     const { showConfirm, showAlert } = useGlobalDialog(); // USE DIALOG
 

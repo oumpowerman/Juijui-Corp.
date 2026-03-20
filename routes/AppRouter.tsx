@@ -533,17 +533,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 import { MasterDataProvider } from '../context/MasterDataContext';
 
 const AppRouter: React.FC<{ user: any }> = ({ user }) => {
-  const { currentUserProfile } = useAuth(user);
-
-  return (
-    <GoogleDriveProvider>
-     <MasterDataProvider>
-      <WorkboxProvider currentUser={currentUserProfile}>
-        <AppRouterInner user={user} />
-      </WorkboxProvider>
-     </MasterDataProvider>
-    </GoogleDriveProvider>
-  );
+  return <AppRouterInner user={user} />;
 };
 
 export default AppRouter;

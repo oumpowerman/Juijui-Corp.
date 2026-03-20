@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { User } from '../types';
+import { useNotificationContext } from '../context/NotificationContext';
 
 /**
  * 👂 useGameEventListener (The Watcher)
@@ -14,8 +15,10 @@ import { User } from '../types';
  */
 export const useGameEventListener = (currentUser: User | null, onEvent?: () => void) => {
     const { showToast } = useToast();
+    const { gameLogs } = useNotificationContext();
     
     // Buffer: ใช้เก็บ Log ที่เด้งมาพร้อมกันหลายๆ อัน เพื่อแสดงรวบยอด (ลด Spam)
+    const processedLogsRef = useRef<Set<string>>(new Set());
     const bufferRef = useRef<Map<string, any[]>>(new Map());
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const nameCacheRef = useRef<Map<string, string>>(new Map());
@@ -31,8 +34,7 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
         // Detect transition to 0 HP
         if (prevHp !== null && prevHp > 0 && currentHp === 0) {
             showToast('💀 HP ของคุณหมดลงแล้ว! ระบบได้บันทึกประวัติความผิดพลาดไว้แล้ว', 'penalty');
-        }
-        
+        }    
         prevHpRef.current = currentHp;
     }, [currentUser?.hp, currentUser?.id]);
 
@@ -66,14 +68,6 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
             const firstLog = logs[0];
             const count = logs.length;
             const actionType = firstLog.action_type;
-            
-            // Helper: ถ้าเป็น Admin จะเห็นยอดรวมคน
-            const generateWhoText = (userCount: number) => {
-                if (!isAdmin) return ''; 
-                if (userCount <= 1) return ''; 
-                return `(${userCount} คน)`;
-            };
-
             // ✅ KEY LOGIC: ใช้ข้อความจาก Database เลย ไม่ต้อง Hardcode ใน Frontend
             const message = firstLog.description || 'มีการอัปเดตข้อมูล';
 
@@ -98,16 +92,12 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
 
             // --- ADMIN GROUPING LOGIC ---
             if (isAdmin && count > 1) {
-                // ถ้า Admin เห็นคนหลายคนทำเรื่องเดียวกัน ให้รวบยอด
-                if (actionType === 'TASK_COMPLETE') {
-                    showToast(`🎉 ปิดงานสำเร็จ ${count} งาน ${generateWhoText(count)}`, 'success');
-                } else if (actionType === 'TASK_LATE') {
-                    showToast(`📉 มีงานส่งล่าช้า ${count} รายการ ${generateWhoText(count)}`, 'penalty');
-                } else if (actionType === 'ATTENDANCE_CHECK_IN') {
-                    showToast(`🕒 มีพนักงานลงเวลาเข้างาน ${generateWhoText(count)}`, 'info');
-                } else {
-                    showToast(`${message} ${generateWhoText(count)}`, toastType);
-                }
+                if (actionType === 'TASK_COMPLETE') showToast(`🎉 ปิดงานสำเร็จ ${count} งาน`, 'success');
+                else if (actionType === 'TASK_LATE') showToast(`📉 มีงานส่งล่าช้า ${count} รายการ`, 'penalty');
+                else if (actionType === 'ATTENDANCE_CHECK_IN') showToast(`🕒 มีพนักงานลงเวลาเข้างาน`, 'info');
+                else if (actionType === 'ATTENDANCE_CHECK_OUT') showToast(`🕒 มีพนักงานลงเวลาออกงาน`, 'info');
+                else if (actionType === 'ATTENDANCE_EARLY_LEAVE') showToast(`🕒 มีพนักงานกลับก่อนเวลา ${count} คน`, 'warning');
+                else showToast(`${message}`, toastType);
             } else {
                 // Individual User: แสดงข้อความตรงๆ
                 // กรองเฉพาะของตัวเอง หรือถ้าเป็น Admin ก็ให้เห็นของทุกคน (แบบทีละรายการถ้าไม่เยอะ)
@@ -116,9 +106,12 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
                     if (isAdmin) {
                         // For Admin: Only show "Important" events for other users to reduce spam
                         const importantActions = [
-                            'ATTENDANCE_CHECK_IN', 
+                            'ATTENDANCE_CHECK_IN',
+                            'ATTENDANCE_CHECK_OUT',  
                             'ATTENDANCE_ABSENT', 
                             'ATTENDANCE_LATE', 
+                            'ATTENDANCE_EARLY_LEAVE',
+                            'ATTENDANCE_FORGOT_CHECKOUT',
                             'ATTENDANCE_NO_SHOW',
                             'DUTY_MISSED', 
                             'TASK_LATE', 
@@ -152,54 +145,38 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
         }
     };
 
+    // Listen to gameLogs from NotificationContext
     useEffect(() => {
-        if (!currentUser) return;
-        const isAdmin = currentUser.role === 'ADMIN';
+        if (!currentUser || gameLogs.length === 0) return;
 
-        const channel = supabase
-            .channel('game-events-listener-v3')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'game_logs',
-                    filter: isAdmin ? undefined : `user_id=eq.${currentUser.id}`
-                },
-                (payload) => {
-                    const log = payload.new;
-                    
-                    // ✨ ROBUST SYNC: Trigger profile refresh if callback provided
-                    if (onEvent) onEvent();
+        // Find logs that haven't been processed yet
+        const newLogs = gameLogs.filter(log => !processedLogsRef.current.has(log.id));
+        
+        if (newLogs.length > 0) {
+            if (onEvent) onEvent();
 
-                    // --- INTELLIGENT GROUPING STRATEGY ---
-                    // จัดกลุ่ม Event ที่มักจะเกิดรัวๆ พร้อมกัน
-                    let groupKey = `single_${log.id}`; // Default: No grouping
+            newLogs.forEach(log => {
+                processedLogsRef.current.add(log.id);
 
-                    if (log.action_type.startsWith('TASK_')) {
-                        groupKey = `TASK_BATCH_${log.action_type}`;
-                    } else if (log.action_type.startsWith('ATTENDANCE_')) {
-                        groupKey = `ATTENDANCE_BATCH_${log.action_type}`;
-                    } else if (log.action_type.startsWith('DUTY_')) {
-                        groupKey = `DUTY_BATCH_${log.action_type}`;
-                    }
+                let groupKey = `single_${log.id}`;
+                if (log.action_type.startsWith('TASK_')) groupKey = `TASK_BATCH_${log.action_type}`;
+                else if (log.action_type.startsWith('ATTENDANCE_')) groupKey = `ATTENDANCE_BATCH_${log.action_type}`;
+                else if (log.action_type.startsWith('DUTY_')) groupKey = `DUTY_BATCH_${log.action_type}`;
 
-                    // Add to buffer
-                    if (!bufferRef.current.has(groupKey)) {
-                        bufferRef.current.set(groupKey, []);
-                    }
-                    bufferRef.current.get(groupKey)?.push(log);
+                if (!bufferRef.current.has(groupKey)) bufferRef.current.set(groupKey, []);
+                bufferRef.current.get(groupKey)?.push(log);
+            });
 
-                    // Debounce 300ms (รอให้ Batch เต็มก่อนแสดง)
-                    if (timerRef.current) clearTimeout(timerRef.current);
-                    timerRef.current = setTimeout(processBuffer, 300);
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
             if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, [currentUser?.id, currentUser?.role]);
+            timerRef.current = setTimeout(processBuffer, 300);
+        }
+
+        // Memory management for processedLogsRef (Keep last 200 IDs)
+        if (processedLogsRef.current.size > 200) {
+            const ids = Array.from(processedLogsRef.current);
+            processedLogsRef.current = new Set(ids.slice(-100));
+        }
+    }, [gameLogs, currentUser?.id]);
+
+    return null;
 };

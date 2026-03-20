@@ -15,10 +15,18 @@ interface ItemShopModalProps {
 }
 
 const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentUser, onRefreshProfile }) => {
-    const { shopItems, userInventory, buyItem, useItem, isLoading } = useGamification(currentUser);
+    const { shopItems, userInventory, buyItem, useItem, isLoading, loadShopItems, loadUserInventory } = useGamification(currentUser);
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'SHOP' | 'INVENTORY'>('SHOP');
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    // Load data when modal opens
+    React.useEffect(() => {
+        if (isOpen) {
+            loadShopItems();
+            loadUserInventory();
+        }
+    }, [isOpen, loadShopItems, loadUserInventory]);
 
     if (!isOpen) return null;
 

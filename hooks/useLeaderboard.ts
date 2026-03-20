@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
-import { isWithinInterval } from 'date-fns';
 import startOfWeek from 'date-fns/startOfWeek';
 import endOfWeek from 'date-fns/endOfWeek';
 import startOfMonth from 'date-fns/startOfMonth';
@@ -28,12 +27,36 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
     const [rankings, setRankings] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         // กรองความซ้ำซ้อน: ถ้ายังไม่มีข้อมูล User ให้ข้ามไปก่อน
         if (users.length === 0) return;
 
         setIsLoading(true);
         try {
+                        // For ALL_TIME, we don't need to fetch logs, we use the 'users' prop directly
+            if (timeRange === 'ALL_TIME') {
+                const allTimeSorted = [...users].filter(u => u.isActive).sort((a, b) => b.xp - a.xp);
+                const allTimeEntries: LeaderboardEntry[] = allTimeSorted.map((u, index) => {
+                    const badges: BadgeType[] = [];
+                    if (u.level >= 5) badges.push('FIRE');
+                    
+                    return {
+                        user: u,
+                        rank: index + 1,
+                        score: u.xp,
+                        missions: 0, // Missions/Penalties not easily calculated for all-time without full log scan
+                        penalties: 0,
+                        diffFromTop: allTimeSorted[0].xp - u.xp,
+                        diffFromNext: index > 0 ? allTimeSorted[index - 1].xp - u.xp : 0,
+                        nextRankUser: index > 0 ? allTimeSorted[index - 1] : undefined,
+                        badges: badges
+                    };
+                });
+                setRankings(allTimeEntries);
+                setIsLoading(false);
+                return;
+            }
+
             let query = supabase.from('game_logs').select('user_id, action_type, xp_change, created_at');
 
             // Date Filtering
@@ -140,52 +163,33 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
                 };
             });
 
-            // Special Case: ALL_TIME (Use Profile XP directly for consistency)
-            if (timeRange === 'ALL_TIME') {
-                const allTimeSorted = [...users].filter(u => u.isActive).sort((a, b) => b.xp - a.xp);
-                const allTimeEntries = allTimeSorted.map((u, index) => {
-                    // Logic duplication for badges (simplified for all time)
-                    const badges: BadgeType[] = [];
-                    if (u.level >= 5) badges.push('FIRE');
-                    
-                    return {
-                        user: u,
-                        rank: index + 1,
-                        score: u.xp, // Total XP
-                        missions: entries.find(e => e.user.id === u.id)?.missions || 0, // Keep log based counts visual
-                        penalties: entries.find(e => e.user.id === u.id)?.penalties || 0,
-                        diffFromTop: allTimeSorted[0].xp - u.xp,
-                        diffFromNext: index > 0 ? allTimeSorted[index - 1].xp - u.xp : 0,
-                        nextRankUser: index > 0 ? allTimeSorted[index - 1] : undefined,
-                        badges: badges
-                    };
-                });
-                setRankings(allTimeEntries);
-            } else {
-                setRankings(entries);
-            }
+            setRankings(entries);
 
         } catch (err) {
             console.error("Leaderboard error", err);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [users, timeRange]);
 
-    // Realtime Integration
+    // Initial fetch and re-fetch when timeRange changes
     useEffect(() => {
-        if (users.length > 0) {
-            fetchStats();
-        }
+        fetchStats();
+    }, [fetchStats]);
 
-        // 📡 ดักฟังแบบ Real-time: ทันทีที่มีการเพิ่ม/ลบ Log คะแนน (game_logs)
+    // Dedicated Real-time subscription for game_logs
+    useEffect(() => {
         const channel = supabase
-            .channel('leaderboard-realtime-sync')
+            .channel('leaderboard-logs')
             .on(
-                'postgres_changes', 
-                { event: '*', schema: 'public', table: 'game_logs' }, 
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'game_logs' },
                 () => {
-                    fetchStats(); // Re-fetch data on any log change
+                    // Only re-fetch if we are in a time-ranged view
+                    // ALL_TIME is handled by the 'users' prop which is updated via useTeam's subscription
+                    if (timeRange !== 'ALL_TIME') {
+                        fetchStats();
+                    }
                 }
             )
             .subscribe();
@@ -193,7 +197,7 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [users, timeRange]); // ทำงานใหม่ถ้า User list เปลี่ยน หรือเปลี่ยนโหมดเวลา
+    }, [timeRange, fetchStats]); // ทำงานใหม่ถ้า User list เปลี่ยน หรือเปลี่ยนโหมดเวลา
 
     // Find current user stats
     const myStats = useMemo(() => rankings.find(r => r.user.id === currentUser.id), [rankings, currentUser]);

@@ -96,7 +96,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         try {
             const [optionsRes, holidaysRes, exceptionsRes, inventoryRes] = await Promise.all([
                 supabase.from('master_options').select('*').order('sort_order', { ascending: true }),
-                supabase.from('annual_holidays').select('*').order('date', { ascending: true }),
+                supabase.from('annual_holidays').select('*').order('month', { ascending: true }).order('day', { ascending: true }),
                 supabase.from('calendar_exceptions').select('*').order('date', { ascending: true }),
                 supabase.from('inventory_items').select('*').order('name', { ascending: true })
             ]);

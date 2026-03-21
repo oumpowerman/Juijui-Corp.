@@ -68,7 +68,6 @@ export const useTaskManager = (
              fetchQuests(),
              fetchMasterOptions() 
          ]);
-         loadChecklistData();
       }
       setIsLoading(false);
     };

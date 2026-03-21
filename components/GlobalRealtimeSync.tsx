@@ -105,6 +105,46 @@ export const GlobalRealtimeSync = () => {
                 }
             )
             .subscribe();
+        
+        // KPI Sync
+        const kpiChannel = supabase
+            .channel('realtime-kpi-global')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'kpi_configs' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['kpi_configs'] });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'kpi_records' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['kpi_records'] });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'individual_goals' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['individual_goals'] });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'idp_items' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['idp_items'] });
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'kpi_peer_reviews' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['kpi_peer_reviews'] });
+                }
+            )
+            .subscribe();
 
         return () => {
             supabase.removeChannel(masterChannel);
@@ -114,6 +154,7 @@ export const GlobalRealtimeSync = () => {
             supabase.removeChannel(presetsChannel);
             supabase.removeChannel(profilesChannel);
             supabase.removeChannel(tasksChannel);
+            supabase.removeChannel(kpiChannel);
         };
     }, [queryClient]);
 

@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { ChecklistItem, ChecklistPreset, InventoryItem } from '../types';
 import { useToast } from './ToastContext';
@@ -38,100 +39,68 @@ export const ChecklistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
     const { masterOptions, inventoryItems } = useMasterData();
+    const queryClient = useQueryClient();
 
     const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
     const [checklistPresets, setChecklistPresets] = useState<ChecklistPreset[]>([]);
     const [activePresetId, setActivePresetId] = useState<string | null>(null);
     const [activePresetName, setActivePresetName] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
 
-    const loadChecklistData = useCallback(async () => {
-        try {
-            // Fetch Active List
-            const { data: activeData, error: activeError } = await supabase
+    // 1. React Query for Active Items
+    const { data: activeData, isLoading: isActiveLoading, refetch: refetchActive } = useQuery({
+        queryKey: ['active_checklist_items'],
+        queryFn: async () => {
+            const { data, error } = await supabase
                 .from('active_checklist_items')
                 .select('*')
                 .order('created_at', { ascending: true });
-            
-            if (activeError) console.error("Error fetching active items:", activeError);
-            if (activeData) {
-                setActiveChecklistItems(activeData.map((i: any) => ({
-                    id: i.id,
-                    text: i.text,
-                    isChecked: i.is_checked,
-                    categoryId: i.category_id
-                })));
-            }
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
 
-            // Fetch Presets
-            const { data: presetData, error: presetError } = await supabase
+    // 2. React Query for Presets
+    const { data: presetData, isLoading: isPresetsLoading, refetch: refetchPresets } = useQuery({
+        queryKey: ['checklist_presets_db'],
+        queryFn: async () => {
+            const { data, error } = await supabase
                 .from('checklist_presets_db')
                 .select('*')
                 .order('name', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
 
-            if (presetError) console.error("Error fetching presets:", presetError);
-            if (presetData) {
-                const mappedPresets = presetData.map((p: any) => ({
-                    id: p.id,
-                    name: p.name,
-                    items: p.items || []
-                }));
-                setChecklistPresets(mappedPresets);
-
-                const configData = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
-
-                if (configData) {
-                    const pId = configData.label;
-                    setActivePresetId(pId);
-                    const activeP = mappedPresets.find(p => p.id === pId);
-                    setActivePresetName(activeP ? activeP.name : null);
-                } else {
-                    setActivePresetId(null);
-                    setActivePresetName(null);
-                }
-            }
-
-        } catch (err) {
-            console.error("Load Checklist Data Error:", err);
-        } finally {
-            setIsLoading(false);
+    // Sync Query Data to Local State (for backward compatibility)
+    useEffect(() => {
+        if (activeData) {
+            setActiveChecklistItems(activeData.map((i: any) => ({
+                id: i.id,
+                text: i.text,
+                isChecked: i.is_checked,
+                categoryId: i.category_id
+            })));
         }
-    }, [masterOptions]);
+    }, [activeData]);
 
     useEffect(() => {
-        loadChecklistData();
+        if (presetData) {
+            setChecklistPresets(presetData.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                items: p.items || []
+            })));
+        }
+    }, [presetData]);
 
-        const channel = supabase
-            .channel('checklist-all-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    const newItem: ChecklistItem = {
-                        id: payload.new.id,
-                        text: payload.new.text,
-                        isChecked: payload.new.is_checked,
-                        categoryId: payload.new.category_id
-                    };
-                    setActiveChecklistItems(prev => {
-                        if (prev.some(i => i.id === newItem.id)) return prev;
-                        return [...prev, newItem];
-                    });
-                } else if (payload.eventType === 'UPDATE') {
-                    setActiveChecklistItems(prev => prev.map(item => 
-                        item.id === payload.new.id 
-                            ? { ...item, text: payload.new.text, isChecked: payload.new.is_checked, categoryId: payload.new.category_id } 
-                            : item
-                    ));
-                } else if (payload.eventType === 'DELETE') {
-                    setActiveChecklistItems(prev => prev.filter(item => item.id !== payload.old.id));
-                }
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
-            .subscribe();
+    const isLoading = isActiveLoading || isPresetsLoading;
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [loadChecklistData]);
+    const loadChecklistData = useCallback(async () => {
+        await Promise.all([refetchActive(), refetchPresets()]);
+    }, [refetchActive, refetchPresets]);
 
     useEffect(() => {
         const configData = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');

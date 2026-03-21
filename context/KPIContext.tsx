@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { KPIRecord, MasterOption, IndividualGoal, KPIConfig, KPIStats, IDPItem, PeerReview } from '../types';
 import { useToast } from './ToastContext';
@@ -41,6 +42,7 @@ const KPIContext = createContext<KPIContextType | undefined>(undefined);
 export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { masterOptions } = useMasterData();
     const { showToast } = useToast();
+    const queryClient = useQueryClient();
 
     const [kpiRecords, setKpiRecords] = useState<KPIRecord[]>([]);
     const [goals, setGoals] = useState<IndividualGoal[]>([]);
@@ -48,102 +50,149 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [peerReviews, setPeerReviews] = useState<PeerReview[]>([]);
     const [criteria, setCriteria] = useState<MasterOption[]>([]);
     const [config, setConfig] = useState<KPIConfig>(DEFAULT_CONFIG);
-    const [isLoading, setIsLoading] = useState(true);
 
-    const fetchConfig = useCallback(async () => {
-        const { data } = await supabase.from('kpi_configs').select('*').eq('is_active', true).single();
-        if (data) {
+    // 1. Query Config
+    const { data: qConfig, isLoading: isConfigLoading } = useQuery({
+        queryKey: ['kpi_configs'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('kpi_configs').select('*').eq('is_active', true).single();
+            if (error) throw error;
+            return data;
+        },
+        staleTime: 1000 * 60 * 10,
+    });
+
+    // 2. Query Records
+    const { data: qRecords, isLoading: isRecordsLoading } = useQuery({
+        queryKey: ['kpi_records'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('kpi_records').select('*');
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+
+    // 3. Query Goals
+    const { data: qGoals, isLoading: isGoalsLoading } = useQuery({
+        queryKey: ['individual_goals'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('individual_goals').select('*');
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+
+    // 4. Query IDP
+    const { data: qIdp, isLoading: isIdpLoading } = useQuery({
+        queryKey: ['idp_items'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('idp_items').select('*').order('created_at', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+
+    // 5. Query Peer Reviews
+    const { data: qReviews, isLoading: isReviewsLoading } = useQuery({
+        queryKey: ['kpi_peer_reviews'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('kpi_peer_reviews').select('*, from_user:profiles!kpi_peer_reviews_from_user_id_fkey(full_name, avatar_url)');
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+
+    // Sync Logic
+    useEffect(() => {
+        if (qConfig) {
             setConfig({
-                id: data.id,
-                roleTarget: data.role_target,
-                weightOkr: data.weight_okr,
-                weightBehavior: data.weight_behavior,
-                weightAttendance: data.weight_attendance,
-                penaltyLate: data.penalty_late_per_time,
-                penaltyAbsent: data.penalty_absent_per_day,
-                penaltyMissedDuty: data.penalty_missed_duty_per_time,
-                isActive: data.is_active
+                id: qConfig.id,
+                roleTarget: qConfig.role_target,
+                weightOkr: qConfig.weight_okr,
+                weightBehavior: qConfig.weight_behavior,
+                weightAttendance: qConfig.weight_attendance,
+                penaltyLate: qConfig.penalty_late_per_time,
+                penaltyAbsent: qConfig.penalty_absent_per_day,
+                penaltyMissedDuty: qConfig.penalty_missed_duty_per_time,
+                isActive: qConfig.is_active
             });
         }
-    }, []);
-
-    const fetchKPI = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            await fetchConfig();
-
-            const criteriaData = masterOptions.filter(o => o.type === 'KPI_CRITERIA' && o.isActive);
-            setCriteria(criteriaData.map((c: any) => ({
-                id: c.id, type: c.type, key: c.key, label: c.label, color: c.color, sortOrder: c.sortOrder, isActive: c.isActive
-            })));
-
-            const { data: recordData } = await supabase.from('kpi_records').select('*');
-            if (recordData) {
-                setKpiRecords(recordData.map((r: any) => ({
-                    id: r.id,
-                    userId: r.user_id,
-                    evaluatorId: r.evaluator_id,
-                    monthKey: r.month_key,
-                    scores: r.scores || {},
-                    selfScores: r.self_scores || {},
-                    feedback: r.manager_feedback || r.feedback || '', 
-                    managerFeedback: r.manager_feedback,
-                    selfFeedback: r.self_feedback,
-                    developmentPlan: r.development_plan,
-                    status: r.status,
-                    totalScore: r.total_score,
-                    maxScore: r.max_score,
-                    updatedAt: new Date(r.updated_at),
-                    statsSnapshot: r.stats_snapshot,
-                    finalScoreBreakdown: r.final_score_breakdown
-                })));
-            }
-
-            const { data: goalData } = await supabase.from('individual_goals').select('*');
-            if (goalData) {
-                setGoals(goalData.map((g: any) => ({
-                    id: g.id, userId: g.user_id, monthKey: g.month_key, title: g.title, targetValue: g.target_value, actualValue: g.actual_value, unit: g.unit
-                })));
-            }
-
-            const { data: idpData } = await supabase.from('idp_items').select('*').order('created_at', { ascending: true });
-            if (idpData) {
-                setIdpItems(idpData.map((i: any) => ({
-                    id: i.id, userId: i.user_id, monthKey: i.month_key, topic: i.topic, actionPlan: i.action_plan, status: i.status
-                })));
-            }
-
-            const { data: reviewData } = await supabase.from('kpi_peer_reviews').select('*, from_user:profiles!kpi_peer_reviews_from_user_id_fkey(full_name, avatar_url)');
-            if (reviewData) {
-                setPeerReviews(reviewData.map((r: any) => ({
-                    id: r.id,
-                    fromUserId: r.from_user_id,
-                    toUserId: r.to_user_id,
-                    monthKey: r.month_key,
-                    message: r.message,
-                    badge: r.badge,
-                    createdAt: new Date(r.created_at),
-                    fromUser: r.from_user ? { name: r.from_user.full_name, avatarUrl: r.from_user.avatar_url } : undefined
-                })));
-            }
-
-        } catch (err: any) {
-            console.error("Fetch KPI Error", err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [fetchConfig, masterOptions]);
+    }, [qConfig]);
 
     useEffect(() => {
-        fetchKPI();
-        const channel = supabase.channel('realtime-kpi-v3')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_records' }, () => fetchKPI())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'individual_goals' }, () => fetchKPI())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'idp_items' }, () => fetchKPI()) 
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_peer_reviews' }, () => fetchKPI())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchKPI]);
+        if (qRecords) {
+            setKpiRecords(qRecords.map((r: any) => ({
+                id: r.id,
+                userId: r.user_id,
+                evaluatorId: r.evaluator_id,
+                monthKey: r.month_key,
+                scores: r.scores || {},
+                selfScores: r.self_scores || {},
+                feedback: r.manager_feedback || r.feedback || '', 
+                managerFeedback: r.manager_feedback,
+                selfFeedback: r.self_feedback,
+                developmentPlan: r.development_plan,
+                status: r.status,
+                totalScore: r.total_score,
+                maxScore: r.max_score,
+                updatedAt: new Date(r.updated_at),
+                statsSnapshot: r.stats_snapshot,
+                finalScoreBreakdown: r.final_score_breakdown
+            })));
+        }
+    }, [qRecords]);
+
+    useEffect(() => {
+        if (qGoals) {
+            setGoals(qGoals.map((g: any) => ({
+                id: g.id, userId: g.user_id, monthKey: g.month_key, title: g.title, targetValue: g.target_value, actualValue: g.actual_value, unit: g.unit
+            })));
+        }
+    }, [qGoals]);
+
+    useEffect(() => {
+        if (qIdp) {
+            setIdpItems(qIdp.map((i: any) => ({
+                id: i.id, userId: i.user_id, monthKey: i.month_key, topic: i.topic, actionPlan: i.action_plan, status: i.status
+            })));
+        }
+    }, [qIdp]);
+
+    useEffect(() => {
+        if (qReviews) {
+            setPeerReviews(qReviews.map((r: any) => ({
+                id: r.id,
+                fromUserId: r.from_user_id,
+                toUserId: r.to_user_id,
+                monthKey: r.month_key,
+                message: r.message,
+                badge: r.badge,
+                createdAt: new Date(r.created_at),
+                fromUser: r.from_user ? { name: r.from_user.full_name, avatarUrl: r.from_user.avatar_url } : undefined
+            })));
+        }
+    }, [qReviews]);
+
+    useEffect(() => {
+        const criteriaData = masterOptions.filter(o => o.type === 'KPI_CRITERIA' && o.isActive);
+        setCriteria(criteriaData.map((c: any) => ({
+            id: c.id, type: c.type, key: c.key, label: c.label, color: c.color, sortOrder: c.sortOrder, isActive: c.isActive
+        })));
+    }, [masterOptions]);
+
+    const isLoading = isConfigLoading || isRecordsLoading || isGoalsLoading || isIdpLoading || isReviewsLoading;
+
+    const refreshKPI = useCallback(async () => {
+        await queryClient.invalidateQueries({ queryKey: ['kpi_configs'] });
+        await queryClient.invalidateQueries({ queryKey: ['kpi_records'] });
+        await queryClient.invalidateQueries({ queryKey: ['individual_goals'] });
+        await queryClient.invalidateQueries({ queryKey: ['idp_items'] });
+        await queryClient.invalidateQueries({ queryKey: ['kpi_peer_reviews'] });
+    }, [queryClient]);
 
     const fetchUserStats = useCallback(async (userId: string, date: Date): Promise<KPIStats> => {
         const start = format(startOfMonth(date), 'yyyy-MM-dd');
@@ -341,7 +390,7 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateIDPStatus, 
         deleteIDPItem,
         sendKudos,
-        refreshKPI: fetchKPI,
+        refreshKPI,
         updateConfig,
         fetchUserStats
     }), [
@@ -361,7 +410,7 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateIDPStatus, 
         deleteIDPItem,
         sendKudos,
-        fetchKPI,
+        refreshKPI,
         updateConfig,
         fetchUserStats
     ]);

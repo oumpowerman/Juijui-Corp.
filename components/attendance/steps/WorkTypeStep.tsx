@@ -65,7 +65,9 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ matchedLocation, onSelect, 
                             Work From Home 
                             {approvedWFH && <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">APPROVED</span>}
                         </h4>
-                        <p className="text-xs text-gray-500">ทำงานที่บ้าน</p>
+                        <p className="text-xs text-gray-500">
+                            {approvedWFH ? 'ได้รับอนุมัติแล้ว' : '⚠️ ไม่ได้ขออนุญาต (หัก 5 HP)'}
+                        </p>
                     </div>
                 </div>
                 {approvedWFH ? <Check className="w-6 h-6 text-blue-600" /> : <ChevronRight className="w-5 h-5 text-gray-300" />}

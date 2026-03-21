@@ -11,6 +11,10 @@ import { MasterDataProvider } from './context/MasterDataContext';
 import { GoogleDriveProvider } from './context/GoogleDriveContext';
 import { WorkboxProvider } from './context/WorkboxContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ChecklistProvider } from './context/ChecklistContext';
+import { KPIProvider } from './context/KPIContext';
+import { FinanceProvider } from './context/FinanceContext';
+import { WikiProvider } from './context/WikiContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 import { Loader2 } from 'lucide-react';
@@ -123,12 +127,20 @@ function AuthenticatedAppInner({ user }: { user: any }) {
   return (
     <NotificationProvider currentUser={currentUserProfile}>
       <WorkboxProvider currentUser={currentUserProfile}>
-        <GameConfigProvider>
-          <TaskProvider>
-            <GlobalRealtimeSync />
-            <AppRouter user={user} />
-          </TaskProvider>
-        </GameConfigProvider>
+        <ChecklistProvider>
+          <KPIProvider>
+            <FinanceProvider>
+              <WikiProvider>
+                <GameConfigProvider>
+                  <TaskProvider>
+                    <GlobalRealtimeSync />
+                    <AppRouter user={user} />
+                  </TaskProvider>
+                </GameConfigProvider>
+              </WikiProvider>
+            </FinanceProvider>
+          </KPIProvider>
+        </ChecklistProvider>
       </WorkboxProvider>
     </NotificationProvider>
   );

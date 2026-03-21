@@ -8,7 +8,7 @@ import { useMasterData } from '../../../hooks/useMasterData';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { format } from 'date-fns';
-import { Info } from 'lucide-react';
+import { Info, AlertTriangle ,HelpCircle} from 'lucide-react';
 import StatusCard from '../widget/StatusCard';
 import CheckInModal from '../CheckInModal';
 import LiveClock from '../widget/LiveClock';
@@ -71,8 +71,9 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
         }
 
         if (shouldProceed) {
+            const isApprovedWFH = todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED';
             const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY';
-            const success = await checkIn(type, file, location, locationName, undefined, undefined, isAppeal, proofUrl);
+            const success = await checkIn(type, file, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH);
             if (success) {
                 showAlert("บันทึกข้อมูลการเข้างานเรียบร้อยแล้วครับ", "สำเร็จ");
                 refresh();
@@ -93,14 +94,48 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
         <div className="bg-white rounded-3xl shadow-lg border border-indigo-50 p-6 relative overflow-hidden">
             <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none ${todayLog ? 'bg-green-400' : 'bg-orange-400'}`}></div>
             
-            {/* Info Button */}
-            <button 
-                onClick={() => setIsRulesModalOpen(true)}
-                className="absolute top-4 right-4 w-8 h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center transition-colors z-10 shadow-sm border border-indigo-100"
-                title="กฎการลงเวลา"
-            >
-                <Info className="w-4 h-4" />
-            </button>
+            {/* Header Section */}
+            <div className="flex items-center justify-between mb-4 relative z-10">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-800 uppercase tracking-tight text-lg">Attendance</h3>
+                    <button 
+                        onClick={() => setIsRulesModalOpen(true)}
+                        className="
+                            relative w-10 h-10 
+                            bg-white/70 backdrop-blur 
+                            border border-indigo-100 
+                            text-indigo-600 
+                            rounded-xl 
+                            flex items-center justify-center 
+                            shadow-sm 
+                            transition-all duration-300
+                            hover:shadow-lg hover:scale-110
+                            active:scale-95
+                        "
+                        title="กฎการลงเวลา"
+                        >
+                        {/* glow วิ่งเบาๆ */}
+                        <span className="
+                            absolute inset-0 rounded-xl 
+                            bg-indigo-400/20 blur-md 
+                            animate-pulse
+                        " />
+
+                        {/* icon ดุ๊กดิ๊ก */}
+                        <HelpCircle 
+                            size={18} 
+                            className="relative z-10 animate-wiggle"
+                        />
+                    </button>
+                </div>
+                
+                <button 
+                    onClick={onOpenLeave}
+                    className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl text-[12px] font-kanit font-medium uppercase tracking-widest transition-all flex items-center gap-1.5 border border-orange-100 shadow-sm active:scale-95"
+                >
+                    <AlertTriangle className="w-3 h-3" /> แจ้งลา / สาย
+                </button>
+            </div>
 
             <LiveClock />
 

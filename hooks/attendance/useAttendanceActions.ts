@@ -23,7 +23,8 @@ export const useAttendanceActions = (userId: string) => {
         note?: string,
         externalUploadFn?: (file: File) => Promise<string | null>,
         isAppeal: boolean = false,
-        proofUrlParam?: string | null
+        proofUrlParam?: string | null,
+        isApprovedWFH: boolean = false
     ) => {
         setIsActionLoading(true);
         try {
@@ -58,6 +59,7 @@ export const useAttendanceActions = (userId: string) => {
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
             if (isAppeal) meta.push(`[APPEAL_PENDING]`);
+            if (workType === 'WFH' && !isApprovedWFH) meta.push(`[UNAUTHORIZED_WFH]`);
             if (meta.length > 0) finalNote = `${finalNote} ${meta.join(' ')}`.trim();
 
             const payload: any = {
@@ -83,6 +85,13 @@ export const useAttendanceActions = (userId: string) => {
                 date: now,
                 time: format(now, 'HH:mm')
             });
+
+            // Handle Unauthorized WFH Penalty
+            if (workType === 'WFH' && !isApprovedWFH) {
+                await processAction(userId, 'ATTENDANCE_UNAUTHORIZED_WFH', {
+                    date: now
+                });
+            }
 
             return true;
         } catch (err: any) {

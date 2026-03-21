@@ -280,9 +280,9 @@ const StatusCard: React.FC<StatusCardProps> = ({
                             }}
                             whileHover={{ scale: 1.15, boxShadow: "0 0 25px rgba(225, 29, 72, 0.7)" }}
                             whileTap={{ scale: 0.9 }}
-                            className="bg-rose-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all relative z-10"
+                            className="bg-rose-600 text-white px-4 py-2 rounded-xl text-[14px] font-kanit font-medium uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all relative z-10"
                         >
-                            Fix Now
+                            เชื่อมต่อตอนนี้!
                         </motion.button>
                     </motion.div>
                 ) : (
@@ -454,10 +454,10 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-pink-600' : 'text-gray-500'}`}>
                             {dayStatus.mode === 'HOLIDAY' ? 'แต่ถ้าจะทำงาน ก็กดได้เลย!' : 'พร้อมเริ่มงานรึยัง?'}
                         </p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-3">
                             <button 
                                 onClick={onOpenCheckIn}
-                                className={`col-span-2 py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2
+                                className={`w-full py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2
                                     ${dayStatus.mode === 'HOLIDAY' 
                                         ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-pink-200' 
                                         : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200'
@@ -465,13 +465,6 @@ const StatusCard: React.FC<StatusCardProps> = ({
                                 `}
                             >
                                 <LogIn className="w-5 h-5" /> {dayStatus.mode === 'HOLIDAY' ? 'ยืนยันลงเวลา (วันหยุด)' : 'กดเพื่อลงเวลา (Check-in)'}
-                            </button>
-                            
-                            <button 
-                                onClick={onOpenLeave}
-                                className="py-2 bg-white border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                            >
-                                <AlertTriangle className="w-4 h-4" /> แจ้งลา / สาย
                             </button>
                             
                             {/* NEW: Forgot Check-in Component (Auto Logic) */}

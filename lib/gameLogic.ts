@@ -39,7 +39,8 @@ export const DEFAULT_GAME_CONFIG = {
         // New Flexible Keys
         HP_PENALTY_DUTY_LATE_SUBMIT: 3,
         HP_PENALTY_EARLY_LEAVE_RATE: 1, // Deduct 1 HP...
-        HP_PENALTY_EARLY_LEAVE_INTERVAL: 10 // ...every 10 minutes
+        HP_PENALTY_EARLY_LEAVE_INTERVAL: 10, // ...every 10 minutes
+        HP_PENALTY_UNAUTHORIZED_WFH: 5 // Penalty for WFH without approved request
     },
 
     // Attendance Rules
@@ -82,8 +83,7 @@ export const DEFAULT_GAME_CONFIG = {
         negligence_penalty_hp: 20,
         lookback_days_check: 60,
         allow_holiday_penalty: false,
-        negligence_threshold_days: 1,
-        duty_grace_hour: 10
+        negligence_threshold_days: 1
     },
     SYSTEM_MAINTENANCE: {
         duty_cleanup_days: 180,
@@ -386,6 +386,17 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                  message: `ใช้วันลา: ${typeLabel}`,
                  details: `${rule.xp > 0 ? `+${rule.xp} XP ` : ''}${rule.hp < 0 ? `${rule.hp} HP` : ''}`.trim()
              };
+        }
+
+        case 'ATTENDANCE_UNAUTHORIZED_WFH': {
+            const penalty = penalties.HP_PENALTY_UNAUTHORIZED_WFH || 5;
+            return {
+                xp: 0,
+                hp: -penalty,
+                coins: 0,
+                message: `หักคะแนน! เช็คอิน WFH โดยไม่ได้ขออนุญาตล่วงหน้า`,
+                details: `-${penalty} HP`
+            };
         }
 
         case 'SHOP_PURCHASE':

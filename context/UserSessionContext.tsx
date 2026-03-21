@@ -96,6 +96,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
         if ('tax_type' in u) updates.taxType = u.tax_type;
         if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
+        if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
+        if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
         return updates;
     }, []);
 

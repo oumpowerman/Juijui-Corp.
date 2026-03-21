@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
-import { DEFAULT_QUOTAS } from '../../attendance/leave-request/constants';
-import { Palmtree, HeartPulse, Briefcase, ChevronRight, Sparkles, Star, Cloud } from 'lucide-react';
+import { Palmtree, HeartPulse, Briefcase, ChevronRight, Sparkles, Star, Cloud, FileText } from 'lucide-react';
+import { useMasterData } from '../../../hooks/useMasterData';
 
 interface LeaveQuotaWidgetProps {
     leaveUsage: LeaveUsage;
@@ -37,11 +37,34 @@ const PASTEL_THEMES: Record<string, any> = {
         icon: Briefcase,
         label: 'ลากิจ',
         accent: 'text-[#E1BEE7]'
+    },
+    'DEFAULT': {
+        bg: 'bg-slate-50',
+        text: 'text-slate-600',
+        bar: 'bg-gradient-to-r from-slate-400 to-slate-600',
+        glow: 'shadow-[0_0_15px_rgba(71,85,105,0.4)]',
+        icon: FileText,
+        label: 'อื่นๆ',
+        accent: 'text-slate-300'
     }
 };
 
 const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHistoryClick }) => {
-    const displayTypes: LeaveType[] = ['VACATION', 'SICK', 'PERSONAL'];
+    const { masterOptions } = useMasterData();
+    
+    const displayOptions = useMemo(() => {
+        return masterOptions
+            .filter(o => o.type === 'LEAVE_TYPE' && o.isActive)
+            .filter(o => {
+                try {
+                    const meta = o.description ? JSON.parse(o.description) : {};
+                    return meta.category === 'STANDARD';
+                } catch (e) {
+                    return false;
+                }
+            })
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    }, [masterOptions]);
 
     return (
         <div className="bg-white rounded-[3rem] border-4 border-[#F8F9FA] shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-8 relative overflow-hidden group">
@@ -91,13 +114,19 @@ const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHisto
 
             {/* Quota Bars */}
             <div className="space-y-8 relative z-10">
-                {displayTypes.map((type, index) => {
-                    const limit = DEFAULT_QUOTAS[type] || 0;
-                    const used = leaveUsage[type] || 0;
+                {displayOptions.map((option, index) => {
+                    const type = option.key;
+                    let limit = 0;
+                    try {
+                        const meta = option.description ? JSON.parse(option.description) : {};
+                        limit = meta.defaultQuota || 0;
+                    } catch (e) {}
+
+                    const used = leaveUsage[type as LeaveType] || 0;
                     const remaining = Math.max(0, limit - used);
-                    const percentUsed = Math.min(100, (used / limit) * 100);
+                    const percentUsed = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
                     
-                    const theme = PASTEL_THEMES[type];
+                    const theme = PASTEL_THEMES[type] || PASTEL_THEMES['DEFAULT'];
                     const Icon = theme.icon;
 
                     return (
@@ -126,7 +155,7 @@ const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHisto
                                         <Icon className="w-5 h-5" />
                                     </motion.div>
                                     <div>
-                                        <span className="text-sm font-black text-slate-700 block leading-none">{theme.label}</span>
+                                        <span className="text-sm font-black text-slate-700 block leading-none">{option.label}</span>
                                         <span className={`text-[10px] font-bold ${theme.accent} uppercase tracking-widest`}>{type}</span>
                                     </div>
                                 </div>

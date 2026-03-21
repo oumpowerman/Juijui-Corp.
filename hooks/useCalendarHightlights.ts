@@ -4,10 +4,12 @@ import { supabase } from '../lib/supabase';
 import { CalendarHighlight } from '../types';
 import { useToast } from '../context/ToastContext';
 import { endOfMonth, format, addDays } from 'date-fns';
+import { useMasterData } from './useMasterData';
 
 export const useCalendarHighlights = (currentDate: Date) => {
     const [highlights, setHighlights] = useState<CalendarHighlight[]>([]);
     const { showToast } = useToast();
+    const { annualHolidays } = useMasterData();
 
     const fetchHighlights = useCallback(async () => {
         // Fetch a bit wider range to ensure smooth transition (prev/next month days)
@@ -25,13 +27,8 @@ export const useCalendarHighlights = (currentDate: Date) => {
 
             if (specificError) throw specificError;
 
-            // 2. Fetch Annual Holidays (All)
-            const { data: annualData, error: annualError } = await supabase
-                .from('annual_holidays')
-                .select('*')
-                .eq('is_active', true);
-            
-            if (annualError) throw annualError;
+            // 2. Fetch Annual Holidays (All) - Now from Context
+            const annualData = annualHolidays.filter(h => h.isActive);
 
             // 3. Merge Logic
             const combined: CalendarHighlight[] = [];
@@ -73,7 +70,7 @@ export const useCalendarHighlights = (currentDate: Date) => {
                             combined.push({
                                 id: `annual-${rule.id}-${year}`,
                                 date: d,
-                                typeKey: rule.type_key,
+                                typeKey: rule.typeKey,
                                 note: rule.name
                             });
                         }
@@ -86,7 +83,7 @@ export const useCalendarHighlights = (currentDate: Date) => {
         } catch (err) {
             console.error('Fetch highlights error:', err);
         }
-    }, [currentDate]);
+    }, [currentDate, annualHolidays]);
 
     // Set up Realtime subscription (Optimized)
     useEffect(() => {
@@ -95,7 +92,6 @@ export const useCalendarHighlights = (currentDate: Date) => {
         const channel = supabase
             .channel('realtime-calendar-highlights-v2')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_highlights' }, () => fetchHighlights())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_holidays' }, () => fetchHighlights())
             .subscribe();
 
         return () => {

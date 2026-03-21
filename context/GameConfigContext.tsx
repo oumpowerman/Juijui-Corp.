@@ -52,15 +52,19 @@ export const GameConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const updateConfigValue = async (key: string, value: any) => {
         try {
+            console.log(`Updating config [${key}] with:`, value);
             const { error } = await supabase
                 .from('game_configs')
                 .upsert({ 
                     key, 
                     value,
                     updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'key' }); // Explicitly specify conflict column
             
-            if (error) throw error;
+            if (error) {
+                console.error(`Supabase error updating ${key}:`, error);
+                throw error;
+            }
             
             // Optimistic update
             setConfig((prev: any) => ({

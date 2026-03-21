@@ -11,11 +11,12 @@ import { MasterDataProvider } from './context/MasterDataContext';
 import { GoogleDriveProvider } from './context/GoogleDriveContext';
 import { WorkboxProvider } from './context/WorkboxContext';
 import { NotificationProvider } from './context/NotificationContext';
-import { useAuth } from './hooks/useAuth';
+import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient({
+
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
@@ -40,14 +41,36 @@ function App() {
   // --- INITIAL AUTH CHECK ---
   useEffect(() => {
     // 1. Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn("Auth session check error:", error.message);
+          // If the error is about refresh token, we should probably sign out to clear local storage
+          if (error.message.includes('Refresh Token Not Found') || error.message.includes('invalid_grant')) {
+            await supabase.auth.signOut();
+            setSession(null);
+          }
+        } else {
+          setSession(session);
+        }
+      } catch (err: any) {
+        console.error("Unexpected auth error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
 
     // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth Event:', event);
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+      } else if (session) {
+        setSession(session);
+      }
       setLoading(false);
     });
 
@@ -74,23 +97,40 @@ function App() {
 }
 
 function AuthenticatedApp({ user }: { user: any }) {
-  const { currentUserProfile } = useAuth(user);
-
   return (
     <GoogleDriveProvider>
       <MasterDataProvider>
-        <NotificationProvider currentUser={currentUserProfile}>
-          <WorkboxProvider currentUser={currentUserProfile}>
-            <GameConfigProvider>
-              <TaskProvider>
-                <GlobalRealtimeSync />
-                <AppRouter user={user} />
-              </TaskProvider>
-            </GameConfigProvider>
-          </WorkboxProvider>
-        </NotificationProvider>
+        <UserSessionProvider sessionUser={user}>
+          <AuthenticatedAppInner user={user} />
+        </UserSessionProvider>
       </MasterDataProvider>
     </GoogleDriveProvider>
+  );
+}
+
+function AuthenticatedAppInner({ user }: { user: any }) {
+  const { currentUserProfile, isReady } = useUserSession();
+
+  if (!isReady) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-900 flex-col">
+        <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-4" />
+        <p className="text-slate-300 animate-pulse font-medium">กำลังเตรียมข้อมูลระบบ...</p>
+      </div>
+    );
+  }
+
+  return (
+    <NotificationProvider currentUser={currentUserProfile}>
+      <WorkboxProvider currentUser={currentUserProfile}>
+        <GameConfigProvider>
+          <TaskProvider>
+            <GlobalRealtimeSync />
+            <AppRouter user={user} />
+          </TaskProvider>
+        </GameConfigProvider>
+      </WorkboxProvider>
+    </NotificationProvider>
   );
 }
 

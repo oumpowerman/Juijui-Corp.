@@ -3,6 +3,7 @@ import { User, WorkStatus } from '../types';
 import { format } from 'date-fns';
 import heic2any from 'heic2any';
 import { supabase } from '../lib/supabase';
+import { useMasterData } from './useMasterData';
 
 interface UseProfileFormProps {
   user: User;
@@ -34,27 +35,14 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   
   // Master Data State
-  const [positions, setPositions] = useState<{key: string, label: string}[]>([]);
+  const { masterOptions } = useMasterData();
+  const positions = masterOptions
+      .filter(o => o.type === 'POSITION' && o.isActive)
+      .map(o => ({ key: o.key, label: o.label }));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConvertingImg, setIsConvertingImg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-      const fetchPositions = async () => {
-        const { data } = await supabase
-            .from('master_options')
-            .select('key, label')
-            .eq('type', 'POSITION')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true });
-        
-        if (data && data.length > 0) {
-            setPositions(data);
-        }
-      };
-      fetchPositions();
-  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, onError: (title: string, msg: string) => void) => {
       if (e.target.files && e.target.files[0]) {

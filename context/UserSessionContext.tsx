@@ -1,0 +1,346 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { User, WorkStatus } from '../types';
+import { useToast } from './ToastContext';
+import { useGlobalDialog } from './GlobalDialogContext';
+import { subDays, format } from 'date-fns';
+
+interface UserSessionContextType {
+    isReady: boolean;
+    currentUserProfile: User | null;
+    allUsers: User[];
+    attendanceLogs: any[];
+    leaveRequests: any[];
+    
+    // Auth Actions
+    fetchProfile: () => Promise<User | null>;
+    updateProfile: (updates: Partial<User>, avatarFile?: File) => Promise<boolean>;
+    
+    // Team Actions
+    fetchTeamMembers: () => Promise<void>;
+    approveMember: (userId: string) => Promise<void>;
+    removeMember: (userId: string) => Promise<void>;
+    toggleUserStatus: (userId: string, currentStatus: boolean) => Promise<void>;
+    updateMember: (userId: string, updates: any) => Promise<boolean>;
+    adjustStatsLocally: (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => void;
+    setAllUsers: React.Dispatch<React.SetStateAction<User[]>>;
+}
+
+const UserSessionContext = createContext<UserSessionContextType | undefined>(undefined);
+
+export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.ReactNode }> = ({ sessionUser, children }) => {
+    const [isReady, setIsReady] = useState(false);
+    const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+    const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+    
+    const { showToast } = useToast();
+    const { showConfirm, showAlert } = useGlobalDialog();
+
+    // --- MAPPERS (Combined from useAuth and useTeam to ensure consistency) ---
+    const mapProfileToUser = useCallback((data: any): User => ({
+        id: data.id,
+        email: data.email,
+        name: data.full_name || 'Unknown User',
+        role: data.role,
+        avatarUrl: data.avatar_url || '',
+        position: data.position || 'Member',
+        phoneNumber: data.phone_number || '',
+        bio: data.bio || '',
+        feeling: data.feeling || '',
+        isApproved: data.is_approved,
+        isActive: data.is_active !== false,
+        xp: data.xp || 0,
+        level: data.level || 1,
+        availablePoints: data.available_points || 0,
+        hp: data.hp ?? 100,
+        maxHp: data.max_hp || 100,
+        deathCount: data.death_count || 0,
+        workStatus: (data.work_status as WorkStatus) || 'ONLINE',
+        leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
+        leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
+        lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
+        lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
+        workDays: data.work_days || [1, 2, 3, 4, 5],
+        baseSalary: data.base_salary || 0,
+        bankAccount: data.bank_account || '',
+        bankName: data.bank_name || '',
+        ssoIncluded: data.sso_included !== false,
+        taxType: data.tax_type || 'WHT_3',
+        lineUserId: data.line_user_id || ''
+    }), []);
+
+    const mapDBToUserUpdates = useCallback((u: any): Partial<User> => {
+        const updates: Partial<User> = {};
+        if ('full_name' in u) updates.name = u.full_name;
+        if ('role' in u) updates.role = u.role;
+        if ('avatar_url' in u) updates.avatarUrl = u.avatar_url;
+        if ('position' in u) updates.position = u.position;
+        if ('phone_number' in u) updates.phoneNumber = u.phone_number;
+        if ('bio' in u) updates.bio = u.bio;
+        if ('feeling' in u) updates.feeling = u.feeling;
+        if ('is_approved' in u) updates.isApproved = u.is_approved;
+        if ('is_active' in u) updates.isActive = u.is_active;
+        if ('xp' in u) updates.xp = u.xp;
+        if ('level' in u) updates.level = u.level;
+        if ('available_points' in u) updates.availablePoints = u.available_points;
+        if ('hp' in u) updates.hp = u.hp;
+        if ('max_hp' in u) updates.maxHp = u.max_hp;
+        if ('death_count' in u) updates.deathCount = u.death_count;
+        if ('work_status' in u) updates.workStatus = u.work_status;
+        if ('work_days' in u) updates.workDays = u.work_days;
+        if ('base_salary' in u) updates.baseSalary = u.base_salary;
+        if ('bank_account' in u) updates.bankAccount = u.bank_account;
+        if ('bank_name' in u) updates.bankName = u.bank_name;
+        if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
+        if ('tax_type' in u) updates.taxType = u.tax_type;
+        if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
+        return updates;
+    }, []);
+
+    // --- INITIAL BATCH FETCH ---
+    useEffect(() => {
+        if (!sessionUser?.id) return;
+
+        const fetchInitialData = async () => {
+            try {
+                const today = new Date();
+                const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
+                const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
+
+                const [profilesRes, attendanceRes, leavesRes] = await Promise.all([
+                    supabase.from('profiles').select('*').order('full_name', { ascending: true }),
+                    supabase.from('attendance_logs').select('*').eq('user_id', sessionUser.id).gte('date', thirtyDaysAgo),
+                    supabase.from('leave_requests').select('*').eq('user_id', sessionUser.id).gte('end_date', sixtyDaysAgo)
+                ]);
+
+                if (profilesRes.data) {
+                    const mappedUsers = profilesRes.data.map(mapProfileToUser);
+                    setAllUsers(mappedUsers);
+                    const current = mappedUsers.find(u => u.id === sessionUser.id);
+                    if (current) setCurrentUserProfile(current);
+                }
+
+                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data);
+                if (leavesRes.data) setLeaveRequests(leavesRes.data);
+
+            } catch (error) {
+                console.error("Error fetching initial user session data:", error);
+            } finally {
+                setIsReady(true);
+            }
+        };
+
+        fetchInitialData();
+    }, [sessionUser?.id, mapProfileToUser]);
+
+    // --- REALTIME SUBSCRIPTIONS ---
+    useEffect(() => {
+        if (!sessionUser?.id) return;
+
+        // 1. Profiles Channel (Handles both currentUser and allUsers)
+        const profilesChannel = supabase.channel('user-session-profiles')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    const newUser = mapProfileToUser(payload.new);
+                    setAllUsers(prev => {
+                        if (prev.some(u => u.id === newUser.id)) return prev;
+                        return [...prev, newUser];
+                    });
+                    showToast(`มีสมาชิกใหม่สมัครเข้ามา: ${newUser.name}`, 'info');
+                } 
+                else if (payload.eventType === 'UPDATE') {
+                    const updates = mapDBToUserUpdates(payload.new);
+                    setAllUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...updates } : u));
+                    
+                    if (payload.new.id === sessionUser.id) {
+                        setCurrentUserProfile(prev => prev ? { ...prev, ...updates } : null);
+                    }
+                } 
+                else if (payload.eventType === 'DELETE') {
+                    setAllUsers(prev => prev.filter(u => u.id !== payload.old.id));
+                }
+            }).subscribe();
+
+        // 2. Attendance Logs Channel (Current User Only)
+        const attendanceChannel = supabase.channel('user-session-attendance')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs', filter: `user_id=eq.${sessionUser.id}` }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setAttendanceLogs(prev => [...prev, payload.new]);
+                } else if (payload.eventType === 'UPDATE') {
+                    setAttendanceLogs(prev => prev.map(log => log.id === payload.new.id ? payload.new : log));
+                } else if (payload.eventType === 'DELETE') {
+                    setAttendanceLogs(prev => prev.filter(log => log.id !== payload.old.id));
+                }
+            }).subscribe();
+
+        // 3. Leave Requests Channel (Current User Only)
+        const leavesChannel = supabase.channel('user-session-leaves')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests', filter: `user_id=eq.${sessionUser.id}` }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setLeaveRequests(prev => [...prev, payload.new]);
+                } else if (payload.eventType === 'UPDATE') {
+                    setLeaveRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+                } else if (payload.eventType === 'DELETE') {
+                    setLeaveRequests(prev => prev.filter(req => req.id !== payload.old.id));
+                }
+            }).subscribe();
+
+        return () => {
+            supabase.removeChannel(profilesChannel);
+            supabase.removeChannel(attendanceChannel);
+            supabase.removeChannel(leavesChannel);
+        };
+    }, [sessionUser?.id, mapProfileToUser, mapDBToUserUpdates, showToast]);
+
+    // --- AUTH ACTIONS (From useAuth) ---
+    const fetchProfile = async () => {
+        // Since we are realtime, we can just return the current state.
+        // If strict refetch is needed, we could do it here, but returning state is faster.
+        return currentUserProfile;
+    };
+
+    const updateProfile = async (updates: Partial<User>, avatarFile?: File) => {
+        if (!currentUserProfile) return false;
+        try {
+            const payload: any = {};
+            if (updates.name !== undefined) payload.full_name = updates.name;
+            if (updates.position !== undefined) payload.position = updates.position;
+            if (updates.bio !== undefined) payload.bio = updates.bio; 
+            if (updates.feeling !== undefined) payload.feeling = updates.feeling; 
+            if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
+            if (updates.workStatus !== undefined) payload.work_status = updates.workStatus;
+            if (updates.leaveStartDate !== undefined) payload.leave_start_date = updates.leaveStartDate ? updates.leaveStartDate.toISOString() : null;
+            if (updates.leaveEndDate !== undefined) payload.leave_end_date = updates.leaveEndDate ? updates.leaveEndDate.toISOString() : null;
+            if (updates.lineUserId !== undefined) payload.line_user_id = updates.lineUserId;
+
+            if (avatarFile) {
+                const fileExt = avatarFile.name.split('.').pop();
+                const fileName = `${currentUserProfile.id}-${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, avatarFile, { upsert: true });
+                if (uploadError) throw uploadError;
+                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                payload.avatar_url = urlData.publicUrl;
+            }
+
+            const { error } = await supabase.from('profiles').update(payload).eq('id', currentUserProfile.id);
+            if (error) throw error;
+            
+            // Optimistic update
+            setCurrentUserProfile(prev => prev ? ({ ...prev, ...updates, avatarUrl: payload.avatar_url || prev.avatarUrl }) : null);
+            return true;
+        } catch (err: any) {
+            console.error('Update profile failed:', err);
+            showAlert('เกิดข้อผิดพลาด: ' + err.message);
+            return false;
+        }
+    };
+
+    // --- TEAM ACTIONS (From useTeam) ---
+    const fetchTeamMembers = async () => {
+        // Handled by initial fetch and realtime
+    };
+
+    const approveMember = async (userId: string) => {
+        try {
+            const { error } = await supabase.from('profiles').update({ is_approved: true }).eq('id', userId);
+            if (error) throw error;
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isApproved: true } : u));
+            showToast('อนุมัติสมาชิกเรียบร้อย! 🎉', 'success');
+        } catch (err: any) {
+            showToast('อนุมัติไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const removeMember = async (userId: string) => {
+        const confirmed = await showConfirm('แน่ใจนะครับว่าจะลบสมาชิกคนนี้?', 'ลบสมาชิกออกจากทีม');
+        if(!confirmed) return;
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', userId);
+            if (error) throw error;
+            setAllUsers(prev => prev.filter(u => u.id !== userId));
+            showToast('ลบสมาชิกออกจากทีมแล้ว', 'warning');
+        } catch (err: any) {
+            showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+        try {
+            const newStatus = !currentStatus;
+            const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', userId);
+            if (error) throw error;
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isActive: newStatus } : u));
+            showToast(newStatus ? 'เปิดใช้งาน User แล้ว ✅' : 'พักงาน User ชั่วคราว 💤', 'info');
+        } catch (err: any) {
+            showToast('อัปเดตสถานะไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const updateMember = async (userId: string, updates: any) => {
+        try {
+            const payload: any = {};
+            if (updates.name) payload.full_name = updates.name;
+            if (updates.position) payload.position = updates.position;
+            if (updates.role) payload.role = updates.role;
+            if (updates.workDays) payload.work_days = updates.workDays;
+            if (updates.baseSalary !== undefined) payload.base_salary = updates.baseSalary;
+            if (updates.bankAccount !== undefined) payload.bank_account = updates.bankAccount;
+            if (updates.bankName !== undefined) payload.bank_name = updates.bankName;
+            if (updates.ssoIncluded !== undefined) payload.sso_included = updates.ssoIncluded;
+            if (updates.taxType !== undefined) payload.tax_type = updates.taxType;
+
+            const { error } = await supabase.from('profiles').update(payload).eq('id', userId);
+            if (error) throw error;
+            
+            setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+            showToast('อัปเดตข้อมูลสมาชิกสำเร็จ ✨', 'success');
+            return true;
+        } catch (err: any) {
+            showToast('อัปเดตล้มเหลว: ' + err.message, 'error');
+            return false;
+        }
+    };
+
+    const adjustStatsLocally = (userId: string, adjustments: { hp?: number, xp?: number, points?: number }) => {
+        setAllUsers(prev => prev.map(u => {
+            if (u.id === userId) {
+                const newHp = adjustments.hp !== undefined ? Math.min(u.maxHp, Math.max(0, u.hp + adjustments.hp)) : u.hp;
+                const newXp = adjustments.xp !== undefined ? Math.max(0, u.xp + adjustments.xp) : u.xp;
+                const newPoints = adjustments.points !== undefined ? Math.max(0, u.availablePoints + adjustments.points) : u.availablePoints;
+                return { ...u, hp: newHp, xp: newXp, availablePoints: newPoints };
+            }
+            return u;
+        }));
+    };
+
+    return (
+        <UserSessionContext.Provider value={{
+            isReady,
+            currentUserProfile,
+            allUsers,
+            attendanceLogs,
+            leaveRequests,
+            fetchProfile,
+            updateProfile,
+            fetchTeamMembers,
+            approveMember,
+            removeMember,
+            toggleUserStatus,
+            updateMember,
+            adjustStatsLocally,
+            setAllUsers
+        }}>
+            {children}
+        </UserSessionContext.Provider>
+    );
+};
+
+export const useUserSession = () => {
+    const context = useContext(UserSessionContext);
+    if (context === undefined) {
+        throw new Error('useUserSession must be used within a UserSessionProvider');
+    }
+    return context;
+};

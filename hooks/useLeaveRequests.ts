@@ -7,8 +7,10 @@ import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
 import { useGamification } from './useGamification';
 import { useGoogleDrive } from './useGoogleDrive';
 import { getWorkingDaysDifference } from '../lib/attendanceUtils';
+import { useUserSession } from '../context/UserSessionContext';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
+    const { leaveRequests: contextLeaveRequests } = useUserSession();
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -16,6 +18,12 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
     const fetchRequests = async () => {
+        if (!options.all && currentUser?.id) {
+            setRequests(contextLeaveRequests);
+            setIsLoading(false);
+            return;
+        }
+
         if (requests.length === 0) setIsLoading(true);
         try {
             let query = supabase
@@ -64,12 +72,17 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     };
 
     useEffect(() => {
-        fetchRequests();
-        const channel = supabase.channel('leave_requests_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => fetchRequests())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [currentUser?.id, options.all]);
+        if (!options.all && currentUser?.id) {
+            setRequests(contextLeaveRequests);
+            setIsLoading(false);
+        } else {
+            fetchRequests();
+            const channel = supabase.channel('leave_requests_realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => fetchRequests())
+                .subscribe();
+            return () => { supabase.removeChannel(channel); };
+        }
+    }, [currentUser?.id, options.all, contextLeaveRequests]);
 
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
@@ -87,7 +100,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                     const days = differenceInDays(new Date(req.endDate), new Date(req.startDate)) + 1;
                     usage[req.type as keyof LeaveUsage] += days;
                 } else {
-                    // For non-leave types, we just count the occurrences
+                    // For non-leave types (Corrections/Special), we just count the occurrences
                     usage[req.type as keyof LeaveUsage] += 1;
                 }
             }

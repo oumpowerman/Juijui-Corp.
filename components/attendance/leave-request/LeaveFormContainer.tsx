@@ -4,7 +4,7 @@ import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, Calendar
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
 import { MasterOption } from '../../../types';
-import { LEAVE_THEMES, DEFAULT_QUOTAS } from './constants';
+import { LEAVE_THEMES } from './constants';
 import { useLeaveFormLogic } from './hooks/useLeaveFormLogic';
 import LeaveQuotaDisplay from './LeaveQuotaDisplay';
 import { differenceInDays, format } from 'date-fns';
@@ -27,19 +27,6 @@ interface Props {
     fixedType?: boolean;
 }
 
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-    'SICK': 'ลาป่วย (Sick Leave)',
-    'VACATION': 'ลาพักร้อน (Vacation)',
-    'PERSONAL': 'ลากิจ (Personal Leave)',
-    'WFH': 'ขออนุญาต WFH',
-    'LATE_ENTRY': 'แจ้งเข้าสาย (Late Entry)',
-    'FORGOT_CHECKIN': 'ลืมลงเวลาเข้างาน',
-    'FORGOT_CHECKOUT': 'ลืมลงเวลาออกงาน',
-    'FORGOT_BOTH': 'ลืมลงเวลาเข้า-ออก',
-    'OVERTIME': 'ขออนุมัติ OT (Overtime)',
-    'UNPAID': 'ลาไม่รับค่าจ้าง (Unpaid)',
-    'EMERGENCY': 'ลาฉุกเฉิน (Emergency)',
-};
 
 const LeaveFormContainer: React.FC<Props> = ({ 
     selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, initialDate, initialReason, fixedType
@@ -54,7 +41,16 @@ const LeaveFormContainer: React.FC<Props> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const theme = LEAVE_THEMES[selectedType] || LEAVE_THEMES['DEFAULT'];
     
-    const thaiLabel = LEAVE_TYPE_LABELS[selectedType] || masterOptions.find(o => o.key === selectedType)?.label || selectedType;
+    const selectedOption = useMemo(() => masterOptions.find(o => o.key === selectedType), [masterOptions, selectedType]);
+    const metadata = useMemo(() => {
+        try {
+            return selectedOption?.description ? JSON.parse(selectedOption.description) : {};
+        } catch (e) {
+            return {};
+        }
+    }, [selectedOption]);
+
+    const thaiLabel = selectedOption?.label || selectedType;
     const headerLabel = fixedType ? 'แก้ไขเวลา (Correction)' : thaiLabel;
 
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
@@ -68,16 +64,17 @@ const LeaveFormContainer: React.FC<Props> = ({
     }, [startDate, endDate, isTimeSpecific]);
 
     const quotaInfo = useMemo(() => {
-        const limit = DEFAULT_QUOTAS[selectedType];
+        const limit = metadata.defaultQuota || 999;
         if (!limit || !leaveUsage) return null;
         const used = leaveUsage[selectedType as LeaveType] || 0;
         const remaining = Math.max(0, limit - used);
         return { limit, used, remaining };
-    }, [selectedType, leaveUsage]);
+    }, [selectedType, leaveUsage, metadata]);
 
     const isOverQuota = quotaInfo && daysRequested > quotaInfo.remaining;
 
     const getPlaceholder = () => {
+        if (metadata.placeholder) return metadata.placeholder;
         if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
         if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
         if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') return "เช่น ลืมกดออก/เข้า เนื่องจากรีบไปธุระ...";
@@ -86,6 +83,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     };
 
     const getReasonLabel = () => {
+        if (metadata.reasonLabel) return metadata.reasonLabel;
         if (selectedType === 'WFH') return "รายละเอียดงานที่จะทำ (Task)";
         return "เหตุผล / รายละเอียด";
     };
@@ -243,7 +241,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     animate={{ scale: 1 }}
                                     className="relative"
                                 >
-                                    <LeaveQuotaDisplay type={selectedType} usage={leaveUsage} />
+                                    <LeaveQuotaDisplay type={selectedType} usage={leaveUsage} limit={quotaInfo?.limit} />
                                 </motion.div>
                             )}
 

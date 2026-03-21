@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { InventoryItem, AssetCondition, AssetGroup, InventoryType } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useMasterData } from './useMasterData';
+import { useUserSession } from '../context/UserSessionContext';
 
 interface FetchParams {
     page: number;
@@ -16,159 +18,117 @@ interface FetchParams {
 }
 
 export const useAssets = () => {
-    const [assets, setAssets] = useState<InventoryItem[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
-    const [globalStats, setGlobalStats] = useState({ totalValue: 0, count: 0, damaged: 0, lost: 0, warrantyAlert: 0 });
-    
-    // New: Store all unique tags for suggestions
-    const [allTags, setAllTags] = useState<string[]>([]);
-    
+    const { inventoryItems } = useMasterData();
+    const { allUsers } = useUserSession();
     const { showToast } = useToast();
 
-    // 1. Fetch Global Stats (Separate from paginated list)
-    const fetchStats = useCallback(async () => {
-        try {
-            const { data, error } = await supabase
-                .from('inventory_items')
-                .select('purchase_price, condition, warranty_expire, tags, item_type');
+    const [currentParams, setCurrentParams] = useState<FetchParams | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
-            if (error) throw error;
+    // 1. Compute Global Stats
+    const globalStats = useMemo(() => {
+        const fixedAssets = inventoryItems.filter(a => a.itemType !== 'CONSUMABLE');
+        
+        const totalValue = fixedAssets.reduce((sum, a) => sum + (Number(a.purchasePrice) || 0), 0);
+        const count = fixedAssets.length;
+        const damaged = fixedAssets.filter(a => a.condition === 'DAMAGED' || a.condition === 'REPAIR').length;
+        const lost = fixedAssets.filter(a => a.condition === 'LOST').length;
+        const warrantyAlert = fixedAssets.filter(a => {
+            if (!a.warrantyExpire) return false;
+            const diff = new Date(a.warrantyExpire).getTime() - new Date().getTime();
+            const days = diff / (1000 * 3600 * 24);
+            return days > 0 && days <= 30;
+        }).length;
 
-            if (data) {
-                // Filter only FIXED assets for value calculation typically, but keep robust
-                const fixedAssets = data.filter(a => a.item_type !== 'CONSUMABLE');
-                
-                const totalValue = fixedAssets.reduce((sum, a) => sum + (Number(a.purchase_price) || 0), 0);
-                const count = fixedAssets.length;
-                const damaged = fixedAssets.filter(a => a.condition === 'DAMAGED' || a.condition === 'REPAIR').length;
-                const lost = fixedAssets.filter(a => a.condition === 'LOST').length;
-                const warrantyAlert = fixedAssets.filter(a => {
-                    if (!a.warranty_expire) return false;
-                    const diff = new Date(a.warranty_expire).getTime() - new Date().getTime();
-                    const days = diff / (1000 * 3600 * 24);
-                    return days > 0 && days <= 30;
-                }).length;
+        return { totalValue, count, damaged, lost, warrantyAlert };
+    }, [inventoryItems]);
 
-                setGlobalStats({ totalValue, count, damaged, lost, warrantyAlert });
-                
-                // Extract Unique Tags for Autocomplete
-                const tagsSet = new Set<string>();
-                data.forEach((item: any) => {
-                    if (Array.isArray(item.tags)) {
-                        item.tags.forEach((t: string) => tagsSet.add(t));
-                    }
-                });
-                setAllTags(Array.from(tagsSet).sort());
+    // Extract Unique Tags for Autocomplete
+    const allTags = useMemo(() => {
+        const tagsSet = new Set<string>();
+        inventoryItems.forEach(item => {
+            if (Array.isArray(item.tags)) {
+                item.tags.forEach(t => tagsSet.add(t));
             }
-        } catch (err) {
-            console.error("Fetch stats failed", err);
-        }
-    }, []);
+        });
+        return Array.from(tagsSet).sort();
+    }, [inventoryItems]);
 
-    // 2. Fetch Paginated Assets
+    // 2. Compute Paginated Assets
+    const { assets, totalCount } = useMemo(() => {
+        if (!currentParams) return { assets: [], totalCount: 0 };
+
+        let filtered = inventoryItems;
+
+        // Apply Type Filter
+        if (currentParams.itemType) {
+            filtered = filtered.filter(a => a.itemType === currentParams.itemType);
+        }
+
+        // Apply Group Filter
+        if (currentParams.group !== 'ALL') {
+            filtered = filtered.filter(a => a.assetGroup === currentParams.group);
+        }
+
+        // Apply Category Filter
+        if (currentParams.categoryId && currentParams.categoryId !== 'ALL') {
+            filtered = filtered.filter(a => a.categoryId === currentParams.categoryId);
+        }
+
+        // Apply Search
+        if (currentParams.search) {
+            const searchLower = currentParams.search.toLowerCase();
+            filtered = filtered.filter(a => 
+                (a.name && a.name.toLowerCase().includes(searchLower)) ||
+                (a.serialNumber && a.serialNumber.toLowerCase().includes(searchLower)) ||
+                ((a as any).groupLabel && (a as any).groupLabel.toLowerCase().includes(searchLower))
+            );
+        }
+
+        // Apply Tag Filter
+        if (currentParams.tag) {
+            filtered = filtered.filter(a => a.tags && a.tags.includes(currentParams.tag!));
+        }
+
+        // Apply Incomplete Filter
+        if (currentParams.showIncomplete) {
+            filtered = filtered.filter(a => !a.purchasePrice || a.purchasePrice === 0 || !a.purchaseDate);
+        }
+
+        // Sort by created_at descending (assuming id or similar if created_at is not available, but we'll just reverse for now as new items are usually at the end, or we can sort by id)
+        // MasterDataContext doesn't fetch created_at currently, but we can assume the order from DB is somewhat chronological or we can sort by id.
+        // Let's sort by id descending as a proxy for created_at if created_at is missing.
+        filtered = [...filtered].sort((a, b) => (b as any).id > (a as any).id ? 1 : -1);
+
+        const totalCount = filtered.length;
+
+        // Pagination logic
+        const from = (currentParams.page - 1) * currentParams.pageSize;
+        const to = from + currentParams.pageSize;
+        const paginated = filtered.slice(from, to);
+
+        // Join with holder
+        const populatedAssets = paginated.map(item => {
+            const holderProfile = item.currentHolderId ? allUsers.find(u => u.id === item.currentHolderId) : undefined;
+            return {
+                ...item,
+                holder: holderProfile ? { name: holderProfile.name, avatarUrl: holderProfile.avatarUrl } : undefined
+            };
+        });
+
+        return { assets: populatedAssets, totalCount };
+    }, [inventoryItems, currentParams, allUsers]);
+
     const fetchAssets = useCallback(async (params: FetchParams) => {
         setIsLoading(true);
-        try {
-            let query = supabase
-                .from('inventory_items')
-                .select(`
-                    *,
-                    holder:profiles!inventory_items_current_holder_id_fkey(full_name, avatar_url)
-                `, { count: 'exact' });
-
-            // Apply Type Filter (Important for separating tabs)
-            if (params.itemType) {
-                query = query.eq('item_type', params.itemType);
-            }
-
-            // Apply Group Filter
-            if (params.group !== 'ALL') {
-                query = query.eq('asset_group', params.group);
-            }
-
-            // Apply Category Filter
-            if (params.categoryId && params.categoryId !== 'ALL') {
-                query = query.eq('category_id', params.categoryId);
-            }
-
-            // Apply Search
-            if (params.search) {
-                query = query.or(`name.ilike.%${params.search}%,serial_number.ilike.%${params.search}%,group_label.ilike.%${params.search}%`);
-            }
-
-            // Apply Tag Filter (New)
-            if (params.tag) {
-                query = query.contains('tags', [params.tag]);
-            }
-
-            // Apply Incomplete Filter
-            if (params.showIncomplete) {
-                query = query.or('purchase_price.is.null,purchase_price.eq.0,purchase_date.is.null');
-            }
-
-            // Pagination logic
-            const from = (params.page - 1) * params.pageSize;
-            const to = from + params.pageSize - 1;
-
-            const { data, count, error } = await query
-                .order('created_at', { ascending: false })
-                .range(from, to);
-
-            if (error) throw error;
-
-            if (data) {
-                setAssets(data.map((i: any) => ({
-                    id: i.id,
-                    name: i.name,
-                    description: i.description,
-                    categoryId: i.category_id,
-                    imageUrl: i.image_url,
-                    
-                    itemType: i.item_type || 'FIXED', // Default
-                    groupLabel: i.group_label, // Map group_label
-                    
-                    // Fixed Asset Fields
-                    purchasePrice: Number(i.purchase_price || 0),
-                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
-                    serialNumber: i.serial_number,
-                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
-                    condition: i.condition as AssetCondition,
-                    currentHolderId: i.current_holder_id,
-                    assetGroup: i.asset_group as AssetGroup,
-                    holder: i.holder ? { name: i.holder.full_name, avatarUrl: i.holder.avatar_url } : undefined,
-                    
-                    // Consumable Fields
-                    quantity: i.quantity || 0,
-                    unit: i.unit || 'ชิ้น',
-                    minThreshold: i.min_threshold || 0,
-                    maxCapacity: i.max_capacity || 0,
-
-                    tags: i.tags || [],
-                    createdAt: i.created_at ? new Date(i.created_at) : undefined
-                })));
-                setTotalCount(count || 0);
-            }
-        } catch (err) {
-            console.error("Fetch assets failed", err);
-        } finally {
-            setIsLoading(false);
-        }
+        setCurrentParams(params);
+        // Simulate a tiny delay to allow UI to show loading state if needed, though it's synchronous now
+        setTimeout(() => setIsLoading(false), 50);
     }, []);
 
-    // Initial Load & Realtime Sync
-    useEffect(() => {
-        fetchStats();
-        // Subscriptions
-        const channel = supabase
-            .channel('realtime-assets-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
-                fetchStats();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchStats]);
+    const fetchStats = useCallback(async () => {
+        // No-op, stats are computed automatically
+    }, []);
 
     const saveAsset = async (asset: Partial<InventoryItem>, file?: File, driveOptions?: { isDriveReady: boolean, uploadFileToDrive: (file: File, path: string[]) => Promise<any> }) => {
         try {
@@ -217,7 +177,7 @@ export const useAssets = () => {
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
                 tags: asset.tags || [],
-                group_label: asset.groupLabel || null // Save group_label
+                group_label: (asset as any).groupLabel || null // Save group_label
             };
 
             // Conditionally add fields based on Type
@@ -242,7 +202,6 @@ export const useAssets = () => {
                 await supabase.from('inventory_items').insert(payload);
                 showToast('เพิ่มรายการใหม่สำเร็จ', 'success');
             }
-            fetchStats(); // Explicit refresh
             return true;
         } catch (err: any) {
             showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
@@ -256,7 +215,6 @@ export const useAssets = () => {
             if (error) throw error;
             
             showToast('ลบข้อมูลเรียบร้อย', 'info');
-            fetchStats();
             return true;
         } catch (err: any) {
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
@@ -275,7 +233,6 @@ export const useAssets = () => {
             if (error) throw error;
             
             showToast(`รวมกลุ่ม ${ids.length} รายการเรียบร้อย ✅`, 'success');
-            // No need to manually fetch if realtime is on, but we can return true
             return true;
         } catch (err: any) {
              showToast('รวมกลุ่มไม่สำเร็จ: ' + err.message, 'error');
@@ -311,7 +268,7 @@ export const useAssets = () => {
                 image_url: asset.imageUrl,
                 item_type: asset.itemType,
                 asset_group: asset.assetGroup,
-                group_label: asset.groupLabel || asset.name, // If no group label, use name as group
+                group_label: (asset as any).groupLabel || asset.name, // If no group label, use name as group
                 tags: asset.tags || [],
                 
                 // Copy conditional fields
@@ -333,7 +290,6 @@ export const useAssets = () => {
             if (error) throw error;
             
             showToast(`Clone ทรัพย์สินเพิ่ม ${amount} รายการแล้ว`, 'success');
-            fetchStats();
             return true;
         } catch (err: any) {
             showToast('Clone ไม่สำเร็จ: ' + err.message, 'error');
@@ -360,7 +316,6 @@ export const useAssets = () => {
             if (error) throw error;
 
             showToast(`นำเข้าข้อมูล ${items.length} รายการสำเร็จ!`, 'success');
-            fetchStats();
             return true;
         } catch (err: any) {
             console.error(err);
@@ -371,7 +326,6 @@ export const useAssets = () => {
 
     // New: Quick Update Stock
     const updateStock = async (id: string, newQuantity: number) => {
-        // Optimistic UI update should be handled by caller, this is just the API call
         try {
             const { error } = await supabase
                 .from('inventory_items')
@@ -379,7 +333,6 @@ export const useAssets = () => {
                 .eq('id', id);
             
             if (error) throw error;
-            // No toast to avoid spamming
             return true;
         } catch (err: any) {
             showToast('อัปเดตสต็อคไม่สำเร็จ', 'error');

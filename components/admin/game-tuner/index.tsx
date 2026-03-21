@@ -25,13 +25,13 @@ const GameConfigTuner = () => {
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Sync with global config on load
+    // Sync with global config on load - but NOT while saving
     useEffect(() => {
-        if (config) {
+        if (config && !isSaving) {
             setLocalConfig(JSON.parse(JSON.stringify(config)));
             setIsDirty(false);
         }
-    }, [config]);
+    }, [config, isSaving]);
 
     // Helper to update deep values
     const handleChange = useCallback((section: string, key: string, value: any) => {
@@ -57,23 +57,36 @@ const GameConfigTuner = () => {
     };
 
     const handleSave = async () => {
+        if (isSaving) return;
         setIsSaving(true);
         try {
             const promises = [];
-            if (localConfig.GLOBAL_MULTIPLIERS) promises.push(updateConfigValue('GLOBAL_MULTIPLIERS', localConfig.GLOBAL_MULTIPLIERS));
-            if (localConfig.LEVELING_SYSTEM) promises.push(updateConfigValue('LEVELING_SYSTEM', localConfig.LEVELING_SYSTEM));
-            if (localConfig.DIFFICULTY_XP) promises.push(updateConfigValue('DIFFICULTY_XP', localConfig.DIFFICULTY_XP));
-            if (localConfig.PENALTY_RATES) promises.push(updateConfigValue('PENALTY_RATES', localConfig.PENALTY_RATES));
-            if (localConfig.AUTO_JUDGE_CONFIG) promises.push(updateConfigValue('AUTO_JUDGE_CONFIG', localConfig.AUTO_JUDGE_CONFIG));
-            if (localConfig.ITEM_MECHANICS) promises.push(updateConfigValue('ITEM_MECHANICS', localConfig.ITEM_MECHANICS));
-            if (localConfig.ATTENDANCE_RULES) promises.push(updateConfigValue('ATTENDANCE_RULES', localConfig.ATTENDANCE_RULES));
-            if (localConfig.KPI_REWARDS) promises.push(updateConfigValue('KPI_REWARDS', localConfig.KPI_REWARDS));
+            
+            // Only update sections that exist in localConfig
+            const sections = [
+                'GLOBAL_MULTIPLIERS', 'LEVELING_SYSTEM', 'DIFFICULTY_XP', 
+                'PENALTY_RATES', 'AUTO_JUDGE_CONFIG', 'ITEM_MECHANICS', 
+                'ATTENDANCE_RULES', 'KPI_REWARDS'
+            ];
 
-            await Promise.all(promises);
-            showToast('บันทึกการตั้งค่าเรียบร้อย 🎮', 'success');
-            setIsDirty(false);
+            for (const section of sections) {
+                if (localConfig[section]) {
+                    promises.push(updateConfigValue(section, localConfig[section]));
+                }
+            }
+
+            const results = await Promise.all(promises);
+            const allSuccess = results.every(r => r === true);
+
+            if (allSuccess) {
+                showToast('บันทึกการตั้งค่าทั้งหมดเรียบร้อย 🎮', 'success');
+                setIsDirty(false);
+            } else {
+                showToast('การบันทึกบางส่วนล้มเหลว กรุณาลองใหม่', 'warning');
+            }
         } catch (error) {
-            showToast('บันทึกไม่สำเร็จ', 'error');
+            console.error("Save error:", error);
+            showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
         } finally {
             setIsSaving(false);
         }

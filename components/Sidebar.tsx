@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2 } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
-import SidebarBadge from './SidebarBadge.tsx';
+import SidebarBadge from './SidebarBadge';
 import NotificationPill from './NotificationPill';
 
 interface SidebarProps {

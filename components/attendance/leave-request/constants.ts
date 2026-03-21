@@ -1,15 +1,6 @@
 
 import { FileText, HeartPulse, Palmtree, Briefcase, Clock, Moon, Siren, Home } from 'lucide-react';
 
-export const DEFAULT_QUOTAS: Record<string, number> = {
-    'SICK': 30,
-    'VACATION': 6,
-    'PERSONAL': 6,
-    'WFH': 100, // WFH usually has high or unlimited quota depending on policy
-    'UNPAID': 999,
-    'FORGOT_BOTH': 999,
-};
-
 export const LEAVE_THEMES: Record<string, any> = {
     'SICK': { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100', bar: 'bg-red-500', btn: 'bg-red-500 hover:bg-red-600', icon: HeartPulse },
     'VACATION': { bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-100', bar: 'bg-sky-500', btn: 'bg-sky-500 hover:bg-sky-600', icon: Palmtree },

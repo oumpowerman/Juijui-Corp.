@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, AlertTriangle, ShieldAlert, Gavel, Info } from 'lucide-react';
+import { Clock, AlertTriangle, ShieldAlert, Gavel, Info , Zap} from 'lucide-react';
 import { ConfigSlider, HealthBarSimulator, RuleEditor } from './components/SharedComponents';
 import { motion } from 'framer-motion';
 
@@ -88,6 +88,37 @@ const LawTuner: React.FC<LawTunerProps> = ({
                         icon={ShieldAlert} color="rose"
                         onChange={(v: number) => handleChange('AUTO_JUDGE_CONFIG', 'negligence_penalty_hp', v)}
                     />
+                    <ConfigSlider 
+                        label="Late Submit Penalty" 
+                        value={localConfig.PENALTY_RATES?.HP_PENALTY_DUTY_LATE_SUBMIT || 3} 
+                        min={1} max={10} step={1} unit="HP"
+                        icon={Clock} color="amber"
+                        onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_DUTY_LATE_SUBMIT', v)}
+                    />
+                    <ConfigSlider 
+                        label="Duty Grace Hour" 
+                        value={localConfig.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10} 
+                        min={0} max={23} step={1} unit=":00"
+                        icon={Clock} color="slate"
+                        onChange={(v: number) => handleChange('AUTO_JUDGE_CONFIG', 'duty_grace_hour', v)}
+                    />
+                    <div className="pt-4 border-t border-red-100 mt-2 space-y-4">
+                        <h5 className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Duty Rewards (รางวัลทำเวร)</h5>
+                        <ConfigSlider 
+                            label="Duty XP Reward" 
+                            value={localConfig.GLOBAL_MULTIPLIERS?.XP_DUTY_COMPLETE || 20} 
+                            min={0} max={100} step={5} unit="XP"
+                            icon={Zap} color="indigo"
+                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'XP_DUTY_COMPLETE', v)}
+                        />
+                        <ConfigSlider 
+                            label="Hero Assist Bonus" 
+                            value={localConfig.GLOBAL_MULTIPLIERS?.XP_DUTY_ASSIST || 30} 
+                            min={0} max={200} step={10} unit="XP"
+                            icon={Zap} color="rose"
+                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'XP_DUTY_ASSIST', v)}
+                        />
+                    </div>
                     <p className="text-[10px] text-red-600/60">
                         หัก HP เมื่อละเลยหน้าที่ (Missed Duty) หรือถูก AI ตัดสินว่าเพิกเฉยงาน (Negligence)
                     </p>
@@ -123,19 +154,21 @@ const LawTuner: React.FC<LawTunerProps> = ({
                         .map((option, index) => {
                             const key = option.key;
                             const label = option.label;
-                            const colorClass = option.color || 'bg-slate-500';
+                            const colorClass = option.color?.includes('bg-')
+                                ? option.color
+                                : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
                             const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
                             
                             return (
                                 <motion.div
-                                    key={key}
+                                    key={`${option.type}-${key}`}
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.05 }}
                                     className="relative pl-4"
                                 >
                                     {/* Color Indicator Bar */}
-                                    <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${colorClass.replace('bg-', 'bg-').replace('text-', 'bg-').split(' ')[0] || 'bg-slate-300'}`}></div>
+                                    <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${colorClass}`}></div>
                                     
                                     <RuleEditor 
                                         label={label}

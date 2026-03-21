@@ -12,7 +12,7 @@ import {
 import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
-import SidebarBadge from './SidebarBadge.tsx';
+import SidebarBadge from './SidebarBadge';
 import CommandPalette from '../components/ui/CommandPalette'
 
 interface MobileNavigationProps {

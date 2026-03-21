@@ -106,11 +106,13 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
       return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // --- AUTH HOOK ---
+  const { currentUserProfile, fetchProfile, updateProfile } = useAuth(user);
+
   // --- MAIN LOGIC HOOK (Orchestrator) ---
   const {
     isLoading: isManagerLoading,
     isTaskFetching,
-    currentUserProfile,
     allUsers,
     tasks,
     channels,
@@ -136,11 +138,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     
     approveMember, removeMember, toggleUserStatus, adjustStatsLocally,
 
-    quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest,
-
-    updateProfile,
-    fetchProfile
-  } = useTaskManager(user);
+    quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest
+  } = useTaskManager(user, currentUserProfile, fetchProfile, updateProfile);
 
   // --- WORKBOX CONTEXT ---
   const { items: workboxItems, addItem: addToWorkbox, setIsDragging } = useWorkboxContext();

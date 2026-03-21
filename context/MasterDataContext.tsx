@@ -7,6 +7,9 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 interface MasterDataContextType {
     masterOptions: MasterOption[];
+    annualHolidays: any[];
+    calendarExceptions: any[];
+    inventoryItems: any[];
     isLoading: boolean;
     fetchMasterOptions: () => Promise<void>;
     addMasterOption: (option: Omit<MasterOption, 'id'>) => Promise<boolean>;
@@ -57,39 +60,51 @@ const DEFAULT_OPTIONS = [
     { type: 'WORK_CONFIG', key: 'LATE_BUFFER', label: '15', color: '', sort_order: 3 },
     { type: 'WORK_CONFIG', key: 'MIN_HOURS', label: '9', color: '', sort_order: 4 },
     { type: 'ATTENDANCE_TYPE', key: 'OFFICE', label: 'เข้าออฟฟิศ', color: 'bg-indigo-600', sort_order: 10 },
-    { type: 'ATTENDANCE_TYPE', key: 'ON_TIME', label: 'มาตรงเวลา (On Time)', color: 'bg-emerald-600', sort_order: 15 },
-    { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10 },
-    { type: 'ATTENDANCE_TYPE', key: 'SITE', label: 'ออกกอง/ข้างนอก', color: 'bg-orange-500', sort_order: 10 },
-    { type: 'ATTENDANCE_TYPE', key: 'LATE', label: 'มาสาย (Late)', color: 'bg-yellow-500', sort_order: -5 },
-    { type: 'ATTENDANCE_TYPE', key: 'EARLY_LEAVE', label: 'กลับก่อน (Early)', color: 'bg-orange-400', sort_order: -5 },
-    { type: 'ATTENDANCE_TYPE', key: 'ABSENT', label: 'ขาดงาน (Absent)', color: 'bg-red-500', sort_order: -20 },
-    { type: 'ATTENDANCE_TYPE', key: 'NO_SHOW', label: 'หายเงียบ (No Show)', color: 'bg-red-800', sort_order: -50 },
-    { type: 'LEAVE_TYPE', key: 'SICK', label: 'ลาป่วย', color: 'bg-gray-500', sort_order: 0 },
-    { type: 'LEAVE_TYPE', key: 'BUSINESS', label: 'ลากิจ', color: 'bg-gray-500', sort_order: 0 },
-    { type: 'LEAVE_TYPE', key: 'VACATION', label: 'พักร้อน', color: 'bg-blue-500', sort_order: 0 },
-    { type: 'LEAVE_TYPE', key: 'UNPAID', label: 'ลาไม่รับค่าจ้าง', color: 'bg-gray-800', sort_order: -5 },
-    { type: 'ATTENDANCE_RULE_KEY', key: 'CORRECTION_REFUND', label: 'คืนค่า HP (แก้เวลาออก)', color: 'bg-emerald-500', sort_order: 100 },
-    { type: 'ATTENDANCE_RULE_KEY', key: 'ABSENT_REFUND', label: 'คืนค่า HP (แก้ขาดงาน)', color: 'bg-blue-500', sort_order: 101 },
-    { type: 'ATTENDANCE_RULE_KEY', key: 'FORGOT_CHECKOUT', label: 'ลืมตอกบัตรออก (Penalty)', color: 'bg-rose-500', sort_order: 102 },
+    { type: 'ATTENDANCE_TYPE', key: 'ON_TIME', label: 'มาตรงเวลา (On Time)', color: 'bg-emerald-600', sort_order: 15, description: '{"icon": "CheckCircle", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10, description: '{"icon": "Home", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'SITE', label: 'ออกกอง/ข้างนอก', color: 'bg-orange-500', sort_order: 10, description: '{"icon": "MapPin", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'LATE', label: 'มาสาย (Late)', color: 'bg-yellow-500', sort_order: -5, description: '{"icon": "Clock", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'EARLY_LEAVE', label: 'กลับก่อน (Early)', color: 'bg-orange-400', sort_order: -5, description: '{"icon": "LogOut", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'ABSENT', label: 'ขาดงาน (Absent)', color: 'bg-red-500', sort_order: -20, description: '{"icon": "UserX", "category": "STANDARD"}' },
+    { type: 'ATTENDANCE_TYPE', key: 'NO_SHOW', label: 'หายเงียบ (No Show)', color: 'bg-red-800', sort_order: -50, description: '{"icon": "Ghost", "category": "STANDARD"}' },
+    { type: 'LEAVE_TYPE', key: 'SICK', label: 'ลาป่วย', color: 'bg-red-500', sort_order: 1, description: '{"icon": "HeartPulse", "category": "STANDARD", "defaultQuota": 30, "placeholder": "ระบุอาการป่วย..."}' },
+    { type: 'LEAVE_TYPE', key: 'VACATION', label: 'พักร้อน', color: 'bg-blue-500', sort_order: 2, description: '{"icon": "Palmtree", "category": "STANDARD", "defaultQuota": 6, "placeholder": "ระบุแผนการพักผ่อน..."}' },
+    { type: 'LEAVE_TYPE', key: 'PERSONAL', label: 'ลากิจ', color: 'bg-purple-500', sort_order: 3, description: '{"icon": "Briefcase", "category": "STANDARD", "defaultQuota": 6, "placeholder": "ระบุธุระที่จำเป็น..."}' },
+    { type: 'LEAVE_TYPE', key: 'EMERGENCY', label: 'ลาฉุกเฉิน', color: 'bg-rose-600', sort_order: 4, description: '{"icon": "AlertCircle", "category": "STANDARD", "defaultQuota": 3, "placeholder": "ระบุเหตุฉุกเฉิน..."}' },
+    { type: 'LEAVE_TYPE', key: 'WFH', label: 'Work From Home', color: 'bg-blue-600', sort_order: 0, description: '{"icon": "Home", "category": "SPECIAL", "subLabel": "ขออนุญาตทำงานที่บ้าน", "defaultQuota": 100, "placeholder": "เช่น เคลียร์งานตัดต่อที่บ้าน...", "reasonLabel": "รายละเอียดงานที่จะทำ (Task)"}' },
+    { type: 'LEAVE_TYPE', key: 'OVERTIME', label: 'ขอทำ OT', color: 'bg-indigo-600', sort_order: 5, description: '{"icon": "Moon", "category": "SPECIAL", "subLabel": "ขอทำงานล่วงเวลา", "defaultQuota": 999, "placeholder": "เช่น เร่งปิดงานลูกค้า Project A...", "reasonLabel": "รายละเอียดงานที่จะทำ (OT Task)"}' },
+    { type: 'LEAVE_TYPE', key: 'LATE_ENTRY', label: 'แจ้งเข้าสาย', color: 'bg-amber-500', sort_order: 10, description: '{"icon": "Clock", "category": "CORRECTION", "defaultQuota": 999, "placeholder": "เช่น รถติดหนักมากที่แยก..."}' },
+    { type: 'LEAVE_TYPE', key: 'FORGOT_CHECKIN', label: 'ลืมลงเวลาเข้า', color: 'bg-rose-500', sort_order: 11, description: '{"icon": "LogIn", "category": "CORRECTION", "defaultQuota": 999, "placeholder": "เช่น ลืมกดเข้างานเนื่องจากรีบไปประชุม..."}' },
+    { type: 'LEAVE_TYPE', key: 'FORGOT_CHECKOUT', label: 'ลืมลงเวลาออก', color: 'bg-orange-500', sort_order: 12, description: '{"icon": "LogOut", "category": "CORRECTION", "defaultQuota": 999, "placeholder": "เช่น ลืมกดออกเนื่องจากรีบไปธุระต่อ..."}' },
+    { type: 'LEAVE_TYPE', key: 'FORGOT_BOTH', label: 'ลืมทั้งเข้า-ออก', color: 'bg-red-600', sort_order: 13, description: '{"icon": "History", "category": "CORRECTION", "defaultQuota": 999, "placeholder": "เช่น ลืมกดทั้งเข้าและออกเนื่องจาก..."}' },
+    { type: 'LEAVE_TYPE', key: 'UNPAID', label: 'ลาไม่รับค่าจ้าง', color: 'bg-slate-800', sort_order: 20, description: '{"icon": "FileText", "category": "STANDARD", "defaultQuota": 999, "placeholder": "ระบุเหตุผลการลา..."}' },
+    { type: 'ATTENDANCE_RULE_KEY', key: 'CORRECTION_REFUND', label: 'คืนค่า HP (แก้เวลาออก)', color: 'bg-emerald-500', sort_order: 100, description: '{"icon": "RefreshCw", "category": "SYSTEM"}' },
+    { type: 'ATTENDANCE_RULE_KEY', key: 'ABSENT_REFUND', label: 'คืนค่า HP (แก้ขาดงาน)', color: 'bg-blue-500', sort_order: 101, description: '{"icon": "RefreshCw", "category": "SYSTEM"}' },
+    { type: 'ATTENDANCE_RULE_KEY', key: 'FORGOT_CHECKOUT', label: 'ลืมตอกบัตรออก (Penalty)', color: 'bg-rose-500', sort_order: 102, description: '{"icon": "AlertTriangle", "category": "SYSTEM"}' },
 ];
 
 export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [options, setOptions] = useState<MasterOption[]>([]);
+    const [annualHolidays, setAnnualHolidays] = useState<any[]>([]);
+    const [calendarExceptions, setCalendarExceptions] = useState<any[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
 
     const fetchOptions = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from('master_options')
-                .select('*')
-                .order('sort_order', { ascending: true });
+            const [optionsRes, holidaysRes, exceptionsRes, inventoryRes] = await Promise.all([
+                supabase.from('master_options').select('*').order('sort_order', { ascending: true }),
+                supabase.from('annual_holidays').select('*').order('date', { ascending: true }),
+                supabase.from('calendar_exceptions').select('*').order('date', { ascending: true }),
+                supabase.from('inventory_items').select('*').order('name', { ascending: true })
+            ]);
 
-            if (error) throw error;
+            if (optionsRes.error) throw optionsRes.error;
 
-            if (data) {
-                setOptions(data.map((item: any) => ({
+            if (optionsRes.data) {
+                setOptions(optionsRes.data.map((item: any) => ({
                     id: item.id,
                     type: (item.type || '').trim().toUpperCase(),
                     key: (item.key || '').trim(),
@@ -103,6 +118,32 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     progressValue: item.progress_value
                 })));
             }
+
+            if (holidaysRes.data) setAnnualHolidays(holidaysRes.data);
+            if (exceptionsRes.data) setCalendarExceptions(exceptionsRes.data);
+            if (inventoryRes.data) {
+                setInventoryItems(inventoryRes.data.map((i: any) => ({
+                    id: i.id,
+                    name: i.name,
+                    description: i.description, 
+                    categoryId: i.category_id,
+                    imageUrl: i.image_url,
+                    itemType: i.item_type || 'FIXED', 
+                    quantity: i.quantity || 0,
+                    unit: i.unit,
+                    minThreshold: i.min_threshold,
+                    maxCapacity: i.max_capacity,
+                    tags: i.tags || [],
+                    assetGroup: i.asset_group,
+                    purchasePrice: i.purchase_price,
+                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
+                    serialNumber: i.serial_number,
+                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
+                    condition: i.condition,
+                    currentHolderId: i.current_holder_id
+                })));
+            }
+
         } catch (err: any) {
             console.error('Fetch master options failed:', err);
         } finally {
@@ -201,20 +242,22 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             
             const { data: existingData, error: fetchError } = await supabase
                 .from('master_options')
-                .select('type, key');
+                .select('id, type, key, description');
 
             if (fetchError) throw fetchError;
 
-            const existingSet = new Set(
-                existingData?.map((i: any) => `${i.type.trim().toUpperCase()}_${i.key.trim()}`) || []
+            const existingMap = new Map(
+                existingData?.map((i: any) => [`${i.type.trim().toUpperCase()}_${i.key.trim()}`, i]) || []
             );
 
             let insertedCount = 0;
+            let updatedCount = 0;
             
             for (const opt of DEFAULT_OPTIONS) {
                 const compositeKey = `${opt.type}_${opt.key}`;
+                const existing = existingMap.get(compositeKey);
 
-                if (!existingSet.has(compositeKey)) {
+                if (!existing) {
                     const { error: insertError } = await supabase
                         .from('master_options')
                         .insert(opt);
@@ -222,14 +265,24 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     if (!insertError) {
                         insertedCount++;
                     }
+                } else if (!existing.description && opt.description) {
+                    // Update if description is missing
+                    const { error: updateError } = await supabase
+                        .from('master_options')
+                        .update({ description: opt.description })
+                        .eq('id', existing.id);
+                    
+                    if (!updateError) {
+                        updatedCount++;
+                    }
                 }
             }
 
-            if (insertedCount > 0) {
-                showToast(`สร้างข้อมูลเพิ่มสำเร็จ ${insertedCount} รายการ 🎉`, 'success');
+            if (insertedCount > 0 || updatedCount > 0) {
+                showToast(`ซิงค์ข้อมูลสำเร็จ (เพิ่ม ${insertedCount}, อัปเดต ${updatedCount}) 🎉`, 'success');
                 await fetchOptions(); 
             } else {
-                showToast('ข้อมูลครบถ้วนอยู่แล้วครับ (ตรวจสอบจาก DB แล้ว)', 'success');
+                showToast('ข้อมูลครบถ้วนและเป็นปัจจุบันอยู่แล้วครับ', 'success');
             }
 
         } catch (err: any) {
@@ -243,25 +296,40 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         // fetchOptions(); // Disable initial fetchOptions on mount - managed by useTaskManager
 
-        const channel = supabase
-            .channel('global-master-options')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'master_options' },
-                () => {
-                    fetchOptions();
-                }
-            )
-            .subscribe();
+        const optionsChannel = supabase.channel('global-master-options')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, () => {
+                fetchOptions();
+            }).subscribe();
+
+        const holidaysChannel = supabase.channel('global-annual-holidays')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_holidays' }, () => {
+                fetchOptions();
+            }).subscribe();
+
+        const exceptionsChannel = supabase.channel('global-calendar-exceptions')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_exceptions' }, () => {
+                fetchOptions();
+            }).subscribe();
+
+        const inventoryChannel = supabase.channel('global-inventory-items')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
+                fetchOptions();
+            }).subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(optionsChannel);
+            supabase.removeChannel(holidaysChannel);
+            supabase.removeChannel(exceptionsChannel);
+            supabase.removeChannel(inventoryChannel);
         };
     }, [fetchOptions]);
 
     return (
         <MasterDataContext.Provider value={{
             masterOptions: options,
+            annualHolidays,
+            calendarExceptions,
+            inventoryItems,
             isLoading,
             fetchMasterOptions: fetchOptions,
             addMasterOption,

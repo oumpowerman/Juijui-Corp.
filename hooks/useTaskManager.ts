@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { User } from '../types';
 
 // Import split hooks
 import { useAuth } from './useAuth';
@@ -11,11 +12,16 @@ import { useWeeklyQuests } from './useWeeklyQuests';
 import { useUI } from './useUI';
 import { useMasterData } from './useMasterData'; 
 
-export const useTaskManager = (sessionUser: any) => {
+export const useTaskManager = (
+    sessionUser: any, 
+    currentUserProfile: User | null, 
+    fetchProfile: () => Promise<User | null>,
+    updateProfile: (updates: Partial<User>, avatarFile?: File) => Promise<boolean>
+) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Auth Hook
-  const { currentUserProfile, fetchProfile, updateProfile } = useAuth(sessionUser);
+  // 1. Auth Hook - REMOVED redundant call
+  // const { currentUserProfile, fetchProfile, updateProfile } = useAuth(sessionUser);
 
   // 2. UI Hook
   const { 

@@ -2,15 +2,15 @@
 import React from 'react';
 import { CalendarCheck } from 'lucide-react';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
-import { DEFAULT_QUOTAS, LEAVE_THEMES } from './constants';
+import { LEAVE_THEMES } from './constants';
 
 interface Props {
     type: string;
     usage?: LeaveUsage;
+    limit?: number;
 }
 
-const LeaveQuotaDisplay: React.FC<Props> = ({ type, usage }) => {
-    const limit = DEFAULT_QUOTAS[type];
+const LeaveQuotaDisplay: React.FC<Props> = ({ type, usage, limit }) => {
     if (!limit || !usage) return null;
 
     const used = usage[type as LeaveType] || 0;

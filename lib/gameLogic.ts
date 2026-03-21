@@ -82,7 +82,8 @@ export const DEFAULT_GAME_CONFIG = {
         negligence_penalty_hp: 20,
         lookback_days_check: 60,
         allow_holiday_penalty: false,
-        negligence_threshold_days: 1
+        negligence_threshold_days: 1,
+        duty_grace_hour: 10
     },
     SYSTEM_MAINTENANCE: {
         duty_cleanup_days: 180,

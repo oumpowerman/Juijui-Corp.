@@ -145,12 +145,26 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
         }
     };
 
+    const sessionStartRef = useRef<string>(new Date().toISOString());
+    const isFirstLoadRef = useRef(true);
+
     // Listen to gameLogs from NotificationContext
     useEffect(() => {
         if (!currentUser || gameLogs.length === 0) return;
 
         // Find logs that haven't been processed yet
-        const newLogs = gameLogs.filter(log => !processedLogsRef.current.has(log.id));
+        const newLogs = gameLogs.filter(log => {
+            const isNew = !processedLogsRef.current.has(log.id);
+            const isAfterSessionStart = log.created_at >= sessionStartRef.current;
+            return isNew && isAfterSessionStart;
+        });
+        
+        // Mark all current logs as processed on first load to be safe, 
+        // but the created_at check is the primary guard.
+        if (isFirstLoadRef.current) {
+            gameLogs.forEach(log => processedLogsRef.current.add(log.id));
+            isFirstLoadRef.current = false;
+        }
         
         if (newLogs.length > 0) {
             if (onEvent) onEvent();

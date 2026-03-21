@@ -1,31 +1,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Duty, DutyConfig, DutySwap, AnnualHoliday } from '../../types';
+import { Duty, DutyConfig, DutySwap } from '../../types';
 import { format, subMonths, addMonths } from 'date-fns';
+import { useMasterData } from '../useMasterData';
 
 export const useDutyData = () => {
     const [duties, setDuties] = useState<Duty[]>([]);
     const [configs, setConfigs] = useState<DutyConfig[]>([]);
     const [swapRequests, setSwapRequests] = useState<DutySwap[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [annualHolidays, setAnnualHolidays] = useState<AnnualHoliday[]>([]);
-    const [calendarExceptions, setCalendarExceptions] = useState<any[]>([]);
-
-    const fetchCalendarMetadata = useCallback(async () => {
-        try {
-            const [hRes, eRes] = await Promise.all([
-                supabase.from('annual_holidays').select('*').eq('is_active', true),
-                supabase.from('calendar_exceptions').select('*')
-            ]);
-            if (hRes.data) setAnnualHolidays(hRes.data.map((h: any) => ({
-                id: h.id, name: h.name, day: h.day, month: h.month, typeKey: h.type_key, isActive: h.is_active
-            })));
-            if (eRes.data) setCalendarExceptions(eRes.data);
-        } catch (err) {
-            console.error("Failed to fetch calendar metadata for Duty", err);
-        }
-    }, []);
+    
+    const { annualHolidays, calendarExceptions } = useMasterData();
 
     const fetchDuties = useCallback(async () => {
         try {
@@ -121,7 +107,6 @@ export const useDutyData = () => {
         fetchDuties();
         fetchConfigs();
         fetchSwapRequests();
-        fetchCalendarMetadata();
 
         const dutyChannel = supabase
             .channel('realtime-duties-data')
@@ -171,13 +156,12 @@ export const useDutyData = () => {
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_configs' }, () => fetchConfigs())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'duty_swaps' }, () => fetchSwapRequests())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_exceptions' }, () => fetchCalendarMetadata())
             .subscribe();
 
         return () => {
             supabase.removeChannel(dutyChannel);
         };
-    }, [fetchDuties, fetchConfigs, fetchSwapRequests, fetchCalendarMetadata]);
+    }, [fetchDuties, fetchConfigs, fetchSwapRequests]);
 
     return {
         duties,
@@ -192,7 +176,6 @@ export const useDutyData = () => {
             fetchDuties();
             fetchConfigs();
             fetchSwapRequests();
-            fetchCalendarMetadata();
         }
     };
 };

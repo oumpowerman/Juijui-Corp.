@@ -12,11 +12,10 @@ const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 export const useChecklist = () => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog(); 
-    const { masterOptions } = useMasterData();
+    const { masterOptions, inventoryItems } = useMasterData();
     
     // Data States
     const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
-    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [checklistPresets, setChecklistPresets] = useState<ChecklistPreset[]>([]);
     const [activePresetId, setActivePresetId] = useState<string | null>(null);
     const [activePresetName, setActivePresetName] = useState<string | null>(null);
@@ -37,36 +36,6 @@ export const useChecklist = () => {
                     text: i.text,
                     isChecked: i.is_checked,
                     categoryId: i.category_id
-                })));
-            }
-
-            // Fetch Inventory
-            const { data: invData, error: invError } = await supabase
-                .from('inventory_items')
-                .select('*')
-                .order('created_at', { ascending: false }); 
-            
-            if (invError) console.error("Error fetching inventory:", invError);
-            if (invData) {
-                setInventoryItems(invData.map((i: any) => ({
-                    id: i.id,
-                    name: i.name,
-                    description: i.description, 
-                    categoryId: i.category_id,
-                    imageUrl: i.image_url,
-                    itemType: i.item_type || 'FIXED', 
-                    quantity: i.quantity || 0,
-                    unit: i.unit,
-                    minThreshold: i.min_threshold,
-                    maxCapacity: i.max_capacity,
-                    tags: i.tags || [],
-                    assetGroup: i.asset_group as AssetGroup,
-                    purchasePrice: i.purchase_price,
-                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
-                    serialNumber: i.serial_number,
-                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
-                    condition: i.condition as AssetCondition,
-                    currentHolderId: i.current_holder_id
                 })));
             }
 
@@ -133,7 +102,6 @@ export const useChecklist = () => {
                     setActiveChecklistItems(prev => prev.filter(item => item.id !== payload.old.id));
                 }
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadChecklistData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, () => loadChecklistData())
             .subscribe();
 
@@ -289,7 +257,6 @@ export const useChecklist = () => {
                 const { error } = await supabase.from('inventory_items').delete().eq('id', id);
                 if (error) throw error;
                 
-                setInventoryItems(prev => prev.filter(i => i.id !== id));
                 showToast('ลบจากคลังแล้ว', 'info');
             } catch (err) { console.error(err); }
         }
@@ -299,12 +266,7 @@ export const useChecklist = () => {
     
     const updateGlobalActivePreset = async (presetId: string | null) => {
         try {
-            const { data: existing } = await supabase
-                .from('master_options')
-                .select('id')
-                .eq('type', 'CHECKLIST_CONFIG')
-                .eq('key', 'ACTIVE_PRESET_ID')
-                .maybeSingle();
+            const existing = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
 
             if (existing) {
                 await supabase

@@ -1,81 +1,41 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttendanceLog } from '../../types/attendance';
 import { format } from 'date-fns';
 import { mapAttendanceLog } from './shared';
+import { useUserSession } from '../../context/UserSessionContext';
 
 export const useAttendanceStatus = (userId: string) => {
-    const [todayLog, setTodayLog] = useState<AttendanceLog | null>(null);
-    const [outdatedLogs, setOutdatedLogs] = useState<AttendanceLog[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { attendanceLogs } = useUserSession();
     const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
-    const fetchStatus = useCallback(async () => {
-        if (!userId) return;
-        setIsLoading(true);
-        try {
-            // A. Get LATEST Active Session (Could be today or past)
-            const { data: activeLogs } = await supabase
-                .from('attendance_logs')
-                .select('*')
-                .eq('user_id', userId)
-                .in('status', ['WORKING', 'PENDING_VERIFY'])
-                .is('check_out_time', null)
-                .order('date', { ascending: false });
+    const { todayLog, outdatedLogs } = useMemo(() => {
+        if (!userId || !attendanceLogs) return { todayLog: null, outdatedLogs: [] };
 
-            if (activeLogs && activeLogs.length > 0) {
-                const mappedLogs = activeLogs.map(mapAttendanceLog);
-                const todayActive = mappedLogs.find(l => l.date === todayDateStr);
-                const pastActive = mappedLogs.filter(l => l.date !== todayDateStr);
+        // We only care about logs for the specific user (though context should only have current user's logs)
+        const userLogs = attendanceLogs.filter(log => log.userId === userId);
 
-                setTodayLog(todayActive || null);
-                setOutdatedLogs(pastActive);
+        const activeLogs = userLogs.filter(log => 
+            ['WORKING', 'PENDING_VERIFY'].includes(log.status) && !log.checkOutTime
+        );
 
-                if (!todayActive) {
-                    const { data: todayRecord } = await supabase
-                        .from('attendance_logs')
-                        .select('*')
-                        .eq('user_id', userId)
-                        .eq('date', todayDateStr)
-                        .maybeSingle();
-                    setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
-                }
-            } else {
-                const { data: todayRecord } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', userId)
-                    .eq('date', todayDateStr)
-                    .maybeSingle();
-                setTodayLog(todayRecord ? mapAttendanceLog(todayRecord) : null);
-                setOutdatedLogs([]);
+        let currentTodayLog = null;
+        let currentOutdatedLogs: AttendanceLog[] = [];
+
+        if (activeLogs.length > 0) {
+            currentTodayLog = activeLogs.find(l => l.date === todayDateStr) || null;
+            currentOutdatedLogs = activeLogs.filter(l => l.date !== todayDateStr);
+
+            if (!currentTodayLog) {
+                currentTodayLog = userLogs.find(l => l.date === todayDateStr) || null;
             }
-        } catch (err) {
-            console.error("Error fetching attendance status:", err);
-        } finally {
-            setIsLoading(false);
+        } else {
+            currentTodayLog = userLogs.find(l => l.date === todayDateStr) || null;
         }
-    }, [userId, todayDateStr]);
 
-    useEffect(() => {
-        fetchStatus();
-        
-        const channel = supabase.channel(`attendance-status-${userId}`)
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'attendance_logs', 
-                filter: `user_id=eq.${userId}` 
-            }, () => {
-                fetchStatus();
-            })
-            .subscribe();
+        return { todayLog: currentTodayLog, outdatedLogs: currentOutdatedLogs };
+    }, [userId, attendanceLogs, todayDateStr]);
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [userId, fetchStatus]);
-
-    return { todayLog, outdatedLogs, isLoading, refresh: fetchStatus };
+    // We don't need isLoading or refresh anymore since it's driven by context
+    return { todayLog, outdatedLogs, isLoading: false, refresh: () => {} };
 };

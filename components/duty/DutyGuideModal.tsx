@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { X, Info, ShieldCheck, HeartHandshake, AlertTriangle, Coins, Zap, Clock, CheckCircle2, Ban } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { X, Info, ShieldCheck, HeartHandshake, AlertTriangle, Coins, Zap, Clock, CheckCircle2, Ban, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useGameConfig } from '../../context/GameConfigContext';
 
 interface DutyGuideModalProps {
     isOpen: boolean;
@@ -9,40 +10,48 @@ interface DutyGuideModalProps {
 }
 
 const DutyGuideModal: React.FC<DutyGuideModalProps> = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
+    const { config } = useGameConfig();
 
-    const sections = [
-        {
-            title: 'กติกาพื้นฐาน (Basic Rules)',
-            icon: <ShieldCheck className="w-6 h-6 text-indigo-500" />,
-            color: 'bg-indigo-50',
-            items: [
-                { icon: <Clock className="w-4 h-4" />, text: 'เวรจะถูกสุ่มล่วงหน้าตามกติกาที่ Admin ตั้งไว้' },
-                { icon: <CheckCircle2 className="w-4 h-4" />, text: 'เมื่อทำเสร็จ ต้องถ่ายรูป "ส่งการบ้าน" เพื่อยืนยัน' },
-                { icon: <AlertTriangle className="w-4 h-4" />, text: 'หากลืมทำ ระบบจะให้โอกาสแก้ตัวในวันถัดไป (Tribunal)' },
-            ]
-        },
-        {
-            title: 'ระบบฮีโร่ (Hero Assist)',
-            icon: <HeartHandshake className="w-6 h-6 text-rose-500" />,
-            color: 'bg-rose-50',
-            items: [
-                { icon: <Zap className="w-4 h-4" />, text: 'คุณสามารถช่วยเพื่อนทำเวรได้ โดยกดปุ่ม "Assist" ที่เวรของเพื่อน' },
-                { icon: <Coins className="w-4 h-4" />, text: 'ฮีโร่จะได้รับ Bonus XP และแต้มพิเศษเป็นการตอบแทน' },
-                { icon: <CheckCircle2 className="w-4 h-4" />, text: 'เพื่อนที่ถูกช่วยจะถือว่าทำเวรเสร็จ (แต่ไม่ได้แต้ม)' },
-            ]
-        },
-        {
-            title: 'บทลงโทษ (Penalties)',
-            icon: <AlertTriangle className="w-6 h-6 text-amber-500" />,
-            color: 'bg-amber-50',
-            items: [
-                { icon: <Ban className="w-4 h-4" />, text: 'หากละเลยหน้าที่จนเวรรอบใหม่มาถึง จะถูกหัก HP อย่างหนัก (Negligence)' },
-                { icon: <AlertTriangle className="w-4 h-4" />, text: 'การส่งงานล่าช้าในรอบแก้ตัว (Tribunal) จะถูกหัก HP เล็กน้อย' },
-                { icon: <Info className="w-4 h-4" />, text: 'คะแนนที่ถูกหักจะส่งผลต่อโบนัสและลำดับใน Leaderboard' },
-            ]
-        }
-    ];
+    const sections = useMemo(() => {
+        const globals = config?.GLOBAL_MULTIPLIERS || {};
+        const penalties = config?.PENALTY_RATES || {};
+        const autoJudge = config?.AUTO_JUDGE_CONFIG || {};
+
+        return [
+            {
+                title: 'กติกาพื้นฐาน (Basic Rules)',
+                icon: <ShieldCheck className="w-6 h-6 text-indigo-500" />,
+                color: 'bg-indigo-50',
+                items: [
+                    { icon: <Clock className="w-4 h-4" />, text: 'เวรจะถูกสุ่มล่วงหน้าตามกติกาที่ Admin ตั้งไว้' },
+                    { icon: <Trophy className="w-4 h-4 text-yellow-600" />, text: `ทำเสร็จรับรางวัล: +${globals.XP_DUTY_COMPLETE || 20} XP และ +${globals.COIN_DUTY || 5} JP` },
+                    { icon: <AlertTriangle className="w-4 h-4 text-amber-500" />, text: `หากลืมทำ มีโอกาสแก้ตัวจนถึง ${autoJudge.duty_grace_hour || 10}:00 น. ของวันถัดไป` },
+                ]
+            },
+            {
+                title: 'ระบบฮีโร่ (Hero Assist)',
+                icon: <HeartHandshake className="w-6 h-6 text-rose-500" />,
+                color: 'bg-rose-50',
+                items: [
+                    { icon: <Zap className="w-4 h-4 text-yellow-500" />, text: 'ช่วยเพื่อนทำเวรได้ โดยกดปุ่ม "Assist" ที่เวรของเพื่อน' },
+                    { icon: <Coins className="w-4 h-4 text-amber-500" />, text: `ฮีโร่รับโบนัสพิเศษ: +${globals.XP_DUTY_ASSIST || 30} XP` },
+                    { icon: <CheckCircle2 className="w-4 h-4 text-green-500" />, text: 'เพื่อนที่ถูกช่วยจะถือว่าทำเวรเสร็จ (แต่ไม่ได้แต้ม)' },
+                ]
+            },
+            {
+                title: 'บทลงโทษ (Penalties)',
+                icon: <AlertTriangle className="w-6 h-6 text-amber-500" />,
+                color: 'bg-amber-50',
+                items: [
+                    { icon: <Ban className="w-4 h-4 text-red-500" />, text: `เพิกเฉยจนเวรรอบใหม่มาถึง: หัก -${autoJudge.negligence_penalty_hp || 20} HP (Negligence)` },
+                    { icon: <AlertTriangle className="w-4 h-4 text-orange-500" />, text: `ส่งงานล่าช้าในรอบแก้ตัว: หัก -${penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 3} HP` },
+                    { icon: <Info className="w-4 h-4 text-gray-400" />, text: 'คะแนนที่ถูกหักจะส่งผลต่อโบนัสและลำดับใน Leaderboard' },
+                ]
+            }
+        ];
+    }, [config]);
+
+    if (!isOpen) return null;
 
     return (
         <AnimatePresence>

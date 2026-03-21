@@ -9,6 +9,9 @@ import { useMasterDataContext } from '../context/MasterDataContext';
 export const useMasterData = () => {
     const {
         masterOptions,
+        annualHolidays,
+        calendarExceptions,
+        inventoryItems,
         isLoading,
         fetchMasterOptions,
         addMasterOption,
@@ -19,6 +22,9 @@ export const useMasterData = () => {
 
     return {
         masterOptions,
+        annualHolidays,
+        calendarExceptions,
+        inventoryItems,
         isLoading,
         fetchMasterOptions,
         addMasterOption,

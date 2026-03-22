@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LabSequenceItem } from './ScriptLabView';
+import { LabSequenceItem } from '../../../types';
 import { 
     DndContext, 
     closestCenter,

@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { LabSequenceItem } from './ScriptLabView';
+import { LabSequenceItem } from '../../../types';
 import { Eye, FileText, Hash, Type } from 'lucide-react';
 
 interface LabPreviewProps {

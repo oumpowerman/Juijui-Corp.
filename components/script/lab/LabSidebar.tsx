@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Channel, MasterOption, ScriptSummary } from '../../../types';
-import { useScripts } from '../../../hooks/useScripts';
 import { Search, Filter, Plus, FileText, User as UserIcon, Calendar, Hash, Loader2, X, Check, TrendingUp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabase';
@@ -16,12 +15,13 @@ interface LabSidebarProps {
     masterOptions: MasterOption[];
     onAddScript: (script: ScriptSummary) => void;
     refreshTrigger?: number;
+    scriptsApi: any;
 }
 
 const LabSidebar: React.FC<LabSidebarProps> = ({ 
-    currentUser, users, channels, masterOptions, onAddScript, refreshTrigger = 0
+    currentUser, users, channels, masterOptions, onAddScript, refreshTrigger = 0, scriptsApi
 }) => {
-    const { scripts, isLoading, fetchScripts, totalCount } = useScripts(currentUser);
+    const { scripts, isLoading, fetchScripts, totalCount } = scriptsApi;
     
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +110,15 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
             .slice(0, 10);
     }, [tagInput, allTags, filterTags]);
 
+    const isFirstMount = React.useRef(true);
+
     useEffect(() => {
+        // Skip initial fetch on re-mount if we already have scripts
+        if (isFirstMount.current && scripts.length > 0) {
+            isFirstMount.current = false;
+            return;
+        }
+
         fetchScripts({
             page: 1,
             pageSize,
@@ -125,6 +133,7 @@ const LabSidebar: React.FC<LabSidebarProps> = ({
             append: false
         });
         setPage(1);
+        isFirstMount.current = false;
     }, [searchQuery, filterChannel, filterCategory, filterOwner, filterTags, fetchScripts, refreshTrigger, isDeepSearch]);
 
     const handleLoadMore = () => {

@@ -3,10 +3,12 @@ import React, { useState, useMemo } from 'react';
 import { Task, Channel, MasterOption } from '../types';
 import { 
     Search, Package, GripVertical, Calendar, Archive, X, 
-    LayoutTemplate, SlidersHorizontal, Video, Hash, Sparkles
+    LayoutTemplate, SlidersHorizontal, Video, Hash, Sparkles,
+    ChevronDown, Loader2
 } from 'lucide-react';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import StockFilterModal from './stock/StockFilterModal';
+import { useTaskContext } from '../context/TaskContext';
 
 interface StockSidePanelProps {
     isOpen: boolean;
@@ -25,6 +27,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
     masterOptions,
     onEditTask
 }) => {
+    const { isAllLoaded, isFetching, fetchAllTasks } = useTaskContext();
     // --- State ---
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -251,6 +254,32 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                                 </div>
                             );
                         })
+                    )}
+
+                    {/* Load More Button - Only show if not all loaded and we have some tasks or empty */}
+                    {!isAllLoaded && (
+                        <div className="pt-2 pb-4">
+                            <button 
+                                onClick={() => fetchAllTasks()}
+                                disabled={isFetching}
+                                className="w-full py-3 px-4 bg-white border border-dashed border-gray-300 rounded-2xl text-xs font-bold text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
+                            >
+                                {isFetching ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>กำลังโหลดข้อมูล...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
+                                        <span>โหลดงานในคลังที่เก่ากว่า 2 เดือน</span>
+                                    </>
+                                )}
+                            </button>
+                            <p className="text-[10px] text-gray-400 text-center mt-2 px-4">
+                                * เพื่อความรวดเร็ว ระบบจะโหลดเฉพาะงาน 2 เดือนล่าสุดมาให้ก่อน
+                            </p>
+                        </div>
                     )}
                 </div>
 

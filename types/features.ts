@@ -124,6 +124,16 @@ export interface Script extends ScriptSummary {
     characters?: string[];
 }
 
+export interface LabSequenceItem {
+    id: string; // Unique ID for DnD
+    scriptId?: string; // Original script ID if it's a script block
+    type: 'SCRIPT' | 'BRIDGE';
+    title: string;
+    content: string;
+    activeSheetId?: string;
+    sheets?: ScriptSheet[];
+}
+
 export interface ScriptComment {
     id: string;
     scriptId: string;
@@ -417,6 +427,29 @@ export interface AnnualHoliday {
     month: number;
     typeKey: string;
     isActive: boolean;
+}
+
+// --- INTERN MANAGEMENT ---
+export type InternStatus = 'APPLIED' | 'INTERVIEW_SCHEDULED' | 'INTERVIEWED' | 'ACCEPTED' | 'REJECTED' | 'ARCHIVED';
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+
+export interface InternCandidate {
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    university: string;
+    portfolioUrl: string;
+    avatarUrl: string;
+    gender: Gender;
+    position: string;
+    startDate: Date;
+    endDate: Date;
+    status: InternStatus;
+    interviewDate: Date | null;
+    notes: string;
+    createdAt: Date;
+    createdBy: string;
 }
 
 // --- WORKBOX ---

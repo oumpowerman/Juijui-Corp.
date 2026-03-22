@@ -15,9 +15,13 @@ interface DialogState {
 
 interface GlobalDialogContextType {
     dialogState: DialogState;
+    isLoading: boolean;
+    loadingMessage?: string;
     showAlert: (message: string, title?: string) => Promise<void>;
     showConfirm: (message: string, title?: string) => Promise<boolean>;
     showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
+    showLoading: (message?: string) => void;
+    hideLoading: () => void;
     closeDialog: () => void;
 }
 
@@ -29,9 +33,21 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         type: 'alert',
         message: '',
     });
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined);
 
     const closeDialog = useCallback(() => {
         setDialogState(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
+    const showLoading = useCallback((message?: string) => {
+        setLoadingMessage(message);
+        setIsLoading(true);
+    }, []);
+
+    const hideLoading = useCallback(() => {
+        setIsLoading(false);
+        setLoadingMessage(undefined);
     }, []);
 
     const showAlert = useCallback((message: string, title?: string) => {
@@ -89,7 +105,17 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     return (
-        <GlobalDialogContext.Provider value={{ dialogState, showAlert, showConfirm, showPrompt, closeDialog }}>
+        <GlobalDialogContext.Provider value={{ 
+            dialogState, 
+            isLoading, 
+            loadingMessage,
+            showAlert, 
+            showConfirm, 
+            showPrompt, 
+            showLoading,
+            hideLoading,
+            closeDialog 
+        }}>
             {children}
         </GlobalDialogContext.Provider>
     );

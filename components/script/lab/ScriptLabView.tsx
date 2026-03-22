@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { User, Script, Channel, MasterOption, ScriptSummary } from '../../../types';
-import { useScripts } from '../../../hooks/useScripts';
+import { User, Script, Channel, MasterOption, ScriptSummary, LabSequenceItem } from '../../../types';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import LabSidebar from './LabSidebar';
 import LabMixer from './LabMixer';
@@ -17,28 +16,22 @@ interface ScriptLabViewProps {
     channels: Channel[];
     masterOptions: MasterOption[];
     onClose?: () => void;
-}
-
-export interface LabSequenceItem {
-    id: string; // Unique ID for DnD
-    scriptId?: string; // Original script ID if it's a script block
-    type: 'SCRIPT' | 'BRIDGE';
-    title: string;
-    content: string;
-    activeSheetId?: string;
-    sheets?: any[]; // Using any[] to avoid circular dependency or complex imports if not needed, but ScriptSheet[] is better
+    scriptsApi: any; // Use the type from useScripts if possible, but any for now
+    sequence: LabSequenceItem[];
+    setSequence: React.Dispatch<React.SetStateAction<LabSequenceItem[]>>;
+    labTitle: string;
+    setLabTitle: (title: string) => void;
 }
 
 const ScriptLabView: React.FC<ScriptLabViewProps> = ({ 
-    currentUser, users, channels, masterOptions, onClose 
+    currentUser, users, channels, masterOptions, onClose, scriptsApi,
+    sequence, setSequence, labTitle, setLabTitle
 }) => {
-    const { createScript, getScriptById, updateScript } = useScripts(currentUser);
+    const { createScript, getScriptById, updateScript } = scriptsApi;
     const { showConfirm, showAlert } = useGlobalDialog();
 
     // State
-    const [sequence, setSequence] = useState<LabSequenceItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [labTitle, setLabTitle] = useState(`Lab Mix - ${new Date().toLocaleDateString()}`);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [pendingMergedContent, setPendingMergedContent] = useState('');
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
@@ -248,6 +241,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                                     masterOptions={masterOptions}
                                     onAddScript={handleAddScript}
                                     refreshTrigger={sidebarRefreshKey}
+                                    scriptsApi={scriptsApi}
                                 />
                             </Panel>
                             <PanelResizeHandle className="w-1 bg-white/5 hover:bg-indigo-500/50 transition-colors cursor-col-resize" />

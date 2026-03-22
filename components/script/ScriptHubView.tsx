@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { User, Script, MasterOption, ScriptSummary, Task } from '../../types';
+import { User, Script, MasterOption, ScriptSummary, Task, LabSequenceItem } from '../../types';
 import { useScripts } from '../../hooks/useScripts';
 import { useChannels } from '../../hooks/useChannels';
 import { useMasterData } from '../../hooks/useMasterData';
@@ -35,12 +35,16 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [searchParams, setSearchParams] = useSearchParams(); // NEW
 
     // Hooks
+    const mainScripts = useScripts(currentUser);
+    const labScripts = useScripts(currentUser);
+    
+    // Destructure mainScripts for easier use in HUB/STUDIO
     const { 
         scripts, totalCount, isLoading, 
         fetchScripts, getScriptById,
         createScript, updateScript, deleteScript, toggleShootQueue, generateScriptWithAI,
-        promoteToContent // NEW
-    } = useScripts(currentUser);
+        promoteToContent
+    } = mainScripts;
     
     const { channels, fetchChannels } = useChannels();
 
@@ -62,6 +66,10 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [isInfoOpen, setIsInfoOpen] = useState(false); // Info Modal State
     const [refreshStatsKey, setRefreshStatsKey] = useState(0); // NEW: Trigger for stats refresh
     const [mode, setMode] = useState<ScriptHubMode>(initialMode); // NEW: Mode switcher
+
+    // Lab Mode State (Lifted to persist across mode switches)
+    const [labSequence, setLabSequence] = useState<LabSequenceItem[]>([]);
+    const [labTitle, setLabTitle] = useState(`Lab Mix - ${new Date().toLocaleDateString()}`);
 
     // Guard: Prevent LAB mode on mobile
     useEffect(() => {
@@ -101,6 +109,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     }, []);
 
     useEffect(() => {
+        if (mode === 'LAB') return; // Skip main scripts fetch in LAB mode
+        
         fetchScripts({
             page,
             pageSize,
@@ -319,6 +329,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             channels={channels}
                             masterOptions={masterOptions}
                             onClose={() => setMode('HUB')}
+                            scriptsApi={labScripts}
+                            sequence={labSequence}
+                            setSequence={setLabSequence}
+                            labTitle={labTitle}
+                            setLabTitle={setLabTitle}
                         />
                     </motion.div>
                 ) : activeScript ? (

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle2, HelpCircle, Info, MessageSquare } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, HelpCircle, Info, MessageSquare, Loader2 } from 'lucide-react';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 const GlobalDialog: React.FC = () => {
-    const { dialogState, closeDialog } = useGlobalDialog();
+    const { dialogState, closeDialog, isLoading, loadingMessage } = useGlobalDialog();
     const [inputValue, setInputValue] = useState('');
 
     useEffect(() => {
@@ -12,6 +12,28 @@ const GlobalDialog: React.FC = () => {
             setInputValue(dialogState.defaultValue || '');
         }
     }, [dialogState.isOpen, dialogState.type, dialogState.defaultValue]);
+
+    // Render Loading Overlay
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                <div className="text-center space-y-6">
+                    <div className="relative flex justify-center">
+                        <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full"></div>
+                        <Loader2 className="w-20 h-20 animate-spin text-indigo-500 relative z-10" />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-white tracking-tight">
+                            {loadingMessage || 'กำลังดำเนินการ...'}
+                        </h3>
+                        <p className="text-indigo-300 font-medium animate-pulse">
+                            กรุณาอย่าปิดหน้าต่างนี้จนกว่าจะเสร็จสิ้น
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (!dialogState.isOpen) return null;
 

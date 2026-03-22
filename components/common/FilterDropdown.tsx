@@ -47,6 +47,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
     return (
         <div className="relative" ref={dropdownRef}>
             <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 title={isActive ? selectedOption?.label : label}
                 className={`
@@ -77,6 +78,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                         
                         <div className="max-h-[300px] overflow-y-auto scrollbar-hide">
                             <button
+                                type="button"
                                 onClick={() => { onChange('ALL'); setIsOpen(false); }}
                                 className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-xl transition-all ${value === 'ALL' ? 'bg-gray-100 text-gray-900 font-black' : 'hover:bg-gray-50 text-gray-500'}`}
                             >
@@ -86,6 +88,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 
                             {options.map((opt) => (
                                 <button
+                                    type="button"
                                     key={opt.key}
                                     onClick={() => { onChange(opt.key); setIsOpen(false); }}
                                     className={`w-full flex items-start justify-between px-3 py-2.5 mb-1 rounded-xl transition-all text-left ${value === opt.key ? 'bg-indigo-50 text-indigo-700 font-black' : 'hover:bg-gray-50 text-gray-600'}`}

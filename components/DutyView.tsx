@@ -19,7 +19,7 @@ import SwapInbox from './duty/SwapInbox';
 import SwapRequestModal from './duty/SwapRequestModal';
 import MobileDutyAction from './duty/MobileDutyAction';
 import DutyTribunalModal from './duty/DutyTribunalModal'; // Import Tribunal
-import DutyGuideModal from './duty/DutyGuideModal';
+import DutyRuleModal from './duty/DutyRuleModal';
 
 import AppBackground from './common/AppBackground';
 
@@ -414,7 +414,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     />
                 )}
 
-                <DutyGuideModal 
+                <DutyRuleModal 
                     isOpen={isGuideModalOpen}
                     onClose={() => setIsGuideModalOpen(false)}
                 />

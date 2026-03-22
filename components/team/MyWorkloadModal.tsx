@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Users, User, Battery, BatteryCharging, BatteryFull, BatteryWarning, AlertTriangle, CalendarClock, Calendar, Layers, UserCircle, CheckCircle2, ArrowRight, LayoutGrid, List, Timer } from 'lucide-react';
 import { Task, User as UserType, Channel } from '../../types';
 import { startOfWeek, endOfWeek, addWeeks, format, isWithinInterval, startOfDay, endOfDay, isPast, isToday, isTomorrow, isSameWeek } from 'date-fns';
@@ -158,12 +159,26 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
     const overdueCount = myActiveTasks.filter(t => !t.isUnscheduled && isPast(t.endDate) && !isToday(t.endDate)).length;
     const todayCount = myActiveTasks.filter(t => !t.isUnscheduled && isToday(t.endDate)).length;
 
-    if (!isOpen) return null;
+    const modalContent = (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 font-sans">
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                    />
 
-    // NOTE: Z-Index set to 60 to sit above sidebar (50) but BELOW TaskModal (will set to 200)
-    return createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-sans">
-            <div className="bg-white w-full max-w-5xl h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border-4 border-indigo-50 animate-in zoom-in-95">
+                    {/* Main Container */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="bg-white w-full max-w-5xl h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-4 border-indigo-50"
+                    >
                 
                 {/* Header */}
                 <div className="px-8 py-6 bg-indigo-600 text-white shrink-0 relative overflow-hidden">
@@ -460,10 +475,13 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                     )}
 
                 </div>
-            </div>
-        </div>,
-        document.body
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default MyWorkloadModal;

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LabSequenceItem } from './ScriptLabView';
+import { LabSequenceItem } from '../../../types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, FileText, MessageSquare, ChevronDown, ChevronUp, Edit3, Eye, Code, Sparkles } from 'lucide-react';

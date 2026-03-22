@@ -11,10 +11,12 @@ const MaintenancePanel: React.FC = () => {
         storageStats, isCalculatingStorage, fetchStorageStats,
         isExporting, prepareBackup, downloadBackupFile,
         isAnalyzing, analysisResult, analyzeOldData, resetAnalysis,
-        isCleaning, performCleanup
+        isCleaning, performCleanup,
+        scanOrphanedFiles, purgeStorage,
+        isRestoring, restoreProgress, restoreFromBackup
     } = useMaintenance();
 
-    const { showConfirm, showAlert } = useGlobalDialog();
+    const { showConfirm, showAlert, showLoading, hideLoading } = useGlobalDialog();
 
     // --- Tab State ---
     const [activeTab, setActiveTab] = useState<'BACKUP' | 'CLEANUP'>('BACKUP');
@@ -59,6 +61,25 @@ const MaintenancePanel: React.FC = () => {
         if(data) downloadBackupFile(data);
     };
 
+    const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const confirmed = await showConfirm(
+            `คุณกำลังจะกู้คืนข้อมูลจากไฟล์ "${file.name}"\n\nข้อมูลปัจจุบันที่มี ID ตรงกันจะถูกเขียนทับ (Overwrite) และไม่สามารถย้อนกลับได้!`,
+            '🔄 ยืนยันการกู้คืนข้อมูล (Restore)'
+        );
+
+        if (confirmed) {
+            showLoading('กำลังกู้คืนข้อมูลระบบ...');
+            await restoreFromBackup(file);
+            hideLoading();
+            fetchStorageStats();
+        }
+        // Reset input
+        e.target.value = '';
+    };
+
     const handleScan = () => {
         analyzeOldData(cleanupMonths, cleanupTargets);
     };
@@ -73,17 +94,22 @@ const MaintenancePanel: React.FC = () => {
         if (cleanupSelection.chats) totalToDelete += analysisResult.chatCount;
         if (cleanupSelection.tasks) totalToDelete += analysisResult.taskCount;
 
-        if (totalToDelete === 0) {
+        const isPurgingStorage = !!analysisResult.orphanedFiles && cleanupSelection.logs; // Logic: if logs selected and orphaned found
+
+        if (totalToDelete === 0 && !analysisResult.orphanedFiles) {
             await showAlert('กรุณาเลือกรายการที่จะลบอย่างน้อย 1 รายการ');
             return;
         }
 
         const confirmed = await showConfirm(
-            `คุณกำลังจะลบข้อมูล ${totalToDelete.toLocaleString()} รายการที่เก่ากว่า ${cleanupMonths} เดือน\n\nการกระทำนี้ไม่สามารถย้อนกลับได้! (ข้อมูลการเงินจะไม่ถูกลบ)`,
+            `คุณกำลังจะลบข้อมูล ${totalToDelete.toLocaleString()} รายการที่เก่ากว่า ${cleanupMonths} เดือน\n${analysisResult.orphanedFiles ? `รวมถึงไฟล์ขยะใน Storage อีก ${analysisResult.orphanedFiles.count} ไฟล์\n` : ''}\nการกระทำนี้ไม่สามารถย้อนกลับได้! (ข้อมูลการเงินจะไม่ถูกลบ)`,
             '⚠️ ยืนยันการล้างขยะ (Deep Clean)'
         );
 
         if (confirmed) {
+            if (analysisResult.orphanedFiles && cleanupSelection.logs) {
+                await purgeStorage();
+            }
             performCleanup(cleanupMonths, cleanupTargets, cleanupSelection);
         }
     };
@@ -210,6 +236,46 @@ const MaintenancePanel: React.FC = () => {
                                 {isExporting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Download className="w-5 h-5 mr-2" />}
                                 {isExporting ? 'กำลังเตรียมไฟล์...' : 'ดาวน์โหลดไฟล์ Backup'}
                             </button>
+
+                            {/* Restore Section */}
+                            <div className="pt-6 border-t border-gray-100">
+                                <h4 className="text-lg font-black text-gray-800 mb-4 flex items-center gap-2">
+                                    <RefreshCw className="w-5 h-5 text-indigo-500" /> กู้คืนข้อมูล (Restore)
+                                </h4>
+                                <div className="relative group">
+                                    <input 
+                                        type="file" 
+                                        accept=".json"
+                                        onChange={handleRestore}
+                                        disabled={isRestoring}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+                                    />
+                                    <div className={`p-8 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all ${isRestoring ? 'bg-indigo-50 border-indigo-300' : 'border-gray-200 group-hover:border-indigo-300 group-hover:bg-indigo-50/30'}`}>
+                                        {isRestoring ? (
+                                            <div className="w-full space-y-4">
+                                                <div className="flex justify-between text-sm font-bold text-indigo-600">
+                                                    <span>กำลังกู้คืนข้อมูล...</span>
+                                                    <span>{restoreProgress}%</span>
+                                                </div>
+                                                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-indigo-600 transition-all duration-300"
+                                                        style={{ width: `${restoreProgress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="p-4 bg-indigo-50 rounded-full text-indigo-600 mb-3">
+                                                    <RefreshCw className="w-8 h-8" />
+                                                </div>
+                                                <p className="font-bold text-gray-700">คลิกหรือลากไฟล์ Backup (.json) มาที่นี่</p>
+                                                <p className="text-xs text-gray-400 mt-1">เพื่อกู้คืนข้อมูลกลับเข้าสู่ระบบ</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -264,10 +330,19 @@ const MaintenancePanel: React.FC = () => {
                                     <button 
                                         onClick={handleScan} 
                                         disabled={isAnalyzing}
-                                        className="w-full py-4 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl font-bold transition-all flex items-center justify-center"
+                                        className="w-full py-4 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl font-bold transition-all flex items-center justify-center mb-3"
                                     >
                                         {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Search className="w-5 h-5 mr-2" />}
                                         สแกนหาไฟล์ขยะ (Scan Now)
+                                    </button>
+
+                                    <button 
+                                        onClick={scanOrphanedFiles} 
+                                        disabled={isAnalyzing}
+                                        className="w-full py-4 bg-gray-50 text-gray-500 hover:bg-gray-100 rounded-2xl font-bold transition-all flex items-center justify-center"
+                                    >
+                                        {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <HardDrive className="w-5 h-5 mr-2" />}
+                                        สแกนหาไฟล์ขยะใน Storage (Orphaned Files)
                                     </button>
                                 </>
                             ) : (
@@ -283,6 +358,11 @@ const MaintenancePanel: React.FC = () => {
                                                     <input type="checkbox" checked={cleanupSelection.logs} onChange={e => setCleanupSelection({...cleanupSelection, logs: e.target.checked})} className="accent-red-600" />
                                                 </div>
                                                 <div className="text-2xl font-black text-red-600">{analysisResult.logCount.toLocaleString()}</div>
+                                                {analysisResult.orphanedFiles && cleanupSelection.logs && (
+                                                    <div className="text-[10px] text-red-400 font-bold mt-1">
+                                                        + {analysisResult.orphanedFiles.count} Orphaned Files ({formatBytes(analysisResult.orphanedFiles.size)})
+                                                    </div>
+                                                )}
                                             </label>
 
                                             <label className={`bg-white p-3 rounded-2xl border cursor-pointer transition-all ${cleanupSelection.notifs ? 'border-red-400 ring-2 ring-red-100' : 'border-red-100 opacity-70'}`}>

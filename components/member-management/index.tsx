@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User, Role, MasterOption, Task } from '../../types';
 import { X, Users, Loader2, Briefcase } from 'lucide-react';
 import { useGamification } from '../../hooks/useGamification';
@@ -230,11 +232,26 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
+    const modalContent = (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 font-sans">
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                    />
 
-    return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-7xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
+                    {/* Main Container */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="bg-white w-full max-w-7xl h-[85vh] rounded-[2rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-4 border-indigo-50"
+                    >
                 
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-gray-100 bg-white shrink-0 flex justify-between items-start">
@@ -354,9 +371,13 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default MemberManagementModal;

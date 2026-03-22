@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, ReviewSession } from '../types';
 import { addMonths, endOfMonth, format } from 'date-fns';
@@ -27,6 +27,8 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isFetching, setIsFetching] = useState(false);
+    const isFetchingRef = useRef(false);
+    const isInitialLoadRef = useRef(true);
     const [isAllLoaded, setIsAllLoaded] = useState(false);
 
     // --- Date Windowing State ---
@@ -102,13 +104,21 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const fetchTasks = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+
         // Prevent spinner flickering on background refresh
         // Only show spinner if we have no tasks yet (initial load)
-        if (tasks.length === 0) setIsFetching(true); 
+        if (isInitialLoadRef.current) setIsFetching(true); 
         
         let newTasks: Task[] = [];
         const startStr = dateRange.start.toISOString();
         const endStr = dateRange.end.toISOString();
+        
+        // Calculate 2 months ago for stock filtering
+        const twoMonthsAgo = new Date();
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+        const stockLimitStr = twoMonthsAgo.toISOString();
 
         // 1. Fetch CONTENTS
         try {
@@ -117,7 +127,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`);
             
             if (!isAllLoaded) {
-                query = query.or(`is_unscheduled.eq.true,and(end_date.gte.${startStr},start_date.lte.${endStr})`);
+                // Optimized query: (Unscheduled AND created within 2 months) OR (Scheduled within date range)
+                query = query.or(`and(is_unscheduled.eq.true,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`);
             }
 
             const { data: contentsData, error: contentsError } = await query;
@@ -131,7 +142,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
             if (!isAllLoaded) {
-                query = query.gte('end_date', startStr).lte('start_date', endStr);
+                // Optimized query: (Unscheduled AND created within 2 months) OR (Scheduled within date range)
+                query = query.or(`and(content_id.is.null,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`);
             }
             query = query.or('content_id.is.null,show_on_board.eq.true');
 
@@ -143,6 +155,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setTasks(newTasks);
         setIsFetching(false);
+        isFetchingRef.current = false;
+        isInitialLoadRef.current = false;
     }, [dateRange, isAllLoaded, mapSupabaseToTask]);
 
     const fetchSubTasks = async (contentId: string): Promise<Task[]> => {
@@ -183,10 +197,15 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [dateRange, isAllLoaded]);
 
-    const fetchAllTasks = useCallback(() => {
+    const fetchAllTasks = useCallback(async () => {
         if (isAllLoaded) return;
         setIsAllLoaded(true);
     }, [isAllLoaded]);
+
+    // Trigger fetch when dateRange or isAllLoaded changes
+    useEffect(() => {
+        fetchTasks();
+    }, [dateRange, isAllLoaded, fetchTasks]);
 
     // --- REALTIME CONNECTION (SINGLE INSTANCE) ---
     useEffect(() => {
@@ -216,14 +235,46 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 fetchSingle();
             } else if (payload.eventType === 'UPDATE') {
-                setTasks(prev => prev.map(t => {
-                    if (t.id === payload.new.id) {
-                        // Merge payload.new into existing task
-                        // Note: payload.new uses snake_case, mapSupabaseToTask handles it
-                        return { ...t, ...mapSupabaseToTask(payload.new, type) };
+                setTasks(prev => {
+                    const exists = prev.some(t => t.id === payload.new.id);
+                    
+                    if (exists) {
+                        return prev.map(t => {
+                            if (t.id === payload.new.id) {
+                                return { ...t, ...mapSupabaseToTask(payload.new, type) };
+                            }
+                            return t;
+                        });
+                    } else {
+                        // If it doesn't exist locally, check if it's now relevant (e.g. scheduled into range)
+                        const task = mapSupabaseToTask(payload.new, type);
+                        const isScheduledInRange = task.startDate && task.endDate && 
+                            task.endDate >= dateRange.start && task.startDate <= dateRange.end;
+                        
+                        // If it's now in range, fetch full record to get joins
+                        if (isScheduledInRange || !task.isUnscheduled) {
+                            const fetchSingle = async () => {
+                                const table = type === 'TASK' ? 'tasks' : 'contents';
+                                let query = supabase.from(table).select(
+                                    type === 'TASK' 
+                                        ? `*, contents (title), task_reviews(*)` 
+                                        : `*, task_reviews(*)`
+                                ).eq('id', payload.new.id).single();
+                                
+                                const { data } = await query;
+                                if (data) {
+                                    const newTask = mapSupabaseToTask(data, type);
+                                    setTasks(current => {
+                                        if (current.some(t => t.id === newTask.id)) return current;
+                                        return [...current, newTask];
+                                    });
+                                }
+                            };
+                            fetchSingle();
+                        }
+                        return prev;
                     }
-                    return t;
-                }));
+                });
             } else if (payload.eventType === 'DELETE') {
                 setTasks(prev => prev.filter(t => t.id !== payload.old.id));
             }

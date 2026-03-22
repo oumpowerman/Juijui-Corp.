@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../types';
 import { format, endOfWeek, eachDayOfInterval, isSameWeek, isToday, addWeeks, differenceInCalendarDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Check, X, ClipboardList } from 'lucide-react';
@@ -19,6 +20,8 @@ import MyWorkloadModal from './team/MyWorkloadModal';
 import MobileTeamList from './team/MobileTeamList'; 
 import TeamToolbar from './team/TeamToolbar'; // NEW
 import TeamPagination from './team/TeamPagination'; // NEW
+import InternManagementView from './team/intern/index';
+import { useInterns } from '../hooks/useInterns';
 
 // Import DnD Hook
 import { useTeamDragDrop } from '../hooks/useTeamDragDrop';
@@ -59,6 +62,14 @@ const TeamView: React.FC<TeamViewProps> = ({
   onMoveTask
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'TEAM' | 'INTERNS'>('TEAM');
+  const [direction, setDirection] = useState(0);
+
+  const handleSetViewMode = (newMode: 'TEAM' | 'INTERNS') => {
+    if (newMode === viewMode) return;
+    setDirection(newMode === 'INTERNS' ? 1 : -1);
+    setViewMode(newMode);
+  };
   
   // --- UI CONTROLS ---
   const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
@@ -71,6 +82,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   const { rewards, allRedemptions, redeemReward, fetchAllRedemptions } = useRewards(currentUser);
   const { updateMember } = useTeam();
   const { masterOptions } = useMasterData(); // Fetch here for modal
+  const internData = useInterns(viewMode === 'INTERNS'); // Lazy load interns only when needed
   
   const isAdmin = currentUser?.role === 'ADMIN';
 
@@ -207,6 +219,29 @@ const TeamView: React.FC<TeamViewProps> = ({
     setBgTheme(themes[Math.floor(Math.random() * themes.length)]);
   }, []);
 
+  const variants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 50 : -50,
+      opacity: 0,
+      scale: 0.98,
+      filter: 'blur(10px)'
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+      scale: 1,
+      filter: 'blur(0px)'
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? 50 : -50,
+      opacity: 0,
+      scale: 0.98,
+      filter: 'blur(10px)'
+    })
+  };
+
   return (
     <div className={`min-h-screen -m-4 p-8 space-y-6 animate-in fade-in duration-500 pb-20 transition-colors duration-1000 relative ${bgTheme}`}>
       {/* Grid/Notebook Pattern Gimmick */}
@@ -231,168 +266,193 @@ const TeamView: React.FC<TeamViewProps> = ({
             currentUser={currentUser}
             isShopOpen={isShopOpen}
             toggleShop={() => setIsShopOpen(!isShopOpen)}
+            viewMode={viewMode}
+            setViewMode={handleSetViewMode}
         />
 
-        {/* Shop & History Sections */}
-        {isShopOpen && (
-            <div className="animate-in slide-in-from-top-4 fade-in">
-                <RewardShop 
-                    rewards={rewards} 
-                    userPoints={currentUser?.availablePoints || 0}
-                    onRedeem={redeemReward}
-                    onClose={() => setIsShopOpen(false)}
-                    onOpenHistory={() => { setIsHistoryOpen(true); fetchAllRedemptions(); }}
-                />
-            </div>
-        )}
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={viewMode}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 300, damping: 30 },
+              opacity: { duration: 0.3 },
+              filter: { duration: 0.3 }
+            }}
+            className="space-y-6"
+          >
+            {viewMode === 'TEAM' ? (
+              <>
+                {/* Shop & History Sections */}
+                {isShopOpen && (
+                    <div className="animate-in slide-in-from-top-4 fade-in">
+                        <RewardShop 
+                            rewards={rewards} 
+                            userPoints={currentUser?.availablePoints || 0}
+                            onRedeem={redeemReward}
+                            onClose={() => setIsShopOpen(false)}
+                            onOpenHistory={() => { setIsHistoryOpen(true); fetchAllRedemptions(); }}
+                        />
+                    </div>
+                )}
 
-        {isHistoryOpen && (
-            <div className="animate-in slide-in-from-top-4 fade-in">
-                <RewardHistory 
-                    redemptions={allRedemptions.filter(r => isAdmin || r.userId === currentUser?.id)} 
-                    onClose={() => setIsHistoryOpen(false)} 
-                    isAdmin={isAdmin}
-                />
-            </div>
-        )}
+                {isHistoryOpen && (
+                    <div className="animate-in slide-in-from-top-4 fade-in">
+                        <RewardHistory 
+                            redemptions={allRedemptions.filter(r => isAdmin || r.userId === currentUser?.id)} 
+                            onClose={() => setIsHistoryOpen(false)} 
+                            isAdmin={isAdmin}
+                        />
+                    </div>
+                )}
 
-        {/* Pending Approvals */}
-        {isAdmin && pendingMembers.length > 0 && (
-            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 animate-in slide-in-from-top-2">
-                <h3 className="font-bold text-orange-800 mb-3 flex items-center text-sm">
-                    <span className="bg-orange-200 text-orange-800 px-2 py-0.5 rounded-lg mr-2 text-xs">Waiting</span>
-                    รออนุมัติเข้าทีม ({pendingMembers.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {pendingMembers.map(member => (
-                        <div key={member.id} className="bg-white p-3 rounded-xl shadow-sm border border-orange-100 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                {member.avatarUrl ? (
-                                    <img src={member.avatarUrl} className="w-10 h-10 rounded-full object-cover bg-gray-200" />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">{member.name.charAt(0)}</div>
-                                )}
-                                <div>
-                                    <p className="font-bold text-sm text-gray-800">{member.name}</p>
-                                    <p className="text-xs text-gray-500">{member.position || 'No Position'}</p>
+                {/* Pending Approvals */}
+                {isAdmin && pendingMembers.length > 0 && (
+                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                        <h3 className="font-bold text-orange-800 mb-3 flex items-center text-sm">
+                            <span className="bg-orange-200 text-orange-800 px-2 py-0.5 rounded-lg mr-2 text-xs">Waiting</span>
+                            รออนุมัติเข้าทีม ({pendingMembers.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {pendingMembers.map(member => (
+                                <div key={member.id} className="bg-white p-3 rounded-xl shadow-sm border border-orange-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        {member.avatarUrl ? (
+                                            <img src={member.avatarUrl} className="w-10 h-10 rounded-full object-cover bg-gray-200" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">{member.name.charAt(0)}</div>
+                                        )}
+                                        <div>
+                                            <p className="font-bold text-sm text-gray-800">{member.name}</p>
+                                            <p className="text-xs text-gray-500">{member.position || 'No Position'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => handleAction('APPROVE', member.id)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"><Check className="w-4 h-4" /></button>
+                                        <button onClick={() => handleAction('REMOVE', member.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><X className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-1">
-                                <button onClick={() => handleAction('APPROVE', member.id)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"><Check className="w-4 h-4" /></button>
-                                <button onClick={() => handleAction('REMOVE', member.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><X className="w-4 h-4" /></button>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            </div>
-        )}
+                    </div>
+                )}
 
-        {/* --- CONTROLS ROW: Date & Toolbar --- */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[100] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
-          
-          {/* Date Navigator */}
-          <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0">
-                  <button onClick={prevWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                  <div className="flex flex-col items-center px-4 min-w-[140px]">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
-                      <span className="text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
+                {/* --- CONTROLS ROW: Date & Toolbar --- */}
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[100] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
+                  
+                  {/* Date Navigator */}
+                  <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0">
+                          <button onClick={prevWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                          <div className="flex flex-col items-center px-4 min-w-[140px]">
+                              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
+                              <span className="text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
+                          </div>
+                          <button onClick={nextWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                          {!isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) && (
+                              <div className="border-l border-gray-200 pl-1 ml-1">
+                                  <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
+                              </div>
+                          )}
                   </div>
-                  <button onClick={nextWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
-                  {!isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) && (
-                      <div className="border-l border-gray-200 pl-1 ml-1">
-                          <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
-                      </div>
-                  )}
-          </div>
-          
-          {/* View Controls & Filter Toolbar */}
-          <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
-               <TeamToolbar 
-                  viewScope={viewScope} setViewScope={setViewScope}
-                  searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-                  selectedPosition={selectedPosition} setSelectedPosition={setSelectedPosition}
-                  availablePositions={availablePositions}
-                  onReset={resetFilters}
-               />
-               
-               {/* My Tasks Button */}
-               <button 
-                  onClick={() => setIsWorkloadModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 shadow-sm shrink-0 justify-center"
-              >
-                  <ClipboardList className="w-4 h-4" />
-                  <span className="hidden sm:inline">My Tasks</span>
-              </button>
-          </div>
-        </div>
+                  
+                  {/* View Controls & Filter Toolbar */}
+                  <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
+                       <TeamToolbar 
+                          viewScope={viewScope} setViewScope={setViewScope}
+                          searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                          selectedPosition={selectedPosition} setSelectedPosition={setSelectedPosition}
+                          availablePositions={availablePositions}
+                          onReset={resetFilters}
+                       />
+                       
+                       {/* My Tasks Button */}
+                       <button 
+                          onClick={() => setIsWorkloadModalOpen(true)}
+                          className="flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 shadow-sm shrink-0 justify-center"
+                      >
+                          <ClipboardList className="w-4 h-4" />
+                          <span className="hidden sm:inline">My Tasks</span>
+                      </button>
+                  </div>
+                </div>
 
-        {/* --- MOBILE VIEW (Card List) --- */}
-        <div className="block md:hidden">
-            <MobileTeamList 
-                users={visibleUsers}
-                userTaskMap={userTaskMap}
-                weekDays={weekDays}
-                onEditTask={onEditTask}
-            />
-            {/* Mobile Pagination */}
-            <div className="mt-4">
-                 <TeamPagination 
-                    currentPage={pagination.currentPage}
-                    totalPages={pagination.totalPages}
-                    totalItems={pagination.totalItems}
-                    onPageChange={pagination.setCurrentPage}
-                 />
-            </div>
-        </div>
+                {/* --- MOBILE VIEW (Card List) --- */}
+                <div className="block md:hidden">
+                    <MobileTeamList 
+                        users={visibleUsers}
+                        userTaskMap={userTaskMap}
+                        weekDays={weekDays}
+                        onEditTask={onEditTask}
+                    />
+                    {/* Mobile Pagination */}
+                    <div className="mt-4">
+                         <TeamPagination 
+                            currentPage={pagination.currentPage}
+                            totalPages={pagination.totalPages}
+                            totalItems={pagination.totalItems}
+                            onPageChange={pagination.setCurrentPage}
+                         />
+                    </div>
+                </div>
 
-        {/* --- DESKTOP VIEW: GANG TABLE --- */}
-        <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
-          {/* Table Header */}
-          <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl">
-             <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
-             {weekDays.map(day => (
-                 <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>
-                     <p className="text-xs text-gray-400 uppercase font-semibold">{format(day, 'EEE')}</p>
-                     <p className={`text-sm font-bold ${isToday(day) ? 'text-indigo-600' : 'text-gray-700'}`}>{format(day, 'dd')}</p>
-                 </div>
-             ))}
-          </div>
+                {/* --- DESKTOP VIEW: GANG TABLE --- */}
+                <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl">
+                     <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
+                     {weekDays.map(day => (
+                         <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>
+                             <p className="text-xs text-gray-400 uppercase font-semibold">{format(day, 'EEE')}</p>
+                             <p className={`text-sm font-bold ${isToday(day) ? 'text-indigo-600' : 'text-gray-700'}`}>{format(day, 'dd')}</p>
+                         </div>
+                     ))}
+                  </div>
 
-          <div className="divide-y divide-gray-100">
-              {/* Team Pool Rows (Show only on Page 1) */}
-              {pagination.currentPage === 1 && (
-                  <>
-                      <TeamPoolRow type="POOL" tasks={teamPoolTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
-                      <TeamPoolRow type="UNASSIGNED" tasks={unassignedTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
-                  </>
-              )}
+                  <div className="divide-y divide-gray-100">
+                      {/* Team Pool Rows (Show only on Page 1) */}
+                      {pagination.currentPage === 1 && (
+                          <>
+                              <TeamPoolRow type="POOL" tasks={teamPoolTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
+                              <TeamPoolRow type="UNASSIGNED" tasks={unassignedTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
+                          </>
+                      )}
 
-              {/* Member Rows */}
-              {visibleUsers.map(user => (
-                  <TeamMemberRow 
-                      key={user.id}
-                      user={user}
-                      tasks={userTaskMap.get(user.id) || []}
-                      weekDays={weekDays}
-                      currentUser={currentUser}
-                      onEditTask={onEditTask}
-                      onSelectUser={setSelectedMember}
-                      isTaskOnDay={isTaskOnDay}
-                      onDragStart={handleDragStart}
-                      onDragOver={handleDragOver}
-                      onDrop={handleDrop}
+                      {/* Member Rows */}
+                      {visibleUsers.map(user => (
+                          <TeamMemberRow 
+                              key={user.id}
+                              user={user}
+                              tasks={userTaskMap.get(user.id) || []}
+                              weekDays={weekDays}
+                              currentUser={currentUser}
+                              onEditTask={onEditTask}
+                              onSelectUser={setSelectedMember}
+                              isTaskOnDay={isTaskOnDay}
+                              onDragStart={handleDragStart}
+                              onDragOver={handleDragOver}
+                              onDrop={handleDrop}
+                          />
+                      ))}
+                  </div>
+                  
+                  {/* Desktop Pagination */}
+                  <TeamPagination 
+                      currentPage={pagination.currentPage}
+                      totalPages={pagination.totalPages}
+                      totalItems={pagination.totalItems}
+                      onPageChange={pagination.setCurrentPage}
                   />
-              ))}
-          </div>
-          
-          {/* Desktop Pagination */}
-          <TeamPagination 
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              totalItems={pagination.totalItems}
-              onPageChange={pagination.setCurrentPage}
-          />
-        </div>
+                </div>
+              </>
+            ) : (
+              <InternManagementView {...internData} />
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Modals */}
         <MemberDetailModal isOpen={!!selectedMember} onClose={() => setSelectedMember(null)} user={selectedMember} />

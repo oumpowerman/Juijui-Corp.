@@ -15,6 +15,8 @@ export const useMaintenance = () => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isCleaning, setIsCleaning] = useState(false);
     const [isCalculatingStorage, setIsCalculatingStorage] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [restoreProgress, setRestoreProgress] = useState(0);
     
     const [backupData, setBackupData] = useState<any>(null);
     const [hasBackedUp, setHasBackedUp] = useState(false);
@@ -26,6 +28,11 @@ export const useMaintenance = () => {
         logCount: number; // Task Logs + Game Logs
         notifCount: number;
         totalItems: number;
+        orphanedFiles?: {
+            count: number;
+            size: number;
+            files: { bucket: string; name: string }[];
+        };
     } | null>(null);
     
     // Storage Health
@@ -142,6 +149,98 @@ export const useMaintenance = () => {
     };
 
     // --- 3. CLEANUP SYSTEM ---
+    const scanOrphanedFiles = async () => {
+        setIsAnalyzing(true);
+        try {
+            const buckets = ['chat-files', 'avatars', 'proofs'];
+            let allStorageFiles: { bucket: string; name: string; size: number }[] = [];
+            
+            // 1. List all files from storage
+            for (const bucket of buckets) {
+                const { data } = await supabase.storage.from(bucket).list('', { limit: 1000 });
+                if (data) {
+                    allStorageFiles = [
+                        ...allStorageFiles, 
+                        ...data.map(f => ({ bucket, name: f.name, size: f.metadata?.size || 0 }))
+                    ];
+                }
+            }
+
+            // 2. Get all URLs from DB to compare
+            const [profiles, inventory, duties, messages] = await Promise.all([
+                supabase.from('profiles').select('avatar_url'),
+                supabase.from('inventory_items').select('image_url'),
+                supabase.from('duties').select('proof_image_url, appeal_proof_url'),
+                supabase.from('team_messages').select('content').filter('message_type', 'in', '("IMAGE","FILE")')
+            ]);
+
+            const usedUrls = new Set<string>();
+            profiles.data?.forEach(p => p.avatar_url && usedUrls.add(p.avatar_url));
+            inventory.data?.forEach(i => i.image_url && usedUrls.add(i.image_url));
+            duties.data?.forEach(d => {
+                d.proof_image_url && usedUrls.add(d.proof_image_url);
+                d.appeal_proof_url && usedUrls.add(d.appeal_proof_url);
+            });
+            messages.data?.forEach(m => usedUrls.add(m.content));
+
+            // 3. Filter orphaned
+            const orphaned = allStorageFiles.filter(file => {
+                // Check if any used URL contains this file name
+                // This is a bit loose but safe for now
+                return ![...usedUrls].some(url => url.includes(file.name));
+            });
+
+            setAnalysisResult(prev => ({
+                chatCount: prev?.chatCount || 0,
+                taskCount: prev?.taskCount || 0,
+                logCount: prev?.logCount || 0,
+                notifCount: prev?.notifCount || 0,
+                totalItems: (prev?.totalItems || 0) + orphaned.length,
+                orphanedFiles: {
+                    count: orphaned.length,
+                    size: orphaned.reduce((acc, f) => acc + f.size, 0),
+                    files: orphaned.map(f => ({ bucket: f.bucket, name: f.name }))
+                }
+            }));
+
+            return true;
+        } catch (err) {
+            console.error("Orphaned scan failed", err);
+            showToast('สแกนไฟล์ขยะล้มเหลว', 'error');
+            return false;
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const purgeStorage = async () => {
+        if (!analysisResult?.orphanedFiles) return;
+        setIsCleaning(true);
+        try {
+            const { files } = analysisResult.orphanedFiles;
+            
+            // Group by bucket for efficient deletion
+            const grouped = files.reduce((acc, f) => {
+                if (!acc[f.bucket]) acc[f.bucket] = [];
+                acc[f.bucket].push(f.name);
+                return acc;
+            }, {} as Record<string, string[]>);
+
+            for (const bucket in grouped) {
+                const { error } = await supabase.storage.from(bucket).remove(grouped[bucket]);
+                if (error) console.error(`Failed to purge ${bucket}`, error);
+            }
+
+            showToast(`ล้างไฟล์ขยะใน Storage เรียบร้อย (${files.length} รายการ)`, 'success');
+            setAnalysisResult(null);
+            fetchStorageStats();
+        } catch (err) {
+            showToast('ล้างไฟล์ขยะล้มเหลว', 'error');
+        } finally {
+            setIsCleaning(false);
+        }
+    };
+
     const analyzeOldData = async (months: number, targetStatuses: string[] = ['DONE', 'REJECTED', 'CANCELLED']) => {
         setIsAnalyzing(true);
         try {
@@ -241,16 +340,73 @@ export const useMaintenance = () => {
         setAnalysisResult(null);
     }
 
+    // --- 4. RESTORE SYSTEM ---
+    const restoreFromBackup = async (file: File) => {
+        setIsRestoring(true);
+        setRestoreProgress(0);
+        try {
+            const text = await file.text();
+            const backup = JSON.parse(text);
+
+            if (!backup.data || !backup.meta) {
+                throw new Error('รูปแบบไฟล์ Backup ไม่ถูกต้อง');
+            }
+
+            const tables = Object.keys(backup.data);
+            const totalTables = tables.length;
+            let completedTables = 0;
+
+            // Order matters for Foreign Keys
+            const order = ['profiles', 'tasks', 'contents', 'team_messages', 'task_logs', 'game_logs', 'notifications', 'finance_transactions'];
+            const sortedTables = tables.sort((a, b) => {
+                const idxA = order.indexOf(a);
+                const idxB = order.indexOf(b);
+                return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+            });
+
+            for (const table of sortedTables) {
+                const rows = backup.data[table];
+                if (rows && rows.length > 0) {
+                    // Chunking for large datasets
+                    const chunkSize = 100;
+                    for (let i = 0; i < rows.length; i += chunkSize) {
+                        const chunk = rows.slice(i, i + chunkSize);
+                        const { error } = await supabase.from(table).upsert(chunk);
+                        if (error) {
+                            console.error(`Error restoring ${table}:`, error);
+                            // Continue with other chunks/tables but log error
+                        }
+                    }
+                }
+                completedTables++;
+                setRestoreProgress(Math.round((completedTables / totalTables) * 100));
+            }
+
+            showToast('กู้คืนข้อมูลเรียบร้อยแล้ว ✅', 'success');
+            return true;
+        } catch (err: any) {
+            console.error("Restore failed", err);
+            showToast('กู้คืนข้อมูลล้มเหลว: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsRestoring(false);
+            setRestoreProgress(0);
+        }
+    };
+
     return {
         storageStats, isCalculatingStorage,
         isExporting, hasBackedUp, backupData,
         isAnalyzing, analysisResult,
-        isCleaning,
+        isCleaning, isRestoring, restoreProgress,
         fetchStorageStats,
         prepareBackup, 
         downloadBackupFile, 
         analyzeOldData, 
         performCleanup, 
+        scanOrphanedFiles,
+        purgeStorage,
+        restoreFromBackup,
         resetAnalysis,
         setBackupData
     };

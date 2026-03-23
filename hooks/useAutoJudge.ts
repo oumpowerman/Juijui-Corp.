@@ -97,7 +97,7 @@ export const useAutoJudge = (currentUser: User | null) => {
             // Context มี leaveRequests ของ user ปัจจุบันอยู่แล้ว
             const userLeaves = leaveRequests.filter(req => 
                 ['APPROVED', 'PENDING'].includes(req.status) &&
-                req.end_date >= format(addDays(today, -lookbackDays), 'yyyy-MM-dd')
+                format(req.endDate, 'yyyy-MM-dd') >= format(addDays(today, -lookbackDays), 'yyyy-MM-dd')
             );
 
             // =========================================================

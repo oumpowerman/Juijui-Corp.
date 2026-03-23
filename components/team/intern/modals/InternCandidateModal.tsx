@@ -248,6 +248,8 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         ]}
                                         onChange={val => setFormData({ ...formData, status: val as InternStatus })}
                                         icon={<BarChart3 className="w-4 h-4" />}
+                                        showAllOption={false}
+                                        clearable={false}
                                     />
                                 </div>
                                 <div className="space-y-2">

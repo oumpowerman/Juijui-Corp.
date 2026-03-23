@@ -12,6 +12,7 @@ interface TeamHeaderProps {
     toggleShop: () => void;
     viewMode: 'TEAM' | 'INTERNS';
     setViewMode: (mode: 'TEAM' | 'INTERNS') => void;
+    onOpenRandomizer?: () => void;
 }
 
 const TeamHeader: React.FC<TeamHeaderProps> = ({ 
@@ -21,7 +22,8 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
     isShopOpen, 
     toggleShop,
     viewMode,
-    setViewMode
+    setViewMode,
+    onOpenRandomizer
 }) => {
     const isAdmin = currentUser?.role === 'ADMIN';
 
@@ -180,6 +182,19 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                 transition={{ duration: 0.3 }}
                                 className="flex flex-wrap items-center gap-3"
                             >
+                                {/* Randomizer Button */}
+                                {onOpenRandomizer && (
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05, y: -2 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={onOpenRandomizer} 
+                                        className="group flex items-center px-6 py-3.5 bg-gradient-to-br from-pink-400 to-rose-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 transition-all border border-white/20"
+                                    >
+                                        <span className="text-lg mr-2 group-hover:rotate-12 transition-transform">🎲</span>
+                                        สุ่มผู้โชคดี
+                                    </motion.button>
+                                )}
+
                                 {/* Distribute Task Button */}
                                 {onAddTask && (
                                     <motion.button 

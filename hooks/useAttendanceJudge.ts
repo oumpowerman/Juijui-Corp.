@@ -134,7 +134,7 @@ export const useAttendanceJudge = (
         const oldRequests = userLeaves.filter(req => 
             req.status === 'PENDING' && 
             ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type) &&
-            req.created_at && req.created_at < sevenDaysAgoStr
+            req.createdAt && format(req.createdAt, 'yyyy-MM-dd') < sevenDaysAgoStr
         );
 
         if (oldRequests && oldRequests.length > 0) {
@@ -148,7 +148,7 @@ export const useAttendanceJudge = (
                 }).eq('id', req.id);
 
                 await supabase.from('notifications').insert({
-                    user_id: req.user_id,
+                    user_id: req.userId,
                     type: 'INFO',
                     title: '❌ คำขอถูกยกเลิกอัตโนมัติ',
                     message: `รายการ: ${req.type}\nเหตุผล: เกินกำหนดเวลาตรวจสอบ 7 วัน`,
@@ -166,7 +166,7 @@ export const useAttendanceJudge = (
         // =========================================================
         const forgotCheckoutLogs = attendanceLogs.filter(log => 
             log.status === 'WORKING' && 
-            !log.check_out_time && 
+            !log.checkOutTime && 
             log.date < todayStr
         );
 

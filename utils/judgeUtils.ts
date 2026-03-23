@@ -76,9 +76,9 @@ export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
     checkDate.setHours(12, 0, 0, 0); // เที่ยงวันป้องกันเรื่อง timezone
 
     const leave = userLeaves.find(leave => {
-        const start = new Date(leave.start_date);
+        const start = new Date(leave.startDate || leave.start_date);
         start.setHours(0, 0, 0, 0);
-        const end = new Date(leave.end_date);
+        const end = new Date(leave.endDate || leave.end_date);
         end.setHours(23, 59, 59, 999);
         return checkDate >= start && checkDate <= end;
     });

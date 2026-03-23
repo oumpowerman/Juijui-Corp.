@@ -21,6 +21,7 @@ import MobileTeamList from './team/MobileTeamList';
 import TeamToolbar from './team/TeamToolbar'; // NEW
 import TeamPagination from './team/TeamPagination'; // NEW
 import InternManagementView from './team/intern/index';
+import RandomizerModal from './team/RandomizerModal';
 import { useInterns } from '../hooks/useInterns';
 
 // Import DnD Hook
@@ -76,6 +77,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [isRandomizerOpen, setIsRandomizerOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
 
   // --- HOOKS ---
@@ -268,6 +270,7 @@ const TeamView: React.FC<TeamViewProps> = ({
             toggleShop={() => setIsShopOpen(!isShopOpen)}
             viewMode={viewMode}
             setViewMode={handleSetViewMode}
+            onOpenRandomizer={() => setIsRandomizerOpen(true)}
         />
 
         <AnimatePresence mode="wait" custom={direction}>
@@ -486,6 +489,14 @@ const TeamView: React.FC<TeamViewProps> = ({
                 onOpenTask={onEditTask}
             />
         )}
+
+        {/* RANDOMIZER MODAL */}
+        <RandomizerModal 
+            isOpen={isRandomizerOpen}
+            onClose={() => setIsRandomizerOpen(false)}
+            users={users}
+            currentUser={currentUser}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 
 import React, { useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Dices, Sparkles, Wand2, RefreshCw, User as UserIcon, Repeat, Hourglass, Calendar, Download, Loader2, Save, Info, Check, ArrowRight, PlayCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { User, Duty, DutyConfig } from '../../types';
@@ -153,8 +154,8 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+    const modalContent = (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
             <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 relative border-4 border-white ring-1 ring-gray-200">
                 
                 {/* Overlay Loader */}
@@ -420,6 +421,8 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
             <ExportTemplate ref={exportRef} groupedDuties={groupedDraft} users={users} />
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 // Helper Icon for Settings

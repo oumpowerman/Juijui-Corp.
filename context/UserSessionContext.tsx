@@ -4,6 +4,7 @@ import { User, WorkStatus } from '../types';
 import { useToast } from './ToastContext';
 import { useGlobalDialog } from './GlobalDialogContext';
 import { subDays, format } from 'date-fns';
+import { mapAttendanceLog } from '../hooks/attendance/shared';
 
 interface UserSessionContextType {
     isReady: boolean;
@@ -101,6 +102,20 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         return updates;
     }, []);
 
+    const mapLeaveRequest = useCallback((data: any) => ({
+        id: data.id,
+        userId: data.user_id,
+        type: data.type,
+        startDate: new Date(data.start_date),
+        endDate: new Date(data.end_date),
+        reason: data.reason,
+        attachmentUrl: data.attachment_url,
+        status: data.status,
+        approverId: data.approver_id,
+        createdAt: new Date(data.created_at),
+        rejectionReason: data.rejection_reason
+    }), []);
+
     // --- INITIAL BATCH FETCH ---
     useEffect(() => {
         if (!sessionUser?.id) return;
@@ -124,8 +139,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                     if (current) setCurrentUserProfile(current);
                 }
 
-                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data);
-                if (leavesRes.data) setLeaveRequests(leavesRes.data);
+                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
+                if (leavesRes.data) setLeaveRequests(leavesRes.data.map(mapLeaveRequest));
 
             } catch (error) {
                 console.error("Error fetching initial user session data:", error);

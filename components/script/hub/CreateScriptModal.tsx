@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag, Hash, Check, ChevronDown, AlignLeft, Type, Search } from 'lucide-react';
 import { Channel, MasterOption, ScriptType, User } from '../../../types';
@@ -125,10 +126,10 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
         onClose();
     };
 
-    return (
+    const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 font-sans">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 font-sans">
                     {/* Backdrop */}
                     <motion.div 
                         initial={{ opacity: 0 }}
@@ -507,6 +508,8 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
             )}
         </AnimatePresence>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default CreateScriptModal;

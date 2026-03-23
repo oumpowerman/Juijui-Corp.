@@ -31,6 +31,44 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isInitialLoadRef = useRef(true);
     const [isAllLoaded, setIsAllLoaded] = useState(false);
 
+    // 🚀 FIX ISSUE 4: Local Caching to mitigate range expansion delays
+    useEffect(() => {
+        try {
+            const cached = localStorage.getItem('tasks_cache');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                const revived = parsed.map((t: any) => ({
+                    ...t,
+                    startDate: new Date(t.startDate),
+                    endDate: new Date(t.endDate),
+                    createdAt: new Date(t.createdAt),
+                    shootDate: t.shootDate ? new Date(t.shootDate) : undefined,
+                    reviews: t.reviews?.map((r: any) => ({
+                        ...r, 
+                        scheduledAt: new Date(r.scheduledAt)
+                    }))
+                }));
+                setTasks(revived);
+                console.log('📦 [TaskContext] Loaded tasks from local cache');
+            }
+        } catch (e) {
+            console.warn('⚠️ [TaskContext] Failed to load tasks cache', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (tasks.length > 0) {
+            const timeoutId = setTimeout(() => {
+                try {
+                    localStorage.setItem('tasks_cache', JSON.stringify(tasks));
+                } catch (e) {
+                    console.warn('⚠️ [TaskContext] Failed to save tasks cache (Quota exceeded?)', e);
+                }
+            }, 1000);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [tasks]);
+
     // --- Date Windowing State ---
     // Default: Load 3 months back and 3 months forward
     const [dateRange, setDateRange] = useState<{ start: Date, end: Date }>({
@@ -111,7 +149,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Only show spinner if we have no tasks yet (initial load)
         if (isInitialLoadRef.current) setIsFetching(true); 
         
-        let newTasks: Task[] = [];
         const startStr = dateRange.start.toISOString();
         const endStr = dateRange.end.toISOString();
         
@@ -120,43 +157,49 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const stockLimitStr = twoMonthsAgo.toISOString();
 
-        // 1. Fetch CONTENTS
         try {
-            let query = supabase
+            let contentsQuery = supabase
                 .from('contents')
                 .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`);
             
+            let tasksQuery = supabase
+                .from('tasks')
+                .select(`*, contents (title), task_reviews(*)`);
+
             if (!isAllLoaded) {
                 // Optimized query: (Unscheduled AND created within 2 months) OR (Scheduled within date range)
-                query = query.or(`and(is_unscheduled.eq.true,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`);
+                contentsQuery = contentsQuery.or(`and(is_unscheduled.eq.true,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`);
+                tasksQuery = tasksQuery.or(`and(content_id.is.null,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`).or('content_id.is.null,show_on_board.eq.true');
+            } else {
+                tasksQuery = tasksQuery.or('content_id.is.null,show_on_board.eq.true');
             }
 
-            const { data: contentsData, error: contentsError } = await query;
-            if (contentsError) console.warn("Contents fetch warning:", contentsError.message);
-            else if (contentsData) {
-                newTasks = [...newTasks, ...contentsData.map(d => mapSupabaseToTask(d, 'CONTENT'))];
-            }
-        } catch (err) { console.error('Contents Fetch error:', err); }
+            // 🚀 FIX ISSUE 2: Concurrent Fetching (Promise.all)
+            const [contentsResult, tasksResult] = await Promise.all([
+                contentsQuery,
+                tasksQuery
+            ]);
 
-        // 2. Fetch TASKS
-        try {
-            let query = supabase.from('tasks').select(`*, contents (title), task_reviews(*)`);
-            if (!isAllLoaded) {
-                // Optimized query: (Unscheduled AND created within 2 months) OR (Scheduled within date range)
-                query = query.or(`and(content_id.is.null,created_at.gte.${stockLimitStr}),and(end_date.gte.${startStr},start_date.lte.${endStr})`);
+            let newTasks: Task[] = [];
+            
+            if (contentsResult.error) console.warn("Contents fetch warning:", contentsResult.error.message);
+            else if (contentsResult.data) {
+                newTasks = [...newTasks, ...contentsResult.data.map(d => mapSupabaseToTask(d, 'CONTENT'))];
             }
-            query = query.or('content_id.is.null,show_on_board.eq.true');
 
-            const { data: tasksData } = await query;
-            if (tasksData) {
-                newTasks = [...newTasks, ...tasksData.map(d => mapSupabaseToTask(d, 'TASK'))];
+            if (tasksResult.error) console.warn("Tasks fetch warning:", tasksResult.error.message);
+            else if (tasksResult.data) {
+                newTasks = [...newTasks, ...tasksResult.data.map(d => mapSupabaseToTask(d, 'TASK'))];
             }
-        } catch (err) { console.error('Tasks Fetch error:', err); }
 
-        setTasks(newTasks);
-        setIsFetching(false);
-        isFetchingRef.current = false;
-        isInitialLoadRef.current = false;
+            setTasks(newTasks);
+        } catch (err) {
+            console.error('Fetch error:', err);
+        } finally {
+            setIsFetching(false);
+            isFetchingRef.current = false;
+            isInitialLoadRef.current = false;
+        }
     }, [dateRange, isAllLoaded, mapSupabaseToTask]);
 
     const fetchSubTasks = async (contentId: string): Promise<Task[]> => {
@@ -235,46 +278,34 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 fetchSingle();
             } else if (payload.eventType === 'UPDATE') {
-                setTasks(prev => {
-                    const exists = prev.some(t => t.id === payload.new.id);
+                // 🚀 FIX ISSUE 1: Fetch single record on UPDATE to preserve joined data
+                const fetchSingle = async () => {
+                    const table = type === 'TASK' ? 'tasks' : 'contents';
+                    let query = supabase.from(table).select(
+                        type === 'TASK' 
+                            ? `*, contents (title), task_reviews(*)` 
+                            : `*, task_reviews(*)`
+                    ).eq('id', payload.new.id).single();
                     
-                    if (exists) {
-                        return prev.map(t => {
-                            if (t.id === payload.new.id) {
-                                return { ...t, ...mapSupabaseToTask(payload.new, type) };
-                            }
-                            return t;
-                        });
-                    } else {
-                        // If it doesn't exist locally, check if it's now relevant (e.g. scheduled into range)
-                        const task = mapSupabaseToTask(payload.new, type);
-                        const isScheduledInRange = task.startDate && task.endDate && 
-                            task.endDate >= dateRange.start && task.startDate <= dateRange.end;
-                        
-                        // If it's now in range, fetch full record to get joins
-                        if (isScheduledInRange || !task.isUnscheduled) {
-                            const fetchSingle = async () => {
-                                const table = type === 'TASK' ? 'tasks' : 'contents';
-                                let query = supabase.from(table).select(
-                                    type === 'TASK' 
-                                        ? `*, contents (title), task_reviews(*)` 
-                                        : `*, task_reviews(*)`
-                                ).eq('id', payload.new.id).single();
-                                
-                                const { data } = await query;
-                                if (data) {
-                                    const newTask = mapSupabaseToTask(data, type);
-                                    setTasks(current => {
-                                        if (current.some(t => t.id === newTask.id)) return current;
-                                        return [...current, newTask];
-                                    });
+                    const { data } = await query;
+                    if (data) {
+                        const updatedTask = mapSupabaseToTask(data, type);
+                        setTasks(prev => {
+                            const exists = prev.some(t => t.id === updatedTask.id);
+                            if (exists) {
+                                return prev.map(t => t.id === updatedTask.id ? updatedTask : t);
+                            } else {
+                                const isScheduledInRange = updatedTask.startDate && updatedTask.endDate && 
+                                    updatedTask.endDate >= dateRange.start && updatedTask.startDate <= dateRange.end;
+                                if (isScheduledInRange || !updatedTask.isUnscheduled) {
+                                    return [...prev, updatedTask];
                                 }
-                            };
-                            fetchSingle();
-                        }
-                        return prev;
+                                return prev;
+                            }
+                        });
                     }
-                });
+                };
+                fetchSingle();
             } else if (payload.eventType === 'DELETE') {
                 setTasks(prev => prev.filter(t => t.id !== payload.old.id));
             }
@@ -284,7 +315,31 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .channel('global-tasks-channel-main') // Unique channel for Context
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (p) => handleIncrementalUpdate(p, 'TASK'))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (p) => handleIncrementalUpdate(p, 'CONTENT'))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => fetchTasks()) // Reviews still full fetch for simplicity
+            // 🚀 FIX ISSUE 3: Targeted update instead of full fetchTasks() avalanche
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
+                const newRecord = payload.new as { task_id?: string; content_id?: string };
+                const oldRecord = payload.old as { task_id?: string; content_id?: string };
+                const taskId = newRecord?.task_id || newRecord?.content_id || oldRecord?.task_id || oldRecord?.content_id;
+                if (!taskId) return;
+                
+                setTasks(prev => {
+                    const existing = prev.find(t => t.id === taskId);
+                    if (!existing) return prev;
+                    
+                    const type = existing.type;
+                    const table = type === 'TASK' ? 'tasks' : 'contents';
+                    
+                    supabase.from(table).select(
+                        type === 'TASK' ? `*, contents (title), task_reviews(*)` : `*, task_reviews(*)`
+                    ).eq('id', taskId).single().then(({ data }) => {
+                        if (data) {
+                            const updatedTask = mapSupabaseToTask(data, type);
+                            setTasks(current => current.map(t => t.id === updatedTask.id ? updatedTask : t));
+                        }
+                    });
+                    return prev;
+                });
+            })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') console.log('✅ [TaskContext] Realtime Connected!');
             });

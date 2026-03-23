@@ -52,6 +52,19 @@ export const useLeaveFormLogic = ({ onSubmit, onClose, initialDate, initialReaso
     }, [initialDateStr, initialReason, selectedType]);
 
     const handleReview = () => {
+        if (!startDate || !endDate) {
+            showAlert('กรุณาระบุวันที่ให้ครบถ้วนครับ', 'ข้อมูลไม่ครบ');
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (start > end) {
+            showAlert('วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุดครับ', 'วันที่ไม่ถูกต้อง');
+            return;
+        }
+
         if (!reason.trim()) {
             showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;

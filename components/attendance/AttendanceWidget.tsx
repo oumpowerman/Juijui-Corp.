@@ -4,7 +4,7 @@ import { useMasterData } from '../../hooks/useMasterData';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests';
 import { User } from '../../types';
 import { LeaveType } from '../../types/attendance';
-import { isWithinInterval, startOfDay, endOfDay, isFuture, isSameDay } from 'date-fns';
+import { isWithinInterval, startOfDay, endOfDay, isFuture, isSameDay, isValid } from 'date-fns';
 
 import AttendanceControl from './containers/AttendanceControl';
 import AttendanceStats from './containers/AttendanceStats';
@@ -32,8 +32,19 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     const todayActiveLeave = useMemo(() => {
         return requests.find(req => {
             if (req.status === 'REJECTED') return false;
-            const start = startOfDay(new Date(req.startDate));
-            const end = endOfDay(new Date(req.endDate));
+            
+            const startDate = new Date(req.startDate);
+            const endDate = new Date(req.endDate);
+            
+            // Safety check: ensure dates are valid
+            if (!isValid(startDate) || !isValid(endDate)) return false;
+            
+            const start = startOfDay(startDate);
+            const end = endOfDay(endDate);
+            
+            // Safety check: only call isWithinInterval if start <= end
+            if (start > end) return false;
+            
             return isWithinInterval(today, { start, end });
         }) || null;
     }, [requests, today]);
@@ -42,7 +53,10 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     const upcomingRequests = useMemo(() => {
         return requests
             .filter(req => {
-                const start = startOfDay(new Date(req.startDate));
+                const startDate = new Date(req.startDate);
+                if (!isValid(startDate)) return false;
+                
+                const start = startOfDay(startDate);
                 return isFuture(start) && !isSameDay(start, today) && req.status !== 'REJECTED';
             })
             .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())

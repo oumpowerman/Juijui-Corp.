@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, LeaveUsage } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
-import { eachDayOfInterval, format, differenceInDays } from 'date-fns';
+import { eachDayOfInterval, format, differenceInDays, isValid } from 'date-fns';
 import { useGamification } from './useGamification';
 import { useGoogleDrive } from './useGoogleDrive';
 import { getWorkingDaysDifference } from '../lib/attendanceUtils';
@@ -97,7 +97,10 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
                 if (LEAVE_TYPES.includes(req.type)) {
-                    const days = differenceInDays(new Date(req.endDate), new Date(req.startDate)) + 1;
+                    const start = new Date(req.startDate);
+                    const end = new Date(req.endDate);
+                    if (!isValid(start) || !isValid(end) || start > end) return; // Skip invalid intervals or dates
+                    const days = differenceInDays(end, start) + 1;
                     usage[req.type as keyof LeaveUsage] += days;
                 } else {
                     // For non-leave types (Corrections/Special), we just count the occurrences
@@ -404,6 +407,10 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             
             // C. LEAVES (Sick, Vacation, etc.)
             else if (LEAVE_TYPES.includes(request.type)) {
+                if (request.startDate > request.endDate) {
+                    showToast('วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุดครับ', 'error');
+                    return;
+                }
                 const days = eachDayOfInterval({ start: request.startDate, end: request.endDate });
                 const dateStrings = days.map(d => format(d, 'yyyy-MM-dd'));
 

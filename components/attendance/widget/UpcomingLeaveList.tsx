@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { LeaveRequest } from '../../../types/attendance';
-import { format, isToday } from 'date-fns';
+import { format, isToday, isValid } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Calendar, Clock, ChevronRight, Palmtree, Coffee, Briefcase, AlertCircle } from 'lucide-react';
 
@@ -63,8 +63,8 @@ const UpcomingLeaveList: React.FC<UpcomingLeaveListProps> = ({ requests }) => {
                             <div className="flex items-center gap-3 mt-1">
                                 <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
-                                    {format(new Date(req.startDate), 'd MMM', { locale: th })}
-                                    {req.startDate !== req.endDate && ` - ${format(new Date(req.endDate), 'd MMM', { locale: th })}`}
+                                    {isValid(new Date(req.startDate)) ? format(new Date(req.startDate), 'd MMM', { locale: th }) : 'Invalid Date'}
+                                    {req.startDate !== req.endDate && isValid(new Date(req.endDate)) && ` - ${format(new Date(req.endDate), 'd MMM', { locale: th })}`}
                                 </p>
                             </div>
                         </div>

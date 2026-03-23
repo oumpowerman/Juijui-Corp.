@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -19,6 +19,10 @@ interface MasterDataContextType {
 }
 
 const MasterDataContext = createContext<MasterDataContextType | undefined>(undefined);
+
+// LocalStorage Keys
+const CACHE_KEY_OPTIONS = 'master_options_cache';
+const CACHE_KEY_VERSION = 'master_options_version_cache';
 
 // Default Data for seeding (Moved from hook to provider)
 const DEFAULT_OPTIONS = [
@@ -91,20 +95,70 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
+    const isMutatingCache = useRef(false);
 
     const fetchOptions = useCallback(async () => {
         try {
-            const [optionsRes, holidaysRes, exceptionsRes, inventoryRes] = await Promise.all([
-                supabase.from('master_options').select('*').order('sort_order', { ascending: true }),
+            // 1. Check LocalStorage Cache
+            const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
+            const cachedVersion = localStorage.getItem(CACHE_KEY_VERSION);
+
+            // 2. Fetch Current Version from system_metadata
+            const { data: versionData, error: versionError } = await supabase
+                .from('system_metadata')
+                .select('last_updated_at')
+                .eq('key', 'master_options_version')
+                .single();
+
+            const currentVersion = versionData?.last_updated_at;
+
+            // 3. Compare Version and decide whether to fetch full data
+            let optionsData = null;
+            let useCache = false;
+
+            if (isMutatingCache.current) {
+                useCache = true;
+                optionsData = JSON.parse(localStorage.getItem(CACHE_KEY_OPTIONS) || '[]');
+                console.log('🚀 Master Data: Using cached version (Mutation in progress)');
+            } else if (!versionError && cachedOptions && cachedVersion && currentVersion && cachedVersion === currentVersion) {
+                try {
+                    optionsData = JSON.parse(cachedOptions);
+                    useCache = true;
+                    console.log('🚀 Master Data: Using cached version', currentVersion);
+                } catch (e) {
+                    console.warn('⚠️ Master Data: Cache corrupted, clearing...');
+                    localStorage.removeItem(CACHE_KEY_OPTIONS);
+                    localStorage.removeItem(CACHE_KEY_VERSION);
+                }
+            }
+
+            if (!useCache) {
+                // Fetch Full Data
+                console.log('📡 Master Data: Fetching 80KB+ data (Version mismatch, no cache, or table missing)...');
+                const { data, error } = await supabase
+                    .from('master_options')
+                    .select('*')
+                    .order('sort_order', { ascending: true });
+                
+                if (error) throw error;
+                optionsData = data;
+
+                // Update Cache
+                if (data && currentVersion) {
+                    localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(data));
+                    localStorage.setItem(CACHE_KEY_VERSION, currentVersion);
+                }
+            }
+
+            // 4. Fetch other small data in parallel
+            const [holidaysRes, exceptionsRes, inventoryRes] = await Promise.all([
                 supabase.from('annual_holidays').select('*').order('month', { ascending: true }).order('day', { ascending: true }),
                 supabase.from('calendar_exceptions').select('*').order('date', { ascending: true }),
                 supabase.from('inventory_items').select('*').order('name', { ascending: true })
             ]);
 
-            if (optionsRes.error) throw optionsRes.error;
-
-            if (optionsRes.data) {
-                setOptions(optionsRes.data.map((item: any) => ({
+            if (optionsData) {
+                setOptions(optionsData.map((item: any) => ({
                     id: item.id,
                     type: (item.type || '').trim().toUpperCase(),
                     key: (item.key || '').trim(),
@@ -151,6 +205,56 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, []);
 
+    const updateLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any) => {
+        isMutatingCache.current = true;
+        try {
+            const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
+            let rawOptions = cachedOptions ? JSON.parse(cachedOptions) : [];
+            
+            if (action === 'ADD') {
+                rawOptions.push(payload);
+            } else if (action === 'UPDATE') {
+                const index = rawOptions.findIndex((o: any) => o.id === payload.id);
+                if (index > -1) rawOptions[index] = { ...rawOptions[index], ...payload };
+            } else if (action === 'DELETE') {
+                rawOptions = rawOptions.filter((o: any) => o.id !== payload);
+            }
+            
+            rawOptions.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+            localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(rawOptions));
+            
+            setOptions(rawOptions.map((item: any) => ({
+                id: item.id,
+                type: (item.type || '').trim().toUpperCase(),
+                key: (item.key || '').trim(),
+                label: item.label,
+                color: item.color,
+                sortOrder: item.sort_order,
+                isActive: item.is_active,
+                isDefault: item.is_default,
+                parentKey: item.parent_key,
+                description: item.description,
+                progressValue: item.progress_value
+            })));
+
+            const { data: versionData } = await supabase
+                .from('system_metadata')
+                .select('last_updated_at')
+                .eq('key', 'master_options_version')
+                .single();
+                
+            if (versionData) {
+                localStorage.setItem(CACHE_KEY_VERSION, versionData.last_updated_at);
+            }
+        } catch (e) {
+            console.error('Error updating local cache:', e);
+        } finally {
+            setTimeout(() => {
+                isMutatingCache.current = false;
+            }, 1000);
+        }
+    };
+
     const addMasterOption = async (option: Omit<MasterOption, 'id'>) => {
         try {
             const exists = options.some(o => 
@@ -179,7 +283,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { data, error } = await supabase.from('master_options').insert(payload).select().single();
             if (error) throw error;
 
-            // Realtime will handle the state update via subscription
+            await updateLocalCache('ADD', data);
             showToast('เพิ่มข้อมูลสำเร็จ ✅', 'success');
             return true;
         } catch (err: any) {
@@ -204,10 +308,10 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 progress_value: option.progressValue || 0
             };
 
-            const { error } = await supabase.from('master_options').update(payload).eq('id', option.id);
+            const { data, error } = await supabase.from('master_options').update(payload).eq('id', option.id).select().single();
             if (error) throw error;
 
-            // Realtime will handle the state update via subscription
+            await updateLocalCache('UPDATE', data);
             showToast('อัปเดตข้อมูลสำเร็จ ✨', 'success');
             return true;
         } catch (err: any) {
@@ -225,7 +329,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { error } = await supabase.from('master_options').delete().eq('id', id);
             if (error) throw error;
 
-            // Realtime will handle the state update via subscription
+            await updateLocalCache('DELETE', id);
             showToast('ลบข้อมูลเรียบร้อย 🗑️', 'info');
             return true;
         } catch (err: any) {
@@ -296,8 +400,15 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         // fetchOptions(); // Disable initial fetchOptions on mount - managed by useTaskManager
 
-        const optionsChannel = supabase.channel('global-master-options')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, () => {
+        // Listen to system_metadata for version changes
+        const metadataChannel = supabase.channel('system-metadata-changes')
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'system_metadata',
+                filter: 'key=eq.master_options_version'
+            }, () => {
+                console.log('🔄 Master Data: Remote version updated, syncing...');
                 fetchOptions();
             }).subscribe();
 
@@ -317,7 +428,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             }).subscribe();
 
         return () => {
-            supabase.removeChannel(optionsChannel);
+            supabase.removeChannel(metadataChannel);
             supabase.removeChannel(holidaysChannel);
             supabase.removeChannel(exceptionsChannel);
             supabase.removeChannel(inventoryChannel);

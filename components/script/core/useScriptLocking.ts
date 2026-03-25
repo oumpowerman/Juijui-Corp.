@@ -16,7 +16,14 @@ interface UseScriptLockingProps {
 export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, showToast }: UseScriptLockingProps) => {
     const [lockStatus, setLockStatus] = useState<LockStatus>('FREE');
     const [lockerUser, setLockerUser] = useState<LockerUser>(null);
+    const lockerUserRef = useRef<LockerUser>(null);
+    const lockStatusRef = useRef<LockStatus>('FREE');
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => {
+        lockerUserRef.current = lockerUser;
+        lockStatusRef.current = lockStatus;
+    }, [lockerUser, lockStatus]);
 
     const acquireLock = async () => {
         try {
@@ -79,7 +86,7 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
             .on('presence', { event: 'leave' }, ({ leftPresences }) => {
                 // GHOST LOCK CLEANUP
                 leftPresences.forEach((p: any) => {
-                    if (p.user?.id === lockerUser?.id && lockStatus === 'LOCKED_BY_OTHER') {
+                    if (p.user?.id === lockerUserRef.current?.id && lockStatusRef.current === 'LOCKED_BY_OTHER') {
                         console.log("Locker left, clearing ghost lock...");
                         supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId).then(() => {
                             setLockStatus('FREE');
@@ -96,7 +103,7 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
                 } else if (newLockedBy === null) {
                     setLockStatus('FREE');
                     setLockerUser(null);
-                    if (lockStatus === 'LOCKED_BY_OTHER') {
+                    if (lockStatusRef.current === 'LOCKED_BY_OTHER') {
                         acquireLock();
                         showToast('สิทธิ์การแก้ไขกลับมาว่างแล้ว คุณเริ่มแก้ไขได้เลย', 'info');
                     }
@@ -111,13 +118,13 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
                     await channel.track({
                         user: currentUser,
                         onlineAt: new Date().toISOString(),
-                        isLocker: lockStatus === 'LOCKED_BY_ME'
+                        isLocker: lockStatusRef.current === 'LOCKED_BY_ME'
                     });
                 }
             });
 
         return () => { supabase.removeChannel(channel); };
-    }, [lockStatus, lockerUser?.id, scriptId, currentUser, users]);
+    }, [scriptId, currentUser.id, users]);
 
     useEffect(() => {
         if (lockStatus === 'LOCKED_BY_ME') {

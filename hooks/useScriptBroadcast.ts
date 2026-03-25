@@ -8,6 +8,12 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
     const channelRef = useRef<any>(null);
     const lastBroadcastRef = useRef<number>(0);
 
+    const isWriterRef = useRef(isWriter);
+    
+    useEffect(() => {
+        isWriterRef.current = isWriter;
+    }, [isWriter]);
+
     useEffect(() => {
         if (!scriptId) return;
 
@@ -17,7 +23,7 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
         channel
             .on('broadcast', { event: 'remote_update' }, (payload) => {
                 // If we are the writer, ignore incoming broadcasts (to prevent loops)
-                if (!isWriter) {
+                if (!isWriterRef.current) {
                     if (payload.payload.content) {
                         setLiveUpdate({ 
                             content: payload.payload.content, 
@@ -36,11 +42,11 @@ export const useScriptBroadcast = (scriptId: string, userId: string, isWriter: b
             supabase.removeChannel(channel);
             setIsConnected(false);
         };
-    }, [scriptId, isWriter]);
+    }, [scriptId]);
 
     // Throttle the broadcast to avoid flooding the socket
     const sendLiveUpdate = useCallback((content: string, sheetId: string = 'main') => {
-        if (!channelRef.current || !isWriter) return;
+        if (!channelRef.current || !isWriterRef.current) return;
 
         const now = Date.now();
         // Limit to 1 broadcast every 200ms

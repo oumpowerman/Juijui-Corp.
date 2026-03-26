@@ -22,6 +22,7 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDepartment, setFilterDepartment] = useState('ALL');
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'LATE' | 'ABSENT'>('ALL');
+    const [showInactive, setShowInactive] = useState(false);
     
     // Data States
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
@@ -116,6 +117,9 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
         const filtered = users.filter(u => {
             const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesDept = filterDepartment === 'ALL' || u.position === filterDepartment;
+            const matchesActive = showInactive || u.isActive;
+            
+            if (!matchesActive) return false;
             
             if (filterStatus === 'ALL') return matchesSearch && matchesDept;
             
@@ -154,6 +158,8 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 filterDepartment={filterDepartment}
                 setFilterDepartment={setFilterDepartment}
                 departments={departments}
+                showInactive={showInactive}
+                setShowInactive={setShowInactive}
             />
 
             <TimesheetTable 

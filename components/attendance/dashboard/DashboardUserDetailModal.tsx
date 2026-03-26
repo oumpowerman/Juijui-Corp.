@@ -10,6 +10,7 @@ import {
 import { User } from '../../../types';
 import { AttendanceLog } from '../../../types/attendance';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAttendanceSummary } from '../../../lib/attendanceUtils';
 
 interface UserStat {
     userId: string;
@@ -46,11 +47,12 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
     // Categorize dates
     const lateLogs = stat.logs.filter(l => {
         if (!l.checkInTime) return false;
-        const [h, m] = startTime.split(':').map(Number);
-        const checkIn = new Date(l.checkInTime);
-        const limit = new Date(checkIn);
-        limit.setHours(h, m + lateBuffer, 0, 0);
-        return checkIn > limit;
+        const summary = getAttendanceSummary(
+            l.checkInTime,
+            l.checkOutTime,
+            { startTime, buffer: lateBuffer, minHours: 9 }
+        );
+        return summary.isLate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const leaveLogs = stat.logs.filter(l => l.status === 'LEAVE' || l.workType === 'LEAVE')

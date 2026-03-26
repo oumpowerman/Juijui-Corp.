@@ -10,21 +10,28 @@ import { getWorkingDaysDifference } from '../lib/attendanceUtils';
 import { useUserSession } from '../context/UserSessionContext';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
-    const { leaveRequests: contextLeaveRequests } = useUserSession();
-    const [requests, setRequests] = useState<LeaveRequest[]>([]);
+    const { leaveRequests: contextLeaveRequests, allUsers, isReady: isContextReady } = useUserSession();
+    const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { processAction } = useGamification(); 
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
     const fetchRequests = async () => {
-        if (!options.all && currentUser?.id) {
-            setRequests(contextLeaveRequests);
-            setIsLoading(false);
-            return;
+        // If we have context data and it's ready, use it instead of fetching
+        if (isContextReady) {
+            if (options.all && currentUser?.role === 'ADMIN') {
+                setRawRequests(contextLeaveRequests);
+                setIsLoading(false);
+                return;
+            } else if (!options.all && currentUser?.id) {
+                setRawRequests(contextLeaveRequests.filter(r => r.userId === currentUser.id));
+                setIsLoading(false);
+                return;
+            }
         }
 
-        if (requests.length === 0) setIsLoading(true);
+        if (rawRequests.length === 0) setIsLoading(true);
         try {
             let query = supabase
                 .from('leave_requests')
@@ -44,7 +51,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             if (error) throw error;
 
             if (data) {
-                setRequests(data.map((r: any) => ({
+                setRawRequests(data.map((r: any) => ({
                     id: r.id,
                     userId: r.user_id,
                     type: r.type,
@@ -72,17 +79,43 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     };
 
     useEffect(() => {
-        if (!options.all && currentUser?.id) {
-            setRequests(contextLeaveRequests);
+        if (!isContextReady) return;
+
+        const isAdmin = currentUser?.role === 'ADMIN';
+        
+        if (options.all && isAdmin) {
+            // Admin viewing all requests - use context data
+            setRawRequests(contextLeaveRequests);
+            setIsLoading(false);
+        } else if (!options.all && currentUser?.id) {
+            // Regular user viewing own requests - use context data
+            setRawRequests(contextLeaveRequests.filter(r => r.userId === currentUser.id));
             setIsLoading(false);
         } else {
+            // Fallback for other cases (e.g. member trying to see all, or data not in context)
             fetchRequests();
             const channel = supabase.channel('leave_requests_realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => fetchRequests())
                 .subscribe();
             return () => { supabase.removeChannel(channel); };
         }
-    }, [currentUser?.id, options.all, contextLeaveRequests]);
+    }, [currentUser?.id, currentUser?.role, options.all, contextLeaveRequests, isContextReady]);
+
+    const requests = useMemo(() => {
+        return rawRequests.map(req => {
+            if (req.user) return req;
+            const user = allUsers.find(u => u.id === req.userId);
+            return {
+                ...req,
+                user: user ? {
+                    id: user.id,
+                    name: user.name,
+                    avatarUrl: user.avatarUrl,
+                    position: user.position
+                } : undefined
+            };
+        });
+    }, [rawRequests, allUsers]);
 
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
@@ -225,7 +258,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
         const SPECIAL_TYPES = ['WFH', 'OVERTIME'];
 
-        setRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'APPROVED' } : r));
+        setRawRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'APPROVED' } : r));
 
         try {
             const { error: updateError } = await supabase
@@ -279,110 +312,113 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                 const endTimeStr = timeMatch && timeMatch[2] ? timeMatch[2].substring(1) : null;
                 const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
                 
-                if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY' || request.type === 'FORGOT_BOTH') {
-                     const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
-                     
-                     // Check if log exists first
-                     const { data: existingLog } = await supabase
-                        .from('attendance_logs')
-                        .select('*')
-                        .eq('user_id', request.userId)
-                        .eq('date', shiftDateStr)
-                        .maybeSingle();
+                // FETCH FRESH LOG DATA RIGHT BEFORE UPDATE/UPSERT
+                const { data: freshLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', request.userId)
+                    .eq('date', shiftDateStr)
+                    .maybeSingle();
 
-                     if (request.type === 'LATE_ENTRY' && existingLog) {
-                        // For Late Entry Appeal: Preserve actual check-in time, just update status and note
-                        const newNote = `${existingLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`.replace('[APPEAL_PENDING]', '').trim();
-                        await supabase.from('attendance_logs')
-                            .update({
-                                status: 'WORKING', 
-                                note: newNote
-                            })
-                            .eq('id', existingLog.id);
-                     } else if (request.type === 'FORGOT_BOTH') {
-                        const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
-                        
-                        // Keep track of original status for audit
-                        const originalStatusNote = existingLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
+                if (request.type === 'LATE_ENTRY' && freshLog) {
+                    // For Late Entry Appeal: Preserve actual check-in time, just update status and note
+                    const newNote = `${freshLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`.replace('[APPEAL_PENDING]', '').trim();
+                    await supabase.from('attendance_logs')
+                        .update({
+                            status: 'WORKING', 
+                            note: newNote
+                        })
+                        .eq('id', freshLog.id);
+                } else if (request.type === 'FORGOT_BOTH') {
+                    const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+                    const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
+                    
+                    // Keep track of original status for audit
+                    const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
 
-                        const payload = {
-                            user_id: request.userId,
-                            date: shiftDateStr,
-                            check_in_time: checkInDateTime.toISOString(),
-                            check_out_time: checkOutDateTime.toISOString(),
-                            work_type: 'OFFICE', 
-                            status: 'COMPLETED',   
-                            note: `${existingLog?.note || ''} ${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`.trim()
-                        };
-                        await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                     } else {
-                        // For Forgot Check-in or Late Entry without log: Create/Upsert
-                        const originalStatusNote = existingLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
-                        const payload = {
-                            user_id: request.userId,
-                            date: shiftDateStr,
-                            check_in_time: checkInDateTime.toISOString(),
-                            work_type: 'OFFICE', 
-                            status: 'WORKING',   
-                            note: `${existingLog?.note || ''} ${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`.trim()
-                        };
-                        await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                     }
-                     
-                     if (request.type !== 'FORGOT_BOTH') {
-                        await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
-                     }
+                    const payload = {
+                        user_id: request.userId,
+                        date: shiftDateStr,
+                        check_in_time: checkInDateTime.toISOString(),
+                        check_out_time: checkOutDateTime.toISOString(),
+                        work_type: 'OFFICE', 
+                        status: 'COMPLETED',   
+                        note: `${freshLog?.note || ''} ${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`.trim()
+                    };
+                    await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                } else if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
+                    const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+                    // For Forgot Check-in or Late Entry without log: Create/Upsert
+                    const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
+                    const payload = {
+                        user_id: request.userId,
+                        date: shiftDateStr,
+                        check_in_time: checkInDateTime.toISOString(),
+                        work_type: 'OFFICE', 
+                        status: 'WORKING',   
+                        note: `${freshLog?.note || ''} ${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`.trim()
+                    };
+                    await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                }
+                
+                if (request.type !== 'FORGOT_BOTH') {
+                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+                }
 
-                     // --- NEW: HP Refund Logic ---
-                     // If the original log was ABSENT, we assume useAutoJudge penalized them.
-                     // We refund the HP because the admin approved the correction.
-                     if (existingLog?.status === 'ABSENT') {
-                         await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                             originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
-                         });
-                     } else if (existingLog?.note?.includes('[SYSTEM] Penalized')) {
-                         await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                             originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                         });
-                     }
+                // --- NEW: HP Refund Logic ---
+                if (freshLog?.status === 'ABSENT') {
+                    await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                        originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
+                    });
+                } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
+                    await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                        originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                    });
+                }
 
-                     await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
+                if (request.type !== 'FORGOT_CHECKOUT') {
+                    await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
                         status: request.type === 'LATE_ENTRY' ? 'LATE' : 'ON_TIME', 
                         time: timeStr 
-                     });
+                    });
 
-                     if (request.type === 'FORGOT_BOTH') {
+                    if (request.type === 'FORGOT_BOTH') {
                         await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
                             time: endTimeStr || '18:00',
                             date: shiftDateStr
                         });
-                     }
-
+                    }
                 } else if (request.type === 'FORGOT_CHECKOUT') {
                      const [hours, minutes] = timeStr.split(':').map(Number);
                      const checkOutDateTime = new Date(request.startDate); 
                      checkOutDateTime.setHours(hours, minutes, 0, 0);
                      if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
 
-                     const { data: log } = await supabase.from('attendance_logs').select('id, note, status').eq('user_id', request.userId).eq('date', shiftDateStr).maybeSingle();
+                     // FETCH FRESH LOG DATA RIGHT BEFORE UPDATE
+                     const { data: freshLogCheckout } = await supabase
+                        .from('attendance_logs')
+                        .select('id, note, status')
+                        .eq('user_id', request.userId)
+                        .eq('date', shiftDateStr)
+                        .maybeSingle();
                      
-                     if (log) {
+                     if (freshLogCheckout) {
                         await supabase.from('attendance_logs').update({
                              check_out_time: checkOutDateTime.toISOString(),
                              status: 'COMPLETED',
-                             note: `${log.note || ''} [APPROVED CORRECTION] ${request.reason}`.trim()
-                        }).eq('id', log.id);
+                             note: `${freshLogCheckout.note || ''} [APPROVED CORRECTION] ${request.reason}`.trim()
+                        }).eq('id', freshLogCheckout.id);
                         await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
                             time: timeStr,
                             date: shiftDateStr
                         });
 
                         // --- NEW: HP Refund Logic for FORGOT_CHECKOUT ---
-                        if (log.status === 'ABSENT') {
+                        if (freshLogCheckout.status === 'ABSENT') {
                             await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
                                 originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
                             });
-                        } else if (log.note?.includes('[SYSTEM] Penalized')) {
+                        } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
                             await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
                                 originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
                             });
@@ -449,7 +485,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             });
             
         } catch (err: any) {
-            setRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'PENDING' } : r));
+            setRawRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'PENDING' } : r));
             showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
         }
     };
@@ -457,7 +493,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
     const rejectRequest = async (id: string, reason: string) => {
         // Optimistic Update
         const targetReq = requests.find(r => r.id === id);
-        setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));
+        setRawRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));
 
         try {
             const { data: req } = await supabase.from('leave_requests').select('*').eq('id', id).single();
@@ -474,15 +510,16 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             // --- NEW: Handle LATE_ENTRY Rejection Penalty ---
             if (req && req.type === 'LATE_ENTRY') {
                 const dateStr = req.start_date;
-                const { data: log } = await supabase.from('attendance_logs')
+                // FETCH FRESH LOG DATA RIGHT BEFORE UPDATE
+                const { data: freshLog } = await supabase.from('attendance_logs')
                     .select('id, note')
                     .eq('user_id', req.user_id)
                     .eq('date', dateStr)
                     .maybeSingle();
 
-                if (log) {
-                    const newNote = (log.note || '').replace('[APPEAL_PENDING]', '[APPEAL REJECTED]').trim();
-                    await supabase.from('attendance_logs').update({ note: newNote, status: 'LATE' }).eq('id', log.id);
+                if (freshLog) {
+                    const newNote = (freshLog.note || '').replace('[APPEAL_PENDING]', '[APPEAL REJECTED]').trim();
+                    await supabase.from('attendance_logs').update({ note: newNote, status: 'LATE' }).eq('id', freshLog.id);
                 }
                 
                 await processAction(req.user_id, 'ATTENDANCE_LATE', { date: dateStr });
@@ -508,7 +545,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
 
             showToast('ปฏิเสธคำขอแล้ว', 'info');
         } catch (err: any) {
-            setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'PENDING' } : r));
+            setRawRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'PENDING' } : r));
             showToast('เกิดข้อผิดพลาด', 'error');
         }
     };

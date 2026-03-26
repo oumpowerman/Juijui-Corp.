@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { Download } from 'lucide-react';
 import { AttendanceLog } from '../../types/attendance';
-import { checkIsLate } from '../../lib/attendanceUtils';
+import { checkIsLate, getAttendanceSummary } from '../../lib/attendanceUtils';
 import { useGameConfig } from '../../context/GameConfigContext';
 import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
 import { useCalendarExceptions } from '../../hooks/useCalendarExceptions';
@@ -152,16 +152,16 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 } else {
                     stat.present++;
 
-                    if (log.checkInTime) {
-                        if (checkIsLate(log.checkInTime, startTime, lateBuffer)) {
-                            stat.late++;
-                        }
-                    }
+                    const summary = getAttendanceSummary(
+                        log.checkInTime,
+                        log.checkOutTime,
+                        { startTime, buffer: lateBuffer, minHours: 9 }
+                    );
 
-                    if (log.checkInTime && log.checkOutTime) {
-                        const diffMs = log.checkOutTime.getTime() - log.checkInTime.getTime();
-                        stat.totalHours += diffMs / (1000 * 60 * 60);
+                    if (summary.isLate) {
+                        stat.late++;
                     }
+                    stat.totalHours += summary.workHours;
                 }
             }
         });

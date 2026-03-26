@@ -29,6 +29,83 @@ interface UserSessionContextType {
 
 const UserSessionContext = createContext<UserSessionContextType | undefined>(undefined);
 
+// --- MAPPERS (Pure functions outside the component for maximum stability) ---
+const mapProfileToUser = (data: any): User => ({
+    id: data.id,
+    email: data.email,
+    name: data.full_name || 'Unknown User',
+    role: data.role,
+    avatarUrl: data.avatar_url || '',
+    position: data.position || 'Member',
+    phoneNumber: data.phone_number || '',
+    bio: data.bio || '',
+    feeling: data.feeling || '',
+    isApproved: data.is_approved,
+    isActive: data.is_active !== false,
+    xp: data.xp || 0,
+    level: data.level || 1,
+    availablePoints: data.available_points || 0,
+    hp: data.hp ?? 100,
+    maxHp: data.max_hp || 100,
+    deathCount: data.death_count || 0,
+    workStatus: (data.work_status as WorkStatus) || 'ONLINE',
+    leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
+    leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
+    lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
+    lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
+    workDays: data.work_days || [1, 2, 3, 4, 5],
+    baseSalary: data.base_salary || 0,
+    bankAccount: data.bank_account || '',
+    bankName: data.bank_name || '',
+    ssoIncluded: data.sso_included !== false,
+    taxType: data.tax_type || 'WHT_3',
+    lineUserId: data.line_user_id || ''
+});
+
+const mapDBToUserUpdates = (u: any): Partial<User> => {
+    const updates: Partial<User> = {};
+    if ('full_name' in u) updates.name = u.full_name;
+    if ('role' in u) updates.role = u.role;
+    if ('avatar_url' in u) updates.avatarUrl = u.avatar_url;
+    if ('position' in u) updates.position = u.position;
+    if ('phone_number' in u) updates.phoneNumber = u.phone_number;
+    if ('bio' in u) updates.bio = u.bio;
+    if ('feeling' in u) updates.feeling = u.feeling;
+    if ('is_approved' in u) updates.isApproved = u.is_approved;
+    if ('is_active' in u) updates.isActive = u.is_active;
+    if ('xp' in u) updates.xp = u.xp;
+    if ('level' in u) updates.level = u.level;
+    if ('available_points' in u) updates.availablePoints = u.available_points;
+    if ('hp' in u) updates.hp = u.hp;
+    if ('max_hp' in u) updates.maxHp = u.max_hp;
+    if ('death_count' in u) updates.deathCount = u.death_count;
+    if ('work_status' in u) updates.workStatus = u.work_status;
+    if ('work_days' in u) updates.workDays = u.work_days;
+    if ('base_salary' in u) updates.baseSalary = u.base_salary;
+    if ('bank_account' in u) updates.bankAccount = u.bank_account;
+    if ('bank_name' in u) updates.bankName = u.bank_name;
+    if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
+    if ('tax_type' in u) updates.taxType = u.tax_type;
+    if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
+    if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
+    if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
+    return updates;
+};
+
+const mapLeaveRequest = (data: any) => ({
+    id: data.id,
+    userId: data.user_id,
+    type: data.type,
+    startDate: new Date(data.start_date),
+    endDate: new Date(data.end_date),
+    reason: data.reason,
+    attachmentUrl: data.attachment_url,
+    status: data.status,
+    approverId: data.approver_id,
+    createdAt: new Date(data.created_at),
+    rejectionReason: data.rejection_reason
+});
+
 export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.ReactNode }> = ({ sessionUser, children }) => {
     const [isReady, setIsReady] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
@@ -39,122 +116,68 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
     const { showToast } = useToast();
     const { showConfirm, showAlert } = useGlobalDialog();
 
-    // --- MAPPERS (Combined from useAuth and useTeam to ensure consistency) ---
-    const mapProfileToUser = useCallback((data: any): User => ({
-        id: data.id,
-        email: data.email,
-        name: data.full_name || 'Unknown User',
-        role: data.role,
-        avatarUrl: data.avatar_url || '',
-        position: data.position || 'Member',
-        phoneNumber: data.phone_number || '',
-        bio: data.bio || '',
-        feeling: data.feeling || '',
-        isApproved: data.is_approved,
-        isActive: data.is_active !== false,
-        xp: data.xp || 0,
-        level: data.level || 1,
-        availablePoints: data.available_points || 0,
-        hp: data.hp ?? 100,
-        maxHp: data.max_hp || 100,
-        deathCount: data.death_count || 0,
-        workStatus: (data.work_status as WorkStatus) || 'ONLINE',
-        leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
-        leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
-        lastReadChatAt: data.last_read_chat_at ? new Date(data.last_read_chat_at) : new Date(0),
-        lastReadNotificationAt: data.last_read_notification_at ? new Date(data.last_read_notification_at) : new Date(0),
-        workDays: data.work_days || [1, 2, 3, 4, 5],
-        baseSalary: data.base_salary || 0,
-        bankAccount: data.bank_account || '',
-        bankName: data.bank_name || '',
-        ssoIncluded: data.sso_included !== false,
-        taxType: data.tax_type || 'WHT_3',
-        lineUserId: data.line_user_id || ''
-    }), []);
-
-    const mapDBToUserUpdates = useCallback((u: any): Partial<User> => {
-        const updates: Partial<User> = {};
-        if ('full_name' in u) updates.name = u.full_name;
-        if ('role' in u) updates.role = u.role;
-        if ('avatar_url' in u) updates.avatarUrl = u.avatar_url;
-        if ('position' in u) updates.position = u.position;
-        if ('phone_number' in u) updates.phoneNumber = u.phone_number;
-        if ('bio' in u) updates.bio = u.bio;
-        if ('feeling' in u) updates.feeling = u.feeling;
-        if ('is_approved' in u) updates.isApproved = u.is_approved;
-        if ('is_active' in u) updates.isActive = u.is_active;
-        if ('xp' in u) updates.xp = u.xp;
-        if ('level' in u) updates.level = u.level;
-        if ('available_points' in u) updates.availablePoints = u.available_points;
-        if ('hp' in u) updates.hp = u.hp;
-        if ('max_hp' in u) updates.maxHp = u.max_hp;
-        if ('death_count' in u) updates.deathCount = u.death_count;
-        if ('work_status' in u) updates.workStatus = u.work_status;
-        if ('work_days' in u) updates.workDays = u.work_days;
-        if ('base_salary' in u) updates.baseSalary = u.base_salary;
-        if ('bank_account' in u) updates.bankAccount = u.bank_account;
-        if ('bank_name' in u) updates.bankName = u.bank_name;
-        if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
-        if ('tax_type' in u) updates.taxType = u.tax_type;
-        if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
-        if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
-        if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
-        return updates;
-    }, []);
-
-    const mapLeaveRequest = useCallback((data: any) => ({
-        id: data.id,
-        userId: data.user_id,
-        type: data.type,
-        startDate: new Date(data.start_date),
-        endDate: new Date(data.end_date),
-        reason: data.reason,
-        attachmentUrl: data.attachment_url,
-        status: data.status,
-        approverId: data.approver_id,
-        createdAt: new Date(data.created_at),
-        rejectionReason: data.rejection_reason
-    }), []);
-
     // --- INITIAL BATCH FETCH ---
-    useEffect(() => {
+    const fetchInitialData = useCallback(async () => {
         if (!sessionUser?.id) return;
 
-        const fetchInitialData = async () => {
-            try {
-                const today = new Date();
-                const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
-                const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
+        try {
+            const today = new Date();
+            const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
+            const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
 
-                const [profilesRes, attendanceRes, leavesRes] = await Promise.all([
-                    supabase.from('profiles').select('*').order('full_name', { ascending: true }),
-                    supabase.from('attendance_logs').select('*').eq('user_id', sessionUser.id).gte('date', thirtyDaysAgo),
-                    supabase.from('leave_requests').select('*').eq('user_id', sessionUser.id).gte('end_date', sixtyDaysAgo)
-                ]);
+            // 1. Fetch profiles first to determine role
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('full_name', { ascending: true });
 
-                if (profilesRes.data) {
-                    const mappedUsers = profilesRes.data.map(mapProfileToUser);
-                    setAllUsers(mappedUsers);
-                    const current = mappedUsers.find(u => u.id === sessionUser.id);
-                    if (current) setCurrentUserProfile(current);
+            if (profilesError) throw profilesError;
+
+            if (profilesData) {
+                const mappedUsers = profilesData.map(mapProfileToUser);
+                setAllUsers(mappedUsers);
+                
+                const current = mappedUsers.find(u => u.id === sessionUser.id);
+                if (current) {
+                    setCurrentUserProfile(current);
+                    
+                    // 2. Fetch attendance and leaves based on role
+                    const isAdmin = current.role === 'ADMIN';
+                    
+                    let attendanceQuery = supabase.from('attendance_logs').select('*').gte('date', thirtyDaysAgo);
+                    let leavesQuery = supabase.from('leave_requests').select('*').gte('end_date', sixtyDaysAgo);
+
+                    if (!isAdmin) {
+                        attendanceQuery = attendanceQuery.eq('user_id', sessionUser.id);
+                        leavesQuery = leavesQuery.eq('user_id', sessionUser.id);
+                    }
+
+                    const [attendanceRes, leavesRes] = await Promise.all([
+                        attendanceQuery,
+                        leavesQuery
+                    ]);
+
+                    if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
+                    if (leavesRes.data) setLeaveRequests(leavesRes.data.map(mapLeaveRequest));
                 }
-
-                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
-                if (leavesRes.data) setLeaveRequests(leavesRes.data.map(mapLeaveRequest));
-
-            } catch (error) {
-                console.error("Error fetching initial user session data:", error);
-            } finally {
-                setIsReady(true);
             }
-        };
 
+        } catch (error) {
+            console.error("Error fetching initial user session data:", error);
+        } finally {
+            setIsReady(true);
+        }
+    }, [sessionUser?.id, showToast]);
+
+    useEffect(() => {
         fetchInitialData();
-    }, [sessionUser?.id, mapProfileToUser]);
+    }, [fetchInitialData]);
 
     // --- REALTIME SUBSCRIPTIONS ---
     useEffect(() => {
-        if (!sessionUser?.id) return;
+        if (!sessionUser?.id || !currentUserProfile) return;
+
+        const isAdmin = currentUserProfile.role === 'ADMIN';
 
         // 1. Profiles Channel (Handles both currentUser and allUsers)
         const profilesChannel = supabase.channel('user-session-profiles')
@@ -180,21 +203,31 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 }
             }).subscribe();
 
-        // 2. Attendance Logs Channel (Current User Only)
+        // 2. Attendance Logs Channel (Scope based on Role)
         const attendanceChannel = supabase.channel('user-session-attendance')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs', filter: `user_id=eq.${sessionUser.id}` }, (payload) => {
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'attendance_logs', 
+                filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
+            }, (payload) => {
                 if (payload.eventType === 'INSERT') {
-                    setAttendanceLogs(prev => [...prev, payload.new]);
+                    setAttendanceLogs(prev => [...prev, mapAttendanceLog(payload.new)]);
                 } else if (payload.eventType === 'UPDATE') {
-                    setAttendanceLogs(prev => prev.map(log => log.id === payload.new.id ? payload.new : log));
+                    setAttendanceLogs(prev => prev.map(log => log.id === payload.new.id ? mapAttendanceLog(payload.new) : log));
                 } else if (payload.eventType === 'DELETE') {
                     setAttendanceLogs(prev => prev.filter(log => log.id !== payload.old.id));
                 }
             }).subscribe();
 
-        // 3. Leave Requests Channel (Current User Only)
+        // 3. Leave Requests Channel (Scope based on Role)
         const leavesChannel = supabase.channel('user-session-leaves')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests', filter: `user_id=eq.${sessionUser.id}` }, (payload) => {
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'leave_requests', 
+                filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
+            }, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     setLeaveRequests(prev => [...prev, payload.new]);
                 } else if (payload.eventType === 'UPDATE') {
@@ -209,7 +242,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             supabase.removeChannel(attendanceChannel);
             supabase.removeChannel(leavesChannel);
         };
-    }, [sessionUser?.id, mapProfileToUser, mapDBToUserUpdates, showToast]);
+    }, [sessionUser?.id, currentUserProfile?.role, showToast]);
 
     // --- AUTH ACTIONS (From useAuth) ---
     const fetchProfile = async () => {
@@ -331,6 +364,53 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             return u;
         }));
     };
+
+    // Refresh data on day change (Optimized)
+    useEffect(() => {
+        const checkDayChange = () => {
+            const now = new Date();
+            const todayStr = format(now, 'yyyy-MM-dd');
+            const lastChecked = localStorage.getItem('last_attendance_check_date');
+            
+            if (lastChecked && lastChecked !== todayStr) {
+                console.log('Day changed, refreshing attendance data...');
+                fetchInitialData();
+            }
+            localStorage.setItem('last_attendance_check_date', todayStr);
+            return todayStr;
+        };
+
+        // 1. Initial check
+        checkDayChange();
+
+        // 2. Schedule next check at exactly midnight
+        let timeoutId: NodeJS.Timeout;
+        const scheduleMidnightCheck = () => {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setHours(24, 0, 1, 0); // Tomorrow at 00:00:01
+            const msUntilMidnight = midnight.getTime() - now.getTime();
+            
+            timeoutId = setTimeout(() => {
+                checkDayChange();
+                scheduleMidnightCheck(); // Reschedule for next day
+            }, msUntilMidnight);
+        };
+        scheduleMidnightCheck();
+
+        // 3. Check when user returns to the tab (covers sleep/wake)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkDayChange();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearTimeout(timeoutId);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchInitialData]);
 
     return (
         <UserSessionContext.Provider value={{

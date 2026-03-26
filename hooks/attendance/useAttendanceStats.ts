@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttendanceStats } from '../../types/attendance';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { checkIsLate } from '../../lib/attendanceUtils';
+import { checkIsLate, getAttendanceSummary } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { useUserSession } from '../../context/UserSessionContext';
 
@@ -42,21 +42,18 @@ export const useAttendanceStats = (userId: string) => {
         let totalHours = 0;
 
         monthlyData.forEach(log => {
-            if (log.checkInTime) {
-                const checkIn = new Date(log.checkInTime);
-                if (checkIsLate(checkIn, startTimeStr, buffer)) {
-                    lateCount++;
-                } else {
-                    onTimeCount++;
-                }
+            const summary = getAttendanceSummary(
+                log.checkInTime,
+                log.checkOutTime,
+                { startTime: startTimeStr, buffer, minHours: 9 }
+            );
 
-                if (log.checkOutTime) {
-                    const checkOut = new Date(log.checkOutTime);
-                    const diffMs = checkOut.getTime() - checkIn.getTime();
-                    const hours = diffMs / (1000 * 60 * 60);
-                    totalHours += hours;
-                }
+            if (summary.isLate) {
+                lateCount++;
+            } else if (log.checkInTime) {
+                onTimeCount++;
             }
+            totalHours += summary.workHours;
         });
 
         // Calculate Streak
@@ -69,18 +66,18 @@ export const useAttendanceStats = (userId: string) => {
             const todayRecord = streakLogs.find(l => l.date === todayDateStr);
             
             if (todayRecord) {
-                if (todayRecord.status === 'LATE') {
+                const summary = getAttendanceSummary(
+                    todayRecord.checkInTime,
+                    todayRecord.checkOutTime,
+                    { startTime: startTimeStr, buffer, minHours: 9 }
+                );
+
+                if (todayRecord.status === 'LATE' || summary.isLate) {
                     currentStreak = 0;
                     skipToday = true;
                 } else if (todayRecord.checkInTime) {
-                    const checkIn = new Date(todayRecord.checkInTime);
-                    if (checkIsLate(checkIn, startTimeStr, buffer)) {
-                            currentStreak = 0;
-                            skipToday = true;
-                    } else {
-                            currentStreak = 1;
-                            skipToday = true;
-                    }
+                    currentStreak = 1;
+                    skipToday = true;
                 }
             }
 
@@ -89,12 +86,18 @@ export const useAttendanceStats = (userId: string) => {
                     if (skipToday && log.date === todayDateStr) continue;
                     if (log.status === 'LEAVE') continue;
                     if (log.status === 'ABSENT' || log.status === 'LATE') break;
+                    
+                    const summary = getAttendanceSummary(
+                        log.checkInTime,
+                        log.checkOutTime,
+                        { startTime: startTimeStr, buffer, minHours: 9 }
+                    );
+
+                    if (summary.isLate) break;
                     if (log.checkInTime) {
-                        const checkIn = new Date(log.checkInTime);
-                        if (checkIsLate(checkIn, startTimeStr, buffer)) break;
                         currentStreak++;
                     } else {
-                            break;
+                        break;
                     }
                 }
             }

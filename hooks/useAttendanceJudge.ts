@@ -187,9 +187,13 @@ export const useAttendanceJudge = (
 
                 if (alreadyPenalized) {
                     // Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop
+                    // FETCH FRESH NOTE TO PREVENT OVERWRITE
+                    const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
+                    const currentNote = freshLog?.note || log.note || '';
+
                     await supabase.from('attendance_logs').update({
                         status: 'ACTION_REQUIRED',
-                        note: `${log.note || ''} [SYSTEM] Status recovered (Penalized)`.trim()
+                        note: `${currentNote} [SYSTEM] Status recovered (Penalized)`.trim()
                     }).eq('id', log.id);
                     continue;
                 }
@@ -200,10 +204,14 @@ export const useAttendanceJudge = (
                 if (!alreadyNotified) {
                     isProcessingRef.current.add(lockKey);
 
+                    // FETCH FRESH NOTE TO PREVENT OVERWRITE
+                    const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
+                    const currentNote = freshLog?.note || log.note || '';
+
                     // Update status to ACTION_REQUIRED
                     await supabase.from('attendance_logs').update({
                         status: 'ACTION_REQUIRED',
-                        note: `${log.note || ''} [SYSTEM] Penalized for forgotten checkout`.trim()
+                        note: `${currentNote} [SYSTEM] Penalized for forgotten checkout`.trim()
                     }).eq('id', log.id);
                     
                     // Penalty: Deduct HP

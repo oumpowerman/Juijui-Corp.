@@ -148,12 +148,16 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 
                 const logDate = format(new Date(targetLog.date), 'yyyy-MM-dd');
                 const fullDateTimeStr = `${logDate}T${timeStr}:00`;
+
+                // FETCH FRESH NOTE TO PREVENT OVERWRITE
+                const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', targetLog.id).single();
+                const currentNote = freshLog?.note || targetLog.note || '';
                 
                 const { error } = await supabase.from('attendance_logs')
                     .update({
                         check_out_time: new Date(fullDateTimeStr).toISOString(),
                         status: 'COMPLETED',
-                        note: `${targetLog.note || ''} [ADMIN FIXED: ${reason}]`.trim()
+                        note: `${currentNote} [ADMIN FIXED: ${reason}]`.trim()
                     })
                     .eq('id', targetLog.id);
 

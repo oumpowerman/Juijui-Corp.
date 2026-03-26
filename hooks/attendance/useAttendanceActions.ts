@@ -169,6 +169,19 @@ export const useAttendanceActions = (userId: string) => {
 
             const calcResult = calculateCheckOutStatus(todayLog.checkInTime, now, minHours);
 
+            // Fetch fresh log data to ensure we have the latest note (prevent overwriting)
+            const { data: freshLog, error: fetchError } = await supabase
+                .from('attendance_logs')
+                .select('note')
+                .eq('id', todayLog.id)
+                .single();
+
+            if (fetchError) {
+                console.error('Failed to fetch fresh log for check-out:', fetchError);
+            }
+
+            const currentNote = freshLog?.note || todayLog.note || '';
+
             let noteAppend = '';
             if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += ` [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
@@ -181,7 +194,7 @@ export const useAttendanceActions = (userId: string) => {
             const updatePayload: any = {
                 check_out_time: now.toISOString(),
                 status: newStatus,
-                note: (todayLog.note || '') + noteAppend,
+                note: currentNote + noteAppend,
                 check_out_lat: location?.lat,
                 check_out_lng: location?.lng,
                 check_out_location_name: locationName

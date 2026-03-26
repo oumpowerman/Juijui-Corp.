@@ -2,7 +2,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { ChevronLeft, ChevronRight, Search, Calendar, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Calendar, Briefcase, UserX, UserCheck } from 'lucide-react';
 
 interface TimesheetHeaderProps {
     viewMode: 'WEEK' | 'MONTH';
@@ -14,6 +14,8 @@ interface TimesheetHeaderProps {
     filterDepartment: string;
     setFilterDepartment: (dept: string) => void;
     departments: string[];
+    showInactive: boolean;
+    setShowInactive: (show: boolean) => void;
 }
 
 const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
@@ -25,7 +27,9 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
     setSearchTerm,
     filterDepartment,
     setFilterDepartment,
-    departments
+    departments,
+    showInactive,
+    setShowInactive
 }) => {
     return (
         <div className="bg-slate-900 rounded-[2.5rem] p-6 shadow-xl border border-slate-800 text-white relative overflow-hidden group">
@@ -52,6 +56,19 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
+                     <button 
+                        onClick={() => setShowInactive(!showInactive)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border ${
+                            showInactive 
+                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 hover:bg-rose-500/30' 
+                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                        }`}
+                        title={showInactive ? "ซ่อนสมาชิกที่ลาออก" : "แสดงสมาชิกที่ลาออก"}
+                    >
+                        {showInactive ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                        {showInactive ? 'SHOWING INACTIVE' : 'HIDE INACTIVE'}
+                    </button>
+
                      <div className="bg-slate-800/50 p-1 rounded-2xl border border-slate-700 flex">
                         <button 
                             onClick={() => setViewMode('WEEK')}

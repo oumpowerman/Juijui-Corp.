@@ -113,17 +113,76 @@ export const parseAttendanceMetadata = (note: string | undefined) => {
 /**
  * Check if a specific time is considered "Late" based on dynamic config string (e.g. "10:00")
  */
-export const checkIsLate = (checkInTime: Date, startTimeStr: string = '10:00', bufferMinutes: number = 0): boolean => {
+export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: string = '10:00', bufferMinutes: number = 0): boolean => {
+    if (!checkInTime) return false;
     try {
+        const checkIn = typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime;
         const [targetHour, targetMinute] = startTimeStr.split(':').map(Number);
         
         // Create target time object for the same day as checkInTime
-        const targetTime = setMinutes(setHours(checkInTime, targetHour), targetMinute + bufferMinutes);
+        const targetTime = setMinutes(setHours(checkIn, targetHour), targetMinute + bufferMinutes);
         
         // If checkInTime is AFTER targetTime, it is late
-        return isBefore(targetTime, checkInTime);
+        return isBefore(targetTime, checkIn);
     } catch (e) {
         console.error("Error parsing start time", e);
         return false; // Default to not late if config error
     }
+};
+
+/**
+ * Calculates work hours between check-in and check-out.
+ */
+export const calculateWorkHours = (checkIn: Date | string | null, checkOut: Date | string | null): number => {
+    if (!checkIn || !checkOut) return 0;
+    try {
+        const start = typeof checkIn === 'string' ? new Date(checkIn) : checkIn;
+        const end = typeof checkOut === 'string' ? new Date(checkOut) : checkOut;
+        const diffMs = end.getTime() - start.getTime();
+        return Math.max(0, diffMs / (1000 * 60 * 60));
+    } catch (e) {
+        return 0;
+    }
+};
+
+export interface AttendanceSummary {
+    isLate: boolean;
+    isEarlyLeave: boolean;
+    workHours: number;
+    requiredEndTime: Date | null;
+}
+
+/**
+ * Comprehensive attendance summary calculation.
+ */
+export const getAttendanceSummary = (
+    checkInTime: Date | string | null,
+    checkOutTime: Date | string | null,
+    config: { startTime: string; buffer: number; minHours: number }
+): AttendanceSummary => {
+    const checkIn = checkInTime ? (typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime) : null;
+    const checkOut = checkOutTime ? (typeof checkOutTime === 'string' ? new Date(checkOutTime) : checkOutTime) : null;
+
+    const isLate = checkIn ? checkIsLate(checkIn, config.startTime, config.buffer) : false;
+    const workHours = calculateWorkHours(checkIn, checkOut);
+    
+    let requiredEndTime = null;
+    let isEarlyLeave = false;
+
+    if (checkIn) {
+        requiredEndTime = addMinutes(checkIn, config.minHours * 60);
+        if (checkOut) {
+            isEarlyLeave = isBefore(checkOut, requiredEndTime);
+        } else {
+            // If not checked out yet, compare with current time
+            isEarlyLeave = isBefore(new Date(), requiredEndTime);
+        }
+    }
+
+    return {
+        isLate,
+        isEarlyLeave,
+        workHours,
+        requiredEndTime
+    };
 };

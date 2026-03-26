@@ -59,7 +59,7 @@ export interface LeaveRequest {
     approverId?: string;
     createdAt: Date;
     rejectionReason?: string; // NEW: Added rejection reason
-    user?: User;
+    user?: Partial<User>;
 }
 
 // NEW: Helper type for Quota

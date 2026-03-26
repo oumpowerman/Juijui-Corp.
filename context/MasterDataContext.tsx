@@ -15,6 +15,12 @@ interface MasterDataContextType {
     addMasterOption: (option: Omit<MasterOption, 'id'>) => Promise<boolean>;
     updateMasterOption: (option: MasterOption) => Promise<boolean>;
     deleteMasterOption: (id: string) => Promise<boolean>;
+    // Inventory Mutations
+    addInventoryItem: (item: any) => Promise<boolean>;
+    updateInventoryItem: (item: any) => Promise<boolean>;
+    deleteInventoryItem: (id: string) => Promise<boolean>;
+    batchUpdateInventoryItems: (ids: string[], payload: any) => Promise<boolean>;
+    updateInventoryStock: (id: string, newQuantity: number) => Promise<boolean>;
     seedDefaults: () => Promise<void>;
 }
 
@@ -23,6 +29,8 @@ const MasterDataContext = createContext<MasterDataContextType | undefined>(undef
 // LocalStorage Keys
 const CACHE_KEY_OPTIONS = 'master_options_cache';
 const CACHE_KEY_VERSION = 'master_options_version_cache';
+const CACHE_KEY_INVENTORY = 'inventory_items_cache';
+const CACHE_KEY_INVENTORY_VERSION = 'inventory_version_cache';
 
 // Default Data for seeding (Moved from hook to provider)
 const DEFAULT_OPTIONS = [
@@ -95,46 +103,71 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
-    const isMutatingCache = useRef(false);
+    const isMutatingOptionsCache = useRef(false);
+    const isMutatingInventoryCache = useRef(false);
+
+    const mapInventoryItem = (i: any) => ({
+        id: i.id,
+        name: i.name,
+        description: i.description, 
+        categoryId: i.category_id,
+        imageUrl: i.image_url,
+        itemType: i.item_type || 'FIXED', 
+        quantity: i.quantity || 0,
+        unit: i.unit,
+        minThreshold: i.min_threshold,
+        maxCapacity: i.max_capacity,
+        tags: i.tags || [],
+        assetGroup: i.asset_group,
+        purchasePrice: i.purchase_price,
+        purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
+        serialNumber: i.serial_number,
+        warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
+        condition: i.condition,
+        currentHolderId: i.current_holder_id,
+        groupLabel: i.group_label,
+        createdAt: i.created_at ? new Date(i.created_at) : undefined
+    });
 
     const fetchOptions = useCallback(async () => {
         try {
-            // 1. Check LocalStorage Cache
+            // 1. Check LocalStorage Cache for Options
             const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
-            const cachedVersion = localStorage.getItem(CACHE_KEY_VERSION);
+            const cachedOptionsVersion = localStorage.getItem(CACHE_KEY_VERSION);
 
-            // 2. Fetch Current Version from system_metadata
-            const { data: versionData, error: versionError } = await supabase
+            // 2. Check LocalStorage Cache for Inventory
+            const cachedInventory = localStorage.getItem(CACHE_KEY_INVENTORY);
+            const cachedInventoryVersion = localStorage.getItem(CACHE_KEY_INVENTORY_VERSION);
+
+            // 3. Fetch Current Versions from system_metadata
+            const { data: versionsData, error: versionsError } = await supabase
                 .from('system_metadata')
-                .select('last_updated_at')
-                .eq('key', 'master_options_version')
-                .single();
+                .select('key, last_updated_at')
+                .in('key', ['master_options_version', 'inventory_version']);
 
-            const currentVersion = versionData?.last_updated_at;
+            const currentOptionsVersion = versionsData?.find(v => v.key === 'master_options_version')?.last_updated_at;
+            const currentInventoryVersion = versionsData?.find(v => v.key === 'inventory_version')?.last_updated_at;
 
-            // 3. Compare Version and decide whether to fetch full data
+            // 4. Handle Options Cache
             let optionsData = null;
-            let useCache = false;
+            let useOptionsCache = false;
 
-            if (isMutatingCache.current) {
-                useCache = true;
+            if (isMutatingOptionsCache.current) {
+                useOptionsCache = true;
                 optionsData = JSON.parse(localStorage.getItem(CACHE_KEY_OPTIONS) || '[]');
-                console.log('🚀 Master Data: Using cached version (Mutation in progress)');
-            } else if (!versionError && cachedOptions && cachedVersion && currentVersion && cachedVersion === currentVersion) {
+                console.log('🚀 Master Data: Using cached options (Mutation in progress)');
+            } else if (!versionsError && cachedOptions && cachedOptionsVersion && currentOptionsVersion && cachedOptionsVersion === currentOptionsVersion) {
                 try {
                     optionsData = JSON.parse(cachedOptions);
-                    useCache = true;
-                    console.log('🚀 Master Data: Using cached version', currentVersion);
+                    useOptionsCache = true;
+                    console.log('🚀 Master Data: Using cached options', currentOptionsVersion);
                 } catch (e) {
-                    console.warn('⚠️ Master Data: Cache corrupted, clearing...');
-                    localStorage.removeItem(CACHE_KEY_OPTIONS);
-                    localStorage.removeItem(CACHE_KEY_VERSION);
+                    console.warn('⚠️ Master Data: Options Cache corrupted');
                 }
             }
 
-            if (!useCache) {
-                // Fetch Full Data
-                console.log('📡 Master Data: Fetching 80KB+ data (Version mismatch, no cache, or table missing)...');
+            if (!useOptionsCache) {
+                console.log('📡 Master Data: Fetching master_options...');
                 const { data, error } = await supabase
                     .from('master_options')
                     .select('*')
@@ -143,18 +176,50 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 if (error) throw error;
                 optionsData = data;
 
-                // Update Cache
-                if (data && currentVersion) {
+                if (data && currentOptionsVersion) {
                     localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(data));
-                    localStorage.setItem(CACHE_KEY_VERSION, currentVersion);
+                    localStorage.setItem(CACHE_KEY_VERSION, currentOptionsVersion);
                 }
             }
 
-            // 4. Fetch other small data in parallel
-            const [holidaysRes, exceptionsRes, inventoryRes] = await Promise.all([
+            // 5. Handle Inventory Cache
+            let inventoryData = null;
+            let useInventoryCache = false;
+
+            if (isMutatingInventoryCache.current) {
+                useInventoryCache = true;
+                inventoryData = JSON.parse(localStorage.getItem(CACHE_KEY_INVENTORY) || '[]');
+                console.log('🚀 Master Data: Using cached inventory (Mutation in progress)');
+            } else if (!versionsError && cachedInventory && cachedInventoryVersion && currentInventoryVersion && cachedInventoryVersion === currentInventoryVersion) {
+                try {
+                    inventoryData = JSON.parse(cachedInventory);
+                    useInventoryCache = true;
+                    console.log('🚀 Master Data: Using cached inventory', currentInventoryVersion);
+                } catch (e) {
+                    console.warn('⚠️ Master Data: Inventory Cache corrupted');
+                }
+            }
+
+            if (!useInventoryCache) {
+                console.log('📡 Master Data: Fetching inventory_items...');
+                const { data, error } = await supabase
+                    .from('inventory_items')
+                    .select('*')
+                    .order('name', { ascending: true });
+                
+                if (error) throw error;
+                inventoryData = data;
+
+                if (data && currentInventoryVersion) {
+                    localStorage.setItem(CACHE_KEY_INVENTORY, JSON.stringify(data));
+                    localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, currentInventoryVersion);
+                }
+            }
+
+            // 6. Fetch other small data in parallel
+            const [holidaysRes, exceptionsRes] = await Promise.all([
                 supabase.from('annual_holidays').select('*').order('month', { ascending: true }).order('day', { ascending: true }),
-                supabase.from('calendar_exceptions').select('*').order('date', { ascending: true }),
-                supabase.from('inventory_items').select('*').order('name', { ascending: true })
+                supabase.from('calendar_exceptions').select('*').order('date', { ascending: true })
             ]);
 
             if (optionsData) {
@@ -173,30 +238,12 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 })));
             }
 
+            if (inventoryData) {
+                setInventoryItems(inventoryData.map(mapInventoryItem));
+            }
+
             if (holidaysRes.data) setAnnualHolidays(holidaysRes.data);
             if (exceptionsRes.data) setCalendarExceptions(exceptionsRes.data);
-            if (inventoryRes.data) {
-                setInventoryItems(inventoryRes.data.map((i: any) => ({
-                    id: i.id,
-                    name: i.name,
-                    description: i.description, 
-                    categoryId: i.category_id,
-                    imageUrl: i.image_url,
-                    itemType: i.item_type || 'FIXED', 
-                    quantity: i.quantity || 0,
-                    unit: i.unit,
-                    minThreshold: i.min_threshold,
-                    maxCapacity: i.max_capacity,
-                    tags: i.tags || [],
-                    assetGroup: i.asset_group,
-                    purchasePrice: i.purchase_price,
-                    purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
-                    serialNumber: i.serial_number,
-                    warrantyExpire: i.warranty_expire ? new Date(i.warranty_expire) : undefined,
-                    condition: i.condition,
-                    currentHolderId: i.current_holder_id
-                })));
-            }
 
         } catch (err: any) {
             console.error('Fetch master options failed:', err);
@@ -205,14 +252,16 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, []);
 
-    const updateLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any) => {
-        isMutatingCache.current = true;
+    const updateOptionsLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any, skipVersionUpdate: boolean = false) => {
+        isMutatingOptionsCache.current = true;
         try {
             const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
             let rawOptions = cachedOptions ? JSON.parse(cachedOptions) : [];
             
             if (action === 'ADD') {
-                rawOptions.push(payload);
+                if (!rawOptions.some((o: any) => o.id === payload.id)) {
+                    rawOptions.push(payload);
+                }
             } else if (action === 'UPDATE') {
                 const index = rawOptions.findIndex((o: any) => o.id === payload.id);
                 if (index > -1) rawOptions[index] = { ...rawOptions[index], ...payload };
@@ -237,20 +286,76 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 progressValue: item.progress_value
             })));
 
-            const { data: versionData } = await supabase
-                .from('system_metadata')
-                .select('last_updated_at')
-                .eq('key', 'master_options_version')
-                .single();
-                
-            if (versionData) {
-                localStorage.setItem(CACHE_KEY_VERSION, versionData.last_updated_at);
+            if (!skipVersionUpdate) {
+                const { data: versionData } = await supabase
+                    .from('system_metadata')
+                    .select('last_updated_at')
+                    .eq('key', 'master_options_version')
+                    .single();
+                    
+                if (versionData) {
+                    localStorage.setItem(CACHE_KEY_VERSION, versionData.last_updated_at);
+                }
             }
         } catch (e) {
-            console.error('Error updating local cache:', e);
+            console.error('Error updating local options cache:', e);
         } finally {
             setTimeout(() => {
-                isMutatingCache.current = false;
+                isMutatingOptionsCache.current = false;
+            }, 1000);
+        }
+    };
+
+    const updateInventoryLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE' | 'BATCH_UPDATE', payload: any, skipVersionUpdate: boolean = false) => {
+        isMutatingInventoryCache.current = true;
+        try {
+            const cachedInventory = localStorage.getItem(CACHE_KEY_INVENTORY);
+            let rawInventory = cachedInventory ? JSON.parse(cachedInventory) : [];
+            
+            if (action === 'ADD') {
+                if (Array.isArray(payload)) {
+                    payload.forEach(item => {
+                        if (!rawInventory.some((i: any) => i.id === item.id)) {
+                            rawInventory.push(item);
+                        }
+                    });
+                } else {
+                    if (!rawInventory.some((i: any) => i.id === payload.id)) {
+                        rawInventory.push(payload);
+                    }
+                }
+            } else if (action === 'UPDATE') {
+                const index = rawInventory.findIndex((i: any) => i.id === payload.id);
+                if (index > -1) rawInventory[index] = { ...rawInventory[index], ...payload };
+            } else if (action === 'DELETE') {
+                rawInventory = rawInventory.filter((i: any) => i.id !== payload);
+            } else if (action === 'BATCH_UPDATE') {
+                const { ids, data } = payload;
+                rawInventory = rawInventory.map((i: any) => 
+                    ids.includes(i.id) ? { ...i, ...data } : i
+                );
+            }
+            
+            rawInventory.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+            localStorage.setItem(CACHE_KEY_INVENTORY, JSON.stringify(rawInventory));
+            setInventoryItems(rawInventory.map(mapInventoryItem));
+
+            if (!skipVersionUpdate) {
+                const { data: versionData } = await supabase
+                    .from('system_metadata')
+                    .select('last_updated_at')
+                    .eq('key', 'inventory_version')
+                    .single();
+                    
+                if (versionData) {
+                    localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, versionData.last_updated_at);
+                }
+            }
+        } catch (e) {
+            console.error('Error updating local inventory cache:', e);
+        } finally {
+            setTimeout(() => {
+                isMutatingInventoryCache.current = false;
             }, 1000);
         }
     };
@@ -283,7 +388,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { data, error } = await supabase.from('master_options').insert(payload).select().single();
             if (error) throw error;
 
-            await updateLocalCache('ADD', data);
+            await updateOptionsLocalCache('ADD', data);
             showToast('เพิ่มข้อมูลสำเร็จ ✅', 'success');
             return true;
         } catch (err: any) {
@@ -311,7 +416,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { data, error } = await supabase.from('master_options').update(payload).eq('id', option.id).select().single();
             if (error) throw error;
 
-            await updateLocalCache('UPDATE', data);
+            await updateOptionsLocalCache('UPDATE', data);
             showToast('อัปเดตข้อมูลสำเร็จ ✨', 'success');
             return true;
         } catch (err: any) {
@@ -329,12 +434,73 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { error } = await supabase.from('master_options').delete().eq('id', id);
             if (error) throw error;
 
-            await updateLocalCache('DELETE', id);
+            await updateOptionsLocalCache('DELETE', id);
             showToast('ลบข้อมูลเรียบร้อย 🗑️', 'info');
             return true;
         } catch (err: any) {
             console.error(err);
             showToast('ลบไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        }
+    };
+
+    const addInventoryItem = async (item: any) => {
+        try {
+            const { data, error } = await supabase.from('inventory_items').insert(item).select();
+            if (error) throw error;
+            await updateInventoryLocalCache('ADD', data);
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            return false;
+        }
+    };
+
+    const updateInventoryItem = async (item: any) => {
+        try {
+            const { id, ...payload } = item;
+            const { data, error } = await supabase.from('inventory_items').update(payload).eq('id', id).select().single();
+            if (error) throw error;
+            await updateInventoryLocalCache('UPDATE', data);
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            return false;
+        }
+    };
+
+    const deleteInventoryItem = async (id: string) => {
+        try {
+            const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+            if (error) throw error;
+            await updateInventoryLocalCache('DELETE', id);
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            return false;
+        }
+    };
+
+    const batchUpdateInventoryItems = async (ids: string[], payload: any) => {
+        try {
+            const { error } = await supabase.from('inventory_items').update(payload).in('id', ids);
+            if (error) throw error;
+            await updateInventoryLocalCache('BATCH_UPDATE', { ids, data: payload });
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            return false;
+        }
+    };
+
+    const updateInventoryStock = async (id: string, newQuantity: number) => {
+        try {
+            const { data, error } = await supabase.from('inventory_items').update({ quantity: newQuantity }).eq('id', id).select().single();
+            if (error) throw error;
+            await updateInventoryLocalCache('UPDATE', data);
+            return true;
+        } catch (err: any) {
+            console.error(err);
             return false;
         }
     };
@@ -400,16 +566,38 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         // fetchOptions(); // Disable initial fetchOptions on mount - managed by useTaskManager
 
-        // Listen to system_metadata for version changes
         const metadataChannel = supabase.channel('system-metadata-changes')
             .on('postgres_changes', { 
                 event: 'UPDATE', 
                 schema: 'public', 
-                table: 'system_metadata',
-                filter: 'key=eq.master_options_version'
-            }, () => {
-                console.log('🔄 Master Data: Remote version updated, syncing...');
-                fetchOptions();
+                table: 'system_metadata'
+            }, (payload) => {
+                const updatedKey = payload.new.key;
+                const remoteVersion = payload.new.last_updated_at;
+
+                if (updatedKey === 'master_options_version') {
+                    const localVersion = localStorage.getItem(CACHE_KEY_VERSION);
+                    if (remoteVersion !== localVersion) {
+                        // Safe-Sync: Wait a bit for Delta Sync, if still mismatch, force full fetch
+                        setTimeout(() => {
+                            if (localStorage.getItem(CACHE_KEY_VERSION) !== remoteVersion) {
+                                console.log('🔄 Master Data: Options Delta missed, healing with full fetch...');
+                                fetchOptions();
+                            }
+                        }, 2000);
+                    }
+                } else if (updatedKey === 'inventory_version') {
+                    const localVersion = localStorage.getItem(CACHE_KEY_INVENTORY_VERSION);
+                    if (remoteVersion !== localVersion) {
+                        // Safe-Sync: Wait a bit for Delta Sync
+                        setTimeout(() => {
+                            if (localStorage.getItem(CACHE_KEY_INVENTORY_VERSION) !== remoteVersion) {
+                                console.log('🔄 Master Data: Inventory Delta missed, healing with full fetch...');
+                                fetchOptions();
+                            }
+                        }, 2000);
+                    }
+                }
             }).subscribe();
 
         const holidaysChannel = supabase.channel('global-annual-holidays')
@@ -422,18 +610,38 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 fetchOptions();
             }).subscribe();
 
+        const optionsChannel = supabase.channel('global-master-options')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, (payload) => {
+                if (!isMutatingOptionsCache.current) {
+                    console.log(`🔄 Master Data: Remote options ${payload.eventType} detected, syncing delta...`);
+                    if (payload.eventType === 'DELETE') {
+                        updateOptionsLocalCache('DELETE', payload.old.id, true);
+                    } else {
+                        updateOptionsLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
+                    }
+                }
+            }).subscribe();
+
         const inventoryChannel = supabase.channel('global-inventory-items')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => {
-                fetchOptions();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
+                if (!isMutatingInventoryCache.current) {
+                    console.log(`🔄 Master Data: Remote inventory ${payload.eventType} detected, syncing delta...`);
+                    if (payload.eventType === 'DELETE') {
+                        updateInventoryLocalCache('DELETE', payload.old.id, true);
+                    } else {
+                        updateInventoryLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
+                    }
+                }
             }).subscribe();
 
         return () => {
             supabase.removeChannel(metadataChannel);
             supabase.removeChannel(holidaysChannel);
             supabase.removeChannel(exceptionsChannel);
+            supabase.removeChannel(optionsChannel);
             supabase.removeChannel(inventoryChannel);
         };
-    }, [fetchOptions]);
+    }, [fetchOptions, mapInventoryItem]);
 
     return (
         <MasterDataContext.Provider value={{
@@ -446,6 +654,11 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             addMasterOption,
             updateMasterOption,
             deleteMasterOption,
+            addInventoryItem,
+            updateInventoryItem,
+            deleteInventoryItem,
+            batchUpdateInventoryItems,
+            updateInventoryStock,
             seedDefaults
         }}>
             {children}

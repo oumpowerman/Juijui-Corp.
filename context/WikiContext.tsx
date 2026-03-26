@@ -111,14 +111,17 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [mapArticle]);
 
-    const updateLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any) => {
+    const updateLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any, skipVersionUpdate: boolean = false) => {
         isMutatingCache.current = true;
         try {
             const cachedWiki = localStorage.getItem(CACHE_KEY_WIKI);
             let rawArticles = cachedWiki ? JSON.parse(cachedWiki) : [];
             
             if (action === 'ADD') {
-                rawArticles.unshift(payload);
+                // Check if already exists to avoid duplicates from realtime
+                if (!rawArticles.some((a: any) => a.id === payload.id)) {
+                    rawArticles.unshift(payload);
+                }
             } else if (action === 'UPDATE') {
                 const index = rawArticles.findIndex((o: any) => o.id === payload.id);
                 if (index > -1) rawArticles[index] = { ...rawArticles[index], ...payload };
@@ -135,15 +138,17 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem(CACHE_KEY_WIKI, JSON.stringify(rawArticles));
             setArticles(rawArticles.map(mapArticle));
 
-            // Update local version to match remote after mutation
-            const { data: versionData } = await supabase
-                .from('system_metadata')
-                .select('last_updated_at')
-                .eq('key', 'wiki_version')
-                .single();
-                
-            if (versionData) {
-                localStorage.setItem(CACHE_KEY_WIKI_VERSION, versionData.last_updated_at);
+            if (!skipVersionUpdate) {
+                // Update local version to match remote after mutation
+                const { data: versionData } = await supabase
+                    .from('system_metadata')
+                    .select('last_updated_at')
+                    .eq('key', 'wiki_version')
+                    .single();
+                    
+                if (versionData) {
+                    localStorage.setItem(CACHE_KEY_WIKI_VERSION, versionData.last_updated_at);
+                }
             }
         } catch (e) {
             console.error('Error updating wiki local cache:', e);
@@ -157,25 +162,73 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         fetchArticles();
 
-        const channel = supabase
+        // 1. Listen to system_metadata for version updates (Delta Sync Versioning)
+        const metadataChannel = supabase.channel('wiki-metadata-changes')
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'system_metadata',
+                filter: 'key=eq.wiki_version'
+            }, (payload) => {
+                const remoteVersion = payload.new.last_updated_at;
+                const localVersion = localStorage.getItem(CACHE_KEY_WIKI_VERSION);
+
+                if (remoteVersion !== localVersion) {
+                    // Safe-Sync: Wait for Delta Sync to update the version cache
+                    setTimeout(() => {
+                        if (localStorage.getItem(CACHE_KEY_WIKI_VERSION) !== remoteVersion) {
+                            console.log('🔄 Wiki: Delta missed, healing with full fetch...');
+                            fetchArticles();
+                        }
+                    }, 2000);
+                }
+            }).subscribe();
+
+        // 2. Listen to wiki_articles for content changes (Delta Sync Content)
+        const articlesChannel = supabase
             .channel('wiki-articles-changes')
             .on(
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'wiki_articles' }, 
-                (payload) => {
-                    // Only fetch if we are not the one who mutated it
-                    if (!isMutatingCache.current) {
-                        console.log('🔄 Wiki: Remote change detected, syncing...');
-                        fetchArticles();
+                async (payload) => {
+                    // Only handle if we are not the one who mutated it
+                    if (isMutatingCache.current) return;
+
+                    console.log(`🔄 Wiki: Remote ${payload.eventType} detected, syncing delta...`);
+                    
+                    if (payload.eventType === 'DELETE') {
+                        await updateLocalCache('DELETE', payload.old.id, true);
+                    } else {
+                        // For INSERT and UPDATE, we need to fetch the joined data (author, lastEditor)
+                        try {
+                            const { data, error } = await supabase
+                                .from('wiki_articles')
+                                .select(`
+                                    *,
+                                    author:profiles!wiki_articles_created_by_fkey(full_name, avatar_url),
+                                    lastEditor:profiles!wiki_articles_updated_by_fkey(full_name, avatar_url)
+                                `)
+                                .eq('id', payload.new.id)
+                                .single();
+                            
+                            if (error) throw error;
+                            if (data) {
+                                await updateLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', data, true);
+                            }
+                        } catch (err) {
+                            console.error('Delta sync failed, falling back to full fetch:', err);
+                            fetchArticles();
+                        }
                     }
                 }
             )
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(metadataChannel);
+            supabase.removeChannel(articlesChannel);
         };
-    }, [fetchArticles]);
+    }, [fetchArticles, mapArticle]);
 
     const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated' | 'helpfulCount' | 'createdAt' | 'author' | 'lastEditor'>, currentUser: User) => {
         try {

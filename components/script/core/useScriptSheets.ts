@@ -10,46 +10,51 @@ interface UseScriptSheetsProps {
 }
 
 export const useScriptSheets = ({ initialContent, initialSheets, editorInstance, showConfirm }: UseScriptSheetsProps) => {
-    const [mainContent, setMainContent] = useState(initialContent || '');
+    // Unify all sheets into one array. If 'main' doesn't exist in sheets, we treat it as a special case or add it.
+    // For backward compatibility and simplicity, we'll keep 'main' as a virtual sheet if not present.
     const [sheets, setSheets] = useState<ScriptSheet[]>(initialSheets || []);
     const [activeSheetId, setActiveSheetId] = useState<string>('main');
+    const [mainContent, setMainContent] = useState(initialContent || '');
     const [content, setContent] = useState(initialContent || '');
 
     const handleSheetSwitch = (newId: string) => {
         if (newId === activeSheetId) return;
 
-        // 1. Save current content to the current sheet in state
+        // 1. Capture current content from editor or state
+        const currentContent = content;
+
+        // 2. Update the sheet we are leaving
         if (activeSheetId === 'main') {
-            setMainContent(content);
+            setMainContent(currentContent);
         } else {
-            setSheets(prev => prev.map(s => s.id === activeSheetId ? { ...s, content } : s));
+            setSheets(prev => prev.map(s => s.id === activeSheetId ? { ...s, content: currentContent } : s));
         }
 
-        // 2. Load new content
+        // 3. Determine next content
         let nextContent = '';
         if (newId === 'main') {
             nextContent = mainContent;
         } else {
-            nextContent = sheets.find(s => s.id === newId)?.content || '';
+            const targetSheet = sheets.find(s => s.id === newId);
+            nextContent = targetSheet?.content || '';
         }
 
+        // 4. Update states
         setContent(nextContent);
         setActiveSheetId(newId);
         
-        // 3. Update editor instance
-        if (editorInstance) {
-            editorInstance.commands.setContent(nextContent);
-        }
+        // 5. Update editor (Removed because we remount the editor with a new key)
     };
 
     const addSheet = () => {
+        const newId = crypto.randomUUID();
         const newSheet: ScriptSheet = {
-            id: crypto.randomUUID(),
+            id: newId,
             title: `หน้าใหม่ ${sheets.length + 1}`,
             content: ''
         };
         
-        // Save current first
+        // Save current state before switching
         if (activeSheetId === 'main') {
             setMainContent(content);
         } else {
@@ -57,11 +62,8 @@ export const useScriptSheets = ({ initialContent, initialSheets, editorInstance,
         }
 
         setSheets(prev => [...prev, newSheet]);
-        setActiveSheetId(newSheet.id);
+        setActiveSheetId(newId);
         setContent('');
-        if (editorInstance) {
-            editorInstance.commands.setContent('');
-        }
     };
 
     const deleteSheet = async (id: string) => {
@@ -72,9 +74,6 @@ export const useScriptSheets = ({ initialContent, initialSheets, editorInstance,
             if (activeSheetId === id) {
                 setActiveSheetId('main');
                 setContent(mainContent);
-                if (editorInstance) {
-                    editorInstance.commands.setContent(mainContent);
-                }
             }
         }
     };

@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Editor } from '@tiptap/core';
 import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptComment, ScriptSheet } from '../../../types';
+import * as Y from 'yjs';
 
 export interface ScriptContextType {
     // Data State
@@ -60,6 +61,10 @@ export interface ScriptContextType {
     isReadOnly: boolean;
     forceTakeover: () => Promise<void>;
     
+    // Yjs Collaboration State
+    ydoc: Y.Doc | null;
+    isYjsSynced: boolean;
+    
     // View State
     isFocusMode: boolean;
     setIsFocusMode: (val: boolean) => void;
@@ -97,11 +102,6 @@ export interface ScriptContextType {
     handleGenerateAI: (prompt: string, type: 'HOOK' | 'OUTLINE' | 'FULL') => Promise<void>;
     handleInsertCharacter: (charName: string) => void;
     onPromote: () => void;
-    
-    // Realtime Broadcast
-    sendLiveUpdate: (content: string, sheetId?: string) => void;
-    liveContent: string | null;
-    isBroadcastConnected: boolean;
     
     // Permissions
     isScriptOwner: boolean;

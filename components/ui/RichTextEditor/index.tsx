@@ -51,6 +51,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const [isFormattingOpen, setIsFormattingOpen] = useState(false);
 
     const bubbleMenuRef = useRef<HTMLDivElement | null>(null);
+    const hasCollaboration = extensions?.some(ext => ext.name === 'collaboration');
 
     const editor = useEditor({
         extensions: [
@@ -66,7 +67,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     keepMarks: true,
                     keepAttributes: false,
                 },
-                history: {
+                history: hasCollaboration ? false : {
                     depth: 100,
                     newGroupDelay: 500,
                 }

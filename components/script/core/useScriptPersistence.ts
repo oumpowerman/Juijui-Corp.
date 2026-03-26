@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Script, ScriptStatus, ScriptType, ScriptSheet } from '../../../types';
 import { supabase } from '../../../lib/supabase';
+import * as Y from 'yjs';
 
 interface UseScriptPersistenceProps {
     script: Script;
@@ -22,80 +23,126 @@ interface UseScriptPersistenceProps {
     lockStatus: 'LOCKED_BY_ME' | 'LOCKED_BY_OTHER' | 'FREE';
     estimatedSeconds: number;
     onSave: (id: string, updates: Partial<Script>) => Promise<any>;
+    ydoc?: Y.Doc | null;
 }
 
 export const useScriptPersistence = ({
     script, title, content, mainContent, status, scriptType, characters,
     ideaOwnerId, authorId, channelId, category, tags, objective,
-    sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave
+    sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc
 }: UseScriptPersistenceProps) => {
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date>(new Date());
     const isDirtyRef = useRef(false);
-    const latestStateRef = useRef({ 
-        title, content, status, scriptType, characters, ideaOwnerId, authorId,
-        channelId, category, tags, objective, sheets
-    });
-
-    // Sync latestStateRef
-    useEffect(() => {
-        latestStateRef.current = { 
-            title, 
-            content: activeSheetId === 'main' ? content : mainContent, 
-            status, scriptType, characters, ideaOwnerId, authorId,
-            channelId, category, tags, objective, 
-            sheets: activeSheetId === 'main' ? sheets : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s)
-        };
-    }, [title, content, mainContent, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective, sheets, activeSheetId]);
+    
+    // Track if sheets changed externally
+    const lastSheetsRef = useRef(JSON.stringify(sheets));
 
     const handleSave = async (silent = false) => {
         if (isReadOnly) return;
         setIsSaving(true);
         
+        // Construct final data
         const finalContent = activeSheetId === 'main' ? content : mainContent;
-        const finalSheets = activeSheetId === 'main' ? sheets : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
+        const finalSheets = activeSheetId === 'main' 
+            ? sheets 
+            : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
+
+        let documentState: string | undefined = undefined;
+        if (ydoc) {
+            const bytes = Y.encodeStateAsUpdate(ydoc);
+            // Convert Uint8Array to base64 safely
+            const chunkSize = 0x8000;
+            const chunks = [];
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                chunks.push(String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize))));
+            }
+            documentState = btoa(chunks.join(''));
+        }
 
         await onSave(script.id, { 
             title, 
             content: finalContent, 
             sheets: finalSheets,
             status, estimatedDuration: estimatedSeconds,
-            scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective
+            scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective,
+            ...(documentState ? { documentState } : {})
         });
+        
         setLastSaved(new Date());
         setIsSaving(false);
         isDirtyRef.current = false;
+        lastSheetsRef.current = JSON.stringify(finalSheets);
     };
 
     useEffect(() => {
         if (isReadOnly) return; 
-        if (content !== script.content || title !== script.title || JSON.stringify(sheets) !== JSON.stringify(script.sheets || [])) {
+
+        // Simple change detection
+        const hasTitleChanged = title !== script.title;
+        const hasContentChanged = content !== script.content;
+        const currentSheetsStr = JSON.stringify(sheets);
+        const hasSheetsChanged = currentSheetsStr !== lastSheetsRef.current;
+
+        if (hasTitleChanged || hasContentChanged || hasSheetsChanged) {
             isDirtyRef.current = true;
         }
+
         const timer = setTimeout(() => {
             if (isDirtyRef.current) {
                 handleSave(true);
             }
         }, 3000);
+        
         return () => clearTimeout(timer);
     }, [content, title, status, scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective, sheets, isReadOnly]);
 
     useEffect(() => {
+        if (!ydoc || isReadOnly) return;
+        
+        const handleYjsUpdate = () => {
+            isDirtyRef.current = true;
+        };
+        
+        ydoc.on('update', handleYjsUpdate);
+        return () => {
+            ydoc.off('update', handleYjsUpdate);
+        };
+    }, [ydoc, isReadOnly]);
+
+    useEffect(() => {
         return () => {
             if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
-                const data = latestStateRef.current;
+                // Final save on unmount
+                const finalContent = activeSheetId === 'main' ? content : mainContent;
+                const finalSheets = activeSheetId === 'main' 
+                    ? sheets 
+                    : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
+
+                let documentState: string | undefined = undefined;
+                if (ydoc) {
+                    const bytes = Y.encodeStateAsUpdate(ydoc);
+                    let binary = '';
+                    const len = bytes.byteLength;
+                    for (let i = 0; i < len; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    documentState = btoa(binary);
+                }
+
                 onSave(script.id, { 
-                    title: data.title, 
-                    content: data.content, 
-                    status: data.status,
-                    sheets: data.sheets
+                    title, 
+                    content: finalContent, 
+                    status,
+                    sheets: finalSheets,
+                    ...(documentState ? { documentState } : {})
                 }).catch(console.error);
             }
             if (lockStatus === 'LOCKED_BY_ME') {
                 supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then();
             }
         };
-    }, [lockStatus]);
+    }, [lockStatus, ydoc]);
 
     return {
         isSaving,

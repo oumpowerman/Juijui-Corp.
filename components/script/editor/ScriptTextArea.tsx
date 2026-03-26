@@ -7,15 +7,17 @@ import SheetBar from './SheetBar';
 import FindReplaceBar from '../tools/FindReplaceBar';
 import { MessageSquarePlus, Eye, Radio } from 'lucide-react';
 import { CommentMark } from './CommentExtension';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
 
 const ScriptTextArea: React.FC = () => {
     const { 
         content, setContent, scriptType, isChatPreviewOpen, isReadOnly, setEditorInstance, zoomLevel,
         addComment, scrollToComment, editorInstance, 
-        sendLiveUpdate, liveContent, isBroadcastConnected,
         isAutoCharacter, characters, isFocusMode,
         isFindReplaceOpen, setIsFindReplaceOpen, replaceAllAcrossSheets,
-        pendingHighlight, setPendingHighlight
+        pendingHighlight, setPendingHighlight,
+        ydoc, isYjsSynced, activeSheetId, lockerUser, currentUser
     } = useScriptContext();
 
     const [matchCount, setMatchCount] = useState({ current: 0, total: 0 });
@@ -182,39 +184,6 @@ const ScriptTextArea: React.FC = () => {
     const [isCommentInputOpen, setIsCommentInputOpen] = useState(false);
     const [commentText, setCommentText] = useState('');
 
-    // --- REALTIME: Receive Live Updates (Spectator Mode) ---
-    useEffect(() => {
-        if (isReadOnly && liveContent && editorInstance) {
-            const currentHTML = editorInstance.getHTML();
-            if (currentHTML !== liveContent) {
-                // 1. Save current state to prevent jumping
-                const { from, to } = editorInstance.state.selection;
-                const scrollPos = window.scrollY;
-                const container = editorInstance.options.element.closest('.overflow-y-auto');
-                const containerScroll = container?.scrollTop;
-
-                // 2. Update content
-                // Use parseOptions to speed up and avoid some re-renders
-                editorInstance.commands.setContent(liveContent, false); 
-
-                // 3. Restore selection if possible (only if it's still within bounds)
-                try {
-                    const docSize = editorInstance.state.doc.content.size;
-                    if (from < docSize && to < docSize) {
-                        editorInstance.commands.setTextSelection({ from, to });
-                    }
-                } catch (e) {
-                    // Ignore if selection is now invalid
-                }
-
-                // 4. Restore scroll
-                if (containerScroll !== undefined && container) {
-                    container.scrollTop = containerScroll;
-                }
-            }
-        }
-    }, [liveContent, isReadOnly, editorInstance]);
-
     // Listener for clicking on comment marks
     useEffect(() => {
         if (!editorInstance) return;
@@ -275,7 +244,7 @@ const ScriptTextArea: React.FC = () => {
                     <CharacterBar />
                     
                     {/* Real-time Indicator Badge */}
-                    {isBroadcastConnected && (
+                    {isYjsSynced && (
                         <div className={`
                             flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border shadow-sm
                             ${isReadOnly 
@@ -337,56 +306,76 @@ const ScriptTextArea: React.FC = () => {
                         
                         {/* Content Area */}
                         <div className="p-6 md:p-10 lg:p-12 flex-1 cursor-text caret-black">
-                            <RichTextEditor 
-                                content={content}
-                                onChange={(html) => {
-                                    // 1. Update local state
-                                    setContent(html);
-                                    // 2. Broadcast if Writer
-                                    if (!isReadOnly) {
-                                        sendLiveUpdate(html);
-                                    }
-                                }}
-                                readOnly={isReadOnly}
-                                onEditorReady={(editor) => {
-                                    setEditorInstance(editor);
-                                }}
-                                onKeyDown={handleKeyDown}
-                                extensions={[CommentMark]}
-                                placeholder={scriptType === 'DIALOGUE' ? "คลิกเลือกตัวละครด้านบน หรือพิมพ์เอง..." : "เริ่มเขียนบทของคุณที่นี่..."}
-                                className="prose max-w-none text-black focus:outline-none caret-black [&_.ProseMirror]:caret-black"
-                                minHeight="500px"
-                                bubbleMenuContent={(editor) => (
-                                    <>
-                                        {!isCommentInputOpen ? (
-                                            <button 
-                                                onClick={() => setIsCommentInputOpen(true)}
-                                                className="flex items-center gap-1 bg-white border border-gray-200 shadow-lg rounded-lg px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95"
-                                            >
-                                                <MessageSquarePlus className="w-4 h-4 text-indigo-500" /> Comment
-                                            </button>
-                                        ) : (
-                                            <div className="bg-white border border-gray-200 shadow-xl rounded-xl p-2 flex gap-2 items-center min-w-[250px] animate-in zoom-in-95">
-                                                <input 
-                                                    autoFocus
-                                                    type="text" 
-                                                    className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
-                                                    placeholder="พิมพ์คอมเมนต์..."
-                                                    value={commentText}
-                                                    onChange={e => setCommentText(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if(e.key === 'Enter') handleAddComment(editor);
-                                                        if(e.key === 'Escape') setIsCommentInputOpen(false);
-                                                    }}
-                                                />
-                                                <button onClick={() => handleAddComment(editor)} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                                                    <MessageSquarePlus className="w-3.5 h-3.5" />
+                            {!isYjsSynced ? (
+                                <div className="flex justify-center items-center h-full min-h-[500px]">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                </div>
+                            ) : (
+                                <RichTextEditor 
+                                    key={`editor-${activeSheetId}`} // Force re-mount when sheet changes
+                                    content={content} // Tiptap will ignore this if Collaboration is used, but we keep it for fallback
+                                    onChange={(html) => {
+                                        // 1. Update local state
+                                        setContent(html);
+                                        // 2. Broadcast if Writer (Fallback, Yjs handles this now)
+                                        // if (!isReadOnly) {
+                                        //     sendLiveUpdate(html);
+                                        // }
+                                    }}
+                                    readOnly={isReadOnly}
+                                    onEditorReady={(editor) => {
+                                        setEditorInstance(editor);
+                                        // Fallback: If Yjs document was empty (e.g., migrating old script),
+                                        // initialize it with the local content.
+                                        if (editor.isEmpty && content && content !== '<p></p>') {
+                                            editor.commands.setContent(content, false);
+                                        }
+                                    }}
+                                    onKeyDown={handleKeyDown}
+                                    extensions={[
+                                        CommentMark,
+                                        ...(ydoc ? [
+                                            Collaboration.configure({
+                                                document: ydoc,
+                                                field: activeSheetId, // Use activeSheetId as the field name
+                                            })
+                                        ] : [])
+                                    ]}
+                                    placeholder={scriptType === 'DIALOGUE' ? "คลิกเลือกตัวละครด้านบน หรือพิมพ์เอง..." : "เริ่มเขียนบทของคุณที่นี่..."}
+                                    className="prose max-w-none text-black focus:outline-none caret-black [&_.ProseMirror]:caret-black"
+                                    minHeight="500px"
+                                    bubbleMenuContent={(editor) => (
+                                        <>
+                                            {!isCommentInputOpen ? (
+                                                <button 
+                                                    onClick={() => setIsCommentInputOpen(true)}
+                                                    className="flex items-center gap-1 bg-white border border-gray-200 shadow-lg rounded-lg px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-transform active:scale-95"
+                                                >
+                                                    <MessageSquarePlus className="w-4 h-4 text-indigo-500" /> Comment
                                                 </button>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            />
+                                            ) : (
+                                                <div className="bg-white border border-gray-200 shadow-xl rounded-xl p-2 flex gap-2 items-center min-w-[250px] animate-in zoom-in-95">
+                                                    <input 
+                                                        autoFocus
+                                                        type="text" 
+                                                        className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                                                        placeholder="พิมพ์คอมเมนต์..."
+                                                        value={commentText}
+                                                        onChange={e => setCommentText(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if(e.key === 'Enter') handleAddComment(editor);
+                                                            if(e.key === 'Escape') setIsCommentInputOpen(false);
+                                                        }}
+                                                    />
+                                                    <button onClick={() => handleAddComment(editor)} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                                        <MessageSquarePlus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                />
+                            )}
                         </div>
                         
                         <SheetBar />

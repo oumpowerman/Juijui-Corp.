@@ -6,7 +6,6 @@ import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { Editor } from '@tiptap/core';
 import { useScriptComments } from '../../../hooks/useScriptComments';
-import { useScriptBroadcast } from '../../../hooks/useScriptBroadcast';
 import { useScriptSearchNavigator } from '../../../hooks/useScriptSearchNavigator';
 import { cleanContentForTiming, estimateDurationSeconds } from './scriptUtils';
 import { useScriptLocking } from './useScriptLocking';
@@ -14,6 +13,7 @@ import { useScriptSheets } from './useScriptSheets';
 import { useScriptPersistence } from './useScriptPersistence';
 import { useScriptUI } from './useScriptUI';
 import { ScriptContextType, ScriptProviderProps } from './ScriptContext.types';
+import { useYjsSync } from '../../../hooks/useYjsSync';
 
 const ScriptContext = createContext<ScriptContextType | undefined>(undefined);
 
@@ -72,6 +72,11 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
         showToast
     });
 
+    const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
+
+    // Initialize Yjs Sync
+    const { ydoc, isSynced: isYjsSynced } = useYjsSync(script.id, lockStatus === 'LOCKED_BY_ME', script.content);
+
     const { 
         pendingHighlight, 
         setPendingHighlight, 
@@ -114,27 +119,14 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     } = useScriptUI();
 
     const estimatedSeconds = estimateDurationSeconds(content); 
-    const isReadOnly = lockStatus === 'LOCKED_BY_OTHER';
     const isScriptOwner = currentUser.id === script.authorId || currentUser.id === ideaOwnerId;
 
     const { isSaving, setIsSaving, lastSaved, setLastSaved, isDirtyRef, handleSave } = useScriptPersistence({
         script, title, content, mainContent, status, scriptType, characters,
         ideaOwnerId, authorId, channelId, category, tags, objective,
-        sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave
+        sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc
     });
     
-    const { sendLiveUpdate: sendLiveUpdateRaw, liveUpdate, isConnected: isBroadcastConnected } = useScriptBroadcast(
-        script.id, 
-        currentUser.id, 
-        lockStatus === 'LOCKED_BY_ME'
-    );
-
-    const sendLiveUpdate = (newContent: string) => {
-        sendLiveUpdateRaw(newContent, activeSheetId);
-    };
-
-    const liveContent = liveUpdate?.sheetId === activeSheetId ? liveUpdate.content : null;
-
     const addComment = async (text: string, highlightId?: string, selectedText?: string) => {
         const success = await addCommentHook(currentUser.id, text, highlightId, selectedText);
         if (success) {
@@ -344,7 +336,6 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             isCommentsOpen, setIsCommentsOpen,
             comments, addComment, resolveComment, deleteComment, scrollToComment,
             activeCommentId, setActiveCommentId,
-            sendLiveUpdate, liveContent, isBroadcastConnected,
             handleSave,
             replaceAllAcrossSheets,
             handleGenerateAI: handleGenerateAIWrapper,
@@ -355,7 +346,8 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
             users, channels, masterOptions,
             onClose: handleCloseWrapper,
             sheets, activeSheetId, setActiveSheetId, addSheet, deleteSheet, renameSheet,
-            pendingHighlight, setPendingHighlight
+            pendingHighlight, setPendingHighlight,
+            ydoc, isYjsSynced
         }}>
             {children}
         </ScriptContext.Provider>

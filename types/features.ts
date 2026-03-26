@@ -122,6 +122,7 @@ export interface ScriptSummary {
 export interface Script extends ScriptSummary {
     content: string;
     characters?: string[];
+    documentState?: string; // Base64 encoded Yjs state
 }
 
 export interface LabSequenceItem {

@@ -63,53 +63,56 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'ACCEPTED': return 'bg-emerald-500';
-            case 'INTERVIEW_SCHEDULED': return 'bg-indigo-500';
-            case 'INTERVIEWED': return 'bg-blue-500';
-            case 'REJECTED': return 'bg-rose-500';
-            case 'ARCHIVED': return 'bg-gray-300';
-            default: return 'bg-gray-400';
+            case 'ACCEPTED': return 'bg-emerald-500 shadow-emerald-200';
+            case 'INTERVIEW_SCHEDULED': return 'bg-indigo-500 shadow-indigo-200';
+            case 'INTERVIEWED': return 'bg-blue-500 shadow-blue-200';
+            case 'REJECTED': return 'bg-rose-500 shadow-rose-200';
+            case 'ARCHIVED': return 'bg-slate-400 shadow-slate-100';
+            default: return 'bg-slate-400 shadow-slate-100';
         }
     };
 
     return (
-        <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-white/40 shadow-xl overflow-hidden flex flex-col h-[600px]">
             {/* Timeline Controls */}
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <div className="flex items-center gap-2">
+            <div className="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center bg-gray-50/30 backdrop-blur-md gap-4">
+                <div className="flex items-center gap-3">
                     <button 
                         onClick={() => setViewDate(prev => subMonths(prev, 1))}
-                        className="p-2 hover:bg-white rounded-xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-transparent hover:border-indigo-100"
+                        className="p-2.5 bg-white hover:bg-indigo-50 rounded-2xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-gray-100 hover:border-indigo-100 active:scale-95"
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <h3 className="text-sm font-black text-gray-700 min-w-[150px] text-center uppercase tracking-widest">
-                        {format(viewDate, 'MMMM yyyy')}
-                    </h3>
+                    <div className="px-6 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                        <h3 className="text-sm font-black text-slate-800 min-w-[140px] text-center uppercase tracking-widest leading-none">
+                            {format(viewDate, 'MMMM yyyy')}
+                        </h3>
+                    </div>
                     <button 
                         onClick={() => setViewDate(prev => addMonths(prev, 1))}
-                        className="p-2 hover:bg-white rounded-xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-transparent hover:border-indigo-100"
+                        className="p-2.5 bg-white hover:bg-indigo-50 rounded-2xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-gray-100 hover:border-indigo-100 active:scale-95"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
-                <div className="flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Accepted</div>
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-indigo-500" /> Interview</div>
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-gray-400" /> Applied</div>
+                <div className="flex flex-wrap items-center gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-white/50 px-4 py-2 rounded-2xl border border-white/60">
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200" /> Accepted</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-indigo-500 shadow-sm shadow-indigo-200" /> Interview</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm shadow-blue-200" /> Interviewed</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-400 shadow-sm shadow-slate-100" /> Applied</div>
                 </div>
             </div>
 
             {/* Timeline Grid */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar relative" ref={timelineRef}>
+            <div className="flex-1 overflow-x-auto overflow-y-auto custom-slim-scrollbar relative" ref={timelineRef}>
                 <div className="inline-block min-w-full">
                     {/* Month Headers */}
-                    <div className="flex sticky top-0 z-20 bg-white border-b border-gray-100">
-                        <div className="w-48 shrink-0 border-r border-gray-100 bg-gray-50/80 backdrop-blur-md" />
+                    <div className="flex sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100">
+                        <div className="w-56 shrink-0 border-r border-gray-100 bg-gray-50/50" />
                         {months.map((m, i) => (
                             <div 
                                 key={i} 
-                                className="shrink-0 border-r border-gray-100 py-2 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50/80 backdrop-blur-md"
+                                className="shrink-0 border-r border-gray-100 py-3 px-4 text-[10px] font-black text-indigo-400 uppercase tracking-widest"
                                 style={{ width: m.daysCount * 40 }}
                             >
                                 {m.name}
@@ -118,15 +121,15 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                     </div>
 
                     {/* Day Headers */}
-                    <div className="flex sticky top-8 z-20 bg-white border-b border-gray-100">
-                        <div className="w-48 shrink-0 border-r border-gray-100 bg-gray-50/80 backdrop-blur-md" />
+                    <div className="flex sticky top-[41px] z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100">
+                        <div className="w-56 shrink-0 border-r border-gray-100 bg-gray-50/50" />
                         {days.map((day, i) => (
                             <div 
                                 key={i} 
-                                className={`w-10 shrink-0 border-r border-gray-50 py-2 text-center flex flex-col items-center justify-center ${isToday(day) ? 'bg-indigo-50' : ''}`}
+                                className={`w-10 shrink-0 border-r border-gray-50/50 py-2.5 text-center flex flex-col items-center justify-center ${isToday(day) ? 'bg-indigo-500/10' : ''}`}
                             >
-                                <span className={`text-[8px] font-bold uppercase ${isToday(day) ? 'text-indigo-600' : 'text-gray-400'}`}>{format(day, 'EEE')}</span>
-                                <span className={`text-[10px] font-black ${isToday(day) ? 'text-indigo-600' : 'text-gray-600'}`}>{format(day, 'd')}</span>
+                                <span className={`text-[8px] font-black uppercase mb-0.5 ${isToday(day) ? 'text-indigo-600' : 'text-slate-400'}`}>{format(day, 'EEE')}</span>
+                                <span className={`text-[11px] font-black ${isToday(day) ? 'text-indigo-600' : 'text-slate-600'}`}>{format(day, 'd')}</span>
                             </div>
                         ))}
                     </div>
@@ -134,29 +137,32 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                     {/* Intern Rows */}
                     <div className="relative">
                         {interns.length === 0 ? (
-                            <div className="p-20 text-center text-gray-400 font-bold">
-                                ไม่พบข้อมูลผู้สมัครในช่วงเวลานี้
+                            <div className="p-24 text-center">
+                                <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                                    <ChevronRight className="w-8 h-8 text-slate-200" />
+                                </div>
+                                <p className="text-sm font-black text-slate-300 uppercase tracking-widest">ไม่พบข้อมูลผู้สมัครในช่วงเวลานี้</p>
                             </div>
                         ) : (
                             interns.map((intern) => {
                                 // Calculate bar position
-                                const startIdx = days.findIndex(d => isSameDay(d, intern.startDate));
-                                const endIdx = days.findIndex(d => isSameDay(d, intern.endDate));
+                                const startIdx = days.findIndex(d => isSameDay(d, new Date(intern.startDate)));
+                                const endIdx = days.findIndex(d => isSameDay(d, new Date(intern.endDate)));
                                 
                                 // Handle cases where dates are outside the visible range
-                                const visibleStartIdx = startIdx === -1 ? (intern.startDate < days[0] ? 0 : -1) : startIdx;
-                                const visibleEndIdx = endIdx === -1 ? (intern.endDate > days[days.length-1] ? days.length-1 : -1) : endIdx;
+                                const visibleStartIdx = startIdx === -1 ? (new Date(intern.startDate) < days[0] ? 0 : -1) : startIdx;
+                                const visibleEndIdx = endIdx === -1 ? (new Date(intern.endDate) > days[days.length-1] ? days.length-1 : -1) : endIdx;
 
                                 const isVisible = visibleStartIdx !== -1 && visibleEndIdx !== -1;
 
                                 return (
-                                    <div key={intern.id} className="flex border-b border-gray-50 hover:bg-gray-50/50 transition-colors group">
+                                    <div key={intern.id} className="flex border-b border-gray-50 hover:bg-indigo-50/20 transition-colors group">
                                         {/* Intern Info Column */}
                                         <div 
-                                            className="w-48 shrink-0 p-3 border-r border-gray-100 flex items-center gap-3 sticky left-0 z-10 bg-white group-hover:bg-gray-50 transition-colors cursor-pointer"
+                                            className="w-56 shrink-0 p-3 border-r border-gray-100 flex items-center gap-3 sticky left-0 z-20 bg-white/95 backdrop-blur-sm group-hover:bg-indigo-50/40 transition-colors cursor-pointer"
                                             onClick={() => onEdit(intern)}
                                         >
-                                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-xs overflow-hidden">
+                                            <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-indigo-600 font-black text-xs overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
                                                 {intern.avatarUrl ? (
                                                     <img src={intern.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                                 ) : (
@@ -164,17 +170,17 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-xs font-black text-gray-800 truncate">{intern.fullName}</p>
-                                                <p className="text-[9px] font-bold text-gray-400 truncate uppercase tracking-tighter">{intern.position}</p>
+                                                <p className="text-xs font-black text-slate-800 truncate leading-none mb-1">{intern.fullName}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 truncate uppercase tracking-widest">{intern.position}</p>
                                             </div>
                                         </div>
 
                                         {/* Timeline Bar Area */}
-                                        <div className="flex relative h-14">
+                                        <div className="flex relative h-16">
                                             {days.map((day, i) => (
                                                 <div 
                                                     key={i} 
-                                                    className={`w-10 shrink-0 border-r border-gray-50/30 ${isToday(day) ? 'bg-indigo-50/20' : ''}`}
+                                                    className={`w-10 shrink-0 border-r border-gray-50/30 ${isToday(day) ? 'bg-indigo-500/5' : ''}`}
                                                 />
                                             ))}
 
@@ -183,7 +189,8 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                 <motion.div 
                                                     initial={{ opacity: 0, scaleX: 0 }}
                                                     animate={{ opacity: 1, scaleX: 1 }}
-                                                    className={`absolute top-1/2 -translate-y-1/2 h-6 rounded-full shadow-lg shadow-black/5 flex items-center px-3 cursor-pointer hover:brightness-110 transition-all z-0 ${getStatusColor(intern.status)}`}
+                                                    whileHover={{ scaleY: 1.1, filter: 'brightness(1.1)' }}
+                                                    className={`absolute top-1/2 -translate-y-1/2 h-7 rounded-full shadow-lg flex items-center px-4 cursor-pointer transition-all z-10 ${getStatusColor(intern.status)}`}
                                                     style={{ 
                                                         left: visibleStartIdx * 40 + 4,
                                                         width: (visibleEndIdx - visibleStartIdx + 1) * 40 - 8,
@@ -191,8 +198,8 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                     }}
                                                     onClick={() => onEdit(intern)}
                                                 >
-                                                    <span className="text-[9px] font-black text-white truncate drop-shadow-sm">
-                                                        {intern.fullName} ({differenceInDays(intern.endDate, intern.startDate) + 1} วัน)
+                                                    <span className="text-[10px] font-black text-white truncate drop-shadow-md whitespace-nowrap">
+                                                        {intern.fullName} | {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')} ({differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน)
                                                     </span>
                                                 </motion.div>
                                             )}

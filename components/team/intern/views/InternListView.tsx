@@ -3,7 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, Edit2, MoreVertical, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 interface InternListViewProps {
     interns: InternCandidate[];
@@ -100,7 +100,10 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                 <div className="flex items-center gap-2 min-w-0">
                                     <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
                                     <p className="text-[10px] font-bold text-gray-500 truncate">
-                                        {format(intern.startDate, 'd MMM')} - {format(intern.endDate, 'd MMM yy')}
+                                        {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')}
+                                        <span className="ml-1.5 text-[9px] text-indigo-500 font-black bg-white/50 px-1 rounded-md border border-indigo-100/50">
+                                            {differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน
+                                        </span>
                                     </p>
                                 </div>
                             </div>

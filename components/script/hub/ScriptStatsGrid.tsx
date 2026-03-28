@@ -96,9 +96,15 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
         history: 0
     });
     const [isLoading, setIsLoading] = useState(false);
+    const statsRef = useRef(stats);
 
-    const fetchStats = useCallback(async () => {
-        setIsLoading(true);
+    // Keep ref in sync for realtime logic
+    useEffect(() => {
+        statsRef.current = stats;
+    }, [stats]);
+
+    const fetchStats = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             // Base filter helper
             const applyFilters = (query: any) => {
@@ -175,21 +181,78 @@ const ScriptStatsGrid: React.FC<ScriptStatsGridProps> = React.memo(({
         return () => clearTimeout(timer);
     }, [fetchStats, refreshTrigger]); // ADDED refreshTrigger
 
+    // Helper to check if a script matches current filters for local patching
+    const matchesFilters = useCallback((item: any) => {
+        // 1. Personal check
+        if (isPersonal !== undefined) {
+            if (item.is_personal !== isPersonal) return false;
+            if (isPersonal && currentUser && item.author_id !== currentUser.id) return false;
+        }
+
+        // 2. Owner check (author or idea owner)
+        if (filterOwner.length > 0) {
+            const isAuthor = filterOwner.includes(item.author_id);
+            const isIdeaOwner = filterOwner.includes(item.idea_owner_id);
+            if (!isAuthor && !isIdeaOwner) return false;
+        }
+
+        // 3. Channel check
+        if (filterChannel.length > 0 && !filterChannel.includes(item.channel_id)) return false;
+
+        // 4. Category check
+        if (filterCategory !== 'ALL' && item.category !== filterCategory) return false;
+
+        // 5. Tags check (contains all selected tags)
+        if (filterTags.length > 0) {
+            const itemTags = item.tags || [];
+            if (!filterTags.every(tag => itemTags.includes(tag))) return false;
+        }
+
+        // 6. Search query check (simplified for local patching)
+        if (searchQuery) {
+            const searchLower = searchQuery.toLowerCase();
+            const titleMatch = item.title?.toLowerCase().includes(searchLower);
+            const contentMatch = isDeepSearch && item.content?.toLowerCase().includes(searchLower);
+            const tagsMatch = item.tags?.some((t: string) => t.toLowerCase().includes(searchLower));
+            if (!titleMatch && !contentMatch && !tagsMatch) return false;
+        }
+
+        return true;
+    }, [filterOwner, filterChannel, filterCategory, filterTags, searchQuery, isDeepSearch, isPersonal, currentUser]);
+
     // Real-time subscription for stats - Stable subscription
     useEffect(() => {
         const channel = supabase
             .channel('script-stats-grid-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scripts' }, () => {
-                // Trigger the debounced fetch instead of immediate call
-                // We can't easily trigger the setTimeout above, so we just call fetchStats
-                // but since fetchStats is stable via useCallback, it's okay.
-                // To be even safer, we could use a state-based trigger.
-                fetchStatsRef.current();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scripts' }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    const newItem = payload.new;
+                    if (matchesFilters(newItem)) {
+                        setStats(prev => {
+                            const next = { ...prev };
+                            if (newItem.is_in_shoot_queue) {
+                                next.queue++;
+                            } else if (newItem.status === 'DONE') {
+                                next.history++;
+                            } else {
+                                next.library++;
+                                if (newItem.status === 'DRAFT') {
+                                    next.drafts++;
+                                }
+                            }
+                            return next;
+                        });
+                    }
+                } else {
+                    // For UPDATE and DELETE, we do a silent background refresh to ensure accuracy
+                    // without showing the loading state (flicker)
+                    fetchStatsRef.current(true);
+                }
             })
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, []); // Empty dependency array makes subscription stable
+    }, [matchesFilters]); // Re-subscribe when filters change to ensure matchesFilters is fresh
 
     return (
         <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300 ${isLoading ? 'opacity-60' : 'opacity-100'}`}>

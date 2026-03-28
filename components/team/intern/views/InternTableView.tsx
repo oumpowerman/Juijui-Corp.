@@ -3,7 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 interface InternTableViewProps {
     interns: InternCandidate[];
@@ -11,9 +11,13 @@ interface InternTableViewProps {
     onDelete: (id: string) => void;
     onUpdateStatus: (id: string, status: InternStatus) => void;
     isLoading: boolean;
+    hasMore?: boolean;
+    onLoadMore?: () => void;
 }
 
-const InternTableView: React.FC<InternTableViewProps> = ({ interns, onEdit, onDelete, onUpdateStatus, isLoading }) => {
+const InternTableView: React.FC<InternTableViewProps> = ({ 
+    interns, onEdit, onDelete, onUpdateStatus, isLoading, hasMore, onLoadMore 
+}) => {
     const getStatusBadge = (status: InternStatus) => {
         switch (status) {
             case 'ACCEPTED':
@@ -116,8 +120,11 @@ const InternTableView: React.FC<InternTableViewProps> = ({ interns, onEdit, onDe
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-3.5 h-3.5 text-gray-300" />
-                                                <span className="text-[11px] font-bold text-gray-500">
-                                                    {format(intern.startDate, 'd MMM')} - {format(intern.endDate, 'd MMM yy')}
+                                                <span className="text-[11px] font-bold text-gray-500 whitespace-nowrap">
+                                                    {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')}
+                                                    <span className="ml-1.5 text-[10px] text-indigo-400 font-black bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                                                        ({differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน)
+                                                    </span>
                                                 </span>
                                             </div>
                                         </td>
@@ -156,9 +163,22 @@ const InternTableView: React.FC<InternTableViewProps> = ({ interns, onEdit, onDe
                     </tbody>
                 </table>
             </div>
+            {hasMore && !isLoading && (
+                <div className="p-4 text-center border-t border-gray-50 bg-gray-50/30">
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLoadMore?.();
+                        }}
+                        className="px-6 py-2 bg-white border border-gray-200 rounded-xl text-xs font-black text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm"
+                    >
+                        ดูเพิ่มเติม
+                    </button>
+                </div>
+            )}
             {isLoading && (
-                <div className="py-4 text-center border-t border-gray-50">
-                    <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+                <div className="py-6 text-center border-t border-gray-50 bg-gray-50/30">
+                    <div className="w-6 h-6 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
                 </div>
             )}
         </div>

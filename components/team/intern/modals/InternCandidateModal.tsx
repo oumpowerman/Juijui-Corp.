@@ -11,6 +11,7 @@ import UniversityAutocomplete from './form-components/UniversityAutocomplete';
 import DriveImageUpload from './form-components/DriveImageUpload';
 import FormSection from './form-components/FormSection';
 import FilterDropdown from '../../../common/FilterDropdown';
+import { Sparkles } from 'lucide-react';
 
 interface InternCandidateModalProps {
     isOpen: boolean;
@@ -23,13 +24,17 @@ interface InternCandidateModalProps {
 const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onClose, onSave, intern, allInterns = [] }) => {
     const [formData, setFormData] = useState<Partial<InternCandidate>>({
         fullName: '',
+        nickname: '',
         email: '',
         phoneNumber: '',
         university: '',
+        faculty: '',
+        academicYear: '',
         portfolioUrl: '',
         avatarUrl: '',
         gender: 'OTHER',
         position: '',
+        source: '',
         startDate: new Date(),
         endDate: new Date(),
         status: 'APPLIED',
@@ -90,206 +95,288 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                        className="relative w-full max-w-2xl bg-gray-50 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-white"
                     >
-                        {/* Header */}
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-purple-50">
+                        {/* Header - Clean & Professional */}
+                        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                                    <GraduationCap className="w-6 h-6 text-indigo-600" />
+                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100">
+                                    <GraduationCap className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
+                                    <h2 className="text-lg font-black text-gray-900 tracking-tight">
                                         {intern ? 'แก้ไขข้อมูลผู้สมัคร' : 'เพิ่มผู้สมัครฝึกงาน'}
                                     </h2>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Intern Candidate Details</p>
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internship Application Form</p>
                                 </div>
                             </div>
                             <button 
                                 type="button"
                                 onClick={onClose} 
-                                className="p-2 hover:bg-white rounded-xl text-gray-400 transition-all shadow-sm border border-transparent hover:border-gray-200"
+                                className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-400 transition-all"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Form Content */}
-                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                            {/* Profile Image & Basic Info */}
-                            <div className="flex flex-col md:flex-row gap-8 items-start">
-                                <DriveImageUpload 
-                                    value={formData.avatarUrl || ''} 
-                                    onChange={url => setFormData({ ...formData, avatarUrl: url })} 
-                                />
-
-                                <div className="flex-1 w-full space-y-6">
-                                    <FormSection title="ข้อมูลส่วนตัว" icon={User} colorClass="text-indigo-600">
-                                        <div className="space-y-2 md:col-span-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">ชื่อ-นามสกุล</label>
-                                            <div className="relative">
-                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        {/* Form Content - Compact Stacked Blocks */}
+                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                            
+                            {/* Block 1: Profile & Identity */}
+                            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                                <div className="flex flex-col sm:flex-row gap-8 items-start">
+                                    <div className="shrink-0 mx-auto sm:mx-0">
+                                        <DriveImageUpload 
+                                            value={formData.avatarUrl || ''} 
+                                            onChange={url => setFormData({ ...formData, avatarUrl: url })} 
+                                        />
+                                    </div>
+                                    <div className="flex-1 w-full space-y-5">
+                                        <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-4">
+                                            <div className="p-2 bg-indigo-50 rounded-lg">
+                                                <User className="w-4 h-4 text-indigo-600" />
+                                            </div>
+                                            <h3 className="text-base font-bold text-gray-800">ข้อมูลส่วนตัว</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-bold text-gray-600 ml-1">ชื่อ-นามสกุล</label>
                                                 <input 
                                                     required
                                                     type="text"
-                                                    className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
+                                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
                                                     value={formData.fullName}
                                                     onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                                                     placeholder="ชื่อจริง - นามสกุล"
                                                 />
                                             </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-bold text-gray-600 ml-1">ชื่อเล่น</label>
+                                                <input 
+                                                    type="text"
+                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
+                                                    value={formData.nickname}
+                                                    onChange={e => setFormData({ ...formData, nickname: e.target.value })}
+                                                    placeholder="ชื่อเล่น"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-2 md:col-span-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">เพศ</label>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-600 ml-1">เพศ</label>
                                             <GenderSelector 
                                                 value={formData.gender || 'OTHER'} 
                                                 onChange={val => setFormData({ ...formData, gender: val })} 
                                             />
                                         </div>
-                                    </FormSection>
+                                    </div>
                                 </div>
                             </div>
 
-                            <FormSection title="ข้อมูลติดต่อ" icon={Mail} colorClass="text-blue-600">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">อีเมล</label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            {/* Block 2: Contact Info - Sky Blue Tint */}
+                            <div className="bg-blue-50/30 rounded-2xl p-6 border border-blue-100 shadow-sm">
+                                <div className="flex items-center gap-3 mb-5 border-l-4 border-blue-500 pl-4">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <Mail className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <h3 className="text-base font-bold text-gray-800">ข้อมูลติดต่อ</h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">อีเมล</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <input 
+                                                required
+                                                type="email"
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.email}
+                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                placeholder="example@email.com"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">เบอร์โทรศัพท์</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <input 
+                                                required
+                                                type="tel"
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.phoneNumber}
+                                                onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                placeholder="08x-xxx-xxxx"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Block 3: Education & Application - Violet Tint */}
+                            <div className="bg-purple-50/30 rounded-2xl p-6 border border-purple-100 shadow-sm">
+                                <div className="flex items-center gap-3 mb-5 border-l-4 border-purple-500 pl-4">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <GraduationCap className="w-4 h-4 text-purple-600" />
+                                    </div>
+                                    <h3 className="text-base font-bold text-gray-800">การศึกษาและตำแหน่ง</h3>
+                                </div>
+                                <div className="space-y-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">มหาวิทยาลัย / สถาบัน</label>
+                                        <UniversityAutocomplete 
+                                            value={formData.university || ''} 
+                                            onChange={val => setFormData({ ...formData, university: val })} 
+                                            suggestions={uniqueUniversities}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-600 ml-1">คณะ</label>
+                                            <input 
+                                                type="text"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.faculty || ''}
+                                                onChange={e => setFormData({ ...formData, faculty: e.target.value })}
+                                                placeholder="คณะ..."
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-600 ml-1">ชั้นปี</label>
+                                            <input 
+                                                type="text"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.academicYear || ''}
+                                                onChange={e => setFormData({ ...formData, academicYear: e.target.value })}
+                                                placeholder="ปี 3, ปี 4..."
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_0.6fr] gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-600 ml-1">ตำแหน่งที่สมัคร</label>
+                                            <PositionSelector 
+                                                value={formData.position || ''} 
+                                                onChange={val => setFormData({ ...formData, position: val })} 
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-600 ml-1">แหล่งที่มา</label>
+                                            <input 
+                                                type="text"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.source || ''}
+                                                onChange={e => setFormData({ ...formData, source: e.target.value })}
+                                                placeholder="Facebook..."
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">Link Portfolio / Resume</label>
+                                        <div className="relative">
+                                            <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <input 
+                                                type="url"
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                value={formData.portfolioUrl}
+                                                onChange={e => setFormData({ ...formData, portfolioUrl: e.target.value })}
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Block 4: Timeline & Status - Emerald Tint */}
+                            <div className="bg-emerald-50/30 rounded-2xl p-6 border border-emerald-100 shadow-sm">
+                                <div className="flex items-center gap-3 mb-5 border-l-4 border-emerald-500 pl-4">
+                                    <div className="p-2 bg-emerald-100 rounded-lg">
+                                        <Calendar className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                    <h3 className="text-base font-bold text-gray-800">ระยะเวลาและสถานะ</h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">วันที่เริ่มฝึกงาน</label>
                                         <input 
                                             required
-                                            type="email"
-                                            className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                            value={formData.email}
-                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                            placeholder="example@email.com"
+                                            type="date"
+                                            className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                            value={formData.startDate ? format(formData.startDate, 'yyyy-MM-dd') : ''}
+                                            onChange={e => setFormData({ ...formData, startDate: new Date(e.target.value) })}
                                         />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">เบอร์โทรศัพท์</label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">วันที่จบการฝึกงาน</label>
                                         <input 
                                             required
-                                            type="tel"
-                                            className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                            value={formData.phoneNumber}
-                                            onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
-                                            placeholder="08x-xxx-xxxx"
+                                            type="date"
+                                            className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                            value={formData.endDate ? format(formData.endDate, 'yyyy-MM-dd') : ''}
+                                            onChange={e => setFormData({ ...formData, endDate: new Date(e.target.value) })}
                                         />
                                     </div>
-                                </div>
-                            </FormSection>
-
-                            <FormSection title="การศึกษาและผลงาน" icon={GraduationCap} colorClass="text-purple-600">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">มหาวิทยาลัย / สถาบัน</label>
-                                    <UniversityAutocomplete 
-                                        value={formData.university || ''} 
-                                        onChange={val => setFormData({ ...formData, university: val })} 
-                                        suggestions={uniqueUniversities}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">ตำแหน่งที่สมัคร</label>
-                                    <PositionSelector 
-                                        value={formData.position || ''} 
-                                        onChange={val => setFormData({ ...formData, position: val })} 
-                                    />
-                                </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Link Portfolio / Resume</label>
-                                    <div className="relative">
-                                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">สถานะปัจจุบัน</label>
+                                        <FilterDropdown 
+                                            label="สถานะ"
+                                            value={formData.status || 'APPLIED'}
+                                            options={[
+                                                { key: 'APPLIED', label: 'สมัครเข้ามา (Applied)' },
+                                                { key: 'INTERVIEW_SCHEDULED', label: 'นัดสัมภาษณ์แล้ว (Scheduled)' },
+                                                { key: 'INTERVIEWED', label: 'สัมภาษณ์แล้ว (Interviewed)' },
+                                                { key: 'ACCEPTED', label: 'รับเข้าฝึกงาน (Accepted)' },
+                                                { key: 'REJECTED', label: 'ไม่ผ่านการคัดเลือก (Rejected)' },
+                                                { key: 'ARCHIVED', label: 'ย้ายไปที่เก็บถาวร (Archived)' },
+                                            ]}
+                                            onChange={val => setFormData({ ...formData, status: val as InternStatus })}
+                                            icon={<BarChart3 className="w-4 h-4" />}
+                                            showAllOption={false}
+                                            clearable={false}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-bold text-gray-600 ml-1">วันนัดสัมภาษณ์ (ถ้ามี)</label>
                                         <input 
-                                            type="url"
-                                            className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                            value={formData.portfolioUrl}
-                                            onChange={e => setFormData({ ...formData, portfolioUrl: e.target.value })}
-                                            placeholder="https://..."
+                                            type="datetime-local"
+                                            className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                            value={formData.interviewDate ? format(formData.interviewDate, "yyyy-MM-dd'T'HH:mm") : ''}
+                                            onChange={e => setFormData({ ...formData, interviewDate: e.target.value ? new Date(e.target.value) : null })}
                                         />
                                     </div>
                                 </div>
-                            </FormSection>
+                            </div>
 
-                            <FormSection title="ระยะเวลาและสถานะ" icon={Calendar} colorClass="text-emerald-600">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">วันที่เริ่มฝึกงาน</label>
-                                    <input 
-                                        required
-                                        type="date"
-                                        className="w-full px-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                        value={formData.startDate ? format(formData.startDate, 'yyyy-MM-dd') : ''}
-                                        onChange={e => setFormData({ ...formData, startDate: new Date(e.target.value) })}
-                                    />
+                            {/* Block 5: Notes - Amber Tint */}
+                            <div className="bg-amber-50/30 rounded-2xl p-6 border border-amber-100 shadow-sm">
+                                <div className="flex items-center gap-3 mb-4 border-l-4 border-amber-500 pl-4">
+                                    <div className="p-2 bg-amber-100 rounded-lg">
+                                        <MessageSquare className="w-4 h-4 text-amber-600" />
+                                    </div>
+                                    <h3 className="text-base font-bold text-gray-800">บันทึกเพิ่มเติม</h3>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">วันที่จบการฝึกงาน</label>
-                                    <input 
-                                        required
-                                        type="date"
-                                        className="w-full px-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                        value={formData.endDate ? format(formData.endDate, 'yyyy-MM-dd') : ''}
-                                        onChange={e => setFormData({ ...formData, endDate: new Date(e.target.value) })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">สถานะปัจจุบัน</label>
-                                    <FilterDropdown 
-                                        label="สถานะ"
-                                        value={formData.status || 'APPLIED'}
-                                        options={[
-                                            { key: 'APPLIED', label: 'สมัครเข้ามา (Applied)' },
-                                            { key: 'INTERVIEW_SCHEDULED', label: 'นัดสัมภาษณ์แล้ว (Scheduled)' },
-                                            { key: 'INTERVIEWED', label: 'สัมภาษณ์แล้ว (Interviewed)' },
-                                            { key: 'ACCEPTED', label: 'รับเข้าฝึกงาน (Accepted)' },
-                                            { key: 'REJECTED', label: 'ไม่ผ่านการคัดเลือก (Rejected)' },
-                                            { key: 'ARCHIVED', label: 'ย้ายไปที่เก็บถาวร (Archived)' },
-                                        ]}
-                                        onChange={val => setFormData({ ...formData, status: val as InternStatus })}
-                                        icon={<BarChart3 className="w-4 h-4" />}
-                                        showAllOption={false}
-                                        clearable={false}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">วันนัดสัมภาษณ์ (ถ้ามี)</label>
-                                    <input 
-                                        type="datetime-local"
-                                        className="w-full px-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
-                                        value={formData.interviewDate ? format(formData.interviewDate, "yyyy-MM-dd'T'HH:mm") : ''}
-                                        onChange={e => setFormData({ ...formData, interviewDate: e.target.value ? new Date(e.target.value) : null })}
-                                    />
-                                </div>
-                            </FormSection>
-
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-amber-600 uppercase tracking-widest flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4" /> บันทึกเพิ่มเติม
-                                </h3>
                                 <textarea 
-                                    className="w-full px-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all min-h-[120px] shadow-sm"
+                                    className="w-full px-4 py-3 bg-white border border-amber-100 focus:border-amber-300 rounded-xl text-sm font-medium outline-none transition-all min-h-[100px]"
                                     value={formData.notes}
                                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                    placeholder="รายละเอียดเพิ่มเติมจากการสัมภาษณ์ หรือบันทึกจากทีมงาน..."
+                                    placeholder="รายละเอียดเพิ่มเติม..."
                                 />
                             </div>
                         </form>
 
-                        {/* Footer Actions */}
-                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                        {/* Footer - Sticky */}
+                        <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end items-center gap-3">
                             <button 
                                 type="button"
                                 onClick={onClose}
-                                className="px-6 py-3 rounded-2xl text-sm font-bold text-gray-500 hover:bg-white hover:text-gray-700 transition-all border border-transparent hover:border-gray-200"
+                                className="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all"
                             >
                                 ยกเลิก
                             </button>
                             <button 
                                 onClick={handleSubmit}
-                                className="flex items-center gap-2 px-10 py-4 bg-indigo-600 text-white rounded-2xl text-base font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
+                                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
                             >
-                                <Save className="w-5 h-5" />
+                                <Save className="w-4 h-4" />
                                 บันทึกข้อมูล
                             </button>
                         </div>

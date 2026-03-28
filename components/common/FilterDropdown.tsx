@@ -9,40 +9,76 @@ interface FilterOption {
     icon?: string | React.ReactNode;
 }
 
-interface FilterDropdownProps {
+type FilterDropdownProps = {
     label: string;
-    value: string;
     options: FilterOption[];
-    onChange: (value: string) => void;
     icon?: React.ReactNode;
     activeColorClass?: string; // e.g., 'bg-pink-50 border-pink-200 text-pink-700'
     placeholder?: string;
     showAllOption?: boolean;
     clearable?: boolean;
-}
+} & (
+    | { multiSelect?: false; value: string; onChange: (value: string) => void }
+    | { multiSelect: true; value: string[]; onChange: (value: string[]) => void }
+);
 
-const FilterDropdown: React.FC<FilterDropdownProps> = ({
-    label,
-    value,
-    options,
-    onChange,
-    icon,
-    activeColorClass = 'bg-indigo-50 border-indigo-200 text-indigo-700',
-    placeholder = 'ทั้งหมด',
-    showAllOption = true,
-    clearable = true
-}) => {
+const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
+    const {
+        label,
+        options,
+        icon,
+        activeColorClass = 'bg-indigo-50 border-indigo-200 text-indigo-700',
+        placeholder = 'ทั้งหมด',
+        showAllOption = true,
+        clearable = true,
+        multiSelect = false
+    } = props;
+
+    const value = props.value;
+    const onChange = props.onChange;
+
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const selectedOption = options.find(opt => opt.key === value);
-    const isActive = value !== 'ALL';
+    const isMulti = Array.isArray(value);
+    const isActive = isMulti ? value.length > 0 : value !== 'ALL';
+
+    const selectedOptions = isMulti 
+        ? options.filter(opt => (value as string[]).includes(opt.key))
+        : options.find(opt => opt.key === value);
 
     const filteredOptions = options.filter(opt => 
         opt.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const handleSelect = (key: string) => {
+        if (multiSelect && props.multiSelect) {
+            const currentValues = Array.isArray(value) ? value : [];
+            const newValues = currentValues.includes(key)
+                ? currentValues.filter(v => v !== key)
+                : [...currentValues, key];
+            (onChange as (v: string[]) => void)(newValues);
+        } else {
+            (onChange as (v: string) => void)(key);
+            setIsOpen(false);
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (multiSelect && props.multiSelect) {
+            (onChange as (v: string[]) => void)(options.map(opt => opt.key));
+        }
+    };
+
+    const handleClearAll = () => {
+        if (multiSelect && props.multiSelect) {
+            (onChange as (v: string[]) => void)([]);
+        } else {
+            (onChange as (v: string) => void)('ALL');
+        }
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -60,12 +96,22 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
         }
     }, [isOpen]);
 
+    const getDisplayLabel = () => {
+        if (!isActive) return label;
+        if (multiSelect && Array.isArray(value)) {
+            if (value.length === options.length) return `ทั้งหมด (${value.length})`;
+            if (value.length > 1) return `${label} (${value.length})`;
+            return options.find(opt => opt.key === value[0])?.label || label;
+        }
+        return (selectedOptions as FilterOption)?.label || label;
+    };
+
     return (
         <div className="relative" ref={dropdownRef}>
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                title={isActive ? selectedOption?.label : label}
+                title={getDisplayLabel()}
                 className={`
                     flex items-center justify-between px-5 py-3.5 border rounded-2xl text-sm font-black transition-all active:scale-95 w-full
                     ${isActive 
@@ -80,13 +126,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                         </span>
                     )}
                     <span className="truncate tracking-tight">
-                        {isActive ? selectedOption?.label : `${label}`}
+                        {getDisplayLabel()}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
                     {isActive && clearable && (
                         <div 
-                            onClick={(e) => { e.stopPropagation(); onChange('ALL'); }}
+                            onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
                             className="p-1 hover:bg-black/5 rounded-full transition-colors"
                         >
                             <X className="w-3 h-3 text-slate-400" />
@@ -121,12 +167,29 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                             <span>เลือก {label}</span>
                             <span className="text-[9px] opacity-60">{filteredOptions.length} รายการ</span>
                         </div>
+
+                        {multiSelect && (
+                            <div className="flex gap-1 mb-2 px-1">
+                                <button 
+                                    onClick={handleSelectAll}
+                                    className="flex-1 py-2 text-[9px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors uppercase tracking-widest"
+                                >
+                                    เลือกทั้งหมด
+                                </button>
+                                <button 
+                                    onClick={handleClearAll}
+                                    className="flex-1 py-2 text-[9px] font-black text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors uppercase tracking-widest"
+                                >
+                                    ล้างทั้งหมด
+                                </button>
+                            </div>
+                        )}
                         
-                        <div className="max-h-[280px] overflow-y-auto scrollbar-hide space-y-1">
-                            {searchQuery === '' && showAllOption && (
+                        <div className="max-h-[280px] overflow-y-auto custom-slim-scrollbar space-y-1 pr-1">
+                            {!multiSelect && searchQuery === '' && showAllOption && (
                                 <button
                                     type="button"
-                                    onClick={() => { onChange('ALL'); setIsOpen(false); }}
+                                    onClick={() => { (onChange as (v: string) => void)('ALL'); setIsOpen(false); }}
                                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${value === 'ALL' ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-500'}`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -137,26 +200,32 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
                                 </button>
                             )}
 
-                            {filteredOptions.map((opt) => (
-                                <button
-                                    type="button"
-                                    key={opt.key}
-                                    onClick={() => { onChange(opt.key); setIsOpen(false); }}
-                                    className={`w-full flex items-start justify-between px-4 py-3 rounded-xl transition-all text-left group ${value === opt.key ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        {opt.icon ? (
-                                            <span className={`mt-0.5 ${value === opt.key ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`}>
-                                                {opt.icon}
-                                            </span>
-                                        ) : (
-                                            <div className={`w-2 h-2 rounded-full mt-2 ${value === opt.key ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-400'} transition-colors`} />
-                                        )}
-                                        <span className="text-sm leading-tight tracking-tight">{opt.label}</span>
-                                    </div>
-                                    {value === opt.key && <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-                                </button>
-                            ))}
+                            {filteredOptions.map((opt) => {
+                                const isSelected = multiSelect 
+                                    ? (Array.isArray(value) && value.includes(opt.key))
+                                    : value === opt.key;
+
+                                return (
+                                    <button
+                                        type="button"
+                                        key={opt.key}
+                                        onClick={() => handleSelect(opt.key)}
+                                        className={`w-full flex items-start justify-between px-4 py-3 rounded-xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {opt.icon ? (
+                                                <span className={`mt-0.5 ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`}>
+                                                    {opt.icon}
+                                                </span>
+                                            ) : (
+                                                <div className={`w-2 h-2 rounded-full mt-2 ${isSelected ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-400'} transition-colors`} />
+                                            )}
+                                            <span className="text-sm leading-tight tracking-tight">{opt.label}</span>
+                                        </div>
+                                        {isSelected && <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                                    </button>
+                                );
+                            })}
 
                             {filteredOptions.length === 0 && (
                                 <div className="py-8 text-center">

@@ -16,15 +16,21 @@ export const useInterns = (enabled: boolean = true) => {
     const mapDBToIntern = useCallback((data: any): InternCandidate => ({
         id: data.id,
         fullName: data.full_name,
+        nickname: data.nickname,
         email: data.email,
         phoneNumber: data.phone_number,
         university: data.university,
+        faculty: data.faculty,
+        academicYear: data.academic_year,
         portfolioUrl: data.portfolio_url,
         avatarUrl: data.avatar_url,
         gender: data.gender,
         position: data.position,
+        source: data.source,
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),
+        durationDays: data.duration_days,
+        applicationDate: data.application_date ? new Date(data.application_date) : undefined,
         status: data.status as InternStatus,
         interviewDate: data.interview_date ? new Date(data.interview_date) : null,
         notes: data.notes || '',
@@ -122,15 +128,21 @@ export const useInterns = (enabled: boolean = true) => {
 
             const payload = {
                 full_name: intern.fullName,
+                nickname: intern.nickname,
                 email: intern.email,
                 phone_number: intern.phoneNumber,
                 university: intern.university,
+                faculty: intern.faculty,
+                academic_year: intern.academicYear,
                 portfolio_url: intern.portfolioUrl,
                 avatar_url: intern.avatarUrl,
                 gender: intern.gender,
                 position: intern.position,
+                source: intern.source,
                 start_date: intern.startDate?.toISOString(),
                 end_date: intern.endDate?.toISOString(),
+                duration_days: intern.durationDays,
+                application_date: intern.applicationDate?.toISOString(),
                 status: intern.status || 'APPLIED',
                 interview_date: intern.interviewDate?.toISOString() || null,
                 notes: intern.notes,
@@ -150,15 +162,21 @@ export const useInterns = (enabled: boolean = true) => {
         try {
             const payload: any = {};
             if (updates.fullName !== undefined) payload.full_name = updates.fullName;
+            if (updates.nickname !== undefined) payload.nickname = updates.nickname;
             if (updates.email !== undefined) payload.email = updates.email;
             if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
             if (updates.university !== undefined) payload.university = updates.university;
+            if (updates.faculty !== undefined) payload.faculty = updates.faculty;
+            if (updates.academicYear !== undefined) payload.academic_year = updates.academicYear;
             if (updates.portfolioUrl !== undefined) payload.portfolio_url = updates.portfolioUrl;
             if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
             if (updates.gender !== undefined) payload.gender = updates.gender;
             if (updates.position !== undefined) payload.position = updates.position;
+            if (updates.source !== undefined) payload.source = updates.source;
             if (updates.startDate !== undefined) payload.start_date = updates.startDate?.toISOString();
             if (updates.endDate !== undefined) payload.end_date = updates.endDate?.toISOString();
+            if (updates.durationDays !== undefined) payload.duration_days = updates.durationDays;
+            if (updates.applicationDate !== undefined) payload.application_date = updates.applicationDate?.toISOString();
             if (updates.status !== undefined) payload.status = updates.status;
             if (updates.interviewDate !== undefined) payload.interview_date = updates.interviewDate?.toISOString() || null;
             if (updates.notes !== undefined) payload.notes = updates.notes;

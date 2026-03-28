@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Calendar, List, Search, Filter, X, GraduationCap, Briefcase, UserPlus, Trash2, Sparkles, CalendarDays } from 'lucide-react';
+import { Plus, Calendar, List, Search, Filter, X, GraduationCap, Briefcase, UserPlus, Trash2, Sparkles, CalendarDays, Upload } from 'lucide-react';
 import { useInterns } from '../../../hooks/useInterns';
 import { InternCandidate, InternStatus } from '../../../types';
 import InternTimeline from './views/InternTimeline';
@@ -10,6 +10,12 @@ import InternTableView from './views/InternTableView';
 import InternCalendarView from './views/InternCalendarView';
 import InternCandidateModal from './modals/InternCandidateModal';
 import InternDetailModal from './modals/InternDetailModal';
+import InternImportModal from './modals/InternImportModal';
+import { useToast } from '../../../context/ToastContext';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import FilterDropdown from '../../common/FilterDropdown';
+import { CheckCircle2, Clock, XCircle, Trash2 as TrashIcon, User as UserIcon, Inbox } from 'lucide-react';
+import InternStatsGrid from './InternStatsGrid';
 
 interface InternManagementViewProps {
     interns: InternCandidate[];
@@ -28,13 +34,25 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
 }) => {
     const [viewMode, setViewMode] = useState<'LIST' | 'TABLE' | 'TIMELINE' | 'CALENDAR'>('LIST');
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<InternStatus | 'ALL'>('ALL');
+    const [statusFilter, setStatusFilter] = useState<InternStatus[]>([]);
     const [showArchived, setShowArchived] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const { showToast } = useToast();
     const [returnToDetail, setReturnToDetail] = useState(false);
     const [selectedIntern, setSelectedIntern] = useState<InternCandidate | undefined>(undefined);
     const [viewingIntern, setViewingIntern] = useState<InternCandidate | null>(null);
+    const { showConfirm } = useGlobalDialog();
+
+    const statusOptions = [
+        { key: 'APPLIED', label: 'สมัครเข้ามา', icon: <Inbox className="w-4 h-4" /> },
+        { key: 'INTERVIEW_SCHEDULED', label: 'นัดสัมภาษณ์แล้ว', icon: <Clock className="w-4 h-4" /> },
+        { key: 'INTERVIEWED', label: 'สัมภาษณ์แล้ว', icon: <UserIcon className="w-4 h-4" /> },
+        { key: 'ACCEPTED', label: 'รับเข้าฝึกงาน', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { key: 'REJECTED', label: 'ไม่ผ่านการคัดเลือก', icon: <XCircle className="w-4 h-4" /> },
+        { key: 'ARCHIVED', label: 'เก็บถาวร', icon: <TrashIcon className="w-4 h-4" /> },
+    ];
 
     const filteredInterns = useMemo(() => {
         return interns.filter(i => {
@@ -42,11 +60,11 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                                  i.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                  i.position.toLowerCase().includes(searchQuery.toLowerCase());
             
-            // If statusFilter is ALL, we show everything except ARCHIVED unless showArchived is true
-            // If statusFilter is specific, we show that specific status
-            const matchesStatus = statusFilter === 'ALL' 
-                ? (showArchived ? true : i.status !== 'ARCHIVED')
-                : i.status === statusFilter;
+            // If statusFilter is empty, we show everything except ARCHIVED and REJECTED unless showArchived is true
+            // If statusFilter has values, we show those specific statuses
+            const matchesStatus = statusFilter.length === 0 
+                ? (showArchived ? true : (i.status !== 'ARCHIVED' && i.status !== 'REJECTED'))
+                : statusFilter.includes(i.status);
 
             return matchesSearch && matchesStatus;
         });
@@ -89,6 +107,38 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
         refresh();
     };
 
+    const handleImportInterns = async (data: Partial<InternCandidate>[]) => {
+        try {
+            // We can do bulk import if we update useInterns, but for now we'll do it sequentially or in parallel
+            // Since useInterns.addIntern handles one at a time, we'll map them
+            const promises = data.map(item => addIntern(item));
+            await Promise.all(promises);
+            showToast(`นำเข้าข้อมูลสำเร็จ ${data.length} รายการ ✨`, 'success');
+            refresh();
+        } catch (err: any) {
+            showToast('การนำเข้าบางรายการล้มเหลว: ' + err.message, 'error');
+        }
+    };
+
+    const handleDeleteIntern = async (id: string) => {
+        const intern = interns.find(i => i.id === id);
+        if (!intern) return;
+
+        const confirmed = await showConfirm(
+            `คุณแน่ใจหรือไม่ที่จะลบข้อมูลของ "${intern.fullName}"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`,
+            'ยืนยันการลบข้อมูล'
+        );
+
+        if (confirmed) {
+            try {
+                await deleteIntern(id);
+                showToast('ลบข้อมูลสำเร็จ', 'success');
+            } catch (err: any) {
+                showToast('ลบข้อมูลล้มเหลว: ' + err.message, 'error');
+            }
+        }
+    };
+
     const handleViewModeChange = (mode: 'LIST' | 'TABLE' | 'TIMELINE' | 'CALENDAR') => {
         setViewMode(mode);
     };
@@ -96,7 +146,7 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header & Controls */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white/80 backdrop-blur-xl p-4 rounded-[2rem] border border-white/40 shadow-xl shadow-indigo-500/5">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white/80 backdrop-blur-xl p-4 rounded-[2rem] border border-white/40 shadow-xl shadow-indigo-500/5 relative z-50">
                 <div className="flex items-center gap-4">
                     <motion.div 
                         whileHover={{ scale: 1.1, rotate: [0, -10, 10, 0] }}
@@ -187,19 +237,17 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                     </div>
 
                     {/* Status Filter */}
-                    <select 
-                        className="px-4 py-2.5 bg-gray-50/50 border border-gray-200/60 rounded-xl text-xs font-bold outline-none focus:bg-white focus:border-indigo-200 transition-all"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as InternStatus | 'ALL')}
-                    >
-                        <option value="ALL">ทุกสถานะ</option>
-                        <option value="APPLIED">สมัครเข้ามา</option>
-                        <option value="INTERVIEW_SCHEDULED">นัดสัมภาษณ์แล้ว</option>
-                        <option value="INTERVIEWED">สัมภาษณ์แล้ว</option>
-                        <option value="ACCEPTED">รับเข้าฝึกงาน</option>
-                        <option value="REJECTED">ไม่ผ่านการคัดเลือก</option>
-                        <option value="ARCHIVED">เก็บถาวร</option>
-                    </select>
+                    <div className="w-full sm:w-64">
+                        <FilterDropdown 
+                            label="สถานะ"
+                            value={statusFilter}
+                            options={statusOptions}
+                            onChange={(val) => setStatusFilter(val as InternStatus[])}
+                            icon={<Filter className="w-4 h-4" />}
+                            activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700"
+                            multiSelect={true}
+                        />
+                    </div>
 
                     {/* Show Archived Toggle */}
                     <button 
@@ -212,17 +260,31 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                     </button>
 
                     {/* Add Button */}
-                    <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleAddClick}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        <span>เพิ่มผู้สมัคร</span>
-                    </motion.button>
+                    <div className="flex items-center gap-2">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 border border-indigo-200 rounded-xl text-xs font-bold shadow-sm hover:bg-indigo-50 transition-all"
+                        >
+                            <Upload className="w-4 h-4" />
+                            <span className="hidden sm:inline">Import CSV</span>
+                        </motion.button>
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleAddClick}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            <span>เพิ่มผู้สมัคร</span>
+                        </motion.button>
+                    </div>
                 </div>
             </div>
+
+            {/* Stats Grid */}
+            <InternStatsGrid />
 
             {/* Main Content */}
             <div className="min-h-[400px] relative">
@@ -244,7 +306,7 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             <InternListView 
                                 interns={filteredInterns} 
                                 onEdit={handleViewClick}
-                                onDelete={deleteIntern}
+                                onDelete={handleDeleteIntern}
                                 onUpdateStatus={(id, status) => updateIntern(id, { status })}
                                 hasMore={hasMore}
                                 onLoadMore={fetchMore}
@@ -261,9 +323,11 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             <InternTableView 
                                 interns={filteredInterns} 
                                 onEdit={handleViewClick}
-                                onDelete={deleteIntern}
+                                onDelete={handleDeleteIntern}
                                 onUpdateStatus={(id, status) => updateIntern(id, { status })}
                                 isLoading={loading}
+                                hasMore={hasMore}
+                                onLoadMore={fetchMore}
                             />
                         </motion.div>
                     ) : viewMode === 'TIMELINE' ? (
@@ -315,6 +379,12 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                 onClose={() => setIsDetailModalOpen(false)}
                 intern={viewingIntern}
                 onEdit={(intern) => handleEditClick(intern, true)}
+            />
+
+            <InternImportModal 
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportInterns}
             />
         </div>
     );

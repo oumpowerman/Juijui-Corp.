@@ -60,16 +60,19 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
         // Start timeout timer
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
-            if (uploadStatus === 'UPLOADING') {
-                setUploadStatus('TIMEOUT');
-            }
+            setUploadStatus(currentStatus => {
+                if (currentStatus === 'UPLOADING') {
+                    return 'TIMEOUT';
+                }
+                return currentStatus;
+            });
         }, UPLOAD_TIMEOUT_MS);
 
         try {
-            const file = new File([croppedBlob], `intern_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            const file = new File([croppedBlob], `interns_${Date.now()}.jpg`, { type: 'image/jpeg' });
             setUploadProgress(30);
             
-            // Generate dynamic folder path: Interns/Month-Year
+            // Generate dynamic folder path: Intern/Month-Year
             const now = new Date();
             const monthNames = ["January", "February", "March", "April", "May", "June",
                 "July", "August", "September", "October", "November", "December"
@@ -81,10 +84,10 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
             
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             
-            if (result && result.thumbnailUrl) {
+            if (result && (result.thumbnailUrl || result.url)) {
                 setUploadProgress(100);
                 setUploadStatus('SUCCESS');
-                onChange(result.thumbnailUrl);
+                onChange(result.thumbnailUrl || result.url);
                 
                 // Reset status back to idle after a short delay
                 setTimeout(() => setUploadStatus('IDLE'), 2000);

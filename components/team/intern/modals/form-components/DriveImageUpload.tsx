@@ -8,9 +8,10 @@ import ImageCropModal from './ImageCropModal';
 interface DriveImageUploadProps {
     value: string;
     onChange: (value: string) => void;
+    onStatusChange?: (status: 'IDLE' | 'CROPPING' | 'UPLOADING' | 'SUCCESS' | 'ERROR' | 'TIMEOUT') => void;
 }
 
-const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange }) => {
+const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, onStatusChange }) => {
     const { uploadFileToDrive, isUploading: isDriveUploading, login, retry } = useGoogleDriveContext();
     const [localPreview, setLocalPreview] = useState<string | null>(null);
     const [isCropping, setIsCropping] = useState(false);
@@ -21,6 +22,12 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange }) 
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const UPLOAD_TIMEOUT_MS = 45000; // 45 seconds timeout
+
+    useEffect(() => {
+        if (onStatusChange) {
+            onStatusChange(uploadStatus);
+        }
+    }, [uploadStatus, onStatusChange]);
 
     useEffect(() => {
         return () => {
@@ -59,10 +66,18 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange }) 
         }, UPLOAD_TIMEOUT_MS);
 
         try {
-            const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+            const file = new File([croppedBlob], `intern_${Date.now()}.jpg`, { type: 'image/jpeg' });
             setUploadProgress(30);
             
-            const result = await uploadFileToDrive(file, ['Intern_Candidates']);
+            // Generate dynamic folder path: Interns/Month-Year
+            const now = new Date();
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            const folderName = `${monthNames[now.getMonth()]}-${now.getFullYear()}`;
+            const folderPath = ['Interns', folderName];
+            
+            const result = await uploadFileToDrive(file, folderPath);
             
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             

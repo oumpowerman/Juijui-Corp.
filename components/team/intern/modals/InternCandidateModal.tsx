@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, User, Mail, Phone, GraduationCap, Briefcase, Calendar, Link as LinkIcon, MessageSquare, BarChart3 } from 'lucide-react';
+import { X, Save, User, Mail, Phone, GraduationCap, Briefcase, Calendar, Link as LinkIcon, MessageSquare, BarChart3, Loader2 } from 'lucide-react';
 import { InternCandidate, InternStatus, Gender } from '../../../../types';
 import { format } from 'date-fns';
 import GenderSelector from './form-components/GenderSelector';
@@ -42,6 +42,8 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
         notes: ''
     });
 
+    const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'CROPPING' | 'UPLOADING' | 'SUCCESS' | 'ERROR' | 'TIMEOUT'>('IDLE');
+
     const uniqueUniversities = useMemo(() => {
         const unis = allInterns.map(i => i.university).filter(u => u && u.trim() !== '');
         return Array.from(new Set(unis));
@@ -76,8 +78,11 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (uploadStatus === 'UPLOADING' || uploadStatus === 'CROPPING') return;
         await onSave(formData);
     };
+
+    const isSavingDisabled = uploadStatus === 'UPLOADING' || uploadStatus === 'CROPPING';
 
     const modalContent = (
         <AnimatePresence>
@@ -128,7 +133,8 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     <div className="shrink-0 mx-auto sm:mx-0">
                                         <DriveImageUpload 
                                             value={formData.avatarUrl || ''} 
-                                            onChange={url => setFormData({ ...formData, avatarUrl: url })} 
+                                            onChange={url => setFormData(prev => ({ ...prev, avatarUrl: url }))} 
+                                            onStatusChange={setUploadStatus}
                                         />
                                     </div>
                                     <div className="flex-1 w-full space-y-5">
@@ -146,7 +152,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                     type="text"
                                                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
                                                     value={formData.fullName}
-                                                    onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                                    onChange={e => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
                                                     placeholder="ชื่อจริง - นามสกุล"
                                                 />
                                             </div>
@@ -156,7 +162,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                     type="text"
                                                     className="w-full px-3 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
                                                     value={formData.nickname}
-                                                    onChange={e => setFormData({ ...formData, nickname: e.target.value })}
+                                                    onChange={e => setFormData(prev => ({ ...prev, nickname: e.target.value }))}
                                                     placeholder="ชื่อเล่น"
                                                 />
                                             </div>
@@ -165,7 +171,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             <label className="text-sm font-bold text-gray-600 ml-1">เพศ</label>
                                             <GenderSelector 
                                                 value={formData.gender || 'OTHER'} 
-                                                onChange={val => setFormData({ ...formData, gender: val })} 
+                                                onChange={val => setFormData(prev => ({ ...prev, gender: val }))} 
                                             />
                                         </div>
                                     </div>
@@ -190,7 +196,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="email"
                                                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.email}
-                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                                                 placeholder="example@email.com"
                                             />
                                         </div>
@@ -204,7 +210,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="tel"
                                                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.phoneNumber}
-                                                onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                                                 placeholder="08x-xxx-xxxx"
                                             />
                                         </div>
@@ -225,7 +231,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         <label className="text-sm font-bold text-gray-600 ml-1">มหาวิทยาลัย / สถาบัน</label>
                                         <UniversityAutocomplete 
                                             value={formData.university || ''} 
-                                            onChange={val => setFormData({ ...formData, university: val })} 
+                                            onChange={val => setFormData(prev => ({ ...prev, university: val }))} 
                                             suggestions={uniqueUniversities}
                                         />
                                     </div>
@@ -236,7 +242,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="text"
                                                 className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.faculty || ''}
-                                                onChange={e => setFormData({ ...formData, faculty: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, faculty: e.target.value }))}
                                                 placeholder="คณะ..."
                                             />
                                         </div>
@@ -246,7 +252,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="text"
                                                 className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.academicYear || ''}
-                                                onChange={e => setFormData({ ...formData, academicYear: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, academicYear: e.target.value }))}
                                                 placeholder="ปี 3, ปี 4..."
                                             />
                                         </div>
@@ -256,7 +262,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             <label className="text-sm font-bold text-gray-600 ml-1">ตำแหน่งที่สมัคร</label>
                                             <PositionSelector 
                                                 value={formData.position || ''} 
-                                                onChange={val => setFormData({ ...formData, position: val })} 
+                                                onChange={val => setFormData(prev => ({ ...prev, position: val }))} 
                                             />
                                         </div>
                                         <div className="space-y-1.5">
@@ -265,7 +271,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="text"
                                                 className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.source || ''}
-                                                onChange={e => setFormData({ ...formData, source: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
                                                 placeholder="Facebook..."
                                             />
                                         </div>
@@ -278,7 +284,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 type="url"
                                                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                 value={formData.portfolioUrl}
-                                                onChange={e => setFormData({ ...formData, portfolioUrl: e.target.value })}
+                                                onChange={e => setFormData(prev => ({ ...prev, portfolioUrl: e.target.value }))}
                                                 placeholder="https://..."
                                             />
                                         </div>
@@ -302,7 +308,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             type="date"
                                             className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
                                             value={formData.startDate ? format(formData.startDate, 'yyyy-MM-dd') : ''}
-                                            onChange={e => setFormData({ ...formData, startDate: new Date(e.target.value) })}
+                                            onChange={e => setFormData(prev => ({ ...prev, startDate: new Date(e.target.value) }))}
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -312,7 +318,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             type="date"
                                             className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
                                             value={formData.endDate ? format(formData.endDate, 'yyyy-MM-dd') : ''}
-                                            onChange={e => setFormData({ ...formData, endDate: new Date(e.target.value) })}
+                                            onChange={e => setFormData(prev => ({ ...prev, endDate: new Date(e.target.value) }))}
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -328,7 +334,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 { key: 'REJECTED', label: 'ไม่ผ่านการคัดเลือก (Rejected)' },
                                                 { key: 'ARCHIVED', label: 'ย้ายไปที่เก็บถาวร (Archived)' },
                                             ]}
-                                            onChange={val => setFormData({ ...formData, status: val as InternStatus })}
+                                            onChange={val => setFormData(prev => ({ ...prev, status: val as InternStatus }))}
                                             icon={<BarChart3 className="w-4 h-4" />}
                                             showAllOption={false}
                                             clearable={false}
@@ -340,7 +346,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             type="datetime-local"
                                             className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
                                             value={formData.interviewDate ? format(formData.interviewDate, "yyyy-MM-dd'T'HH:mm") : ''}
-                                            onChange={e => setFormData({ ...formData, interviewDate: e.target.value ? new Date(e.target.value) : null })}
+                                            onChange={e => setFormData(prev => ({ ...prev, interviewDate: e.target.value ? new Date(e.target.value) : null }))}
                                         />
                                     </div>
                                 </div>
@@ -357,7 +363,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                 <textarea 
                                     className="w-full px-4 py-3 bg-white border border-amber-100 focus:border-amber-300 rounded-xl text-sm font-medium outline-none transition-all min-h-[100px]"
                                     value={formData.notes}
-                                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                                    onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                                     placeholder="รายละเอียดเพิ่มเติม..."
                                 />
                             </div>
@@ -374,10 +380,20 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                             </button>
                             <button 
                                 onClick={handleSubmit}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                                disabled={isSavingDisabled}
+                                className={`flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                                <Save className="w-4 h-4" />
-                                บันทึกข้อมูล
+                                {isSavingDisabled ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>กำลังประมวลผล...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        บันทึกข้อมูล
+                                    </>
+                                )}
                             </button>
                         </div>
                     </motion.div>

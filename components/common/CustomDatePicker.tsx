@@ -10,6 +10,7 @@ interface Props {
     showTimeSelect?: boolean;
     showTimeSelectOnly?: boolean;
     dateFormat?: string;
+    portalId?: string;
 }
 
 const CustomDatePicker: React.FC<Props> = ({ 
@@ -18,7 +19,8 @@ const CustomDatePicker: React.FC<Props> = ({
     placeholderText, 
     showTimeSelect = false,
     showTimeSelectOnly = false,
-    dateFormat = showTimeSelectOnly ? "h:mm aa" : (showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy")
+    dateFormat = showTimeSelectOnly ? "h:mm aa" : (showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy"),
+    portalId
 }) => {
     return (
         <div className="relative group w-full">
@@ -37,6 +39,7 @@ const CustomDatePicker: React.FC<Props> = ({
                 timeIntervals={30}
                 popperPlacement="bottom-start"
                 popperClassName="!z-[9999]"
+                portalId={portalId}
             />
             {showTimeSelect ? (
                 <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 group-focus-within:text-indigo-500 transition-colors" />

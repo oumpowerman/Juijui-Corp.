@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, HelpCircle, MessageSquare, Book, LifeBuoy, Sparkles, ArrowRight, ChevronLeft, Zap, Shield, Globe, Layout } from 'lucide-react';
 
@@ -147,10 +148,13 @@ const NexusHelpModal: React.FC<NexusHelpModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
-    return (
+    const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl">
+                <div 
+                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl"
+                    onClick={onClose}
+                >
                     <motion.div 
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -265,6 +269,8 @@ const NexusHelpModal: React.FC<NexusHelpModalProps> = ({ isOpen, onClose }) => {
             )}
         </AnimatePresence>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default NexusHelpModal;

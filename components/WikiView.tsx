@@ -235,7 +235,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="p-4 border-b border-white/40 bg-white/20 backdrop-blur-sm flex justify-center shrink-0 overflow-hidden relative group"
+                            className={`${wikiMode === 'NEXUS' ? 'p-2 pb-0' : 'p-4'} border-b border-white/40 bg-white/20 backdrop-blur-sm flex justify-center shrink-0 overflow-hidden relative group transition-all duration-500`}
                         >
                             <div className="flex bg-white/40 backdrop-blur-md p-1.5 rounded-[2rem] w-full max-w-md shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_8px_16px_-4px_rgba(0,0,0,0.05)] border border-white/60">
                                 <button 
@@ -280,7 +280,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                     </div>
                 )}
                 {wikiMode === 'NEXUS' ? (
-                    <div className="flex-1 overflow-y-auto scrollbar-hide">
+                    <div className="flex-1 overflow-y-auto scrollbar-hide [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                         <NexusHub currentUser={currentUser} onNavigateMode={handleSetWikiMode} />
                     </div>
                 ) : wikiMode === 'HANDBOOK' ? (
@@ -316,7 +316,7 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
                         setLayoutMode={setLayoutMode}
                     />
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30 relative overflow-hidden">
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300 bg-slate-50/30 relative overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                          {/* Playful Empty State Decor */}
                          <div className="absolute w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-3xl -top-20 -right-20 pointer-events-none animate-pulse"></div>
                          <div className="absolute w-[400px] h-[400px] bg-pink-50/50 rounded-full blur-3xl bottom-0 left-0 pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>

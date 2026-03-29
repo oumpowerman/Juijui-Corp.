@@ -9,9 +9,10 @@ interface InternTimelineProps {
     interns: InternCandidate[];
     onEdit: (intern: InternCandidate) => void;
     onRangeChange: (start: string, end: string) => void;
+    isLoading?: boolean;
 }
 
-const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRangeChange }) => {
+const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRangeChange, isLoading }) => {
     const [viewDate, setViewDate] = React.useState(new Date());
     const timelineRef = useRef<HTMLDivElement>(null);
     const lastRangeRef = useRef<{ start: string; end: string } | null>(null);
@@ -83,10 +84,17 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <div className="px-6 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="px-6 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2">
                         <h3 className="text-sm font-black text-slate-800 min-w-[140px] text-center uppercase tracking-widest leading-none">
                             {format(viewDate, 'MMMM yyyy')}
                         </h3>
+                        {isLoading && (
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                                className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"
+                            />
+                        )}
                     </div>
                     <button 
                         onClick={() => setViewDate(prev => addMonths(prev, 1))}

@@ -60,7 +60,7 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                             className={`${theme.bg} ${theme.border} rounded-[2rem] border-2 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 transition-all p-4 group relative overflow-hidden cursor-pointer`}
                         >
                             {/* Decorative Background Element */}
-                            <div className="absolute -right-2 -bottom-2 w-16 h-16 bg-white/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700" />
+                            <div className="absolute -right-2 -bottom-2 w-16 h-16 bg-white/20 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
 
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex items-center gap-3">
@@ -72,7 +72,7 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                         )}
                                     </div>
                                     <div className="min-w-0">
-                                        <h3 className="text-sm font-black text-gray-800 truncate leading-tight">{intern.fullName}</h3>
+                                        <h3 className="text-md font-bold text-gray-800 truncate leading-tight">{intern.fullName}</h3>
                                         <div className="flex items-center gap-1 mt-0.5">
                                             {getStatusBadge(intern.status)}
                                         </div>
@@ -95,13 +95,13 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                             <div className="space-y-2 mb-3 px-1">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <GraduationCap className="w-3 h-3 text-gray-400 shrink-0" />
-                                    <p className="text-[10px] font-bold text-gray-500 truncate">{intern.university}</p>
+                                    <p className="text-[12px] font-bold text-gray-500 truncate">{intern.university}</p>
                                 </div>
                                 <div className="flex items-center gap-2 min-w-0">
                                     <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
-                                    <p className="text-[10px] font-bold text-gray-500 truncate">
+                                    <p className="text-[12px] font-bold text-gray-500 truncate">
                                         {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')}
-                                        <span className="ml-1.5 text-[9px] text-indigo-500 font-black bg-white/50 px-1 rounded-md border border-indigo-100/50">
+                                        <span className="ml-1.5 text-[12px] text-indigo-500 font-kanit font-medium bg-white/50 px-1 rounded-md border border-indigo-100/50">
                                             {differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน
                                         </span>
                                     </p>
@@ -129,7 +129,7 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                         e.stopPropagation();
                                         onDelete(intern.id);
                                     }}
-                                    className="p-1.5 bg-white/40 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-white/50 group-hover:bg-white/80"
+                                    className="p-1.5 bg-white/40 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-white/50 group-hover:bg-white/80 relative z-10"
                                     title="ลบข้อมูล"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />

@@ -7,6 +7,8 @@ import TaskAssets from './TaskAssets';
 import TaskHistory from './task/TaskHistory';
 import TaskWiki from './task/TaskWiki';
 import ContentForm from './task/ContentForm';
+import TaskDetail from './task/TaskDetail';
+import ContentDetail from './task/ContentDetail';
 import GeneralTaskForm from './task/GeneralTaskForm';
 import LogisticsTab from './task/LogisticsTab';
 import ScriptEditor from './script/ScriptEditor'; // Import ScriptEditor
@@ -45,6 +47,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
   // Main View State
   const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>('DETAILS');
+  const [mode, setMode] = useState<'VIEW' | 'EDIT'>('VIEW');
   
   // Tab State (Content vs Task) - Synced with props
   const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
@@ -59,10 +62,14 @@ const TaskModal: React.FC<TaskModalProps> = ({
           setViewMode('DETAILS');
           if (initialData) {
               setActiveTab(initialData.type);
-          } else if (lockedType) {
-              setActiveTab(lockedType);
+              setMode('VIEW');
           } else {
-              setActiveTab('CONTENT');
+              setMode('EDIT');
+              if (lockedType) {
+                  setActiveTab(lockedType);
+              } else {
+                  setActiveTab('CONTENT');
+              }
           }
       }
   }, [isOpen, initialData, lockedType]);
@@ -242,7 +249,29 @@ const TaskModal: React.FC<TaskModalProps> = ({
                     </div>
                 ) : (
                     // Form Selection Logic (DETAILS)
-                    activeTab === 'CONTENT' ? (
+                    mode === 'VIEW' && initialData ? (
+                        initialData.type === 'CONTENT' ? (
+                            <ContentDetail 
+                                task={initialData}
+                                users={users}
+                                channels={channels}
+                                masterOptions={masterOptions}
+                                onEdit={() => setMode('EDIT')}
+                                onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
+                                onClose={onClose}
+                            />
+                        ) : (
+                            <TaskDetail 
+                                task={initialData}
+                                users={users}
+                                masterOptions={masterOptions}
+                                onEdit={() => setMode('EDIT')}
+                                onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
+                                onClose={onClose}
+                                onOpenTask={onOpenTask}
+                            />
+                        )
+                    ) : activeTab === 'CONTENT' ? (
                         <ContentForm 
                             key={initialData ? `content-${initialData.id}` : 'new-content'}
                             initialData={initialData}
@@ -251,9 +280,9 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             users={users}
                             masterOptions={masterOptions}
                             currentUser={currentUser} 
-                            onSave={(task) => { onSave(task); onClose(); }}
+                            onSave={(task) => { onSave(task); if (initialData) setMode('VIEW'); else onClose(); }}
                             onDelete={onDelete}
-                            onClose={onClose}
+                            onClose={initialData ? () => setMode('VIEW') : onClose}
                         />
                     ) : (
                         <GeneralTaskForm 
@@ -265,9 +294,9 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             currentUser={currentUser} 
                             projects={projects}
                             channels={channels}
-                            onSave={(task) => { onSave(task); onClose(); }}
+                            onSave={(task) => { onSave(task); if (initialData) setMode('VIEW'); else onClose(); }}
                             onDelete={onDelete}
-                            onClose={onClose}
+                            onClose={initialData ? () => setMode('VIEW') : onClose}
                             onOpenTask={onOpenTask}
                         />
                     )

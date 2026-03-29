@@ -120,55 +120,134 @@ const InternMonthDetailModal: React.FC<InternMonthDetailModalProps> = ({
 
                         {/* Detailed Calendar Grid */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-7 auto-rows-fr min-h-full">
-                                {days.map((day, idx) => {
-                                    const isCurrentMonth = isSameMonth(day, month);
-                                    const dayInterns = getInternsForDay(day);
-                                    const isTodayDay = isToday(day);
+                            <div className="flex flex-col min-h-full">
+                                {(() => {
+                                    const weeks = [];
+                                    for (let i = 0; i < days.length; i += 7) {
+                                        weeks.push(days.slice(i, i + 7));
+                                    }
 
-                                    return (
-                                        <div 
-                                            key={idx}
-                                            className={`
-                                                min-h-[140px] border-r border-b border-gray-100 p-2 flex flex-col gap-1.5 transition-colors
-                                                ${!isCurrentMonth ? 'bg-gray-50/50' : 'bg-white'}
-                                                ${isTodayDay ? 'bg-indigo-50/30' : ''}
-                                                hover:bg-gray-50/80
-                                            `}
-                                        >
-                                            <div className="flex justify-center py-1">
-                                                <span className={`
-                                                    text-sm font-black w-7 h-7 flex items-center justify-center rounded-full
-                                                    ${!isCurrentMonth ? 'text-gray-300' : isTodayDay ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700'}
-                                                `}>
-                                                    {format(day, 'd')}
-                                                </span>
-                                            </div>
+                                    return weeks.map((week, wIdx) => {
+                                        const weekStart = startOfDay(week[0]);
+                                        const weekEnd = endOfDay(week[6]);
 
-                                            <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                                                {dayInterns.map((intern) => (
-                                                    <div
-                                                        key={intern.id}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onEdit(intern);
-                                                        }}
-                                                        className={`
-                                                            px-2.5 py-1.5 rounded-lg border text-[10px] font-bold truncate cursor-pointer 
-                                                            hover:brightness-95 transition-all shadow-sm flex justify-between items-center
-                                                            ${getPositionStyles(intern.position)}
-                                                        `}
-                                                    >
-                                                        <span className="truncate">{intern.fullName}</span>
-                                                        <span className="ml-1 opacity-70 shrink-0 text-[8px]">
-                                                            ({intern.position.charAt(0).toUpperCase()})
-                                                        </span>
-                                                    </div>
-                                                ))}
+                                        // Get all interns active in this week
+                                        const weekInterns = interns.filter(intern => {
+                                            const iStart = startOfDay(new Date(intern.startDate));
+                                            const iEnd = endOfDay(new Date(intern.endDate));
+                                            return iStart <= weekEnd && iEnd >= weekStart;
+                                        });
+
+                                        // Assign tracks to interns to avoid overlap
+                                        const tracks: InternCandidate[][] = [];
+                                        weekInterns
+                                            .sort((a, b) => {
+                                                // Sort by duration (longer first) then name
+                                                const durA = new Date(a.endDate).getTime() - new Date(a.startDate).getTime();
+                                                const durB = new Date(b.endDate).getTime() - new Date(b.startDate).getTime();
+                                                if (durB !== durA) return durB - durA;
+                                                return a.fullName.localeCompare(b.fullName);
+                                            })
+                                            .forEach(intern => {
+                                                let placed = false;
+                                                for (let i = 0; i < tracks.length; i++) {
+                                                    const lastInTrack = tracks[i][tracks[i].length - 1];
+                                                    const lastEnd = endOfDay(new Date(lastInTrack.endDate));
+                                                    const currentStart = startOfDay(new Date(intern.startDate));
+                                                    
+                                                    if (currentStart > lastEnd) {
+                                                        tracks[i].push(intern);
+                                                        placed = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!placed) {
+                                                    tracks.push([intern]);
+                                                }
+                                            });
+
+                                        return (
+                                            <div key={wIdx} className="relative min-h-[160px] border-b border-gray-100 flex flex-col">
+                                                {/* Background Grid Cells */}
+                                                <div className="absolute inset-0 grid grid-cols-7 pointer-events-none">
+                                                    {week.map((day, dIdx) => {
+                                                        const isCurrentMonth = isSameMonth(day, month);
+                                                        const isTodayDay = isToday(day);
+                                                        return (
+                                                            <div 
+                                                                key={dIdx} 
+                                                                className={`
+                                                                    h-full border-r border-gray-100 last:border-r-0
+                                                                    ${!isCurrentMonth ? 'bg-gray-50/50' : 'bg-white'}
+                                                                    ${isTodayDay ? 'bg-indigo-50/30' : ''}
+                                                                `}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Day Numbers */}
+                                                <div className="grid grid-cols-7 relative z-10 pointer-events-none">
+                                                    {week.map((day, dIdx) => {
+                                                        const isCurrentMonth = isSameMonth(day, month);
+                                                        const isTodayDay = isToday(day);
+                                                        return (
+                                                            <div key={dIdx} className="pt-2 flex justify-center">
+                                                                <span className={`
+                                                                    text-sm font-black w-7 h-7 flex items-center justify-center rounded-full
+                                                                    ${!isCurrentMonth ? 'text-gray-300' : isTodayDay ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700'}
+                                                                `}>
+                                                                    {format(day, 'd')}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Bars Container */}
+                                                <div className="relative flex-1 mt-2 pb-4 px-1 flex flex-col gap-1.5">
+                                                    {tracks.map((track, tIdx) => (
+                                                        <div key={tIdx} className="relative h-7 w-full">
+                                                            {track.map(intern => {
+                                                                const iStart = startOfDay(new Date(intern.startDate));
+                                                                const iEnd = endOfDay(new Date(intern.endDate));
+                                                                
+                                                                const startCol = Math.max(0, Math.floor((iStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000)));
+                                                                const endCol = Math.min(6, Math.floor((iEnd.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000)));
+                                                                
+                                                                const span = endCol - startCol + 1;
+                                                                const left = (startCol / 7) * 100;
+                                                                const width = (span / 7) * 100;
+
+                                                                return (
+                                                                    <motion.div
+                                                                        key={intern.id}
+                                                                        initial={{ opacity: 0, x: -20 }}
+                                                                        animate={{ opacity: 1, x: 0 }}
+                                                                        style={{ 
+                                                                            left: `${left}%`, 
+                                                                            width: `calc(${width}% - 4px)`
+                                                                        }}
+                                                                        onClick={() => onEdit(intern)}
+                                                                        className={`absolute h-7 rounded-xl border flex items-center px-3 overflow-hidden shadow-sm cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all z-20 ${getPositionStyles(intern.position)}`}
+                                                                        title={`${intern.fullName} (${intern.position})`}
+                                                                    >
+                                                                        <span className="text-[11px] font-black truncate">
+                                                                            {intern.fullName}
+                                                                        </span>
+                                                                        <span className="ml-2 opacity-60 shrink-0 text-[9px] font-bold">
+                                                                            {intern.position.charAt(0).toUpperCase()}
+                                                                        </span>
+                                                                    </motion.div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 

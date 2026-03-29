@@ -11,6 +11,18 @@ export enum NexusPlatform {
     GENERIC = 'GENERIC'
 }
 
+export interface NexusFolder {
+    id: string;
+    name: string;
+    description?: string;
+    parentId?: string; // For nested folders
+    userId: string;
+    color?: string;
+    icon?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface NexusIntegration {
     id: string;
     title: string;
@@ -19,6 +31,8 @@ export interface NexusIntegration {
     description?: string;
     thumbnailUrl?: string;
     tags?: string[];
+    folderId?: string; // Link to a folder
+    userId: string;
     createdAt: string;
     updatedAt: string;
     metadata?: {

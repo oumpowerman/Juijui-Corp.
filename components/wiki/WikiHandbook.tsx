@@ -29,6 +29,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import WikiNodeEditor from './WikiNodeEditor';
+import WikiNodeReader from './WikiNodeReader';
 
 interface WikiHandbookProps {
     currentUser: User;
@@ -41,6 +42,7 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
     const [currentParentId, setCurrentParentId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [isReaderOpen, setIsReaderOpen] = useState(false);
     const [editingNode, setEditingNode] = useState<WikiNode | null>(null);
     const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
 
@@ -92,7 +94,7 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
             setSearchQuery('');
         } else {
             setEditingNode(node);
-            setIsEditorOpen(true);
+            setIsReaderOpen(true);
         }
     };
 
@@ -124,6 +126,12 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
     const handleEdit = (e: React.MouseEvent, node: WikiNode) => {
         e.stopPropagation();
         setEditingNode(node);
+        setIsEditorOpen(true);
+        setIsReaderOpen(false);
+    };
+
+    const handleEditFromReader = () => {
+        setIsReaderOpen(false);
         setIsEditorOpen(true);
     };
 
@@ -298,7 +306,7 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
             </div>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200/50">
+            <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200/50 [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                 <div className="max-w-7xl mx-auto">
                     {/* Welcome Banner (Only on Root) */}
                     {!currentParentId && !searchQuery && (
@@ -458,6 +466,15 @@ const WikiHandbook: React.FC<WikiHandbookProps> = ({ currentUser }) => {
                     }
                     setIsEditorOpen(false);
                 }}
+            />
+
+            {/* Reader Modal */}
+            <WikiNodeReader 
+                isOpen={isReaderOpen}
+                onClose={() => setIsReaderOpen(false)}
+                node={editingNode}
+                isAdmin={isAdmin}
+                onEdit={handleEditFromReader}
             />
         </div>
     );

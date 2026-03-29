@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Share2, Settings, HelpCircle, Search, Loader2, X, Save, FileSpreadsheet, HardDrive } from 'lucide-react';
+import { Sparkles, Share2, Settings, HelpCircle, Search, Loader2, X, Save, FileSpreadsheet, HardDrive, FolderPlus, Plus, Folder, LayoutGrid } from 'lucide-react';
 import NexusHeader from './NexusHeader';
 import NexusFilter from './NexusFilter';
 import NexusCard from './NexusCard';
@@ -9,14 +9,17 @@ import NexusEditModal from './NexusEditModal';
 import NexusSettingsModal from './NexusSettingsModal';
 import NexusHelpModal from './NexusHelpModal';
 import NexusPreviewModal from './NexusPreviewModal';
-import { NexusIntegration, NexusPlatform, User } from '../../types';
-import { supabase } from '../../lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
-import { extractYouTubeId, getYouTubeThumbnail, getPlatformConfig } from '../../utils/nexusUtils';
-import { GoogleGenAI } from "@google/genai";
-import AppBackground, { BackgroundTheme } from '../common/AppBackground';
+import NexusFolderCard from './folders/NexusFolderCard';
+import NexusFolderModal from './folders/NexusFolderModal';
+import NexusBreadcrumbs from './layout/NexusBreadcrumbs';
+import NexusNavigation from './layout/NexusNavigation';
+import NexusEmptyState from './layout/NexusEmptyState';
+import { NexusIntegration, NexusPlatform, User, NexusFolder } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import { ArrowLeft } from 'lucide-react';
+import { useNexusData } from '../../hooks/nexus/useNexusData';
+import { useNexusActions } from '../../hooks/nexus/useNexusActions';
+import { filterIntegrations, filterFolders } from './utils/nexusFilters';
+import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 
 interface NexusHubProps {
     currentUser: User;
@@ -25,22 +28,46 @@ interface NexusHubProps {
 
 const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
     const { showConfirm } = useGlobalDialog();
-    const [integrations, setIntegrations] = useState<NexusIntegration[]>([]);
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Data Hook
+    const { 
+        integrations, setIntegrations, 
+        folders, setFolders, 
+        isLoading, fetchData 
+    } = useNexusData(currentUser);
+
+    // UI State
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'ALL' | 'SOCIAL' | 'PRODUCTIVITY' | 'DESIGN' | 'WEB'>('ALL');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isAdding, setIsAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [previewIntegration, setPreviewIntegration] = useState<NexusIntegration | null>(null);
     const [editingIntegration, setEditingIntegration] = useState<NexusIntegration | null>(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
-    
-    // Real Settings State
+    const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+    const [editingFolder, setEditingFolder] = useState<NexusFolder | null>(null);
     const [aiEnabled, setAiEnabled] = useState(true);
     const [currentTheme, setCurrentTheme] = useState<BackgroundTheme>('pastel-indigo');
-    
-    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Actions Hook
+    const {
+        isAdding,
+        handleAddIntegration,
+        handleDeleteIntegration,
+        handleUpdateIntegration,
+        handleSaveFolder,
+        handleDeleteFolder
+    } = useNexusActions(
+        currentUser,
+        integrations, setIntegrations,
+        folders, setFolders,
+        currentFolderId,
+        aiEnabled,
+        apiKey,
+        showConfirm
+    );
 
     useEffect(() => {
         const savedAi = localStorage.getItem('nexus_ai_enabled');
@@ -69,206 +96,29 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
     const handleClearCache = async () => {
         if (await showConfirm('คุณต้องการล้างข้อมูลแคชทั้งหมดหรือไม่? (ข้อมูลในฐานข้อมูลจะไม่หายไป)')) {
             localStorage.removeItem(`nexus_integrations_${currentUser.id}`);
-            fetchIntegrations();
+            localStorage.removeItem(`nexus_folders_${currentUser.id}`);
+            fetchData();
         }
     };
 
-    const fetchIntegrations = useCallback(async () => {
-        if (!currentUser) return;
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('nexus_integrations')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .order('updated_at', { ascending: false });
+    // Filtered Data
+    const filteredIntegrations = useMemo(() => 
+        filterIntegrations(integrations, activeTab, selectedTags, searchQuery, currentFolderId),
+    [integrations, activeTab, selectedTags, searchQuery, currentFolderId]);
 
-            if (error) throw error;
-            setIntegrations(data || []);
-        } catch (err) {
-            console.error('Error fetching integrations:', err);
-            const local = localStorage.getItem(`nexus_integrations_${currentUser.id}`);
-            if (local) setIntegrations(JSON.parse(local));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [currentUser]);
+    const filteredFolders = useMemo(() => 
+        filterFolders(folders, searchQuery, currentFolderId),
+    [folders, searchQuery, currentFolderId]);
 
-    useEffect(() => {
-        fetchIntegrations();
-    }, [fetchIntegrations]);
+    const hasResults = filteredIntegrations.length > 0 || filteredFolders.length > 0;
 
-    const handleAddIntegration = async (url: string, platform: NexusPlatform) => {
-        if (!currentUser) return;
-        setIsAdding(true);
-        try {
-            let title = `New ${platform.toLowerCase().replace('_', ' ')} link`;
-            let description = `Added on ${new Date().toLocaleDateString()}`;
-            let thumbnailUrl = undefined;
-            let integrationTags: string[] = [];
+    const currentFolder = useMemo(() => 
+        folders.find(f => f.id === currentFolderId) || null
+    , [folders, currentFolderId]);
 
-            // 1. Platform Specific Extraction (Fast & Reliable - Source of Truth)
-            let rawTitle = '';
-            if (platform === NexusPlatform.YOUTUBE || platform === NexusPlatform.TIKTOK) {
-                try {
-                    const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
-                    const res = await fetch(oembedUrl);
-                    const data = await res.json();
-                    if (data.title) {
-                        title = data.title;
-                        rawTitle = data.title; // Keep the original title for AI context
-                    }
-                    if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
-                    if (data.author_name) description = `โดย ${data.author_name} • ${platform.toLowerCase()}`;
-                } catch (e) {
-                    console.warn(`${platform} oEmbed fallback failed`);
-                }
-            }
-
-            if (platform === NexusPlatform.YOUTUBE && !thumbnailUrl) {
-                const videoId = extractYouTubeId(url);
-                if (videoId) thumbnailUrl = getYouTubeThumbnail(videoId);
-            }
-
-            // 2. AI Enrichment (Smart AI - Thai Language Focus)
-            if (apiKey && aiEnabled) {
-                try {
-                    const ai = new GoogleGenAI({ apiKey });
-                    const response = await ai.models.generateContent({
-                        model: "gemini-3-flash-preview",
-                        contents: `คุณคือ Nexus AI อัจฉริยะ หน้าที่ของคุณคือสกัดข้อมูลจาก URL นี้: ${url}
-                        แพลตฟอร์ม: ${platform}
-                        ชื่อที่ดึงมาได้เบื้องต้น: ${rawTitle || 'ไม่ทราบ'}
-                        
-                        คำสั่งพิเศษ:
-                        - ทุกอย่างต้องตอบเป็น "ภาษาไทย" (Thai Language)
-                        - หากมีชื่อที่ดึงมาได้ (Base Title) ให้ใช้ชื่อนั้นเป็นหลัก แต่สามารถขัดเกลาให้สละสลวยขึ้นได้
-                        - สรุปเนื้อหา (Description) ให้กระชับ น่าสนใจ และเป็นภาษาไทย
-                        - คิด Hashtags ภาษาไทยที่เกี่ยวข้อง 3-5 คำ (เช่น #ความรู้, #บันเทิง, #งานออกแบบ)
-                        - หากเป็น Google Drive/Sheet ให้พยายามเดาเนื้อหาจากชื่อไฟล์
-                        
-                        ตอบกลับในรูปแบบ JSON เท่านั้น:
-                        {
-                          "title": "ชื่อเรื่องภาษาไทย",
-                          "description": "คำอธิบายภาษาไทยสั้นๆ",
-                          "thumbnailUrl": "ลิงก์รูปภาพ (ถ้ามี)",
-                          "tags": ["แท็ก1", "แท็ก2", "แท็ก3"]
-                        }`,
-                        config: { responseMimeType: "application/json" }
-                    });
-
-                    const aiData = JSON.parse(response.text || '{}');
-                    
-                    // Smart Merge: Only overwrite title if we don't have a solid one or if AI title is significantly better/Thai version
-                    if (aiData.title && (!rawTitle || rawTitle.length < 5)) {
-                        title = aiData.title;
-                    } else if (aiData.title && rawTitle) {
-                        // If we have a raw title, maybe AI just translated it or cleaned it up
-                        title = aiData.title;
-                    }
-
-                    if (aiData.description) description = aiData.description;
-                    if (aiData.thumbnailUrl && !thumbnailUrl) thumbnailUrl = aiData.thumbnailUrl;
-                    if (aiData.tags) integrationTags = aiData.tags;
-                } catch (aiErr: any) {
-                    console.warn('AI Metadata enrichment failed:', aiErr);
-                }
-            }
-
-            // 3. Manual Fallback (If AI was skipped or failed and we still have a generic title)
-            if (title.startsWith('New ') || title === "External Resource" || title.includes('link')) {
-                try {
-                    const urlObj = new URL(url);
-                    const hostname = urlObj.hostname.replace('www.', '');
-                    
-                    if (platform === NexusPlatform.GENERIC) {
-                        title = hostname.charAt(0).toUpperCase() + hostname.slice(1);
-                    } else if (platform === NexusPlatform.CANVA) {
-                        title = "Canva Design";
-                    } else {
-                        // For Drive/Sheets/Notion, try to get something from the path
-                        const pathParts = urlObj.pathname.split('/').filter(p => p.length > 5);
-                        if (pathParts.length > 0) {
-                            const lastPart = pathParts[pathParts.length - 1];
-                            if (lastPart.includes('-')) {
-                                title = lastPart.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                            } else {
-                                title = `${platform.charAt(0) + platform.slice(1).toLowerCase().replace('_', ' ')} Resource`;
-                            }
-                        }
-                    }
-                } catch {
-                    // Keep default
-                }
-            }
-
-            const newIntegration: any = {
-                user_id: currentUser.id,
-                title,
-                url,
-                platform,
-                description,
-                thumbnail_url: thumbnailUrl,
-                tags: integrationTags,
-                updated_at: new Date().toISOString()
-            };
-
-            // Save to Supabase
-            const { data, error } = await supabase
-                .from('nexus_integrations')
-                .insert([newIntegration])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            const updated = [data, ...integrations];
-            setIntegrations(updated);
-            localStorage.setItem(`nexus_integrations_${currentUser.id}`, JSON.stringify(updated));
-        } catch (err) {
-            console.error('Error adding integration:', err);
-        } finally {
-            setIsAdding(false);
-        }
-    };
-
-    const handleDeleteIntegration = async (id: string) => {
-        if (!currentUser) return;
-        const updated = integrations.filter(i => i.id !== id);
-        setIntegrations(updated);
-        localStorage.setItem(`nexus_integrations_${currentUser.id}`, JSON.stringify(updated));
-        
-        try {
-            await supabase.from('nexus_integrations').delete().eq('id', id);
-        } catch (err) {
-            console.error('Error deleting integration:', err);
-        }
-    };
-
-    const handleUpdateIntegration = async (id: string, updates: Partial<NexusIntegration>) => {
-        if (!currentUser) return;
-        
-        const updatedIntegrations = integrations.map(i => i.id === id ? { ...i, ...updates } : i);
-        setIntegrations(updatedIntegrations);
-        localStorage.setItem(`nexus_integrations_${currentUser.id}`, JSON.stringify(updatedIntegrations));
-
-        try {
-            const { error } = await supabase
-                .from('nexus_integrations')
-                .update({
-                    title: updates.title,
-                    description: updates.description,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', id);
-
-            if (error) throw error;
-        } catch (err) {
-            console.error('Error updating integration:', err);
-        } finally {
-            setEditingIntegration(null);
-        }
-    };
+    const availableTags = useMemo(() => Array.from(new Set(
+        integrations.flatMap(i => i.tags || [])
+    )).sort(), [integrations]);
 
     const handleToggleTag = (tag: string) => {
         setSelectedTags(prev => 
@@ -276,186 +126,245 @@ const NexusHub: React.FC<NexusHubProps> = ({ currentUser, onNavigateMode }) => {
         );
     };
 
-    const availableTags = Array.from(new Set(
-        integrations.flatMap(i => i.tags || [])
-    )).sort();
+    const content = (
+        <div className={`max-w-7xl mx-auto ${onNavigateMode ? 'pt-6' : ''}`}>
+            {/* Navigation & Title */}
+            <NexusNavigation 
+                currentFolder={currentFolder}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenHelp={() => setIsHelpOpen(true)}
+                isIntegrated={!!onNavigateMode}
+            />
 
-    const filteredIntegrations = integrations.filter(i => {
-        // Category Filtering
-        let matchesTab = true;
-        if (activeTab === 'SOCIAL') {
-            matchesTab = [NexusPlatform.YOUTUBE, NexusPlatform.TIKTOK, NexusPlatform.FACEBOOK, NexusPlatform.INSTAGRAM].includes(i.platform);
-        } else if (activeTab === 'PRODUCTIVITY') {
-            matchesTab = [NexusPlatform.GOOGLE_SHEETS, NexusPlatform.GOOGLE_DRIVE, NexusPlatform.NOTION].includes(i.platform);
-        } else if (activeTab === 'DESIGN') {
-            matchesTab = i.platform === NexusPlatform.CANVA;
-        } else if (activeTab === 'WEB') {
-            matchesTab = i.platform === NexusPlatform.GENERIC;
-        }
-
-        // Search Filtering
-        const matchesSearch = i.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             i.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             (i.tags && i.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
-        
-        // Tag Filtering
-        const matchesTags = selectedTags.length === 0 || 
-                           (i.tags && selectedTags.every(tag => i.tags?.includes(tag)));
-
-        return matchesTab && matchesSearch && matchesTags;
-    });
-
-    return (
-        <AppBackground theme={currentTheme} pattern="dots" className={onNavigateMode ? 'min-h-full' : 'min-h-screen'}>
-            <div className={`${onNavigateMode ? 'min-h-full' : 'min-h-screen'} p-4 md:p-8`}>
-                <div className="max-w-7xl mx-auto">
-                    {/* Header Section */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                                {onNavigateMode && (
-                                    <button 
-                                        onClick={() => onNavigateMode('ARTICLES')}
-                                        className="p-2 hover:bg-white/50 rounded-xl transition-all text-slate-400 hover:text-indigo-600 group"
-                                        title="กลับไปหน้า Wiki"
-                                    >
-                                        <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
-                                    </button>
-                                )}
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
-                                        <Share2 className="w-6 h-6 text-white" />
-                                    </div>
-                                    <h1 className="text-4xl font-bold text-slate-900 tracking-tighter">Nexus Hub</h1>
-                                </div>
-                            </div>
-                            <p className="text-slate-500 font-medium max-w-md">
-                                ศูนย์กลางการจัดการเครื่องมือและทรัพยากรภายนอกทั้งหมด เชื่อมต่อ ดูตัวอย่าง และจัดการทุกอย่างได้ในที่เดียว
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <button 
-                                onClick={() => setIsSettingsOpen(true)}
-                                className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all shadow-sm active:scale-95"
-                            >
-                                <Settings className="w-5 h-5" />
-                            </button>
-                            <button 
-                                onClick={() => setIsHelpOpen(true)}
-                                className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all shadow-sm active:scale-95"
-                            >
-                                <HelpCircle className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Search & Add Section */}
+                {/* Search & Add Section */}
+                <div className={onNavigateMode ? 'mb-8' : 'mb-12'}>
                     <NexusHeader 
                         onAdd={handleAddIntegration} 
                         isAdding={isAdding} 
                         aiEnabled={aiEnabled} 
                         hasApiKey={!!apiKey}
                     />
+                </div>
 
-                    {/* Filters & Controls */}
-                    <NexusFilter 
-                        activeTab={activeTab} 
-                        onTabChange={setActiveTab} 
-                        availableTags={availableTags}
-                        selectedTags={selectedTags}
-                        onToggleTag={handleToggleTag}
-                        onClearTags={() => setSelectedTags([])}
-                    />
-
-                    {/* Main List Grid */}
-                    {isLoading ? (
-                        <div className="py-32 flex flex-col items-center justify-center gap-4">
-                            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-                            <p className="text-slate-400 font-black text-xs uppercase tracking-widest">กำลังซิงโครไนซ์ข้อมูล...</p>
-                        </div>
-                    ) : filteredIntegrations.length > 0 ? (
-                        <motion.div 
-                            layout
-                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                        >
-                            <AnimatePresence mode="popLayout">
-                                {filteredIntegrations.map((integration) => (
-                                    <NexusCard 
-                                        key={integration.id} 
-                                        integration={integration} 
-                                        onDelete={handleDeleteIntegration}
-                                        onEdit={setEditingIntegration}
-                                        onPreview={(int) => setPreviewIntegration(int)}
-                                    />
-                                ))}
-                            </AnimatePresence>
-                        </motion.div>
-                    ) : (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="py-32 flex flex-col items-center justify-center text-center bg-white/50 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-slate-200"
-                        >
-                            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                                <Sparkles className="w-10 h-10 text-slate-300" />
-                            </div>
-                            <h3 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">ไม่พบการเชื่อมต่อ</h3>
-                            <p className="text-slate-500 font-kanit font-medium max-w-xs mx-auto">
-                                เริ่มต้นด้วยการวางลิงก์ด้านบนเพื่อเชื่อมต่อเครื่องมือภายนอกของคุณเข้ากับ Nexus
-                            </p>
-                        </motion.div>
-                    )}
-
-                    {/* Footer Stats */}
-                    <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-6">
-                            <div className="flex flex-col">
-                                <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
-                                <span className="text-xl font-bold text-slate-800">{integrations.length}</span>
-                            </div>
-                            <div className="w-px h-8 bg-slate-100" />
-                            <div className="flex flex-col">
-                                <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
-                                <span className="text-xl font-kanit font-bold text-slate-800">เมื่อครู่</span>
-                            </div>
-                        </div>
-                        
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            Nexus Hub v1.0 • เข้ารหัสปลอดภัย
-                        </p>
+                {/* Filters & Folder Actions */}
+                <div className={`flex flex-col md:flex-row items-start justify-between gap-6 ${onNavigateMode ? 'mb-6' : 'mb-10'}`}>
+                    <div className="flex-1 w-full">
+                        <NexusFilter 
+                            activeTab={activeTab} 
+                            onTabChange={setActiveTab} 
+                            availableTags={availableTags}
+                            selectedTags={selectedTags}
+                            onToggleTag={handleToggleTag}
+                            onClearTags={() => setSelectedTags([])}
+                        />
                     </div>
 
-                    {/* Preview Modal (YouTube & Google) */}
-                    <NexusPreviewModal 
-                        integration={previewIntegration}
-                        onClose={() => setPreviewIntegration(null)}
-                    />
-
-                    {/* Edit Modal */}
-                    <NexusEditModal 
-                        integration={editingIntegration}
-                        onClose={() => setEditingIntegration(null)}
-                        onSave={handleUpdateIntegration}
-                    />
-
-                    {/* Settings Modal */}
-                    <NexusSettingsModal 
-                        isOpen={isSettingsOpen}
-                        onClose={() => setIsSettingsOpen(false)}
-                        aiEnabled={aiEnabled}
-                        onAiToggle={updateAiEnabled}
-                        currentTheme={currentTheme}
-                        onThemeChange={updateTheme}
-                        onClearCache={handleClearCache}
-                    />
-
-                    {/* Help Modal */}
-                    <NexusHelpModal 
-                        isOpen={isHelpOpen}
-                        onClose={() => setIsHelpOpen(false)}
-                    />
+                    <button
+                        onClick={() => {
+                            setEditingFolder(null);
+                            setIsFolderModalOpen(true);
+                        }}
+                        className="w-full md:w-auto px-6 py-3.5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 active:scale-95 shrink-0"
+                    >
+                        <FolderPlus className="w-5 h-5" /> 
+                        <span>สร้างโฟลเดอร์</span>
+                    </button>
                 </div>
+
+            {/* Main List Grid */}
+            {isLoading ? (
+                <div className="py-32 flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+                    <p className="text-slate-400 font-black text-xs uppercase tracking-widest">กำลังซิงโครไนซ์ข้อมูล...</p>
+                </div>
+            ) : (
+                <div className="space-y-12">
+                    {/* Breadcrumbs Navigation */}
+                    <div className="px-2">
+                        <NexusBreadcrumbs 
+                            currentFolder={currentFolder}
+                            folders={folders}
+                            onNavigate={setCurrentFolderId}
+                        />
+                    </div>
+
+                    {hasResults ? (
+                        <div className="space-y-16">
+                            {/* Search Mode Indicator */}
+                            {searchQuery && (
+                                <div className="flex items-center gap-3 px-6 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                                    <Search className="w-4 h-4 text-indigo-500" />
+                                    <p className="text-sm font-bold text-indigo-700">
+                                        กำลังแสดงผลการค้นหาสำหรับ: <span className="text-indigo-900 underline underline-offset-4">"{searchQuery}"</span>
+                                    </p>
+                                    <button 
+                                        onClick={() => {
+                                            const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+                                            if (input) {
+                                                input.value = '';
+                                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                            }
+                                        }}
+                                        className="ml-auto text-xs font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest"
+                                    >
+                                        ล้างการค้นหา
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Folders Section - Only show if not searching or if folders match search */}
+                            {(filteredFolders.length > 0) && (
+                                <section className="space-y-6">
+                                    <div className="flex items-center gap-3 px-2">
+                                        <Folder className="w-5 h-5 text-slate-400" />
+                                        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">โฟลเดอร์ ({filteredFolders.length})</h2>
+                                        <div className="flex-1 h-px bg-slate-100" />
+                                    </div>
+                                    
+                                    <motion.div 
+                                        layout
+                                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+                                    >
+                                        <AnimatePresence mode="popLayout">
+                                            {filteredFolders.map((folder) => (
+                                                <NexusFolderCard 
+                                                    key={folder.id}
+                                                    folder={folder}
+                                                    itemCount={integrations.filter(i => i.folderId === folder.id).length}
+                                                    onClick={setCurrentFolderId}
+                                                    onEdit={(f) => {
+                                                        setEditingFolder(f);
+                                                        setIsFolderModalOpen(true);
+                                                    }}
+                                                    onDelete={handleDeleteFolder}
+                                                />
+                                            ))}
+                                        </AnimatePresence>
+                                    </motion.div>
+                                </section>
+                            )}
+
+                            {/* Items Section */}
+                            <section className="space-y-6">
+                                <div className="flex items-center gap-3 px-2">
+                                    <LayoutGrid className="w-5 h-5 text-slate-400" />
+                                    <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">
+                                        {searchQuery ? 'ผลลัพธ์การค้นหา' : 'รายการทั้งหมด'} ({filteredIntegrations.length})
+                                    </h2>
+                                    <div className="flex-1 h-px bg-slate-100" />
+                                </div>
+
+                                <motion.div 
+                                    layout
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                                >
+                                    <AnimatePresence mode="popLayout">
+                                        {filteredIntegrations.map((integration) => (
+                                            <NexusCard 
+                                                key={integration.id} 
+                                                integration={integration} 
+                                                folderName={searchQuery !== '' ? folders.find(f => f.id === integration.folderId)?.name : undefined}
+                                                onDelete={handleDeleteIntegration}
+                                                onEdit={setEditingIntegration}
+                                                onPreview={(int) => setPreviewIntegration(int)}
+                                            />
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.div>
+                            </section>
+                        </div>
+                    ) : (
+                        <NexusEmptyState 
+                            onAddFolder={() => setIsFolderModalOpen(true)}
+                            onFocusAddInput={() => {
+                                const input = document.querySelector('input[placeholder*="วางลิงก์"]') as HTMLInputElement;
+                                if (input) input.focus();
+                            }}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Footer Stats */}
+            <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-6">
+                    <div className="flex flex-col">
+                        <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">รายการทั้งหมด</span>
+                        <span className="text-xl font-bold text-slate-800">{integrations.length}</span>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100" />
+                    <div className="flex flex-col">
+                        <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">โฟลเดอร์</span>
+                        <span className="text-xl font-bold text-slate-800">{folders.length}</span>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100" />
+                    <div className="flex flex-col">
+                        <span className="text-[14px] font-kanit font-medium text-slate-400 uppercase tracking-widest">อัปเดตล่าสุด</span>
+                        <span className="text-xl font-kanit font-bold text-slate-800">เมื่อครู่</span>
+                    </div>
+                </div>
+                
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Nexus Hub v2.0 • Folder System Enabled
+                </p>
+            </div>
+
+            {/* Preview Modal (YouTube & Google) */}
+            <NexusPreviewModal 
+                integration={previewIntegration}
+                onClose={() => setPreviewIntegration(null)}
+            />
+
+            {/* Edit Modal */}
+            <NexusEditModal 
+                integration={editingIntegration}
+                folders={folders}
+                onClose={() => setEditingIntegration(null)}
+                onSave={handleUpdateIntegration}
+            />
+
+            {/* Folder Modal */}
+            <NexusFolderModal 
+                isOpen={isFolderModalOpen}
+                onClose={() => {
+                    setIsFolderModalOpen(false);
+                    setEditingFolder(null);
+                }}
+                onSave={(data) => handleSaveFolder(data, editingFolder)}
+                folder={editingFolder}
+            />
+
+            {/* Settings Modal */}
+            <NexusSettingsModal 
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                aiEnabled={aiEnabled}
+                onAiToggle={updateAiEnabled}
+                currentTheme={currentTheme}
+                onThemeChange={updateTheme}
+                onClearCache={handleClearCache}
+            />
+
+            {/* Help Modal */}
+            <NexusHelpModal 
+                isOpen={isHelpOpen}
+                onClose={() => setIsHelpOpen(false)}
+            />
+        </div>
+    );
+
+    if (onNavigateMode) {
+        return (
+            <div className="min-h-full p-4 md:p-8 pt-0">
+                {content}
+            </div>
+        );
+    }
+
+    return (
+        <AppBackground theme={currentTheme} pattern="dots" className="min-h-screen">
+            <div className="min-h-screen p-4 md:p-8">
+                {content}
             </div>
         </AppBackground>
     );

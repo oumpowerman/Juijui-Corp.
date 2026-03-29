@@ -121,7 +121,7 @@ const NexusHeader: React.FC<NexusHeaderProps> = ({ onAdd, isAdding, aiEnabled, h
                         type="submit"
                         disabled={!url.trim() || isAdding}
                         className={`
-                            relative flex items-center gap-2 px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all overflow-hidden
+                            relative flex items-center gap-2 px-6 py-3 rounded-full font-kanit font-medium text-sm uppercase tracking-widest transition-all overflow-hidden
                             ${url.trim() 
                                 ? 'bg-slate-900 text-white hover:bg-black shadow-lg active:scale-95' 
                                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'

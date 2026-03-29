@@ -1,19 +1,20 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Youtube, FileSpreadsheet, HardDrive, FileText, Globe, ExternalLink, Trash2, Clock, PlayCircle, Copy, Check, Edit2, Instagram, Facebook, Video, Palette } from 'lucide-react';
+import { Folder, Youtube, FileSpreadsheet, HardDrive, FileText, Globe, ExternalLink, Trash2, Clock, PlayCircle, Copy, Check, Edit2, Instagram, Facebook, Video, Palette } from 'lucide-react';
 import { NexusIntegration, NexusPlatform } from '../../types';
 import { getPlatformConfig, extractYouTubeId } from '../../utils/nexusUtils';
 import { format } from 'date-fns';
 
 interface NexusCardProps {
     integration: NexusIntegration;
+    folderName?: string;
     onDelete: (id: string) => void;
     onEdit: (integration: NexusIntegration) => void;
     onPreview?: (integration: NexusIntegration) => void;
 }
 
-const NexusCard: React.FC<NexusCardProps> = ({ integration, onDelete, onEdit, onPreview }) => {
+const NexusCard: React.FC<NexusCardProps> = ({ integration, folderName, onDelete, onEdit, onPreview }) => {
     const [copied, setCopied] = React.useState(false);
     const config = getPlatformConfig(integration.platform);
 
@@ -182,9 +183,17 @@ const NexusCard: React.FC<NexusCardProps> = ({ integration, onDelete, onEdit, on
                 )}
 
                 <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                        <Clock className="w-3 h-3" />
-                        {updatedAt ? format(new Date(updatedAt), 'd MMM yyyy') : 'เมื่อเร็วๆ นี้'}
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                            <Clock className="w-3 h-3" />
+                            {updatedAt ? format(new Date(updatedAt), 'd MMM yyyy') : 'เมื่อเร็วๆ นี้'}
+                        </div>
+                        {folderName && (
+                            <div className="flex items-center gap-1.5 text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                                <Folder className="w-2.5 h-2.5" />
+                                {folderName}
+                            </div>
+                        )}
                     </div>
 
                     <a 

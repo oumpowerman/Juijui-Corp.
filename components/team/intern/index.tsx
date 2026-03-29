@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Calendar, List, Search, Filter, X, GraduationCap, Briefcase, UserPlus, Trash2, Sparkles, CalendarDays, Upload } from 'lucide-react';
-import { useInterns } from '../../../hooks/useInterns';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { useInterns, InternFilterState, InternStats } from '../../../hooks/useInterns';
 import { InternCandidate, InternStatus } from '../../../types';
 import InternTimeline from './views/InternTimeline';
 import InternListView from './views/InternListView';
@@ -16,26 +17,26 @@ import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import FilterDropdown from '../../common/FilterDropdown';
 import { CheckCircle2, Clock, XCircle, Trash2 as TrashIcon, User as UserIcon, Inbox } from 'lucide-react';
 import InternStatsGrid from './InternStatsGrid';
+import InternSmartFilter from './InternSmartFilter';
 
 interface InternManagementViewProps {
     interns: InternCandidate[];
     loading: boolean;
     hasMore: boolean;
+    stats: InternStats;
+    filters: InternFilterState;
+    setFilters: React.Dispatch<React.SetStateAction<InternFilterState>>;
     addIntern: (data: Partial<InternCandidate>) => Promise<void>;
     updateIntern: (id: string, data: Partial<InternCandidate>) => Promise<void>;
     deleteIntern: (id: string) => Promise<void>;
     fetchMore: () => void;
-    fetchByRange: (start: string, end: string) => void;
     refresh: () => void;
 }
 
 const InternManagementView: React.FC<InternManagementViewProps> = ({
-    interns, loading, hasMore, addIntern, updateIntern, deleteIntern, fetchMore, fetchByRange, refresh
+    interns, loading, hasMore, stats, filters, setFilters, addIntern, updateIntern, deleteIntern, fetchMore, refresh
 }) => {
     const [viewMode, setViewMode] = useState<'LIST' | 'TABLE' | 'TIMELINE' | 'CALENDAR'>('LIST');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<InternStatus[]>([]);
-    const [showArchived, setShowArchived] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -44,31 +45,6 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
     const [selectedIntern, setSelectedIntern] = useState<InternCandidate | undefined>(undefined);
     const [viewingIntern, setViewingIntern] = useState<InternCandidate | null>(null);
     const { showConfirm } = useGlobalDialog();
-
-    const statusOptions = [
-        { key: 'APPLIED', label: 'สมัครเข้ามา', icon: <Inbox className="w-4 h-4" /> },
-        { key: 'INTERVIEW_SCHEDULED', label: 'นัดสัมภาษณ์แล้ว', icon: <Clock className="w-4 h-4" /> },
-        { key: 'INTERVIEWED', label: 'สัมภาษณ์แล้ว', icon: <UserIcon className="w-4 h-4" /> },
-        { key: 'ACCEPTED', label: 'รับเข้าฝึกงาน', icon: <CheckCircle2 className="w-4 h-4" /> },
-        { key: 'REJECTED', label: 'ไม่ผ่านการคัดเลือก', icon: <XCircle className="w-4 h-4" /> },
-        { key: 'ARCHIVED', label: 'เก็บถาวร', icon: <TrashIcon className="w-4 h-4" /> },
-    ];
-
-    const filteredInterns = useMemo(() => {
-        return interns.filter(i => {
-            const matchesSearch = i.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                 i.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                 i.position.toLowerCase().includes(searchQuery.toLowerCase());
-            
-            // If statusFilter is empty, we show everything except ARCHIVED and REJECTED unless showArchived is true
-            // If statusFilter has values, we show those specific statuses
-            const matchesStatus = statusFilter.length === 0 
-                ? (showArchived ? true : (i.status !== 'ARCHIVED' && i.status !== 'REJECTED'))
-                : statusFilter.includes(i.status);
-
-            return matchesSearch && matchesStatus;
-        });
-    }, [interns, searchQuery, statusFilter, showArchived]);
 
     const handleAddClick = () => {
         setSelectedIntern(undefined);
@@ -89,7 +65,6 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
     const handleSaveIntern = async (data: Partial<InternCandidate>) => {
         if (selectedIntern) {
             await updateIntern(selectedIntern.id, data);
-            // Update viewingIntern if it's the one being edited to reflect changes in detail modal
             if (viewingIntern && viewingIntern.id === selectedIntern.id) {
                 setViewingIntern({ ...viewingIntern, ...data } as InternCandidate);
             }
@@ -98,7 +73,6 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
         }
         setIsModalOpen(false);
         
-        // If we came from detail modal, go back to it
         if (returnToDetail) {
             setIsDetailModalOpen(true);
             setReturnToDetail(false);
@@ -109,8 +83,6 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
 
     const handleImportInterns = async (data: Partial<InternCandidate>[]) => {
         try {
-            // We can do bulk import if we update useInterns, but for now we'll do it sequentially or in parallel
-            // Since useInterns.addIntern handles one at a time, we'll map them
             const promises = data.map(item => addIntern(item));
             await Promise.all(promises);
             showToast(`นำเข้าข้อมูลสำเร็จ ${data.length} รายการ ✨`, 'success');
@@ -141,7 +113,31 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
 
     const handleViewModeChange = (mode: 'LIST' | 'TABLE' | 'TIMELINE' | 'CALENDAR') => {
         setViewMode(mode);
+        
+        if (mode === 'CALENDAR' && filters.statuses.length === 0) {
+            setFilters(prev => ({ ...prev, statuses: ['ACCEPTED'] }));
+        }
     };
+
+    const handleFilterChange = (newFilters: Partial<InternFilterState>) => {
+        setFilters(prev => ({ ...prev, ...newFilters }));
+    };
+
+    const handleClearFilters = () => {
+        setFilters({
+            searchQuery: '',
+            statuses: [],
+            dateRange: { start: null, end: null },
+            dateType: 'APPLICATION'
+        });
+    };
+
+    const currentFilterLabel = useMemo(() => {
+        if (filters.dateRange.start && filters.dateRange.end) {
+            return `${format(filters.dateRange.start, 'd MMM yyyy')} - ${format(filters.dateRange.end, 'd MMM yyyy')}`;
+        }
+        return 'ทั้งหมด';
+    }, [filters.dateRange]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -177,7 +173,7 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             Intern Management
                         </motion.h2>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            จัดการพนักงานฝึกงาน ({filteredInterns.length})
+                            จัดการพนักงานฝึกงาน ({stats.total})
                             <motion.span
                                 animate={{ opacity: [0.4, 1, 0.4] }}
                                 transition={{ duration: 2, repeat: Infinity }}
@@ -224,41 +220,6 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                         </button>
                     </div>
 
-                    {/* Search */}
-                    <div className="relative flex-1 lg:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input 
-                            type="text"
-                            placeholder="ค้นหาชื่อ, มหาลัย, ตำแหน่ง..."
-                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50/50 border border-gray-200/60 focus:bg-white focus:border-indigo-200 rounded-xl text-xs font-bold outline-none transition-all"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Status Filter */}
-                    <div className="w-full sm:w-64">
-                        <FilterDropdown 
-                            label="สถานะ"
-                            value={statusFilter}
-                            options={statusOptions}
-                            onChange={(val) => setStatusFilter(val as InternStatus[])}
-                            icon={<Filter className="w-4 h-4" />}
-                            activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700"
-                            multiSelect={true}
-                        />
-                    </div>
-
-                    {/* Show Archived Toggle */}
-                    <button 
-                        onClick={() => setShowArchived(!showArchived)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
-                        title={showArchived ? "ซ่อนที่เก็บถาวร" : "แสดงที่เก็บถาวร"}
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">{showArchived ? "ซ่อน Archive" : "ดู Archive"}</span>
-                    </button>
-
                     {/* Add Button */}
                     <div className="flex items-center gap-2">
                         <motion.button 
@@ -283,12 +244,25 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                 </div>
             </div>
 
+            {/* Smart Filter Component */}
+            <InternSmartFilter 
+                filters={filters}
+                onChange={handleFilterChange}
+                onClear={handleClearFilters}
+                totalCount={stats.total}
+            />
+
             {/* Stats Grid */}
-            <InternStatsGrid />
+            <InternStatsGrid 
+                stats={stats}
+                isLoading={loading}
+                onStatClick={(status) => handleFilterChange({ statuses: [status] })}
+                currentFilterLabel={currentFilterLabel}
+            />
 
             {/* Main Content */}
             <div className="min-h-[400px] relative">
-                {/* Loading Overlay - only show when loading and no data yet, or as a subtle overlay */}
+                {/* Loading Overlay */}
                 {loading && interns.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm rounded-[2rem]">
                         <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
@@ -304,7 +278,7 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             exit={{ opacity: 0, y: -20 }}
                         >
                             <InternListView 
-                                interns={filteredInterns} 
+                                interns={interns} 
                                 onEdit={handleViewClick}
                                 onDelete={handleDeleteIntern}
                                 onUpdateStatus={(id, status) => updateIntern(id, { status })}
@@ -321,7 +295,7 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             exit={{ opacity: 0, y: -20 }}
                         >
                             <InternTableView 
-                                interns={filteredInterns} 
+                                interns={interns} 
                                 onEdit={handleViewClick}
                                 onDelete={handleDeleteIntern}
                                 onUpdateStatus={(id, status) => updateIntern(id, { status })}
@@ -338,9 +312,10 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             exit={{ opacity: 0, y: -20 }}
                         >
                             <InternTimeline 
-                                interns={filteredInterns} 
+                                interns={interns} 
                                 onEdit={handleViewClick}
-                                onRangeChange={fetchByRange}
+                                onRangeChange={(start, end) => handleFilterChange({ dateRange: { start: new Date(start), end: new Date(end) }, dateType: 'INTERNSHIP' })}
+                                isLoading={loading}
                             />
                         </motion.div>
                     ) : (
@@ -351,15 +326,17 @@ const InternManagementView: React.FC<InternManagementViewProps> = ({
                             exit={{ opacity: 0, y: -20 }}
                         >
                             <InternCalendarView 
-                                interns={filteredInterns} 
+                                interns={interns} 
                                 onEdit={handleViewClick}
+                                onRangeChange={(start, end) => handleFilterChange({ dateRange: { start: new Date(start), end: new Date(end) }, dateType: 'INTERNSHIP' })}
+                                isLoading={loading}
                             />
                         </motion.div>
                     )}
                 </AnimatePresence>
             </div>
 
-            {/* Modal */}
+            {/* Modals */}
             <InternCandidateModal 
                 isOpen={isModalOpen}
                 onClose={() => {

@@ -131,7 +131,7 @@ const WikiList: React.FC<WikiListProps> = ({
             </div>
 
             {/* List Area */}
-            <div className="flex-1 overflow-y-auto bg-transparent scrollbar-thin scrollbar-thumb-slate-200/50 relative z-10">
+            <div className="flex-1 overflow-y-auto bg-transparent scrollbar-thin scrollbar-thumb-slate-200/50 relative z-10 [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                 <div className={`p-6 ${viewDensity === 'COMPACT' ? 'space-y-3' : 'space-y-6'}`}>
                     <AnimatePresence mode="popLayout">
                         {articles.map((article, index) => {

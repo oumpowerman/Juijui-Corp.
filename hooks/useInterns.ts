@@ -3,15 +3,48 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { InternCandidate, InternStatus } from '../types';
 import { useToast } from '../context/ToastContext';
+import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+
+export interface InternFilterState {
+    searchQuery: string;
+    statuses: InternStatus[];
+    dateRange: {
+        start: Date | null;
+        end: Date | null;
+    };
+    dateType: 'APPLICATION' | 'INTERNSHIP';
+}
+
+export interface InternStats {
+    applied: number;
+    interview: number;
+    accepted: number;
+    rejected: number;
+    total: number;
+}
 
 export const useInterns = (enabled: boolean = true) => {
     const [interns, setInterns] = useState<InternCandidate[]>([]);
     const [loading, setLoading] = useState(enabled);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(0);
+    const [filters, setFilters] = useState<InternFilterState>({
+        searchQuery: '',
+        statuses: [],
+        dateRange: { start: null, end: null },
+        dateType: 'APPLICATION'
+    });
+    const [stats, setStats] = useState<InternStats>({
+        applied: 0,
+        interview: 0,
+        accepted: 0,
+        rejected: 0,
+        total: 0
+    });
+    
     const { showToast } = useToast();
 
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 50;
 
     const mapDBToIntern = useCallback((data: any): InternCandidate => ({
         id: data.id,
@@ -38,13 +71,24 @@ export const useInterns = (enabled: boolean = true) => {
         createdBy: data.created_by
     }), []);
 
-    const fetchInterns = useCallback(async (reset = false, dateRange?: { start: string, end: string }) => {
-        if (!enabled && !dateRange) return; // Don't fetch if not enabled, unless it's a specific range request
+    const calculateStats = useCallback((data: InternCandidate[]) => {
+        const newStats = data.reduce((acc, curr) => {
+            if (curr.status === 'APPLIED') acc.applied++;
+            if (curr.status === 'INTERVIEW_SCHEDULED') acc.interview++;
+            if (curr.status === 'ACCEPTED') acc.accepted++;
+            if (curr.status === 'REJECTED') acc.rejected++;
+            acc.total++;
+            return acc;
+        }, { applied: 0, interview: 0, accepted: 0, rejected: 0, total: 0 });
+        setStats(newStats);
+    }, []);
+
+    const fetchInterns = useCallback(async (reset = false, currentFilters: InternFilterState) => {
+        if (!enabled) return; 
         
         try {
             setLoading(true);
             
-            // Use a functional update or local variable to avoid dependency on 'page' state
             let currentPage = 0;
             setPage(prev => {
                 currentPage = reset ? 0 : prev;
@@ -58,29 +102,83 @@ export const useInterns = (enabled: boolean = true) => {
                 .from('intern_candidates')
                 .select('*', { count: 'exact' });
 
-            if (dateRange) {
-                // Fetch interns overlapping with the range
-                query = query.or(`and(start_date.lte.${dateRange.end},end_date.gte.${dateRange.start})`);
-            } else {
-                // Standard pagination for list view
-                query = query.order('created_at', { ascending: false }).range(from, to);
+            // Apply Filters
+            if (currentFilters.searchQuery) {
+                query = query.or(`full_name.ilike.%${currentFilters.searchQuery}%,university.ilike.%${currentFilters.searchQuery}%,position.ilike.%${currentFilters.searchQuery}%,email.ilike.%${currentFilters.searchQuery}%`);
             }
 
-            const { data, error, count } = await query;
+            if (currentFilters.statuses.length > 0) {
+                query = query.in('status', currentFilters.statuses);
+            }
+
+            if (currentFilters.dateRange.start && currentFilters.dateRange.end) {
+                const start = currentFilters.dateRange.start.toISOString();
+                const end = currentFilters.dateRange.end.toISOString();
+
+                if (currentFilters.dateType === 'APPLICATION') {
+                    query = query.gte('application_date', start).lte('application_date', end);
+                } else {
+                    query = query.or(`and(start_date.lte.${end},end_date.gte.${start})`);
+                }
+            }
+
+            // Sorting
+            if (currentFilters.dateType === 'APPLICATION') {
+                query = query.order('application_date', { ascending: false });
+            } else {
+                query = query.order('start_date', { ascending: true });
+            }
+
+            const { data, error, count } = await query.range(from, to);
 
             if (error) throw error;
             if (data) {
                 const mapped = data.map(mapDBToIntern);
-                if (reset || dateRange) {
+                if (reset) {
                     setInterns(mapped);
                     setPage(1);
+                    // If it's a reset, we should also fetch ALL data for stats if needed, 
+                    // but for now let's calculate from what we have or do a separate count query
+                    // Actually, stats should probably be global for the filter, not just the page.
+                    
+                    // Fetch global stats for this filter
+                    let statsQuery = supabase
+                        .from('intern_candidates')
+                        .select('status', { count: 'exact' });
+                    
+                    if (currentFilters.searchQuery) {
+                        statsQuery = statsQuery.or(`full_name.ilike.%${currentFilters.searchQuery}%,university.ilike.%${currentFilters.searchQuery}%,position.ilike.%${currentFilters.searchQuery}%,email.ilike.%${currentFilters.searchQuery}%`);
+                    }
+                    if (currentFilters.dateRange.start && currentFilters.dateRange.end) {
+                        const start = currentFilters.dateRange.start.toISOString();
+                        const end = currentFilters.dateRange.end.toISOString();
+                        if (currentFilters.dateType === 'APPLICATION') {
+                            statsQuery = statsQuery.gte('application_date', start).lte('application_date', end);
+                        } else {
+                            statsQuery = statsQuery.or(`and(start_date.lte.${end},end_date.gte.${start})`);
+                        }
+                    }
+
+                    const { data: statsData } = await statsQuery;
+                    if (statsData) {
+                        const s = statsData.reduce((acc: any, curr: any) => {
+                            if (curr.status === 'APPLIED') acc.applied++;
+                            if (curr.status === 'INTERVIEW_SCHEDULED') acc.interview++;
+                            if (curr.status === 'ACCEPTED') acc.accepted++;
+                            if (curr.status === 'REJECTED') acc.rejected++;
+                            acc.total++;
+                            return acc;
+                        }, { applied: 0, interview: 0, accepted: 0, rejected: 0, total: 0 });
+                        setStats(s);
+                    }
+
                 } else {
                     setInterns(prev => [...prev, ...mapped]);
                     setPage(prev => prev + 1);
                 }
                 
                 if (count !== null) {
-                    setHasMore(reset ? mapped.length < count : (from + mapped.length) < count);
+                    setHasMore((from + mapped.length) < count);
                 }
             }
         } catch (err: any) {
@@ -89,29 +187,75 @@ export const useInterns = (enabled: boolean = true) => {
         } finally {
             setLoading(false);
         }
-    }, [mapDBToIntern, showToast, enabled]); // Added 'enabled' to dependencies
+    }, [mapDBToIntern, showToast, enabled]);
 
     useEffect(() => {
-        // Initial fetch for list view - only on mount if enabled
         if (enabled) {
-            fetchInterns(true);
+            fetchInterns(true, filters);
         }
-    }, [enabled, fetchInterns]); // Run when enabled changes or on mount
+    }, [enabled, filters, fetchInterns]);
 
     useEffect(() => {
-        if (!enabled) return; // Don't subscribe if not enabled
+        if (!enabled) return;
 
         const channel = supabase.channel('intern-candidates-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'intern_candidates' }, (payload) => {
+                const checkFilters = (item: any) => {
+                    // Simple check if item matches current filters
+                    if (filters.statuses.length > 0 && !filters.statuses.includes(item.status)) return false;
+                    if (filters.searchQuery) {
+                        const search = filters.searchQuery.toLowerCase();
+                        const matches = item.full_name?.toLowerCase().includes(search) || 
+                                      item.university?.toLowerCase().includes(search) ||
+                                      item.position?.toLowerCase().includes(search);
+                        if (!matches) return false;
+                    }
+                    // Date range check could be added here too
+                    return true;
+                };
+
                 if (payload.eventType === 'INSERT') {
                     const newIntern = mapDBToIntern(payload.new);
-                    setInterns(prev => [newIntern, ...prev]);
+                    if (checkFilters(payload.new)) {
+                        setInterns(prev => [newIntern, ...prev]);
+                    }
+                    // Always update stats if it matches filters (even if not in current page)
+                    if (checkFilters(payload.new)) {
+                        setStats(prev => {
+                            const ns = { ...prev };
+                            if (newIntern.status === 'APPLIED') ns.applied++;
+                            if (newIntern.status === 'INTERVIEW_SCHEDULED') ns.interview++;
+                            if (newIntern.status === 'ACCEPTED') ns.accepted++;
+                            if (newIntern.status === 'REJECTED') ns.rejected++;
+                            ns.total++;
+                            return ns;
+                        });
+                    }
                     showToast(`มีผู้สมัครฝึกงานใหม่: ${newIntern.fullName}`, 'info');
                 } else if (payload.eventType === 'UPDATE') {
                     const updatedIntern = mapDBToIntern(payload.new);
-                    setInterns(prev => prev.map(i => i.id === updatedIntern.id ? updatedIntern : i));
+                    const oldIntern = mapDBToIntern(payload.old); // payload.old might only have ID
+                    
+                    setInterns(prev => {
+                        const exists = prev.find(i => i.id === updatedIntern.id);
+                        if (exists) {
+                            if (checkFilters(payload.new)) {
+                                return prev.map(i => i.id === updatedIntern.id ? updatedIntern : i);
+                            } else {
+                                return prev.filter(i => i.id !== updatedIntern.id);
+                            }
+                        } else if (checkFilters(payload.new)) {
+                            return [updatedIntern, ...prev];
+                        }
+                        return prev;
+                    });
+                    
+                    // Refresh stats on update to be safe
+                    fetchInterns(true, filters);
+
                 } else if (payload.eventType === 'DELETE') {
                     setInterns(prev => prev.filter(i => i.id !== payload.old.id));
+                    fetchInterns(true, filters);
                 }
             })
             .subscribe();
@@ -119,7 +263,7 @@ export const useInterns = (enabled: boolean = true) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [enabled, mapDBToIntern, showToast]);
+    }, [enabled, mapDBToIntern, showToast, filters, fetchInterns]);
 
     const addIntern = async (intern: Partial<InternCandidate>) => {
         try {
@@ -201,15 +345,20 @@ export const useInterns = (enabled: boolean = true) => {
         }
     };
 
+    const fetchMore = useCallback(() => fetchInterns(false, filters), [fetchInterns, filters]);
+    const refresh = useCallback(() => fetchInterns(true, filters), [fetchInterns, filters]);
+
     return {
         interns,
         loading,
         hasMore,
+        stats,
+        filters,
+        setFilters,
         addIntern,
         updateIntern,
         deleteIntern,
-        fetchMore: () => fetchInterns(false),
-        fetchByRange: (start: string, end: string) => fetchInterns(true, { start, end }),
-        refresh: () => fetchInterns(true)
+        fetchMore,
+        refresh
     };
 };

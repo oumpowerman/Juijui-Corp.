@@ -279,7 +279,7 @@ const WikiReader: React.FC<WikiReaderProps> = ({
             </div>
 
             {/* Content Scroll Area */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 bg-white transition-all duration-700">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 bg-white transition-all duration-700 [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                 <div className="relative">
                     
                     {/* Cover Image */}

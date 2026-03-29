@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Download, RotateCcw } from 'lucide-react';
 import { User } from '../../../types';
 import html2canvas from 'html2canvas';
+import { useToast } from '../../../context/ToastContext';
 
 interface RandomizerResultProps {
     winners: User[];
@@ -12,6 +13,7 @@ interface RandomizerResultProps {
 
 const RandomizerResult: React.FC<RandomizerResultProps> = ({ winners, topicLabel, onReset }) => {
     const resultRef = useRef<HTMLDivElement>(null);
+    const { showToast } = useToast();
 
     const handleDownload = async () => {
         if (!resultRef.current) return;
@@ -28,7 +30,7 @@ const RandomizerResult: React.FC<RandomizerResultProps> = ({ winners, topicLabel
             link.click();
         } catch (error) {
             console.error('Error saving image:', error);
-            alert('เกิดข้อผิดพลาดในการบันทึกรูปภาพ');
+            showToast('เกิดข้อผิดพลาดในการบันทึกรูปภาพ', 'error');
         }
     };
 

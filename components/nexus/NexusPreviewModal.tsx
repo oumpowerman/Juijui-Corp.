@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Share2, FileSpreadsheet, HardDrive, Video, Facebook, Instagram, Palette } from 'lucide-react';
 import { NexusIntegration, NexusPlatform } from '../../types';
@@ -45,7 +46,7 @@ const NexusPreviewModal: React.FC<NexusPreviewModalProps> = ({ integration, onCl
         }
     };
 
-    return (
+    const modalContent = (
         <AnimatePresence>
             {integration && (
                 <motion.div 
@@ -119,6 +120,8 @@ const NexusPreviewModal: React.FC<NexusPreviewModalProps> = ({ integration, onCl
             )}
         </AnimatePresence>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default NexusPreviewModal;

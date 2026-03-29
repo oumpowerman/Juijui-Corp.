@@ -10,7 +10,8 @@ import { Task } from '../types';
 export const useStockSync = (
     globalTasks: Task[],
     paginatedContents: Task[],
-    updateLocalItem: (task: Task, isDelete?: boolean) => void
+    updateLocalItem: (task: Task, isDelete?: boolean) => void,
+    jumpToPage1?: () => void
 ) => {
     // Create a Map of global tasks for O(1) lookup
     // This runs only when globalTasks changes
@@ -95,9 +96,17 @@ export const useStockSync = (
                     if (isNew) {
                         console.log(`[StockSync] Adding new global item to local: ${globalTask.id}`);
                         updateLocalItem(globalTask);
+                        
+                        // --- SMART JUMP ---
+                        // If the task has NO createdAt, it means it was just created OPTIMISTICALLY 
+                        // by the current user. We should jump to page 1.
+                        if (!globalTask.createdAt && jumpToPage1) {
+                            console.log(`[StockSync] Actor detected! Jumping to Page 1.`);
+                            jumpToPage1();
+                        }
                     }
                 }
             }
         });
-    }, [globalTasksMap, paginatedContents, updateLocalItem, globalTasks]);
+    }, [globalTasksMap, paginatedContents, updateLocalItem, globalTasks, jumpToPage1]);
 };

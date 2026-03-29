@@ -26,20 +26,37 @@ type MonthViewMode = 'BOTH' | 'CALENDAR' | 'LIST';
 interface InternCalendarViewProps {
     interns: InternCandidate[];
     onEdit: (intern: InternCandidate) => void;
+    onRangeChange?: (start: string, end: string) => void;
+    isLoading?: boolean;
 }
 
-const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit }) => {
+const InternCalendarView: React.FC<InternCalendarViewProps> = ({ 
+    interns, 
+    onEdit, 
+    onRangeChange,
+    isLoading 
+}) => {
     const [baseDate, setBaseDate] = useState(new Date());
     const [monthsToShow, setMonthsToShow] = useState(4);
     const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [monthViewModes, setMonthViewModes] = useState<Record<string, MonthViewMode>>({});
+    const [globalViewMode, setGlobalViewMode] = useState<MonthViewMode>('CALENDAR');
 
     const toggleViewMode = (monthKey: string, mode: MonthViewMode) => {
         setMonthViewModes(prev => ({
             ...prev,
             [monthKey]: mode
         }));
+    };
+
+    const setAllViewModes = (mode: MonthViewMode) => {
+        setGlobalViewMode(mode);
+        const newModes: Record<string, MonthViewMode> = {};
+        monthRange.forEach(m => {
+            newModes[m.toISOString()] = mode;
+        });
+        setMonthViewModes(newModes);
     };
 
     const monthRange = useMemo(() => {
@@ -49,6 +66,22 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit
         }
         return range;
     }, [baseDate, monthsToShow]);
+
+    const lastRangeRef = React.useRef<{ start: string; end: string } | null>(null);
+
+    // Fetch data when range changes
+    React.useEffect(() => {
+        if (onRangeChange && monthRange.length > 0) {
+            const start = startOfMonth(monthRange[0]).toISOString();
+            const end = endOfMonth(monthRange[monthRange.length - 1]).toISOString();
+            
+            // Only call if the range has actually changed
+            if (!lastRangeRef.current || lastRangeRef.current.start !== start || lastRangeRef.current.end !== end) {
+                lastRangeRef.current = { start, end };
+                onRangeChange(start, end);
+            }
+        }
+    }, [monthRange, onRangeChange]);
 
     const getInternsForMonth = (month: Date) => {
         const mStart = startOfMonth(month);
@@ -108,10 +141,17 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <div className="text-center min-w-[200px]">
+                    <div className="text-center min-w-[200px] flex items-center justify-center gap-2">
                         <h3 className="text-sm font-black text-gray-700 uppercase tracking-widest">
                             {format(monthRange[0], 'MMM yyyy')} - {format(monthRange[monthRange.length - 1], 'MMM yyyy')}
                         </h3>
+                        {isLoading && (
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                                className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"
+                            />
+                        )}
                     </div>
                     <button 
                         onClick={() => setBaseDate(prev => addMonths(prev, 1))}
@@ -121,16 +161,42 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2 bg-gray-100/50 p-1 rounded-xl border border-gray-200/50">
-                    {[2, 3, 4, 6].map(num => (
-                        <button
-                            key={num}
-                            onClick={() => setMonthsToShow(num)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${monthsToShow === num ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex bg-gray-100/50 p-1 rounded-xl border border-gray-200/50">
+                        <button 
+                            onClick={() => setAllViewModes('CALENDAR')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${globalViewMode === 'CALENDAR' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
-                            {num} Months
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            <span>Calendar Only</span>
                         </button>
-                    ))}
+                        <button 
+                            onClick={() => setAllViewModes('BOTH')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${globalViewMode === 'BOTH' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <Layout className="w-3.5 h-3.5" />
+                            <span>Both</span>
+                        </button>
+                        <button 
+                            onClick={() => setAllViewModes('LIST')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${globalViewMode === 'LIST' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <ListIcon className="w-3.5 h-3.5" />
+                            <span>List Only</span>
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-gray-100/50 p-1 rounded-xl border border-gray-200/50">
+                        {[2, 3, 4, 6].map(num => (
+                            <button
+                                key={num}
+                                onClick={() => setMonthsToShow(num)}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${monthsToShow === num ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                            >
+                                {num} Months
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -140,7 +206,7 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit
                     <AnimatePresence mode="popLayout">
                         {monthRange.map((month, idx) => {
                             const monthKey = month.toISOString();
-                            const currentMode = monthViewModes[monthKey] || 'BOTH';
+                            const currentMode = monthViewModes[monthKey] || globalViewMode;
                             const monthInterns = getInternsForMonth(month);
                             const monthStart = startOfMonth(month);
                             const monthEnd = endOfMonth(month);
@@ -225,52 +291,140 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({ interns, onEdit
                                                         <div key={d} className="text-[9px] font-black text-slate-300 text-center uppercase">{d}</div>
                                                     ))}
                                                 </div>
-                                                <div className="grid grid-cols-7 gap-px bg-slate-100 border border-slate-100 rounded-2xl overflow-hidden shadow-inner">
-                                                    {days.map((day, dIdx) => {
-                                                        const isCurrentMonth = isSameMonth(day, month);
-                                                        const activeInterns = monthInterns
-                                                            .filter(intern => 
-                                                                isWithinInterval(startOfDay(day), { 
-                                                                    start: startOfDay(new Date(intern.startDate)), 
-                                                                    end: endOfDay(new Date(intern.endDate)) 
+                                                
+                                                <div className="flex flex-col gap-px bg-slate-100 border border-slate-100 rounded-2xl overflow-hidden shadow-inner">
+                                                    {(() => {
+                                                        const weeks = [];
+                                                        for (let i = 0; i < days.length; i += 7) {
+                                                            weeks.push(days.slice(i, i + 7));
+                                                        }
+
+                                                        return weeks.map((week, wIdx) => {
+                                                            const weekStart = startOfDay(week[0]);
+                                                            const weekEnd = endOfDay(week[6]);
+
+                                                            // Get all interns active in this week
+                                                            const weekInterns = monthInterns.filter(intern => {
+                                                                const iStart = startOfDay(new Date(intern.startDate));
+                                                                const iEnd = endOfDay(new Date(intern.endDate));
+                                                                return iStart <= weekEnd && iEnd >= weekStart;
+                                                            });
+
+                                                            // Assign tracks to interns to avoid overlap
+                                                            const tracks: InternCandidate[][] = [];
+                                                            weekInterns
+                                                                .sort((a, b) => {
+                                                                    // Sort by duration (longer first) then name
+                                                                    const durA = new Date(a.endDate).getTime() - new Date(a.startDate).getTime();
+                                                                    const durB = new Date(b.endDate).getTime() - new Date(b.startDate).getTime();
+                                                                    if (durB !== durA) return durB - durA;
+                                                                    return a.fullName.localeCompare(b.fullName);
                                                                 })
-                                                            )
-                                                            .sort((a, b) => a.fullName.localeCompare(b.fullName));
-                                                        const hasInterns = activeInterns.length > 0;
-                                                        
-                                                        return (
-                                                            <div 
-                                                                key={dIdx}
-                                                                className={`
-                                                                    min-h-[64px] flex flex-col items-stretch relative transition-all p-1
-                                                                    ${!isCurrentMonth ? 'bg-slate-50/50 opacity-30' : 'bg-white'}
-                                                                    ${isToday(day) ? 'ring-inset ring-2 ring-indigo-500 z-10' : ''}
-                                                                `}
-                                                            >
-                                                                <span className={`text-[10px] font-black mb-1.5 text-center ${isCurrentMonth ? (hasInterns ? 'text-indigo-600' : 'text-slate-400') : 'text-slate-200'}`}>
-                                                                    {format(day, 'd')}
-                                                                </span>
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    {activeInterns.slice(0, 3).map(intern => (
-                                                                        <div 
-                                                                            key={intern.id} 
-                                                                            className={`h-3 rounded-md border-[0.5px] flex items-center justify-center px-1 overflow-hidden shadow-sm ${getPositionStyles(intern.position)}`}
-                                                                            title={`${intern.fullName} - ${intern.position}`}
-                                                                        >
-                                                                            <span className="text-[7px] font-black leading-none truncate">
-                                                                                {intern.fullName.split(' ')[0]}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
-                                                                    {activeInterns.length > 3 && (
-                                                                        <div className="text-[7px] font-black text-slate-400 text-center leading-none mt-0.5">
-                                                                            +{activeInterns.length - 3}
-                                                                        </div>
-                                                                    )}
+                                                                .forEach(intern => {
+                                                                    let placed = false;
+                                                                    for (let i = 0; i < tracks.length; i++) {
+                                                                        const lastInTrack = tracks[i][tracks[i].length - 1];
+                                                                        const lastEnd = endOfDay(new Date(lastInTrack.endDate));
+                                                                        const currentStart = startOfDay(new Date(intern.startDate));
+                                                                        
+                                                                        // Check if this intern starts after the last one in this track ends
+                                                                        // (Within this week context)
+                                                                        if (currentStart > lastEnd) {
+                                                                            tracks[i].push(intern);
+                                                                            placed = true;
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                    if (!placed) {
+                                                                        tracks.push([intern]);
+                                                                    }
+                                                                });
+
+                                                            // Limit tracks in BOTH mode, show all in CALENDAR mode
+                                                            const visibleTracks = currentMode === 'CALENDAR' ? tracks : tracks.slice(0, 3);
+
+                                                            return (
+                                                                <div key={wIdx} className="relative min-h-[64px] flex flex-col">
+                                                                    {/* Background Grid Cells */}
+                                                                    <div className="absolute inset-0 grid grid-cols-7 gap-px pointer-events-none">
+                                                                        {week.map((day, dIdx) => {
+                                                                            const isCurrentMonth = isSameMonth(day, month);
+                                                                            return (
+                                                                                <div 
+                                                                                    key={dIdx} 
+                                                                                    className={`
+                                                                                        h-full border-r border-slate-100 last:border-r-0
+                                                                                        ${!isCurrentMonth ? 'bg-slate-50/50 opacity-30' : 'bg-white'}
+                                                                                        ${isToday(day) ? 'bg-indigo-50/30' : ''}
+                                                                                    `}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* Day Numbers */}
+                                                                    <div className="grid grid-cols-7 gap-px relative z-10 pointer-events-none">
+                                                                        {week.map((day, dIdx) => {
+                                                                            const isCurrentMonth = isSameMonth(day, month);
+                                                                            return (
+                                                                                <div key={dIdx} className="pt-1 text-center">
+                                                                                    <span className={`text-[10px] font-black ${isCurrentMonth ? 'text-slate-400' : 'text-slate-200'}`}>
+                                                                                        {format(day, 'd')}
+                                                                                    </span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* Bars Container */}
+                                                                    <div className="relative flex-1 mt-1 pb-1 px-0.5 flex flex-col gap-0.5">
+                                                                        {visibleTracks.map((track, tIdx) => (
+                                                                            <div key={tIdx} className="relative h-3.5 w-full">
+                                                                                {track.map(intern => {
+                                                                                    const iStart = startOfDay(new Date(intern.startDate));
+                                                                                    const iEnd = endOfDay(new Date(intern.endDate));
+                                                                                    
+                                                                                    // Calculate start and end column (0-6)
+                                                                                    const startCol = Math.max(0, Math.floor((iStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000)));
+                                                                                    const endCol = Math.min(6, Math.floor((iEnd.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000)));
+                                                                                    
+                                                                                    const span = endCol - startCol + 1;
+                                                                                    const left = (startCol / 7) * 100;
+                                                                                    const width = (span / 7) * 100;
+
+                                                                                    return (
+                                                                                        <motion.div
+                                                                                            key={intern.id}
+                                                                                            initial={{ opacity: 0, scaleX: 0 }}
+                                                                                            animate={{ opacity: 1, scaleX: 1 }}
+                                                                                            style={{ 
+                                                                                                left: `${left}%`, 
+                                                                                                width: `calc(${width}% - 2px)`,
+                                                                                                transformOrigin: 'left'
+                                                                                            }}
+                                                                                            onClick={() => onEdit(intern)}
+                                                                                            className={`absolute h-3 rounded-md border-[0.5px] flex items-center px-1.5 overflow-hidden shadow-sm cursor-pointer hover:brightness-95 transition-all z-20 ${getPositionStyles(intern.position)}`}
+                                                                                            title={`${intern.fullName} (${intern.position})`}
+                                                                                        >
+                                                                                            <span className="text-[7px] font-black leading-none truncate">
+                                                                                                {intern.fullName.split(' ')[0]}
+                                                                                            </span>
+                                                                                        </motion.div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        ))}
+                                                                        
+                                                                        {tracks.length > 3 && currentMode !== 'CALENDAR' && (
+                                                                            <div className="text-[7px] font-black text-slate-400 text-center leading-none mt-0.5">
+                                                                                +{tracks.length - 3} more
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        );
-                                                    })}
+                                                            );
+                                                        });
+                                                    })()}
                                                 </div>
                                             </motion.div>
                                         )}

@@ -28,6 +28,14 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
+    // Track IDs that have been optimistically added to totalCount to prevent double-counting
+    const trackedAddedIds = useRef(new Set<string>());
+
+    const pageRef = useRef(page);
+    useEffect(() => {
+        pageRef.current = page;
+    }, [page]);
+
     // Refs to access current state inside stable useEffect for Realtime
     const searchRef = useRef(searchQuery);
     const filtersRef = useRef(filters);
@@ -172,6 +180,8 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             if (data) {
                 setContents(data.map(mapSupabaseToTask));
                 setTotalCount(count || 0);
+                // Reset tracked IDs since we have a fresh baseline from server
+                trackedAddedIds.current.clear();
             }
         } catch (err) {
             console.error('Fetch content stock failed:', err);
@@ -249,24 +259,35 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             const fullTask = mapSupabaseToTask(data);
             const isMatch = checkDoesItMatchFilters(fullTask);
 
-            setContents(prevList => {
-                const exists = prevList.some(item => item.id === id);
-
-                if (isMatch) {
+            if (isMatch) {
+                // If it's a match, we should check if it's already in the list
+                // If not, it's a new item (INSERT or moved into view), so increment totalCount
+                setContents(prevList => {
+                    const exists = prevList.some(item => item.id === id);
+                    if (!exists && !trackedAddedIds.current.has(id)) {
+                        setTotalCount(prev => prev + 1);
+                        trackedAddedIds.current.add(id);
+                    }
+                    
                     if (exists) {
                         return prevList.map(item => item.id === id ? fullTask : item);
-                    } else {
-                        // For inserts/moves into view, we append to top to show activity
-                        return [fullTask, ...prevList]; 
+                    } else if (pageRef.current === 1) {
+                        return [fullTask, ...prevList];
                     }
-                } else {
-                    if (exists) {
+                    return prevList;
+                });
+            } else {
+                // If it no longer matches filters, remove it and decrement count if it was there
+                setContents(prevList => {
+                    const exists = prevList.some(item => item.id === id);
+                    if (exists || trackedAddedIds.current.has(id)) {
+                        setTotalCount(prev => Math.max(0, prev - 1));
+                        trackedAddedIds.current.delete(id);
                         return prevList.filter(item => item.id !== id);
-                    } else {
-                        return prevList;
                     }
-                }
-            });
+                    return prevList;
+                });
+            }
 
         } catch (err) {
             console.error("Smart Hydration Error:", err);
@@ -285,8 +306,9 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             const exists = prevList.some(item => item.id === task.id);
             
             if (isDelete) {
-                if (exists) {
+                if (exists || trackedAddedIds.current.has(task.id)) {
                     setTotalCount(prev => Math.max(0, prev - 1));
+                    trackedAddedIds.current.delete(task.id);
                     return prevList.filter(item => item.id !== task.id);
                 }
                 return prevList;
@@ -300,12 +322,24 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 }
                 
                 // Handle Addition: If it matches filters and doesn't exist locally,
-                // we add it to the top (especially if we are on page 1)
-                setTotalCount(prev => prev + 1);
-                return [task, ...prevList];
+                // we only increment totalCount if we haven't tracked it yet.
+                if (!trackedAddedIds.current.has(task.id)) {
+                    setTotalCount(prev => prev + 1);
+                    trackedAddedIds.current.add(task.id);
+                }
+                
+                // We only add it to the top if we are on page 1 (Page 1 Guard).
+                if (pageRef.current === 1) {
+                    return [task, ...prevList];
+                }
+                
+                return prevList;
             } else {
                 // Handle Filter Mismatch: Remove from local list if it was there
-                if (exists) {
+                // and decrement the total count since it no longer matches the current view
+                if (exists || trackedAddedIds.current.has(task.id)) {
+                    setTotalCount(prev => Math.max(0, prev - 1));
+                    trackedAddedIds.current.delete(task.id);
                     return prevList.filter(item => item.id !== task.id);
                 }
                 return prevList;

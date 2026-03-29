@@ -99,7 +99,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   });
 
   // --- HYBRID SYNC: Watch Global Tasks ---
-  useStockSync(globalTasks, paginatedTasks, updateLocalItem);
+  useStockSync(globalTasks, paginatedTasks, updateLocalItem, () => setCurrentPage(1));
 
   // --- Handle Sorting ---
   const handleSort = (key: SortKey) => {
@@ -142,6 +142,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
             const { error } = await supabase.from('contents').insert(newTasksPayload);
             if (error) throw error;
             showToast(`นำเข้าสำเร็จ ${newTasksPayload.length} รายการ 🎉`, 'success');
+            // Jump to Page 1 to see new items
+            setCurrentPage(1);
             // Refresh list
             fetchContents();
         } else {

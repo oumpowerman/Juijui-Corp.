@@ -46,7 +46,7 @@ const WikiEditor: React.FC<WikiEditorProps> = ({ initialData, categories, onSave
             </div>
 
             {/* Editor Scroll Area */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 [mask-image:linear-gradient(to_bottom,transparent,black_40px)]">
                 <div className="max-w-4xl mx-auto p-6 lg:p-12 space-y-8">
                         
                         {/* Title & Category */}

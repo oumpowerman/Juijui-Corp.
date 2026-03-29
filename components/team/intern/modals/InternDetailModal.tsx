@@ -46,6 +46,8 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
         }
     };
 
+    const [isImageViewOpen, setIsImageViewOpen] = React.useState(false);
+
     const statusInfo = getStatusInfo(intern.status);
     const StatusIcon = statusInfo.icon;
 
@@ -129,14 +131,22 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                     transition={{ type: "spring", damping: 15, delay: 0.2 }}
                                     className="relative shrink-0"
                                 >
-                                    <div className="w-36 h-36 rounded-[2.5rem] bg-white p-2 shadow-2xl border border-slate-100 overflow-hidden">
+                                    <div 
+                                        onClick={() => intern.avatarUrl && setIsImageViewOpen(true)}
+                                        className={`w-36 h-36 rounded-[2.5rem] bg-white p-2 shadow-2xl border border-slate-100 overflow-hidden ${intern.avatarUrl ? 'cursor-zoom-in group/avatar' : ''}`}
+                                    >
                                         {intern.avatarUrl ? (
-                                            <img 
-                                                src={intern.avatarUrl} 
-                                                alt={intern.fullName}
-                                                className="w-full h-full object-cover rounded-[2rem]"
-                                                referrerPolicy="no-referrer"
-                                            />
+                                            <div className="relative w-full h-full overflow-hidden rounded-[2rem]">
+                                                <img 
+                                                    src={intern.avatarUrl} 
+                                                    alt={intern.fullName}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/avatar:scale-110"
+                                                    referrerPolicy="no-referrer"
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover/avatar:bg-black/10 transition-colors flex items-center justify-center">
+                                                    <ExternalLink className="w-6 h-6 text-white opacity-0 group-hover/avatar:opacity-100 transition-opacity" />
+                                                </div>
+                                            </div>
                                         ) : (
                                             <div className="w-full h-full bg-slate-50 flex items-center justify-center rounded-[2rem]">
                                                 <User className="w-14 h-14 text-slate-200" />
@@ -298,6 +308,43 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                             )}
                         </motion.div>
                     </motion.div>
+
+                    {/* Image Viewer Modal */}
+                    <AnimatePresence>
+                        {isImageViewOpen && intern.avatarUrl && (
+                            <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setIsImageViewOpen(false)}
+                                    className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl"
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="relative max-w-4xl w-full aspect-square sm:aspect-auto sm:h-[80vh] flex items-center justify-center"
+                                >
+                                    <button
+                                        onClick={() => setIsImageViewOpen(false)}
+                                        className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+                                    >
+                                        <X className="w-8 h-8" />
+                                    </button>
+                                    <img 
+                                        src={intern.avatarUrl} 
+                                        alt={intern.fullName}
+                                        className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl border border-white/10"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                    <div className="absolute -bottom-12 left-0 right-0 text-center">
+                                        <p className="text-white/70 text-sm font-medium">{intern.fullName}</p>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
                 </div>
             )}
         </AnimatePresence>,

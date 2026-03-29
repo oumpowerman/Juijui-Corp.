@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, Edit2, MoreVertical, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format, differenceInDays } from 'date-fns';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface InternListViewProps {
     interns: InternCandidate[];
@@ -66,7 +67,7 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-indigo-600 font-black text-lg overflow-hidden shadow-sm border-2 border-white group-hover:scale-105 transition-transform">
                                         {intern.avatarUrl ? (
-                                            <img src={intern.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            <img src={getDirectDriveUrl(intern.avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                         ) : (
                                             intern.fullName.charAt(0)
                                         )}

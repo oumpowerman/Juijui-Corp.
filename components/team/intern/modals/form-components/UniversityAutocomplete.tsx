@@ -42,7 +42,7 @@ const UniversityAutocomplete: React.FC<UniversityAutocompleteProps> = ({ value, 
                 <input 
                     required
                     type="text"
-                    className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-bold outline-none transition-all shadow-sm"
+                    className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-2xl text-base font-kanit font-medium outline-none transition-all shadow-sm"
                     value={value}
                     onChange={e => {
                         onChange(e.target.value);

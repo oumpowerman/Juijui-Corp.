@@ -109,7 +109,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     <GraduationCap className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-black text-gray-900 tracking-tight">
+                                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">
                                         {intern ? 'แก้ไขข้อมูลผู้สมัคร' : 'เพิ่มผู้สมัครฝึกงาน'}
                                     </h2>
                                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internship Application Form</p>
@@ -146,21 +146,21 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                             <div className="space-y-1.5">
-                                                <label className="text-sm font-bold text-gray-600 ml-1">ชื่อ-นามสกุล</label>
+                                                <label className="text-sm font-kanit font-bold text-gray-600 ml-1">ชื่อ-นามสกุล</label>
                                                 <input 
                                                     required
                                                     type="text"
-                                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
+                                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-kanit font-medium outline-none transition-all"
                                                     value={formData.fullName}
                                                     onChange={e => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
                                                     placeholder="ชื่อจริง - นามสกุล"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <label className="text-sm font-bold text-gray-600 ml-1">ชื่อเล่น</label>
+                                                <label className="text-sm font-kanit font-bold text-gray-600 ml-1">ชื่อเล่น</label>
                                                 <input 
                                                     type="text"
-                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-bold outline-none transition-all"
+                                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-100 focus:bg-white focus:border-indigo-200 rounded-lg text-sm font-kanit font-medium outline-none transition-all"
                                                     value={formData.nickname}
                                                     onChange={e => setFormData(prev => ({ ...prev, nickname: e.target.value }))}
                                                     placeholder="ชื่อเล่น"
@@ -168,7 +168,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-bold text-gray-600 ml-1">เพศ</label>
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">เพศ</label>
                                             <GenderSelector 
                                                 value={formData.gender || 'OTHER'} 
                                                 onChange={val => setFormData(prev => ({ ...prev, gender: val }))} 
@@ -188,13 +188,13 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">อีเมล</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">อีเมล</label>
                                         <div className="relative">
                                             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                             <input 
                                                 required
                                                 type="email"
-                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-blue-100 focus:border-blue-300 rounded-xl text-sm  font-medium outline-none transition-all"
                                                 value={formData.email}
                                                 onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                                                 placeholder="example@email.com"
@@ -202,7 +202,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">เบอร์โทรศัพท์</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">เบอร์โทรศัพท์</label>
                                         <div className="relative">
                                             <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                             <input 
@@ -228,7 +228,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                 </div>
                                 <div className="space-y-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">มหาวิทยาลัย / สถาบัน</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">มหาวิทยาลัย / สถาบัน</label>
                                         <UniversityAutocomplete 
                                             value={formData.university || ''} 
                                             onChange={val => setFormData(prev => ({ ...prev, university: val }))} 
@@ -237,20 +237,20 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-bold text-gray-600 ml-1">คณะ</label>
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">คณะ</label>
                                             <input 
                                                 type="text"
-                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-kanit font-medium outline-none transition-all"
                                                 value={formData.faculty || ''}
                                                 onChange={e => setFormData(prev => ({ ...prev, faculty: e.target.value }))}
                                                 placeholder="คณะ..."
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-bold text-gray-600 ml-1">ชั้นปี</label>
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">ชั้นปี</label>
                                             <input 
                                                 type="text"
-                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-kanit font-medium outline-none transition-all"
                                                 value={formData.academicYear || ''}
                                                 onChange={e => setFormData(prev => ({ ...prev, academicYear: e.target.value }))}
                                                 placeholder="ปี 3, ปี 4..."
@@ -259,17 +259,17 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_0.6fr] gap-5">
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-bold text-gray-600 ml-1">ตำแหน่งที่สมัคร</label>
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">ตำแหน่งที่สมัคร</label>
                                             <PositionSelector 
                                                 value={formData.position || ''} 
                                                 onChange={val => setFormData(prev => ({ ...prev, position: val }))} 
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-sm font-bold text-gray-600 ml-1">แหล่งที่มา</label>
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">แหล่งที่มา</label>
                                             <input 
                                                 type="text"
-                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                className="w-full px-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-kanit font-medium outline-none transition-all"
                                                 value={formData.source || ''}
                                                 onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
                                                 placeholder="Facebook..."
@@ -277,7 +277,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">Link Portfolio / Resume</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">Link Portfolio / Resume</label>
                                         <div className="relative">
                                             <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                             <input 
@@ -302,7 +302,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">วันที่เริ่มฝึกงาน</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">วันที่เริ่มฝึกงาน</label>
                                         <input 
                                             required
                                             type="date"
@@ -312,7 +312,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">วันที่จบการฝึกงาน</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">วันที่จบการฝึกงาน</label>
                                         <input 
                                             required
                                             type="date"
@@ -322,7 +322,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">สถานะปัจจุบัน</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">สถานะปัจจุบัน</label>
                                         <FilterDropdown 
                                             label="สถานะ"
                                             value={formData.status || 'APPLIED'}
@@ -341,10 +341,10 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-bold text-gray-600 ml-1">วันนัดสัมภาษณ์ (ถ้ามี)</label>
+                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">วันนัดสัมภาษณ์ (ถ้ามี)</label>
                                         <input 
                                             type="datetime-local"
-                                            className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                            className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-kanit font-medium outline-none transition-all"
                                             value={formData.interviewDate ? format(formData.interviewDate, "yyyy-MM-dd'T'HH:mm") : ''}
                                             onChange={e => setFormData(prev => ({ ...prev, interviewDate: e.target.value ? new Date(e.target.value) : null }))}
                                         />
@@ -361,7 +361,7 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     <h3 className="text-base font-bold text-gray-800">บันทึกเพิ่มเติม</h3>
                                 </div>
                                 <textarea 
-                                    className="w-full px-4 py-3 bg-white border border-amber-100 focus:border-amber-300 rounded-xl text-sm font-medium outline-none transition-all min-h-[100px]"
+                                    className="w-full px-4 py-3 bg-white border border-amber-100 focus:border-amber-300 rounded-xl text-sm font-kanit font-medium outline-none transition-all min-h-[100px]"
                                     value={formData.notes}
                                     onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                                     placeholder="รายละเอียดเพิ่มเติม..."
@@ -374,14 +374,14 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                             <button 
                                 type="button"
                                 onClick={onClose}
-                                className="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all"
+                                className="px-5 py-2.5 rounded-lg text-sm font-kanit font-medium text-gray-400 hover:bg-gray-50 transition-all"
                             >
                                 ยกเลิก
                             </button>
                             <button 
                                 onClick={handleSubmit}
                                 disabled={isSavingDisabled}
-                                className={`flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-kanit font-medium shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {isSavingDisabled ? (
                                     <>

@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, User, Maximize2, Minimize2, List as ListIcon, Layout } from 'lucide-react';
 import { InternCandidate } from '../../../../types';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 import InternMonthDetailModal from '../modals/InternMonthDetailModal';
 
 type MonthViewMode = 'BOTH' | 'CALENDAR' | 'LIST';
@@ -462,7 +463,16 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({
                                                                 }}
                                                                 className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5 transition-all cursor-pointer group/item"
                                                             >
-                                                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${getStatusColor(intern.status)}`} />
+                                                                <div className="relative shrink-0">
+                                                                    <div className={`w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-[10px] font-black text-indigo-600 shadow-sm group-hover/item:scale-105 transition-transform`}>
+                                                                        {intern.avatarUrl ? (
+                                                                            <img src={getDirectDriveUrl(intern.avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                                        ) : (
+                                                                            intern.fullName.charAt(0)
+                                                                        )}
+                                                                    </div>
+                                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${getStatusColor(intern.status)}`} />
+                                                                </div>
                                                                 <div className="min-w-0 flex-1">
                                                                     <p className="text-xs font-black text-slate-700 truncate group-hover/item:text-indigo-600 transition-colors">{intern.fullName}</p>
                                                                     <p className="text-[9px] font-bold text-slate-400 truncate uppercase tracking-widest">{intern.position}</p>

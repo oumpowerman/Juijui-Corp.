@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { InternCandidate } from '../../../../types';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface InternMonthDetailModalProps {
     isOpen: boolean;
@@ -229,9 +230,16 @@ const InternMonthDetailModal: React.FC<InternMonthDetailModalProps> = ({
                                                                             width: `calc(${width}% - 4px)`
                                                                         }}
                                                                         onClick={() => onEdit(intern)}
-                                                                        className={`absolute h-7 rounded-xl border flex items-center px-3 overflow-hidden shadow-sm cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all z-20 ${getPositionStyles(intern.position)}`}
+                                                                        className={`absolute h-7 rounded-xl border flex items-center px-1.5 overflow-hidden shadow-sm cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all z-20 ${getPositionStyles(intern.position)}`}
                                                                         title={`${intern.fullName} (${intern.position})`}
                                                                     >
+                                                                        <div className="w-5 h-5 rounded-lg bg-white/50 flex items-center justify-center text-[8px] font-black text-indigo-600 overflow-hidden shrink-0 mr-2 shadow-sm border border-white/40">
+                                                                            {intern.avatarUrl ? (
+                                                                                <img src={getDirectDriveUrl(intern.avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                                            ) : (
+                                                                                intern.fullName.charAt(0)
+                                                                            )}
+                                                                        </div>
                                                                         <span className="text-[11px] font-black truncate">
                                                                             {intern.fullName}
                                                                         </span>

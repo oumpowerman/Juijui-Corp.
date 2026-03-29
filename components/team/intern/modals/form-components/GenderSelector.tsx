@@ -32,7 +32,7 @@ const GenderSelector: React.FC<GenderSelectorProps> = ({ value, onChange }) => {
                         }`}
                     >
                         <Icon className={`w-6 h-6 ${isActive ? opt.color : 'text-gray-300'}`} />
-                        <span className={`text-xs font-bold uppercase tracking-widest ${isActive ? 'text-indigo-700' : 'text-gray-400'}`}>
+                        <span className={`text-xs font-kanit font-medium uppercase tracking-widest ${isActive ? 'text-indigo-700' : 'text-gray-400'}`}>
                             {opt.label}
                         </span>
                     </button>

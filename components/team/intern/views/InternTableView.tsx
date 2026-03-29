@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format, differenceInDays } from 'date-fns';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface InternTableViewProps {
     interns: InternCandidate[];
@@ -81,14 +82,14 @@ const InternTableView: React.FC<InternTableViewProps> = ({
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-indigo-600 font-black text-sm overflow-hidden shrink-0 group-hover:scale-110 transition-transform">
                                                     {intern.avatarUrl ? (
-                                                        <img src={intern.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                        <img src={getDirectDriveUrl(intern.avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                                     ) : (
                                                         intern.fullName.charAt(0)
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-black text-gray-800 truncate leading-none mb-1">{intern.fullName}</p>
-                                                    <p className="text-[10px] font-bold text-gray-400 truncate">{intern.email}</p>
+                                                    <p className="text-[17px] font-kanit font-medium text-gray-800 truncate leading-none mb-1">{intern.fullName}</p>
+                                                    <p className="text-[11px] font-bold text-gray-400 truncate">{intern.email}</p>
                                                 </div>
                                             </div>
                                         </td>

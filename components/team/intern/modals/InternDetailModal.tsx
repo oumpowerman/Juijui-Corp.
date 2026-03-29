@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format } from 'date-fns';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface InternDetailModalProps {
     isOpen: boolean;
@@ -116,7 +117,7 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         onEdit(intern);
                                         onClose();
                                     }}
-                                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all active:scale-95 group"
+                                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-kanit font-medium shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all active:scale-95 group"
                                 >
                                     <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                                     แก้ไขข้อมูล
@@ -138,7 +139,7 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         {intern.avatarUrl ? (
                                             <div className="relative w-full h-full overflow-hidden rounded-[2rem]">
                                                 <img 
-                                                    src={intern.avatarUrl} 
+                                                    src={getDirectDriveUrl(intern.avatarUrl)} 
                                                     alt={intern.fullName}
                                                     className="w-full h-full object-cover transition-transform duration-500 group-hover/avatar:scale-110"
                                                     referrerPolicy="no-referrer"
@@ -189,16 +190,16 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <Mail className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-bold uppercase tracking-wider">ข้อมูลติดต่อ</span>
+                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">ข้อมูลติดต่อ</span>
                                     </div>
                                     <div className="space-y-4">
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">อีเมล</span>
-                                            <span className="text-sm font-bold text-slate-700 break-all">{intern.email}</span>
+                                            <span className="text-[12px] font-kanit font-medium text-slate-400 uppercase tracking-widest mb-1">อีเมล</span>
+                                            <span className="text-sm font-kanit font-bold text-slate-700 break-all">{intern.email}</span>
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">เบอร์โทรศัพท์</span>
-                                            <span className="text-sm font-bold text-slate-700">{intern.phoneNumber}</span>
+                                            <span className="text-[12px] font-kanit font-medium text-slate-400 uppercase tracking-widest mb-1">เบอร์โทรศัพท์</span>
+                                            <span className="text-sm font-kanit font-bold text-slate-700">{intern.phoneNumber}</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -209,22 +210,22 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <GraduationCap className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-bold uppercase tracking-wider">การศึกษา</span>
+                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">การศึกษา</span>
                                     </div>
                                     <div className="space-y-4">
                                         <div>
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">สถาบัน</span>
-                                            <p className="text-sm font-bold text-slate-700 leading-tight">{intern.university || '-'}</p>
+                                            <span className="text-[11px] font-kanit font-medium text-slate-400 uppercase tracking-widest mb-1">สถาบัน</span>
+                                            <p className="text-sm font-kanit font-bold text-slate-700 leading-tight">{intern.university || '-'}</p>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-50">
                                             <div>
-                                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">คณะ</span>
-                                                <p className="text-sm font-bold text-slate-700">{intern.faculty || '-'}</p>
+                                                <span className="text-[11px] font-kanit font-medium text-slate-400 uppercase tracking-widest mb-1">คณะ</span>
+                                                <p className="text-sm font-kanit font-bold text-slate-700">{intern.faculty || '-'}</p>
                                             </div>
                                             <div>
-                                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">ชั้นปี</span>
+                                                <span className="text-[11px] font-kanit font-medium text-slate-400 uppercase tracking-widest mb-1">ชั้นปี</span>
                                                 <div className="inline-flex px-2.5 py-0.5 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold border border-purple-100">
-                                                    ปี {intern.academicYear || '-'}
+                                                    {intern.academicYear || '-'}
                                                 </div>
                                             </div>
                                         </div>
@@ -237,12 +238,12 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <Calendar className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-bold uppercase tracking-wider">ระยะเวลาฝึกงาน</span>
+                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">ระยะเวลาฝึกงาน</span>
                                     </div>
                                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <div className="text-center">
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">เริ่ม</span>
-                                            <span className="text-sm font-bold text-slate-700">{format(new Date(intern.startDate), 'dd MMM yyyy')}</span>
+                                            <span className="text-[13px] font-kanit font-medium text-slate-400 uppercase tracking-widest block mb-1">เริ่ม</span>
+                                            <span className="text-sm font-kanit font-bold text-slate-700">{format(new Date(intern.startDate), 'dd MMM yyyy')}</span>
                                         </div>
                                         <div className="flex-1 mx-4 flex items-center justify-center">
                                             <div className="w-full h-[2px] bg-emerald-100 relative">
@@ -250,8 +251,8 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                             </div>
                                         </div>
                                         <div className="text-center">
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">สิ้นสุด</span>
-                                            <span className="text-sm font-bold text-slate-700">{format(new Date(intern.endDate), 'dd MMM yyyy')}</span>
+                                            <span className="text-[13px] font-kanit font-medium text-slate-400 uppercase tracking-widest block mb-1">สิ้นสุด</span>
+                                            <span className="text-sm font-kanit font-bold text-slate-700">{format(new Date(intern.endDate), 'dd MMM yyyy')}</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -262,7 +263,7 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <LinkIcon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-bold uppercase tracking-wider">ผลงาน</span>
+                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">ผลงาน</span>
                                     </div>
                                     {intern.portfolioUrl ? (
                                         <a 
@@ -281,7 +282,7 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         </a>
                                     ) : (
                                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                                            <p className="text-xs font-medium text-slate-400 italic">ไม่ได้ระบุผลงาน</p>
+                                            <p className="text-xs font-kanit font-medium text-slate-400 italic">ไม่ได้ระบุผลงาน</p>
                                         </div>
                                     )}
                                 </motion.div>
@@ -297,9 +298,9 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <div className="relative z-10">
                                             <div className="flex items-center gap-3 text-indigo-300 mb-4">
                                                 <Quote className="w-6 h-6 rotate-180" />
-                                                <span className="text-xs font-bold uppercase tracking-[0.2em]">Candidate Notes</span>
+                                                <span className="text-xs font-kanit font-bold uppercase tracking-[0.2em]">Candidate Notes</span>
                                             </div>
-                                            <p className="text-base font-medium text-indigo-50 leading-relaxed italic">
+                                            <p className="text-base font-kanit font-medium text-indigo-50 leading-relaxed italic">
                                                 {intern.notes}
                                             </p>
                                         </div>
@@ -333,7 +334,7 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                         <X className="w-8 h-8" />
                                     </button>
                                     <img 
-                                        src={intern.avatarUrl} 
+                                        src={getDirectDriveUrl(intern.avatarUrl)} 
                                         alt={intern.fullName}
                                         className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl border border-white/10"
                                         referrerPolicy="no-referrer"

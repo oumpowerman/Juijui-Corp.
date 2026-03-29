@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, Upload, Loader2, X, Camera, RefreshCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useGoogleDriveContext } from '../../../../../context/GoogleDriveContext';
+import { getDirectDriveUrl } from '../../../../../lib/imageUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ImageCropModal from './ImageCropModal';
 
@@ -182,7 +183,7 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
                                 key="preview"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                src={localPreview || value} 
+                                src={localPreview || getDirectDriveUrl(value)} 
                                 className="w-full h-full object-cover" 
                                 referrerPolicy="no-referrer"
                                 alt="Avatar"
@@ -236,7 +237,7 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
             
             <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                    <p className={`text-[10px] font-black uppercase tracking-widest transition-colors ${
+                    <p className={`text-[12px] font-kanit font-medium uppercase tracking-widest transition-colors ${
                         uploadStatus === 'ERROR' || uploadStatus === 'TIMEOUT' ? 'text-rose-500' : 
                         uploadStatus === 'SUCCESS' ? 'text-emerald-500' : 'text-gray-400'
                     }`}>
@@ -252,7 +253,7 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
                         </div>
                     )}
                 </div>
-                <p className="text-[9px] font-bold text-gray-300 italic leading-tight">
+                <p className="text-[11px] font-kanit font-medium text-gray-300 italic leading-tight">
                     {uploadStatus === 'TIMEOUT' ? 'การเชื่อมต่อขัดข้อง กรุณากด Reset เพื่อเลือกบัญชีใหม่' : 'บันทึกรูปภาพลงใน Google Drive อัตโนมัติ'}
                 </p>
             </div>

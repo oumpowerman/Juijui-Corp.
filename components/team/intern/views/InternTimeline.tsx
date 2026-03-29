@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { format, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameDay, isToday, differenceInDays } from 'date-fns';
 import { motion } from 'framer-motion';
 import { InternCandidate } from '../../../../types';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface InternTimelineProps {
@@ -85,7 +86,7 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <div className="px-6 py-2 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2">
-                        <h3 className="text-sm font-black text-slate-800 min-w-[140px] text-center uppercase tracking-widest leading-none">
+                        <h3 className="text-md font-bold text-slate-800 min-w-[140px] text-center uppercase tracking-widest leading-none">
                             {format(viewDate, 'MMMM yyyy')}
                         </h3>
                         {isLoading && (
@@ -120,7 +121,7 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                         {months.map((m, i) => (
                             <div 
                                 key={i} 
-                                className="shrink-0 border-r border-gray-100 py-3 px-4 text-[10px] font-black text-indigo-400 uppercase tracking-widest"
+                                className="shrink-0 border-r border-gray-100 py-3 px-4 text-[12px] font-black text-indigo-400 uppercase tracking-widest"
                                 style={{ width: m.daysCount * 40 }}
                             >
                                 {m.name}
@@ -172,13 +173,13 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                         >
                                             <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-indigo-600 font-black text-xs overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
                                                 {intern.avatarUrl ? (
-                                                    <img src={intern.avatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                    <img src={getDirectDriveUrl(intern.avatarUrl)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                                 ) : (
                                                     intern.fullName.charAt(0)
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-xs font-black text-slate-800 truncate leading-none mb-1">{intern.fullName}</p>
+                                                <p className="text-[14px] font-kanit font-medium text-slate-800 truncate leading-none mb-1">{intern.fullName}</p>
                                                 <p className="text-[9px] font-bold text-slate-400 truncate uppercase tracking-widest">{intern.position}</p>
                                             </div>
                                         </div>
@@ -206,7 +207,7 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                     }}
                                                     onClick={() => onEdit(intern)}
                                                 >
-                                                    <span className="text-[10px] font-black text-white truncate drop-shadow-md whitespace-nowrap">
+                                                    <span className="text-[12px] font-kanit font-medium text-white truncate drop-shadow-md whitespace-nowrap">
                                                         {intern.fullName} | {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')} ({differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน)
                                                     </span>
                                                 </motion.div>

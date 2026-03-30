@@ -190,7 +190,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     phone_number: phone,
                     bio: reason, // ADDED: Save reason to bio field
                     role: 'MEMBER',
-                    work_days: [1, 2, 3, 4, 5] // Explicitly set default to Mon-Fri
+                    work_days: [1, 2, 3, 4, 5], // Explicitly set default to Mon-Fri
+                    hp: 100,
+                    max_hp: 100,
+                    xp: 0,
+                    level: 1,
+                    available_points: 0,
+                    death_count: 0
                 })
                 .eq('id', userId);
 
@@ -359,8 +365,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                                                     {p.label}
                                                 </option>))) : (
                                             <>
-                                                <option value="Editor">Editor</option>
-                                                <option value="Creative">Creative</option>
+                                                <option value="Editor">EDITOR</option>
+                                                <option value="Creative">CREATIVE</option>
                                             </>
                                         )}
 

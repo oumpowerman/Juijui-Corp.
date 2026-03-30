@@ -402,7 +402,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                     onSubmit={handleResubmitSubmit}
                     initialDate={resubmitLog ? new Date(resubmitLog.date) : undefined}
                     initialReason={resubmitLog?.note ? resubmitLog.note.replace(/\[.*?\]/g, '').trim() : ''}
-                    fixedType={resubmitLog?.workType as LeaveType} // Try to fix type if possible
+                    fixedType={(() => {
+                        if (!resubmitLog) return undefined;
+                        // Determine the correct correction type based on missing times
+                        if (!resubmitLog.checkInTime && !resubmitLog.checkOutTime) return 'FORGOT_BOTH';
+                        if (!resubmitLog.checkInTime) return 'FORGOT_CHECKIN';
+                        if (!resubmitLog.checkOutTime) return 'FORGOT_CHECKOUT';
+                        return 'LATE_ENTRY'; // Fallback for other action required cases
+                    })() as LeaveType}
                 />
             </div>
         </div>

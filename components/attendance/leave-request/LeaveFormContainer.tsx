@@ -51,9 +51,8 @@ const LeaveFormContainer: React.FC<Props> = ({
     }, [selectedOption]);
 
     const thaiLabel = selectedOption?.label || selectedType;
-    const headerLabel = fixedType ? 'แก้ไขเวลา (Correction)' : thaiLabel;
-
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
+    const headerLabel = isTimeSpecific ? `แก้ไขเวลา (${thaiLabel})` : thaiLabel;
 
     const daysRequested = useMemo(() => {
         if (isTimeSpecific) return 0;
@@ -162,27 +161,27 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     <div className="p-2 bg-white rounded-xl shadow-sm">
                                         <CalendarClock className="w-5 h-5" />
                                     </div>
-                                    <span className="text-sm font-black uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
+                                    <span className="text-sm font-bold uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
                                 </div>
                                 
                                 <div className="grid grid-cols-2 gap-5 relative">
                                     <div className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[10px] font-black text-indigo-300 uppercase mb-2 tracking-widest">เริ่มต้น (Start)</p>
-                                        <p className="text-base font-black text-indigo-950">{formatDateThai(startDate)}</p>
-                                        {isTimeSpecific && <p className="text-2xl font-black text-indigo-600 mt-2">{targetTime} น.</p>}
+                                        <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2 tracking-widest">เริ่มต้น (Start)</p>
+                                        <p className="text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
+                                        {isTimeSpecific && <p className="text-2xl font-bold text-indigo-600 mt-2">{targetTime} น.</p>}
                                     </div>
                                     
                                     <div className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[10px] font-black text-indigo-300 uppercase mb-2 tracking-widest">สิ้นสุด (End)</p>
-                                        <p className="text-base font-black text-indigo-950">{formatDateThai(endDate)}</p>
-                                        {selectedType === 'FORGOT_BOTH' && <p className="text-2xl font-black text-indigo-600 mt-2">{endTime} น.</p>}
-                                        {selectedType === 'OVERTIME' && <p className="text-2xl font-black text-indigo-600 mt-2">{otHours} ชั่วโมง</p>}
+                                        <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2 tracking-widest">สิ้นสุด (End)</p>
+                                        <p className="text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
+                                        {selectedType === 'FORGOT_BOTH' && <p className="text-2xl font-bold text-indigo-600 mt-2">{endTime} น.</p>}
+                                        {selectedType === 'OVERTIME' && <p className="text-2xl font-bold text-indigo-600 mt-2">{otHours} ชั่วโมง</p>}
                                     </div>
                                 </div>
 
                                 {!isTimeSpecific && daysRequested > 0 && (
                                     <div className="bg-indigo-600 text-white p-4 rounded-[1.5rem] text-center shadow-xl shadow-indigo-200 relative">
-                                        <p className="text-sm font-black tracking-wide">รวมระยะเวลา: {daysRequested} วัน</p>
+                                        <p className="text-sm font-bold tracking-wide">รวมระยะเวลา: {daysRequested} วัน</p>
                                     </div>
                                 )}
                             </div>
@@ -213,7 +212,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         <div className="bg-amber-100 p-3 rounded-2xl text-amber-600">
                                             <Upload className="w-5 h-5" />
                                         </div>
-                                        <p className="text-sm font-black text-amber-900 truncate flex-1">{file.name}</p>
+                                        <p className="text-sm font-bold text-amber-900 truncate flex-1">{file.name}</p>
                                     </div>
                                 </div>
                             )}
@@ -256,7 +255,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         <AlertCircle className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <h4 className="font-black text-rose-800 text-base">วันลาเกินสิทธิ์ (Over Quota)</h4>
+                                        <h4 className="font-bold text-rose-800 text-base">วันลาเกินสิทธิ์ (Over Quota)</h4>
                                         <p className="text-xs text-rose-500 mt-1.5 leading-relaxed font-bold">
                                             คุณเหลือสิทธิ์ {quotaInfo?.remaining} วัน แต่ต้องการลา {daysRequested} วัน <br/>
                                             กรุณาปรับเปลี่ยนวันที่ หรือติดต่อ HR ครับ
@@ -316,10 +315,10 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         {file ? <CheckCircle2 className="w-8 h-8"/> : <Upload className="w-8 h-8"/>}
                                     </div>
                                     <div className="text-left flex-1">
-                                        <p className={`text-base font-black ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
+                                        <p className={`text-base font-bold ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
                                             {file ? file.name : (selectedType === 'SICK' ? 'แนบใบรับรองแพทย์' : 'แนบเอกสารประกอบ')}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 mt-1 font-black tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
+                                        <p className="text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
                                     </div>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} accept="image/*,.pdf" />
                                 </motion.div>
@@ -337,7 +336,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setIsReviewing(false)}
-                            className="flex-1 py-5 rounded-[2rem] font-black text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2.5"
+                            className="flex-1 py-5 rounded-[2rem] font-bold text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2.5"
                         >
                             <Edit3 className="w-5 h-5" /> แก้ไข
                         </motion.button>
@@ -347,7 +346,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                             onClick={() => handleSubmit(selectedType)}
                             disabled={isSubmitting}
                             className={`
-                                flex-[2.5] py-5 rounded-[2rem] font-black text-white text-xl shadow-2xl transition-all flex items-center justify-center gap-3
+                                flex-[2.5] py-5 rounded-[2rem] font-bold text-white text-xl shadow-2xl transition-all flex items-center justify-center gap-3
                                 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200/50
                                 disabled:opacity-50 disabled:cursor-not-allowed
                             `}

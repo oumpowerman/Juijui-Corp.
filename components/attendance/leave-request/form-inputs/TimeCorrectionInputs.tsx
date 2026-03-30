@@ -21,7 +21,7 @@ const TimeCorrectionInputs: React.FC<Props> = ({ date, setDate, time, setTime, e
         <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
                 <div className={showEndTime ? 'col-span-2' : ''}>
-                    <label className="block text-[13px] font-kanit font-medium  text-gray-400 uppercase mb-2 ml-1 tracking-widest">วันที่ (Date)</label>
+                    <label className="block text-[13px] font-kanit font-medium text-gray-400 uppercase mb-2 ml-1 tracking-widest">วันที่ที่ต้องการแก้ไข (Date)</label>
                     <CustomDatePicker 
                         selected={selectedDate}
                         onChange={(date) => setDate(date ? date.toISOString().split('T')[0] : '')}
@@ -29,7 +29,7 @@ const TimeCorrectionInputs: React.FC<Props> = ({ date, setDate, time, setTime, e
                     />
                 </div>
                 <div>
-                    <label className="block text-[13px] font-kanit font-medium  text-gray-400 uppercase mb-2 ml-1 tracking-widest">{showEndTime ? 'เวลาเข้างาน' : 'เวลา (Time)'}</label>
+                    <label className="block text-[13px] font-kanit font-medium text-gray-400 uppercase mb-2 ml-1 tracking-widest">{showEndTime ? 'เวลาเข้างาน (Check-in)' : 'เวลา (Time)'}</label>
                     <CustomDatePicker 
                         selected={time ? new Date(`2000-01-01T${time}`) : null}
                         onChange={(date) => setTime(date ? format(date, 'HH:mm') : '')}
@@ -40,7 +40,7 @@ const TimeCorrectionInputs: React.FC<Props> = ({ date, setDate, time, setTime, e
                 </div>
                 {showEndTime && setEndTime && (
                     <div>
-                        <label className="block text-[13px] font-kanit font-medium  text-gray-400 uppercase mb-2 ml-1 tracking-widest">เวลาออกงาน</label>
+                        <label className="block text-[13px] font-kanit font-medium text-gray-400 uppercase mb-2 ml-1 tracking-widest">เวลาออกงาน (Check-out)</label>
                         <CustomDatePicker 
                             selected={endTime ? new Date(`2000-01-01T${endTime}`) : null}
                             onChange={(date) => setEndTime(date ? format(date, 'HH:mm') : '')}

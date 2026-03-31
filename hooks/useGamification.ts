@@ -127,14 +127,44 @@ export const useGamification = (currentUser: User | null = null) => {
         }
     }, []);
 
-    const fetchGameLogs = useCallback(async (userId: string) => {
-        const { data } = await supabase
-            .from('game_logs')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(50);
-        return data || [];
+    const fetchGameLogs = useCallback(async (userId: string, page = 1, pageSize = 50, filter: 'ALL' | 'EARNED' | 'SPENT' | 'PENALTY' = 'ALL') => {
+        try {
+            let query = supabase
+                .from('game_logs')
+                .select('*')
+                .eq('user_id', userId);
+
+            // Apply Filters
+            if (filter === 'EARNED') {
+                query = query.gt('jp_change', 0);
+            } else if (filter === 'SPENT') {
+                query = query.lt('jp_change', 0);
+            } else if (filter === 'PENALTY') {
+                query = query.or('hp_change.lt.0,xp_change.lt.0');
+            }
+
+            const { data, error } = await query
+                .order('created_at', { ascending: false })
+                .range((page - 1) * pageSize, page * pageSize - 1);
+
+            if (error) throw error;
+
+            // Transform snake_case to camelCase
+            return (data || []).map(log => ({
+                id: log.id,
+                userId: log.user_id,
+                actionType: log.action_type,
+                xpChange: log.xp_change,
+                hpChange: log.hp_change,
+                jpChange: log.jp_change,
+                description: log.description,
+                createdAt: new Date(log.created_at),
+                relatedId: log.related_id
+            }));
+        } catch (error) {
+            console.error("Fetch Game Logs Error:", error);
+            return [];
+        }
     }, []);
 
     return {

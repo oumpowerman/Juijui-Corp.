@@ -22,7 +22,7 @@ export const useAttendance = (userId: string) => {
     const { checkIn, manualCheckIn, checkOut, isActionLoading } = useAttendanceActions(userId);
     const { stats, isStatsLoading, refreshStats } = useAttendanceStats(userId);
     const { getAttendanceLogs, isHistoryLoading } = useAttendanceHistory(userId);
-    const { actionRequiredLog, isAlertsLoading, refreshAlerts } = useAttendanceAlerts(userId);
+    const { actionRequiredLogs, isAlertsLoading, refreshAlerts } = useAttendanceAlerts(userId);
 
     const isLoading = isStatusLoading || isStatsLoading || isAlertsLoading;
 
@@ -35,7 +35,7 @@ export const useAttendance = (userId: string) => {
     return {
         todayLog,
         outdatedLogs,
-        actionRequiredLog,
+        actionRequiredLogs,
         stats,
         isLoading,
         isActionLoading,

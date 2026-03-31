@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
     Clock, AlertTriangle, ShieldAlert, Gavel, Info, Zap, RefreshCw, 
     UserCheck, Target, Calendar, History, ShieldCheck, ClipboardCheck,
@@ -20,6 +20,36 @@ interface LawTunerProps {
 const LawTuner: React.FC<LawTunerProps> = ({ 
     localConfig, handleChange, setLocalConfig, setIsDirty, getAttendanceLabel, getAttendanceColor, masterOptions 
 }) => {
+
+    const categorizedOptions = useMemo(() => {
+        const groups = {
+            WORK: [] as any[],
+            LEAVE: [] as any[],
+            CORRECTION: [] as any[]
+        };
+        
+        const seenKeys = new Set<string>();
+        masterOptions
+            .filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY')
+            .forEach(o => {
+                if (seenKeys.has(o.key)) return;
+                seenKeys.add(o.key);
+                
+                // Hide specific keys that are already managed by dedicated sliders on the right
+                if (['CORRECTION_REFUND', 'ABSENT_REFUND'].includes(o.key)) return;
+                
+                if (['OFFICE', 'WFH', 'SITE'].includes(o.key)) {
+                    groups.WORK.push(o);
+                } else if (['VACATION', 'SICK', 'PERSONAL', 'EMERGENCY', 'UNPAID'].includes(o.key)) {
+                    groups.LEAVE.push(o);
+                } else {
+                    groups.CORRECTION.push(o);
+                }
+            });
+            
+        Object.values(groups).forEach(g => g.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
+        return groups;
+    }, [masterOptions]);
 
     const handleRuleChange = (key: string, field: 'xp' | 'hp' | 'coins', val: number) => {
         const rules = { ...localConfig.ATTENDANCE_RULES };
@@ -97,41 +127,91 @@ const LawTuner: React.FC<LawTunerProps> = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Attendance Rules List */}
-                    <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
-                            <Gavel className="w-4 h-4" /> ตารางสถานะ (Attendance Rules)
-                        </h4>
-                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {(() => {
-                                // Deduplicate by key to prevent double WFH or other duplicate keys
-                                const seenKeys = new Set<string>();
-                                return masterOptions
-                                    .filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY')
-                                    .filter(o => {
-                                        if (seenKeys.has(o.key)) return false;
-                                        seenKeys.add(o.key);
-                                        return true;
-                                    })
-                                    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                                    .map((option, index) => {
-                                        const key = option.key;
-                                        const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
-                                        const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
-                                        
-                                        return (
-                                            <div key={key} className="relative pl-4 group">
-                                                <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
-                                                <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
-                                                {key === 'WFH' && (
-                                                    <div className="mt-1 ml-2 text-[9px] text-slate-400 flex items-center gap-1 italic">
-                                                        <HelpCircle className="w-2.5 h-2.5" />
-                                                        รางวัลพื้นฐานสำหรับผู้ที่ได้รับอนุมัติ WFH (แนะนำให้ตั้งเป็น 0 หากต้องการแค่ไม่หัก HP)
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    });
-                            })()}
+                    <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <Gavel className="w-4 h-4" /> ตารางสถานะ (Attendance Rules)
+                            </h4>
+                            <span className="text-[10px] font-bold text-slate-300 bg-slate-50 px-2 py-0.5 rounded-full">
+                                {masterOptions.filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY').length} Rules
+                            </span>
+                        </div>
+
+                        <div className="space-y-8">
+                            {/* 1. Work Section */}
+                            {categorizedOptions.WORK.length > 0 && (
+                                <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                        <Clock className="w-3.5 h-3.5" /> การเข้างาน (Attendance & Work)
+                                    </h5>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {categorizedOptions.WORK.map(option => {
+                                            const key = option.key;
+                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
+                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
+                                            
+                                            return (
+                                                <div key={key} className="relative pl-4 group">
+                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
+                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
+                                                    {key === 'WFH' && (
+                                                        <div className="mt-1 ml-2 text-[9px] text-slate-400 flex items-center gap-1 italic">
+                                                            <HelpCircle className="w-2.5 h-2.5" />
+                                                            รางวัลพื้นฐานสำหรับผู้ที่ได้รับอนุมัติ WFH (แนะนำให้ตั้งเป็น 0 หากต้องการแค่ไม่หัก HP)
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 2. Leave Section */}
+                            {categorizedOptions.LEAVE.length > 0 && (
+                                <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                        <Calendar className="w-3.5 h-3.5" /> ประเภทการลา (Leave Types)
+                                    </h5>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {categorizedOptions.LEAVE.map(option => {
+                                            const key = option.key;
+                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
+                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
+                                            
+                                            return (
+                                                <div key={key} className="relative pl-4 group">
+                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
+                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3. Correction Section */}
+                            {categorizedOptions.CORRECTION.length > 0 && (
+                                <div className="space-y-3">
+                                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                        <RefreshCw className="w-3.5 h-3.5" /> แก้ไขและอื่นๆ (Corrections & Special)
+                                    </h5>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {categorizedOptions.CORRECTION.map(option => {
+                                            const key = option.key;
+                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
+                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
+                                            
+                                            return (
+                                                <div key={key} className="relative pl-4 group">
+                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
+                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

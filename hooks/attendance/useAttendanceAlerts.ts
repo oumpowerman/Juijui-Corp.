@@ -3,25 +3,30 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttendanceLog } from '../../types/attendance';
 import { mapAttendanceLog } from './shared';
 import { useUserSession } from '../../context/UserSessionContext';
+import { getWorkingDaysDifference } from '../../lib/attendanceUtils';
 
 export const useAttendanceAlerts = (userId: string) => {
     const { attendanceLogs } = useUserSession();
 
-    const actionRequiredLog = useMemo(() => {
-        if (!userId || !attendanceLogs) return null;
+    const actionRequiredLogs = useMemo(() => {
+        if (!userId || !attendanceLogs) return [];
 
         // Filter logs for the current user and status
         const userActionLogs = attendanceLogs.filter(log => 
             log.userId === userId && log.status === 'ACTION_REQUIRED'
         );
 
-        // Sort descending by date and get the first one
-        if (userActionLogs.length > 0) {
-            return userActionLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
-        }
-
-        return null;
+        // Sort descending by date
+        return userActionLogs
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map(log => {
+                const workingDaysDiff = getWorkingDaysDifference(new Date(log.date), new Date());
+                return {
+                    ...log,
+                    isLate: workingDaysDiff > 3
+                };
+            });
     }, [userId, attendanceLogs]);
 
-    return { actionRequiredLog, isAlertsLoading: false, refreshAlerts: () => {} };
+    return { actionRequiredLogs, isAlertsLoading: false, refreshAlerts: () => {} };
 };

@@ -12,7 +12,7 @@ import {
     ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight,
     AlertTriangle, Clock, CheckCircle2, HelpCircle
 } from 'lucide-react';
-import { parseAttendanceMetadata } from '../../lib/attendanceUtils';
+import { parseAttendanceMetadata, getWorkingDaysDifference } from '../../lib/attendanceUtils';
 import { getDirectDriveUrl } from '../../lib/imageUtils';
 import LeaveRequestModal from './LeaveRequestModal'; 
 import MyRequestHistory from './MyRequestHistory'; 
@@ -253,6 +253,9 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                         const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
                                         const isPending = log.status === 'PENDING_VERIFY';
                                         
+                                        // Check if it's a late correction (over 3 days)
+                                        const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date()) > 3;
+                                        
                                         return (
                                             <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors group">
                                                 <td className="px-6 py-4">
@@ -268,9 +271,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                     {log.status === 'ACTION_REQUIRED' ? (
                                                         <button 
                                                             onClick={() => handleResubmit(log)}
-                                                            className="flex items-center gap-1 bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-bold border border-red-700 hover:bg-red-700 transition-colors shadow-sm animate-pulse"
+                                                            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold border transition-colors shadow-sm ${
+                                                                isLateCorrection 
+                                                                    ? 'bg-gray-500 text-white border-gray-600 hover:bg-gray-600' 
+                                                                    : 'bg-red-600 text-white border-red-700 hover:bg-red-700 animate-pulse'
+                                                            }`}
                                                         >
-                                                            <AlertTriangle className="w-3 h-3" /> แก้ไขด่วน!
+                                                            <AlertTriangle className="w-3 h-3" /> 
+                                                            {isLateCorrection ? 'ลงเวลาย้อนหลัง' : 'แก้ไขด่วน!'}
                                                         </button>
                                                     ) : (
                                                         <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide flex items-center w-fit gap-1.5 ${statusConfig.color}`}>

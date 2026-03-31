@@ -109,7 +109,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="flex flex-col h-full bg-[#FCFDFE]"
+            className="flex flex-col h-full bg-[#FCFDFE] text-slate-700"
         >
             {/* --- SOFT PASTEL HEADER --- */}
             <div className="sticky top-0 z-40 px-8 py-6 bg-white/70 backdrop-blur-2xl border-b border-slate-100/50 flex items-center justify-between shadow-[0_2px_15px_-3px_rgba(0,0,0,0.02)]">

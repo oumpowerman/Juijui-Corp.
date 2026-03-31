@@ -280,7 +280,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
     return (
         <>
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
                 {/* Top Alert Banner for QC */}
                 {isWaiting && (
                     <div className="bg-yellow-50 border-b border-yellow-100 px-6 py-3 flex items-center gap-3 animate-in slide-in-from-top duration-300 shrink-0">

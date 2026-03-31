@@ -262,7 +262,7 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                     icon={Clock} colorTheme="orange" title="กฎ 3 วันทำการ (3-Day Rule)" delay={0.3}
                                     description={
                                         <span>
-                                            การส่งคำขอแก้ไขเวลาทุกประเภท <span className="font-bold text-orange-600">ต้องทำภายใน 3 วันทำการ</span> นับจากวันที่เกิดเหตุ หากเกินกำหนดระบบจะล็อคไม่ให้ส่งคำขอ
+                                            การส่งคำขอแก้ไขเวลา <span className="font-bold text-orange-600">ควรทำภายใน 3 วันทำการ</span> เพื่อรับสิทธิ์คืน HP หากเกินกำหนดจะยังสามารถส่งได้เพื่อความถูกต้องของชั่วโมงทำงาน แต่จะไม่มีการคืน HP/คะแนน
                                         </span>
                                     }
                                 />

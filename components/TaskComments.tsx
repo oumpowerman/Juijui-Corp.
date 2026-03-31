@@ -70,7 +70,7 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUs
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-50/50 rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-gray-50/50 rounded-2xl border border-gray-200 overflow-hidden text-gray-900">
             {/* Header */}
             <div className="bg-white px-4 py-3 border-b border-gray-100 flex items-center gap-2 shadow-sm z-10">
                 <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">

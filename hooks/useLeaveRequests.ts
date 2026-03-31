@@ -8,12 +8,14 @@ import { useGamification } from './useGamification';
 import { useGoogleDrive } from './useGoogleDrive';
 import { getWorkingDaysDifference } from '../lib/attendanceUtils';
 import { useUserSession } from '../context/UserSessionContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
     const { leaveRequests: contextLeaveRequests, allUsers, isReady: isContextReady } = useUserSession();
     const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
+    const { showAlert } = useGlobalDialog();
     const { processAction } = useGamification(); 
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
@@ -158,11 +160,12 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
 
             // --- NEW: 3-Day Rule for Corrections ---
             const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
+            let isLateSubmission = false;
             if (CORRECTION_TYPES.includes(type)) {
                 const workingDaysDiff = getWorkingDaysDifference(startDate, new Date());
                 if (workingDaysDiff > 3) {
-                    showToast('เกินกำหนด 3 วันทำการ ไม่สามารถส่งคำขอย้อนหลังได้ครับ', 'error');
-                    return false;
+                    isLateSubmission = true;
+                    // We allow it, but mark it as late
                 }
             }
 
@@ -223,7 +226,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                 type,
                 start_date: startDateStr,
                 end_date: format(endDate, 'yyyy-MM-dd'),
-                reason,
+                reason: isLateSubmission ? `[LATE_SUBMISSION] ${reason}` : reason,
                 attachment_url: attachmentUrl,
                 status: 'PENDING'
             };
@@ -366,14 +369,18 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                 }
 
                 // --- NEW: HP Refund Logic ---
-                if (freshLog?.status === 'ABSENT') {
-                    await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                        originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
-                    });
-                } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
-                    await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                        originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                    });
+                const isLateSubmission = request.reason.includes('[LATE_SUBMISSION]');
+                
+                if (!isLateSubmission) {
+                    if (freshLog?.status === 'ABSENT') {
+                        await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                            originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
+                        });
+                    } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
+                        await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                            originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                        });
+                    }
                 }
 
                 if (request.type !== 'FORGOT_CHECKOUT') {
@@ -414,14 +421,18 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         });
 
                         // --- NEW: HP Refund Logic for FORGOT_CHECKOUT ---
-                        if (freshLogCheckout.status === 'ABSENT') {
-                            await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                                originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                            });
-                        } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
-                            await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                                originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                            });
+                        const isLateSubmission = request.reason.includes('[LATE_SUBMISSION]');
+                        
+                        if (!isLateSubmission) {
+                            if (freshLogCheckout.status === 'ABSENT') {
+                                await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                                    originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                                });
+                            } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
+                                await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                                    originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+                                });
+                            }
                         }
                      } else {
                          // Fallback: Create a full log if missing

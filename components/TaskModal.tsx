@@ -100,7 +100,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
       
       {/* Dynamic Border Container */}
       <div className={`
-          bg-white w-full sm:max-w-4xl h-full sm:h-[90vh] sm:rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col 
+          bg-white text-slate-900 w-full sm:max-w-4xl h-full sm:h-[90vh] sm:rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col 
           border-[6px] transition-colors duration-500
           border-${themeColor}-100 ring-1 ring-${themeColor}-200
       `}>

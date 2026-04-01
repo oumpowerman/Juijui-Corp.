@@ -18,7 +18,6 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
-import Markdown from 'react-markdown';
 import { format } from 'date-fns';
 
 interface WikiNodeReaderProps {
@@ -29,7 +28,15 @@ interface WikiNodeReaderProps {
     onEdit: () => void;
 }
 
-const WikiNodeReader: React.FC<WikiNodeReaderProps> = ({ isOpen, onClose, node, isAdmin, onEdit }) => {
+const WikiNodeReader: React.FC<WikiNodeReaderProps> = (props) => {
+    return (
+        <AnimatePresence>
+            {props.isOpen && props.node && <WikiNodeReaderModal {...props} />}
+        </AnimatePresence>
+    );
+};
+
+const WikiNodeReaderModal: React.FC<WikiNodeReaderProps> = ({ onClose, node, isAdmin, onEdit }) => {
     const [showBackToTop, setShowBackToTop] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     
@@ -55,38 +62,12 @@ const WikiNodeReader: React.FC<WikiNodeReaderProps> = ({ isOpen, onClose, node, 
             container.addEventListener('scroll', handleScroll);
         }
         return () => container?.removeEventListener('scroll', handleScroll);
-    }, [isOpen]);
+    }, []);
 
-    if (!isOpen || !node) return null;
+    if (!node) return null;
 
     const scrollToTop = () => {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    // Custom Markdown Components for Premium Look
-    const MarkdownComponents = {
-        h1: ({ children }: any) => <h1 className="text-4xl font-extrabold text-slate-900 mb-8 mt-12 tracking-tight leading-tight border-b border-slate-100 pb-4">{children}</h1>,
-        h2: ({ children }: any) => <h2 className="text-2xl font-bold text-slate-800 mb-6 mt-10 tracking-tight flex items-center gap-3"><div className="w-1.5 h-8 bg-indigo-400 rounded-full"></div>{children}</h2>,
-        h3: ({ children }: any) => <h3 className="text-xl font-bold text-slate-800 mb-4 mt-8 tracking-tight">{children}</h3>,
-        p: ({ children }: any) => <p className="text-slate-600 text-lg leading-[1.8] mb-6 font-medium opacity-90">{children}</p>,
-        ul: ({ children }: any) => <ul className="space-y-3 mb-8 ml-4">{children}</ul>,
-        li: ({ children }: any) => (
-            <li className="flex items-start gap-3 text-slate-600 text-lg font-medium leading-relaxed">
-                <div className="mt-2.5 w-1.5 h-1.5 bg-indigo-400 rounded-full shrink-0"></div>
-                <span>{children}</span>
-            </li>
-        ),
-        blockquote: ({ children }: any) => (
-            <blockquote className="my-10 p-8 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-[2rem] border-l-8 border-indigo-400 italic text-slate-700 text-xl leading-relaxed shadow-sm relative overflow-hidden">
-                <div className="absolute -top-4 -left-2 text-8xl text-indigo-200/30 font-serif pointer-events-none">“</div>
-                {children}
-            </blockquote>
-        ),
-        code: ({ inline, children }: any) => (
-            inline 
-                ? <code className="bg-slate-100 text-indigo-600 px-2 py-0.5 rounded-lg font-mono text-sm font-bold border border-slate-200/50">{children}</code>
-                : <pre className="bg-slate-900 text-slate-100 p-8 rounded-[2rem] overflow-x-auto my-8 text-sm font-mono shadow-2xl border border-white/10 leading-relaxed">{children}</pre>
-        ),
     };
 
     return (
@@ -195,17 +176,14 @@ const WikiNodeReader: React.FC<WikiNodeReaderProps> = ({ isOpen, onClose, node, 
                             </motion.div>
                         )}
 
-                        {/* Main Content (Markdown) */}
+                        {/* Main Content (HTML) */}
                         <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 }}
                             className="prose prose-slate prose-lg max-w-none markdown-body"
-                        >
-                            <Markdown components={MarkdownComponents}>
-                                {node.content || '*ไม่มีเนื้อหาในหน้านี้*'}
-                            </Markdown>
-                        </motion.div>
+                            dangerouslySetInnerHTML={{ __html: node.content || '<p className="italic text-slate-400">ไม่มีเนื้อหาในหน้านี้</p>' }}
+                        />
 
                         {/* End of Document (Apple Style) */}
                         <div className="mt-24 pt-12 border-t border-slate-100 flex flex-col items-center text-center">

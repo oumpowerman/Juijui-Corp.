@@ -2,9 +2,11 @@
 import React from 'react';
 import { Task, User, Status, MasterOption } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
-import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2, AlertCircle } from 'lucide-react';
+import { format, addDays, isBefore, isWeekend } from 'date-fns';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+import { useMasterDataContext } from '../../../../context/MasterDataContext';
+import { isHolidayOrException } from '../../../../utils/judgeUtils';
 
 interface WorkCardProps {
     task: Task;
@@ -61,6 +63,27 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
     };
 
     const statusLabel = getStatusLabel(task.status);
+    const { annualHolidays } = useMasterDataContext();
+
+    // --- SLA Warning Logic ---
+    const isSlaWarning = React.useMemo(() => {
+        if (columnType !== 'WAITING' || !task.updatedAt || !annualHolidays) return false;
+        
+        const submissionDate = new Date(task.updatedAt);
+        const now = new Date();
+        
+        let workingDaysPassed = 0;
+        let current = addDays(submissionDate, 1);
+        
+        while (isBefore(current, now)) {
+            const isHoliday = isHolidayOrException(current, annualHolidays, []); 
+            const isWeekEnd = isWeekend(current);
+            if (!isWeekEnd && !isHoliday) workingDaysPassed++;
+            current = addDays(current, 1);
+        }
+        
+        return workingDaysPassed >= 2;
+    }, [columnType, task.updatedAt, annualHolidays]);
 
     // Visual styles based on column
     let cardStyle = 'bg-white border-y border-r border-gray-200'; // Remove default border-l to avoid conflict
@@ -101,7 +124,14 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
                      </div>
                 )}
                 {columnType === 'WAITING' && (
-                    <Clock className="w-3.5 h-3.5 text-orange-400" />
+                    <div className="flex items-center gap-1">
+                        {isSlaWarning && (
+                            <div className="flex items-center gap-1 text-[9px] font-black text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full animate-pulse border border-orange-200">
+                                <AlertCircle className="w-3 h-3" /> ADMIN ตรวจช้า
+                            </div>
+                        )}
+                        <Clock className="w-3.5 h-3.5 text-orange-400" />
+                    </div>
                 )}
             </div>
             

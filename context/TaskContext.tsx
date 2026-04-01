@@ -42,6 +42,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     startDate: new Date(t.startDate),
                     endDate: new Date(t.endDate),
                     createdAt: new Date(t.createdAt),
+                    updatedAt: t.updatedAt ? new Date(t.updatedAt) : undefined,
                     shootDate: t.shootDate ? new Date(t.shootDate) : undefined,
                     reviews: t.reviews?.map((r: any) => ({
                         ...r, 
@@ -115,6 +116,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             startDate: new Date(startDateVal),
             endDate: new Date(endDateVal),
             createdAt: new Date(data.created_at),
+            updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
             channelId: data.channel_id || data.channelId,
             targetPlatforms: platforms,
             isUnscheduled: data.is_unscheduled || data.isUnscheduled,

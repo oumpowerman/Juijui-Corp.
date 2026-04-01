@@ -90,6 +90,12 @@ export const DEFAULT_GAME_CONFIG = {
         logs_cleanup_days: 365,
         notification_cleanup_days: 30
     },
+    REVIEW_JUDGE_CONFIG: {
+        expiry_days: 3,
+        auto_revert_status: 'TODO',
+        enabled: true,
+        last_run_at: null
+    },
     ATTENDANCE_GRADING_RULES: [
         { grade: "A+", max_late: 0, color: "bg-green-100 text-green-700", label: "Excellent" },
         { grade: "A", max_late: 1, color: "bg-emerald-100 text-emerald-700", label: "Good" },

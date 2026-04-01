@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { WikiNode, User } from '../types';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../lib/supabase';
+import { GoogleGenAI } from "@google/genai";
 
 export const useWikiNodes = (currentUser?: User) => {
     const [nodes, setNodes] = useState<WikiNode[]>([]);
@@ -145,11 +146,48 @@ export const useWikiNodes = (currentUser?: User) => {
         }
     };
 
+    const generateWikiContentWithAI = async (prompt: string, type: 'OUTLINE' | 'SOP' | 'FULL') => {
+        try {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                showToast('API Key ไม่ถูกต้อง', 'error');
+                return null;
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
+
+            let finalPrompt = '';
+            if (type === 'OUTLINE') {
+                finalPrompt = `ช่วยวางโครงสร้างเนื้อหา (Outline) สำหรับคู่มือหัวข้อ: "${prompt}" โดยแบ่งเป็นหัวข้อย่อยที่สำคัญและครอบคลุม ให้ส่งกลับมาเป็น HTML (ใช้ h1, h2, h3, ul, li)`;
+            } else if (type === 'SOP') {
+                finalPrompt = `ช่วยเขียนขั้นตอนการปฏิบัติงาน (SOP) สำหรับหัวข้อ: "${prompt}" โดยระบุขั้นตอน 1, 2, 3 อย่างละเอียดและเข้าใจง่าย ให้ส่งกลับมาเป็น HTML (ใช้ h1, ol, li)`;
+            } else {
+                finalPrompt = `ช่วยเขียนเนื้อหาคู่มือฉบับเต็ม สำหรับหัวข้อ: "${prompt}" โดยใช้ภาษาที่เป็นทางการแต่เข้าใจง่าย ให้ส่งกลับมาเป็น HTML ที่สวยงาม (ใช้ h1, h2, p, ul, li, blockquote)`;
+            }
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: finalPrompt,
+                config: {
+                    systemInstruction: "You are a professional technical writer. Always return content in clean HTML format without markdown code blocks (no ```html).",
+                }
+            });
+
+            return response.text;
+
+        } catch (err: any) {
+            console.error("AI Error:", err);
+            showToast('AI Error: ' + err.message, 'error');
+            return null;
+        }
+    };
+
     return {
         nodes,
         isLoading,
         addNode,
         updateNode,
-        deleteNode
+        deleteNode,
+        generateWikiContentWithAI
     };
 };

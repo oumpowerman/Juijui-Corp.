@@ -2,13 +2,17 @@
 import React, { useState, useMemo } from 'react';
 import { useReviews } from '../hooks/useReviews';
 import { useQualityActions } from '../hooks/useQualityActions';
+import { useReviewJudge } from '../hooks/useReviewJudge';
+import { useMasterDataContext } from '../context/MasterDataContext';
 import { isToday, isTomorrow, isPast, isFuture, differenceInCalendarDays, isSameDay } from 'date-fns';
-import { Clock, Search, Filter, AlertTriangle, Info, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Layers, Calendar } from 'lucide-react';
+import { Clock, Search, Filter, AlertTriangle, Info, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Layers, Calendar, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Channel, Task, MasterOption, User } from '../types';
 import MentorTip from './MentorTip';
 import ReviewCard from './quality-gate/ReviewCard';
 import ReviewActionModal from './quality-gate/ReviewActionModal';
 import QualityStatsWidget from './quality-gate/QualityStatsWidget';
+import QualityCreatorFilter from './quality-gate/QualityCreatorFilter';
 import InfoModal from './ui/InfoModal';
 import QualityGuide from './quality-gate/QualityGuide';
 import AppBackground from './common/AppBackground';
@@ -26,12 +30,55 @@ type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING';
 
 const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser, tasks }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
+    
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.08
+            }
+        }
+    };
+
+    const itemVariants: Variants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                type: "spring",
+                stiffness: 400,
+                damping: 30
+            }
+        }
+    };
+
+    const accordionVariants: Variants = {
+        hidden: { 
+            height: 0, 
+            opacity: 0,
+            overflow: "hidden"
+        },
+        visible: { 
+            height: "auto", 
+            opacity: 1,
+            overflow: "visible",
+            transition: {
+                height: { duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] },
+                opacity: { duration: 0.3, delay: 0.1 }
+            }
+        }
+    };
     const { handleConfirmAction } = useQualityActions();
+    const { runReviewChecks } = useReviewJudge();
+    const { annualHolidays } = useMasterDataContext();
     
     // --- UI State ---
+    const [isChecking, setIsChecking] = useState(false);
     const [filterDateType, setFilterDateType] = useState<'ALL_PENDING' | 'TODAY' | 'OVERDUE'>('ALL_PENDING');
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterChannel, setFilterChannel] = useState<string>('ALL');
+    const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     
     // Accordion State
@@ -84,7 +131,10 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     const filteredReviews = useMemo(() => {
         const today = new Date();
         return uniqueReviews.filter(r => {
-            if (filterChannel !== 'ALL' && r.task?.channelId !== filterChannel) return false;
+            if (selectedCreators.length > 0 && r.task?.assigneeIds) {
+                const hasMatch = r.task.assigneeIds.some(id => selectedCreators.includes(id));
+                if (!hasMatch) return false;
+            }
             
             if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase();
@@ -101,7 +151,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             
             return r.status !== 'PASSED';
         });
-    }, [uniqueReviews, filterChannel, searchTerm, filterDateType]);
+    }, [uniqueReviews, selectedCreators, searchTerm, filterDateType]);
 
     // Grouping Logic
     const groups = useMemo(() => {
@@ -148,6 +198,16 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
     const handleActionClick = (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task) => {
         setModalConfig({ isOpen: true, type: action, reviewId, taskId, task });
+    };
+
+    const handleForceSLACheck = async () => {
+        if (!annualHolidays) return;
+        setIsChecking(true);
+        try {
+            await runReviewChecks(annualHolidays, true);
+        } finally {
+            setIsChecking(false);
+        }
     };
 
     const onConfirmModal = async (feedback?: string, adjustment: number = 0) => {
@@ -202,43 +262,71 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     <QualityStatsWidget reviews={uniqueReviews} users={users} />
 
                     {/* Holographic Controls */}
-                    <div className="bg-slate-900/60 backdrop-blur-2xl p-4 rounded-[2rem] border border-white/5 shadow-2xl flex flex-col xl:flex-row gap-4 sticky top-4 z-30 ring-1 ring-white/5">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500/50" />
-                            <input 
-                                type="text" 
-                                placeholder="SCANNING FOR TASKS..." 
-                                className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-black/40 border border-white/5 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-sm font-black text-indigo-100 placeholder:text-indigo-900 uppercase tracking-widest"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                    <div className="flex flex-col gap-4 sticky top-4 z-30">
+                        {/* Top Row: Search */}
+                        <div className="bg-slate-900/80 backdrop-blur-2xl p-3 rounded-3xl border border-white/10 shadow-2xl ring-1 ring-white/5">
+                            <div className="relative group">
+                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 transition-colors group-focus-within:text-indigo-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="SCANNING FOR TASKS (TITLE, TAGS)..." 
+                                    className="w-full pl-14 pr-6 py-4 rounded-2xl bg-black/60 border border-white/10 focus:border-indigo-500/50 focus:ring-8 focus:ring-indigo-500/10 outline-none transition-all text-sm font-black text-white placeholder:text-indigo-900/60 uppercase tracking-[0.2em]"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
+                                    <span className="text-[10px] font-black text-indigo-500/40 tracking-widest uppercase">Active Scan</span>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div className="flex items-center gap-3 overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
-                            <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 shrink-0">
-                                <button onClick={() => setFilterDateType('ALL_PENDING')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'ALL_PENDING' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400'}`}>
-                                    Pending ({totalActiveTasks})
+
+                        {/* Bottom Row: Filters & Team */}
+                        <div className="bg-slate-900/60 backdrop-blur-2xl p-4 rounded-[2.5rem] border border-white/5 shadow-2xl flex flex-col xl:flex-row items-center gap-6 ring-1 ring-white/5">
+                            <div className="flex items-center gap-3 shrink-0">
+                                {/* Force SLA Check Button */}
+                                <button
+                                    onClick={handleForceSLACheck}
+                                    disabled={isChecking}
+                                    className={`flex items-center gap-2 px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                        isChecking 
+                                        ? 'bg-black/20 text-indigo-900 border-white/5 cursor-not-allowed' 
+                                        : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-500/10'
+                                    }`}
+                                    title="ตรวจสอบและดีดกลับงานที่ค้างตรวจเกินกำหนด (SLA)"
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                                    {isChecking ? 'Checking...' : 'Check SLA'}
                                 </button>
-                                <button onClick={() => setFilterDateType('TODAY')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'TODAY' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400'}`}>
-                                    Today
-                                </button>
-                                <button onClick={() => setFilterDateType('OVERDUE')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'OVERDUE' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/50' : 'text-indigo-400/40 hover:text-rose-400'}`}>
-                                    Overdue ({groups.critical.length})
-                                </button>
+
+                                <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/5 shrink-0 shadow-inner">
+                                    <button onClick={() => setFilterDateType('ALL_PENDING')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'ALL_PENDING' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
+                                        Pending ({totalActiveTasks})
+                                    </button>
+                                    <button onClick={() => setFilterDateType('TODAY')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'TODAY' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
+                                        Today
+                                    </button>
+                                    <button onClick={() => setFilterDateType('OVERDUE')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterDateType === 'OVERDUE' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/50' : 'text-indigo-400/40 hover:text-rose-400 hover:bg-white/5'}`}>
+                                        Overdue ({groups.critical.length})
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="w-px h-10 bg-white/5 mx-1"></div>
+                            <div className="w-px h-10 bg-white/10 mx-1 hidden xl:block"></div>
 
-                            <div className="relative shrink-0">
-                                <select 
-                                    className="appearance-none bg-black/40 border border-white/5 text-indigo-400 py-3 pl-5 pr-12 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                                    value={filterChannel}
-                                    onChange={(e) => setFilterChannel(e.target.value)}
-                                >
-                                    <option value="ALL">All Channels</option>
-                                    {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                                <Filter className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500/30 pointer-events-none" />
+                            <div className="flex-1 min-w-0 w-full">
+                                <QualityCreatorFilter 
+                                    users={users}
+                                    selectedIds={selectedCreators}
+                                    onToggle={(id) => {
+                                        if (selectedCreators.includes(id)) {
+                                            setSelectedCreators(selectedCreators.filter(x => x !== id));
+                                        } else {
+                                            setSelectedCreators([...selectedCreators, id]);
+                                        }
+                                    }}
+                                    onClear={() => setSelectedCreators([])}
+                                />
                             </div>
                         </div>
                     </div>
@@ -265,20 +353,37 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                         <div className="h-px bg-rose-500/10 flex-1 mx-6 group-hover:bg-rose-500/30 transition-colors"></div>
                                         {collapsedGroups['CRITICAL'] ? <ChevronRight className="text-rose-500/40" /> : <ChevronDown className="text-rose-500/40" />}
                                     </button>
-                                    {!collapsedGroups['CRITICAL'] && (
-                                        <div className="grid grid-cols-1 gap-6">
-                                            {groups.critical.map(r => (
-                                                <ReviewCard 
-                                                    key={r.id} review={r} users={users}
-                                                    onAction={handleActionClick} onOpenTask={onOpenTask} 
-                                                    getChannelName={getChannelName} getStatusInfo={getStatusInfo}
-                                                    isOverdue={true}
-                                                    currentUser={currentUser}
-                                                    canReview={canReview}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    <AnimatePresence>
+                                        {!collapsedGroups['CRITICAL'] && (
+                                            <motion.div 
+                                                variants={accordionVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="hidden"
+                                                className="overflow-hidden"
+                                            >
+                                                <motion.div 
+                                                    variants={containerVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    className="grid grid-cols-1 gap-6 pb-8"
+                                                >
+                                                    {groups.critical.map(r => (
+                                                        <motion.div key={r.id} variants={itemVariants}>
+                                                            <ReviewCard 
+                                                                review={r} users={users}
+                                                                onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                                                getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                isOverdue={true}
+                                                                currentUser={currentUser}
+                                                                canReview={canReview}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </section>
                             )}
 
@@ -292,20 +397,37 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                         <div className="h-px bg-amber-500/10 flex-1 mx-6 group-hover:bg-amber-500/30 transition-colors"></div>
                                         {collapsedGroups['REVISE'] ? <ChevronRight className="text-amber-500/40" /> : <ChevronDown className="text-amber-500/40" />}
                                     </button>
-                                    {!collapsedGroups['REVISE'] && (
-                                        <div className="grid grid-cols-1 gap-6">
-                                            {groups.revise.map(r => (
-                                                <ReviewCard 
-                                                    key={r.id} review={r} users={users}
-                                                    onAction={handleActionClick} onOpenTask={onOpenTask} 
-                                                    getChannelName={getChannelName} getStatusInfo={getStatusInfo}
-                                                    highlightRevise={true}
-                                                    currentUser={currentUser}
-                                                    canReview={canReview}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    <AnimatePresence>
+                                        {!collapsedGroups['REVISE'] && (
+                                            <motion.div 
+                                                variants={accordionVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="hidden"
+                                                className="overflow-hidden"
+                                            >
+                                                <motion.div 
+                                                    variants={containerVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    className="grid grid-cols-1 gap-6 pb-8"
+                                                >
+                                                    {groups.revise.map(r => (
+                                                        <motion.div key={r.id} variants={itemVariants}>
+                                                            <ReviewCard 
+                                                                review={r} users={users}
+                                                                onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                                                getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                highlightRevise={true}
+                                                                currentUser={currentUser}
+                                                                canReview={canReview}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </section>
                             )}
 
@@ -319,19 +441,36 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                         <div className="h-px bg-indigo-500/10 flex-1 mx-6 group-hover:bg-indigo-500/30 transition-colors"></div>
                                         {collapsedGroups['TODAY'] ? <ChevronRight className="text-indigo-400/40" /> : <ChevronDown className="text-indigo-400/40" />}
                                     </button>
-                                    {!collapsedGroups['TODAY'] && (
-                                        <div className="grid grid-cols-1 gap-6">
-                                            {groups.today.map(r => (
-                                                <ReviewCard 
-                                                    key={r.id} review={r} users={users}
-                                                    onAction={handleActionClick} onOpenTask={onOpenTask} 
-                                                    getChannelName={getChannelName} getStatusInfo={getStatusInfo}
-                                                    currentUser={currentUser}
-                                                    canReview={canReview}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    <AnimatePresence>
+                                        {!collapsedGroups['TODAY'] && (
+                                            <motion.div 
+                                                variants={accordionVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="hidden"
+                                                className="overflow-hidden"
+                                            >
+                                                <motion.div 
+                                                    variants={containerVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    className="grid grid-cols-1 gap-6 pb-8"
+                                                >
+                                                    {groups.today.map(r => (
+                                                        <motion.div key={r.id} variants={itemVariants}>
+                                                            <ReviewCard 
+                                                                review={r} users={users}
+                                                                onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                                                getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                currentUser={currentUser}
+                                                                canReview={canReview}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </section>
                             )}
 
@@ -345,19 +484,36 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                         <div className="h-px bg-white/5 flex-1 mx-6 border-dashed border-b border-white/10"></div>
                                         {collapsedGroups['UPCOMING'] ? <ChevronRight className="text-indigo-400/20" /> : <ChevronDown className="text-indigo-400/20" />}
                                     </button>
-                                    {!collapsedGroups['UPCOMING'] && (
-                                        <div className="grid grid-cols-1 gap-6 opacity-60">
-                                            {groups.upcoming.map(r => (
-                                                <ReviewCard 
-                                                    key={r.id} review={r} users={users}
-                                                    onAction={handleActionClick} onOpenTask={onOpenTask} 
-                                                    getChannelName={getChannelName} getStatusInfo={getStatusInfo}
-                                                    currentUser={currentUser}
-                                                    canReview={canReview}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    <AnimatePresence>
+                                        {!collapsedGroups['UPCOMING'] && (
+                                            <motion.div 
+                                                variants={accordionVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="hidden"
+                                                className="overflow-hidden"
+                                            >
+                                                <motion.div 
+                                                    variants={containerVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    className="grid grid-cols-1 gap-6 opacity-60 pb-8"
+                                                >
+                                                    {groups.upcoming.map(r => (
+                                                        <motion.div key={r.id} variants={itemVariants}>
+                                                            <ReviewCard 
+                                                                review={r} users={users}
+                                                                onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                                                getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                currentUser={currentUser}
+                                                                canReview={canReview}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </section>
                             )}
                         </div>

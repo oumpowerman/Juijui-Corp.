@@ -1,9 +1,28 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useReviewJudge } from '../hooks/useReviewJudge';
+import { useMasterDataContext } from '../context/MasterDataContext';
+import { useUserSession } from '../context/UserSessionContext';
 
 export const GlobalRealtimeSync = () => {
     const queryClient = useQueryClient();
+    const { runReviewChecks, runWarningChecks } = useReviewJudge();
+    const { annualHolidays, isLoading: isMasterLoading } = useMasterDataContext();
+    const { currentUserProfile, isReady: isAuthReady } = useUserSession();
+
+    useEffect(() => {
+        // Run SLA checks (Global & Personal Warning)
+        if (!isMasterLoading && annualHolidays && isAuthReady) {
+            // 1. Global Revert Check (Leader-based)
+            runReviewChecks(annualHolidays);
+            
+            // 2. Personal SLA Warning Check (Only for current user's tasks)
+            if (currentUserProfile?.id) {
+                runWarningChecks(currentUserProfile.id, annualHolidays);
+            }
+        }
+    }, [isMasterLoading, annualHolidays, isAuthReady, currentUserProfile?.id]);
 
     useEffect(() => {
         // Master Options Sync

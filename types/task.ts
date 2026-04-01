@@ -88,6 +88,7 @@ export interface Task {
     startDate: Date;
     endDate: Date;
     createdAt?: Date;
+    updatedAt?: Date;
     
     // Content specific
     channelId?: string;

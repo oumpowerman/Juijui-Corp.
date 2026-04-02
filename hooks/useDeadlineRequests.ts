@@ -107,6 +107,21 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 user_id: currentUser.id
             });
 
+            // 🔔 Create Notification for Admins
+            // First, get all admin IDs
+            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
+            if (admins && admins.length > 0) {
+                const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'APPROVAL_REQ',
+                    title: '📅 คำขอเลื่อน Deadline ใหม่',
+                    message: `คุณ ${currentUser.name} ขอเลื่อนงาน: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+                    related_id: taskId,
+                    link_path: 'ADMIN_DASHBOARD'
+                }));
+                await supabase.from('notifications').insert(notifications);
+            }
+
             return { 
                 success: true, 
                 data: {

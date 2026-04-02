@@ -266,7 +266,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     <QualityStatsWidget reviews={uniqueReviews} users={users} />
 
                     {/* Holographic Controls */}
-                    <div className="flex flex-col gap-4 sticky top-4 z-30">
+                    <div className="flex flex-col gap-4 top-4 z-30">
                         {/* Top Row: Search */}
                         <div className="bg-slate-900/80 backdrop-blur-2xl p-3 rounded-3xl border border-white/10 shadow-2xl ring-1 ring-white/5">
                             <div className="relative group">

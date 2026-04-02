@@ -7,6 +7,7 @@ interface NotificationContextType {
     notifications: any[];
     gameLogs: any[];
     leaveRequests: any[];
+    deadlineRequests: any[];
     isLoading: boolean;
     markAsRead: () => Promise<void>;
     dismissNotification: (id: string) => Promise<void>;
@@ -19,6 +20,7 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
     const [notifications, setNotifications] = useState<any[]>([]);
     const [gameLogs, setGameLogs] = useState<any[]>([]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+    const [deadlineRequests, setDeadlineRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
     // Refs for memory management and sync
@@ -55,12 +57,37 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
 
             // Fetch Leave Requests (if ADMIN)
             if (currentUser.role === 'ADMIN') {
-                const { data: leaves } = await supabase
-                    .from('leave_requests')
-                    .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
-                    .eq('status', 'PENDING');
+                const [leavesRes, deadlinesRes] = await Promise.all([
+                    supabase
+                        .from('leave_requests')
+                        .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
+                        .eq('status', 'PENDING'),
+                    supabase
+                        .from('task_deadline_requests')
+                        .select(`
+                            id, task_id, requested_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url),
+                            tasks:task_id (title)
+                        `)
+                        .eq('status', 'PENDING')
+                        .order('created_at', { ascending: false })
+                ]);
                 
-                if (leaves) setLeaveRequests(leaves);
+                if (leavesRes.data) setLeaveRequests(leavesRes.data);
+                if (deadlinesRes.data) {
+                    const mappedDeadlines = deadlinesRes.data.map(req => {
+                        const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                        const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
+                        return {
+                            ...req,
+                            newDeadline: new Date(req.new_deadline),
+                            createdAt: new Date(req.created_at),
+                            user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                            taskTitle: task?.title
+                        };
+                    });
+                    setDeadlineRequests(mappedDeadlines);
+                }
             }
             
         } catch (err) {
@@ -115,20 +142,53 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 });
             });
 
-        // Add Leave Requests listener for Admins
+        // Add Leave Requests and Deadline Requests listener for Admins
         if (isAdmin) {
             channel.on('postgres_changes', { 
                 event: '*', 
                 schema: 'public', 
                 table: 'leave_requests' 
             }, () => {
-                // Re-fetch leaves when changed (simpler than manual mapping for complex joins)
+                // Re-fetch leaves when changed
                 supabase
                     .from('leave_requests')
                     .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
                     .eq('status', 'PENDING')
                     .then(({ data }) => {
                         if (data) setLeaveRequests(data);
+                    });
+            })
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'task_deadline_requests'
+            }, (payload) => {
+                // For deadline requests, we re-fetch to get joins (profiles, tasks)
+                // This is more stable than manual mapping for complex joins
+                supabase
+                    .from('task_deadline_requests')
+                    .select(`
+                        id, task_id, requested_by, new_deadline, reason, status, created_at,
+                        profiles:requested_by (full_name, avatar_url),
+                        tasks:task_id (title)
+                    `)
+                    .eq('status', 'PENDING')
+                    .order('created_at', { ascending: false })
+                    .then(({ data }) => {
+                        if (data) {
+                            const mapped = data.map(req => {
+                                const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                                const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
+                                return {
+                                    ...req,
+                                    newDeadline: new Date(req.new_deadline),
+                                    createdAt: new Date(req.created_at),
+                                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    taskTitle: task?.title
+                                };
+                            });
+                            setDeadlineRequests(mapped);
+                        }
                     });
             });
         }
@@ -174,6 +234,7 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
             notifications, 
             gameLogs, 
             leaveRequests,
+            deadlineRequests,
             isLoading, 
             markAsRead, 
             dismissNotification,

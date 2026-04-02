@@ -179,8 +179,9 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
 
         const isAdmin = currentUserProfile.role === 'ADMIN';
 
-        // 1. Profiles Channel (Handles both currentUser and allUsers)
-        const profilesChannel = supabase.channel('user-session-profiles')
+        // Single Channel for all user session updates
+        const channel = supabase.channel(`user-session-hub-${sessionUser.id}`)
+            // 1. Profiles (Handles both currentUser and allUsers)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     const newUser = mapProfileToUser(payload.new);
@@ -201,10 +202,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 else if (payload.eventType === 'DELETE') {
                     setAllUsers(prev => prev.filter(u => u.id !== payload.old.id));
                 }
-            }).subscribe();
-
-        // 2. Attendance Logs Channel (Scope based on Role)
-        const attendanceChannel = supabase.channel('user-session-attendance')
+            })
+            // 2. Attendance Logs (Scope based on Role)
             .on('postgres_changes', { 
                 event: '*', 
                 schema: 'public', 
@@ -218,10 +217,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 } else if (payload.eventType === 'DELETE') {
                     setAttendanceLogs(prev => prev.filter(log => log.id !== payload.old.id));
                 }
-            }).subscribe();
-
-        // 3. Leave Requests Channel (Scope based on Role)
-        const leavesChannel = supabase.channel('user-session-leaves')
+            })
+            // 3. Leave Requests (Scope based on Role)
             .on('postgres_changes', { 
                 event: '*', 
                 schema: 'public', 
@@ -235,14 +232,19 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 } else if (payload.eventType === 'DELETE') {
                     setLeaveRequests(prev => prev.filter(req => req.id !== payload.old.id));
                 }
-            }).subscribe();
+            });
+
+        channel.subscribe((status) => {
+            if (status === 'SUBSCRIBED' && isReady) {
+                // Silent re-sync on reconnect to ensure data integrity
+                fetchInitialData();
+            }
+        });
 
         return () => {
-            supabase.removeChannel(profilesChannel);
-            supabase.removeChannel(attendanceChannel);
-            supabase.removeChannel(leavesChannel);
+            supabase.removeChannel(channel);
         };
-    }, [sessionUser?.id, currentUserProfile?.role, showToast]);
+    }, [sessionUser?.id, currentUserProfile?.role, isReady, fetchInitialData, showToast]);
 
     // --- AUTH ACTIONS (From useAuth) ---
     const fetchProfile = async () => {

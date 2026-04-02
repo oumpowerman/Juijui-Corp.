@@ -3,41 +3,24 @@ import { DeadlineRequest, User } from '../../types';
 import { useDeadlineRequests } from '../../hooks/useDeadlineRequests';
 import { Calendar, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useNotificationContext } from '../../context/NotificationContext';
 
 interface AdminDeadlineRequestsProps {
     currentUser: User;
 }
 
 const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({ currentUser }) => {
-    const { getAllPendingRequests, resolveRequest } = useDeadlineRequests(currentUser);
-    const [requests, setRequests] = useState<DeadlineRequest[]>([]);
-    const [isFetching, setIsFetching] = useState(true);
+    const { resolveRequest } = useDeadlineRequests(currentUser);
+    const { deadlineRequests: requests, isLoading: isFetching } = useNotificationContext();
     const { showToast } = useToast();
 
-    useEffect(() => {
-        const fetchRequests = async () => {
-            if (currentUser.role !== 'ADMIN') return;
-            setIsFetching(true);
-            const data = await getAllPendingRequests();
-            setRequests(data);
-            setIsFetching(false);
-        };
-        fetchRequests();
-    }, [currentUser.role, getAllPendingRequests]);
-
     const handleResolve = async (requestId: string, taskId: string, isApproved: boolean, newDate: Date) => {
-        // Optimistic Update: Remove from UI immediately
-        const previousRequests = [...requests];
-        setRequests(prev => prev.filter(req => req.id !== requestId));
-
         // Background API Call
         const { success, error } = await resolveRequest(requestId, taskId, isApproved, newDate);
         
         if (success) {
             showToast(isApproved ? 'อนุมัติการเลื่อน Deadline แล้ว' : 'ปฏิเสธคำขอแล้ว', 'success');
         } else {
-            // Revert on failure
-            setRequests(previousRequests);
             showToast('เกิดข้อผิดพลาด: ' + error, 'error');
         }
     };

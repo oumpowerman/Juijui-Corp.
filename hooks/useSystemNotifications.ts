@@ -11,6 +11,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         notifications: dbNotifs, 
         gameLogs, 
         leaveRequests,
+        deadlineRequests,
         markAsRead: contextMarkAsRead, 
         dismissNotification: contextDismissNotification 
     } = useNotificationContext();
@@ -54,7 +55,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
             dynamicNotifs.push({
                 id: `leave_${req.id}`,
                 type: 'APPROVAL_REQ',
-                title: '📋 คำขออนุมัติใหม่',
+                title: '📋 คำขอลาใหม่',
                 message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
                 date: new Date(req.created_at),
                 isRead: new Date(req.created_at) < lastReadTime,
@@ -62,7 +63,20 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
             });
         });
 
-        // 4. Map DB Notifications
+        // 4. Map Deadline Requests
+        deadlineRequests.forEach((req: any) => {
+            dynamicNotifs.push({
+                id: `deadline_${req.id}`,
+                type: 'APPROVAL_REQ',
+                title: '📅 คำขอเลื่อน Deadline',
+                message: `คุณ ${req.user?.name} ขอเลื่อนงาน: "${req.taskTitle || 'งานบางอย่าง'}"`,
+                date: new Date(req.created_at),
+                isRead: new Date(req.created_at) < lastReadTime,
+                actionLink: 'ADMIN_DASHBOARD'
+            });
+        });
+
+        // 5. Map DB Notifications
         const mappedDbNotifs: AppNotification[] = dbNotifs.map((n: any) => ({
             id: n.id,
             type: n.type,
@@ -80,7 +94,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         const unread = combined.filter(n => n.date > lastReadTime).length;
 
         return { notifications: combined, unreadCount: unread };
-    }, [dbNotifs, gameLogs, leaveRequests, tasks, currentUser]);
+    }, [dbNotifs, gameLogs, leaveRequests, deadlineRequests, tasks, currentUser]);
 
     return {
         notifications,

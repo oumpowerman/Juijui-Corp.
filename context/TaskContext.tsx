@@ -343,7 +343,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 });
             })
             .subscribe((status) => {
-                if (status === 'SUBSCRIBED') console.log('✅ [TaskContext] Realtime Connected!');
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ [TaskContext] Realtime Connected!');
+                    if (!isInitialLoadRef.current) {
+                        console.log('🔄 [TaskContext] Re-syncing tasks...');
+                        fetchTasks();
+                    }
+                }
             });
 
         return () => { 

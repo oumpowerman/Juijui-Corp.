@@ -86,11 +86,11 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
     // Fetch Logs for the selected month
     useEffect(() => {
+        const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+        const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
         const fetchMonthLogs = async () => {
             setIsLoading(true);
-            const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-            const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-
             try {
                 const { data, error } = await supabase
                     .from('attendance_logs')
@@ -120,6 +120,20 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         };
 
         fetchMonthLogs();
+
+        // Real-time Subscriptions
+        const logsChannel = supabase.channel('admin-dashboard-logs')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'attendance_logs',
+                filter: `date=gte.${start}&date=lte.${end}`
+            }, () => fetchMonthLogs())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(logsChannel);
+        };
     }, [currentMonth]);
 
     // Calculate Stats per User

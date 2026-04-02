@@ -229,9 +229,9 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
             }, (payload) => {
                 if (payload.eventType === 'INSERT') {
-                    setLeaveRequests(prev => [...prev, payload.new]);
+                    setLeaveRequests(prev => [mapLeaveRequest(payload.new), ...prev]);
                 } else if (payload.eventType === 'UPDATE') {
-                    setLeaveRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+                    setLeaveRequests(prev => prev.map(req => req.id === payload.new.id ? mapLeaveRequest(payload.new) : req));
                 } else if (payload.eventType === 'DELETE') {
                     setLeaveRequests(prev => prev.filter(req => req.id !== payload.old.id));
                 }

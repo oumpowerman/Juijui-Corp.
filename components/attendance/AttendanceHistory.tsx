@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AttendanceLog, LeaveType } from '../../types/attendance';
 import { useAttendanceHistory } from '../../hooks/attendance/useAttendanceHistory';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests'; 
+import { supabase } from '../../lib/supabase';
 import { format, isSameDay } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
@@ -47,7 +48,23 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     // Initial Fetch & Filter Change
     useEffect(() => {
         fetchData();
-    }, [fetchData]); 
+
+        // Real-time Subscription for this user's logs
+        const channel = supabase.channel(`attendance-history-realtime-${userId}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'attendance_logs',
+                filter: `user_id=eq.${userId}`
+            }, () => {
+                fetchData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchData, userId]); 
 
     const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
     

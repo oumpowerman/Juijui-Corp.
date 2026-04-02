@@ -67,11 +67,11 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
 
     // Fetch Data
     useEffect(() => {
+        const startStr = format(dateRange[0], 'yyyy-MM-dd');
+        const endStr = format(dateRange[dateRange.length - 1], 'yyyy-MM-dd');
+
         const fetchData = async () => {
             setIsLoading(true);
-            const startStr = format(dateRange[0], 'yyyy-MM-dd');
-            const endStr = format(dateRange[dateRange.length - 1], 'yyyy-MM-dd');
-            
             try {
                 // 1. Fetch Logs
                 const { data: logData, error: logError } = await supabase
@@ -104,7 +104,31 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 setIsLoading(false);
             }
         };
+
         fetchData();
+
+        // Real-time Subscriptions
+        const logsChannel = supabase.channel('admin-timesheet-logs')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'attendance_logs',
+                filter: `date=gte.${startStr}&date=lte.${endStr}`
+            }, () => fetchData())
+            .subscribe();
+
+        const leavesChannel = supabase.channel('admin-timesheet-leaves')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'leave_requests'
+            }, () => fetchData())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(logsChannel);
+            supabase.removeChannel(leavesChannel);
+        };
     }, [dateRange]);
 
     // Department Grouping Logic

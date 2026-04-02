@@ -478,7 +478,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         // 4. Send Notifications to Admins
         try {
             const { data: admins } = await supabase
-                .from('users')
+                .from('profiles')
                 .select('id')
                 .eq('role', 'ADMIN')
                 .eq('is_active', true);

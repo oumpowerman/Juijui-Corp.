@@ -26,7 +26,7 @@ interface QualityGateViewProps {
     tasks: Task[]; // Use global tasks as source of truth
 }
 
-type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING';
+type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING' | 'EXPIRED';
 
 const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser, tasks }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
@@ -86,7 +86,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         'CRITICAL': false,
         'REVISE': false,
         'TODAY': false,
-        'UPCOMING': true 
+        'UPCOMING': true,
+        'EXPIRED': true 
     });
 
     // Modal State
@@ -146,7 +147,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                 return isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
             }
             if (filterDateType === 'OVERDUE') {
-                return isPast(r.scheduledAt) && !isSameDay(r.scheduledAt, today) && r.status === 'PENDING';
+                return (isPast(r.scheduledAt) && !isSameDay(r.scheduledAt, today) && r.status === 'PENDING') || r.status === 'EXPIRED';
             }
             
             return r.status !== 'PASSED';
@@ -160,7 +161,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             critical: [] as typeof filteredReviews,
             revise: [] as typeof filteredReviews,
             today: [] as typeof filteredReviews,
-            upcoming: [] as typeof filteredReviews
+            upcoming: [] as typeof filteredReviews,
+            expired: [] as typeof filteredReviews
         };
 
         filteredReviews.forEach(r => {
@@ -168,6 +170,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             
             if (r.status === 'REVISE') {
                 result.revise.push(r);
+            } else if (r.status === 'EXPIRED') {
+                result.expired.push(r); 
             } else if (r.status === 'PENDING') {
                 if (isOverdue) {
                     result.critical.push(r);
@@ -462,6 +466,50 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                                                 review={r} users={users}
                                                                 onAction={handleActionClick} onOpenTask={onOpenTask} 
                                                                 getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                currentUser={currentUser}
+                                                                canReview={canReview}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                </motion.div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </section>
+                            )}
+
+                            {groups.expired.length > 0 && (
+                                <section className="animate-in slide-in-from-left-4 duration-500 delay-200">
+                                    <button onClick={() => toggleGroup('EXPIRED')} className="flex items-center justify-between w-full mb-6 group opacity-70 hover:opacity-100 transition-opacity">
+                                        <h3 className="text-xl font-black text-slate-400 flex items-center bg-slate-500/10 px-6 py-3 rounded-2xl border border-slate-500/20 shadow-xl backdrop-blur-md italic uppercase tracking-tight">
+                                            <AlertTriangle className="w-6 h-6 mr-3" /> 
+                                            SLA Expired / System Reverted ({groups.expired.length})
+                                        </h3>
+                                        <div className="h-px bg-slate-500/10 flex-1 mx-6 group-hover:bg-slate-500/30 transition-colors"></div>
+                                        {collapsedGroups['EXPIRED'] ? <ChevronRight className="text-slate-500/40" /> : <ChevronDown className="text-slate-500/40" />}
+                                    </button>
+                                    <AnimatePresence>
+                                        {!collapsedGroups['EXPIRED'] && (
+                                            <motion.div 
+                                                variants={accordionVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="hidden"
+                                                className="overflow-hidden"
+                                            >
+                                                <motion.div 
+                                                    variants={containerVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    className="grid grid-cols-1 gap-6 pb-8"
+                                                >
+                                                    {groups.expired.map(r => (
+                                                        <motion.div key={r.id} variants={itemVariants}>
+                                                            <ReviewCard 
+                                                                review={r} users={users}
+                                                                onAction={handleActionClick} onOpenTask={onOpenTask} 
+                                                                getChannelName={getChannelName} getStatusInfo={getStatusInfo}
+                                                                isExpired={true}
                                                                 currentUser={currentUser}
                                                                 canReview={canReview}
                                                             />

@@ -146,6 +146,7 @@ const QualityStatsWidget: React.FC<QualityStatsWidgetProps> = ({ reviews, users 
     const passedTodayList = useMemo(() => reviews.filter(r => r.status === 'PASSED' && isToday(new Date(r.scheduledAt))), [reviews]);
     const reviseList = useMemo(() => reviews.filter(r => r.status === 'REVISE'), [reviews]);
     const overdueList = useMemo(() => reviews.filter(r => r.status === 'PENDING' && new Date(r.scheduledAt) < new Date() && !isToday(new Date(r.scheduledAt))), [reviews]);
+    const expiredList = useMemo(() => reviews.filter(r => r.status === 'EXPIRED'), [reviews]);
 
     // Modal State
     const [activeModal, setActiveModal] = useState<{
@@ -157,7 +158,7 @@ const QualityStatsWidget: React.FC<QualityStatsWidgetProps> = ({ reviews, users 
 
     return (
         <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 
                 {/* 1. Pending Card */}
                 <div 
@@ -213,6 +214,20 @@ const QualityStatsWidget: React.FC<QualityStatsWidgetProps> = ({ reviews, users 
                         </div>
                     </div>
                     <p className="text-3xl font-black text-gray-800 mt-2 group-hover:text-orange-600 transition-colors">{overdueList.length}</p>
+                </div>
+
+                {/* 5. Expired Card */}
+                <div 
+                    onClick={() => setActiveModal({ title: 'รายการหมดอายุ (Expired)', items: expiredList, colorClass: 'text-slate-600', icon: AlertTriangle })}
+                    className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-slate-200"
+                >
+                    <div className="flex justify-between items-start">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">หมดอายุ (Expired)</span>
+                        <div className="p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:bg-slate-100 transition-colors">
+                            <AlertTriangle className="w-4 h-4" />
+                        </div>
+                    </div>
+                    <p className="text-3xl font-black text-gray-800 mt-2 group-hover:text-slate-600 transition-colors">{expiredList.length}</p>
                 </div>
             </div>
 

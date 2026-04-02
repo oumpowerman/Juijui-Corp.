@@ -33,7 +33,7 @@ export const useReviewJudge = () => {
         // 2. Fetch all PENDING reviews
         const { data: pendingReviews, error } = await supabase
             .from('task_reviews')
-            .select('*, tasks(*)')
+            .select('*, tasks(*), contents(*)')
             .eq('status', 'PENDING');
 
         if (error || !pendingReviews) return;
@@ -77,31 +77,37 @@ export const useReviewJudge = () => {
                     feedback: `[System] Admin ตรวจไม่ทันภายใน ${expiryDays} วันทำการ ระบบจึงตีกลับงานอัตโนมัติ พร้อมขยายเวลาให้ 1 วัน`
                 }).eq('id', review.id);
 
-                // Revert Task Status + Extend Deadline
+                // Revert Task/Content Status + Extend Deadline
                 const revertStatus = judgeConfig.auto_revert_status || 'TODO';
-                await supabase.from('tasks').update({
-                    status: revertStatus,
-                    end_date: tomorrowStr, // ✨ SLA Protection: Extend deadline by 1 day
-                    updated_at: new Date().toISOString()
-                }).eq('id', review.task_id);
+                const targetTable = review.task_id ? 'tasks' : 'contents';
+                const targetId = review.task_id || review.content_id;
+                
+                if (targetId) {
+                    await supabase.from(targetTable).update({
+                        status: revertStatus,
+                        end_date: tomorrowStr, // ✨ SLA Protection: Extend deadline by 1 day
+                        updated_at: new Date().toISOString()
+                    }).eq('id', targetId);
+                }
 
                 // Log Action
                 await supabase.from('task_logs').insert({
-                    task_id: review.task_id,
+                    [review.task_id ? 'task_id' : 'content_id']: targetId,
                     action: 'SYSTEM_REVERT',
                     details: `Admin ตรวจไม่ทันภายใน ${expiryDays} วันทำการ (ขยายเวลาถึง ${tomorrowStr})`,
                     created_at: new Date().toISOString()
                 });
 
                 // Notify User (Assignee)
-                if (review.tasks?.assignee_ids) {
-                    for (const uid of review.tasks.assignee_ids) {
+                const sourceData = review.tasks || review.contents;
+                if (sourceData?.assignee_ids) {
+                    for (const uid of sourceData.assignee_ids) {
                         await supabase.from('notifications').insert({
                             user_id: uid,
                             title: 'งานถูกตีกลับ (SLA Expired)',
-                            message: `งาน "${review.tasks.title}" ถูกตีกลับเป็น ${revertStatus} เนื่องจาก Admin ตรวจไม่ทันภายในกำหนด (ขยายเวลาให้ถึงพรุ่งนี้)`,
+                            message: `งาน "${sourceData.title}" ถูกตีกลับเป็น ${revertStatus} เนื่องจาก Admin ตรวจไม่ทันภายในกำหนด (ขยายเวลาให้ถึงพรุ่งนี้)`,
                             type: 'SYSTEM',
-                            related_id: review.task_id,
+                            related_id: targetId,
                             created_at: new Date().toISOString()
                         });
                     }

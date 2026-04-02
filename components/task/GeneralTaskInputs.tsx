@@ -183,15 +183,15 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             if (status === 'WAITING' && initialData?.id) {
                 const { data } = await supabase
                     .from('task_logs')
-                    .select('user_id, users(name)')
+                    .select('user_id, profiles(full_name)')
                     .eq('task_id', initialData.id)
                     .eq('action', 'SENT_TO_QC')
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
                 
-                if (data && (data as any).users) {
-                    setQcSenderName((data as any).users.name);
+                if (data && (data as any).profiles) {
+                    setQcSenderName((data as any).profiles.full_name);
                 }
             }
         };

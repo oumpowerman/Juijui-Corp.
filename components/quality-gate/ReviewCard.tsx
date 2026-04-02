@@ -15,6 +15,7 @@ interface ReviewCardProps {
     
     // New Props for context styling and permission
     isOverdue?: boolean;
+    isExpired?: boolean;
     highlightRevise?: boolean;
     currentUser: User;
     canReview: boolean;
@@ -28,6 +29,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     getChannelName,
     getStatusInfo,
     isOverdue,
+    isExpired,
     highlightRevise,
     currentUser,
     canReview
@@ -104,13 +106,18 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     };
 
     // Styling Logic
-    const borderClass = isOverdue 
-        ? 'border-rose-500/30 bg-rose-500/5 shadow-rose-500/10' 
-        : highlightRevise 
-            ? 'border-amber-500/30 bg-amber-500/5 shadow-amber-500/10' 
-            : 'border-white/5 bg-slate-900/40 shadow-indigo-500/5';
+    const borderClass = isExpired
+        ? 'border-slate-500/30 bg-slate-500/5 shadow-slate-500/10 grayscale-[0.5]'
+        : isOverdue 
+            ? 'border-rose-500/30 bg-rose-500/5 shadow-rose-500/10' 
+            : highlightRevise 
+                ? 'border-amber-500/30 bg-amber-500/5 shadow-amber-500/10' 
+                : 'border-white/5 bg-slate-900/40 shadow-indigo-500/5';
     
-    const statusColor = review.status === 'PENDING' ? 'bg-indigo-500' : review.status === 'REVISE' ? 'bg-rose-500' : 'bg-emerald-500';
+    const statusColor = review.status === 'PENDING' ? 'bg-indigo-500' : 
+                        review.status === 'REVISE' ? 'bg-rose-500' : 
+                        review.status === 'EXPIRED' ? 'bg-slate-500' :
+                        'bg-emerald-500';
 
     return (
         <div className={`p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 flex flex-col md:flex-row gap-6 items-start group relative overflow-hidden ring-1 ring-white/5 hover:ring-indigo-500/30 hover:-translate-y-1 ${borderClass}`}>
@@ -126,7 +133,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 <span className="text-3xl font-black text-white leading-none italic tracking-tighter">{format(review.scheduledAt, 'HH:mm')}</span>
                 <span className="text-[10px] text-indigo-400/60 font-black uppercase tracking-[0.3em] mt-1">{format(review.scheduledAt, 'dd MMM')}</span>
                 
-                {isOverdue ? (
+                {isExpired ? (
+                    <div className="mt-4 px-3 py-1.5 bg-slate-500/20 text-slate-400 rounded-xl text-[10px] font-black w-full border border-slate-500/30 shadow-lg shadow-slate-900/20 uppercase tracking-widest" title="ระบบดีดกลับงานอัตโนมัติเนื่องจากตรวจไม่ทัน">
+                        SLA Expired
+                    </div>
+                ) : isOverdue ? (
                     <div className="mt-4 px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black w-full border border-rose-500/30 shadow-lg shadow-rose-900/20 uppercase tracking-widest animate-pulse" title="แอดมินดองงาน (Admin Pending)">
                         +{adminDaysLate} Days Late
                     </div>
@@ -134,14 +145,16 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     <div className={`mt-4 px-3 py-1.5 text-[10px] font-black rounded-xl border flex items-center justify-center gap-2 w-full uppercase tracking-widest shadow-lg ${
                         review.status === 'PENDING' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-900/20' :
                         review.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-900/20' :
+                        review.status === 'EXPIRED' ? 'bg-slate-500/20 text-slate-400 border-slate-500/30 shadow-slate-900/20' :
                         'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-900/20'
                     }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                            review.status === 'PENDING' ? 'bg-indigo-400' :
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                            review.status === 'PENDING' ? 'bg-indigo-400 animate-pulse' :
                             review.status === 'PASSED' ? 'bg-emerald-400' :
+                            review.status === 'EXPIRED' ? 'bg-slate-400' :
                             'bg-rose-400'
                         }`}></div>
-                        {review.status === 'PENDING' ? 'Pending' : review.status === 'PASSED' ? 'Passed' : 'Revise'}
+                        {review.status === 'PENDING' ? 'Pending' : review.status === 'PASSED' ? 'Passed' : review.status === 'EXPIRED' ? 'Expired' : 'Revise'}
                     </div>
                 )}
             </div>
@@ -152,7 +165,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Header Line */}
                 <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        {isOverdue && <span className="bg-rose-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center shadow-lg shadow-rose-900/40 italic uppercase tracking-tighter"><AlertTriangle className="w-3 h-3 mr-1"/> ADMIN DELAY</span>}
+                        {isExpired && <span className="bg-slate-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center shadow-lg shadow-slate-900/40 italic uppercase tracking-tighter">SYSTEM REVERTED</span>}
+                        {isOverdue && !isExpired && <span className="bg-rose-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center shadow-lg shadow-rose-900/40 italic uppercase tracking-tighter"><AlertTriangle className="w-3 h-3 mr-1"/> ADMIN DELAY</span>}
                         
                         <span className="bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-lg text-[10px] font-black border border-indigo-500/20 uppercase tracking-widest">
                             Draft {review.round}

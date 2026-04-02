@@ -9,7 +9,7 @@ export type ContentPillar = 'ENTERTAINMENT' | 'EDUCATION' | 'LIFESTYLE' | 'PROMO
 export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | 'REELS' | 'STORY' | 'POST_H' | 'OTHER' | string;
 export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'LINK' | 'OTHER';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
-export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE';
+export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE' | 'EXPIRED';
 export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
 export type FilterType = 'STATUS' | 'FORMAT' | 'CHANNEL' | 'PILLAR' | 'CATEGORY';
 

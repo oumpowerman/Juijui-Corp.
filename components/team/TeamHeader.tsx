@@ -1,6 +1,6 @@
 
 import React, { memo, useState, useEffect } from 'react';
-import { Send, ShoppingBag, Wallet, Settings, Sparkles } from 'lucide-react';
+import { Send, ShoppingBag, Wallet, Settings, Sparkles, AlertTriangle } from 'lucide-react';
 import { User } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,6 +13,7 @@ interface TeamHeaderProps {
     viewMode: 'TEAM' | 'INTERNS';
     setViewMode: (mode: 'TEAM' | 'INTERNS') => void;
     onOpenRandomizer?: () => void;
+    onOpenReport?: () => void;
 }
 
 const TeamHeader: React.FC<TeamHeaderProps> = ({ 
@@ -23,7 +24,8 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
     toggleShop,
     viewMode,
     setViewMode,
-    onOpenRandomizer
+    onOpenRandomizer,
+    onOpenReport
 }) => {
     const isAdmin = currentUser?.role === 'ADMIN';
 
@@ -192,6 +194,19 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                     >
                                         <span className="text-lg mr-2 group-hover:rotate-12 transition-transform">🎲</span>
                                         สุ่มผู้โชคดี
+                                    </motion.button>
+                                )}
+
+                                {/* Report Issue Button */}
+                                {onOpenReport && (
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05, y: -2 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={onOpenReport} 
+                                        className="group flex items-center px-6 py-3.5 bg-gradient-to-br from-red-400 to-orange-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-red-500/20 hover:shadow-red-500/40 transition-all border border-white/20"
+                                    >
+                                        <AlertTriangle className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                                        ฟ้อง/แจ้งเหตุ
                                     </motion.button>
                                 )}
 

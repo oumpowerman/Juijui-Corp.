@@ -20,6 +20,7 @@ import LocationMasterView from './admin/master/views/LocationMasterView';
 import GameConfigTuner from './admin/game-tuner'; // Updated Import (Modular)
 import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
 import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
+import TribunalSettingsView from './admin/master/views/TribunalSettingsView';
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -168,6 +169,8 @@ const MasterDataManager: React.FC = () => {
                                 onEdit={handleEdit}
                                 onDelete={deleteMasterOption}
                             />
+                        ) : activeTab === 'TRIBUNAL_SETTINGS' ? (
+                            <TribunalSettingsView />
                         ) : activeTab === 'GREETINGS' ? (
                             <div className="animate-in slide-in-from-bottom-2 space-y-6">
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">

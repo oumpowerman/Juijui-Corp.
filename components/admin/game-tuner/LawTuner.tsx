@@ -266,6 +266,37 @@ const LawTuner: React.FC<LawTunerProps> = ({
                                 onChange={(v: number) => handleRuleChange('ABSENT_REFUND', 'hp', v)}
                             />
                         </div>
+
+                        {/* TRIBUNAL SECTION */}
+                        <div className="p-6 bg-amber-50/50 rounded-3xl border border-amber-100 space-y-5">
+                            <h4 className="text-xs font-bold text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                                <Gavel className="w-4 h-4" /> Tribunal & Whistleblowing
+                            </h4>
+                            <ConfigSlider 
+                                label="Reward for Reporter" 
+                                value={localConfig.TRIBUNAL_CONFIG?.reward_hp || 10} 
+                                min={0} max={50} step={1} unit="HP"
+                                icon={Zap} color="amber"
+                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'reward_hp', v)}
+                            />
+                            <ConfigSlider 
+                                label="Penalty for Target" 
+                                value={localConfig.TRIBUNAL_CONFIG?.penalty_hp || 20} 
+                                min={0} max={100} step={5} unit="HP"
+                                icon={ShieldAlert} color="rose"
+                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'penalty_hp', v)}
+                            />
+                            <ConfigSlider 
+                                label="False Report Penalty" 
+                                value={localConfig.TRIBUNAL_CONFIG?.false_report_penalty_hp || 30} 
+                                min={0} max={100} step={5} unit="HP"
+                                icon={AlertTriangle} color="red"
+                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'false_report_penalty_hp', v)}
+                            />
+                            <p className="text-[10px] text-amber-600/60 italic">
+                                * ระบบฟ้องร้องพฤติกรรมไม่เหมาะสม (Whistleblowing)
+                            </p>
+                        </div>
                     </div>
                 </div>
             </motion.section>

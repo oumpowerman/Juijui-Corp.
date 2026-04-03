@@ -15,6 +15,7 @@ import WorkloadChart from './admin/WorkloadChart';
 import DutyRosterWidget from './admin/DutyRosterWidget';
 import AttendanceComparisonWidget from './admin/AttendanceComparisonWidget';
 import AdminDeadlineRequests from '../admin/AdminDeadlineRequests';
+import TribunalReviewWidget from './admin/TribunalReviewWidget';
 
 interface DashboardProps {
   tasks: Task[];
@@ -161,6 +162,10 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           <div className="xl:col-span-1 space-y-8 flex flex-col">
             <motion.div variants={itemVariants} className="flex-shrink-0">
                <AdminDeadlineRequests currentUser={currentUser} />
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="flex-shrink-0">
+               <TribunalReviewWidget currentUser={currentUser} />
             </motion.div>
 
             <motion.div variants={itemVariants} className="flex-shrink-0">

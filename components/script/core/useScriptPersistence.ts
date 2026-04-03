@@ -111,6 +111,21 @@ export const useScriptPersistence = ({
     }, [ydoc, isReadOnly]);
 
     useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isDirtyRef.current && !isReadOnly) {
+                e.preventDefault();
+                e.returnValue = ''; // Standard way to show browser confirmation
+                return '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [isReadOnly]);
+
+    useEffect(() => {
         return () => {
             if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
                 // Final save on unmount

@@ -102,7 +102,21 @@ export const DEFAULT_GAME_CONFIG = {
         { grade: "B", max_late: 2, color: "bg-blue-100 text-blue-700", label: "Fair" },
         { grade: "C", max_late: 4, color: "bg-yellow-100 text-yellow-700", label: "Warning" },
         { grade: "F", max_late: 999, color: "bg-red-100 text-red-700", label: "Critical" }
-    ]
+    ],
+    TRIBUNAL_CONFIG: {
+        enabled: true,
+        reward_hp: 10,
+        reward_points: 50,
+        penalty_hp: 20,
+        false_report_penalty_hp: 15,
+        categories: [
+            { id: "toilet", label: "🚽 สุขา", severity: "LOW" },
+            { id: "kitchen", label: "🍽️ ห้องครัว", severity: "MEDIUM" },
+            { id: "behavior", label: "🗣️ พฤติกรรม", severity: "HIGH" },
+            { id: "property", label: "🔨 ของพัง", severity: "CRITICAL" },
+            { id: "other", label: "📝 อื่นๆ", severity: "LOW" }
+        ]
+    }
 };
 
 export const calculateLevel = (xp: number, config: any = DEFAULT_GAME_CONFIG): number => {
@@ -459,6 +473,38 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 coins: r.coins,
                 message: `KPI Reward: Grade ${grade}`,
                 details: `+${r.xp} XP, +${r.coins} JP`
+            };
+        }
+
+        case 'TRIBUNAL_REWARD': {
+            const { category, reason } = context;
+            const tribunalCfg = cfg.TRIBUNAL_CONFIG || DEFAULT_GAME_CONFIG.TRIBUNAL_CONFIG;
+            const xp = 0; // No XP for reporting yet
+            const hp = tribunalCfg.reward_hp || 10;
+            const coins = tribunalCfg.reward_points || 50;
+            
+            return {
+                xp,
+                hp,
+                coins,
+                message: `⚖️ รางวัลแจ้งเหตุ: ${category}`,
+                details: `+${hp} HP, +${coins} JP`
+            };
+        }
+
+        case 'TRIBUNAL_PENALTY': {
+            const { category, reason, isFalseReport } = context;
+            const tribunalCfg = cfg.TRIBUNAL_CONFIG || DEFAULT_GAME_CONFIG.TRIBUNAL_CONFIG;
+            const hpPenalty = isFalseReport 
+                ? (tribunalCfg.false_report_penalty_hp || 15)
+                : (tribunalCfg.penalty_hp || 20);
+            
+            return {
+                xp: 0,
+                hp: -hpPenalty,
+                coins: 0,
+                message: isFalseReport ? `⚖️ กฎแห่งกรรม! แจ้งเหตุเท็จ: ${category}` : `⚖️ บทลงโทษ: ${category}`,
+                details: `-${hpPenalty} HP`
             };
         }
 

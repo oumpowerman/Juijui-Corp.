@@ -22,6 +22,10 @@ import TeamToolbar from './team/TeamToolbar'; // NEW
 import TeamPagination from './team/TeamPagination'; // NEW
 import InternManagementView from './team/intern/index';
 import RandomizerModal from './team/RandomizerModal';
+
+// Lazy Load Tribunal Components
+const TribunalReportModal = React.lazy(() => import('./team/TribunalReportModal'));
+
 import { useInterns } from '../hooks/useInterns';
 
 // Import DnD Hook
@@ -78,6 +82,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isRandomizerOpen, setIsRandomizerOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
 
   // --- HOOKS ---
@@ -271,6 +276,7 @@ const TeamView: React.FC<TeamViewProps> = ({
             viewMode={viewMode}
             setViewMode={handleSetViewMode}
             onOpenRandomizer={() => setIsRandomizerOpen(true)}
+            onOpenReport={() => setIsReportModalOpen(true)}
         />
 
         <AnimatePresence mode="wait" custom={direction}>
@@ -497,6 +503,17 @@ const TeamView: React.FC<TeamViewProps> = ({
             users={users}
             currentUser={currentUser}
         />
+
+        {/* TRIBUNAL REPORT MODAL */}
+        <React.Suspense fallback={null}>
+          {isReportModalOpen && (
+            <TribunalReportModal 
+              isOpen={isReportModalOpen}
+              onClose={() => setIsReportModalOpen(false)}
+              currentUser={currentUser}
+            />
+          )}
+        </React.Suspense>
       </div>
     </div>
   );

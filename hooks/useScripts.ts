@@ -424,7 +424,7 @@ export const useScripts = (currentUser: User) => {
                 contents: finalPrompt,
             });
 
-            return response.text;
+            return response.text ?? null;
 
         } catch (err: any) {
             console.error("AI Error:", err);

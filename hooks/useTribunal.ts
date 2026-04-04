@@ -32,6 +32,7 @@ export const useTribunal = (currentUser: User | null = null) => {
                     target_id: reportData.target_id,
                     category: reportData.category,
                     description: reportData.description,
+                    is_anonymous: reportData.is_anonymous || false,
                     evidence_file_id: evidenceFileId,
                     evidence_url: evidenceUrl,
                     status: 'PENDING',
@@ -116,7 +117,7 @@ export const useTribunal = (currentUser: User | null = null) => {
 
     const getReports = useCallback(async (filter: 'ALL' | 'PENDING' | 'MY_REPORTS' = 'ALL') => {
         try {
-            let query = supabase.from('tribunal_reports').select('*, reporter:profiles!reporter_id(name, avatar_url), target:profiles!target_id(name, avatar_url)');
+            let query = supabase.from('tribunal_reports').select('*, reporter:profiles!reporter_id(full_name, avatar_url), target:profiles!target_id(full_name, avatar_url)');
 
             if (filter === 'PENDING') {
                 query = query.eq('status', 'PENDING');

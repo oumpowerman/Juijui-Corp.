@@ -2,11 +2,12 @@
 import React from 'react';
 import { Task, User, Status, MasterOption } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
-import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2, AlertCircle } from 'lucide-react';
+import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { format, addDays, isBefore, isWeekend } from 'date-fns';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { useMasterDataContext } from '../../../../context/MasterDataContext';
-import { isHolidayOrException } from '../../../../utils/judgeUtils';
+import { useGameConfig } from '../../../../context/GameConfigContext';
+import { isHolidayOrException, isWorkingDay } from '../../../../utils/judgeUtils';
 
 interface WorkCardProps {
     task: Task;
@@ -63,35 +64,86 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
     };
 
     const statusLabel = getStatusLabel(task.status);
-    const { annualHolidays } = useMasterDataContext();
+    const { annualHolidays, calendarExceptions } = useMasterDataContext();
+    const { config } = useGameConfig();
 
-    // --- SLA Warning Logic ---
-    const isSlaWarning = React.useMemo(() => {
-        if (columnType !== 'WAITING' || !task.updatedAt || !annualHolidays) return false;
+    // --- Deadline Warning Logic (Working Days Aware) ---
+    const deadlineStatus = React.useMemo(() => {
+        if (!task.endDate || columnType === 'DONE' || columnType === 'WAITING') {
+            return { level: 0, label: '' };
+        }
+
+        const deadline = new Date(task.endDate);
+        if (isNaN(deadline.getTime())) return { level: 0, label: '' };
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const targetDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+
+        // Level 2: Today or Overdue
+        if (today >= targetDate) {
+            return { level: 2, label: today > targetDate ? 'เลยกำหนด!' : 'ส่งวันนี้!' };
+        }
+
+        // Level 1: 1 Working Day before
+        // Find the previous working day from deadline
+        let prevWorkingDay = addDays(targetDate, -1);
+        let safetyCounter = 0;
+        while (!isWorkingDay(prevWorkingDay, annualHolidays, calendarExceptions || [], user || null) && safetyCounter < 10) {
+            prevWorkingDay = addDays(prevWorkingDay, -1);
+            safetyCounter++;
+        }
+
+        if (format(today, 'yyyy-MM-dd') === format(prevWorkingDay, 'yyyy-MM-dd')) {
+            return { level: 1, label: 'ส่งพรุ่งนี้!' };
+        }
+
+        return { level: 0, label: '' };
+    }, [task.endDate, columnType, annualHolidays, calendarExceptions, user]);
+
+    // --- SLA Warning Logic (3-Tier Dynamic) ---
+    const slaStatus = React.useMemo(() => {
+        if (columnType !== 'WAITING' || !task.updatedAt || !annualHolidays || !config?.REVIEW_JUDGE_CONFIG) {
+            return { level: 0, days: 0 };
+        }
         
+        const expiryDays = config.REVIEW_JUDGE_CONFIG.expiry_days || 3;
         const submissionDate = new Date(task.updatedAt);
         const now = new Date();
         
         let workingDaysPassed = 0;
         let current = addDays(submissionDate, 1);
         
+        // Count working days passed since submission
         while (isBefore(current, now)) {
-            const isHoliday = isHolidayOrException(current, annualHolidays, []); 
-            const isWeekEnd = isWeekend(current);
-            if (!isWeekEnd && !isHoliday) workingDaysPassed++;
+            if (isWorkingDay(current, annualHolidays, calendarExceptions || [], null)) {
+                workingDaysPassed++;
+            }
             current = addDays(current, 1);
         }
         
-        return workingDaysPassed >= 2;
-    }, [columnType, task.updatedAt, annualHolidays]);
+        // Level 3: Overdue / Critical (Scary Mode)
+        if (workingDaysPassed >= expiryDays) return { level: 3, days: workingDaysPassed };
+        // Level 2: 1 day before expiry
+        if (workingDaysPassed === expiryDays - 1 && workingDaysPassed > 0) return { level: 2, days: workingDaysPassed };
+        // Level 1: 2 days before expiry
+        if (workingDaysPassed === expiryDays - 2 && workingDaysPassed > 0) return { level: 1, days: workingDaysPassed };
+        
+        return { level: 0, days: workingDaysPassed };
+    }, [columnType, task.updatedAt, annualHolidays, config?.REVIEW_JUDGE_CONFIG]);
 
     // Visual styles based on column
-    let cardStyle = 'bg-white border-y border-r border-gray-200'; // Remove default border-l to avoid conflict
+    let cardStyle = 'bg-white border-y border-r border-gray-200'; 
     
     if (columnType === 'DOING') {
         cardStyle = 'bg-white border-y-2 border-r-2 border-indigo-100 shadow-md ring-1 ring-indigo-50';
     } else if (columnType === 'WAITING') {
-        cardStyle = 'bg-orange-50/50 border-y border-r border-orange-100';
+        // Scary Mode for Level 3
+        if (slaStatus.level === 3) {
+            cardStyle = 'bg-rose-50 border-2 border-rose-400 shadow-lg shadow-rose-200 animate-pulse';
+        } else {
+            cardStyle = 'bg-orange-50/50 border-y border-r border-orange-100';
+        }
     } else if (columnType === 'DONE') {
         cardStyle = 'bg-white border-y border-r border-gray-100 opacity-80 grayscale-[0.3]';
     }
@@ -116,6 +168,31 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
                 <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold border truncate max-w-[120px] ${STATUS_COLORS[task.status as Status] || 'bg-gray-100'}`}>
                     {statusLabel}
                 </span>
+
+                {/* SLA Revert Count Badge */}
+                {task.sla_revert_count && task.sla_revert_count > 0 && (
+                    <div className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                        task.sla_revert_count >= 3 
+                            ? 'text-rose-600 bg-rose-50 border-rose-200' 
+                            : 'text-amber-600 bg-amber-50 border-amber-200'
+                    }`} title={`งานนี้ถูกระบบดีดกลับอัตโนมัติมาแล้ว ${task.sla_revert_count} ครั้ง`}>
+                        <RefreshCw className={`w-3 h-3 ${task.sla_revert_count >= 3 ? 'animate-spin-slow' : ''}`} />
+                        {task.sla_revert_count}
+                        {task.sla_revert_count >= 3 && " (NO XP)"}
+                    </div>
+                )}
+
+                {/* Deadline Warning Badge */}
+                {(columnType === 'TODO' || columnType === 'DOING') && deadlineStatus.level > 0 && (
+                    <div className={`
+                        flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full border transition-all duration-300
+                        ${deadlineStatus.level === 1 ? 'text-amber-600 bg-amber-50 border-amber-200' : ''}
+                        ${deadlineStatus.level === 2 ? 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse' : ''}
+                    `}>
+                        {deadlineStatus.level === 1 ? <Clock className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                        {deadlineStatus.label}
+                    </div>
+                )}
                 
                 {/* Icons based on state */}
                 {columnType === 'DOING' && (
@@ -125,12 +202,20 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
                 )}
                 {columnType === 'WAITING' && (
                     <div className="flex items-center gap-1">
-                        {isSlaWarning && (
-                            <div className="flex items-center gap-1 text-[9px] font-black text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full animate-pulse border border-orange-200">
-                                <AlertCircle className="w-3 h-3" /> ADMIN ตรวจช้า
+                        {slaStatus.level > 0 && (
+                            <div className={`
+                                flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full border transition-all duration-300
+                                ${slaStatus.level === 1 ? 'text-amber-600 bg-amber-50 border-amber-200' : ''}
+                                ${slaStatus.level === 2 ? 'text-orange-600 bg-orange-100 border-orange-200 animate-pulse' : ''}
+                                ${slaStatus.level === 3 ? 'text-rose-600 bg-rose-100 border-rose-300 animate-bounce shadow-sm' : ''}
+                            `}>
+                                <AlertCircle className="w-3 h-3" /> 
+                                {slaStatus.level === 1 && "⚠️ Admin เริ่มตรวจช้า"}
+                                {slaStatus.level === 2 && "🟠 พรุ่งนี้งานจะถูกดีดกลับ!"}
+                                {slaStatus.level === 3 && "🚨 SLA EXPIRED: ตามด่วน!"}
                             </div>
                         )}
-                        <Clock className="w-3.5 h-3.5 text-orange-400" />
+                        <Clock className={`w-3.5 h-3.5 ${slaStatus.level === 3 ? 'text-rose-500' : 'text-orange-400'}`} />
                     </div>
                 )}
             </div>

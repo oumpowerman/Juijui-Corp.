@@ -23,17 +23,22 @@ export const useQualityActions = () => {
 
             let actualXP = 0;
             const userIds = Array.from(peopleToReward);
+            const isPenalized = (task.sla_revert_count || 0) >= 3;
 
             // 1. Give Base XP (Engine calculates from task difficulty/hours)
-            for (let i = 0; i < userIds.length; i++) {
-                const result = await processAction(userIds[i], 'TASK_COMPLETE', task);
-                if (i === 0 && result) {
-                    actualXP = result.xp;
+            if (!isPenalized) {
+                for (let i = 0; i < userIds.length; i++) {
+                    const result = await processAction(userIds[i], 'TASK_COMPLETE', task);
+                    if (i === 0 && result) {
+                        actualXP = result.xp;
+                    }
                 }
+            } else {
+                console.log(`[XP Penalty] Task "${task.title}" has ${task.sla_revert_count} SLA reverts. No XP awarded.`);
             }
 
             // 2. Give Manual Bonus (If any)
-            if (manualBonus !== 0) {
+            if (manualBonus !== 0 && !isPenalized) {
                 for (let i = 0; i < userIds.length; i++) {
                     await processAction(userIds[i], 'MANUAL_ADJUST', {
                         xp: manualBonus,
@@ -115,20 +120,27 @@ export const useQualityActions = () => {
                          user_id: uid,
                          type: 'REVIEW',
                          title: '✅ งานผ่านแล้ว!',
-                         message: `งาน "${task?.title}" ได้รับการอนุมัติแล้ว (+${finalXP} XP)`,
+                         message: finalXP > 0 
+                            ? `งาน "${task?.title}" ได้รับการอนุมัติแล้ว (+${finalXP} XP)`
+                            : `งาน "${task?.title}" ผ่านแล้ว แต่ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง`,
                          related_id: taskId,
                          link_path: 'STOCK',
                          is_read: false,
                          metadata: {
                              xp: finalXP,
                              title: task?.title,
-                             bonus: manualBonus
+                             bonus: manualBonus,
+                             isPenalized: (task?.sla_revert_count || 0) >= 3
                          }
                     }));
                     await supabase.from('notifications').insert(notifications);
                 }
 
-                showToast(`🎉 อนุมัติงาน "${task?.title}" เรียบร้อย! (+${finalXP} XP)`, 'success');
+                const successMessage = (task?.sla_revert_count || 0) >= 3
+                    ? `🎉 อนุมัติงาน "${task?.title}" เรียบร้อย! (แต่ไม่ได้รับ XP เนื่องจาก SLA Revert เกิน 3 ครั้ง)`
+                    : `🎉 อนุมัติงาน "${task?.title}" เรียบร้อย! (+${finalXP} XP)`;
+                
+                showToast(successMessage, 'success');
 
             } else {
                 if (!feedback?.trim()) {

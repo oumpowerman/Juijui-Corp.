@@ -37,6 +37,7 @@ import QuestOverviewWidget from './widgets/QuestOverviewWidget';
 import GoalOverviewWidget from './widgets/GoalOverviewWidget';
 import HallOfFameWidget from './widgets/HallOfFameWidget';
 import MyDutyWidget from './member/MyDutyWidget'; 
+import TribunalPublicBulletin from '../dashboard/TribunalPublicBulletin';
 
 // Hooks
 import { useWeeklyQuests } from '../../hooks/useWeeklyQuests';
@@ -93,11 +94,11 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const { duties, setDuties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 
     // --- 🧩 Draggable Widgets Logic ---
-    type WidgetId = 'attendance' | 'duty' | 'quest' | 'goal' | 'hall_of_fame' | 'focus_zone' | 'work_board';
+    type WidgetId = 'attendance' | 'duty' | 'quest' | 'goal' | 'hall_of_fame' | 'focus_zone' | 'work_board' | 'tribunal_bulletin';
 
     const [widgetOrder, setWidgetOrder] = useState<WidgetId[]>(() => {
         const saved = localStorage.getItem(`dashboard_layout_${currentUser.id}`);
-        return saved ? JSON.parse(saved) : ['attendance', 'duty', 'focus_zone', 'work_board', 'quest', 'goal', 'hall_of_fame'];
+        return saved ? JSON.parse(saved) : ['attendance', 'duty', 'focus_zone', 'work_board', 'quest', 'goal', 'hall_of_fame', 'tribunal_bulletin'];
     });
 
     const sensors = useSensors(
@@ -133,6 +134,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         hall_of_fame: { span: 'xl:col-span-4' },
         focus_zone: { span: 'xl:col-span-4' },
         work_board: { span: 'xl:col-span-8' },
+        tribunal_bulletin: { span: 'xl:col-span-4' },
     };
 
     // Sync local user
@@ -266,6 +268,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         />
                     </div>
                 );
+            case 'tribunal_bulletin':
+                return <TribunalPublicBulletin />;
             default:
                 return null;
         }

@@ -2,14 +2,14 @@ import { supabase } from '../lib/supabase';
 import { addDays, isBefore, isWeekend, format } from 'date-fns';
 import { useGameConfig } from '../context/GameConfigContext';
 import { AnnualHoliday } from '../types';
-import { isHolidayOrException } from '../utils/judgeUtils';
+import { isHolidayOrException, isWorkingDay } from '../utils/judgeUtils';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useReviewJudge = () => {
     const { config, updateConfigValue } = useGameConfig();
     const queryClient = useQueryClient();
 
-    const runReviewChecks = async (holidays: AnnualHoliday[], force = false) => {
+    const runReviewChecks = async (holidays: AnnualHoliday[], exceptions: any[] = [], force = false) => {
         // 1. Check if enabled and if we should run (Leader-based Checkpoint)
         const judgeConfig = config?.REVIEW_JUDGE_CONFIG || { 
             enabled: true, 
@@ -50,10 +50,7 @@ export const useReviewJudge = () => {
             
             // Ensure we don't loop forever if 'now' is somehow before 'current'
             while (isBefore(current, now)) {
-                const isHoliday = isHolidayOrException(current, holidays, []); 
-                const isWeekEnd = isWeekend(current);
-                
-                if (!isWeekEnd && !isHoliday) {
+                if (isWorkingDay(current, holidays, exceptions, null)) {
                     workingDaysPassed++;
                 }
                 current = addDays(current, 1);
@@ -82,12 +79,23 @@ export const useReviewJudge = () => {
                 const targetTable = review.task_id ? 'tasks' : 'contents';
                 const targetId = review.task_id || review.content_id;
                 
+                console.log(`[ReviewJudge] Reverting ${targetTable} ID: ${targetId} to ${revertStatus}`);
+
                 if (targetId) {
-                    await supabase.from(targetTable).update({
+                    const sourceData = review.tasks || review.contents;
+                    const currentRevertCount = sourceData?.sla_revert_count || 0;
+
+                    const { error: updateError } = await supabase.from(targetTable).update({
                         status: revertStatus,
-                        end_date: tomorrowStr, // ✨ SLA Protection: Extend deadline by 1 day
-                        updated_at: new Date().toISOString()
+                        end_date: tomorrowStr,
+                        sla_revert_count: currentRevertCount + 1
                     }).eq('id', targetId);
+
+                    if (updateError) {
+                        console.error(`[ReviewJudge] Failed to update ${targetTable}:`, updateError);
+                    } else {
+                        console.log(`[ReviewJudge] Successfully updated ${targetTable} status to ${revertStatus}`);
+                    }
                 }
 
                 // Log Action
@@ -128,7 +136,7 @@ export const useReviewJudge = () => {
         console.log('[ReviewJudge] SLA check completed.');
     };
 
-    const runWarningChecks = async (userId: string, holidays: AnnualHoliday[]) => {
+    const runWarningChecks = async (userId: string, holidays: AnnualHoliday[], exceptions: any[] = []) => {
         if (!userId) return;
 
         const now = new Date();
@@ -150,9 +158,9 @@ export const useReviewJudge = () => {
             let current = addDays(submissionDate, 1);
             
             while (isBefore(current, now)) {
-                const isHoliday = isHolidayOrException(current, holidays, []); 
-                const isWeekEnd = isWeekend(current);
-                if (!isWeekEnd && !isHoliday) workingDaysPassed++;
+                if (isWorkingDay(current, holidays, exceptions, null)) {
+                    workingDaysPassed++;
+                }
                 current = addDays(current, 1);
             }
 

@@ -8,21 +8,21 @@ import { useUserSession } from '../context/UserSessionContext';
 export const GlobalRealtimeSync = () => {
     const queryClient = useQueryClient();
     const { runReviewChecks, runWarningChecks } = useReviewJudge();
-    const { annualHolidays, isLoading: isMasterLoading } = useMasterDataContext();
+    const { annualHolidays, calendarExceptions, isLoading: isMasterLoading } = useMasterDataContext();
     const { currentUserProfile, isReady: isAuthReady } = useUserSession();
 
     useEffect(() => {
         // Run SLA checks (Global & Personal Warning)
         if (!isMasterLoading && annualHolidays && isAuthReady) {
             // 1. Global Revert Check (Leader-based)
-            runReviewChecks(annualHolidays);
+            runReviewChecks(annualHolidays, calendarExceptions || []);
             
             // 2. Personal SLA Warning Check (Only for current user's tasks)
             if (currentUserProfile?.id) {
-                runWarningChecks(currentUserProfile.id, annualHolidays);
+                runWarningChecks(currentUserProfile.id, annualHolidays, calendarExceptions || []);
             }
         }
-    }, [isMasterLoading, annualHolidays, isAuthReady, currentUserProfile?.id]);
+    }, [isMasterLoading, annualHolidays, calendarExceptions, isAuthReady, currentUserProfile?.id]);
 
     useEffect(() => {
         // Master Options Sync

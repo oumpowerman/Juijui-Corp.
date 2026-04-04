@@ -134,6 +134,9 @@ export interface Task {
 
     // Script Link (General Task)
     scriptId?: string;
+
+    // SLA Penalty
+    sla_revert_count?: number;
 }
 
 export interface ChipConfig {

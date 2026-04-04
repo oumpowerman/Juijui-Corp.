@@ -2,7 +2,7 @@
 import React from 'react';
 import { ReviewSession, User, Task } from '../../types';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck, CalendarCheck, AlarmClock } from 'lucide-react';
+import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck, CalendarCheck, AlarmClock, RefreshCw } from 'lucide-react';
 import { DIFFICULTY_LABELS } from '../../constants';
 
 interface ReviewCardProps {
@@ -216,11 +216,26 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Meta Row: XP, User, Asset */}
                 <div className="flex items-center gap-4 pt-1 flex-wrap">
                     {/* XP Badge */}
-                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 shadow-inner" title={`Difficulty: ${difficulty}, Est: ${estHours}h`}>
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                        <span className="text-xs font-black text-indigo-100 uppercase tracking-widest">{totalXP} XP</span>
-                        {difficulty === 'HARD' && <Flame className="w-4 h-4 text-rose-500 animate-pulse" />}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'bg-slate-800/50 text-slate-500 border-slate-700 line-through opacity-50' : 'bg-white/5 text-indigo-100 border-white/5'}`} title={review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'งานนี้ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง' : `Difficulty: ${difficulty}, Est: ${estHours}h`}>
+                        <Star className={`w-4 h-4 ${review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'text-slate-600 fill-slate-600' : 'text-amber-400 fill-amber-400'}`} />
+                        <span className="text-xs font-black uppercase tracking-widest">{review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 0 : totalXP} XP</span>
+                        {difficulty === 'HARD' && (!review.task?.sla_revert_count || review.task.sla_revert_count < 3) && <Flame className="w-4 h-4 text-rose-500 animate-pulse" />}
                     </div>
+
+                    {/* SLA Revert Count Badge */}
+                    {review.task?.sla_revert_count && review.task.sla_revert_count > 0 && (
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${
+                            review.task.sla_revert_count >= 3 
+                                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-900/20' 
+                                : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-900/20'
+                        }`} title={`งานนี้ถูกระบบดีดกลับอัตโนมัติ (SLA Revert) มาแล้ว ${review.task.sla_revert_count} ครั้ง`}>
+                            <RefreshCw className={`w-4 h-4 ${review.task.sla_revert_count >= 3 ? 'animate-spin-slow' : ''}`} />
+                            <span className="text-xs font-black uppercase tracking-widest">
+                                Revert: {review.task.sla_revert_count}
+                                {review.task.sla_revert_count >= 3 && " (NO XP)"}
+                            </span>
+                        </div>
+                    )}
 
                     {/* Assignee Avatar */}
                     {primaryAssignee && (

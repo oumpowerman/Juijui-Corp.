@@ -14,6 +14,7 @@ export interface TribunalReport {
     reward_hp?: number;
     reward_points?: number;
     penalty_hp?: number;
+    is_anonymous: boolean;
     created_at: string;
     resolved_at?: string;
     resolved_by?: string;

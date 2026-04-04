@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, Wrench, Check, Send, MessageSquare, Calculator, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { X, CheckCircle2, Wrench, Check, Send, MessageSquare, Calculator, TrendingUp, TrendingDown, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Task, MasterOption } from '../../types';
 import { DIFFICULTY_LABELS } from '../../config/taxonomy';
 
@@ -65,8 +65,9 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
 
     if (!isOpen || !actionType) return null;
 
+    const isPenalized = (task?.sla_revert_count || 0) >= 3;
     const isPass = actionType === 'PASS';
-    const finalScore = baseScoreInfo.total + adjustment;
+    const finalScore = isPenalized ? 0 : (baseScoreInfo.total + adjustment);
 
     const quickAdjust = (val: number) => {
         setAdjustment(prev => prev + val);
@@ -117,8 +118,19 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
                             {/* --- PASS MODE: GRADING SYSTEM --- */}
                             {isPass && task ? (
                                 <div className="space-y-4">
+                                    {/* SLA Penalty Warning */}
+                                    {isPenalized && (
+                                        <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-start gap-3">
+                                            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-xs font-black text-rose-600 uppercase tracking-widest mb-1">SLA Penalty Active</p>
+                                                <p className="text-[10px] text-rose-500 leading-relaxed font-medium">งานนี้ถูกดีดกลับมาแล้ว {task?.sla_revert_count} ครั้ง (เกินกำหนด 3 ครั้ง) ระบบจึงงดแจก XP สำหรับงานชิ้นนี้</p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Base Score Card */}
-                                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2">
+                                    <div className={`bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2 ${isPenalized ? 'opacity-50 grayscale' : ''}`}>
                                         <div className="flex justify-between text-xs text-gray-500">
                                             <span>Difficulty ({task.difficulty}):</span>
                                             <span className="font-mono">{baseScoreInfo.base} XP</span>
@@ -134,44 +146,46 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
                                     </div>
 
                                     {/* Adjustment Controls */}
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center justify-between">
-                                            <span>Performance Adjustment</span>
-                                            <span className={`text-xs ${adjustment > 0 ? 'text-green-600' : adjustment < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                                                {adjustment > 0 ? '+' : ''}{adjustment} XP
-                                            </span>
-                                        </label>
-                                        
-                                        <div className="flex gap-2 mb-3">
-                                            <input 
-                                                type="range" 
-                                                min="-100" 
-                                                max="100" 
-                                                step="10"
-                                                value={adjustment}
-                                                onChange={(e) => setAdjustment(Number(e.target.value))}
-                                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                                            />
-                                        </div>
+                                    {!isPenalized && (
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center justify-between">
+                                                <span>Performance Adjustment</span>
+                                                <span className={`text-xs ${adjustment > 0 ? 'text-green-600' : adjustment < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                    {adjustment > 0 ? '+' : ''}{adjustment} XP
+                                                </span>
+                                            </label>
+                                            
+                                            <div className="flex gap-2 mb-3">
+                                                <input 
+                                                    type="range" 
+                                                    min="-100" 
+                                                    max="100" 
+                                                    step="10"
+                                                    value={adjustment}
+                                                    onChange={(e) => setAdjustment(Number(e.target.value))}
+                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                                />
+                                            </div>
 
-                                        <div className="flex gap-2 justify-center">
-                                            <button onClick={() => quickAdjust(-20)} className="px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded text-[10px] font-bold hover:bg-red-100 transition-colors flex items-center">
-                                                <TrendingDown className="w-3 h-3 mr-1" /> Late/Fix -20
-                                            </button>
-                                            <button onClick={() => setAdjustment(0)} className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px] font-bold hover:bg-gray-200 transition-colors">
-                                                Reset
-                                            </button>
-                                            <button onClick={() => quickAdjust(20)} className="px-2 py-1 bg-green-50 text-green-600 border border-green-100 rounded text-[10px] font-bold hover:bg-green-100 transition-colors flex items-center">
-                                                <TrendingUp className="w-3 h-3 mr-1" /> Fast/Good +20
-                                            </button>
-                                            <button onClick={() => quickAdjust(50)} className="px-2 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded text-[10px] font-bold hover:bg-yellow-100 transition-colors flex items-center">
-                                                <TrendingUp className="w-3 h-3 mr-1" /> Excellent +50
-                                            </button>
+                                            <div className="flex gap-2 justify-center">
+                                                <button onClick={() => quickAdjust(-20)} className="px-2 py-1 bg-red-50 text-red-600 border border-red-100 rounded text-[10px] font-bold hover:bg-red-100 transition-colors flex items-center">
+                                                    <TrendingDown className="w-3 h-3 mr-1" /> Late/Fix -20
+                                                </button>
+                                                <button onClick={() => setAdjustment(0)} className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px] font-bold hover:bg-gray-200 transition-colors">
+                                                    Reset
+                                                </button>
+                                                <button onClick={() => quickAdjust(20)} className="px-2 py-1 bg-green-50 text-green-600 border border-green-100 rounded text-[10px] font-bold hover:bg-green-100 transition-colors flex items-center">
+                                                    <TrendingUp className="w-3 h-3 mr-1" /> Fast/Good +20
+                                                </button>
+                                                <button onClick={() => quickAdjust(50)} className="px-2 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded text-[10px] font-bold hover:bg-yellow-100 transition-colors flex items-center">
+                                                    <TrendingUp className="w-3 h-3 mr-1" /> Excellent +50
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Final Score Display */}
-                                    <div className="flex items-center justify-between bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl shadow-md">
+                                    <div className={`flex items-center justify-between p-4 rounded-xl shadow-md ${isPenalized ? 'bg-slate-400 text-white line-through' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'}`}>
                                         <div className="flex items-center gap-2">
                                             <div className="p-2 bg-white/20 rounded-lg">
                                                 <Calculator className="w-5 h-5" />

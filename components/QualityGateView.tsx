@@ -72,7 +72,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     };
     const { handleConfirmAction } = useQualityActions();
     const { runReviewChecks } = useReviewJudge();
-    const { annualHolidays } = useMasterDataContext();
+    const { annualHolidays, calendarExceptions } = useMasterDataContext();
     
     // --- UI State ---
     const [isChecking, setIsChecking] = useState(false);
@@ -208,7 +208,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         if (!annualHolidays) return;
         setIsChecking(true);
         try {
-            await runReviewChecks(annualHolidays, true);
+            await runReviewChecks(annualHolidays, calendarExceptions || [], true);
         } finally {
             setIsChecking(false);
         }

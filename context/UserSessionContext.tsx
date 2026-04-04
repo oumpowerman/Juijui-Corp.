@@ -178,6 +178,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         if (!sessionUser?.id || !currentUserProfile) return;
 
         const isAdmin = currentUserProfile.role === 'ADMIN';
+        let isInitialSubscription = true;
 
         // Single Channel for all user session updates
         const channel = supabase.channel(`user-session-hub-${sessionUser.id}`)
@@ -211,7 +212,10 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
             }, (payload) => {
                 if (payload.eventType === 'INSERT') {
-                    setAttendanceLogs(prev => [...prev, mapAttendanceLog(payload.new)]);
+                    setAttendanceLogs(prev => {
+                        if (prev.some(log => log.id === payload.new.id)) return prev;
+                        return [...prev, mapAttendanceLog(payload.new)];
+                    });
                 } else if (payload.eventType === 'UPDATE') {
                     setAttendanceLogs(prev => prev.map(log => log.id === payload.new.id ? mapAttendanceLog(payload.new) : log));
                 } else if (payload.eventType === 'DELETE') {
@@ -226,7 +230,10 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
             }, (payload) => {
                 if (payload.eventType === 'INSERT') {
-                    setLeaveRequests(prev => [mapLeaveRequest(payload.new), ...prev]);
+                    setLeaveRequests(prev => {
+                        if (prev.some(req => req.id === payload.new.id)) return prev;
+                        return [mapLeaveRequest(payload.new), ...prev];
+                    });
                 } else if (payload.eventType === 'UPDATE') {
                     setLeaveRequests(prev => prev.map(req => req.id === payload.new.id ? mapLeaveRequest(payload.new) : req));
                 } else if (payload.eventType === 'DELETE') {
@@ -235,9 +242,15 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             });
 
         channel.subscribe((status) => {
-            if (status === 'SUBSCRIBED' && isReady) {
-                // Silent re-sync on reconnect to ensure data integrity
-                fetchInitialData();
+            if (status === 'SUBSCRIBED') {
+                if (isInitialSubscription) {
+                    isInitialSubscription = false;
+                    // Initial fetch already handled by useEffect mount
+                } else {
+                    // Re-sync on reconnect to ensure data integrity
+                    console.log('🔄 UserSession: Re-syncing on reconnect...');
+                    fetchInitialData();
+                }
             }
         });
 

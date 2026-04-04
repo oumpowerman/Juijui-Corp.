@@ -148,54 +148,84 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 event: '*', 
                 schema: 'public', 
                 table: 'leave_requests' 
-            }, () => {
-                // Re-fetch leaves when changed
-                supabase
-                    .from('leave_requests')
-                    .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
-                    .eq('status', 'PENDING')
-                    .then(({ data }) => {
-                        if (data) setLeaveRequests(data);
-                    });
+            }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    // Re-fetch only the new one to get the join data (profiles)
+                    supabase
+                        .from('leave_requests')
+                        .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
+                        .eq('id', payload.new.id)
+                        .single()
+                        .then(({ data }) => {
+                            if (data && data.status === 'PENDING') {
+                                setLeaveRequests(prev => [data, ...prev]);
+                            }
+                        });
+                } else if (payload.eventType === 'UPDATE') {
+                    if (payload.new.status !== 'PENDING') {
+                        setLeaveRequests(prev => prev.filter(r => r.id !== payload.new.id));
+                    } else {
+                        // Update existing or fetch if not in list
+                        setLeaveRequests(prev => {
+                            if (prev.some(r => r.id === payload.new.id)) {
+                                return prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r);
+                            }
+                            return prev;
+                        });
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    setLeaveRequests(prev => prev.filter(r => r.id !== payload.old.id));
+                }
             })
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'task_deadline_requests'
             }, (payload) => {
-                // For deadline requests, we re-fetch to get joins (profiles, tasks)
-                // This is more stable than manual mapping for complex joins
-                supabase
-                    .from('task_deadline_requests')
-                    .select(`
-                        id, task_id, requested_by, new_deadline, reason, status, created_at,
-                        profiles:requested_by (full_name, avatar_url),
-                        tasks:task_id (title)
-                    `)
-                    .eq('status', 'PENDING')
-                    .order('created_at', { ascending: false })
-                    .then(({ data }) => {
-                        if (data) {
-                            const mapped = data.map(req => {
-                                const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
-                                const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
-                                return {
-                                    ...req,
-                                    newDeadline: new Date(req.new_deadline),
-                                    createdAt: new Date(req.created_at),
+                if (payload.eventType === 'INSERT') {
+                    supabase
+                        .from('task_deadline_requests')
+                        .select(`
+                            id, task_id, requested_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url),
+                            tasks:task_id (title)
+                        `)
+                        .eq('id', payload.new.id)
+                        .single()
+                        .then(({ data }) => {
+                            if (data && data.status === 'PENDING') {
+                                const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const task = Array.isArray(data.tasks) ? data.tasks[0] : data.tasks;
+                                const mapped = {
+                                    ...data,
+                                    newDeadline: new Date(data.new_deadline),
+                                    createdAt: new Date(data.created_at),
                                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
                                     taskTitle: task?.title
                                 };
-                            });
-                            setDeadlineRequests(mapped);
-                        }
-                    });
+                                setDeadlineRequests(prev => [mapped, ...prev]);
+                            }
+                        });
+                } else if (payload.eventType === 'UPDATE') {
+                    if (payload.new.status !== 'PENDING') {
+                        setDeadlineRequests(prev => prev.filter(r => r.id !== payload.new.id));
+                    } else {
+                        setDeadlineRequests(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    setDeadlineRequests(prev => prev.filter(r => r.id !== payload.old.id));
+                }
             });
         }
 
         channel.subscribe((status) => {
-            if (status === 'SUBSCRIBED' && !isInitialLoadRef.current) {
-                fetchAllData(true);
+            if (status === 'SUBSCRIBED') {
+                if (isInitialLoadRef.current) {
+                    isInitialLoadRef.current = false;
+                } else {
+                    // Silent re-sync on reconnect
+                    fetchAllData(true);
+                }
             }
         });
 

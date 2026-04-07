@@ -74,7 +74,9 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                         )}
                                     </div>
                                     <div className="min-w-0">
-                                        <h3 className="text-md font-bold text-gray-800 truncate leading-tight">{intern.fullName}</h3>
+                                        <h3 className="text-md font-bold text-gray-800 truncate leading-tight">
+                                            {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
+                                        </h3>
                                         <div className="flex items-center gap-1 mt-0.5">
                                             {getStatusBadge(intern.status)}
                                         </div>

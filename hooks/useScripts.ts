@@ -61,6 +61,9 @@ export const useScripts = (currentUser: User) => {
     });
 
     const fetchScripts = useCallback(async (options: FetchScriptsOptions) => {
+        const fetchId = Date.now();
+        (fetchScripts as any).lastFetchId = fetchId;
+        
         if (!options.append) setIsLoading(true);
         try {
             // OPTIMIZATION: Select specific columns excluding 'content'
@@ -143,6 +146,9 @@ export const useScripts = (currentUser: User) => {
             query = query.range((options.page - 1) * options.pageSize, options.page * options.pageSize - 1);
 
             const { data, error, count } = await query;
+
+            // STALE CHECK: If a newer request has been started, ignore this one
+            if ((fetchScripts as any).lastFetchId !== fetchId) return;
 
             if (error) throw error;
 

@@ -167,7 +167,9 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider mb-3 ${statusInfo.bg} ${statusInfo.color} ${statusInfo.border} shadow-sm`}>
                                         {statusInfo.label}
                                     </div>
-                                    <h2 className="text-3xl font-bold text-slate-900 tracking-tight leading-none mb-2 truncate">{intern.fullName}</h2>
+                                    <h2 className="text-3xl font-bold text-slate-900 tracking-tight leading-none mb-2 truncate">
+                                        {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
+                                    </h2>
                                     <p className="text-base font-medium text-slate-500 flex items-center gap-2">
                                         <Briefcase className="w-4 h-4 text-indigo-400" />
                                         {intern.position || 'ยังไม่ระบุตำแหน่ง'}

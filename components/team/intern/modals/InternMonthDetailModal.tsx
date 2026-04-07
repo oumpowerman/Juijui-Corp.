@@ -241,7 +241,7 @@ const InternMonthDetailModal: React.FC<InternMonthDetailModalProps> = ({
                                                                             )}
                                                                         </div>
                                                                         <span className="text-[11px] font-black truncate">
-                                                                            {intern.fullName}
+                                                                            {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
                                                                         </span>
                                                                         <span className="ml-2 opacity-60 shrink-0 text-[9px] font-bold">
                                                                             {intern.position.charAt(0).toUpperCase()}

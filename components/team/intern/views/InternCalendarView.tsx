@@ -474,7 +474,9 @@ const InternCalendarView: React.FC<InternCalendarViewProps> = ({
                                                                     <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${getStatusColor(intern.status)}`} />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <p className="text-xs font-black text-slate-700 truncate group-hover/item:text-indigo-600 transition-colors">{intern.fullName}</p>
+                                                                    <p className="text-xs font-black text-slate-700 truncate group-hover/item:text-indigo-600 transition-colors">
+                                                                        {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
+                                                                    </p>
                                                                     <p className="text-[9px] font-bold text-slate-400 truncate uppercase tracking-widest">{intern.position}</p>
                                                                 </div>
                                                                 <div className="text-[10px] font-black text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded-lg group-hover/item:bg-indigo-600 group-hover/item:text-white transition-all">

@@ -77,9 +77,13 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
     const [isStatusOpen, setIsStatusOpen] = useState(false);
     const statusRef = useRef<HTMLDivElement>(null);
     
-    // Sync local state if parent prop changes externally
+    // Sync local state if parent prop changes externally (e.g. back button or URL change)
     useEffect(() => {
-        setLocalSearch(searchQuery);
+        // Only update local state if it's different from the prop AND we're not currently typing
+        // This prevents the "jumping" or "clearing" effect when navigating back
+        if (searchQuery !== localSearch) {
+            setLocalSearch(searchQuery);
+        }
     }, [searchQuery]);
 
     // Close status dropdown on click outside
@@ -93,12 +97,13 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Debounce effect
+    // Debounce effect: Sync localSearch to parent searchQuery
     useEffect(() => {
+        // If they are already the same, no need to set a timeout
+        if (localSearch === searchQuery) return;
+
         const handler = setTimeout(() => {
-            if (localSearch !== searchQuery) {
-                setSearchQuery(localSearch);
-            }
+            setSearchQuery(localSearch);
         }, 400);
 
         return () => {

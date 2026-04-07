@@ -179,7 +179,9 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-[14px] font-kanit font-medium text-slate-800 truncate leading-none mb-1">{intern.fullName}</p>
+                                                <p className="text-[14px] font-kanit font-medium text-slate-800 truncate leading-none mb-1">
+                                                    {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
+                                                </p>
                                                 <p className="text-[9px] font-bold text-slate-400 truncate uppercase tracking-widest">{intern.position}</p>
                                             </div>
                                         </div>
@@ -208,7 +210,7 @@ const InternTimeline: React.FC<InternTimelineProps> = ({ interns, onEdit, onRang
                                                     onClick={() => onEdit(intern)}
                                                 >
                                                     <span className="text-[12px] font-kanit font-medium text-white truncate drop-shadow-md whitespace-nowrap">
-                                                        {intern.fullName} | {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')} ({differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน)
+                                                        {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''} | {format(new Date(intern.startDate), 'dd/MM')} - {format(new Date(intern.endDate), 'dd/MM')} ({differenceInDays(new Date(intern.endDate), new Date(intern.startDate)) + 1} วัน)
                                                     </span>
                                                 </motion.div>
                                             )}

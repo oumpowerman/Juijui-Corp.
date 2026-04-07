@@ -89,7 +89,9 @@ const InternTableView: React.FC<InternTableViewProps> = ({
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-[17px] font-kanit font-medium text-gray-800 truncate leading-none mb-1">{intern.fullName}</p>
+                                                    <p className="text-[17px] font-kanit font-medium text-gray-800 truncate leading-none mb-1">
+                                                        {intern.fullName}{intern.nickname ? ` (${intern.nickname})` : ''}
+                                                    </p>
                                                     <p className="text-[11px] font-bold text-gray-400 truncate">{intern.email}</p>
                                                 </div>
                                             </div>

@@ -83,6 +83,41 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
     const [promoteScriptData, setPromoteScriptData] = useState<Script | null>(null);
 
+    // --- SEARCH HANDLERS (useCallback for stability) ---
+    const handleSetSearchQuery = useCallback((val: string) => {
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            if (val) newParams.set('q', val);
+            else newParams.delete('q');
+            return newParams;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    const handleSetDeepSearch = useCallback((val: boolean) => {
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            if (val) newParams.set('deep', 'true');
+            else newParams.delete('deep');
+            return newParams;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    // --- CLEANUP EFFECT: Clear search params when leaving Script Hub ---
+    useEffect(() => {
+        return () => {
+            // Use window.location to check if we are actually navigating away from the view
+            // or just re-rendering. React Router's setSearchParams might not be ideal in cleanup 
+            // if the component is unmounting due to a route change.
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('q') || params.has('deep')) {
+                params.delete('q');
+                params.delete('deep');
+                const newUrl = `${window.location.pathname}?${params.toString()}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+        };
+    }, []);
+
     // Pagination & Filters (Updated to Array)
     const [page, setPage] = useState(1);
     const pageSize = 20;
@@ -460,12 +495,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                         <ScriptFilterBar 
                                             layoutMode={layoutMode} setLayoutMode={setLayoutMode}
                                             searchQuery={searchQuery} 
-                                            setSearchQuery={(val) => {
-                                                const newParams = new URLSearchParams(searchParams);
-                                                if (val) newParams.set('q', val);
-                                                else newParams.delete('q');
-                                                setSearchParams(newParams, { replace: true });
-                                            }}
+                                            setSearchQuery={handleSetSearchQuery}
                                             filterOwner={filterOwner} setFilterOwner={setFilterOwner}
                                             filterChannel={filterChannel} setFilterChannel={setFilterChannel}
                                             filterCategory={filterCategory} setFilterCategory={setFilterCategory}
@@ -473,12 +503,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
                                             sortOrder={sortOrder} setSortOrder={setSortOrder}
                                             isDeepSearch={isDeepSearch} 
-                                            setIsDeepSearch={(val) => {
-                                                const newParams = new URLSearchParams(searchParams);
-                                                if (val) newParams.set('deep', 'true');
-                                                else newParams.delete('deep');
-                                                setSearchParams(newParams, { replace: true });
-                                            }}
+                                            setIsDeepSearch={handleSetDeepSearch}
                                             users={users} channels={channels} masterOptions={masterOptions}
                                             mode={mode}
                                         />

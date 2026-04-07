@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Redemption } from '../types';
 import { X, History, User } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12,8 +13,8 @@ interface RewardHistoryProps {
 }
 
 const RewardHistory: React.FC<RewardHistoryProps> = ({ redemptions, onClose, isAdmin }) => {
-    return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    const modalContent = (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div>
@@ -70,6 +71,9 @@ const RewardHistory: React.FC<RewardHistoryProps> = ({ redemptions, onClose, isA
             </div>
         </div>
     );
+
+    if (typeof document === 'undefined') return null;
+    return createPortal(modalContent, document.body);
 };
 
 export default RewardHistory;

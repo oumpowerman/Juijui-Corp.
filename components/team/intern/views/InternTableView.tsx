@@ -5,6 +5,7 @@ import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, 
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format, differenceInDays } from 'date-fns';
 import { getDirectDriveUrl } from '../../../../lib/imageUtils';
+import { ensureExternalLink } from '../../../../lib/linkUtils';
 
 interface InternTableViewProps {
     interns: InternCandidate[];
@@ -135,7 +136,7 @@ const InternTableView: React.FC<InternTableViewProps> = ({
                                             <div className="flex items-center justify-end gap-2">
                                                 {intern.portfolioUrl && (
                                                     <a 
-                                                        href={intern.portfolioUrl} 
+                                                        href={ensureExternalLink(intern.portfolioUrl)} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
                                                         onClick={(e) => e.stopPropagation()}

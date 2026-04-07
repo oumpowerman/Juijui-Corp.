@@ -27,13 +27,16 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
     const [rankings, setRankings] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchStats = useCallback(async () => {
-        // กรองความซ้ำซ้อน: ถ้ายังไม่มีข้อมูล User ให้ข้ามไปก่อน
+    const fetchStats = useCallback(async (isBackground = false) => {
         if (users.length === 0) return;
 
-        setIsLoading(true);
+        // แสดง Loading เฉพาะตอนไม่มีข้อมูล หรือไม่ใช่การอัปเดตเบื้องหลัง
+        if (rankings.length === 0 || !isBackground) {
+            setIsLoading(true);
+        }
+
         try {
-                        // For ALL_TIME, we don't need to fetch logs, we use the 'users' prop directly
+            // For ALL_TIME, we don't need to fetch logs, we use the 'users' prop directly
             if (timeRange === 'ALL_TIME') {
                 const allTimeSorted = [...users].filter(u => u.isActive).sort((a, b) => b.xp - a.xp);
                 const allTimeEntries: LeaderboardEntry[] = allTimeSorted.map((u, index) => {
@@ -44,7 +47,7 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
                         user: u,
                         rank: index + 1,
                         score: u.xp,
-                        missions: 0, // Missions/Penalties not easily calculated for all-time without full log scan
+                        missions: 0, 
                         penalties: 0,
                         diffFromTop: allTimeSorted[0].xp - u.xp,
                         diffFromNext: index > 0 ? allTimeSorted[index - 1].xp - u.xp : 0,
@@ -174,8 +177,8 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
 
     // Initial fetch and re-fetch when timeRange changes
     useEffect(() => {
-        fetchStats();
-    }, [fetchStats]);
+        fetchStats(false); // Full loading for timeRange change
+    }, [timeRange, users]); // Trigger when timeRange or users change
 
     // Dedicated Real-time subscription for game_logs
     useEffect(() => {
@@ -186,9 +189,8 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
                 { event: 'INSERT', schema: 'public', table: 'game_logs' },
                 () => {
                     // Only re-fetch if we are in a time-ranged view
-                    // ALL_TIME is handled by the 'users' prop which is updated via useTeam's subscription
                     if (timeRange !== 'ALL_TIME') {
-                        fetchStats();
+                        fetchStats(true); // Background update
                     }
                 }
             )
@@ -197,7 +199,7 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [timeRange, fetchStats]); // ทำงานใหม่ถ้า User list เปลี่ยน หรือเปลี่ยนโหมดเวลา
+    }, [timeRange, fetchStats]); 
 
     // Find current user stats
     const myStats = useMemo(() => rankings.find(r => r.user.id === currentUser.id), [rankings, currentUser]);

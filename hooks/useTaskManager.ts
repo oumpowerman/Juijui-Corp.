@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { User } from '../types';
 
 // Import split hooks
@@ -84,7 +84,10 @@ export const useTaskManager = (
       channels: channels
   });
 
-  const mergedUsers = allUsers.map(u => u.id === currentUserProfile?.id ? { ...u, ...currentUserProfile } : u);
+  const mergedUsers = useMemo(() => 
+    allUsers.map(u => u.id === currentUserProfile?.id ? { ...u, ...currentUserProfile } : u),
+    [allUsers, currentUserProfile]
+  );
 
   return {
     isLoading: isLoading || (tasks.length === 0 && isFetching), // Show load on initial empty

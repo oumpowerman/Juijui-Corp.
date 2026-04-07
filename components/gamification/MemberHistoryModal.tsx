@@ -108,12 +108,23 @@ const MemberHistoryModal: React.FC<MemberHistoryModalProps> = ({ isOpen, onClose
     // --- STYLE HELPER ---
     const getLogStyle = (log: GameLog) => {
         const type = log.actionType;
+        const isNegative = log.hpChange < 0 || log.xpChange < 0 || (log.jpChange < 0 && type !== 'SHOP_PURCHASE');
         
         if (type === 'SHOP_PURCHASE') 
             return { icon: <ShoppingBag className="w-5 h-5"/>, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' };
         
         if (type === 'ITEM_USE') 
             return { icon: <Zap className="w-5 h-5"/>, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' };
+
+        if (type === 'MANUAL_ADJUST')
+            return isNegative
+                ? { icon: <ShieldAlert className="w-5 h-5"/>, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' }
+                : { icon: <Award className="w-5 h-5"/>, color: 'text-yellow-600', bg: 'bg-yellow-100', border: 'border-yellow-200' };
+
+        if (type.includes('TRIBUNAL'))
+            return type.includes('PENALTY')
+                ? { icon: <ShieldAlert className="w-5 h-5"/>, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' }
+                : { icon: <Award className="w-5 h-5"/>, color: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200' };
 
         if (type.includes('TASK')) 
             return log.xpChange > 0 
@@ -126,7 +137,7 @@ const MemberHistoryModal: React.FC<MemberHistoryModalProps> = ({ isOpen, onClose
                 : { icon: <ShieldAlert className="w-5 h-5"/>, color: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200' };
         
         if (type.includes('ATTENDANCE'))
-             return log.hpChange < 0
+             return log.hpChange < 0 || log.jpChange < 0
                 ? { icon: <Calendar className="w-5 h-5"/>, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' }
                 : { icon: <Calendar className="w-5 h-5"/>, color: 'text-teal-600', bg: 'bg-teal-100', border: 'border-teal-200' };
 
@@ -134,7 +145,9 @@ const MemberHistoryModal: React.FC<MemberHistoryModalProps> = ({ isOpen, onClose
              return { icon: <Award className="w-5 h-5"/>, color: 'text-yellow-600', bg: 'bg-yellow-100', border: 'border-yellow-200' };
 
         // Default
-        return { icon: <History className="w-5 h-5"/>, color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' };
+        return isNegative
+            ? { icon: <ShieldAlert className="w-5 h-5"/>, color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-200' }
+            : { icon: <History className="w-5 h-5"/>, color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200' };
     };
 
     if (!isOpen) return null;

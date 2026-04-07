@@ -31,6 +31,8 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
         faculty: '',
         academicYear: '',
         portfolioUrl: '',
+        resumeUrl: '',
+        otherUrl: '',
         avatarUrl: '',
         gender: 'OTHER',
         position: '',
@@ -64,6 +66,8 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                 phoneNumber: '',
                 university: '',
                 portfolioUrl: '',
+                resumeUrl: '',
+                otherUrl: '',
                 avatarUrl: '',
                 gender: 'OTHER',
                 position: '',
@@ -276,17 +280,45 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-kanit font-bold text-gray-600 ml-1">Link Portfolio / Resume</label>
-                                        <div className="relative">
-                                            <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <input 
-                                                type="url"
-                                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
-                                                value={formData.portfolioUrl}
-                                                onChange={e => setFormData(prev => ({ ...prev, portfolioUrl: e.target.value }))}
-                                                placeholder="https://..."
-                                            />
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">Link Portfolio</label>
+                                            <div className="relative">
+                                                <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input 
+                                                    type="url"
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                    value={formData.portfolioUrl}
+                                                    onChange={e => setFormData(prev => ({ ...prev, portfolioUrl: e.target.value }))}
+                                                    placeholder="Portfolio URL"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">Link Resume</label>
+                                            <div className="relative">
+                                                <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input 
+                                                    type="url"
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                    value={formData.resumeUrl || ''}
+                                                    onChange={e => setFormData(prev => ({ ...prev, resumeUrl: e.target.value }))}
+                                                    placeholder="Resume URL"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-kanit font-bold text-gray-600 ml-1">Link เพิ่มเติม (Optional)</label>
+                                            <div className="relative">
+                                                <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input 
+                                                    type="url"
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                    value={formData.otherUrl || ''}
+                                                    onChange={e => setFormData(prev => ({ ...prev, otherUrl: e.target.value }))}
+                                                    placeholder="Other URL"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

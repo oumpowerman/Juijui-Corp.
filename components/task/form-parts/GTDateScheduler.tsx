@@ -265,7 +265,7 @@ const GTDateScheduler: React.FC<GTDateSchedulerProps> = ({ startDate, setStartDa
 
                                             {/* Tooltip for Holiday */}
                                             {dayInfo.label && isCurrentMonth && (
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[110]">
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-2 hidden group-hover:block z-[110]">
                                                     <div className="bg-slate-800 text-white text-[9px] px-2 py-1 rounded-lg whitespace-nowrap shadow-xl">
                                                         {dayInfo.label}
                                                     </div>

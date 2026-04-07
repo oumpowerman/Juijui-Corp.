@@ -24,6 +24,7 @@ import {
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format } from 'date-fns';
 import { getDirectDriveUrl } from '../../../../lib/imageUtils';
+import { ensureExternalLink } from '../../../../lib/linkUtils';
 
 interface InternDetailModalProps {
     isOpen: boolean;
@@ -257,34 +258,70 @@ const InternDetailModal: React.FC<InternDetailModalProps> = ({ isOpen, onClose, 
                                     </div>
                                 </motion.div>
 
-                                {/* Portfolio Card */}
+                                {/* Portfolio & Links Card */}
                                 <motion.div variants={itemVariants} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
                                     <div className="flex items-center gap-3 text-rose-600 mb-5">
                                         <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <LinkIcon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">ผลงาน</span>
+                                        <span className="text-sm font-kanit font-bold uppercase tracking-wider">ผลงานและเอกสาร</span>
                                     </div>
-                                    {intern.portfolioUrl ? (
-                                        <a 
-                                            href={intern.portfolioUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center justify-between p-4 bg-rose-50/30 text-rose-600 rounded-2xl border border-rose-100 hover:bg-rose-50 transition-all group/link"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                                    <Globe className="w-5 h-5" />
+                                    <div className="space-y-3">
+                                        {intern.portfolioUrl ? (
+                                            <a 
+                                                href={ensureExternalLink(intern.portfolioUrl)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between p-3 bg-rose-50/30 text-rose-600 rounded-2xl border border-rose-100 hover:bg-rose-50 transition-all group/link"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                        <Globe className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-xs font-bold">Portfolio</span>
                                                 </div>
-                                                <span className="text-sm font-bold">View Portfolio</span>
+                                                <ExternalLink className="w-3.5 h-3.5 group-hover/link:translate-x-1 group-hover/link:-translate-y-1 transition-transform" />
+                                            </a>
+                                        ) : (
+                                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                                                <p className="text-[10px] font-kanit font-medium text-slate-400 italic">ไม่ได้ระบุ Portfolio</p>
                                             </div>
-                                            <ExternalLink className="w-4 h-4 group-hover/link:translate-x-1 group-hover/link:-translate-y-1 transition-transform" />
-                                        </a>
-                                    ) : (
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                                            <p className="text-xs font-kanit font-medium text-slate-400 italic">ไม่ได้ระบุผลงาน</p>
-                                        </div>
-                                    )}
+                                        )}
+
+                                        {intern.resumeUrl && (
+                                            <a 
+                                                href={ensureExternalLink(intern.resumeUrl)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between p-3 bg-indigo-50/30 text-indigo-600 rounded-2xl border border-indigo-100 hover:bg-indigo-50 transition-all group/link"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                        <Briefcase className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-xs font-bold">Resume</span>
+                                                </div>
+                                                <ExternalLink className="w-3.5 h-3.5 group-hover/link:translate-x-1 group-hover/link:-translate-y-1 transition-transform" />
+                                            </a>
+                                        )}
+
+                                        {intern.otherUrl && (
+                                            <a 
+                                                href={ensureExternalLink(intern.otherUrl)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between p-3 bg-slate-50 text-slate-600 rounded-2xl border border-slate-200 hover:bg-slate-100 transition-all group/link"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                                        <LinkIcon className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-xs font-bold">Other Link</span>
+                                                </div>
+                                                <ExternalLink className="w-3.5 h-3.5 group-hover/link:translate-x-1 group-hover/link:-translate-y-1 transition-transform" />
+                                            </a>
+                                        )}
+                                    </div>
                                 </motion.div>
                             </div>
 

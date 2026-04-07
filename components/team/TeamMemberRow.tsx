@@ -256,7 +256,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                     className={`h-4 w-full bg-gradient-to-t ${bubbleTheme.bg} border-t ${bubbleTheme.border} relative group/mood`}
                 >
                     {user.feeling && (
-                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover/mood:block z-50">
+                        <div className="absolute left-full pl-2 top-1/2 -translate-y-1/2 hidden group-hover/mood:block z-50">
                             <div className={`whitespace-nowrap bg-white border-2 ${bubbleTheme.border} ${bubbleTheme.text} px-3 py-1.5 rounded-xl shadow-xl text-[10px] font-bold italic animate-in fade-in zoom-in-95`}>
                                 "{user.feeling}"
                             </div>

@@ -140,7 +140,8 @@ export const useGamification = (currentUser: User | null = null) => {
             } else if (filter === 'SPENT') {
                 query = query.lt('jp_change', 0);
             } else if (filter === 'PENALTY') {
-                query = query.or('hp_change.lt.0,xp_change.lt.0');
+                // Include negative HP, negative XP, and negative JP (excluding shop purchases)
+                query = query.or('hp_change.lt.0,xp_change.lt.0,and(jp_change.lt.0,action_type.neq.SHOP_PURCHASE)');
             }
 
             const { data, error } = await query

@@ -144,13 +144,15 @@ const GoalCard: React.FC<GoalCardProps> = ({
                         <button className="p-2.5 text-gray-600 hover:text-white rounded-xl hover:bg-white/5 transition-all">
                             <MoreHorizontal className="w-5 h-5" />
                         </button>
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/10 hidden group-hover/menu:block z-30 overflow-hidden animate-in fade-in zoom-in-95">
-                            <button onClick={() => onEdit(goal)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-indigo-500/20 hover:text-indigo-400 transition-colors flex items-center gap-3">
-                                <RefreshCw className="w-4 h-4" /> Reconfigure
-                            </button>
-                            <button onClick={handleDelete} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-3">
-                                <AlertCircle className="w-4 h-4" /> Terminate
-                            </button>
+                        <div className="absolute right-0 top-full w-48 pt-2 hidden group-hover/menu:block z-30 animate-in fade-in zoom-in-95">
+                            <div className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
+                                <button onClick={() => onEdit(goal)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-indigo-500/20 hover:text-indigo-400 transition-colors flex items-center gap-3">
+                                    <RefreshCw className="w-4 h-4" /> Reconfigure
+                                </button>
+                                <button onClick={handleDelete} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-3">
+                                    <AlertCircle className="w-4 h-4" /> Terminate
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

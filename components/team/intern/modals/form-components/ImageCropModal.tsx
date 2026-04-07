@@ -44,12 +44,12 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, image, onClose,
         rotation = 0
     ): Promise<Blob> => {
         const image = await createImage(imageSrc);
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        
+        // 1. Create a temporary canvas to handle rotation
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
 
-        if (!ctx) {
-            throw new Error('No 2d context');
-        }
+        if (!tempCtx) throw new Error('No 2d context');
 
         const rotRad = (rotation * Math.PI) / 180;
         const { width: bBoxWidth, height: bBoxHeight } = {
@@ -57,31 +57,51 @@ const ImageCropModal: React.FC<ImageCropModalProps> = ({ isOpen, image, onClose,
             height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height),
         };
 
-        canvas.width = bBoxWidth;
-        canvas.height = bBoxHeight;
+        tempCanvas.width = bBoxWidth;
+        tempCanvas.height = bBoxHeight;
 
-        ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
-        ctx.rotate(rotRad);
-        ctx.translate(-image.width / 2, -image.height / 2);
+        tempCtx.translate(bBoxWidth / 2, bBoxHeight / 2);
+        tempCtx.rotate(rotRad);
+        tempCtx.translate(-image.width / 2, -image.height / 2);
+        tempCtx.drawImage(image, 0, 0);
 
-        ctx.drawImage(image, 0, 0);
+        // 2. Calculate target dimensions with a maximum limit
+        const MAX_DIMENSION = 1024;
+        let targetWidth = pixelCrop.width;
+        let targetHeight = pixelCrop.height;
 
-        const data = ctx.getImageData(
+        if (targetWidth > MAX_DIMENSION || targetHeight > MAX_DIMENSION) {
+            const ratio = Math.min(MAX_DIMENSION / targetWidth, MAX_DIMENSION / targetHeight);
+            targetWidth = Math.round(targetWidth * ratio);
+            targetHeight = Math.round(targetHeight * ratio);
+        }
+
+        // 3. Create final canvas for the cropped and scaled image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) throw new Error('No 2d context');
+
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        // Draw the cropped area from tempCanvas to final canvas with scaling
+        ctx.drawImage(
+            tempCanvas,
             pixelCrop.x,
             pixelCrop.y,
             pixelCrop.width,
-            pixelCrop.height
+            pixelCrop.height,
+            0,
+            0,
+            targetWidth,
+            targetHeight
         );
-
-        canvas.width = pixelCrop.width;
-        canvas.height = pixelCrop.height;
-
-        ctx.putImageData(data, 0, 0);
 
         return new Promise((resolve) => {
             canvas.toBlob((file) => {
                 if (file) resolve(file);
-            }, 'image/jpeg');
+            }, 'image/jpeg', 0.85);
         });
     };
 

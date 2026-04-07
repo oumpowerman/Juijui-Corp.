@@ -444,6 +444,8 @@ export interface InternCandidate {
     faculty?: string;
     academicYear?: string;
     portfolioUrl: string;
+    resumeUrl?: string;
+    otherUrl?: string;
     avatarUrl: string;
     gender: Gender;
     position: string;

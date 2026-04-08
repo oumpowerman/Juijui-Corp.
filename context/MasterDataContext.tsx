@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -106,7 +106,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const isMutatingOptionsCache = useRef(false);
     const isMutatingInventoryCache = useRef(false);
 
-    const mapInventoryItem = (i: any) => ({
+    const mapInventoryItem = useCallback((i: any) => ({
         id: i.id,
         name: i.name,
         description: i.description, 
@@ -127,7 +127,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentHolderId: i.current_holder_id,
         groupLabel: i.group_label,
         createdAt: i.created_at ? new Date(i.created_at) : undefined
-    });
+    }), []);
 
     const fetchOptions = useCallback(async () => {
         try {
@@ -643,24 +643,31 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
     }, [fetchOptions, mapInventoryItem]);
 
+    const value = useMemo(() => ({
+        masterOptions: options,
+        annualHolidays,
+        calendarExceptions,
+        inventoryItems,
+        isLoading,
+        fetchMasterOptions: fetchOptions,
+        addMasterOption,
+        updateMasterOption,
+        deleteMasterOption,
+        addInventoryItem,
+        updateInventoryItem,
+        deleteInventoryItem,
+        batchUpdateInventoryItems,
+        updateInventoryStock,
+        seedDefaults
+    }), [
+        options, annualHolidays, calendarExceptions, inventoryItems, isLoading, 
+        fetchOptions, addMasterOption, updateMasterOption, deleteMasterOption,
+        addInventoryItem, updateInventoryItem, deleteInventoryItem, 
+        batchUpdateInventoryItems, updateInventoryStock, seedDefaults
+    ]);
+
     return (
-        <MasterDataContext.Provider value={{
-            masterOptions: options,
-            annualHolidays,
-            calendarExceptions,
-            inventoryItems,
-            isLoading,
-            fetchMasterOptions: fetchOptions,
-            addMasterOption,
-            updateMasterOption,
-            deleteMasterOption,
-            addInventoryItem,
-            updateInventoryItem,
-            deleteInventoryItem,
-            batchUpdateInventoryItems,
-            updateInventoryStock,
-            seedDefaults
-        }}>
+        <MasterDataContext.Provider value={value}>
             {children}
         </MasterDataContext.Provider>
     );

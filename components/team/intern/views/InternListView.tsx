@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, Edit2, MoreVertical, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
+import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, Edit2, MoreVertical, CheckCircle2, Clock, XCircle, User, FileText, Link } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format, differenceInDays } from 'date-fns';
 import { getDirectDriveUrl } from '../../../../lib/imageUtils';
@@ -124,6 +124,30 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
                                             title="ดู Portfolio"
                                         >
                                             <ExternalLink className="w-3.5 h-3.5" />
+                                        </a>
+                                    )}
+                                    {intern.resumeUrl && (
+                                        <a 
+                                            href={ensureExternalLink(intern.resumeUrl)} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 bg-white/80 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all shadow-sm border border-white"
+                                            title="ดู Resume"
+                                        >
+                                            <FileText className="w-3.5 h-3.5" />
+                                        </a>
+                                    )}
+                                    {intern.otherUrl && (
+                                        <a 
+                                            href={ensureExternalLink(intern.otherUrl)} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 bg-white/80 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all shadow-sm border border-white"
+                                            title="ดู Link เพิ่มเติม"
+                                        >
+                                            <Link className="w-3.5 h-3.5" />
                                         </a>
                                     )}
                                 </div>

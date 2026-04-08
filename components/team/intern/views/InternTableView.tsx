@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
+import { Mail, Phone, GraduationCap, Briefcase, Calendar, ExternalLink, Trash2, CheckCircle2, Clock, XCircle, User, FileText, Link } from 'lucide-react';
 import { InternCandidate, InternStatus } from '../../../../types';
 import { format, differenceInDays } from 'date-fns';
 import { getDirectDriveUrl } from '../../../../lib/imageUtils';
@@ -146,6 +146,30 @@ const InternTableView: React.FC<InternTableViewProps> = ({
                                                         title="ดู Portfolio"
                                                     >
                                                         <ExternalLink className="w-4 h-4" />
+                                                    </a>
+                                                )}
+                                                {intern.resumeUrl && (
+                                                    <a 
+                                                        href={ensureExternalLink(intern.resumeUrl)} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"
+                                                        title="ดู Resume"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                    </a>
+                                                )}
+                                                {intern.otherUrl && (
+                                                    <a 
+                                                        href={ensureExternalLink(intern.otherUrl)} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"
+                                                        title="ดู Link เพิ่มเติม"
+                                                    >
+                                                        <Link className="w-4 h-4" />
                                                     </a>
                                                 )}
                                                 <button 

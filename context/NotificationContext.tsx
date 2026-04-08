@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AppNotification, GameLog } from '../types';
 
@@ -259,17 +259,19 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
         }
     };
 
+    const value = useMemo(() => ({ 
+        notifications, 
+        gameLogs, 
+        leaveRequests,
+        deadlineRequests,
+        isLoading, 
+        markAsRead, 
+        dismissNotification,
+        refreshData: () => fetchAllData(true)
+    }), [notifications, gameLogs, leaveRequests, deadlineRequests, isLoading, markAsRead, dismissNotification, fetchAllData]);
+
     return (
-        <NotificationContext.Provider value={{ 
-            notifications, 
-            gameLogs, 
-            leaveRequests,
-            deadlineRequests,
-            isLoading, 
-            markAsRead, 
-            dismissNotification,
-            refreshData: () => fetchAllData(true)
-        }}>
+        <NotificationContext.Provider value={value}>
             {children}
         </NotificationContext.Provider>
     );

@@ -427,23 +427,29 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         };
     }, [fetchInitialData]);
 
+    const value = React.useMemo(() => ({
+        isReady,
+        currentUserProfile,
+        allUsers,
+        attendanceLogs,
+        leaveRequests,
+        fetchProfile,
+        updateProfile,
+        fetchTeamMembers,
+        approveMember,
+        removeMember,
+        toggleUserStatus,
+        updateMember,
+        adjustStatsLocally,
+        setAllUsers
+    }), [
+        isReady, currentUserProfile, allUsers, attendanceLogs, leaveRequests,
+        fetchProfile, updateProfile, fetchTeamMembers, approveMember,
+        removeMember, toggleUserStatus, updateMember, adjustStatsLocally
+    ]);
+
     return (
-        <UserSessionContext.Provider value={{
-            isReady,
-            currentUserProfile,
-            allUsers,
-            attendanceLogs,
-            leaveRequests,
-            fetchProfile,
-            updateProfile,
-            fetchTeamMembers,
-            approveMember,
-            removeMember,
-            toggleUserStatus,
-            updateMember,
-            adjustStatsLocally,
-            setAllUsers
-        }}>
+        <UserSessionContext.Provider value={value}>
             {children}
         </UserSessionContext.Provider>
     );

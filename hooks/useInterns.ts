@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { InternCandidate, InternStatus } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -24,10 +24,9 @@ export interface InternStats {
 }
 
 export const useInterns = (enabled: boolean = true) => {
-    const [interns, setInterns] = useState<InternCandidate[]>([]);
+    const [rawInterns, setRawInterns] = useState<InternCandidate[]>([]);
     const [loading, setLoading] = useState(enabled);
     const [hasMore, setHasMore] = useState(true);
-    const [page, setPage] = useState(0);
     const [filters, setFilters] = useState<InternFilterState>({
         searchQuery: '',
         statuses: [],
@@ -44,8 +43,6 @@ export const useInterns = (enabled: boolean = true) => {
     
     const { showToast } = useToast();
 
-    const PAGE_SIZE = 50;
-
     const mapDBToIntern = useCallback((data: any): InternCandidate => ({
         id: data.id,
         fullName: data.full_name,
@@ -56,6 +53,8 @@ export const useInterns = (enabled: boolean = true) => {
         faculty: data.faculty,
         academicYear: data.academic_year,
         portfolioUrl: data.portfolio_url,
+        resumeUrl: data.resume_url,
+        otherUrl: data.other_url,
         avatarUrl: data.avatar_url,
         gender: data.gender,
         position: data.position,
@@ -71,8 +70,59 @@ export const useInterns = (enabled: boolean = true) => {
         createdBy: data.created_by
     }), []);
 
-    const calculateStats = useCallback((data: InternCandidate[]) => {
-        const newStats = data.reduce((acc, curr) => {
+    // Local Processing: Filter and Sort
+    const interns = useMemo(() => {
+        let result = [...rawInterns];
+
+        // 1. Filter by Search Query
+        if (filters.searchQuery) {
+            const search = filters.searchQuery.toLowerCase();
+            result = result.filter(i => 
+                i.fullName?.toLowerCase().includes(search) ||
+                i.university?.toLowerCase().includes(search) ||
+                i.position?.toLowerCase().includes(search) ||
+                i.email?.toLowerCase().includes(search) ||
+                i.nickname?.toLowerCase().includes(search)
+            );
+        }
+
+        // 2. Filter by Status
+        if (filters.statuses.length > 0) {
+            result = result.filter(i => filters.statuses.includes(i.status));
+        }
+
+        // 3. Filter by Custom Date Range (if set manually)
+        if (filters.dateRange.start && filters.dateRange.end) {
+            const start = filters.dateRange.start.getTime();
+            const end = filters.dateRange.end.getTime();
+            
+            result = result.filter(i => {
+                if (filters.dateType === 'APPLICATION') {
+                    return i.applicationDate && i.applicationDate.getTime() >= start && i.applicationDate.getTime() <= end;
+                } else {
+                    // Internship overlap check
+                    return i.startDate.getTime() <= end && i.endDate.getTime() >= start;
+                }
+            });
+        }
+
+        // 4. Local Sort
+        result.sort((a, b) => {
+            if (filters.dateType === 'APPLICATION') {
+                const dateA = a.applicationDate?.getTime() || 0;
+                const dateB = b.applicationDate?.getTime() || 0;
+                return dateB - dateA; // Newest first
+            } else {
+                return a.startDate.getTime() - b.startDate.getTime(); // Earliest first
+            }
+        });
+
+        return result;
+    }, [rawInterns, filters]);
+
+    // Calculate stats from ALL raw data (or at least what's loaded)
+    useEffect(() => {
+        const newStats = rawInterns.reduce((acc, curr) => {
             if (curr.status === 'APPLIED') acc.applied++;
             if (curr.status === 'INTERVIEW_SCHEDULED') acc.interview++;
             if (curr.status === 'ACCEPTED') acc.accepted++;
@@ -81,105 +131,52 @@ export const useInterns = (enabled: boolean = true) => {
             return acc;
         }, { applied: 0, interview: 0, accepted: 0, rejected: 0, total: 0 });
         setStats(newStats);
-    }, []);
+    }, [rawInterns]);
 
-    const fetchInterns = useCallback(async (reset = false, currentFilters: InternFilterState) => {
-        if (!enabled) return; 
+    const fetchInterns = useCallback(async (isInitial = false) => {
+        if (!enabled) return;
         
         try {
             setLoading(true);
             
-            let currentPage = 0;
-            setPage(prev => {
-                currentPage = reset ? 0 : prev;
-                return currentPage;
-            });
+            let query = supabase.from('intern_candidates').select('*');
 
-            const from = currentPage * PAGE_SIZE;
-            const to = from + PAGE_SIZE - 1;
-
-            let query = supabase
-                .from('intern_candidates')
-                .select('*', { count: 'exact' });
-
-            // Apply Filters
-            if (currentFilters.searchQuery) {
-                query = query.or(`full_name.ilike.%${currentFilters.searchQuery}%,university.ilike.%${currentFilters.searchQuery}%,position.ilike.%${currentFilters.searchQuery}%,email.ilike.%${currentFilters.searchQuery}%`);
-            }
-
-            if (currentFilters.statuses.length > 0) {
-                query = query.in('status', currentFilters.statuses);
-            }
-
-            if (currentFilters.dateRange.start && currentFilters.dateRange.end) {
-                const start = currentFilters.dateRange.start.toISOString();
-                const end = currentFilters.dateRange.end.toISOString();
-
-                if (currentFilters.dateType === 'APPLICATION') {
-                    query = query.gte('application_date', start).lte('application_date', end);
-                } else {
-                    query = query.or(`and(start_date.lte.${end},end_date.gte.${start})`);
-                }
-            }
-
-            // Sorting
-            if (currentFilters.dateType === 'APPLICATION') {
-                query = query.order('application_date', { ascending: false });
+            // Hybrid Logic: If initial, fetch -2 months to +1 month
+            if (isInitial) {
+                const now = new Date();
+                const start = subMonths(startOfMonth(now), 2).toISOString();
+                const end = addMonths(endOfMonth(now), 1).toISOString();
+                
+                // Fetch both application and internship dates in this range to be safe
+                query = query.or(`application_date.gte.${start},and(start_date.lte.${end},end_date.gte.${start})`);
             } else {
-                query = query.order('start_date', { ascending: true });
+                // Load More: Fetch older data using the earliest application date as a cursor
+                // This is more reliable than fixed time windows
+                const earliestApp = rawInterns.reduce((min, i) => 
+                    i.applicationDate && i.applicationDate < min ? i.applicationDate : min, 
+                    new Date()
+                );
+                
+                query = query.lt('application_date', earliestApp.toISOString())
+                             .order('application_date', { ascending: false })
+                             .limit(50);
             }
 
-            const { data, error, count } = await query.range(from, to);
+            const { data, error } = await query;
 
             if (error) throw error;
             if (data) {
                 const mapped = data.map(mapDBToIntern);
-                if (reset) {
-                    setInterns(mapped);
-                    setPage(1);
-                    // If it's a reset, we should also fetch ALL data for stats if needed, 
-                    // but for now let's calculate from what we have or do a separate count query
-                    // Actually, stats should probably be global for the filter, not just the page.
-                    
-                    // Fetch global stats for this filter
-                    let statsQuery = supabase
-                        .from('intern_candidates')
-                        .select('status', { count: 'exact' });
-                    
-                    if (currentFilters.searchQuery) {
-                        statsQuery = statsQuery.or(`full_name.ilike.%${currentFilters.searchQuery}%,university.ilike.%${currentFilters.searchQuery}%,position.ilike.%${currentFilters.searchQuery}%,email.ilike.%${currentFilters.searchQuery}%`);
-                    }
-                    if (currentFilters.dateRange.start && currentFilters.dateRange.end) {
-                        const start = currentFilters.dateRange.start.toISOString();
-                        const end = currentFilters.dateRange.end.toISOString();
-                        if (currentFilters.dateType === 'APPLICATION') {
-                            statsQuery = statsQuery.gte('application_date', start).lte('application_date', end);
-                        } else {
-                            statsQuery = statsQuery.or(`and(start_date.lte.${end},end_date.gte.${start})`);
-                        }
-                    }
-
-                    const { data: statsData } = await statsQuery;
-                    if (statsData) {
-                        const s = statsData.reduce((acc: any, curr: any) => {
-                            if (curr.status === 'APPLIED') acc.applied++;
-                            if (curr.status === 'INTERVIEW_SCHEDULED') acc.interview++;
-                            if (curr.status === 'ACCEPTED') acc.accepted++;
-                            if (curr.status === 'REJECTED') acc.rejected++;
-                            acc.total++;
-                            return acc;
-                        }, { applied: 0, interview: 0, accepted: 0, rejected: 0, total: 0 });
-                        setStats(s);
-                    }
-
-                } else {
-                    setInterns(prev => [...prev, ...mapped]);
-                    setPage(prev => prev + 1);
-                }
+                setRawInterns(prev => {
+                    // Deduplicate by ID
+                    const existingIds = new Set(prev.map(i => i.id));
+                    const newItems = mapped.filter(i => !existingIds.has(i.id));
+                    return [...prev, ...newItems];
+                });
                 
-                if (count !== null) {
-                    setHasMore((from + mapped.length) < count);
-                }
+                // If we got data, there might be more. If we got 0, we reached the end.
+                // In a more advanced version, we could do a count query for items < earliestApp
+                setHasMore(data.length > 0);
             }
         } catch (err: any) {
             console.error('Error fetching interns:', err);
@@ -187,75 +184,30 @@ export const useInterns = (enabled: boolean = true) => {
         } finally {
             setLoading(false);
         }
-    }, [mapDBToIntern, showToast, enabled]);
+    }, [mapDBToIntern, showToast, enabled, rawInterns]);
 
+    // Initial Load
     useEffect(() => {
-        if (enabled) {
-            fetchInterns(true, filters);
+        if (enabled && rawInterns.length === 0) {
+            fetchInterns(true);
         }
-    }, [enabled, filters, fetchInterns]);
+    }, [enabled, fetchInterns, rawInterns.length]);
 
+    // Real-time Sync
     useEffect(() => {
         if (!enabled) return;
 
-        const channel = supabase.channel('intern-candidates-changes')
+        const channel = supabase.channel('intern-candidates-hybrid')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'intern_candidates' }, (payload) => {
-                const checkFilters = (item: any) => {
-                    // Simple check if item matches current filters
-                    if (filters.statuses.length > 0 && !filters.statuses.includes(item.status)) return false;
-                    if (filters.searchQuery) {
-                        const search = filters.searchQuery.toLowerCase();
-                        const matches = item.full_name?.toLowerCase().includes(search) || 
-                                      item.university?.toLowerCase().includes(search) ||
-                                      item.position?.toLowerCase().includes(search);
-                        if (!matches) return false;
-                    }
-                    // Date range check could be added here too
-                    return true;
-                };
-
                 if (payload.eventType === 'INSERT') {
                     const newIntern = mapDBToIntern(payload.new);
-                    if (checkFilters(payload.new)) {
-                        setInterns(prev => [newIntern, ...prev]);
-                    }
-                    // Always update stats if it matches filters (even if not in current page)
-                    if (checkFilters(payload.new)) {
-                        setStats(prev => {
-                            const ns = { ...prev };
-                            if (newIntern.status === 'APPLIED') ns.applied++;
-                            if (newIntern.status === 'INTERVIEW_SCHEDULED') ns.interview++;
-                            if (newIntern.status === 'ACCEPTED') ns.accepted++;
-                            if (newIntern.status === 'REJECTED') ns.rejected++;
-                            ns.total++;
-                            return ns;
-                        });
-                    }
+                    setRawInterns(prev => [newIntern, ...prev]);
                     showToast(`มีผู้สมัครฝึกงานใหม่: ${newIntern.fullName}`, 'info');
                 } else if (payload.eventType === 'UPDATE') {
                     const updatedIntern = mapDBToIntern(payload.new);
-                    const oldIntern = mapDBToIntern(payload.old); // payload.old might only have ID
-                    
-                    setInterns(prev => {
-                        const exists = prev.find(i => i.id === updatedIntern.id);
-                        if (exists) {
-                            if (checkFilters(payload.new)) {
-                                return prev.map(i => i.id === updatedIntern.id ? updatedIntern : i);
-                            } else {
-                                return prev.filter(i => i.id !== updatedIntern.id);
-                            }
-                        } else if (checkFilters(payload.new)) {
-                            return [updatedIntern, ...prev];
-                        }
-                        return prev;
-                    });
-                    
-                    // Refresh stats on update to be safe
-                    fetchInterns(true, filters);
-
+                    setRawInterns(prev => prev.map(i => i.id === updatedIntern.id ? updatedIntern : i));
                 } else if (payload.eventType === 'DELETE') {
-                    setInterns(prev => prev.filter(i => i.id !== payload.old.id));
-                    fetchInterns(true, filters);
+                    setRawInterns(prev => prev.filter(i => i.id !== payload.old.id));
                 }
             })
             .subscribe();
@@ -263,7 +215,7 @@ export const useInterns = (enabled: boolean = true) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [enabled, mapDBToIntern, showToast, filters, fetchInterns]);
+    }, [enabled, mapDBToIntern, showToast]);
 
     const addIntern = async (intern: Partial<InternCandidate>) => {
         try {
@@ -279,6 +231,8 @@ export const useInterns = (enabled: boolean = true) => {
                 faculty: intern.faculty,
                 academic_year: intern.academicYear,
                 portfolio_url: intern.portfolioUrl,
+                resume_url: intern.resumeUrl,
+                other_url: intern.otherUrl,
                 avatar_url: intern.avatarUrl,
                 gender: intern.gender,
                 position: intern.position,
@@ -286,7 +240,7 @@ export const useInterns = (enabled: boolean = true) => {
                 start_date: intern.startDate?.toISOString(),
                 end_date: intern.endDate?.toISOString(),
                 duration_days: intern.durationDays,
-                application_date: intern.applicationDate?.toISOString(),
+                application_date: intern.applicationDate?.toISOString() || new Date().toISOString(),
                 status: intern.status || 'APPLIED',
                 interview_date: intern.interviewDate?.toISOString() || null,
                 notes: intern.notes,
@@ -313,6 +267,8 @@ export const useInterns = (enabled: boolean = true) => {
             if (updates.faculty !== undefined) payload.faculty = updates.faculty;
             if (updates.academicYear !== undefined) payload.academic_year = updates.academicYear;
             if (updates.portfolioUrl !== undefined) payload.portfolio_url = updates.portfolioUrl;
+            if (updates.resumeUrl !== undefined) payload.resume_url = updates.resumeUrl;
+            if (updates.otherUrl !== undefined) payload.other_url = updates.otherUrl;
             if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
             if (updates.gender !== undefined) payload.gender = updates.gender;
             if (updates.position !== undefined) payload.position = updates.position;
@@ -345,10 +301,13 @@ export const useInterns = (enabled: boolean = true) => {
         }
     };
 
-    const fetchMore = useCallback(() => fetchInterns(false, filters), [fetchInterns, filters]);
-    const refresh = useCallback(() => fetchInterns(true, filters), [fetchInterns, filters]);
+    const fetchMore = useCallback(() => fetchInterns(false), [fetchInterns]);
+    const refresh = useCallback(() => {
+        setRawInterns([]); // Clear and re-fetch initial range
+        fetchInterns(true);
+    }, [fetchInterns]);
 
-    return {
+    return useMemo(() => ({
         interns,
         loading,
         hasMore,
@@ -360,5 +319,8 @@ export const useInterns = (enabled: boolean = true) => {
         deleteIntern,
         fetchMore,
         refresh
-    };
+    }), [
+        interns, loading, hasMore, stats, filters,
+        addIntern, updateIntern, deleteIntern, fetchMore, refresh
+    ]);
 };

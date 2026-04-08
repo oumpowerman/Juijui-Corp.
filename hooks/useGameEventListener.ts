@@ -145,7 +145,7 @@ export const useGameEventListener = (currentUser: User | null, onEvent?: () => v
         }
     };
 
-    const sessionStartRef = useRef<string>(new Date().toISOString());
+    const sessionStartRef = useRef<string>(new Date(Date.now() - 60000).toISOString()); // Allow logs from 1 minute before session start
     const isFirstLoadRef = useRef(true);
 
     // Listen to gameLogs from NotificationContext

@@ -55,7 +55,10 @@ export const useTaskJudge = (
                 ) continue;
                 
                 // 2. เช็คว่า "วันนี้" โดนหักคะแนนไปหรือยัง? (Idempotency Check)
-                const penaltyKey = `LATE:${task.id}:${currentUser.id}:${todayStr}`;
+                // Shorten key to avoid potential DB column length limits
+                const shortTaskId = task.id.substring(0, 8);
+                const shortUserId = currentUser.id.substring(0, 8);
+                const penaltyKey = `LATE:${shortTaskId}:${shortUserId}:${todayStr}`;
                 const alreadyPenalized = hasPenaltyInLogs('TASK_LATE', penaltyKey);
                 
                 if (alreadyPenalized) continue;

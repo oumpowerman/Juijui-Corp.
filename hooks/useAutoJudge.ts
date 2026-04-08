@@ -72,6 +72,13 @@ export const useAutoJudge = (currentUser: User | null) => {
     const checkAndPunish = useCallback(async () => {
         if (!currentUser || isLoading) return;
         
+        // 💀 DEATH PROTECTION: If user is already dead, stop judging to prevent death loop
+        // They need to be revived first.
+        if (currentUser.hp <= 0) {
+            console.log(`[AutoJudge] Skipping checks for ${currentUser.name} because they are currently dead.`);
+            return;
+        }
+        
         try {
             const today = new Date();
             const todayStr = format(today, 'yyyy-MM-dd');

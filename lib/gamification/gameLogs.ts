@@ -15,12 +15,11 @@ export const logGameAction = async (
 ) => {
     try {
         // 1. 📝 Log: บันทึกประวัติการทำรายการ (สำคัญมาก! ตัวนี้จะไปกระตุ้น Toast ให้เด้ง)
-        // เราบันทึก `result.message` ลงใน description เลย เพื่อให้ Listener อ่านไปแสดงผลได้ทันที
         const description = context.reason 
             ? `${result.message} [${context.reason}]` 
             : result.message;
 
-        await supabase.from('game_logs').insert({
+        const { error: logError } = await supabase.from('game_logs').insert({
             user_id: userId,
             action_type: action,
             xp_change: result.xp,
@@ -30,7 +29,27 @@ export const logGameAction = async (
             related_id: context.id || null
         });
 
-        // 2. 🎉 Explicit Level Up Event: ถ้าเลเวลอัป ให้สร้าง Log แยกอีกบรรทัดเพื่อความอลังการ
+        if (logError) {
+            console.error("❌ Failed to insert game log:", logError);
+        }
+
+        // 2. 🔔 Notification: บันทึกลงตาราง notifications เพื่อให้ขึ้นที่กระดิ่ง
+        // เราจะบันทึกเฉพาะรายการที่เป็นโทษ (Penalty) หรือรางวัลใหญ่ (Level Up/Reward)
+        const isPenalty = result.hp < 0 || (result.coins < 0 && action !== 'SHOP_PURCHASE');
+        const isSignificantReward = result.isLevelUp || result.xp > 100 || action === 'KPI_REWARD';
+
+        if (isPenalty || isSignificantReward) {
+            await supabase.from('notifications').insert({
+                user_id: userId,
+                type: isPenalty ? 'GAME_PENALTY' : 'GAME_REWARD',
+                title: isPenalty ? '📉 มีการปรับลดสถานะ' : '🎁 ได้รับรางวัล!',
+                message: description,
+                is_read: false,
+                link_path: 'DASHBOARD'
+            });
+        }
+
+        // 3. 🎉 Explicit Level Up Event: ถ้าเลเวลอัป ให้สร้าง Log แยกอีกบรรทัดเพื่อความอลังการ
         if (result.isLevelUp) {
             await supabase.from('game_logs').insert({
                 user_id: userId,

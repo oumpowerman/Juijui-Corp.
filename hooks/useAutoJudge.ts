@@ -11,6 +11,7 @@ import { useAttendanceJudge } from './useAttendanceJudge';
 import { useDutyJudge } from './useDutyJudge';
 import { useTaskJudge } from './useTaskJudge';
 import { isUserOnLeave, isHolidayOrException } from '../utils/judgeUtils';
+import { toValidUuid } from '../utils/gamificationUtils';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
 
@@ -54,11 +55,12 @@ export const useAutoJudge = (currentUser: User | null) => {
     // Helper to check if a penalty already exists in memory
     const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (isLoading) return true; // Assume exists while loading to be safe
+        const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
             const matchType = log.action_type === actionType;
             // If relatedId is provided, it must match exactly.
             // This is our de-facto idempotency key.
-            const matchId = !relatedId || log.related_id === relatedId;
+            const matchId = !targetId || log.related_id === targetId;
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
             return matchType && matchId && matchDesc;
         });

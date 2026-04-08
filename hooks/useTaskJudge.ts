@@ -4,6 +4,8 @@ import { User, AnnualHoliday } from '../types';
 import { isTaskCompleted } from '../constants';
 import { isUserOnLeave, isHolidayOrException } from '../utils/judgeUtils';
 
+import { toValidUuid } from '../utils/gamificationUtils';
+
 export const useTaskJudge = (
     currentUser: User | null,
     isProcessingRef: React.MutableRefObject<Set<string>>,
@@ -15,9 +17,10 @@ export const useTaskJudge = (
     // Helper to check if a penalty already exists in memory
     const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (isLoading) return true; // Assume exists while loading to be safe
+        const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
             const matchType = log.action_type === actionType;
-            const matchId = !relatedId || log.related_id === relatedId;
+            const matchId = !targetId || log.related_id === targetId;
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
             return matchType && matchId && matchDesc;
         });

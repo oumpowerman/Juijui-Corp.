@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { format, subDays } from 'date-fns';
 import { User, AnnualHoliday, AttendanceLog, LeaveRequest } from '../types';
 import { isWorkingDay, isUserOnLeave } from '../utils/judgeUtils';
+import { toValidUuid } from '../utils/gamificationUtils';
 
 export const useAttendanceJudge = (
     currentUser: User | null,
@@ -15,9 +16,10 @@ export const useAttendanceJudge = (
     // Helper to check if a penalty already exists in memory
     const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (isLoading) return true; // Assume exists while loading to be safe
+        const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
             const matchType = log.action_type === actionType;
-            const matchId = !relatedId || log.related_id === relatedId;
+            const matchId = !targetId || log.related_id === targetId;
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
             return matchType && matchId && matchDesc;
         });

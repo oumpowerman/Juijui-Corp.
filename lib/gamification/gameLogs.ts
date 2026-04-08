@@ -6,6 +6,12 @@ import { evaluateAction } from '../gameLogic';
  * 📜 useGameLogs (The Historian)
  * หน้าที่: จัดการเรื่องประวัติการทำรายการ (History)
  */
+import { toValidUuid } from '../../utils/gamificationUtils';
+
+/**
+ * 📜 useGameLogs (The Historian)
+ * หน้าที่: จัดการเรื่องประวัติการทำรายการ (History)
+ */
 export const logGameAction = async (
     userId: string,
     action: GameActionType,
@@ -26,7 +32,7 @@ export const logGameAction = async (
             hp_change: result.hp,
             jp_change: result.coins + bonusCoins,
             description: description,
-            related_id: context.id || null
+            related_id: toValidUuid(context.id || null)
         });
 
         if (logError) {

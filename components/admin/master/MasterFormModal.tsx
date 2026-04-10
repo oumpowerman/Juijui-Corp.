@@ -160,6 +160,21 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                             autoFocus 
                                         />
                                     </div>
+
+                                    {formData.parentKey && (
+                                        <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                                                    <Tag className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Parent Category</p>
+                                                    <p className="text-xs font-bold text-indigo-700">{formData.parentKey}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full uppercase">Sub-item</span>
+                                        </div>
+                                    )}
                                     
                                     <div className="space-y-2">
                                         <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">

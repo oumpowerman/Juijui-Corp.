@@ -61,14 +61,19 @@ export const useAttendanceJudge = (
                         const lockKey = `PENDING-LEAVE-${checkDateStr}`;
                         if (!isProcessingRef.current.has(lockKey)) {
                             isProcessingRef.current.add(lockKey);
-                            await supabase.from('notifications').insert({
-                                user_id: currentUser.id,
-                                type: 'INFO',
-                                title: '⏳ รอดำเนินการ: ใบลาค้างตรวจสอบ',
-                                message: `วันที่ ${checkDateStr} ระบบตรวจพบว่าคุณขาดงาน แต่มีการส่งใบลาค้างไว้ ระบบจะระงับการหักคะแนนชั่วคราว เนื่องจากคุณมีใบลาที่รอการอนุมัติ หากใบลาถูกปฏิเสธ ระบบจะดำเนินการหักคะแนนตามปกติ`,
-                                is_read: false,
-                                link_path: 'LEAVE'
-                            });
+                            try {
+                                await supabase.from('notifications').insert({
+                                    user_id: currentUser.id,
+                                    type: 'INFO',
+                                    title: '⏳ รอดำเนินการ: ใบลาค้างตรวจสอบ',
+                                    message: `วันที่ ${checkDateStr} ระบบตรวจพบว่าคุณขาดงาน แต่มีการส่งใบลาค้างไว้ ระบบจะระงับการหักคะแนนชั่วคราว เนื่องจากคุณมีใบลาที่รอการอนุมัติ หากใบลาถูกปฏิเสธ ระบบจะดำเนินการหักคะแนนตามปกติ`,
+                                    is_read: false,
+                                    link_path: 'LEAVE'
+                                });
+                            } catch (err) {
+                                console.error("[AttendanceJudge] Failed to insert pending leave notification:", err);
+                                isProcessingRef.current.delete(lockKey);
+                            }
                         }
                     }
                 }
@@ -102,26 +107,31 @@ export const useAttendanceJudge = (
 
                      isProcessingRef.current.add(absentLockKey);
 
-                     // Insert Absent Log and get the ID
-                     const { data: newLog, error: insertError } = await supabase.from('attendance_logs').insert({
-                         user_id: currentUser.id,
-                         date: checkDateStr,
-                         status: 'ABSENT',
-                         work_type: 'OFFICE',
-                         note: '[SYSTEM] Auto-marked as Absent by Judge (Lookback Catch-up)'
-                     }).select('id').single();
-                     
-                     if (!insertError && newLog) {
-                         // หักคะแนนขาดงาน
-                         await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
+                     try {
+                         // Insert Absent Log and get the ID
+                         const { data: newLog, error: insertError } = await supabase.from('attendance_logs').insert({
+                             user_id: currentUser.id,
                              date: checkDateStr,
-                             id: `ABSENT:${checkDateStr}`, // Use as idempotency key
-                             reason: `ABSENT_DATE:${checkDateStr}` 
-                         });
+                             status: 'ABSENT',
+                             work_type: 'OFFICE',
+                             note: '[SYSTEM] Auto-marked as Absent by Judge (Lookback Catch-up)'
+                         }).select('id').single();
                          
-                         console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
-                     } else {
-                         console.error("[AutoJudge] Failed to insert absent log:", insertError);
+                         if (!insertError && newLog) {
+                             // หักคะแนนขาดงาน
+                             await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
+                                 date: checkDateStr,
+                                 id: `ABSENT:${checkDateStr}`, // Use as idempotency key
+                                 reason: `ABSENT_DATE:${checkDateStr}` 
+                             });
+                             
+                             console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
+                         } else {
+                             console.error("[AutoJudge] Failed to insert absent log:", insertError);
+                         }
+                     } catch (err) {
+                         console.error("[AutoJudge] Error in absent processing:", err);
+                         isProcessingRef.current.delete(absentLockKey);
                      }
                      
                      // Note: We don't delete from isProcessingRef here to prevent re-processing in the same session
@@ -144,22 +154,25 @@ export const useAttendanceJudge = (
                 if (isProcessingRef.current.has(`cleanup-${req.id}`)) continue;
                 isProcessingRef.current.add(`cleanup-${req.id}`);
 
-                await supabase.from('leave_requests').update({
-                    status: 'REJECTED',
-                    rejection_reason: 'ระบบยกเลิกอัตโนมัติ (เกินกำหนดเวลาตรวจสอบ 7 วัน)'
-                }).eq('id', req.id);
+                try {
+                    await supabase.from('leave_requests').update({
+                        status: 'REJECTED',
+                        rejection_reason: 'ระบบยกเลิกอัตโนมัติ (เกินกำหนดเวลาตรวจสอบ 7 วัน)'
+                    }).eq('id', req.id);
 
-                await supabase.from('notifications').insert({
-                    user_id: req.userId,
-                    type: 'INFO',
-                    title: '❌ คำขอถูกยกเลิกอัตโนมัติ',
-                    message: `รายการ: ${req.type}\nเหตุผล: เกินกำหนดเวลาตรวจสอบ 7 วัน`,
-                    is_read: false,
-                    link_path: 'ATTENDANCE'
-                });
+                    await supabase.from('notifications').insert({
+                        user_id: req.userId,
+                        type: 'INFO',
+                        title: '❌ คำขอถูกยกเลิกอัตโนมัติ',
+                        message: `รายการ: ${req.type}\nเหตุผล: เกินกำหนดเวลาตรวจสอบ 7 วัน`,
+                        is_read: false,
+                        link_path: 'ATTENDANCE'
+                    });
 
-                console.log(`[AutoJudge] Auto-rejected old request ${req.id}`);
-                isProcessingRef.current.delete(`cleanup-${req.id}`);
+                    console.log(`[AutoJudge] Auto-rejected old request ${req.id}`);
+                } finally {
+                    isProcessingRef.current.delete(`cleanup-${req.id}`);
+                }
             }
         }
 
@@ -206,36 +219,41 @@ export const useAttendanceJudge = (
                 if (!alreadyNotified) {
                     isProcessingRef.current.add(lockKey);
 
-                    // FETCH FRESH NOTE TO PREVENT OVERWRITE
-                    const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
-                    const currentNote = freshLog?.note || log.note || '';
+                    try {
+                        // FETCH FRESH NOTE TO PREVENT OVERWRITE
+                        const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
+                        const currentNote = freshLog?.note || log.note || '';
 
-                    // Update status to ACTION_REQUIRED
-                    await supabase.from('attendance_logs').update({
-                        status: 'ACTION_REQUIRED',
-                        note: `${currentNote} [SYSTEM] Penalized for forgotten checkout`.trim()
-                    }).eq('id', log.id);
-                    
-                    // Penalty: Deduct HP
-                    await processAction(currentUser.id, 'ATTENDANCE_FORGOT_CHECKOUT', {
-                        date: log.date,
-                        id: `FORGOT_OUT:${log.date}`, // Use as idempotency key
-                        reason: `FORGOT_OUT_DATE:${log.date}` 
-                    });
+                        // Update status to ACTION_REQUIRED
+                        await supabase.from('attendance_logs').update({
+                            status: 'ACTION_REQUIRED',
+                            note: `${currentNote} [SYSTEM] Penalized for forgotten checkout`.trim()
+                        }).eq('id', log.id);
+                        
+                        // Penalty: Deduct HP
+                        await processAction(currentUser.id, 'ATTENDANCE_FORGOT_CHECKOUT', {
+                            date: log.date,
+                            id: `FORGOT_OUT:${log.date}`, // Use as idempotency key
+                            reason: `FORGOT_OUT_DATE:${log.date}` 
+                        });
 
-                    const forgotCheckoutPenalty = config?.ATTENDANCE_RULES?.FORGOT_CHECKOUT?.hp ?? -10;
+                        const forgotCheckoutPenalty = config?.ATTENDANCE_RULES?.FORGOT_CHECKOUT?.hp ?? -10;
 
-                    await supabase.from('notifications').insert({
-                        user_id: currentUser.id,
-                        type: 'SYSTEM_LOCK_PENALTY',
-                        title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
-                        message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
-                        is_read: false,
-                        link_path: 'ATTENDANCE',
-                        metadata: { hp: forgotCheckoutPenalty, logId: log.id }
-                    });
+                        await supabase.from('notifications').insert({
+                            user_id: currentUser.id,
+                            type: 'SYSTEM_LOCK_PENALTY',
+                            title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
+                            message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
+                            is_read: false,
+                            link_path: 'ATTENDANCE',
+                            metadata: { hp: forgotCheckoutPenalty, logId: log.id }
+                        });
 
-                    console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);
+                        console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);
+                    } catch (err) {
+                        console.error("[AutoJudge] Error in forgot checkout processing:", err);
+                        isProcessingRef.current.delete(lockKey);
+                    }
                     // We don't delete from isProcessingRef to keep it locked in this session
                 }
             }

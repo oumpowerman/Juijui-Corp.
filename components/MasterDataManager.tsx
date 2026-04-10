@@ -21,6 +21,7 @@ import GameConfigTuner from './admin/game-tuner'; // Updated Import (Modular)
 import CalendarExceptionManager from './admin/CalendarExceptionManager'; 
 import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
 import TribunalSettingsView from './admin/master/views/TribunalSettingsView';
+import WikiCategoryMasterView from './admin/master/views/WikiCategoryMasterView';
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -171,6 +172,16 @@ const MasterDataManager: React.FC = () => {
                             />
                         ) : activeTab === 'TRIBUNAL_SETTINGS' ? (
                             <TribunalSettingsView />
+                        ) : activeTab === 'WIKI_CATEGORY' ? (
+                            <WikiCategoryMasterView 
+                                masterOptions={masterOptions}
+                                onEdit={handleEdit}
+                                onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
+                                onDelete={deleteMasterOption}
+                                setSelectedParentId={setSelectedParentId}
+                                selectedParentId={selectedParentId}
+                                setIsEditing={setIsEditing}
+                            />
                         ) : activeTab === 'GREETINGS' ? (
                             <div className="animate-in slide-in-from-bottom-2 space-y-6">
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">

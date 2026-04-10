@@ -147,9 +147,9 @@ const LabBlock: React.FC<LabBlockProps> = React.memo(({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden border-t border-white/5 bg-black/40 rounded-b-2xl"
+                        className="border-t border-white/5 bg-black/40 rounded-b-2xl"
                     >
-                        <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin">
                             {/* Toolbar Header */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1 p-1 bg-white/5 rounded-lg">
@@ -179,23 +179,22 @@ const LabBlock: React.FC<LabBlockProps> = React.memo(({
                                         value={item.content}
                                         onChange={e => onUpdateContent(e.target.value)}
                                         placeholder={item.type === 'BRIDGE' ? 'พิมพ์ข้อความเชื่อมต่อที่นี่...' : 'เนื้อหาสคริปต์...'}
-                                        className="w-full h-64 bg-[#0A0A0A] border border-white/10 rounded-xl p-4 text-xs font-mono text-indigo-300 outline-none focus:border-indigo-500/50 transition-all resize-none scrollbar-thin"
+                                        className="w-full h-64 bg-[#0A0A0A] border border-white/10 rounded-xl p-4 text-xs font-mono text-indigo-300 outline-none focus:border-indigo-500/50 transition-all resize-none scrollbar-thin overflow-y-auto"
                                     />
                                     <div className="absolute top-3 right-3 opacity-0 group-hover/code:opacity-100 transition-opacity pointer-events-none">
                                         <span className="text-[8px] font-black text-white/20 uppercase tracking-widest bg-white/5 px-2 py-1 rounded">HTML Mode</span>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="w-full bg-white rounded-2xl overflow-hidden border border-white/10 shadow-2xl flex flex-col max-h-[500px]">
-                                    <div className="flex-1 overflow-y-auto scrollbar-thin">
-                                        <RichTextEditor 
-                                            content={item.content}
-                                            onChange={onUpdateContent}
-                                            placeholder={item.type === 'BRIDGE' ? 'พิมพ์ข้อความเชื่อมต่อที่นี่...' : 'เริ่มเขียนเนื้อหาที่นี่...'}
-                                            minHeight="150px"
-                                            className="prose-sm font-kanit"
-                                        />
-                                    </div>
+                                <div className="w-full bg-[#050505] rounded-2xl border border-white/10 shadow-2xl flex flex-col">
+                                    <RichTextEditor 
+                                        content={item.content}
+                                        onChange={onUpdateContent}
+                                        placeholder={item.type === 'BRIDGE' ? 'พิมพ์ข้อความเชื่อมต่อที่นี่...' : 'เริ่มเขียนเนื้อหาที่นี่...'}
+                                        minHeight="150px"
+                                        variant="dark"
+                                        className="prose-sm font-kanit"
+                                    />
                                 </div>
                             )}
 

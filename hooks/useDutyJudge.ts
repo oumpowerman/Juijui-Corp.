@@ -91,28 +91,32 @@ export const useDutyJudge = (
                              isProcessingRef.current.add(lockKey);
                              console.log(`[AutoJudge] Negligence Protocol triggered for duty ${duty.id}`);
                              
-                             // 1. Penalize (Heavy) - Use Config Value
-                             await processAction(currentUser.id, 'DUTY_MISSED', { 
-                                 ...duty, 
-                                 id: `NEGLIGENCE:${duty.id}`, // Use as idempotency key
-                                 reason: 'NEGLIGENCE_PROTOCOL', 
-                                 customPenalty: negligencePenalty,
-                                 description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
-                             });
+                             try {
+                                 // 1. Penalize (Heavy) - Use Config Value
+                                 await processAction(currentUser.id, 'DUTY_MISSED', { 
+                                     ...duty, 
+                                     id: `NEGLIGENCE:${duty.id}`, // Use as idempotency key
+                                     reason: 'NEGLIGENCE_PROTOCOL', 
+                                     customPenalty: negligencePenalty,
+                                     description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
+                                 });
 
-                             // 2. Clear Duty
-                             await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+                                 // 2. Clear Duty
+                                 await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
 
-                             // 3. Trigger Lock Screen (via Notification)
-                             await supabase.from('notifications').insert({
-                                 user_id: currentUser.id,
-                                 type: 'SYSTEM_LOCK_PENALTY', // Special Type
-                                 title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
-                                 message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
-                                 is_read: false,
-                                 link_path: 'DUTY',
-                                 metadata: { hp: -negligencePenalty }
-                             });
+                                 // 3. Trigger Lock Screen (via Notification)
+                                 await supabase.from('notifications').insert({
+                                     user_id: currentUser.id,
+                                     type: 'SYSTEM_LOCK_PENALTY', // Special Type
+                                     title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
+                                     message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
+                                     is_read: false,
+                                     link_path: 'DUTY',
+                                     metadata: { hp: -negligencePenalty }
+                                 });
+                             } finally {
+                                 isProcessingRef.current.delete(lockKey);
+                             }
                          } else {
                              // ถ้ามี Log แล้วแต่ยังไม่ถูกเคลียร์ ให้เคลียร์ซ้ำเพื่อความชัวร์
                              await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
@@ -166,19 +170,22 @@ export const useDutyJudge = (
                          }
 
                          isProcessingRef.current.add(duty.id);
-                         await supabase.from('duties').update({ 
-                             is_penalized: true, 
-                             penalty_status: 'ABANDONED',
-                             abandoned_at: new Date().toISOString() // Mark time of abandonment
-                         }).eq('id', duty.id);
-                        
-                        // เรียก Action เพื่อหักคะแนน (Initial Abandon Penalty)
-                        await processAction(currentUser.id, 'DUTY_MISSED', { 
-                            ...duty, 
-                            id: `ABANDONED:${duty.id}`, // Use as idempotency key
-                            reason: 'ABANDONED_DUTY' 
-                        });
-                        isProcessingRef.current.delete(duty.id);
+                         try {
+                             await supabase.from('duties').update({ 
+                                 is_penalized: true, 
+                                 penalty_status: 'ABANDONED',
+                                 abandoned_at: new Date().toISOString() // Mark time of abandonment
+                             }).eq('id', duty.id);
+                            
+                            // เรียก Action เพื่อหักคะแนน (Initial Abandon Penalty)
+                            await processAction(currentUser.id, 'DUTY_MISSED', { 
+                                ...duty, 
+                                id: `ABANDONED:${duty.id}`, // Use as idempotency key
+                                reason: 'ABANDONED_DUTY' 
+                            });
+                         } finally {
+                             isProcessingRef.current.delete(duty.id);
+                         }
                     }
                 }
             }

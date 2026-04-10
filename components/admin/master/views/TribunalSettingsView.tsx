@@ -57,18 +57,23 @@ const TribunalSettingsView: React.FC = () => {
     };
 
     const handleAddCategory = () => {
-        const newCat = prompt('ชื่อหมวดหมู่ใหม่:');
-        if (newCat && !localConfig.categories.includes(newCat)) {
-            handleChange('categories', [...localConfig.categories, newCat]);
+        const newCatLabel = prompt('ชื่อหมวดหมู่ใหม่:');
+        if (newCatLabel) {
+            const id = newCatLabel.toLowerCase().replace(/\s+/g, '_');
+            if (!localConfig.categories.find((c: any) => (typeof c === 'string' ? c : c.label) === newCatLabel)) {
+                const newCatObj = { id, label: newCatLabel, severity: 'LOW' };
+                handleChange('categories', [...localConfig.categories, newCatObj]);
+            }
         }
     };
 
-    const handleRemoveCategory = (cat: string) => {
+    const handleRemoveCategory = (cat: any) => {
         if (localConfig.categories.length <= 1) {
             showToast('ต้องมีอย่างน้อย 1 หมวดหมู่', 'warning');
             return;
         }
-        handleChange('categories', localConfig.categories.filter((c: string) => c !== cat));
+        const catId = typeof cat === 'string' ? cat : cat.id;
+        handleChange('categories', localConfig.categories.filter((c: any) => (typeof c === 'string' ? c : c.id) !== catId));
     };
 
     if (isLoading || !localConfig) {
@@ -129,10 +134,10 @@ const TribunalSettingsView: React.FC = () => {
                             />
                             <ConfigSlider 
                                 label="รางวัลสำหรับผู้แจ้ง (Reward JP)" 
-                                value={localConfig.reward_jp} 
+                                value={localConfig.reward_points} 
                                 min={0} max={500} step={10} unit="JP"
                                 icon={Zap} color="indigo"
-                                onChange={(v: number) => handleChange('reward_jp', v)}
+                                onChange={(v: number) => handleChange('reward_points', v)}
                             />
                             <div className="h-px bg-gray-100 my-4"></div>
                             <ConfigSlider 
@@ -141,13 +146,6 @@ const TribunalSettingsView: React.FC = () => {
                                 min={0} max={100} step={5} unit="HP"
                                 icon={ShieldAlert} color="rose"
                                 onChange={(v: number) => handleChange('penalty_hp', v)}
-                            />
-                            <ConfigSlider 
-                                label="บทลงโทษผู้ถูกแจ้ง (Penalty JP)" 
-                                value={localConfig.penalty_jp} 
-                                min={0} max={1000} step={50} unit="JP"
-                                icon={ShieldAlert} color="red"
-                                onChange={(v: number) => handleChange('penalty_jp', v)}
                             />
                         </div>
                     </div>
@@ -184,17 +182,36 @@ const TribunalSettingsView: React.FC = () => {
                     </div>
 
                     <div className="flex-1 space-y-2">
-                        {localConfig.categories.map((cat: string) => (
-                            <div key={cat} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl group hover:bg-gray-100 transition-colors">
-                                <span className="font-bold text-gray-700">{cat}</span>
-                                <button 
-                                    onClick={() => handleRemoveCategory(cat)}
-                                    className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))}
+                        {localConfig.categories.map((cat: any, idx: number) => {
+                            const isObject = typeof cat === 'object' && cat !== null;
+                            const label = isObject ? cat.label : cat;
+                            const id = isObject ? cat.id : `cat_${idx}`;
+                            const severity = isObject ? cat.severity : 'LOW';
+
+                            return (
+                                <div key={id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl group hover:bg-gray-100 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold text-gray-700">{label}</span>
+                                        {isObject && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                                severity === 'CRITICAL' ? 'bg-red-100 text-red-600' :
+                                                severity === 'HIGH' ? 'bg-orange-100 text-orange-600' :
+                                                severity === 'MEDIUM' ? 'bg-blue-100 text-blue-600' :
+                                                'bg-gray-200 text-gray-600'
+                                            }`}>
+                                                {severity}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveCategory(cat)}
+                                        className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     <div className="mt-6 p-4 bg-blue-50 rounded-2xl border border-blue-100">

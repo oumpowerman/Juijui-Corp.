@@ -89,23 +89,25 @@ export const useTaskJudge = (
                 // Lock task
                 isProcessingRef.current.add(task.id);
 
-                const progressiveDamage = basePenalty + (daysLate * multiplier);
-                
-                // 5. ลงดาบ
-                await supabase.from('tasks').update({ 
-                    is_penalized: true,
-                    last_penalized_at: new Date().toISOString() 
-                }).eq('id', task.id);
+                try {
+                    const progressiveDamage = basePenalty + (daysLate * multiplier);
+                    
+                    // 5. ลงดาบ
+                    await supabase.from('tasks').update({ 
+                        is_penalized: true,
+                        last_penalized_at: new Date().toISOString() 
+                    }).eq('id', task.id);
 
-                await processAction(currentUser.id, 'TASK_LATE', { 
-                    ...task, 
-                    id: penaltyKey,
-                    customPenalty: progressiveDamage, 
-                    daysLate: daysLate
-                });
-
-                // Unlock
-                isProcessingRef.current.delete(task.id);
+                    await processAction(currentUser.id, 'TASK_LATE', { 
+                        ...task, 
+                        id: penaltyKey,
+                        customPenalty: progressiveDamage, 
+                        daysLate: daysLate
+                    });
+                } finally {
+                    // Unlock
+                    isProcessingRef.current.delete(task.id);
+                }
             }
         }
     };

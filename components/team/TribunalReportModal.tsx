@@ -221,23 +221,29 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
                                                 <FileText className="w-4 h-4 text-red-500" /> หมวดหมู่ปัญหา
                                             </label>
                                             <div className="grid grid-cols-2 gap-2">
-                                                {tribunalCfg?.categories?.map((cat: any) => (
-                                                    <motion.button
-                                                        key={cat.id}
-                                                        type="button"
-                                                        whileHover={{ scale: 1.03 }}
-                                                        whileTap={{ scale: 0.97 }}
-                                                        onClick={() => setCategory(cat.label)}
-                                                        className={`p-3 rounded-2xl text-xs font-black transition-all border-2 text-left flex items-center justify-between ${
-                                                            category === cat.label 
-                                                            ? 'border-red-500 bg-red-50 text-red-700 shadow-md shadow-red-100' 
-                                                            : 'border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200'
-                                                        }`}
-                                                    >
-                                                        {cat.label}
-                                                        {category === cat.label && <CheckCircle2 className="w-4 h-4" />}
-                                                    </motion.button>
-                                                ))}
+                                                {tribunalCfg?.categories?.map((cat: any, idx: number) => {
+                                                    const isObject = typeof cat === 'object' && cat !== null;
+                                                    const label = isObject ? cat.label : cat;
+                                                    const id = isObject ? cat.id : `cat_${idx}`;
+                                                    
+                                                    return (
+                                                        <motion.button
+                                                            key={id}
+                                                            type="button"
+                                                            whileHover={{ scale: 1.03 }}
+                                                            whileTap={{ scale: 0.97 }}
+                                                            onClick={() => setCategory(label)}
+                                                            className={`p-3 rounded-2xl text-xs font-black transition-all border-2 text-left flex items-center justify-between ${
+                                                                category === label 
+                                                                ? 'border-red-500 bg-red-50 text-red-700 shadow-md shadow-red-100' 
+                                                                : 'border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200'
+                                                            }`}
+                                                        >
+                                                            {label}
+                                                            {category === label && <CheckCircle2 className="w-4 h-4" />}
+                                                        </motion.button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
 

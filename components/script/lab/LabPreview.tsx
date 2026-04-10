@@ -74,7 +74,7 @@ const LabPreview: React.FC<LabPreviewProps> = ({ sequence, labTitle }) => {
                      <div className="max-w-none">
                         {sequence.length > 0 ? (
                             <div 
-                                className="font-medium text-[20px] leading-8 text-white/95 space-y-6"
+                                className="prose prose-invert max-w-none font-medium text-[20px] leading-8 text-white/95 space-y-6 [&_*]:text-inherit"
                                 dangerouslySetInnerHTML={{ __html: mergedContent }}
                             />
                         ) : (

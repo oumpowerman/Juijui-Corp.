@@ -18,9 +18,10 @@ interface RichTextToolbarProps {
     openLinkModal: () => void;
     isFormattingOpen: boolean;
     setIsFormattingOpen: (isOpen: boolean) => void;
+    variant?: 'light' | 'dark';
 }
 
-const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: any) => (
+const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled, variant }: any) => (
     <motion.button
         whileTap={!disabled ? { scale: 0.92 } : {}}
         onClick={onClick}
@@ -29,8 +30,8 @@ const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: a
             p-1.5 rounded-lg transition-all flex items-center justify-center relative
             ${disabled ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'}
             ${isActive 
-                ? 'bg-indigo-50 text-indigo-600 shadow-[inset_0_1px_3px_rgba(79,70,229,0.1)]' 
-                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}
+                ? (variant === 'dark' ? 'bg-indigo-500/20 text-indigo-400 shadow-[inset_0_1px_3px_rgba(79,70,229,0.2)]' : 'bg-indigo-50 text-indigo-600 shadow-[inset_0_1px_3px_rgba(79,70,229,0.1)]') 
+                : (variant === 'dark' ? 'text-white/40 hover:bg-white/5 hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900')}
         `}
         title={title}
         type="button"
@@ -46,13 +47,14 @@ const MenuButton = ({ onClick, isActive, icon: Icon, title, label, disabled }: a
     </motion.button>
 );
 
-const Divider = () => <div className="w-px h-4 bg-gray-200/60 mx-1 shrink-0" />;
+const Divider = ({ variant }: { variant?: string }) => <div className={`w-px h-4 ${variant === 'dark' ? 'bg-white/10' : 'bg-gray-200/60'} mx-1 shrink-0`} />;
 
 const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ 
     editor, 
     openLinkModal,
     isFormattingOpen,
-    setIsFormattingOpen
+    setIsFormattingOpen,
+    variant = 'light'
 }) => {
     const [isColorOpen, setIsColorOpen] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -126,7 +128,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
 
     return (
         <div className={`
-            flex items-center gap-1 p-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex-wrap rounded-t-[2rem] transition-shadow duration-300
+            flex items-center gap-1 p-2 border-b ${variant === 'dark' ? 'border-white/10 bg-[#1a1a1a]' : 'border-gray-100 bg-white/80'} backdrop-blur-md sticky top-0 z-20 flex-wrap rounded-t-[2rem] transition-shadow duration-300
             ${isScrolled ? 'shadow-[0_4px_20px_rgba(0,0,0,0.03)]' : ''}
         `}>
             
@@ -144,6 +146,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 disabled={!canUndo}
                 icon={Undo} 
                 title="Undo" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).redo().run()} 
@@ -151,9 +154,10 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 disabled={!canRedo}
                 icon={Redo} 
                 title="Redo" 
+                variant={variant}
             />
             
-            <Divider />
+            <Divider variant={variant} />
 
             {/* 2. Headings */}
             <MenuButton 
@@ -161,21 +165,24 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 isActive={editor.isActive('heading', { level: 1 })} 
                 icon={Heading1} 
                 title="Heading 1" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleHeading({ level: 2 }).run()} 
                 isActive={editor.isActive('heading', { level: 2 })} 
                 icon={Heading2} 
                 title="Heading 2" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleHeading({ level: 3 }).run()} 
                 isActive={editor.isActive('heading', { level: 3 })} 
                 icon={Heading3} 
                 title="Heading 3" 
+                variant={variant}
             />
 
-            <Divider />
+            <Divider variant={variant} />
             
             {/* 3. Font Family, Size & Color */}
             <div className="flex items-center gap-1">
@@ -187,6 +194,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                     title="Font Family"
                     width="w-28"
                     placeholder="Font"
+                    variant={variant}
                 />
 
                 <ToolbarDropdown 
@@ -197,6 +205,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                     title="Font Size"
                     width="w-20"
                     placeholder="Size"
+                    variant={variant}
                 />
 
                 <ToolbarDropdown 
@@ -207,6 +216,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                     title="Font Weight"
                     width="w-24"
                     placeholder="Weight"
+                    variant={variant}
                 />
             </div>
 
@@ -215,7 +225,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                     whileTap={{ scale: 0.95 }}
                     ref={colorBtnRef}
                     onClick={() => setIsColorOpen(!isColorOpen)}
-                    className="flex items-center gap-1.5 h-8 px-2.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-all active:scale-95"
+                    className={`flex items-center gap-1.5 h-8 px-2.5 ${variant === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-gray-200 hover:bg-gray-50'} border rounded-lg shadow-sm transition-all active:scale-95`}
                     title="Text Color"
                     type="button"
                 >
@@ -231,7 +241,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 4, scale: 0.95 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute top-full left-0 mt-2 p-3 bg-white rounded-2xl shadow-2xl border border-gray-100 grid grid-cols-5 gap-2 z-50 w-48 origin-top-left"
+                            className={`absolute top-full left-0 mt-2 p-3 ${variant === 'dark' ? 'bg-[#2a2a2a] border-white/10' : 'bg-white border-gray-100'} rounded-2xl shadow-2xl border grid grid-cols-5 gap-2 z-50 w-48 origin-top-left`}
                         >
                             {PRESET_COLORS.map(color => (
                                 <button
@@ -266,7 +276,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 </AnimatePresence>
             </div>
 
-            <Divider />
+            <Divider variant={variant} />
 
             {/* 4. Formatting */}
             <MenuButton 
@@ -274,24 +284,28 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 isActive={editor.isActive('bold')} 
                 icon={Bold} 
                 title="Bold" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleItalic().run()} 
                 isActive={editor.isActive('italic')} 
                 icon={Italic} 
                 title="Italic" 
+                variant={variant}
             />
              <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleStrike().run()} 
                 isActive={editor.isActive('strike')} 
                 icon={Strikethrough} 
                 title="Strikethrough" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={openLinkModal} 
                 isActive={editor.isActive('link')} 
                 icon={LinkIcon} 
                 title="Link" 
+                variant={variant}
             />
             
             <MenuButton 
@@ -299,6 +313,7 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 isActive={false}
                 icon={ImageIcon}
                 title="Insert Image"
+                variant={variant}
             />
 
             <MenuButton 
@@ -306,9 +321,10 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 isActive={editor.isActive('drawing')}
                 icon={Palette}
                 title="Add Drawing"
+                variant={variant}
             />
             
-            <Divider />
+            <Divider variant={variant} />
             
             {/* 5. Lists */}
             <MenuButton 
@@ -316,21 +332,24 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                 isActive={editor.isActive('bulletList')} 
                 icon={List} 
                 title="Bullet List" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleOrderedList().run()} 
                 isActive={editor.isActive('orderedList')} 
                 icon={ListOrdered} 
                 title="Ordered List" 
+                variant={variant}
             />
             <MenuButton 
                 onClick={() => (editor.chain().focus() as any).toggleBlockquote().run()} 
                 isActive={editor.isActive('blockquote')} 
                 icon={Quote} 
                 title="Quote" 
+                variant={variant}
             />
 
-            <Divider />
+            <Divider variant={variant} />
 
             {/* 6. Advanced Formatting */}
             <div className="relative">
@@ -340,12 +359,14 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
                     icon={AlignLeft}
                     title="Paragraph Formatting"
                     label="Format"
+                    variant={variant}
                 />
                 <AnimatePresence>
                     {isFormattingOpen && (
                         <FormattingPanel 
                             editor={editor}
                             onClose={() => setIsFormattingOpen(false)}
+                            variant={variant}
                         />
                     )}
                 </AnimatePresence>

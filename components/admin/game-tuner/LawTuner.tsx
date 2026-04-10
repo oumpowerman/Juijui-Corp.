@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { 
     Clock, AlertTriangle, ShieldAlert, Gavel, Info, Zap, RefreshCw, 
     UserCheck, Target, Calendar, History, ShieldCheck, ClipboardCheck,
-    HelpCircle, BookOpen, ShieldQuestion
+    HelpCircle, BookOpen, ShieldQuestion, Trophy, TrendingUp, ShoppingBag
 } from 'lucide-react';
 import { ConfigSlider, HealthBarSimulator, RuleEditor } from './components/SharedComponents';
 import { motion } from 'framer-motion';
@@ -17,6 +17,215 @@ interface LawTunerProps {
     masterOptions: any[];
 }
 
+const PRETTY_LABELS: Record<string, string> = {
+    // GLOBAL_MULTIPLIERS
+    XP_TASK_COMPLETE: "XP เมื่อจบงาน (Task)",
+    COIN_TASK: "Coins เมื่อจบงาน (Task)",
+    XP_DUTY_COMPLETE: "XP เมื่อทำเวรเสร็จ",
+    XP_DUTY_ASSIST: "XP เมื่อช่วยเพื่อนทำเวร",
+    XP_ATTENDANCE: "XP พื้นฐานการเข้างาน",
+    COIN_ATTENDANCE: "Coins พื้นฐานการเข้างาน",
+    XP_BONUS_EARLY: "XP โบนัสมาเช้า",
+    COIN_BONUS_EARLY: "Coins โบนัสมาเช้า",
+    XP_PER_HOUR: "XP ต่อชั่วโมงการทำงาน",
+    COIN_PER_TASK: "Coins ต่อหนึ่งงาน",
+    BASE_XP_PER_LEVEL: "XP พื้นฐานต่อเลเวล (Global)",
+    XP_DUTY_LATE_SUBMIT: "XP เมื่อส่งเวรสาย",
+    COIN_DUTY: "Coins จากการทำเวร",
+
+    // PENALTY_RATES
+    HP_PENALTY_LATE: "โทษหัก HP มาสาย (Base)",
+    HP_PENALTY_MISSED_DUTY: "โทษหัก HP ไม่ทำเวร",
+    HP_PENALTY_LATE_MULTIPLIER: "ตัวคูณหัก HP มาสายรายวัน",
+    HP_PENALTY_DUTY_LATE_SUBMIT: "โทษหัก HP ส่งเวรสาย",
+    HP_PENALTY_EARLY_LEAVE_RATE: "อัตราหัก HP กลับก่อนเวลา",
+    HP_PENALTY_UNAUTHORIZED_WFH: "โทษหัก HP WFH ไม่ได้รับอนุญาต",
+    HP_PENALTY_EARLY_LEAVE_INTERVAL: "ช่วงเวลาหัก HP กลับก่อน (นาที)",
+    COIN_PENALTY_LATE_PER_DAY: "โทษหัก Coins มาสายรายวัน",
+
+    // AUTO_JUDGE_CONFIG
+    duty_grace_hour: "ชั่วโมงผ่อนปรนการส่งเวร (น.)",
+    lookback_days_check: "จำนวนวันตรวจสอบย้อนหลัง (AI)",
+    negligence_penalty_hp: "โทษหัก HP ความเพิกเฉย (AI)",
+    negligence_threshold_days: "เกณฑ์วันตัดสินความเพิกเฉย",
+
+    // DIFFICULTY_XP
+    EASY: "รางวัล XP ระดับง่าย (Easy)",
+    MEDIUM: "รางวัล XP ระดับกลาง (Medium)",
+    HARD: "รางวัล XP ระดับยาก (Hard)",
+
+    // LEVELING_SYSTEM
+    base_xp_per_level: "XP พื้นฐานสำหรับ Level Up",
+    level_up_bonus_coins: "โบนัส Coins เมื่อเลเวลอัป",
+    max_level: "เลเวลสูงสุด",
+
+    // ITEM_MECHANICS
+    shop_tax_rate: "ภาษีร้านค้า (%)",
+    time_warp_refund_cap_hp: "ขีดจำกัดการคืน HP (Time Warp)",
+    time_warp_refund_percent: "เปอร์เซ็นต์การคืน HP (Time Warp)",
+
+    // TRIBUNAL
+    reward_hp: "รางวัล HP ผู้แจ้งเหตุ",
+    penalty_hp: "โทษหัก HP ผู้ถูกแจ้ง",
+    false_report_penalty_hp: "โทษหัก HP แจ้งเหตุเท็จ",
+    reward_points: "รางวัลแต้มผู้แจ้งเหตุ"
+};
+
+// --- FEATURE BASED GROUPING DEFINITION ---
+const FEATURE_GROUPS = [
+    {
+        id: 'ATTENDANCE',
+        title: 'Attendance System',
+        description: 'การเข้างาน, การมาเช้า และการกลับก่อนเวลา',
+        icon: Clock,
+        color: 'indigo',
+        keys: [
+            'XP_ATTENDANCE', 'COIN_ATTENDANCE', 'XP_BONUS_EARLY', 'COIN_BONUS_EARLY', 
+            'XP_PER_HOUR', 'HP_PENALTY_EARLY_LEAVE_RATE', 'HP_PENALTY_EARLY_LEAVE_INTERVAL', 
+            'HP_PENALTY_UNAUTHORIZED_WFH'
+        ]
+    },
+    {
+        id: 'DUTY',
+        title: 'Duty & Responsibility',
+        description: 'การจัดการเวรทำความสะอาดและหน้าที่รับผิดชอบ',
+        icon: ClipboardCheck,
+        color: 'orange',
+        keys: [
+            'XP_DUTY_COMPLETE', 'COIN_DUTY', 'XP_DUTY_ASSIST', 'HP_PENALTY_MISSED_DUTY', 
+            'HP_PENALTY_DUTY_LATE_SUBMIT', 'XP_DUTY_LATE_SUBMIT', 'duty_grace_hour'
+        ]
+    },
+    {
+        id: 'TASK',
+        title: 'Task & Performance',
+        description: 'การส่งงานและบทลงโทษการส่งงานล่าช้า',
+        icon: Target,
+        color: 'rose',
+        keys: [
+            'XP_TASK_COMPLETE', 'COIN_TASK', 'COIN_PER_TASK', 'HP_PENALTY_LATE', 
+            'HP_PENALTY_LATE_MULTIPLIER', 'COIN_PENALTY_LATE_PER_DAY'
+        ]
+    },
+    {
+        id: 'GROWTH',
+        title: 'Leveling & Difficulty',
+        description: 'เกณฑ์การขึ้นเลเวลและรางวัลตามความยากของงาน',
+        icon: TrendingUp,
+        color: 'emerald',
+        keys: [
+            'BASE_XP_PER_LEVEL', 'base_xp_per_level', 'level_up_bonus_coins', 'max_level',
+            'EASY', 'MEDIUM', 'HARD'
+        ]
+    },
+    {
+        id: 'SYSTEM',
+        title: 'AI & Mechanics',
+        description: 'ระบบตัดสินอัตโนมัติ ภาษี และกลไกไอเทม',
+        icon: ShieldAlert,
+        color: 'slate',
+        keys: [
+            'lookback_days_check', 'negligence_penalty_hp', 'negligence_threshold_days',
+            'shop_tax_rate', 'time_warp_refund_cap_hp', 'time_warp_refund_percent'
+        ]
+    },
+    {
+        id: 'TRIBUNAL',
+        title: 'Tribunal System',
+        description: 'การฟ้องร้องและรางวัลการแจ้งเหตุ',
+        icon: Gavel,
+        color: 'amber',
+        keys: [
+            'reward_hp', 'penalty_hp', 'false_report_penalty_hp', 'reward_points'
+        ]
+    }
+];
+
+const DynamicConfigSection: React.FC<{
+    title: string;
+    description: string;
+    icon: any;
+    color: string;
+    items: { section: string, key: string, value: any }[];
+    onChange: (section: string, key: string, value: any) => void;
+}> = ({ title, description, icon: Icon, color, items, onChange }) => {
+    if (items.length === 0) return null;
+
+    const colorMap: Record<string, string> = {
+        indigo: "bg-indigo-100 text-indigo-600 border-indigo-100",
+        rose: "bg-rose-100 text-rose-600 border-rose-100",
+        amber: "bg-amber-100 text-amber-600 border-amber-100",
+        emerald: "bg-emerald-100 text-emerald-600 border-emerald-100",
+        blue: "bg-blue-100 text-blue-600 border-blue-100",
+        slate: "bg-slate-100 text-slate-600 border-slate-100",
+        purple: "bg-purple-100 text-purple-600 border-purple-100",
+        orange: "bg-orange-100 text-orange-600 border-orange-100"
+    };
+
+    return (
+        <div className={`p-6 rounded-3xl border space-y-5 ${colorMap[color] || colorMap.slate} bg-opacity-30`}>
+            <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                <Icon className="w-4 h-4" /> {title}
+            </h4>
+            <div className="space-y-4">
+                {items.map(item => (
+                    <ConfigSlider 
+                        key={`${item.section}-${item.key}`}
+                        label={PRETTY_LABELS[item.key] || item.key} 
+                        value={item.value} 
+                        min={0} 
+                        max={item.key.toLowerCase().includes('xp') ? 2000 : 500} 
+                        step={item.key.toLowerCase().includes('rate') || item.key.toLowerCase().includes('multiplier') ? 0.1 : 1}
+                        unit={item.key.toLowerCase().includes('xp') ? 'XP' : item.key.toLowerCase().includes('coin') ? 'Coins' : 'Val'}
+                        icon={Zap} 
+                        color={color}
+                        onChange={(v: number) => onChange(item.section, item.key, v)}
+                    />
+                ))}
+            </div>
+            <p className="text-[10px] opacity-60 italic">* {description}</p>
+        </div>
+    );
+};
+
+const KPIRewardsEditor: React.FC<{
+    config: any;
+    onChange: (section: string, key: string, value: any) => void;
+}> = ({ config, onChange }) => {
+    if (!config) return null;
+    return (
+        <div className="p-6 rounded-3xl border border-emerald-100 bg-emerald-50/30 space-y-5">
+            <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                <Trophy className="w-4 h-4" /> KPI Rewards (รางวัลตามเกรด)
+            </h4>
+            <div className="space-y-6">
+                {Object.keys(config).sort().map(grade => (
+                    <div key={grade} className="space-y-3 p-3 bg-white/50 rounded-2xl border border-emerald-50">
+                        <h5 className="text-[10px] font-black text-emerald-500 uppercase">Grade {grade}</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <ConfigSlider 
+                                label="XP" 
+                                value={config[grade].xp} 
+                                min={0} max={5000} step={50} unit="XP"
+                                icon={Zap} color="emerald"
+                                onChange={(v) => onChange('KPI_REWARDS', grade, { ...config[grade], xp: v })}
+                            />
+                            <ConfigSlider 
+                                label="Coins" 
+                                value={config[grade].coins} 
+                                min={0} max={2000} step={10} unit="Coins"
+                                icon={Zap} color="amber"
+                                onChange={(v) => onChange('KPI_REWARDS', grade, { ...config[grade], coins: v })}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <p className="text-[10px] text-emerald-600/60 italic">* รางวัลที่จะได้รับเมื่อพนักงานได้เกรด KPI ในระดับต่างๆ</p>
+        </div>
+    );
+};
+
 const LawTuner: React.FC<LawTunerProps> = ({ 
     localConfig, handleChange, setLocalConfig, setIsDirty, getAttendanceLabel, getAttendanceColor, masterOptions 
 }) => {
@@ -25,17 +234,21 @@ const LawTuner: React.FC<LawTunerProps> = ({
         const groups = {
             WORK: [] as any[],
             LEAVE: [] as any[],
-            CORRECTION: [] as any[]
+            CORRECTION: [] as any[],
+            SYSTEM: [] as any[] // New group for rules missing in master_options
         };
         
         const seenKeys = new Set<string>();
+        const masterKeys = new Set<string>();
+
+        // 1. Process Master Options
         masterOptions
             .filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY')
             .forEach(o => {
                 if (seenKeys.has(o.key)) return;
                 seenKeys.add(o.key);
+                masterKeys.add(o.key);
                 
-                // Hide specific keys that are already managed by dedicated sliders on the right
                 if (['CORRECTION_REFUND', 'ABSENT_REFUND'].includes(o.key)) return;
                 
                 if (['OFFICE', 'WFH', 'SITE'].includes(o.key)) {
@@ -46,10 +259,25 @@ const LawTuner: React.FC<LawTunerProps> = ({
                     groups.CORRECTION.push(o);
                 }
             });
+
+        // 2. Detect "Orphaned" Rules in game_configs
+        if (localConfig.ATTENDANCE_RULES) {
+            Object.keys(localConfig.ATTENDANCE_RULES).forEach(key => {
+                // Skip if already seen in master options or if it's a special refund key handled elsewhere
+                if (masterKeys.has(key) || ['CORRECTION_REFUND', 'ABSENT_REFUND'].includes(key)) return;
+
+                groups.SYSTEM.push({
+                    key,
+                    label: key, // Use raw key as label
+                    type: 'SYSTEM_RULE',
+                    color: 'bg-slate-400'
+                });
+            });
+        }
             
         Object.values(groups).forEach(g => g.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
         return groups;
-    }, [masterOptions]);
+    }, [masterOptions, localConfig.ATTENDANCE_RULES]);
 
     const handleRuleChange = (key: string, field: 'xp' | 'hp' | 'coins', val: number) => {
         const rules = { ...localConfig.ATTENDANCE_RULES };
@@ -63,7 +291,7 @@ const LawTuner: React.FC<LawTunerProps> = ({
     return (
         <div className="space-y-10 pb-10">
             
-            {/* 1. Simulator Section (Summary) */}
+            {/* 1. SIMULATOR SECTION */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -79,7 +307,7 @@ const LawTuner: React.FC<LawTunerProps> = ({
                     />
                     <p className="text-[10px] text-slate-400 mt-4 text-center flex justify-center items-center gap-1">
                         <Info className="w-3 h-3" />
-                        จำลองความเสียหายต่อ HP เมื่อพนักงานทำผิดกฎ (HP หมด = Game Over / ถูกพักงาน)
+                        จำลองความเสียหายต่อ HP เมื่อพนักงานทำผิดกฎ (HP หมด = Game Over)
                     </p>
                 </motion.div>
 
@@ -109,7 +337,7 @@ const LawTuner: React.FC<LawTunerProps> = ({
                 </motion.div>
             </div>
 
-            {/* 2. ATTENDANCE & LEAVE SECTION */}
+            {/* 2. STATUS & CORRECTION RULES (The Table Part) */}
             <motion.section 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -120,188 +348,77 @@ const LawTuner: React.FC<LawTunerProps> = ({
                         <UserCheck className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Attendance & Leave</h3>
-                        <p className="text-xs text-slate-500">กฎการเข้างาน การลา และนโยบายการคืนคะแนน</p>
+                        <h3 className="text-lg font-bold text-slate-800">Status & Correction Rules</h3>
+                        <p className="text-xs text-slate-500">กฎพื้นฐานตามสถานะการเข้างานและการลา (XP/HP/Coins per Status)</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Attendance Rules List */}
-                    <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                <Gavel className="w-4 h-4" /> ตารางสถานะ (Attendance Rules)
-                            </h4>
-                            <span className="text-[10px] font-bold text-slate-300 bg-slate-50 px-2 py-0.5 rounded-full">
-                                {masterOptions.filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY').length} Rules
-                            </span>
-                        </div>
-
-                        <div className="space-y-8">
-                            {/* 1. Work Section */}
-                            {categorizedOptions.WORK.length > 0 && (
-                                <div className="space-y-3">
-                                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                        <Clock className="w-3.5 h-3.5" /> การเข้างาน (Attendance & Work)
-                                    </h5>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {categorizedOptions.WORK.map(option => {
-                                            const key = option.key;
-                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
-                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
-                                            
-                                            return (
-                                                <div key={key} className="relative pl-4 group">
-                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
-                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
-                                                    {key === 'WFH' && (
-                                                        <div className="mt-1 ml-2 text-[9px] text-slate-400 flex items-center gap-1 italic">
-                                                            <HelpCircle className="w-2.5 h-2.5" />
-                                                            รางวัลพื้นฐานสำหรับผู้ที่ได้รับอนุมัติ WFH (แนะนำให้ตั้งเป็น 0 หากต้องการแค่ไม่หัก HP)
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 2. Leave Section */}
-                            {categorizedOptions.LEAVE.length > 0 && (
-                                <div className="space-y-3">
-                                    <h5 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                        <Calendar className="w-3.5 h-3.5" /> ประเภทการลา (Leave Types)
-                                    </h5>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {categorizedOptions.LEAVE.map(option => {
-                                            const key = option.key;
-                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
-                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
-                                            
-                                            return (
-                                                <div key={key} className="relative pl-4 group">
-                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
-                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 3. Correction Section */}
-                            {categorizedOptions.CORRECTION.length > 0 && (
-                                <div className="space-y-3">
-                                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                        <RefreshCw className="w-3.5 h-3.5" /> แก้ไขและอื่นๆ (Corrections & Special)
-                                    </h5>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {categorizedOptions.CORRECTION.map(option => {
-                                            const key = option.key;
-                                            const rule = localConfig.ATTENDANCE_RULES?.[key] || { xp: 0, hp: 0, coins: 0 };
-                                            const colorClass = option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500';
-                                            
-                                            return (
-                                                <div key={key} className="relative pl-4 group">
-                                                    <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${colorClass}`}></div>
-                                                    <RuleEditor label={option.label} ruleKey={key} rule={rule} onChange={handleRuleChange} />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                <div className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <Gavel className="w-4 h-4" /> ตารางสถานะ (Attendance & Leave Rules)
+                        </h4>
+                        <span className="text-[10px] font-bold text-slate-300 bg-slate-50 px-2 py-0.5 rounded-full">
+                            {masterOptions.filter(o => o.type === 'ATTENDANCE_TYPE' || o.type === 'LEAVE_TYPE' || o.type === 'ATTENDANCE_RULE_KEY').length} Rules
+                        </span>
                     </div>
 
-                    {/* Early Leave & Refunds */}
-                    <div className="space-y-6">
-                        <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-5">
-                            <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                                <Clock className="w-4 h-4" /> Early Leave (กลับก่อนเวลา)
-                            </h4>
-                            <ConfigSlider 
-                                label="Penalty Rate" 
-                                value={localConfig.PENALTY_RATES?.HP_PENALTY_EARLY_LEAVE_RATE || 1} 
-                                min={1} max={10} step={1} unit="HP"
-                                icon={AlertTriangle} color="blue"
-                                onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_EARLY_LEAVE_RATE', v)}
-                            />
-                            <ConfigSlider 
-                                label="Interval (Minutes)" 
-                                value={localConfig.PENALTY_RATES?.HP_PENALTY_EARLY_LEAVE_INTERVAL || 10} 
-                                min={1} max={60} step={5} unit="Min"
-                                icon={History} color="slate"
-                                onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_EARLY_LEAVE_INTERVAL', v)}
-                            />
-                            <ConfigSlider 
-                                label="Unauthorized WFH" 
-                                value={localConfig.PENALTY_RATES?.HP_PENALTY_UNAUTHORIZED_WFH || 5} 
-                                min={0} max={50} step={1} unit="HP"
-                                icon={ShieldAlert} color="rose"
-                                onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_UNAUTHORIZED_WFH', v)}
-                            />
-                            <p className="text-[10px] text-blue-600/60 italic">
-                                * หัก HP ทันทีหากพนักงานเช็คอิน WFH โดยไม่มีใบขออนุญาตที่ได้รับการอนุมัติ
-                            </p>
-                        </div>
+                    <div className="space-y-8">
+                        {/* 1. Work Section */}
+                        {categorizedOptions.WORK.length > 0 && (
+                            <div className="space-y-3">
+                                <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                    <Clock className="w-3.5 h-3.5" /> การเข้างาน (Attendance & Work)
+                                </h5>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {categorizedOptions.WORK.map(option => (
+                                        <div key={option.key} className="relative pl-4 group">
+                                            <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500'}`}></div>
+                                            <RuleEditor label={option.label} ruleKey={option.key} rule={localConfig.ATTENDANCE_RULES?.[option.key] || { xp: 0, hp: 0, coins: 0 }} onChange={handleRuleChange} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                        <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100 space-y-5">
-                            <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-2">
-                                <RefreshCw className="w-4 h-4" /> Refund Policies (การคืนแต้ม)
-                            </h4>
-                            <ConfigSlider 
-                                label="Correction Refund" 
-                                value={localConfig.ATTENDANCE_RULES?.CORRECTION_REFUND?.hp || 5} 
-                                min={0} max={50} step={1} unit="HP"
-                                icon={ShieldCheck} color="emerald"
-                                onChange={(v: number) => handleRuleChange('CORRECTION_REFUND', 'hp', v)}
-                            />
-                            <ConfigSlider 
-                                label="Absent Refund" 
-                                value={localConfig.ATTENDANCE_RULES?.ABSENT_REFUND?.hp || 15} 
-                                min={0} max={50} step={1} unit="HP"
-                                icon={RefreshCw} color="teal"
-                                onChange={(v: number) => handleRuleChange('ABSENT_REFUND', 'hp', v)}
-                            />
-                        </div>
+                        {/* 2. Leave Section */}
+                        {categorizedOptions.LEAVE.length > 0 && (
+                            <div className="space-y-3">
+                                <h5 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                    <Calendar className="w-3.5 h-3.5" /> ประเภทการลา (Leave Types)
+                                </h5>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {categorizedOptions.LEAVE.map(option => (
+                                        <div key={option.key} className="relative pl-4 group">
+                                            <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500'}`}></div>
+                                            <RuleEditor label={option.label} ruleKey={option.key} rule={localConfig.ATTENDANCE_RULES?.[option.key] || { xp: 0, hp: 0, coins: 0 }} onChange={handleRuleChange} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                        {/* TRIBUNAL SECTION */}
-                        <div className="p-6 bg-amber-50/50 rounded-3xl border border-amber-100 space-y-5">
-                            <h4 className="text-xs font-bold text-amber-600 uppercase tracking-widest flex items-center gap-2">
-                                <Gavel className="w-4 h-4" /> Tribunal & Whistleblowing
-                            </h4>
-                            <ConfigSlider 
-                                label="Reward for Reporter" 
-                                value={localConfig.TRIBUNAL_CONFIG?.reward_hp || 10} 
-                                min={0} max={50} step={1} unit="HP"
-                                icon={Zap} color="amber"
-                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'reward_hp', v)}
-                            />
-                            <ConfigSlider 
-                                label="Penalty for Target" 
-                                value={localConfig.TRIBUNAL_CONFIG?.penalty_hp || 20} 
-                                min={0} max={100} step={5} unit="HP"
-                                icon={ShieldAlert} color="rose"
-                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'penalty_hp', v)}
-                            />
-                            <ConfigSlider 
-                                label="False Report Penalty" 
-                                value={localConfig.TRIBUNAL_CONFIG?.false_report_penalty_hp || 30} 
-                                min={0} max={100} step={5} unit="HP"
-                                icon={AlertTriangle} color="red"
-                                onChange={(v: number) => handleChange('TRIBUNAL_CONFIG', 'false_report_penalty_hp', v)}
-                            />
-                            <p className="text-[10px] text-amber-600/60 italic">
-                                * ระบบฟ้องร้องพฤติกรรมไม่เหมาะสม (Whistleblowing)
-                            </p>
-                        </div>
+                        {/* 3. Correction Section */}
+                        {categorizedOptions.CORRECTION.length > 0 && (
+                            <div className="space-y-3">
+                                <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 px-1">
+                                    <RefreshCw className="w-3.5 h-3.5" /> แก้ไขและอื่นๆ (Corrections & Special)
+                                </h5>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {categorizedOptions.CORRECTION.map(option => (
+                                        <div key={option.key} className="relative pl-4 group">
+                                            <div className={`absolute left-0 top-1 bottom-1 w-1 rounded-full ${option.color?.includes('bg-') ? option.color : option.color?.replace('text-', 'bg-') || 'bg-slate-500'}`}></div>
+                                            <RuleEditor label={option.label} ruleKey={option.key} rule={localConfig.ATTENDANCE_RULES?.[option.key] || { xp: 0, hp: 0, coins: 0 }} onChange={handleRuleChange} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </motion.section>
 
-            {/* 3. DUTY & RESPONSIBILITY SECTION */}
+            {/* 3. GAME MECHANICS & REWARDS (The Dynamic Feature Cards) */}
             <motion.section 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -309,128 +426,78 @@ const LawTuner: React.FC<LawTunerProps> = ({
                 className="space-y-6"
             >
                 <div className="flex items-center gap-3 px-2">
-                    <div className="p-2 bg-orange-100 rounded-xl text-orange-600">
-                        <ClipboardCheck className="w-5 h-5" />
+                    <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600">
+                        <Zap className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Duty & Responsibility</h3>
-                        <p className="text-xs text-slate-500">การจัดการเวรทำความสะอาดและหน้าที่รับผิดชอบ</p>
+                        <h3 className="text-lg font-bold text-slate-800">Game Mechanics & Rewards</h3>
+                        <p className="text-xs text-slate-500">ตั้งค่าตัวคูณ รางวัล และบทลงโทษแยกตามฟีเจอร์ (Feature-Based Configuration)</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-orange-50/30 rounded-3xl border border-orange-100 space-y-5">
-                        <h4 className="text-xs font-bold text-orange-600 uppercase tracking-widest flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4" /> Duty Penalties
-                        </h4>
-                        <ConfigSlider 
-                            label="Missed Duty" 
-                            value={localConfig.PENALTY_RATES?.HP_PENALTY_MISSED_DUTY || 10} 
-                            min={5} max={50} step={5} unit="HP"
-                            icon={AlertTriangle} color="orange"
-                            onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_MISSED_DUTY', v)}
-                        />
-                        <ConfigSlider 
-                            label="Late Submit Penalty" 
-                            value={localConfig.PENALTY_RATES?.HP_PENALTY_DUTY_LATE_SUBMIT || 3} 
-                            min={1} max={20} step={1} unit="HP"
-                            icon={Clock} color="amber"
-                            onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_DUTY_LATE_SUBMIT', v)}
-                        />
-                        <ConfigSlider 
-                            label="Duty Grace Hour" 
-                            value={localConfig.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10} 
-                            min={0} max={23} step={1} unit=":00"
-                            icon={History} color="slate"
-                            onChange={(v: number) => handleChange('AUTO_JUDGE_CONFIG', 'duty_grace_hour', v)}
-                        />
-                        <p className="text-[10px] text-orange-600/60 italic">
-                            * เวลาสุดท้ายที่อนุญาตให้ส่งงานเวร (เช่น 10:00 น.) หากเกินจะถือว่า Missed Duty
-                        </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {(() => {
+                        // 1. Flatten all available configs from localConfig
+                        const allConfigs: { section: string, key: string, value: any }[] = [];
+                        const sections = [
+                            'GLOBAL_MULTIPLIERS', 'LEVELING_SYSTEM', 'DIFFICULTY_XP', 
+                            'PENALTY_RATES', 'AUTO_JUDGE_CONFIG', 'ITEM_MECHANICS', 'TRIBUNAL_CONFIG'
+                        ];
+                        
+                        sections.forEach(section => {
+                            if (localConfig[section]) {
+                                Object.keys(localConfig[section]).forEach(key => {
+                                    if (typeof localConfig[section][key] === 'number') {
+                                        allConfigs.push({ section, key, value: localConfig[section][key] });
+                                    }
+                                });
+                            }
+                        });
 
-                    <div className="p-6 bg-indigo-50/30 rounded-3xl border border-indigo-100 space-y-5">
-                        <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                            <Zap className="w-4 h-4" /> Duty Rewards
-                        </h4>
-                        <ConfigSlider 
-                            label="Duty XP Reward" 
-                            value={localConfig.GLOBAL_MULTIPLIERS?.XP_DUTY_COMPLETE || 20} 
-                            min={0} max={100} step={5} unit="XP"
-                            icon={Zap} color="indigo"
-                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'XP_DUTY_COMPLETE', v)}
-                        />
-                        <ConfigSlider 
-                            label="Hero Assist Bonus" 
-                            value={localConfig.GLOBAL_MULTIPLIERS?.XP_DUTY_ASSIST || 30} 
-                            min={0} max={200} step={10} unit="XP"
-                            icon={Zap} color="rose"
-                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'XP_DUTY_ASSIST', v)}
-                        />
-                    </div>
-                </div>
-            </motion.section>
+                        const usedKeys = new Set<string>();
 
-            {/* 4. TASK & PERFORMANCE SECTION */}
-            <motion.section 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="space-y-6"
-            >
-                <div className="flex items-center gap-3 px-2">
-                    <div className="p-2 bg-rose-100 rounded-xl text-rose-600">
-                        <Target className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800">Task & Performance</h3>
-                        <p className="text-xs text-slate-500">การส่งงานและระบบ AI ตัดสินความเพิกเฉย</p>
-                    </div>
-                </div>
+                        // 2. Render Feature Groups
+                        const featureCards = FEATURE_GROUPS.map(group => {
+                            const groupItems = allConfigs.filter(item => group.keys.includes(item.key));
+                            groupItems.forEach(item => usedKeys.add(`${item.section}-${item.key}`));
+                            
+                            return (
+                                <DynamicConfigSection 
+                                    key={group.id}
+                                    title={group.title}
+                                    description={group.description}
+                                    icon={group.icon}
+                                    color={group.color}
+                                    items={groupItems}
+                                    onChange={handleChange}
+                                />
+                            );
+                        });
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-rose-50/30 rounded-3xl border border-rose-100 space-y-5">
-                        <h4 className="text-xs font-bold text-rose-600 uppercase tracking-widest flex items-center gap-2">
-                            <Clock className="w-4 h-4" /> Task Deadlines
-                        </h4>
-                        <ConfigSlider 
-                            label="Base Late Penalty" 
-                            value={localConfig.PENALTY_RATES?.HP_PENALTY_LATE || 5} 
-                            min={1} max={20} step={1} unit="HP"
-                            icon={AlertTriangle} color="rose"
-                            onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_LATE', v)}
-                        />
-                        <ConfigSlider 
-                            label="Daily Multiplier" 
-                            value={localConfig.PENALTY_RATES?.HP_PENALTY_LATE_MULTIPLIER || 2} 
-                            min={1} max={10} step={1} unit="HP/Day"
-                            icon={Zap} color="orange"
-                            onChange={(v: number) => handleChange('PENALTY_RATES', 'HP_PENALTY_LATE_MULTIPLIER', v)}
-                        />
-                    </div>
+                        // 3. Render Safety Net (Uncategorized)
+                        const uncategorizedItems = allConfigs.filter(item => !usedKeys.has(`${item.section}-${item.key}`));
+                        
+                        return (
+                            <>
+                                {featureCards}
+                                {uncategorizedItems.length > 0 && (
+                                    <DynamicConfigSection 
+                                        title="Other / New Configs"
+                                        description="ค่าพลังใหม่ๆ หรือค่าที่ยังไม่ได้จัดหมวดหมู่ (Safety Net)"
+                                        icon={ShieldQuestion}
+                                        color="slate"
+                                        items={uncategorizedItems}
+                                        onChange={handleChange}
+                                    />
+                                )}
+                            </>
+                        );
+                    })()}
 
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-5">
-                        <h4 className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
-                            <ShieldAlert className="w-4 h-4" /> AI Auto-Judge (Negligence)
-                        </h4>
-                        <ConfigSlider 
-                            label="Negligence Penalty" 
-                            value={localConfig.AUTO_JUDGE_CONFIG?.negligence_penalty_hp || 20} 
-                            min={10} max={100} step={5} unit="HP"
-                            icon={ShieldAlert} color="slate"
-                            onChange={(v: number) => handleChange('AUTO_JUDGE_CONFIG', 'negligence_penalty_hp', v)}
-                        />
-                        <ConfigSlider 
-                            label="Lookback Days" 
-                            value={localConfig.AUTO_JUDGE_CONFIG?.lookback_days_check || 60} 
-                            min={7} max={365} step={7} unit="Days"
-                            icon={Calendar} color="slate"
-                            onChange={(v: number) => handleChange('AUTO_JUDGE_CONFIG', 'lookback_days_check', v)}
-                        />
-                        <p className="text-[10px] text-slate-500 italic">
-                            * AI จะตรวจสอบงานและหน้าที่ย้อนหลังตามจำนวนวันที่กำหนด
-                        </p>
-                    </div>
+                    <KPIRewardsEditor 
+                        config={localConfig.KPI_REWARDS}
+                        onChange={handleChange}
+                    />
                 </div>
             </motion.section>
         </div>

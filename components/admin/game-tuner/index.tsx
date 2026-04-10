@@ -66,7 +66,7 @@ const GameConfigTuner = () => {
             const sections = [
                 'GLOBAL_MULTIPLIERS', 'LEVELING_SYSTEM', 'DIFFICULTY_XP', 
                 'PENALTY_RATES', 'AUTO_JUDGE_CONFIG', 'ITEM_MECHANICS', 
-                'ATTENDANCE_RULES', 'KPI_REWARDS'
+                'ATTENDANCE_RULES', 'KPI_REWARDS', 'TRIBUNAL_CONFIG'
             ];
 
             for (const section of sections) {

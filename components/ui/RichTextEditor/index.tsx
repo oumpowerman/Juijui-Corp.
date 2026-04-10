@@ -27,6 +27,7 @@ export interface RichTextEditorProps {
     readOnly?: boolean;
     className?: string;
     minHeight?: string;
+    variant?: 'light' | 'dark';
     onEditorReady?: (editor: Editor) => void; 
     extensions?: any[]; 
     bubbleMenuContent?: (editor: Editor) => React.ReactNode; 
@@ -40,6 +41,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     readOnly = false,
     className = '',
     minHeight = '300px',
+    variant = 'light',
     onEditorReady,
     extensions = [],
     bubbleMenuContent,
@@ -111,7 +113,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         },
         editorProps: {
             attributes: {
-                class: `prose prose-sm sm:prose-base text-black caret-black focus:outline-none max-w-none ${className} whitespace-pre-wrap [&_.ProseMirror]:caret-black [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_a]:text-indigo-600 [&_a]:underline [&_a]:cursor-pointer [&_p:empty]:min-h-[1em] [&_p:empty]:mb-4 [&_p>br:only-child]:min-h-[1em]`,
+                class: `prose prose-sm sm:prose-base ${variant === 'dark' ? 'prose-invert text-white caret-white' : 'text-black caret-black'} focus:outline-none max-w-none ${className} whitespace-pre-wrap [&_.ProseMirror]:caret-current [&_ol]:list-decimal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:pl-5 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_a]:text-indigo-600 [&_a]:underline [&_a]:cursor-pointer [&_p:empty]:min-h-[1em] [&_p:empty]:mb-4 [&_p>br:only-child]:min-h-[1em]`,
                 style: `min-height: ${minHeight}; outline: none;`,
             },
             handleKeyDown: (view, event) => {
@@ -310,11 +312,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     openLinkModal={openLinkModal} 
                     isFormattingOpen={isFormattingOpen}
                     setIsFormattingOpen={setIsFormattingOpen}
+                    variant={variant}
                 />
             )}
 
             {/* Editor Content Area */}
-            <div className="cursor-text p-4 md:p-8 caret-black" onClick={() => editor.chain().focus().run()}>
+            <div 
+                className={`cursor-text p-4 md:p-8 ${variant === 'dark' ? 'caret-white' : 'caret-black'}`} 
+                onClick={() => editor.chain().focus().run()}
+                style={variant === 'dark' ? { color: '#ffffff' } : {}}
+            >
                 <EditorContent editor={editor} />
             </div>
 

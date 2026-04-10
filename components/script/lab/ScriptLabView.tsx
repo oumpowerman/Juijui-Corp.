@@ -174,7 +174,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, scale: 0.95, filter: 'blur(15px)' }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-            className="fixed inset-0 z-[100] bg-[#0a0a0f] text-white flex flex-col overflow-hidden font-kanit font-bold"
+            className="dark fixed inset-0 z-[100] bg-[#0a0a0f] text-white flex flex-col overflow-hidden font-kanit font-bold"
         >
             {/* Header */}
             <header className="h-20 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between px-8 shrink-0">
@@ -249,7 +249,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
                     )}
 
                     {/* Mixer Panel (Center) */}
-                    <Panel minSize={30}>
+                    <Panel minSize={30} className="flex flex-col">
                         <LabMixer 
                             sequence={sequence}
                             setSequence={setSequence}

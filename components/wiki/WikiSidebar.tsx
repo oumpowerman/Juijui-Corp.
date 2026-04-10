@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Info, X, ChevronRight, ChevronDown, Folder, FolderOpen, BookOpen, Hash } from 'lucide-react';
 import { MasterOption } from '../../types';
+import { useDroppable } from '@dnd-kit/core';
 
 interface WikiSidebarProps {
     categories: MasterOption[];
@@ -11,6 +12,31 @@ interface WikiSidebarProps {
     onClose: () => void;
     onOpenGuide: () => void;
 }
+
+// Droppable Wrapper Component
+const DroppableCategory: React.FC<{ 
+    id: string; 
+    children: React.ReactNode;
+    isActive: boolean;
+    isRoot?: boolean;
+}> = ({ id, children, isActive, isRoot }) => {
+    const { isOver, setNodeRef } = useDroppable({
+        id: id,
+    });
+
+    return (
+        <div 
+            ref={setNodeRef} 
+            className={`
+                transition-all duration-300 rounded-2xl
+                ${isOver ? 'bg-indigo-100/80 scale-[1.05] ring-2 ring-indigo-400 ring-offset-2 z-20 shadow-xl' : ''}
+                ${isRoot ? 'mb-1' : ''}
+            `}
+        >
+            {children}
+        </div>
+    );
+};
 
 const WikiSidebar: React.FC<WikiSidebarProps> = ({ 
     categories, selectedCategory, onSelectCategory, isOpen, onClose, onOpenGuide 
@@ -87,7 +113,7 @@ const WikiSidebar: React.FC<WikiSidebarProps> = ({
                     const colorClass = node.color ? node.color.split(' ')[0].replace('bg-', 'text-') : 'text-slate-500';
 
                     return (
-                        <div key={node.id} className="mb-1">
+                        <DroppableCategory key={node.id} id={node.key} isActive={isActive} isRoot={true}>
                             {/* Root Item */}
                             <div className="flex items-center group">
                                 <button
@@ -122,24 +148,25 @@ const WikiSidebar: React.FC<WikiSidebarProps> = ({
                                     {node.children.map(child => {
                                         const isChildActive = selectedCategory === child.key;
                                         return (
-                                            <button
-                                                key={child.id}
-                                                onClick={() => onSelectCategory(child.key)}
-                                                className={`
-                                                    w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center
-                                                    ${isChildActive 
-                                                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                                                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'}
-                                                `}
-                                            >
-                                                {isChildActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></div>}
-                                                {child.label}
-                                            </button>
+                                            <DroppableCategory key={child.id} id={child.key} isActive={isChildActive}>
+                                                <button
+                                                    onClick={() => onSelectCategory(child.key)}
+                                                    className={`
+                                                        w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center
+                                                        ${isChildActive 
+                                                            ? 'bg-indigo-50 text-indigo-700 font-bold' 
+                                                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'}
+                                                    `}
+                                                >
+                                                    {isChildActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2"></div>}
+                                                    {child.label}
+                                                </button>
+                                            </DroppableCategory>
                                         );
                                     })}
                                 </div>
                             )}
-                        </div>
+                        </DroppableCategory>
                     );
                 })}
             </div>

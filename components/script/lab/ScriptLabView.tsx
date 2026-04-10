@@ -90,7 +90,7 @@ const ScriptLabView: React.FC<ScriptLabViewProps> = ({
         if (sheetId === 'main') {
             newContent = fullScript.content || '';
         } else {
-            const sheet = fullScript.sheets?.find(s => s.id === sheetId);
+            const sheet = fullScript.sheets?.find((s: any) => s.id === sheetId);
             newContent = sheet?.content || '';
         }
 

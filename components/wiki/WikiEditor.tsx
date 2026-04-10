@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { WikiArticle, MasterOption } from '../../types';
 import { ArrowLeft, Image as ImageIcon, Save, X, Pin, Layout } from 'lucide-react';
 import RichTextEditor from '../ui/RichTextEditor';
@@ -13,6 +13,24 @@ interface WikiEditorProps {
 
 const WikiEditor: React.FC<WikiEditorProps> = ({ initialData, categories, onSave, onCancel }) => {
     const [form, setForm] = useState<Partial<WikiArticle>>(initialData);
+
+    // --- Build Hierarchical Categories ---
+    const groupedCategories = useMemo(() => {
+        const roots = categories.filter(c => !c.parentKey);
+        const childrenMap: Record<string, MasterOption[]> = {};
+        
+        categories.forEach(c => {
+            if (c.parentKey) {
+                if (!childrenMap[c.parentKey]) childrenMap[c.parentKey] = [];
+                childrenMap[c.parentKey].push(c);
+            }
+        });
+
+        return roots.map(root => ({
+            ...root,
+            children: childrenMap[root.key] || []
+        }));
+    }, [categories]);
 
     return (
         <div className="flex flex-col h-full bg-white relative">
@@ -68,7 +86,18 @@ const WikiEditor: React.FC<WikiEditorProps> = ({ initialData, categories, onSave
                                         value={form.category}
                                         onChange={e => setForm({...form, category: e.target.value})}
                                     >
-                                        {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                                        {groupedCategories.map(root => (
+                                            <React.Fragment key={root.key}>
+                                                <option value={root.key} className="font-bold bg-slate-100">
+                                                    📁 {root.label}
+                                                </option>
+                                                {root.children.map(child => (
+                                                    <option key={child.key} value={child.key}>
+                                                        &nbsp;&nbsp;&nbsp;&nbsp;↳ {child.label}
+                                                    </option>
+                                                ))}
+                                            </React.Fragment>
+                                        ))}
                                     </select>
                                     <Layout className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors pointer-events-none" />
                                 </div>

@@ -4,6 +4,7 @@ import { Search, Menu, Plus, Pin, Book, Clock, Star, Zap, Shield, HelpCircle, La
 import { WikiArticle, MasterOption } from '../../types';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDraggable } from '@dnd-kit/core';
 
 interface WikiListProps {
     articles: WikiArticle[];
@@ -19,6 +20,36 @@ interface WikiListProps {
     onOpenSidebar: () => void;
     isMobileListVisible: boolean;
 }
+
+// Draggable Wrapper Component
+const DraggableArticle: React.FC<{ 
+    article: WikiArticle; 
+    children: React.ReactNode;
+    isActive: boolean;
+}> = ({ article, children, isActive }) => {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: article.id,
+        data: { article }
+    });
+
+    const style = transform ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.3 : 1,
+        zIndex: isDragging ? 100 : 1,
+    } : undefined;
+
+    return (
+        <div 
+            ref={setNodeRef} 
+            style={style} 
+            {...listeners} 
+            {...attributes}
+            className={`transition-opacity ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
+            {children}
+        </div>
+    );
+};
 
 // Playful Icons Map
 const CATEGORY_ICONS: Record<string, any> = {
@@ -142,116 +173,118 @@ const WikiList: React.FC<WikiListProps> = ({
 
                             if (viewDensity === 'COMPACT') {
                                 return (
-                                    <motion.div 
-                                        key={article.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        transition={{ delay: index * 0.03 }}
-                                        onClick={() => onSelectArticle(article)}
-                                        className={`
-                                            flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 group relative overflow-hidden
-                                            ${isActive 
-                                                ? 'bg-white shadow-[0_12px_32px_-8px_rgba(99,102,241,0.2)] border-indigo-200 ring-1 ring-white/60 translate-x-2' 
-                                                : 'bg-white/50 backdrop-blur-sm border-white/80 hover:bg-white/80 hover:border-indigo-100 hover:shadow-lg hover:translate-x-2'}
-                                        `}
-                                    >
-                                        {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>}
-                                        <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-${colorKey}-100/80 text-${colorKey}-600 border border-white/80 shadow-sm group-hover:scale-110 transition-transform`}>
-                                            <Icon className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                {article.isPinned && <Pin className="w-3 h-3 text-orange-500 fill-orange-500 animate-pulse" />}
-                                                <h4 className={`text-sm font-bold truncate ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>{article.title}</h4>
+                                    <DraggableArticle key={article.id} article={article} isActive={isActive}>
+                                        <motion.div 
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            transition={{ delay: index * 0.03 }}
+                                            onClick={() => onSelectArticle(article)}
+                                            className={`
+                                                flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 group relative overflow-hidden
+                                                ${isActive 
+                                                    ? 'bg-white shadow-[0_12px_32px_-8px_rgba(99,102,241,0.2)] border-indigo-200 ring-1 ring-white/60 translate-x-2' 
+                                                    : 'bg-white/50 backdrop-blur-sm border-white/80 hover:bg-white/80 hover:border-indigo-100 hover:shadow-lg hover:translate-x-2'}
+                                            `}
+                                        >
+                                            {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>}
+                                            <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-${colorKey}-100/80 text-${colorKey}-600 border border-white/80 shadow-sm group-hover:scale-110 transition-transform`}>
+                                                <Icon className="w-5 h-5" />
                                             </div>
-                                            <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-1 font-bold uppercase tracking-wider opacity-70">
-                                                <span>{format(article.lastUpdated, 'd MMM')}</span>
-                                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                                <span className="flex items-center gap-1"><User className="w-3 h-3" /> {article.lastEditor?.name.split(' ')[0] || 'Unknown'}</span>
-                                            </p>
-                                        </div>
-                                    </motion.div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    {article.isPinned && <Pin className="w-3 h-3 text-orange-500 fill-orange-500 animate-pulse" />}
+                                                    <h4 className={`text-sm font-bold truncate ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>{article.title}</h4>
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-1 font-bold uppercase tracking-wider opacity-70">
+                                                    <span>{format(article.lastUpdated, 'd MMM')}</span>
+                                                    <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                                    <span className="flex items-center gap-1"><User className="w-3 h-3" /> {article.lastEditor?.name.split(' ')[0] || 'Unknown'}</span>
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    </DraggableArticle>
                                 );
                             }
 
                             // COMFORTABLE VIEW
                             return (
-                                <motion.div 
-                                    key={article.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    onClick={() => onSelectArticle(article)}
-                                    className={`
-                                        p-7 rounded-[2.75rem] border border-white/80 cursor-pointer transition-all duration-500 group relative flex flex-col gap-5 overflow-hidden isolate
-                                        ${isActive 
-                                            ? 'bg-white shadow-[0_40px_80px_-20px_rgba(99,102,241,0.2)] border-indigo-200 ring-4 ring-indigo-50/50 z-10 transform scale-[1.02] -translate-y-1.5' 
-                                            : 'bg-white/70 backdrop-blur-md hover:bg-white/90 hover:border-indigo-100 hover:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-2.5'}
-                                    `}
-                                >
-                                    {/* Decorative Background Glow */}
-                                    <div className={`absolute -top-12 -right-12 w-40 h-40 bg-${colorKey}-400/10 rounded-full blur-3xl pointer-events-none group-hover:bg-${colorKey}-400/20 transition-all duration-700`}></div>
-                                    <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-400/5 rounded-full blur-3xl pointer-events-none"></div>
+                                <DraggableArticle key={article.id} article={article} isActive={isActive}>
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        onClick={() => onSelectArticle(article)}
+                                        className={`
+                                            p-7 rounded-[2.75rem] border border-white/80 cursor-pointer transition-all duration-500 group relative flex flex-col gap-5 overflow-hidden isolate
+                                            ${isActive 
+                                                ? 'bg-white shadow-[0_40px_80px_-20px_rgba(99,102,241,0.2)] border-indigo-200 ring-4 ring-indigo-50/50 z-10 transform scale-[1.02] -translate-y-1.5' 
+                                                : 'bg-white/70 backdrop-blur-md hover:bg-white/90 hover:border-indigo-100 hover:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-2.5'}
+                                        `}
+                                    >
+                                        {/* Decorative Background Glow */}
+                                        <div className={`absolute -top-12 -right-12 w-40 h-40 bg-${colorKey}-400/10 rounded-full blur-3xl pointer-events-none group-hover:bg-${colorKey}-400/20 transition-all duration-700`}></div>
+                                        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-400/5 rounded-full blur-3xl pointer-events-none"></div>
 
-                                    {/* Sticker Header */}
-                                    <div className="flex justify-between items-start relative z-10">
-                                        <div className={`
-                                            flex items-center gap-2.5 px-4.5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border
-                                            bg-${colorKey}-100/90 text-${colorKey}-600 border-white/80 shadow-sm backdrop-blur-md group-hover:scale-105 transition-transform
-                                        `}>
-                                            <Icon className="w-4 h-4" />
-                                            {category?.label.split('(')[0] || article.category}
+                                        {/* Sticker Header */}
+                                        <div className="flex justify-between items-start relative z-10">
+                                            <div className={`
+                                                flex items-center gap-2.5 px-4.5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border
+                                                bg-${colorKey}-100/90 text-${colorKey}-600 border-white/80 shadow-sm backdrop-blur-md group-hover:scale-105 transition-transform
+                                            `}>
+                                                <Icon className="w-4 h-4" />
+                                                {category?.label.split('(')[0] || article.category}
+                                            </div>
+                                            {article.isPinned && (
+                                                <motion.div 
+                                                    animate={{ rotate: [12, 15, 12] }}
+                                                    transition={{ repeat: Infinity, duration: 2 }}
+                                                    className="bg-gradient-to-br from-yellow-300 to-orange-400 p-2.5 rounded-2xl text-white border-2 border-white rotate-12 shadow-[0_8px_16px_-4px_rgba(251,191,36,0.4)]"
+                                                >
+                                                    <Pin className="w-4 h-4 fill-white" />
+                                                </motion.div>
+                                            )}
                                         </div>
-                                        {article.isPinned && (
-                                            <motion.div 
-                                                animate={{ rotate: [12, 15, 12] }}
-                                                transition={{ repeat: Infinity, duration: 2 }}
-                                                className="bg-gradient-to-br from-yellow-300 to-orange-400 p-2.5 rounded-2xl text-white border-2 border-white rotate-12 shadow-[0_8px_16px_-4px_rgba(251,191,36,0.4)]"
-                                            >
-                                                <Pin className="w-4 h-4 fill-white" />
-                                            </motion.div>
-                                        )}
-                                    </div>
 
-                                    <div className="space-y-2.5 relative z-10">
-                                        <h3 className={`font-bold text-xl leading-tight line-clamp-2 transition-all duration-300 ${isActive ? 'text-indigo-900' : 'text-slate-800 group-hover:text-indigo-600'}`}>
-                                            {article.title}
-                                        </h3>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1 w-12 bg-indigo-500/20 rounded-full overflow-hidden">
-                                                <div className="h-full bg-indigo-500 w-0 group-hover:w-full transition-all duration-700"></div>
+                                        <div className="space-y-2.5 relative z-10">
+                                            <h3 className={`font-bold text-xl leading-tight line-clamp-2 transition-all duration-300 ${isActive ? 'text-indigo-900' : 'text-slate-800 group-hover:text-indigo-600'}`}>
+                                                {article.title}
+                                            </h3>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1 w-12 bg-indigo-500/20 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500 w-0 group-hover:w-full transition-all duration-700"></div>
+                                                </div>
+                                                <Sparkles className="w-3 h-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             </div>
-                                            <Sparkles className="w-3 h-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between mt-2 pt-5 border-t border-dashed border-slate-200/60 relative z-10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                {article.lastEditor?.avatarUrl ? (
-                                                    <img src={article.lastEditor.avatarUrl} className="w-8 h-8 rounded-xl border-2 border-white shadow-md group-hover:rotate-6 transition-transform" />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 border border-white/80 shadow-sm"><User className="w-4 h-4"/></div>
-                                                )}
-                                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-sm"></div>
+                                        
+                                        <div className="flex items-center justify-between mt-2 pt-5 border-t border-dashed border-slate-200/60 relative z-10">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    {article.lastEditor?.avatarUrl ? (
+                                                        <img src={article.lastEditor.avatarUrl} className="w-8 h-8 rounded-xl border-2 border-white shadow-md group-hover:rotate-6 transition-transform" />
+                                                    ) : (
+                                                        <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 border border-white/80 shadow-sm"><User className="w-4 h-4"/></div>
+                                                    )}
+                                                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-sm"></div>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider leading-none mb-1">Editor</span>
+                                                    <span className="text-xs font-bold text-slate-700 tracking-tight truncate max-w-[100px]">
+                                                        {article.lastEditor?.name || 'Unknown'}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider leading-none mb-1">Editor</span>
-                                                <span className="text-xs font-bold text-slate-700 tracking-tight truncate max-w-[100px]">
-                                                    {article.lastEditor?.name || 'Unknown'}
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-1 opacity-70">Last Updated</span>
+                                                <span className="text-[10px] text-indigo-500 font-black bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 shadow-sm flex items-center">
+                                                    <Clock className="w-3.5 h-3.5 mr-1.5" /> {format(article.lastUpdated, 'd MMM')}
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-1 opacity-70">Last Updated</span>
-                                            <span className="text-[10px] text-indigo-500 font-black bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 shadow-sm flex items-center">
-                                                <Clock className="w-3.5 h-3.5 mr-1.5" /> {format(article.lastUpdated, 'd MMM')}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                    </motion.div>
+                                </DraggableArticle>
                             );
                         })}
                     </AnimatePresence>

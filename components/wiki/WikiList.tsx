@@ -22,11 +22,11 @@ interface WikiListProps {
 }
 
 // Draggable Wrapper Component
-const DraggableArticle: React.FC<{ 
+const DraggableArticle = React.forwardRef<HTMLDivElement, { 
     article: WikiArticle; 
     children: React.ReactNode;
     isActive: boolean;
-}> = ({ article, children, isActive }) => {
+}>(({ article, children, isActive }, ref) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: article.id,
         data: { article }
@@ -38,9 +38,19 @@ const DraggableArticle: React.FC<{
         zIndex: isDragging ? 100 : 1,
     } : undefined;
 
+    // Combine refs
+    const setRefs = (node: HTMLDivElement | null) => {
+        setNodeRef(node);
+        if (typeof ref === 'function') {
+            ref(node);
+        } else if (ref) {
+            ref.current = node;
+        }
+    };
+
     return (
         <div 
-            ref={setNodeRef} 
+            ref={setRefs} 
             style={style} 
             {...listeners} 
             {...attributes}
@@ -49,7 +59,9 @@ const DraggableArticle: React.FC<{
             {children}
         </div>
     );
-};
+});
+
+DraggableArticle.displayName = 'DraggableArticle';
 
 // Playful Icons Map
 const CATEGORY_ICONS: Record<string, any> = {

@@ -87,16 +87,28 @@ const WikiView: React.FC<WikiViewProps> = ({ currentUser }) => {
     // --- Filter Logic ---
     const filteredArticles = useMemo(() => {
         return articles.filter(a => {
-            // Category Match (Includes sub-categories if we implemented mapping logic, but here simple match)
-            // For now, if selected is ALL, show all. If specific, show matches.
-            // Note: If you have nested categories, you might want to match children too.
-            const matchCat = selectedCategory === 'ALL' || a.category === selectedCategory;
+            if (selectedCategory === 'ALL') return true;
             
+            // Check if the article is in the selected category
+            if (a.category === selectedCategory) return true;
+            
+            // Check if the selected category is a parent of the article's category
+            const selectedCat = categories.find(c => c.key === selectedCategory);
+            if (selectedCat) {
+                // If the article's category has a parentKey that matches the selected category
+                const articleCat = categories.find(c => c.key === a.category);
+                if (articleCat && articleCat.parentKey === selectedCategory) {
+                    return true;
+                }
+            }
+
+            return false;
+        }).filter(a => {
             const matchSearch = a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                 a.content.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchCat && matchSearch;
+            return matchSearch;
         }).sort((a, b) => (Number(b.isPinned) - Number(a.isPinned)));
-    }, [articles, selectedCategory, searchQuery]);
+    }, [articles, selectedCategory, searchQuery, categories]);
 
     // --- Actions ---
     const handleCreateStart = () => {

@@ -118,8 +118,10 @@ const WikiSidebar: React.FC<WikiSidebarProps> = ({
                             <div className="flex items-center group">
                                 <button
                                     onClick={() => {
-                                        if (hasChildren) toggleFolder(node.key);
-                                        else onSelectCategory(node.key);
+                                        onSelectCategory(node.key);
+                                        if (hasChildren && !isExpanded) {
+                                            toggleFolder(node.key);
+                                        }
                                     }}
                                     className={`
                                         flex-1 text-left px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 flex items-center relative group/item
@@ -134,7 +136,13 @@ const WikiSidebar: React.FC<WikiSidebarProps> = ({
                                     <span className="truncate">{node.label}</span>
                                     
                                     {hasChildren && (
-                                        <div className="ml-auto text-slate-300 transition-transform duration-300 group-hover/item:text-slate-400">
+                                        <div 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFolder(node.key);
+                                            }}
+                                            className="ml-auto p-1 hover:bg-slate-100 rounded-lg text-slate-300 transition-all duration-300 group-hover/item:text-slate-400"
+                                        >
                                             {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                         </div>
                                     )}

@@ -20,6 +20,7 @@ interface StockTableRowProps {
     formatDateDisplay: (date: Date | undefined, type: 'PUBLISH' | 'SHOOT') => React.ReactNode;
     onEdit: (task: Task) => void;
     onSchedule: (task: Task) => void;
+    onToggleQueue?: (id: string, currentStatus: boolean) => void;
     onAddToWorkbox?: (task: Task) => void;
     setIsDragging: (value: boolean) => void;
     getFormatLabel: (key?: string) => string;
@@ -40,6 +41,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     formatDateDisplay,
     onEdit,
     onSchedule,
+    onToggleQueue,
     onAddToWorkbox,
     setIsDragging,
     getFormatLabel,
@@ -87,10 +89,25 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                     <div className="absolute bottom-2 right-0 w-12 h-4 bg-gradient-to-r from-transparent to-white group-hover:to-indigo-50 pointer-events-none" />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full border font-black uppercase tracking-tight ${channelStyle}`}>{channel?.name || '-'}</span>
+                    {channel ? (
+                        <div 
+                            className="flex items-center justify-center p-0.5 rounded-full bg-white border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors"
+                            title={channel.name}
+                        >
+                            {channel.logoUrl ? (
+                                <img src={channel.logoUrl} alt={channel.name} className="w-6 h-6 rounded-full object-cover shadow-sm" referrerPolicy="no-referrer" />
+                            ) : (
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm" style={{ backgroundColor: channel.color || '#6366f1' }}>
+                                    {channel.name.charAt(0)}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="text-[9px] px-2 py-0.5 rounded-full border border-slate-100 text-slate-400 uppercase tracking-tight">-</span>
+                    )}
                     {task.contentFormats && task.contentFormats.length > 0 ? (
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-black flex items-center">
+                            <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-bold flex items-center">
                                 {getFormatLabel(task.contentFormats[0])}
                             </span>
                             {task.contentFormats.length > 1 && (
@@ -101,14 +118,14 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                             scale: { type: "spring", stiffness: 400, damping: 10 },
                                             rotate: { duration: 0.4, ease: "easeInOut" }
                                         }}
-                                        className="text-[9px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full border border-purple-200 font-black cursor-help flex items-center justify-center"
+                                        className="text-[9px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full border border-purple-200 font-bold cursor-help flex items-center justify-center"
                                     >
                                         +{task.contentFormats.length - 1}
                                     </motion.span>
                                     
                                     {/* Custom Animated Tooltip */}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-300 translate-y-2 group-hover/tooltip:translate-y-0 z-50">
-                                        <div className="bg-white/90 backdrop-blur-xl text-purple-900 text-[10px] font-black px-3 py-2 rounded-2xl shadow-2xl shadow-purple-200/50 border border-purple-100 flex flex-col gap-1.5 min-w-max">
+                                        <div className="bg-white/90 backdrop-blur-xl text-purple-900 text-[10px] font-bold px-3 py-2 rounded-2xl shadow-2xl shadow-purple-200/50 border border-purple-100 flex flex-col gap-1.5 min-w-max">
                                             <div className="text-[8px] text-purple-500 uppercase tracking-widest mb-0.5 opacity-70">Format อื่นๆ</div>
                                             {task.contentFormats.slice(1).map(f => (
                                                 <div key={f} className="flex items-center gap-2">
@@ -124,10 +141,10 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                             )}
                         </div>
                     ) : (
-                        task.contentFormat && <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-black flex items-center">{getFormatLabel(task.contentFormat)}</span>
+                        task.contentFormat && <span className="text-[9px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 font-bold flex items-center">{getFormatLabel(task.contentFormat)}</span>
                     )}
-                    {task.pillar && <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 font-black flex items-center">{getPillarLabel(task.pillar)}</span>}
-                    {task.category && <span className="text-[9px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 font-black flex items-center"><Tag className="w-2.5 h-2.5 mr-1 opacity-50" />{getCategoryLabel(task.category)}</span>}
+                    {task.pillar && <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 font-bold flex items-center">{getPillarLabel(task.pillar)}</span>}
+                    {task.category && <span className="text-[9px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 font-bold flex items-center"><Tag className="w-2.5 h-2.5 mr-1 opacity-50" />{getCategoryLabel(task.category)}</span>}
                 </div>
             </td>
 
@@ -167,14 +184,14 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
 
                                     {/* Status Label */}
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-[9px] font-black uppercase tracking-[0.15em] drop-shadow-sm ${textClass}`}>
+                                        <span className={`text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm ${textClass}`}>
                                             {statusInfo.label}
                                         </span>
                                     </div>
 
                                     {/* Percentage Tooltip on Hover */}
                                     <div className="absolute inset-0 opacity-0 group-hover/status:opacity-100 transition-opacity bg-white/40 backdrop-blur-[1px] flex items-center justify-center">
-                                        <span className="text-[10px] font-black text-indigo-600">{statusProgress}%</span>
+                                        <span className="text-[10px] font-bold text-indigo-600">{statusProgress}%</span>
                                     </div>
                                 </div>
                             </td>
@@ -183,7 +200,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         return (
                             <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap hidden md:table-cell" style={{ width }}>
                                 {task.isUnscheduled ? (
-                                    <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-lg font-black uppercase tracking-tighter">Unscheduled</span>
+                                    <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-lg font-bold uppercase tracking-tighter">Unscheduled</span>
                                 ) : (
                                     <div className="flex flex-col items-center">
                                         {formatDateDisplay(task.endDate, 'PUBLISH')}
@@ -196,7 +213,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                             <td key={key} className="px-4 py-5 text-center align-middle whitespace-nowrap hidden md:table-cell" style={{ width }}>
                                 {task.shootDate ? (
                                     <div className="flex flex-col items-center">
-                                        <div className="flex items-center gap-1 text-[10px] text-indigo-500 font-black bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                                        <div className="flex items-center gap-1 text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
                                             <Video className="w-3 h-3" />
                                             {format(new Date(task.shootDate), 'd MMM yy', { locale: th })}
                                         </div>
@@ -220,6 +237,19 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
             {/* 7. Actions (Fixed) */}
             <td className="px-4 py-5 text-right sticky right-0 bg-white group-hover:bg-indigo-50 z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] align-middle border-l border-gray-100 transition-colors hidden lg:table-cell">
                 <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onToggleQueue && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onToggleQueue(task.id, task.isInShootQueue || false); }} 
+                            className={`p-2 rounded-xl transition-all shadow-sm ${
+                                task.isInShootQueue 
+                                    ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' 
+                                    : 'text-gray-400 hover:text-indigo-600 hover:bg-white'
+                            }`}
+                            title={task.isInShootQueue ? "เอาออกจากคิวถ่าย" : "เพิ่มเข้าคิวถ่าย"}
+                        >
+                            <Video className={`w-4 h-4 ${task.isInShootQueue ? 'fill-current' : ''}`} />
+                        </button>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm">
                         <MoreHorizontal className="w-4 h-4" />
                     </button>

@@ -16,6 +16,7 @@ import StockFilterBar from './stock/StockFilterBar';
 import StockTable from './stock/StockTable';
 import StockInventoryModal from './stock/inventory/StockInventoryModal';
 import StockCountBadge from './stock/StockCountBadge';
+import StockShootQueue from './stock/StockShootQueue';
 
 interface ContentStockProps {
   tasks: Task[]; // Sync Source
@@ -53,6 +54,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [showStockOnly, setShowStockOnly] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [viewTab, setViewTab] = useState<'LIST' | 'QUEUE'>('LIST');
 
   // --- Sort States ---
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
@@ -90,7 +92,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   }, [filters]);
 
   // --- SERVER SIDE HOOK ---
-  const { contents: paginatedTasks, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem } = useContentStock({
+  const { contents: paginatedTasks, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue } = useContentStock({
       page: currentPage,
       pageSize: ITEMS_PER_PAGE,
       searchQuery: searchQuery,
@@ -182,73 +184,101 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   return (
     <AppBackground theme={bgTheme} pattern="icons" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
       <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
-        <MentorTip variant="purple" messages={["มุมมอง List แบบละเอียด ช่วยให้เช็คสถานะงานได้ครบถ้วน", "ใช้ตัวกรอง Status เลือกดูเฉพาะขั้นตอนที่สนใจได้ เช่น ดูเฉพาะ 'Script' และ 'Shooting'", "ใหม่! กรอง 'วันที่ถ่ายทำ' แบบช่วงเวลาได้แล้วนะ เพื่อดูคิวเป็นสัปดาห์หรือเดือน"]} />
+        <MentorTip variant="purple" messages={[
+            "มุมมอง List แบบละเอียด ช่วยให้เช็คสถานะงานได้ครบถ้วน", 
+            "ใช้ตัวกรอง Status เลือกดูเฉพาะขั้นตอนที่สนใจได้ เช่น ดูเฉพาะ 'Script' และ 'Shooting'", 
+            "ใหม่! ระบบ Shoot Queue ช่วยให้คุณจัดคิวถ่ายทำวันนี้ได้ง่ายขึ้น ไม่ว่าจะมีสคริปต์หรือไม่ก็ตาม"
+        ]} />
 
         <div className="flex flex-col gap-4">
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl pt-7 pb-6 px-6 pr-7 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5 overflow-x-visible overflow-y-visible">
-              <div>
-                  <h1 className="text-3xl font-bold text-gray-800 flex items-center mb-3 tracking-tight">
-                      <span className="text-4xl mr-2">📑</span>
-                      รายการคอนเทนต์ (All Content)
-                      <StockCountBadge count={totalCount} isLoading={isLoading} />
-                  </h1>
+              <div className="flex-1">
+                  <div className="flex items-center gap-4 mb-3">
+                      <h1 className="text-3xl font-bold text-gray-800 flex items-center tracking-tight">
+                          <span className="text-4xl mr-2">{viewTab === 'LIST' ? '📑' : '🎬'}</span>
+                          {viewTab === 'LIST' ? 'รายการคอนเทนต์' : 'คิวถ่ายทำวันนี้'}
+                          {viewTab === 'LIST' && <StockCountBadge count={totalCount} isLoading={isLoading} />}
+                      </h1>
 
-                  {/* Quick Channel Chips */}
-                  <div className="w-full overflow-x-auto scrollbar-hide pb-1">
-                      <div className="flex flex-wrap items-center gap-2 pt-1.5">
-                          <button
-                              onClick={() => setFilterChannel('ALL')}
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm ${filterChannel === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/80 text-gray-500 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'}`}
+                      {/* Tab Switcher */}
+                      <div className="flex items-center bg-gray-100/50 p-1 rounded-2xl border border-gray-200 ml-4">
+                          <button 
+                            onClick={() => setViewTab('LIST')}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewTab === 'LIST' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                           >
-                              🔥 รวมมิตร (All)
+                            คลังคอนเทนต์
                           </button>
-                          {channels.map(ch => {
-                              const bgClass = (ch.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
-                              return (
-                                  <button
-                                      key={ch.id}
-                                      onClick={() => setFilterChannel(ch.id)}
-                                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${filterChannel === ch.id ? 'ring-2 ring-indigo-500 border-transparent text-gray-800 bg-white mr-[2px]' : 'border-gray-200 hover:border-indigo-300 bg-white/80 text-gray-600 hover:text-indigo-600'}`}
-                                  >
-                                  <span className={`w-2 h-2 rounded-full ${bgClass}`}></span>
-                                  {ch.name}
-                                  </button>
-                              );
-                          })}
+                          <button 
+                            onClick={() => setViewTab('QUEUE')}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewTab === 'QUEUE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                          >
+                            คิวถ่ายวันนี้
+                          </button>
                       </div>
                   </div>
+
+                  {/* Quick Channel Chips */}
+                  {viewTab === 'LIST' && (
+                    <div className="w-full overflow-x-auto scrollbar-hide pb-1">
+                        <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                            <button
+                                onClick={() => setFilterChannel('ALL')}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm ${filterChannel === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/80 text-gray-500 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'}`}
+                            >
+                                🔥 รวมมิตร (All)
+                            </button>
+                            {channels.map(ch => {
+                                const bgClass = (ch.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
+                                return (
+                                    <button
+                                        key={ch.id}
+                                        onClick={() => setFilterChannel(ch.id)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${filterChannel === ch.id ? 'ring-2 ring-indigo-500 border-transparent text-gray-800 bg-white mr-[2px]' : 'border-gray-200 hover:border-indigo-300 bg-white/80 text-gray-600 hover:text-indigo-600'}`}
+                                    >
+                                    <span className={`w-2 h-2 rounded-full ${bgClass}`}></span>
+                                    {ch.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                  )}
               </div>
 
               <div className="w-full md:w-auto overflow-x-auto scrollbar-hide pb-1">
                   <div className="flex items-center gap-2 min-w-max lg:min-w-0 self-start md:self-center">
-                      {/* Inventory Analysis Button */}
-                      <button
-                          onClick={() => setIsInventoryModalOpen(true)}
-                          className="p-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm group"
-                          title="วิเคราะห์คลังคอนเทนต์"
-                      >
-                          <PackageSearch className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                      </button>
+                      {viewTab === 'LIST' && (
+                        <>
+                            {/* Inventory Analysis Button */}
+                            <button
+                                onClick={() => setIsInventoryModalOpen(true)}
+                                className="p-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm group"
+                                title="วิเคราะห์คลังคอนเทนต์"
+                            >
+                                <PackageSearch className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
 
-                      {/* Import Buttons */}
-                      <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm mr-2">
-                          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                          <button
-                              onClick={() => fileInputRef.current?.click()}
-                              disabled={isImporting}
-                              className="px-3 py-1.5 text-md font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors disabled:opacity-50"
-                          >
-                              {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />} Import
-                          </button>
-                          <div className="w-px h-4 bg-gray-200 mx-1"></div>
-                          <button
-                              onClick={handleDownloadTemplate}
-                              className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors"
-                          >
-                              <Download className="w-4 h-4 mr-1" /> Template
-                          </button>
-                      </div>
+                            {/* Import Buttons */}
+                            <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm mr-2">
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isImporting}
+                                    className="px-3 py-1.5 text-md font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors disabled:opacity-50"
+                                >
+                                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />} Import
+                                </button>
+                                <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors"
+                                >
+                                    <Download className="w-4 h-4 mr-1" /> Template
+                                </button>
+                            </div>
+                        </>
+                      )}
 
                       {/* Add Item Button */}
                       <button
@@ -277,57 +307,71 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 p-1 relative z-50">
-          <StockFilterBar
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filterChannel={filterChannel}
-            setFilterChannel={setFilterChannel}
-            filterFormat={filterFormat}
-            setFilterFormat={setFilterFormat}
-            filterPillar={filterPillar}
-            setFilterPillar={setFilterPillar}
-            filterCategory={filterCategory}
-            setFilterCategory={setFilterCategory}
-            filterStatuses={filterStatuses}
-            setFilterStatuses={setFilterStatuses}
-            
-            filterHasShootDate={filterHasShootDate}
-            setFilterHasShootDate={setFilterHasShootDate}
-            filterShootDateStart={filterShootDateStart}
-            setFilterShootDateStart={setFilterShootDateStart}
-            filterShootDateEnd={filterShootDateEnd}
-            setFilterShootDateEnd={setFilterShootDateEnd}
-            
-            showStockOnly={showStockOnly}
-            setShowStockOnly={setShowStockOnly}
-            clearFilters={clearFilters}
-            channels={channels}
-            masterOptions={masterOptions}
-          />
-        </div>
+        {viewTab === 'LIST' ? (
+            <>
+                {/* Filter Bar */}
+                <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 p-1 relative z-50">
+                <StockFilterBar
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    filterChannel={filterChannel}
+                    setFilterChannel={setFilterChannel}
+                    filterFormat={filterFormat}
+                    setFilterFormat={setFilterFormat}
+                    filterPillar={filterPillar}
+                    setFilterPillar={setFilterPillar}
+                    filterCategory={filterCategory}
+                    setFilterCategory={setFilterCategory}
+                    filterStatuses={filterStatuses}
+                    setFilterStatuses={setFilterStatuses}
+                    
+                    filterHasShootDate={filterHasShootDate}
+                    setFilterHasShootDate={setFilterHasShootDate}
+                    filterShootDateStart={filterShootDateStart}
+                    setFilterShootDateStart={setFilterShootDateStart}
+                    filterShootDateEnd={filterShootDateEnd}
+                    setFilterShootDateEnd={setFilterShootDateEnd}
+                    
+                    showStockOnly={showStockOnly}
+                    setShowStockOnly={setShowStockOnly}
+                    clearFilters={clearFilters}
+                    channels={channels}
+                    masterOptions={masterOptions}
+                />
+                </div>
 
-        {/* Table */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 overflow-hidden">
-          <StockTable
-            isLoading={isLoading}
-            isFiltering={isFiltering}
-            tasks={paginatedTasks}
-            channels={channels}
-            users={users}
-            masterOptions={masterOptions}
-            sortConfig={sortConfig}
-            onSort={handleSort}
-            totalCount={totalCount}
-            currentPage={currentPage}
-            onPageChange={handlePageChange}
-            itemsPerPage={ITEMS_PER_PAGE}
-            onEdit={onEdit}
-            onSchedule={onSchedule}
-            onAddToWorkbox={onAddToWorkbox}
-          />
-        </div>
+                {/* Table */}
+                <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 overflow-hidden">
+                <StockTable
+                    isLoading={isLoading}
+                    isFiltering={isFiltering}
+                    tasks={paginatedTasks}
+                    channels={channels}
+                    users={users}
+                    masterOptions={masterOptions}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    totalCount={totalCount}
+                    currentPage={currentPage}
+                    onPageChange={handlePageChange}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onEdit={onEdit}
+                    onSchedule={onSchedule}
+                    onToggleQueue={toggleShootQueue}
+                    onAddToWorkbox={onAddToWorkbox}
+                />
+                </div>
+            </>
+        ) : (
+            <div className="animate-in slide-in-from-bottom-4 duration-500">
+                <StockShootQueue 
+                    channels={channels}
+                    users={users}
+                    masterOptions={masterOptions}
+                    onEditContent={onEdit}
+                />
+            </div>
+        )}
 
         <StockInventoryModal 
           isOpen={isInventoryModalOpen}

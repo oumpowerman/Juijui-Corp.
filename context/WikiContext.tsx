@@ -43,6 +43,21 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastEditor: a.lastEditor ? { name: a.lastEditor.full_name, avatarUrl: a.lastEditor.avatar_url } : undefined,
     }), []);
 
+    const updateSystemVersion = async () => {
+        try {
+            const now = new Date().toISOString();
+            const { error } = await supabase
+                .from('system_metadata')
+                .upsert({ key: 'wiki_version', last_updated_at: now }, { onConflict: 'key' });
+            
+            if (error) throw error;
+            return now;
+        } catch (e) {
+            console.error('Failed to update wiki system version:', e);
+            return null;
+        }
+    };
+
     const fetchArticles = useCallback(async () => {
         try {
             // 1. Check LocalStorage Cache
@@ -50,11 +65,28 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const cachedVersion = localStorage.getItem(CACHE_KEY_WIKI_VERSION);
 
             // 2. Fetch Current Version from system_metadata
-            const { data: versionData, error: versionError } = await supabase
+            let { data: versionData, error: versionError } = await supabase
                 .from('system_metadata')
                 .select('last_updated_at')
                 .eq('key', 'wiki_version')
                 .single();
+
+            // 2.1 Heal missing version if necessary
+            if (!versionError && !versionData) {
+                console.log('🔧 Wiki: Initializing missing wiki_version metadata...');
+                const newVer = await updateSystemVersion();
+                if (newVer) {
+                    versionData = { last_updated_at: newVer };
+                }
+            } else if (versionError && versionError.code === 'PGRST116') {
+                // Key not found
+                console.log('🔧 Wiki: Creating wiki_version metadata...');
+                const newVer = await updateSystemVersion();
+                if (newVer) {
+                    versionData = { last_updated_at: newVer };
+                    versionError = null;
+                }
+            }
 
             const currentVersion = versionData?.last_updated_at;
 
@@ -139,15 +171,9 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setArticles(rawArticles.map(mapArticle));
 
             if (!skipVersionUpdate) {
-                // Update local version to match remote after mutation
-                const { data: versionData } = await supabase
-                    .from('system_metadata')
-                    .select('last_updated_at')
-                    .eq('key', 'wiki_version')
-                    .single();
-                    
-                if (versionData) {
-                    localStorage.setItem(CACHE_KEY_WIKI_VERSION, versionData.last_updated_at);
+                const newVersion = await updateSystemVersion();
+                if (newVersion) {
+                    localStorage.setItem(CACHE_KEY_WIKI_VERSION, newVersion);
                 }
             }
         } catch (e) {

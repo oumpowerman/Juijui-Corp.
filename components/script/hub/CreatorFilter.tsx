@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { User, Channel } from '../../../types';
-import { Trash2, User as UserIcon, Plus } from 'lucide-react';
+import { Trash2, User as UserIcon, Plus, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import InactiveCreatorModal from './InactiveCreatorModal';
 
 interface CreatorFilterProps {
     users: User[];
@@ -21,10 +22,11 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isInactiveModalOpen, setIsInactiveModalOpen] = useState(false);
     
     const activeUsers = users.filter(u => u.isActive);
     const unselectedUsers = activeUsers.filter(u => !selectedIds.includes(u.id));
-    const selectedUsers = activeUsers.filter(u => selectedIds.includes(u.id));
+    const selectedUsers = users.filter(u => selectedIds.includes(u.id));
 
     // Logic for +N
     const LIMIT = 6;
@@ -140,8 +142,29 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                             +{hiddenCount}
                         </motion.button>
                     )}
+
+                    {/* Advanced Search Button */}
+                    <motion.button
+                        layout
+                        onClick={() => setIsInactiveModalOpen(true)}
+                        className={`
+                            w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all z-20 shrink-0 ml-2
+                            ${isInactiveModalOpen ? 'bg-slate-800 text-white' : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}
+                        `}
+                        title="ค้นหาอดีตทีมงาน (Advanced Search)"
+                    >
+                        <History className="w-5 h-5" />
+                    </motion.button>
                 </motion.div>
             </div>
+
+            <InactiveCreatorModal 
+                isOpen={isInactiveModalOpen}
+                onClose={() => setIsInactiveModalOpen(false)}
+                users={users}
+                selectedIds={selectedIds}
+                onToggle={onToggle}
+            />
 
             {/* Divider Arrow */}
             <AnimatePresence>
@@ -183,7 +206,7 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                             layout: { duration: 0.4, type: "spring", bounce: 0.2 }
                         }}
                     >
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-indigo-400 shadow-xl selected-glow-indigo bg-white p-0.5">
+                        <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${user.isActive ? 'border-indigo-400' : 'border-slate-400'} shadow-xl selected-glow-indigo bg-white p-0.5 ${!user.isActive ? 'grayscale' : ''}`}>
                             <div className="w-full h-full rounded-full overflow-hidden relative">
                               {user.avatarUrl ? (
                                 <img 
@@ -193,7 +216,7 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-blue-600 text-white font-black text-lg">
+                                <div className={`w-full h-full flex items-center justify-center ${user.isActive ? 'bg-gradient-to-br from-indigo-500 to-blue-600' : 'bg-slate-400'} text-white font-black text-lg`}>
                                   {user.name.charAt(0).toUpperCase()}
                                 </div>
                               )}
@@ -203,8 +226,8 @@ const CreatorFilter: React.FC<CreatorFilterProps> = ({
                             </div>
                         </div>
                         {/* Label */}
-                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-indigo-600 uppercase tracking-tighter whitespace-nowrap">
-                            {user.name.split(' ')[0]}
+                        <div className={`absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-black ${user.isActive ? 'text-indigo-600' : 'text-slate-500'} uppercase tracking-tighter whitespace-nowrap`}>
+                            {user.name.split(' ')[0]} {!user.isActive && '(EX)'}
                         </div>
                     </motion.button>
                 ))}

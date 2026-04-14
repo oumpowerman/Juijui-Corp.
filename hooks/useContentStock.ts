@@ -82,6 +82,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         publishedLinks: data.published_links || {},
         shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
         shootLocation: data.shoot_location,
+        isInShootQueue: data.is_in_shoot_queue || false,
         
         reviews: Array.isArray(data.task_reviews) ? data.task_reviews.map((r: any) => ({
              id: r.id, taskId: r.content_id, round: r.round, scheduledAt: new Date(r.scheduled_at), 
@@ -387,5 +388,23 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         };
     }, [handleRealtimeUpdate, triggerCountRefresh]);
 
-    return { contents, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem };
+    const toggleShootQueue = async (id: string, currentStatus: boolean): Promise<boolean> => {
+        try {
+            const { error } = await supabase
+                .from('contents')
+                .update({ is_in_shoot_queue: !currentStatus })
+                .eq('id', id);
+            
+            if (error) throw error;
+            
+            // Optimistic update
+            setContents(prev => prev.map(item => item.id === id ? { ...item, isInShootQueue: !currentStatus } : item));
+            return true;
+        } catch (err) {
+            console.error('Toggle shoot queue failed:', err);
+            return false;
+        }
+    };
+
+    return { contents, totalCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue };
 };

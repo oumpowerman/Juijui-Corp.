@@ -126,6 +126,7 @@ export interface Task {
     // Production
     shootDate?: Date;
     shootLocation?: string;
+    isInShootQueue?: boolean;
 
     // Sub-tasks
     contentId?: string; 

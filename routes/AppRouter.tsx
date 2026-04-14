@@ -343,7 +343,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return (
                     <ScriptHubView 
                         currentUser={currentUserProfile}
-                        users={activeUsers}
+                        users={allUsers}
                     />
                 );
             case 'MEETINGS':

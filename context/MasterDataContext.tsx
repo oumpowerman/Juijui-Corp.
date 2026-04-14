@@ -129,6 +129,21 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         createdAt: i.created_at ? new Date(i.created_at) : undefined
     }), []);
 
+    const updateSystemVersion = async (key: 'master_options_version' | 'inventory_version') => {
+        try {
+            const now = new Date().toISOString();
+            const { error } = await supabase
+                .from('system_metadata')
+                .upsert({ key, last_updated_at: now }, { onConflict: 'key' });
+            
+            if (error) throw error;
+            return now;
+        } catch (e) {
+            console.error(`Failed to update system version for ${key}:`, e);
+            return null;
+        }
+    };
+
     const fetchOptions = useCallback(async () => {
         try {
             // 1. Check LocalStorage Cache for Options
@@ -140,10 +155,30 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const cachedInventoryVersion = localStorage.getItem(CACHE_KEY_INVENTORY_VERSION);
 
             // 3. Fetch Current Versions from system_metadata
-            const { data: versionsData, error: versionsError } = await supabase
+            let { data: versionsData, error: versionsError } = await supabase
                 .from('system_metadata')
                 .select('key, last_updated_at')
                 .in('key', ['master_options_version', 'inventory_version']);
+
+            // 3.1 Heal missing versions if necessary
+            if (!versionsError) {
+                const missingKeys = [];
+                if (!versionsData?.some(v => v.key === 'master_options_version')) missingKeys.push('master_options_version');
+                if (!versionsData?.some(v => v.key === 'inventory_version')) missingKeys.push('inventory_version');
+
+                if (missingKeys.length > 0) {
+                    console.log('🔧 Master Data: Initializing missing version metadata...', missingKeys);
+                    for (const key of missingKeys) {
+                        await updateSystemVersion(key as any);
+                    }
+                    // Re-fetch versions after healing
+                    const { data: healedData } = await supabase
+                        .from('system_metadata')
+                        .select('key, last_updated_at')
+                        .in('key', ['master_options_version', 'inventory_version']);
+                    versionsData = healedData;
+                }
+            }
 
             const currentOptionsVersion = versionsData?.find(v => v.key === 'master_options_version')?.last_updated_at;
             const currentInventoryVersion = versionsData?.find(v => v.key === 'inventory_version')?.last_updated_at;
@@ -287,14 +322,9 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             })));
 
             if (!skipVersionUpdate) {
-                const { data: versionData } = await supabase
-                    .from('system_metadata')
-                    .select('last_updated_at')
-                    .eq('key', 'master_options_version')
-                    .single();
-                    
-                if (versionData) {
-                    localStorage.setItem(CACHE_KEY_VERSION, versionData.last_updated_at);
+                const newVersion = await updateSystemVersion('master_options_version');
+                if (newVersion) {
+                    localStorage.setItem(CACHE_KEY_VERSION, newVersion);
                 }
             }
         } catch (e) {
@@ -341,14 +371,9 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setInventoryItems(rawInventory.map(mapInventoryItem));
 
             if (!skipVersionUpdate) {
-                const { data: versionData } = await supabase
-                    .from('system_metadata')
-                    .select('last_updated_at')
-                    .eq('key', 'inventory_version')
-                    .single();
-                    
-                if (versionData) {
-                    localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, versionData.last_updated_at);
+                const newVersion = await updateSystemVersion('inventory_version');
+                if (newVersion) {
+                    localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, newVersion);
                 }
             }
         } catch (e) {

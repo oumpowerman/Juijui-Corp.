@@ -124,9 +124,14 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUs
                                 </div>
                                 
                                 {isImage ? (
-                                    <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm cursor-pointer" onClick={() => window.open(comment.content, '_blank')}>
+                                    <a 
+                                        href={comment.content} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm block"
+                                    >
                                         <img src={comment.content} alt="Attachment" className="max-w-[200px] max-h-[200px] object-cover" />
-                                    </div>
+                                    </a>
                                 ) : isLink ? (
                                     <div className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm break-words ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'}`}>
                                         <a href={comment.content} target="_blank" rel="noreferrer" className="underline flex items-center gap-1">

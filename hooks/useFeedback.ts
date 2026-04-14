@@ -50,6 +50,7 @@ export const useFeedback = (currentUser: User) => {
                         commentCount: comments.length,
                         repostCount: reposts.length,
                         hasReposted: hasReposted,
+                        targetUserId: item.target_user_id,
                         creatorName: !item.is_anonymous && item.profiles ? item.profiles.full_name : undefined,
                         creatorAvatar: !item.is_anonymous && item.profiles ? item.profiles.avatar_url : undefined
                     };
@@ -75,13 +76,14 @@ export const useFeedback = (currentUser: User) => {
         return () => { supabase.removeChannel(channel); };
     }, []);
 
-    const submitFeedback = async (content: string, type: FeedbackType, isAnonymous: boolean) => {
+    const submitFeedback = async (content: string, type: FeedbackType, isAnonymous: boolean, targetUserId?: string) => {
         try {
             const payload = {
                 content,
                 type,
                 is_anonymous: isAnonymous,
                 user_id: currentUser.id,
+                target_user_id: targetUserId,
                 status: 'PENDING',
                 vote_count: 0
             };

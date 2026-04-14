@@ -90,7 +90,7 @@ function App() {
   }
 
   if (!session) {
-    return <AuthPage onLoginSuccess={() => window.location.reload()} />;
+    return <AuthPage onLoginSuccess={() => {}} />;
   }
 
   return (

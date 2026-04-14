@@ -4,6 +4,7 @@ import { useUserSession } from '../context/UserSessionContext';
 export const useTeam = () => {
     const {
         allUsers,
+        activeUsers,
         fetchTeamMembers,
         approveMember,
         removeMember,
@@ -15,6 +16,7 @@ export const useTeam = () => {
 
     return {
         allUsers,
+        activeUsers,
         fetchTeamMembers,
         approveMember,
         removeMember,

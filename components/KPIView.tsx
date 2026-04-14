@@ -1,22 +1,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, KPIStats } from '../types';
+import { supabase } from '../lib/supabase';
 import { useKPI } from '../hooks/useKPI';
 import { useGamification } from '../hooks/useGamification'; 
 import { format, addMonths } from 'date-fns';
-import { User as UserIcon, Printer, Coins, Lock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import MentorTip from './MentorTip';
 import KPIConfigModal from './kpi/KPIConfigModal';
-import DisciplineScore from './kpi/DisciplineScore';
 import KPIHeader from './kpi/KPIHeader';
-import KPISummaryCard from './kpi/KPISummaryCard';
-import OKRSection from './kpi/sections/OKRSection';
-import BehaviorSection from './kpi/sections/BehaviorSection';
-import KPIHistoryChart from './kpi/analytics/KPIHistoryChart';
-import KPIRadarChart from './kpi/analytics/KPIRadarChart';
-import IDPSection from './kpi/sections/IDPSection';
-import PeerReviewSection from './kpi/sections/PeerReviewSection';
 import KPIExportSlip from './kpi/KPIExportSlip';
+import KPISidebar from './kpi/KPISidebar';
+import KPITabNavigation from './kpi/KPITabNavigation';
+import OverviewTab from './kpi/tabs/OverviewTab';
+import EvaluationTab from './kpi/tabs/EvaluationTab';
+import GrowthTab from './kpi/tabs/GrowthTab';
 
 // Import Logic
 import { calculateKPIGrade, calculateKPIBonus } from '../lib/kpiLogic';
@@ -31,8 +29,8 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
         kpiRecords, criteria, goals, config, idpItems, peerReviews,
         saveEvaluation, saveSelfEvaluation, 
         addGoal, updateGoalActual, deleteGoal, updateConfig, fetchUserStats,
-        addIDPItem, updateIDPStatus, deleteIDPItem,
-        sendKudos 
+        addIDPItem, updateIDPStatus, toggleIDPSubGoal, reorderIDPItems, deleteIDPItem,
+        sendKudos, remainingKudos 
     } = useKPI();
 
     const { processAction } = useGamification(currentUser);
@@ -42,6 +40,7 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
     const [selectedUserId, setSelectedUserId] = useState<string>(currentUser.role === 'ADMIN' && users.length > 0 ? users[0].id : currentUser.id);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false); 
+    const [activeTab, setActiveTab] = useState<'overview' | 'evaluation' | 'growth'>('overview');
     
     // Evaluation Form State (Manager Side)
     const [scores, setScores] = useState<Record<string, number>>({});
@@ -50,23 +49,64 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
     // Self Evaluation Form State (Member Side)
     const [selfScores, setSelfScores] = useState<Record<string, number>>({});
     const [selfFeedback, setSelfFeedback] = useState('');
+    const [selfReflectionPride, setSelfReflectionPride] = useState('');
+    const [selfReflectionImprovement, setSelfReflectionImprovement] = useState('');
+    
+    // Public Praise Bridge State
+    const [publicPraiseCount, setPublicPraiseCount] = useState(0);
+
+    useEffect(() => {
+        const fetchPublicPraiseCount = async () => {
+            // Get start and end of the selected month
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const startDate = new Date(year, month - 1, 1).toISOString();
+            const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
+
+            const { count, error } = await supabase
+                .from('feedbacks')
+                .select('*', { count: 'exact', head: true })
+                .eq('target_user_id', selectedUserId)
+                .eq('type', 'SHOUTOUT')
+                .eq('status', 'APPROVED')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate);
+
+            if (!error) {
+                setPublicPraiseCount(count || 0);
+            }
+        };
+
+        fetchPublicPraiseCount();
+    }, [selectedUserId, selectedMonth]);
 
     // Live Stats
     const [liveStats, setLiveStats] = useState<KPIStats>({ taskCompleted: 0, taskOverdue: 0, attendanceLate: 0, attendanceAbsent: 0, dutyAssigned: 0, dutyMissed: 0 });
+    const [isStatsLoading, setIsStatsLoading] = useState(false);
 
     const activeUsers = users.filter(u => u.isActive);
     const isAdmin = currentUser.role === 'ADMIN';
 
-    // Ensure Member can only see their own
+    // Ensure Member defaults to self, but can select others
     useEffect(() => {
-        if (!isAdmin) setSelectedUserId(currentUser.id);
-    }, [isAdmin, currentUser.id]);
+        if (!selectedUserId) setSelectedUserId(currentUser.id);
+    }, [currentUser.id]);
+
+    const isViewingSelf = selectedUserId === currentUser.id;
+    const canSeePrivate = isAdmin || isViewingSelf;
+
+    useEffect(() => {
+        if (!canSeePrivate && activeTab !== 'growth') {
+            setActiveTab('growth');
+        }
+    }, [canSeePrivate, activeTab]);
 
     const currentRecord = useMemo(() => kpiRecords.find(r => r.userId === selectedUserId && r.monthKey === selectedMonth), [kpiRecords, selectedUserId, selectedMonth]);
     const userHistory = useMemo(() => kpiRecords.filter(r => r.userId === selectedUserId), [kpiRecords, selectedUserId]);
     
     const currentGoals = useMemo(() => goals.filter(g => g.userId === selectedUserId && g.monthKey === selectedMonth), [goals, selectedUserId, selectedMonth]);
-    const currentIDP = useMemo(() => idpItems.filter(i => i.userId === selectedUserId && i.monthKey === selectedMonth), [idpItems, selectedUserId, selectedMonth]);
+    const currentIDP = useMemo(() => idpItems.filter(i => 
+        i.userId === selectedUserId && (i.status === 'TODO' || i.monthKey === selectedMonth)
+    ), [idpItems, selectedUserId, selectedMonth]);
     
     const currentReviews = useMemo(() => peerReviews.filter(r => r.toUserId === selectedUserId && r.monthKey === selectedMonth), [peerReviews, selectedUserId, selectedMonth]);
 
@@ -86,22 +126,31 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
             setFeedback(currentRecord.managerFeedback || '');
             setSelfScores(currentRecord.selfScores || defaultScores);
             setSelfFeedback(currentRecord.selfFeedback || '');
+            setSelfReflectionPride(currentRecord.selfReflectionPride || '');
+            setSelfReflectionImprovement(currentRecord.selfReflectionImprovement || '');
         } else {
             setScores(defaultScores);
             setFeedback('');
             setSelfScores(defaultScores);
             setSelfFeedback('');
+            setSelfReflectionPride('');
+            setSelfReflectionImprovement('');
         }
     }, [currentRecord, criteria, selectedUserId, selectedMonth]);
 
     // Load Live Stats
     useEffect(() => {
         const loadStats = async () => {
-            if (currentRecord?.statsSnapshot) {
-                setLiveStats(currentRecord.statsSnapshot);
-            } else {
-                const stats = await fetchUserStats(selectedUserId, new Date(selectedMonth));
-                setLiveStats(stats);
+            setIsStatsLoading(true);
+            try {
+                if (currentRecord?.statsSnapshot) {
+                    setLiveStats(currentRecord.statsSnapshot);
+                } else {
+                    const stats = await fetchUserStats(selectedUserId, new Date(selectedMonth));
+                    setLiveStats(stats);
+                }
+            } finally {
+                setIsStatsLoading(false);
             }
         };
         loadStats();
@@ -137,8 +186,8 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
     };
 
     // Member Save
-    const handleSelfSave = () => {
-        saveSelfEvaluation(selectedUserId, selectedMonth, selfScores, selfFeedback);
+    const handleSelfSave = (pride: string, improvement: string) => {
+        saveSelfEvaluation(selectedUserId, selectedMonth, selfScores, selfFeedback, pride, improvement);
     };
 
     if (!selectedUser) return <div>Loading...</div>;
@@ -159,134 +208,100 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
                 isAdmin={isAdmin}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Sidebar User List (Admin Only) */}
+            <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-6`}>
+                {/* Sidebar User List - Only for Admin */}
                 {isAdmin && (
-                    <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden h-fit">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50 font-bold text-gray-600 flex items-center">
-                            <UserIcon className="w-4 h-4 mr-2" /> รายชื่อทีม
-                        </div>
-                        <div className="max-h-[600px] overflow-y-auto">
-                            {activeUsers.map(u => (
-                                <button key={u.id} onClick={() => setSelectedUserId(u.id)} className={`w-full p-3 flex items-center gap-3 text-left border-l-4 transition-all ${u.id === selectedUserId ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                                    <img src={u.avatarUrl} className="w-8 h-8 rounded-full object-cover" />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold truncate">{u.name}</p>
-                                        <p className="text-[10px] text-gray-400">{u.position}</p>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <KPISidebar 
+                        users={users}
+                        selectedUserId={selectedUserId}
+                        onSelectUser={setSelectedUserId}
+                    />
                 )}
 
                 {/* Main Content */}
-                <div className={`${isAdmin ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-6`}>
+                <div className={`${isAdmin ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-8 ${isStatsLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'} transition-opacity duration-300`}>
                     
-                    {/* 1. Summary Card */}
-                    <div className="relative">
-                        <KPISummaryCard 
-                            user={selectedUser}
-                            record={currentRecord}
-                            gradeData={{
-                                final: gradeData.finalScore,
-                                breakdown: gradeData.breakdown
-                            }}
-                            config={config}
-                        />
-                        {/* Export Button */}
-                        {currentRecord && (
-                            <button 
-                                onClick={() => setIsExportOpen(true)}
-                                className="absolute top-6 right-6 p-2 bg-white text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl shadow-sm border border-gray-100 transition-all"
-                                title="พิมพ์ใบสรุปผล (Print Slip)"
-                            >
-                                <Printer className="w-5 h-5" />
-                            </button>
-                        )}
-                    </div>
-                    
-                    {/* Gamification Preview Badge */}
-                    <div className={`p-4 rounded-2xl border flex items-center justify-between ${isPaid ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-transparent shadow-lg' : 'bg-gray-50 border-gray-200 text-gray-500 opacity-80'}`}>
-                         <div className="flex items-center gap-3">
-                             <div className="p-2 bg-white/20 rounded-full backdrop-blur-md">
-                                 {isPaid ? <Coins className="w-6 h-6 text-white animate-bounce" /> : <Lock className="w-6 h-6" />}
-                             </div>
-                             <div>
-                                 <h4 className="font-bold text-sm">{isPaid ? 'รางวัลถูกส่งเข้ากระเป๋าแล้ว!' : 'Bonus Locked (รออนุมัติ)'}</h4>
-                                 <p className="text-xs opacity-90">Grade {gradeData.grade} Reward: {calculateKPIBonus(gradeData.grade)} JP</p>
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* 2. Analytics Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-64">
-                         <KPIHistoryChart history={userHistory} />
-                         <KPIRadarChart breakdown={gradeData.breakdown} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* 3. Discipline Score */}
-                        <DisciplineScore stats={liveStats} config={config} />
-
-                         {/* 4. OKR Goals Section */}
-                        <OKRSection 
-                            goals={currentGoals}
-                            isAdmin={isAdmin}
-                            onAddGoal={(t, v, u) => addGoal(selectedUserId, selectedMonth, t, v, u)}
-                            onUpdateActual={updateGoalActual}
-                            onDeleteGoal={deleteGoal}
-                        />
-                    </div>
-                    
-                    {/* 5. IDP Section */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[300px]">
-                        <IDPSection 
-                            items={currentIDP}
-                            userId={selectedUserId}
-                            monthKey={selectedMonth}
-                            onAdd={addIDPItem}
-                            onToggle={updateIDPStatus}
-                            onDelete={deleteIDPItem}
-                            readOnly={false} 
-                        />
-                        
-                        {/* 6. Peer Review Section */}
-                        <PeerReviewSection 
-                            reviews={currentReviews}
-                            users={users}
-                            currentUser={currentUser}
-                            targetUserId={selectedUserId}
-                            monthKey={selectedMonth}
-                            onSendKudos={(to, msg, badge) => sendKudos(currentUser.id, to, selectedMonth, msg, badge)}
-                            readOnly={selectedUserId === currentUser.id} 
-                        />
-                    </div>
-
-                    {/* 7. Behavioral Assessment */}
-                    <BehaviorSection 
-                        criteria={criteria}
-                        // Manager Props
-                        scores={scores}
-                        onScoreChange={(key, val) => setScores(prev => ({ ...prev, [key]: val }))}
-                        feedback={feedback}
-                        onFeedbackChange={setFeedback}
-                        // Self Props
-                        selfScores={selfScores}
-                        onSelfScoreChange={(key, val) => setSelfScores(prev => ({ ...prev, [key]: val }))}
-                        selfFeedback={selfFeedback}
-                        onSelfFeedbackChange={setSelfFeedback}
-                        // Mode Config
-                        isAdmin={isAdmin}
-                        isSelfEval={isSelfEvalMode}
-                        // Actions
-                        onSave={handleManagerSave}
-                        onSaveSelf={handleSelfSave}
-                        // Status
-                        currentStatus={currentRecord?.status || 'DRAFT'}
-                        finalScore={gradeData.finalScore}
-                        canPay={gradeData.finalScore >= 80}
+                    {/* Tab Navigation */}
+                    <KPITabNavigation 
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        canSeePrivate={canSeePrivate}
                     />
+
+                    <motion.div 
+                        key={activeTab}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="space-y-6"
+                    >
+                        {activeTab === 'overview' && (
+                            <OverviewTab 
+                                selectedUser={selectedUser}
+                                currentRecord={currentRecord}
+                                gradeData={gradeData}
+                                config={config}
+                                userHistory={userHistory}
+                                liveStats={liveStats}
+                                selectedMonth={selectedMonth}
+                                onExport={() => setIsExportOpen(true)}
+                            />
+                        )}
+
+                        {activeTab === 'evaluation' && (
+                            <EvaluationTab 
+                                selectedUserId={selectedUserId}
+                                selectedMonth={selectedMonth}
+                                currentGoals={currentGoals}
+                                criteria={criteria}
+                                scores={scores}
+                                setScores={setScores}
+                                feedback={feedback}
+                                setFeedback={setFeedback}
+                                selfScores={selfScores}
+                                setSelfScores={setSelfScores}
+                                selfFeedback={selfFeedback}
+                                setSelfFeedback={setSelfFeedback}
+                                selfReflectionPride={selfReflectionPride}
+                                setSelfReflectionPride={setSelfReflectionPride}
+                                selfReflectionImprovement={selfReflectionImprovement}
+                                setSelfReflectionImprovement={setSelfReflectionImprovement}
+                                isAdmin={isAdmin}
+                                isSelfEvalMode={isSelfEvalMode}
+                                onManagerSave={handleManagerSave}
+                                onSelfSave={handleSelfSave}
+                                currentRecord={currentRecord}
+                                finalScore={gradeData.finalScore}
+                                addGoal={addGoal}
+                                updateGoalActual={updateGoalActual}
+                                deleteGoal={deleteGoal}
+                            />
+                        )}
+                        
+                        {activeTab === 'growth' && (
+                            <GrowthTab 
+                                isAdmin={isAdmin}
+                                isSelfEvalMode={isSelfEvalMode}
+                                isViewingSelf={isViewingSelf}
+                                currentUser={currentUser}
+                                selectedUser={selectedUser}
+                                selectedUserId={selectedUserId}
+                                selectedMonth={selectedMonth}
+                                currentIDP={currentIDP}
+                                currentReviews={currentReviews}
+                                peerReviews={peerReviews}
+                                users={users}
+                                publicPraiseCount={publicPraiseCount}
+                                addIDPItem={addIDPItem}
+                                updateIDPStatus={updateIDPStatus}
+                                toggleIDPSubGoal={toggleIDPSubGoal}
+                                reorderIDPItems={reorderIDPItems}
+                                deleteIDPItem={deleteIDPItem}
+                                sendKudos={(to, msg, badge) => sendKudos(currentUser.id, to, selectedMonth, msg, badge)}
+                                remainingKudos={remainingKudos}
+                            />
+                        )}
+                    </motion.div>
                 </div>
             </div>
 

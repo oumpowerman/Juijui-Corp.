@@ -40,9 +40,9 @@ const KPIExportSlip: React.FC<KPIExportSlipProps> = ({ user, record, grade, bonu
                 
                 {/* Header */}
                 <div className="text-center border-b-2 border-gray-800 pb-6 mb-6">
-                    <h1 className="text-2xl font-black text-gray-900 uppercase tracking-widest">Performance Review Slip</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 uppercase tracking-widest">Performance Review Slip</h1>
                     <p className="text-gray-500 font-bold mt-1">Juijui Planner Co., Ltd.</p>
-                    <p className="text-sm text-gray-400 mt-2">Period: {month}</p>
+                    <p className="text-sm text-gray-400 mt-2">Period: {format(new Date(month), 'MMMM yyyy', { locale: th })}</p>
                 </div>
 
                 {/* Info Grid */}
@@ -54,7 +54,7 @@ const KPIExportSlip: React.FC<KPIExportSlipProps> = ({ user, record, grade, bonu
                     </div>
                     <div className="text-right">
                          <p className="text-xs text-gray-400 font-bold uppercase mb-1">Total Score</p>
-                        <h2 className="text-4xl font-black text-indigo-600">{record.totalScore} <span className="text-lg text-gray-400">/ 100</span></h2>
+                        <h2 className="text-4xl font-bold text-indigo-600">{record.totalScore} <span className="text-lg text-gray-400">/ 100</span></h2>
                         <div className="inline-block bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded mt-1">Grade {grade}</div>
                     </div>
                 </div>
@@ -63,7 +63,7 @@ const KPIExportSlip: React.FC<KPIExportSlipProps> = ({ user, record, grade, bonu
                 <div className="mb-8">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="border-b-2 border-gray-100 text-left text-xs text-gray-400 uppercase font-black">
+                            <tr className="border-b-2 border-gray-100 text-left text-xs text-gray-400 uppercase font-bold">
                                 <th className="py-2">Category</th>
                                 <th className="py-2 text-right">Weight</th>
                                 <th className="py-2 text-right">Score</th>
@@ -119,7 +119,7 @@ const KPIExportSlip: React.FC<KPIExportSlipProps> = ({ user, record, grade, bonu
                         <p className="text-xs text-green-600">Gamification Bonus</p>
                     </div>
                     <div className="text-right">
-                         <span className="text-2xl font-black text-green-700">+{bonus.toLocaleString()}</span>
+                         <span className="text-2xl font-bold text-green-700">+{bonus.toLocaleString()}</span>
                          <span className="text-xs font-bold text-green-600 block uppercase">Coins / JP</span>
                     </div>
                 </div>

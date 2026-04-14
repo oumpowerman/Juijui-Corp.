@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface FeedbackCardProps {
     item: FeedbackItem;
     currentUser: User;
+    users?: User[];
     onVote: (id: string, current: boolean) => void;
     onUpdateStatus: (id: string, status: any) => void;
     onDelete: (id: string) => void;
@@ -20,7 +21,7 @@ interface FeedbackCardProps {
 }
 
 const FeedbackCard: React.FC<FeedbackCardProps> = ({ 
-    item, currentUser, onVote, onUpdateStatus, onDelete, 
+    item, currentUser, users = [], onVote, onUpdateStatus, onDelete, 
     onFetchComments, onSubmitComment, onToggleRepost 
 }) => {
     const { showConfirm } = useGlobalDialog();
@@ -31,6 +32,8 @@ const FeedbackCard: React.FC<FeedbackCardProps> = ({
     const [isLoadingComments, setIsLoadingComments] = useState(false);
 
     const isAdmin = currentUser.role === 'ADMIN';
+
+    const targetUser = item.targetUserId ? users.find(u => u.id === item.targetUserId) : null;
 
     useEffect(() => {
         if (isCommentsOpen) {
@@ -179,6 +182,12 @@ const FeedbackCard: React.FC<FeedbackCardProps> = ({
                     </div>
 
                     <p className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap font-medium mb-6">
+                        {item.type === 'SHOUTOUT' && targetUser && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-pink-50 text-pink-600 rounded-lg text-xs font-black mr-2 align-middle border border-pink-100">
+                                <Heart className="w-3 h-3 fill-pink-600" />
+                                ถึง: {targetUser.name}
+                            </span>
+                        )}
                         {item.content}
                     </p>
 

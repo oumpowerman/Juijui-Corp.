@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { ChevronLeft, ChevronRight, Settings, Award } from 'lucide-react';
+import { format } from 'date-fns';
+import th from 'date-fns/locale/th';
 
 interface KPIHeaderProps {
     monthLabel: string;
@@ -33,7 +35,9 @@ const KPIHeader: React.FC<KPIHeaderProps> = ({ monthLabel, onPrevMonth, onNextMo
                 )}
                 <div className="flex items-center bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
                     <button onClick={onPrevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                    <div className="px-4 text-center min-w-[140px] font-black text-indigo-600 text-lg">{monthLabel}</div>
+                    <div className="px-4 text-center min-w-[160px] font-bold text-indigo-600 text-lg">
+                        {format(new Date(monthLabel), 'MMMM yyyy', { locale: th })}
+                    </div>
                     <button onClick={onNextMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
                 </div>
             </div>

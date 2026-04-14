@@ -17,7 +17,7 @@ const KPIRadarChart: React.FC<KPIRadarChartProps> = ({ breakdown }) => {
 
     return (
         <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm h-full flex flex-col">
-            <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
+            <h4 className="text-md font-bold text-gray-700 mb-2 flex items-center">
                 <RadarIcon className="w-4 h-4 mr-2 text-pink-500" /> 
                 สมดุลทักษะ (Skill Balance)
             </h4>
@@ -28,7 +28,7 @@ const KPIRadarChart: React.FC<KPIRadarChartProps> = ({ breakdown }) => {
                         <PolarGrid stroke="#e2e8f0" />
                         <PolarAngleAxis 
                             dataKey="subject" 
-                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} 
+                            tick={{ fill: '#64748b', fontSize: 14, fontWeight: 'bold' }} 
                         />
                         <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                         <Radar

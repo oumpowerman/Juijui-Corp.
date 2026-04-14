@@ -34,6 +34,15 @@ export interface KPIStats {
     dutyMissed: number; // Abandoned or Penalized
 }
 
+export interface DisciplineAuditLog {
+    id: string;
+    type: 'LATE' | 'ABSENT' | 'TASK_OVERDUE' | 'MISSED_DUTY';
+    date: Date;
+    title: string;
+    detail?: string;
+    penalty?: number;
+}
+
 export interface KPIRecord {
     id: string;
     userId: string;
@@ -44,6 +53,8 @@ export interface KPIRecord {
     feedback: string; // Legacy
     managerFeedback?: string;
     selfFeedback?: string;
+    selfReflectionPride?: string;
+    selfReflectionImprovement?: string;
     developmentPlan?: string;
     status: 'DRAFT' | 'WAITING_SELF' | 'FINAL' | 'PAID';
     totalScore: number;
@@ -58,6 +69,12 @@ export interface KPIRecord {
 }
 
 // --- IDP ---
+export interface IDPSubGoal {
+    id: string;
+    title: string;
+    isDone: boolean;
+}
+
 export interface IDPItem {
     id: string;
     userId: string;
@@ -65,6 +82,11 @@ export interface IDPItem {
     topic: string;
     actionPlan: string;
     status: 'TODO' | 'DONE';
+    progress: number;
+    category?: string;
+    targetDate?: Date;
+    orderIndex?: number;
+    subGoals?: IDPSubGoal[];
 }
 
 // --- PEER REVIEW ---
@@ -266,6 +288,7 @@ export interface FeedbackItem {
     commentCount: number;
     repostCount: number;
     hasReposted: boolean;
+    targetUserId?: string;
 }
 
 // --- DUTY ---

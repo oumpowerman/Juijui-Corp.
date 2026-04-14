@@ -1,7 +1,7 @@
 
 import { KPIConfig, KPIStats, MasterOption, IndividualGoal } from '../types';
 
-interface GradeResult {
+export interface GradeResult {
     finalScore: number;
     grade: string;
     breakdown: {
@@ -38,11 +38,12 @@ export const calculateKPIGrade = (
         : 0;
 
     // 3. Discipline Score (คะแนนวินัย - หักคะแนน)
-    // สูตร: 100 - (Late% + MissedDuty% + Absent%)
+    // สูตร: 100 - (Late% + MissedDuty% + Absent% + TaskLate%)
     const penaltyLate = stats.attendanceLate * config.penaltyLate;
     const penaltyDuty = stats.dutyMissed * config.penaltyMissedDuty;
     const penaltyAbsent = stats.attendanceAbsent * config.penaltyAbsent;
-    const disciplinePercent = Math.max(0, 100 - (penaltyLate + penaltyDuty + penaltyAbsent));
+    const penaltyTaskLate = stats.taskOverdue * 5; // หักครั้งละ 5% สำหรับงานเลท
+    const disciplinePercent = Math.max(0, 100 - (penaltyLate + penaltyDuty + penaltyAbsent + penaltyTaskLate));
 
     // 4. Weighted Sum (คะแนนรวมถ่วงน้ำหนัก)
     const wOkr = config.weightOkr / 100;

@@ -20,6 +20,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   
   // Registration specific fields
   const [position, setPosition] = useState(''); 
+  const [employmentType, setEmploymentType] = useState('');
   const [phone, setPhone] = useState('');
   const [reason, setReason] = useState('');
   
@@ -142,7 +143,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
             if (!avatarFile) {
                 throw new Error('กรุณาอัปโหลดรูปโปรไฟล์ด้วยนะครับ 📸');
             }
-            if (!name.trim() || !position.trim() || !phone.trim()) {
+            if (!name.trim() || !position.trim() || !phone.trim() || !employmentType) {
                 throw new Error('กรุณากรอกข้อมูลให้ครบทุกช่องที่มีเครื่องหมาย * นะครับ');
             }
 
@@ -187,6 +188,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     full_name: name,
                     avatar_url: publicUrl,
                     position: position, 
+                    employment_type: employmentType,
+                    start_date: new Date().toISOString(),
                     phone_number: phone,
                     bio: reason, // ADDED: Save reason to bio field
                     role: 'MEMBER',
@@ -365,13 +368,33 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                                                     {p.label}
                                                 </option>))) : (
                                             <>
-                                                <option value="Editor">EDITOR</option>
-                                                <option value="Creative">CREATIVE</option>
+                                                <option value="Editor">Editor</option>
+                                                <option value="Creative">Creative</option>
                                             </>
                                         )}
 
                                     </select>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!isLogin && (
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ประเภทพนักงาน *</label>
+                            <div className="relative group">
+                                <User className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
+                                <select 
+                                    value={employmentType} 
+                                    onChange={(e) => setEmploymentType(e.target.value)} 
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm appearance-none cursor-pointer"
+                                    required={!isLogin}
+                                >
+                                    <option value="">โปรดเลือกรายการในนี้...</option>
+                                    <option value="FULL_TIME">พนักงานประจำ (Full-time)</option>
+                                    <option value="INTERN">นักศึกษาฝึกงาน (Intern)</option>
+                                    <option value="PROBATION">ทดลองงาน (Probation)</option>
+                                </select>
                             </div>
                         </div>
                     )}

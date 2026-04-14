@@ -30,7 +30,7 @@ export const useTaskManager = (
   } = useUI();
 
   // 3. Team Hook
-  const { allUsers, fetchTeamMembers, approveMember, removeMember, toggleUserStatus, updateMember, adjustStatsLocally, setAllUsers } = useTeam();
+  const { allUsers, activeUsers, fetchTeamMembers, approveMember, removeMember, toggleUserStatus, updateMember, adjustStatsLocally, setAllUsers } = useTeam();
 
   // 4. Channels Hook
   const { channels, fetchChannels, handleAddChannel, handleUpdateChannel, handleDeleteChannel } = useChannels();
@@ -62,10 +62,7 @@ export const useTaskManager = (
       
       if (profile && profile.isApproved) {
          await Promise.all([
-             fetchTasks(), // Use default range
              fetchChannels(), 
-             fetchTeamMembers(),
-             fetchQuests(),
              fetchMasterOptions() 
          ]);
       }
@@ -89,11 +86,17 @@ export const useTaskManager = (
     [allUsers, currentUserProfile]
   );
 
+  const mergedActiveUsers = useMemo(() => 
+    activeUsers.map(u => u.id === currentUserProfile?.id ? { ...u, ...currentUserProfile } : u),
+    [activeUsers, currentUserProfile]
+  );
+
   return {
     isLoading: isLoading || (tasks.length === 0 && isFetching), // Show load on initial empty
     isTaskFetching: isFetching, // Expose fetch state
     currentUserProfile,
     allUsers: mergedUsers,
+    activeUsers: mergedActiveUsers,
     tasks,
     channels,
     masterOptions,

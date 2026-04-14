@@ -10,6 +10,7 @@ interface UserSessionContextType {
     isReady: boolean;
     currentUserProfile: User | null;
     allUsers: User[];
+    activeUsers: User[];
     attendanceLogs: any[];
     leaveRequests: any[];
     
@@ -110,6 +111,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
     const [isReady, setIsReady] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [activeUsers, setActiveUsers] = useState<User[]>([]);
     const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     
@@ -125,17 +127,38 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
             const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
 
-            // 1. Fetch profiles first to determine role
-            const { data: profilesData, error: profilesError } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('full_name', { ascending: true });
+            // 1. Hybrid Fetching Strategy:
+            // - Fetch minimal data for EVERYONE (to support history/lookup)
+            // - Fetch full data for ACTIVE users
+            // - Fetch full data for CURRENT user
+            
+            const [minProfilesRes, activeProfilesRes, currentProfileRes] = await Promise.all([
+                supabase.from('profiles').select('id, full_name, avatar_url, is_active, role, position').order('full_name', { ascending: true }),
+                supabase.from('profiles').select('*').eq('is_active', true),
+                supabase.from('profiles').select('*').eq('id', sessionUser.id).single()
+            ]);
 
-            if (profilesError) throw profilesError;
+            if (minProfilesRes.error) throw minProfilesRes.error;
+            if (activeProfilesRes.error) throw activeProfilesRes.error;
+            if (currentProfileRes.error) throw currentProfileRes.error;
 
-            if (profilesData) {
-                const mappedUsers = profilesData.map(mapProfileToUser);
+            const minimalData = minProfilesRes.data || [];
+            const activeData = activeProfilesRes.data || [];
+            const currentData = currentProfileRes.data;
+
+            if (minimalData) {
+                // Merge data: Active full data overwrites minimal data
+                const userMap = new Map<string, any>();
+                
+                minimalData.forEach(p => userMap.set(p.id, p));
+                activeData.forEach(p => userMap.set(p.id, p));
+                if (currentData) userMap.set(currentData.id, currentData);
+
+                const mergedData = Array.from(userMap.values());
+                const mappedUsers = mergedData.map(mapProfileToUser);
+                
                 setAllUsers(mappedUsers);
+                setActiveUsers(mappedUsers.filter(u => u.isActive));
                 
                 const current = mappedUsers.find(u => u.id === sessionUser.id);
                 if (current) {
@@ -431,6 +454,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         isReady,
         currentUserProfile,
         allUsers,
+        activeUsers,
         attendanceLogs,
         leaveRequests,
         fetchProfile,

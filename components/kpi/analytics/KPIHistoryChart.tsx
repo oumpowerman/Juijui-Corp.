@@ -24,8 +24,8 @@ const KPIHistoryChart: React.FC<KPIHistoryChartProps> = ({ history }) => {
         return (
             <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-2xl border border-gray-100 border-dashed">
                 <TrendingUp className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-xs font-bold">ข้อมูลไม่เพียงพอสำหรับกราฟ</p>
-                <p className="text-[10px]">ต้องมีการประเมินอย่างน้อย 2 เดือน</p>
+                <p className="text-md font-bold">ข้อมูลไม่เพียงพอสำหรับกราฟ</p>
+                <p className="text-[14px]">ต้องมีการประเมินอย่างน้อย 2 เดือน</p>
             </div>
         );
     }

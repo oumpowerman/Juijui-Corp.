@@ -1,22 +1,25 @@
 
 import React, { useState } from 'react';
-import { Send, Lightbulb, ShieldAlert, Heart, Ghost, Eye } from 'lucide-react';
-import { FeedbackType } from '../../types';
+import { Send, Lightbulb, ShieldAlert, Heart, Ghost, Eye, User as UserIcon } from 'lucide-react';
+import { FeedbackType, User } from '../../types';
 
 interface FeedbackFormProps {
-    onSubmit: (content: string, type: FeedbackType, isAnonymous: boolean) => void;
+    onSubmit: (content: string, type: FeedbackType, isAnonymous: boolean, targetUserId?: string) => void;
+    users?: User[];
 }
 
-const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit }) => {
+const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit, users = [] }) => {
     const [content, setContent] = useState('');
     const [type, setType] = useState<FeedbackType>('IDEA');
     const [isAnonymous, setIsAnonymous] = useState(true);
+    const [targetUserId, setTargetUserId] = useState<string>('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if(!content.trim()) return;
-        onSubmit(content, type, isAnonymous);
+        onSubmit(content, type, isAnonymous, type === 'SHOUTOUT' ? targetUserId : undefined);
         setContent('');
+        setTargetUserId('');
         // Keep type and anonymity state as user preference
     };
 
@@ -51,6 +54,29 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ onSubmit }) => {
                         <Heart className="w-4 h-4" /> ชมเพื่อน
                     </button>
                 </div>
+
+                {/* Target User Selector (Only for SHOUTOUT) */}
+                {type === 'SHOUTOUT' && (
+                    <div className="animate-in slide-in-from-top-2 duration-300">
+                        <label className="block text-[10px] font-black text-pink-500 uppercase mb-1.5 ml-1">
+                            ชมใครดี? (เลือกเพื่อนที่ต้องการชม)
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={targetUserId}
+                                onChange={(e) => setTargetUserId(e.target.value)}
+                                className="w-full p-3 bg-pink-50/50 border border-pink-100 rounded-xl outline-none text-sm appearance-none focus:ring-2 focus:ring-pink-200 transition-all font-bold text-pink-700"
+                                required
+                            >
+                                <option value="">-- เลือกเพื่อน --</option>
+                                {users.filter(u => u.isActive).map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                            <UserIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-300 pointer-events-none" />
+                        </div>
+                    </div>
+                )}
 
                 <div className="relative">
                     <textarea 

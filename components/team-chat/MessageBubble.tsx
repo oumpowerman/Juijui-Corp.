@@ -317,10 +317,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({ msg, isMe, showAvata
                             </div>
                         </div>
                     ) : isFile ? (
-                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => window.open(msg.content, '_blank')}>
+                        <a 
+                            href={msg.content} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 no-underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><FileText className="w-5 h-5"/></div>
                             <div className="text-gray-700 underline truncate max-w-[200px]">Attachment</div>
-                        </div>
+                        </a>
                     ) : (
                         <div className="flex flex-col gap-2">
                             {/* 1. Text Content */}

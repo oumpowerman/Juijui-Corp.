@@ -6,6 +6,7 @@ import { useTribunal } from '../../hooks/useTribunal';
 import { useTeam } from '../../hooks/useTeam';
 import { useGameConfig } from '../../context/GameConfigContext';
 import { User as UserType, TribunalReport } from '../../types';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { googleDriveService } from '../../services/googleDriveService';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -20,6 +21,7 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
     const { submitReport, isLoading } = useTribunal(currentUser);
     const { allUsers } = useTeam();
     const { config } = useGameConfig();
+    const { showAlert } = useGlobalDialog();
     
     const [category, setCategory] = useState('');
     const [targetId, setTargetId] = useState('');
@@ -73,7 +75,7 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
                 `width=${width},height=${height},left=${left},top=${top}`
             );
         } catch (error) {
-            alert('ไม่สามารถเปิดหน้าต่างเชื่อมต่อ Google Drive ได้');
+            showAlert('ไม่สามารถเปิดหน้าต่างเชื่อมต่อ Google Drive ได้', 'ข้อผิดพลาด');
         }
     };
 
@@ -113,7 +115,7 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
                 setIsSuccess(false);
             }, 2000);
         } catch (error) {
-            alert('เกิดข้อผิดพลาดในการส่งคำฟ้อง กรุณาลองใหม่อีกครั้ง');
+            showAlert('เกิดข้อผิดพลาดในการส่งคำฟ้อง กรุณาลองใหม่อีกครั้ง', 'ข้อผิดพลาด');
         }
     };
 

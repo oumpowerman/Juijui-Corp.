@@ -33,7 +33,7 @@ const KPIConfigModal: React.FC<KPIConfigModalProps> = ({ isOpen, onClose, config
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl border-4 border-indigo-50 flex flex-col max-h-[90vh] overflow-hidden">
                 <div className="px-6 py-5 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
-                    <h3 className="font-black text-indigo-900 flex items-center gap-2 text-lg">
+                    <h3 className="font-bold text-indigo-900 flex items-center gap-2 text-lg">
                         <Scale className="w-5 h-5" /> ตั้งค่าเกณฑ์การประเมิน
                     </h3>
                     <button onClick={onClose} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm"><X className="w-5 h-5" /></button>
@@ -65,7 +65,7 @@ const KPIConfigModal: React.FC<KPIConfigModalProps> = ({ isOpen, onClose, config
                                     </div>
                                 </div>
                             ))}
-                            <div className={`mt-2 pt-2 border-t flex justify-between font-black ${isWeightValid ? 'text-green-600' : 'text-red-600'}`}>
+                            <div className={`mt-2 pt-2 border-t flex justify-between font-bold ${isWeightValid ? 'text-green-600' : 'text-red-600'}`}>
                                 <span>รวมทั้งหมด</span>
                                 <span>{totalWeight}%</span>
                             </div>

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { User } from '../../types';
 import { useFeedback } from '../../hooks/useFeedback';
 import FeedbackCard from './FeedbackCard';
@@ -18,11 +19,12 @@ import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 
 interface FeedbackViewProps {
     currentUser: User;
+    users?: User[];
 }
 
 const ITEMS_PER_PAGE = 6;
 
-const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
+const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser, users = [] }) => {
     const { 
         feedbacks, isLoading, submitFeedback, toggleVote, 
         updateStatus, deleteFeedback, fetchComments, submitComment, toggleRepost 
@@ -38,6 +40,24 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
     const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
     const [currentPage, setCurrentPage] = useState(1);
 
+    // Deep Link Logic
+    React.useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const targetUserId = params.get('targetUserId');
+        const monthKey = params.get('monthKey');
+
+        if (targetUserId) {
+            setActiveFilter('SHOUTOUT');
+            const targetUser = users.find(u => u.id === targetUserId);
+            if (targetUser) {
+                setSearchQuery(targetUser.name);
+            }
+            // If monthKey is provided, we might want to filter by date too, 
+            // but the current FeedbackControls doesn't have a date filter.
+            // For now, searching by name is a good start.
+        }
+    }, [users]);
+
     const approvedFeedbacks = feedbacks.filter(f => f.status === 'APPROVED');
     const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING' || f.status === 'REJECTED');
 
@@ -47,10 +67,25 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
         return sourceData.filter(item => {
             const matchesSearch = item.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                   (item.creatorName && item.creatorName.toLowerCase().includes(searchQuery.toLowerCase()));
+            
+            // If we have a deep link target, ensure we only show items for that target
+            const params = new URLSearchParams(window.location.search);
+            const deepTargetId = params.get('targetUserId');
+            const monthKey = params.get('monthKey');
+
+            if (deepTargetId && activeFilter === 'SHOUTOUT' && searchQuery === users.find(u => u.id === deepTargetId)?.name) {
+                if (item.targetUserId !== deepTargetId) return false;
+                
+                if (monthKey) {
+                    const itemMonth = format(new Date(item.createdAt), 'yyyy-MM');
+                    if (itemMonth !== monthKey) return false;
+                }
+            }
+
             const matchesType = activeFilter === 'ALL' || item.type === activeFilter;
             return matchesSearch && matchesType;
         });
-    }, [sourceData, searchQuery, activeFilter]);
+    }, [sourceData, searchQuery, activeFilter, users]);
 
     const sortedData = useMemo(() => {
         return [...filteredData].sort((a, b) => {
@@ -176,10 +211,13 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                                 exit={{ height: 0, opacity: 0, marginBottom: 0 }}
                                 className="overflow-hidden"
                             >
-                                <FeedbackForm onSubmit={(content, type, isAnon) => {
-                                    submitFeedback(content, type, isAnon);
-                                    setIsFormOpen(false);
-                                }} />
+                                <FeedbackForm 
+                                    users={users}
+                                    onSubmit={(content, type, isAnon, targetUserId) => {
+                                        submitFeedback(content, type, isAnon, targetUserId);
+                                        setIsFormOpen(false);
+                                    }} 
+                                />
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -248,6 +286,7 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser }) => {
                                                 key={item.id} 
                                                 item={item} 
                                                 currentUser={currentUser}
+                                                users={users}
                                                 onVote={toggleVote}
                                                 onUpdateStatus={updateStatus}
                                                 onDelete={deleteFeedback}

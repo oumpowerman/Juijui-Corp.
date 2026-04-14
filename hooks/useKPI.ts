@@ -20,10 +20,14 @@ export const useKPI = () => {
         deleteGoal: context.deleteGoal,
         addIDPItem: context.addIDPItem,
         updateIDPStatus: context.updateIDPStatus,
+        toggleIDPSubGoal: context.toggleIDPSubGoal,
+        reorderIDPItems: context.reorderIDPItems,
         deleteIDPItem: context.deleteIDPItem,
         sendKudos: context.sendKudos,
+        remainingKudos: context.remainingKudos,
         refreshKPI: context.refreshKPI,
         updateConfig: context.updateConfig,
-        fetchUserStats: context.fetchUserStats
+        fetchUserStats: context.fetchUserStats,
+        fetchDisciplineAuditLogs: context.fetchDisciplineAuditLogs
     };
 };

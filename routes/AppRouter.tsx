@@ -1,6 +1,7 @@
 
 // Trigger re-process
 import React, { useState, Suspense, lazy, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ViewMode } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
@@ -65,6 +66,7 @@ interface AppRouterProps {
 }
 
 const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
+  const navigate = useNavigate();
   // Initialize view from URL or default to DASHBOARD
   const [currentView, setCurrentView] = useState<ViewMode>(() => {
       if (typeof window !== 'undefined') {
@@ -83,16 +85,13 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 
   const handleLogout = async () => {
       await supabase.auth.signOut();
-      window.location.reload();
   };
 
   // --- NAVIGATION HANDLER (Sync with URL) ---
   const handleNavigate = useCallback((view: ViewMode) => {
       setCurrentView(view);
-      const url = new URL(window.location.href);
-      url.searchParams.set('view', view);
-      window.history.pushState({}, '', url);
-  }, []);
+      navigate(`?view=${view}`);
+  }, [navigate]);
 
   // Handle Browser Back/Forward Buttons
   useEffect(() => {
@@ -114,6 +113,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     isLoading: isManagerLoading,
     isTaskFetching,
     allUsers,
+    activeUsers,
     tasks,
     channels,
     masterOptions,
@@ -186,7 +186,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           console.warn("Logout error:", error);
       } finally {
           localStorage.clear(); 
-          window.location.href = '/'; 
+          navigate('/');
       }
   };
 
@@ -221,7 +221,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 <Dashboard
                   tasks={tasks}
                   channels={channels}
-                  users={allUsers}
+                  users={activeUsers}
                   currentUser={currentUserProfile}
                   onEditTask={handleEditTask}
                   onNavigateToCalendar={() => handleNavigate('CALENDAR')}
@@ -241,7 +241,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 <CalendarView
                   tasks={tasks}
                   channels={channels}
-                  users={allUsers}
+                  users={activeUsers}
                   currentUser={currentUserProfile}
                   masterOptions={masterOptions}
                   onSelectTask={handleEditTask}
@@ -284,7 +284,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               return (
                   <TeamChat 
                       currentUser={currentUserProfile}
-                      allUsers={allUsers}
+                      allUsers={activeUsers}
                       onAddTask={handleSaveTask}
                   />
               );
@@ -293,7 +293,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 <ContentStock
                   tasks={tasks}
                   channels={channels}
-                  users={allUsers}
+                  users={activeUsers}
                   masterOptions={masterOptions}
                   onSchedule={handleEditTask}
                   onEdit={handleEditTask}
@@ -331,7 +331,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                         currentView={currentView}
                         tasks={tasks}
                         channels={channels}
-                        users={allUsers}
+                        users={activeUsers}
                         masterOptions={masterOptions}
                         onAddChannel={handleAddChannel}
                         onUpdateChannel={handleUpdateChannel}
@@ -343,13 +343,13 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return (
                     <ScriptHubView 
                         currentUser={currentUserProfile}
-                        users={allUsers}
+                        users={activeUsers}
                     />
                 );
             case 'MEETINGS':
                 return (
                     <MeetingView 
-                        users={allUsers} 
+                        users={activeUsers} 
                         currentUser={currentUserProfile}
                         tasks={tasks} 
                         masterOptions={masterOptions}
@@ -358,7 +358,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
             case 'DUTY': 
                 return (
                     <DutyView 
-                        users={allUsers}
+                        users={activeUsers}
                         currentUser={currentUserProfile}
                     />
                 );
@@ -366,7 +366,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return (
                     <QualityGateView 
                         channels={channels}
-                        users={allUsers}
+                        users={activeUsers}
                         masterOptions={masterOptions}
                         onOpenTask={handleEditTask}
                         currentUser={currentUserProfile}
@@ -381,7 +381,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                     />
                 );
             case 'FEEDBACK':
-                return <FeedbackView currentUser={currentUserProfile} />;
+                return <FeedbackView currentUser={currentUserProfile} users={allUsers} />;
             case 'WEEKLY':
                 return (
                     <WeeklyQuestBoard 
@@ -400,7 +400,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return (
                     <GoalView 
                         channels={channels}
-                        users={allUsers}
+                        users={activeUsers}
                         currentUser={currentUserProfile}
                     />
                 );
@@ -408,12 +408,12 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                 return <WikiView currentUser={currentUserProfile} />;
                 
             case 'LEADERBOARD':
-                return <LeaderboardView users={allUsers} currentUser={currentUserProfile} />;
+                return <LeaderboardView users={activeUsers} currentUser={currentUserProfile} />;
 
             case 'ATTENDANCE':
-                return <AttendanceRouter currentUser={currentUserProfile} users={allUsers} />;
+                return <AttendanceRouter currentUser={currentUserProfile} users={activeUsers} />;
             case 'FINANCE':
-                return <FinanceRouter currentUser={currentUserProfile} users={allUsers} />;
+                return <FinanceRouter currentUser={currentUserProfile} users={activeUsers} />;
 
             case 'NEXUS':
                 return <NexusHub currentUser={currentUserProfile} />;
@@ -440,7 +440,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           isNotificationOpen={isNotificationOpen}
           onToggleNotification={handleToggleNotification}
           tasks={tasks}
-          allUsers={allUsers}
+          allUsers={activeUsers}
       >
           <ShortcutManager 
               onNavigate={handleNavigate}
@@ -482,7 +482,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       initialData={editingTask}
                       selectedDate={selectedDate}
                       channels={channels}
-                      users={allUsers}
+                      users={activeUsers}
                       lockedType={lockedTaskType}
                       masterOptions={masterOptions}
                       currentUser={currentUserProfile}

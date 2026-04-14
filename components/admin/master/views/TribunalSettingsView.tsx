@@ -10,7 +10,7 @@ import { ConfigSlider } from '../../game-tuner/components/SharedComponents';
 const TribunalSettingsView: React.FC = () => {
     const { config, updateConfigValue, isLoading } = useGameConfig();
     const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showPrompt } = useGlobalDialog();
 
     const [localConfig, setLocalConfig] = useState<any>(null);
     const [isDirty, setIsDirty] = useState(false);
@@ -56,8 +56,8 @@ const TribunalSettingsView: React.FC = () => {
         }
     };
 
-    const handleAddCategory = () => {
-        const newCatLabel = prompt('ชื่อหมวดหมู่ใหม่:');
+    const handleAddCategory = async () => {
+        const newCatLabel = await showPrompt('ระบุชื่อหมวดหมู่ที่ต้องการเพิ่ม:', '', 'เพิ่มหมวดหมู่ใหม่');
         if (newCatLabel) {
             const id = newCatLabel.toLowerCase().replace(/\s+/g, '_');
             if (!localConfig.categories.find((c: any) => (typeof c === 'string' ? c : c.label) === newCatLabel)) {

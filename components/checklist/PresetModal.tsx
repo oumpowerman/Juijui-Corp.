@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Settings, X, CheckSquare, Trash2 } from 'lucide-react';
 import { ChecklistPreset, InventoryItem } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Added
@@ -39,8 +40,8 @@ const PresetModal: React.FC<PresetModalProps> = ({
         onClose(); // Optional: Close after create
     };
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center">
@@ -99,7 +100,8 @@ const PresetModal: React.FC<PresetModalProps> = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

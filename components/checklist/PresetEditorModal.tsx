@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChecklistPreset, InventoryItem } from '../../types';
 import { X, Save, Search, Plus, Trash2, Package, LayoutGrid, List, Box, CheckCircle2 } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
@@ -61,8 +62,8 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-5xl h-[85vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col border border-gray-100 animate-in zoom-in-95">
                 
                 {/* Header */}
@@ -161,7 +162,7 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
                                                 {/* Image Area */}
                                                 <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative">
                                                     {item.imageUrl ? (
-                                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
                                                     ) : (
                                                         <Box className="w-8 h-8 text-gray-300" />
                                                     )}
@@ -190,7 +191,7 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
                                             >
                                                 <div className="w-10 h-10 bg-white rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden shrink-0">
                                                     {item.imageUrl ? (
-                                                        <img src={item.imageUrl} className="w-full h-full object-cover" />
+                                                        <img src={item.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                                     ) : (
                                                         <Box className="w-5 h-5 text-gray-300" />
                                                     )}
@@ -216,7 +217,8 @@ const PresetEditorModal: React.FC<PresetEditorModalProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

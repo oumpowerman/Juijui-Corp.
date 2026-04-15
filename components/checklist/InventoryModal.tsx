@@ -60,28 +60,13 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
         if (!isOpen) return;
 
         const updatePosition = () => {
-            const mainEl = document.querySelector('main');
-            // If main element exists and screen is wide enough (Desktop)
-            if (mainEl && window.innerWidth >= 1024) { 
-                const rect = mainEl.getBoundingClientRect();
-                setModalStyle({
-                    position: 'fixed',
-                    top: 0,
-                    left: `${rect.left}px`,
-                    width: `${rect.width}px`,
-                    height: '100%',
-                    zIndex: 40, // Below Sidebar (z-50) but above page content
-                    padding: '1rem' // Standard desktop padding
-                });
-            } else {
-                // Mobile / Tablet: Full screen overlay
-                setModalStyle({
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 100, // High z-index to cover mobile nav/header
-                    padding: 0 // No padding for full screen feel
-                });
-            }
+            // Always use full screen overlay for consistency and to ensure it covers everything
+            setModalStyle({
+                position: 'fixed',
+                inset: 0,
+                zIndex: 9999, // High z-index to cover everything including sidebar
+                padding: window.innerWidth >= 1024 ? '2rem' : 0
+            });
         };
 
         // Initial update

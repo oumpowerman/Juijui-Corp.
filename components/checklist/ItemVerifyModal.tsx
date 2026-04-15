@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { InventoryItem, ChecklistItem } from '../../types';
 import { X, CheckCircle2, Box, Image as ImageIcon, ExternalLink } from 'lucide-react';
 
@@ -16,8 +17,8 @@ const ItemVerifyModal: React.FC<ItemVerifyModalProps> = ({
 }) => {
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-200 border border-gray-200">
                 
                 {/* Header with Dark Background for Full Image visibility */}
@@ -27,6 +28,7 @@ const ItemVerifyModal: React.FC<ItemVerifyModalProps> = ({
                             src={inventoryItem.imageUrl} 
                             alt={item.text} 
                             className="w-full h-full object-contain" 
+                            referrerPolicy="no-referrer"
                         />
                     ) : (
                         <div className="flex flex-col items-center text-gray-500">
@@ -61,7 +63,8 @@ const ItemVerifyModal: React.FC<ItemVerifyModalProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

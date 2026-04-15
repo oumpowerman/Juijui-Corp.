@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Image as ImageIcon, Loader2, Calendar, DollarSign, Tag, User, AlertTriangle, Layers, Box, Trash2, Hash, Package, Monitor, CheckCircle2, Copy, Check, Plus, Info, Cloud, CloudOff, HardDrive } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader2, Calendar, DollarSign, Tag, User, AlertTriangle, Layers, Box, Trash2, Hash, Package, Monitor, CheckCircle2, Copy, Check, Plus, Info, Cloud, CloudOff, HardDrive, RefreshCw } from 'lucide-react';
 import { InventoryItem, MasterOption, User as AppUser, AssetCondition, AssetGroup, InventoryType } from '../../types';
 import { format } from 'date-fns';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
@@ -23,7 +23,46 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
     isOpen, onClose, initialData, onSave, onDelete, masterOptions, users, existingTags = [], existingGroups = []
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
-    const { isReady: isDriveReady, isAuthenticated: isDriveAuth, isUploading: isDriveUploading } = useGoogleDriveContext();
+    const { 
+        isReady: isDriveReady, 
+        isAuthenticated: isDriveAuth, 
+        isUploading: isDriveUploading,
+        login: connectDrive,
+        retry: retryDrive
+    } = useGoogleDriveContext();
+
+    // --- DRIVE LOADING TIMER ---
+    const [loadingTime, setLoadingTime] = useState(0);
+    const [isTimeout, setIsTimeout] = useState(false);
+
+    useEffect(() => {
+        let interval: any;
+        if (isOpen && !isDriveReady && !isTimeout) {
+            interval = setInterval(() => {
+                setLoadingTime(prev => {
+                    if (prev >= 20) {
+                        setIsTimeout(true);
+                        clearInterval(interval);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 1000);
+        } else if (isDriveReady) {
+            setLoadingTime(0);
+            setIsTimeout(false);
+            if (interval) clearInterval(interval);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isOpen, isDriveReady, isTimeout]);
+
+    const handleRetryDrive = () => {
+        setLoadingTime(0);
+        setIsTimeout(false);
+        retryDrive();
+    };
 
     // Form State
     const [itemType, setItemType] = useState<InventoryType>('FIXED');
@@ -360,24 +399,57 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                         </div>
                                     )}
                                     
-                                    {/* Google Drive Status Badge */}
-                                    <div className="absolute top-4 right-4 z-20">
-                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm border backdrop-blur-md transition-all duration-500 ${
-                                            isDriveUploading 
-                                                ? 'bg-blue-500/20 border-blue-200 text-blue-600 animate-pulse' 
-                                                : isDriveAuth 
-                                                    ? 'bg-emerald-500/20 border-emerald-200 text-emerald-600' 
-                                                    : 'bg-slate-500/10 border-slate-200 text-slate-400 opacity-60'
-                                        }`}>
-                                            {isDriveUploading ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : isDriveAuth ? (
-                                                <Cloud className="w-3 h-3" />
-                                            ) : (
-                                                <CloudOff className="w-3 h-3" />
-                                            )}
-                                            {isDriveUploading ? 'Uploading...' : isDriveAuth ? 'Drive Ready' : 'Supabase Only'}
-                                        </div>
+                                    {/* Google Drive Status Badge & Reconnect UI */}
+                                    <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+                                        {!isDriveReady ? (
+                                            <div className={`p-2 rounded-xl border backdrop-blur-md shadow-lg transition-all duration-500 flex items-center gap-2 ${
+                                                isTimeout ? 'bg-rose-500/20 border-rose-200' : 'bg-slate-500/10 border-slate-200'
+                                            }`}>
+                                                {isTimeout ? (
+                                                    <>
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-[9px] font-black text-rose-600 uppercase">Drive Timeout</span>
+                                                            <button 
+                                                                onClick={handleRetryDrive}
+                                                                className="text-[8px] font-bold text-rose-500 hover:text-rose-700 flex items-center gap-0.5"
+                                                            >
+                                                                <RefreshCw className="w-2 h-2" /> Retry
+                                                            </button>
+                                                        </div>
+                                                        <CloudOff className="w-4 h-4 text-rose-500" />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-[9px] font-medium text-slate-500">Initializing Drive...</span>
+                                                        <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />
+                                                    </>
+                                                )}
+                                            </div>
+                                        ) : !isDriveAuth ? (
+                                            <button 
+                                                onClick={connectDrive}
+                                                className="group flex items-center gap-2 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-200 transition-all active:scale-95"
+                                            >
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[8px] font-black uppercase tracking-tighter opacity-80">Drive Offline</span>
+                                                    <span className="text-[10px] font-bold leading-none">Connect</span>
+                                                </div>
+                                                <AlertTriangle className="w-4 h-4 animate-pulse" />
+                                            </button>
+                                        ) : (
+                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm border backdrop-blur-md transition-all duration-500 ${
+                                                isDriveUploading 
+                                                    ? 'bg-blue-500/20 border-blue-200 text-blue-600 animate-pulse' 
+                                                    : 'bg-emerald-500/20 border-emerald-200 text-emerald-600'
+                                            }`}>
+                                                {isDriveUploading ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    <Cloud className="w-3 h-3" />
+                                                )}
+                                                {isDriveUploading ? 'Uploading...' : 'Drive Ready'}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

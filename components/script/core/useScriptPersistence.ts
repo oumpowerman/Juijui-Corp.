@@ -48,7 +48,7 @@ export const useScriptPersistence = ({
             ? sheets 
             : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
 
-        let documentState: string | undefined = undefined;
+        let document_state: string | undefined = undefined;
         if (ydoc) {
             const bytes = Y.encodeStateAsUpdate(ydoc);
             // Convert Uint8Array to base64 safely
@@ -57,7 +57,7 @@ export const useScriptPersistence = ({
             for (let i = 0; i < bytes.length; i += chunkSize) {
                 chunks.push(String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize))));
             }
-            documentState = btoa(chunks.join(''));
+            document_state = btoa(chunks.join(''));
         }
 
         await onSave(script.id, { 
@@ -66,7 +66,7 @@ export const useScriptPersistence = ({
             sheets: finalSheets,
             status, estimatedDuration: estimatedSeconds,
             scriptType, characters, ideaOwnerId, authorId, channelId, category, tags, objective,
-            ...(documentState ? { documentState } : {})
+            ...(document_state ? { document_state } : {})
         });
         
         setLastSaved(new Date());
@@ -134,7 +134,7 @@ export const useScriptPersistence = ({
                     ? sheets 
                     : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
 
-                let documentState: string | undefined = undefined;
+                let document_state: string | undefined = undefined;
                 if (ydoc) {
                     const bytes = Y.encodeStateAsUpdate(ydoc);
                     let binary = '';
@@ -142,7 +142,7 @@ export const useScriptPersistence = ({
                     for (let i = 0; i < len; i++) {
                         binary += String.fromCharCode(bytes[i]);
                     }
-                    documentState = btoa(binary);
+                    document_state = btoa(binary);
                 }
 
                 onSave(script.id, { 
@@ -150,7 +150,7 @@ export const useScriptPersistence = ({
                     content: finalContent, 
                     status,
                     sheets: finalSheets,
-                    ...(documentState ? { documentState } : {})
+                    ...(document_state ? { document_state } : {})
                 }).catch(console.error);
             }
             if (lockStatus === 'LOCKED_BY_ME') {

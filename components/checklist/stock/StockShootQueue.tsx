@@ -1,12 +1,15 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, ScriptSummary, Channel, User, MasterOption } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { Loader2, CheckCircle2, Video, FileText, ArrowRight, Info, Filter, LayoutGrid, ListChecks } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, Video } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
-import { format } from 'date-fns';
-import th from 'date-fns/locale/th';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+
+// Sub-components
+import { MergedQueueItem, QueueViewMode } from './queue/types';
+import QueueHeader from './queue/QueueHeader';
+import QueueGridView from './queue/QueueGridView';
+import QueueTableView from './queue/QueueTableView';
 
 interface StockShootQueueProps {
     channels: Channel[];
@@ -16,23 +19,19 @@ interface StockShootQueueProps {
     onEditScript?: (scriptId: string) => void;
 }
 
-interface MergedQueueItem {
-    id: string;
-    type: 'CONTENT' | 'SCRIPT';
-    title: string;
-    status: string;
-    channelId?: string;
-    contentId?: string; // For scripts
-    scriptId?: string;  // For contents that have a linked script
-    item: Task | ScriptSummary;
-}
-
 const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, masterOptions, onEditContent, onEditScript }) => {
     const { showToast } = useToast();
+    const { showConfirm, showLoading, hideLoading } = useGlobalDialog();
     const [isLoading, setIsLoading] = useState(true);
     const [includeScripts, setIncludeScripts] = useState(true);
     const [queueItems, setQueueItems] = useState<MergedQueueItem[]>([]);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+    const [viewMode, setViewMode] = useState<QueueViewMode>('GRID');
+
+    const finishedCount = useMemo(() => 
+        queueItems.filter(i => i.isSoftFinished).map(i => i.id).length
+    , [queueItems]);
 
     const fetchQueue = async () => {
         setIsLoading(true);
@@ -50,6 +49,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 type: 'CONTENT',
                 title: c.title,
                 status: c.status,
+                isSoftFinished: !!c.is_soft_finished,
                 channelId: c.channel_id,
                 item: {
                     id: c.id,
@@ -62,7 +62,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                     endDate: new Date(c.end_date),
                     channelId: c.channel_id,
                     isInShootQueue: true,
-                    // ... other fields as needed or just cast
+                    isSoftFinished: !!c.is_soft_finished,
                 } as any
             }));
 
@@ -76,19 +76,17 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 if (scriptError) throw scriptError;
 
                 (scripts || []).forEach(s => {
-                    // Check if this script is already linked to a content in the merged list
                     const existingContentIndex = merged.findIndex(m => m.id === s.content_id);
                     
                     if (existingContentIndex !== -1) {
-                        // Link script to existing content item
                         merged[existingContentIndex].scriptId = s.id;
                     } else {
-                        // Add as standalone script item
                         merged.push({
                             id: s.id,
                             type: 'SCRIPT',
                             title: s.title,
                             status: s.status,
+                            isSoftFinished: !!s.is_soft_finished,
                             channelId: s.channel_id,
                             contentId: s.content_id,
                             item: {
@@ -97,7 +95,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                                 status: s.status,
                                 contentId: s.content_id,
                                 isInShootQueue: true,
-                                // ... other fields
+                                isSoftFinished: !!s.is_soft_finished,
                             } as any
                         });
                     }
@@ -115,72 +113,161 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
     useEffect(() => {
         fetchQueue();
+
+        // Realtime Subscription
+        const channel = supabase.channel('shoot-queue-realtime')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, (payload) => {
+                const updated = payload.new as any;
+                setQueueItems(prev => {
+                    if (!updated.is_in_shoot_queue) {
+                        return prev.filter(i => i.id !== updated.id);
+                    }
+                    return prev.map(i => i.id === updated.id ? {
+                        ...i,
+                        title: updated.title,
+                        status: updated.status,
+                        isSoftFinished: !!updated.is_soft_finished,
+                        channelId: updated.channel_id
+                    } : i);
+                });
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts' }, (payload) => {
+                const updated = payload.new as any;
+                setQueueItems(prev => {
+                    if (!updated.is_in_shoot_queue) {
+                        return prev.filter(i => i.id !== updated.id);
+                    }
+                    return prev.map(i => i.id === updated.id ? {
+                        ...i,
+                        title: updated.title,
+                        status: updated.status,
+                        isSoftFinished: !!updated.is_soft_finished,
+                        channelId: updated.channel_id
+                    } : i);
+                });
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [includeScripts]);
 
     const handleMarkAsDone = async (item: MergedQueueItem) => {
-        if (isProcessing) return;
-        setIsProcessing(item.id);
+        const confirmed = await showConfirm(
+            `คุณถ่ายทำรายการ "${item.title}" เสร็จแล้วใช่หรือไม่?`,
+            'ยืนยันการถ่ายทำเสร็จสิ้น'
+        );
+
+        if (confirmed) {
+            // Optimistic UI Update
+            setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: true } : i));
+            
+            try {
+                const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
+                const { error } = await supabase
+                    .from(table)
+                    .update({ is_soft_finished: true })
+                    .eq('id', item.id);
+                
+                if (error) throw error;
+                showToast('ทำเครื่องหมายว่าถ่ายเสร็จแล้ว', 'success');
+            } catch (err) {
+                console.error('Update soft finish failed:', err);
+                // Revert on error
+                setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: false } : i));
+                showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+            }
+        }
+    };
+
+    const toggleFinished = async (item: MergedQueueItem) => {
+        const newStatus = !item.isSoftFinished;
+        
+        // Optimistic UI Update
+        setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: newStatus } : i));
 
         try {
-            if (item.type === 'CONTENT') {
-                // Update Content
+            const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
+            const { error } = await supabase
+                .from(table)
+                .update({ is_soft_finished: newStatus })
+                .eq('id', item.id);
+            
+            if (error) throw error;
+        } catch (err) {
+            console.error('Toggle soft finish failed:', err);
+            // Revert on error
+            setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: !newStatus } : i));
+            showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+        }
+    };
+
+    const handleBatchProcess = async () => {
+        if (finishedCount === 0 || isBatchProcessing) return;
+        
+        const confirmed = await showConfirm(
+            `คุณต้องการประมวลผลรายการที่ถ่ายเสร็จแล้วทั้งหมด ${finishedCount} รายการ ใช่หรือไม่?`,
+            'ยืนยันการประมวลผลทั้งหมด'
+        );
+        
+        if (!confirmed) return;
+
+        setIsBatchProcessing(true);
+        showLoading('กำลังอัปเดตสถานะรายการทั้งหมด...');
+
+        try {
+            const itemsToProcess = queueItems.filter(i => i.isSoftFinished);
+            const contentIds = itemsToProcess.filter(i => i.type === 'CONTENT').map(i => i.id);
+            const scriptIds = itemsToProcess.filter(i => i.type === 'SCRIPT').map(i => i.id);
+
+            const linkedScriptIds = itemsToProcess
+                .filter(i => i.type === 'CONTENT' && i.scriptId)
+                .map(i => i.scriptId as string);
+            
+            const linkedContentIds = itemsToProcess
+                .filter(i => i.type === 'SCRIPT' && i.contentId)
+                .map(i => i.contentId as string);
+
+            const allContentIds = Array.from(new Set([...contentIds, ...linkedContentIds]));
+            const allScriptIds = Array.from(new Set([...scriptIds, ...linkedScriptIds]));
+
+            // Bulk Update Contents
+            if (allContentIds.length > 0) {
                 const { error: contentError } = await supabase
                     .from('contents')
                     .update({ 
                         status: 'EDIT_CLIP', 
-                        is_in_shoot_queue: false 
+                        is_in_shoot_queue: false,
+                        is_soft_finished: false
                     })
-                    .eq('id', item.id);
-
+                    .in('id', allContentIds);
                 if (contentError) throw contentError;
+            }
 
-                // If it has a linked script, update that too
-                if (item.scriptId) {
-                    await supabase
-                        .from('scripts')
-                        .update({ 
-                            status: 'DONE', 
-                            is_in_shoot_queue: false 
-                        })
-                        .eq('id', item.scriptId);
-                }
-            } else {
-                // Update Script
+            // Bulk Update Scripts
+            if (allScriptIds.length > 0) {
                 const { error: scriptError } = await supabase
                     .from('scripts')
                     .update({ 
                         status: 'DONE', 
-                        is_in_shoot_queue: false 
+                        is_in_shoot_queue: false,
+                        is_soft_finished: false
                     })
-                    .eq('id', item.id);
-
+                    .in('id', allScriptIds);
                 if (scriptError) throw scriptError;
-
-                // If it has a linked content, update that too
-                if (item.contentId) {
-                    await supabase
-                        .from('contents')
-                        .update({ 
-                            status: 'EDIT_CLIP', 
-                            is_in_shoot_queue: false 
-                        })
-                        .eq('id', item.contentId);
-                }
             }
 
-            showToast('ถ่ายทำเสร็จสิ้น! ส่งต่อไปยังขั้นตอนตัดต่อแล้ว 🎬', 'success');
-            // Remove from local list
-            setQueueItems(prev => prev.filter(i => i.id !== item.id));
+            // Local update to remove processed items
+            setQueueItems(prev => prev.filter(i => !i.isSoftFinished));
+            showToast(`ประมวลผลสำเร็จ ${itemsToProcess.length} รายการ! 🎬`, 'success');
         } catch (err) {
-            console.error('Mark as done failed:', err);
-            showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+            console.error('Batch process failed:', err);
+            showToast('เกิดข้อผิดพลาดในการประมวลผลบางรายการ', 'error');
         } finally {
-            setIsProcessing(null);
+            setIsBatchProcessing(false);
+            hideLoading();
         }
-    };
-
-    const getChannel = (channelId?: string) => {
-        return channels.find(c => c.id === channelId);
     };
 
     if (isLoading) {
@@ -194,33 +281,15 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
     return (
         <div className="space-y-6">
-            {/* Controls */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-white/60">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600">
-                        <ListChecks className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-800">Checklist ถ่ายทำวันนี้</h2>
-                        <p className="text-xs text-gray-500">จัดการรายการที่ต้องถ่ายทำในวันนี้ให้เสร็จสิ้น</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 bg-gray-100/50 p-1 rounded-xl border border-gray-200">
-                    <button 
-                        onClick={() => setIncludeScripts(true)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${includeScripts ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        รวมสคริปต์จาก Hub
-                    </button>
-                    <button 
-                        onClick={() => setIncludeScripts(false)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!includeScripts ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        เฉพาะ Content Stock
-                    </button>
-                </div>
-            </div>
+            <QueueHeader 
+                includeScripts={includeScripts}
+                setIncludeScripts={setIncludeScripts}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+                finishedCount={finishedCount}
+                isBatchProcessing={isBatchProcessing}
+                onBatchProcess={handleBatchProcess}
+            />
 
             {queueItems.length === 0 ? (
                 <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 p-16 text-center flex flex-col items-center justify-center">
@@ -233,106 +302,29 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <AnimatePresence mode='popLayout'>
-                        {queueItems.map((item) => {
-                            const channel = getChannel(item.channelId);
-                            const isProcessingThis = isProcessing === item.id;
-
-                            return (
-                                <motion.div
-                                    key={item.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                    className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col"
-                                >
-                                    <div className="p-5 flex-1">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-2">
-                                                {item.type === 'CONTENT' ? (
-                                                    <div className="px-2 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold border border-amber-100 flex items-center gap-1">
-                                                        <LayoutGrid className="w-3 h-3" />
-                                                        CONTENT
-                                                    </div>
-                                                ) : (
-                                                    <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold border border-blue-100 flex items-center gap-1">
-                                                        <FileText className="w-3 h-3" />
-                                                        SCRIPT
-                                                    </div>
-                                                )}
-                                                {item.scriptId && (
-                                                    <div className="px-2 py-1 bg-green-50 text-green-600 rounded-lg text-[10px] font-bold border border-green-100 flex items-center gap-1" title="มีสคริปต์ผูกอยู่">
-                                                        <CheckCircle2 className="w-3 h-3" />
-                                                        LINKED
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {channel && (
-                                                <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-full border border-gray-100">
-                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: channel.color.split(' ')[0].replace('bg-', '') }} />
-                                                    <span className="text-[10px] font-bold text-gray-600">{channel.name}</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <h4 className="text-md font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors">
-                                            {item.title}
-                                        </h4>
-                                        
-                                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                                            <span className="px-2 py-0.5 bg-gray-100 rounded-md">{item.status}</span>
-                                            {item.type === 'SCRIPT' && (item.item as ScriptSummary).estimatedDuration > 0 && (
-                                                <span className="flex items-center gap-1">
-                                                    <Info className="w-3 h-3" />
-                                                    ~{(item.item as ScriptSummary).estimatedDuration} นาที
-                                                </span>
-                                            )}
-                                            {item.type === 'CONTENT' && (item.item as Task).estimatedHours && (item.item as Task).estimatedHours! > 0 && (
-                                                <span className="flex items-center gap-1">
-                                                    <Info className="w-3 h-3" />
-                                                    ~{(item.item as Task).estimatedHours} ชม.
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between gap-3">
-                                        <button 
-                                            onClick={() => {
-                                                if (item.type === 'CONTENT') onEditContent(item.item as Task);
-                                                else if (onEditScript) onEditScript(item.id);
-                                            }}
-                                            className="text-xs font-bold text-gray-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
-                                        >
-                                            ดูรายละเอียด <ArrowRight className="w-3 h-3" />
-                                        </button>
-
-                                        <button
-                                            onClick={() => handleMarkAsDone(item)}
-                                            disabled={isProcessingThis}
-                                            className={`
-                                                flex items-center gap-2 px-4 py-2 rounded-xl
-                                                font-bold text-xs transition-all
-                                                ${isProcessingThis 
-                                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                                                    : 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:scale-95'}
-                                            `}
-                                        >
-                                            {isProcessingThis ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                            )}
-                                            ถ่ายเสร็จแล้ว
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
+                viewMode === 'GRID' ? (
+                    <QueueGridView 
+                        items={queueItems}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        isProcessing={isProcessing}
+                        onEditContent={onEditContent}
+                        onEditScript={onEditScript}
+                        onToggleFinished={toggleFinished}
+                        onMarkAsDone={handleMarkAsDone}
+                    />
+                ) : (
+                    <QueueTableView 
+                        items={queueItems}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        isProcessing={isProcessing}
+                        onEditContent={onEditContent}
+                        onEditScript={onEditScript}
+                        onToggleFinished={toggleFinished}
+                        onMarkAsDone={handleMarkAsDone}
+                    />
+                )
             )}
         </div>
     );

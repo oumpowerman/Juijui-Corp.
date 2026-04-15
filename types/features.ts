@@ -128,6 +128,7 @@ export interface ScriptSummary {
     estimatedDuration: number;
     scriptType: ScriptType;
     isInShootQueue: boolean;
+    isSoftFinished?: boolean;
     channelId?: string;
     category?: string;
     tags: string[];
@@ -144,7 +145,7 @@ export interface ScriptSummary {
 export interface Script extends ScriptSummary {
     content: string;
     characters?: string[];
-    documentState?: string; // Base64 encoded Yjs state
+    document_state?: string; // Base64 encoded Yjs state
 }
 
 export interface LabSequenceItem {

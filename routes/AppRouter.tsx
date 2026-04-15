@@ -1,7 +1,7 @@
 
 // Trigger re-process
-import React, { useState, Suspense, lazy, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ViewMode } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
@@ -67,15 +67,13 @@ interface AppRouterProps {
 
 const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const navigate = useNavigate();
-  // Initialize view from URL or default to DASHBOARD
-  const [currentView, setCurrentView] = useState<ViewMode>(() => {
-      if (typeof window !== 'undefined') {
-          const params = new URLSearchParams(window.location.search);
-          const viewParam = params.get('view');
-          if (viewParam) return viewParam as ViewMode;
-      }
-      return 'DASHBOARD';
-  });
+  const location = useLocation();
+
+  // Derive currentView from URL - Single Source of Truth
+  const currentView = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return (params.get('view') as ViewMode) || 'DASHBOARD';
+  }, [location.search]);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -89,21 +87,10 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 
   // --- NAVIGATION HANDLER (Sync with URL) ---
   const handleNavigate = useCallback((view: ViewMode) => {
-      setCurrentView(view);
       navigate(`?view=${view}`);
   }, [navigate]);
 
-  // Handle Browser Back/Forward Buttons
-  useEffect(() => {
-      const handlePopState = () => {
-          const params = new URLSearchParams(window.location.search);
-          const view = params.get('view') as ViewMode;
-          setCurrentView(view || 'DASHBOARD');
-      };
-
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  // popstate listener removed as useLocation handles it reactively
 
   // --- AUTH HOOK ---
   const { currentUserProfile, fetchProfile, updateProfile } = useAuth(user);
@@ -300,6 +287,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   onAdd={() => handleAddTask('CONTENT')}
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onAddToWorkbox={(task) => addToWorkbox({ title: task.title, content_id: task.id, type: 'CONTENT' })}
+                  onEditScript={(id) => {
+                      navigate(`?view=SCRIPT_HUB&scriptId=${id}`, { state: { from: 'SHOOT_QUEUE' } });
+                  }}
                 />
               );
             case 'CHECKLIST':

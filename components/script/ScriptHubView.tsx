@@ -19,7 +19,7 @@ import ScriptLabView from './lab/ScriptLabView';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalDialog } from '../../context/GlobalDialogContext'; // NEW IMPORT
-import { useSearchParams } from 'react-router-dom'; // NEW
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'; // NEW
 import ContentForm from '../task/ContentForm'; // IMPORT
 import { createPortal } from 'react-dom'; // IMPORT
 
@@ -33,6 +33,18 @@ interface ScriptHubViewProps {
 
 const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initialMode = 'HUB' }) => {
     const [searchParams, setSearchParams] = useSearchParams(); // NEW
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Persistent tracking of where we came from (e.g., from Shoot Queue)
+    const originRef = React.useRef<string | null>(location.state?.from || null);
+
+    // Update origin if state appears (e.g. on direct navigation)
+    useEffect(() => {
+        if (location.state?.from) {
+            originRef.current = location.state.from;
+        }
+    }, [location.state]);
 
     // Hooks
     const mainScripts = useScripts(currentUser);
@@ -125,6 +137,28 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
     // Sync search with URL
     const searchQuery = searchParams.get('q') || '';
     const isDeepSearch = searchParams.get('deep') === 'true';
+    const urlScriptId = searchParams.get('scriptId');
+
+    // Effect: Handle scriptId from URL
+    useEffect(() => {
+        if (urlScriptId) {
+            const loadScriptFromUrl = async () => {
+                setIsFetchingDetail(true);
+                const fullScript = await getScriptById(urlScriptId);
+                setIsFetchingDetail(false);
+                if (fullScript) {
+                    setActiveScript(fullScript);
+                    // Clear the scriptId from URL to avoid re-opening on refresh
+                    setSearchParams(prev => {
+                        const newParams = new URLSearchParams(prev);
+                        newParams.delete('scriptId');
+                        return newParams;
+                    }, { replace: true });
+                }
+            };
+            loadScriptFromUrl();
+        }
+    }, [urlScriptId, getScriptById, setSearchParams]);
 
     const [filterOwner, setFilterOwner] = useState<string[]>([]); // Array of IDs
     const [filterStatus, setFilterStatus] = useState<string[]>(['ALL']); // Changed to array
@@ -388,6 +422,11 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             currentUser={currentUser}
                             initialSearchQuery={isDeepSearch ? searchQuery : undefined}
                             onClose={() => { 
+                                if (originRef.current === 'SHOOT_QUEUE') {
+                                    setActiveScript(null); 
+                                    navigate('?view=STOCK&tab=queue', { replace: true });
+                                    return;
+                                }
                                 setActiveScript(null); 
                                 fetchScripts({ 
                                     page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 

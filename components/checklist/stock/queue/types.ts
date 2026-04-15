@@ -1,0 +1,15 @@
+import { Task, ScriptSummary } from '../../../../types';
+
+export interface MergedQueueItem {
+    id: string;
+    type: 'CONTENT' | 'SCRIPT';
+    title: string;
+    status: string;
+    isSoftFinished: boolean;
+    channelId?: string;
+    contentId?: string; // For scripts
+    scriptId?: string;  // For contents that have a linked script
+    item: Task | ScriptSummary;
+}
+
+export type QueueViewMode = 'GRID' | 'TABLE';

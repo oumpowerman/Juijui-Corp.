@@ -25,15 +25,15 @@ export const useYjsSync = (scriptId: string, isWriter: boolean, initialContent?:
             try {
                 const { data, error } = await supabase
                     .from('scripts')
-                    .select('documentState')
+                    .select('document_state')
                     .eq('id', scriptId)
                     .single();
 
                 if (error) throw error;
 
-                if (data?.documentState && isMounted) {
+                if (data?.document_state && isMounted) {
                     // Decode Base64 to Uint8Array and apply to Y.Doc
-                    const binaryString = atob(data.documentState);
+                    const binaryString = atob(data.document_state);
                     const bytes = new Uint8Array(binaryString.length);
                     for (let i = 0; i < binaryString.length; i++) {
                         bytes[i] = binaryString.charCodeAt(i);

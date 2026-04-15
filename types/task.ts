@@ -127,6 +127,7 @@ export interface Task {
     shootDate?: Date;
     shootLocation?: string;
     isInShootQueue?: boolean;
+    isSoftFinished?: boolean;
 
     // Sub-tasks
     contentId?: string; 

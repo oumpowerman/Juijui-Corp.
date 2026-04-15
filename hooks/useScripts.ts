@@ -199,7 +199,8 @@ export const useScripts = (currentUser: User) => {
             return {
                 ...mapScriptSummary(data),
                 content: data.content || '',
-                characters: data.characters || []
+                characters: data.characters || [],
+                document_state: data.document_state
             };
         } catch (err) {
             console.error('Fetch script detail failed', err);

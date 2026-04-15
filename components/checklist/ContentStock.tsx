@@ -28,6 +28,7 @@ interface ContentStockProps {
   onAdd: () => void;
   onOpenSettings: () => void;
   onAddToWorkbox?: (task: Task) => void;
+  onEditScript?: (scriptId: string) => void;
 }
 
 type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
@@ -35,7 +36,7 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 20;
 
-const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channels, users, masterOptions, onSchedule, onEdit, onAdd, onOpenSettings, onAddToWorkbox }) => {
+const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channels, users, masterOptions, onSchedule, onEdit, onAdd, onOpenSettings, onAddToWorkbox, onEditScript }) => {
   const { showToast } = useToast();
 
   // --- Filter States ---
@@ -54,7 +55,27 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [showStockOnly, setShowStockOnly] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-  const [viewTab, setViewTab] = useState<'LIST' | 'QUEUE'>('LIST');
+  const [viewTab, setViewTab] = useState<'LIST' | 'QUEUE'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tab') === 'queue' ? 'QUEUE' : 'LIST';
+    }
+    return 'LIST';
+  });
+
+  // Sync tab with URL
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const currentTab = url.searchParams.get('tab');
+    
+    if (viewTab === 'QUEUE' && currentTab !== 'queue') {
+      url.searchParams.set('tab', 'queue');
+      window.history.replaceState({}, '', url.toString());
+    } else if (viewTab === 'LIST' && currentTab === 'queue') {
+      url.searchParams.delete('tab');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [viewTab]);
 
   // --- Sort States ---
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
@@ -369,6 +390,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                     users={users}
                     masterOptions={masterOptions}
                     onEditContent={onEdit}
+                    onEditScript={onEditScript}
                 />
             </div>
         )}

@@ -37,6 +37,7 @@ interface MemberFiltersProps {
     setSearchQuery: (query: string) => void
     activeCount: number
     inactiveCount: number
+    pendingCount: number
     currentUser: User
     onTabChange: (tab: TabType) => void
 
@@ -66,6 +67,7 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
         setSearchQuery,
         activeCount,
         inactiveCount,
+        pendingCount,
         currentUser,
         onTabChange,
         positionOptions,
@@ -97,6 +99,13 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
                 activeBg: 'bg-white'
             },
             {
+                id: 'PENDING' as TabType,
+                label: `Pending (${pendingCount})`,
+                icon: Activity,
+                color: 'text-orange-500',
+                activeBg: 'bg-white'
+            },
+            {
                 id: 'INACTIVE' as TabType,
                 label: `Inactive (${inactiveCount})`,
                 icon: UserX,
@@ -116,7 +125,7 @@ export const MemberFilters = React.memo(React.forwardRef<HTMLDivElement, MemberF
         }
 
         return baseTabs
-    }, [activeCount, inactiveCount, currentUser.role])
+    }, [activeCount, inactiveCount, pendingCount, currentUser.role])
 
     /* ============================= */
     /* ===== ACTIVE FILTER CHECK === */

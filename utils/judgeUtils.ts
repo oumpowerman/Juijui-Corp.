@@ -1,4 +1,4 @@
-import { format, addDays, isBefore } from 'date-fns';
+import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { User, AnnualHoliday } from '../types';
 
 /**
@@ -9,6 +9,11 @@ import { User, AnnualHoliday } from '../types';
  * 3. User's Personal Schedule (วันทำงานรายบุคคล)
  */
 export const isWorkingDay = (date: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
+    // 0. Check if date is before user's start date
+    if (user?.startDate && isBefore(startOfDay(date), startOfDay(new Date(user.startDate)))) {
+        return false;
+    }
+
     const dateStr = format(date, 'yyyy-MM-dd');
     
     // 1. Check Exceptions (Highest Priority)

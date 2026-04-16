@@ -9,4 +9,4 @@ export const WEEK_DAYS = [
     { num: 0, label: 'อา' },
 ];
 
-export type TabType = 'ACTIVE' | 'INACTIVE' | 'GAME_MASTER';
+export type TabType = 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'GAME_MASTER';

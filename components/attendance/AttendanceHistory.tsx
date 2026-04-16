@@ -3,8 +3,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AttendanceLog, LeaveType } from '../../types/attendance';
 import { useAttendanceHistory } from '../../hooks/attendance/useAttendanceHistory';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests'; 
+import { useUserSession } from '../../context/UserSessionContext';
 import { supabase } from '../../lib/supabase';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, isBefore, startOfDay } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
 import th from 'date-fns/locale/th';
@@ -33,7 +34,10 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     });
 
     const { getAttendanceLogs, isHistoryLoading: isFetching } = useAttendanceHistory(userId);
+    const { allUsers } = useUserSession();
     const { requests, submitRequest } = useLeaveRequests({ id: userId } as any);
+
+    const targetUser = useMemo(() => allUsers.find(u => u.id === userId), [allUsers, userId]);
 
     // Data State
     const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
@@ -125,7 +129,10 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     };
     
     // --- STATUS BADGE LOGIC (Updated for 100% Coverage) ---
-    const getStatusConfig = (log: AttendanceLog) => {
+    const getStatusConfig = (log: AttendanceLog, userStartDate?: Date) => {
+        if (log.status === 'ABSENT' && userStartDate && isBefore(startOfDay(new Date(log.date)), startOfDay(userStartDate))) {
+            return { label: 'ยังไม่เริ่มงาน', color: 'bg-gray-100 text-gray-500 border-gray-200', icon: HelpCircle };
+        }
         switch (log.status) {
             case 'COMPLETED':
             case 'ON_TIME': // In case we use specific status
@@ -265,10 +272,11 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                     historyLogs.map(log => {
                                         const late = isLate(log);
                                         const proof = getProofUrl(log);
-                                        const statusConfig = getStatusConfig(log);
+                                        const statusConfig = getStatusConfig(log, targetUser?.startDate);
                                         const StatusIcon = statusConfig.icon;
                                         const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
                                         const isPending = log.status === 'PENDING_VERIFY';
+                                        const isNotStarted = statusConfig.label === 'ยังไม่เริ่มงาน';
                                         
                                         // Check if it's a late correction (over 3 days)
                                         const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date()) > 3;
@@ -310,14 +318,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                                             {format(log.checkInTime, 'HH:mm')}
                                                             {late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
                                                         </span>
-                                                    ) : isLeave ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}
+                                                    ) : (isLeave || isNotStarted) ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {log.checkOutTime ? (
                                                         <span className="font-mono font-bold text-sm text-gray-600">{format(log.checkOutTime, 'HH:mm')}</span>
                                                     ) : isPending ? (
                                                         <span className="text-orange-500 italic text-xs font-bold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> รออนุมัติ</span>
-                                                    ) : isLeave ? (
+                                                    ) : (isLeave || isNotStarted) ? (
                                                         <span className="text-xs text-gray-400">-</span>
                                                     ) : (log.status === 'ABSENT' || log.status === 'NO_SHOW' || !log.checkInTime) ? (
                                                         <span className="text-red-400 text-xs font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100 opacity-70">

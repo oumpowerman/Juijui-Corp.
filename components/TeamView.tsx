@@ -209,7 +209,7 @@ const TeamView: React.FC<TeamViewProps> = ({
       }
   };
 
-  const pendingMembers = useMemo(() => users.filter(u => !u.isApproved), [users]);
+  const pendingMembers = useMemo(() => users.filter(u => !u.isApproved && u.isActive), [users]);
 
   const [bgTheme, setBgTheme] = useState('');
   const themes = [

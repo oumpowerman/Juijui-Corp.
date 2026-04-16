@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { format, subDays } from 'date-fns';
+import { format, subDays, isBefore, startOfDay } from 'date-fns';
 import { User, AnnualHoliday, AttendanceLog, LeaveRequest } from '../types';
 import { isWorkingDay, isUserOnLeave } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
@@ -50,6 +50,11 @@ export const useAttendanceJudge = (
 
             // 1. เช็คว่าเป็นวันทำงานไหม? (อัปเกรดให้เช็ควันหยุดบริษัทและข้อยกเว้นด้วย)
             if (!isWorkingDay(checkDate, holidays, exceptions, currentUser)) continue;
+
+            // 1.1 เช็คว่าก่อนวันเริ่มงานไหม? (กันหักคะแนนย้อนหลังสำหรับสมาชิกใหม่)
+            if (currentUser.startDate && isBefore(startOfDay(checkDate), startOfDay(new Date(currentUser.startDate)))) {
+                continue;
+            }
 
             // 2. เช็คว่าลาไหม? (APPROVED หรือ PENDING)
             const leaveCheck = isUserOnLeave(checkDateStr, userLeaves);

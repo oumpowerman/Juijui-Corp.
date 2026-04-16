@@ -72,7 +72,7 @@ export const useAutoJudge = (currentUser: User | null) => {
     };
 
     const checkAndPunish = useCallback(async () => {
-        if (!currentUser || isLoading) return;
+        if (!currentUser || isLoading || !currentUser.isApproved || !currentUser.isActive) return;
         
         // 💀 DEATH PROTECTION: If user is already dead, stop judging to prevent death loop
         // They need to be revived first.

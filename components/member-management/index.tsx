@@ -71,7 +71,8 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     , [masterOptions]);
 
     const stats = useMemo(() => ({
-        active: users.filter(u => u.isActive).length,
+        active: users.filter(u => u.isActive && u.isApproved).length,
+        pending: users.filter(u => u.isActive && !u.isApproved).length,
         inactive: users.filter(u => !u.isActive).length,
         admin: users.filter(u => u.role === 'ADMIN').length
     }), [users]);
@@ -89,9 +90,12 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                 // 1. Tab Match
                 if (currentTab === 'GAME_MASTER') {
                     if (!u.isActive) return false;
-                } else {
-                    const statusMatch = currentTab === 'ACTIVE' ? u.isActive : !u.isActive;
-                    if (!statusMatch) return false;
+                } else if (currentTab === 'PENDING') {
+                    if (!u.isActive || u.isApproved) return false;
+                } else if (currentTab === 'ACTIVE') {
+                    if (!u.isActive || !u.isApproved) return false;
+                } else if (currentTab === 'INACTIVE') {
+                    if (u.isActive) return false;
                 }
 
                 // 2. Search Match
@@ -280,6 +284,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                     setSearchQuery={setSearchQuery}
                     activeCount={stats.active}
                     inactiveCount={stats.inactive}
+                    pendingCount={stats.pending}
                     currentUser={currentUser}
                     onTabChange={() => setSelectedGmUser(null)}
                     // Advanced Filters

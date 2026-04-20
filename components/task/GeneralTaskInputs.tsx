@@ -67,6 +67,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,
         contentId, handleSetParentProject,
+        showOnBoard, setShowOnBoard,
         scriptId, setScriptId, 
         assets, addAsset, removeAsset,
         error,
@@ -408,6 +409,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             setPriority={setPriority}
                             status={status}
                             setStatus={setStatus}
+                            showOnBoard={showOnBoard}
+                            setShowOnBoard={setShowOnBoard}
                             taskStatusOptions={filteredStatusOptions} 
                             currentUser={currentUser}
                         />

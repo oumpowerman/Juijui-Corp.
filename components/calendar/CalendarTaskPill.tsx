@@ -74,8 +74,8 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
 
     // Calculate layout classes based on expanded state
     const taskBaseClass = isExpanded 
-        ? "w-full text-xs px-2 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all shadow-sm leading-snug flex items-center justify-between gap-2 overflow-hidden mb-1.5"
-        : "w-full text-[12px] px-1.5 py-1 rounded-md border truncate cursor-grab active:cursor-grabbing hover:scale-105 transition-all shadow-sm flex items-center gap-1 mb-0.5";
+        ? "w-full text-xs px-2 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all shadow-sm leading-snug flex items-center justify-between gap-2 mb-1.5 hover:scale-110 hover:shadow-2xl hover:z-50 relative"
+        : "w-full text-[12px] px-1.5 py-1 rounded-md border truncate cursor-grab active:cursor-grabbing hover:scale-125 hover:z-50 hover:shadow-xl transition-all shadow-sm flex items-center gap-1 mb-0.5 relative";
 
     // Resolve Status Label & Color from Master Data
     let statusLabel = '';

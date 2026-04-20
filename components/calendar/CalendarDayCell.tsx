@@ -113,7 +113,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, day)}
             className={`
-                relative flex flex-col group transition-all cursor-pointer select-none
+                relative flex flex-col group transition-all cursor-pointer select-none hover:z-30
                 ${isExpanded ? 'p-1.5 md:p-3' : 'p-1 md:p-2'}
                 ${bgClass}
             `}
@@ -150,8 +150,8 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                 </div>
             )}
 
-            <div className="flex-1 flex flex-col justify-start overflow-hidden w-full">
-                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-1 w-full ${containerPadding} ${containerSpacing} h-full overflow-hidden`}>
+            <div className="flex-1 flex flex-col justify-start w-full">
+                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-1 w-full ${containerPadding} ${containerSpacing} h-full`}>
                     {count > 0 && tasks.slice(0, maxVisible).map((task, index) => (
                         <CalendarTaskPill 
                             key={`${task.id}-${viewMode}`}

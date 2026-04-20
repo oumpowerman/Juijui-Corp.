@@ -437,17 +437,29 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                                 <AlertTriangle className="w-4 h-4 animate-pulse" />
                                             </button>
                                         ) : (
-                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm border backdrop-blur-md transition-all duration-500 ${
-                                                isDriveUploading 
-                                                    ? 'bg-blue-500/20 border-blue-200 text-blue-600 animate-pulse' 
-                                                    : 'bg-emerald-500/20 border-emerald-200 text-emerald-600'
-                                            }`}>
-                                                {isDriveUploading ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                ) : (
-                                                    <Cloud className="w-3 h-3" />
+                                            <div className="flex items-center gap-1">
+                                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm border backdrop-blur-md transition-all duration-500 ${
+                                                    isDriveUploading 
+                                                        ? 'bg-blue-500/20 border-blue-200 text-blue-600 animate-pulse' 
+                                                        : 'bg-emerald-500/20 border-emerald-200 text-emerald-600'
+                                                }`}>
+                                                    {isDriveUploading ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <Cloud className="w-3 h-3" />
+                                                    )}
+                                                    {isDriveUploading ? 'Uploading...' : 'Drive Ready'}
+                                                </div>
+                                                {!isDriveUploading && (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); retryDrive(); }}
+                                                        className="p-1.5 bg-white/80 border border-emerald-100 text-emerald-600 rounded-full hover:bg-emerald-50 hover:text-emerald-700 shadow-sm transition-all active:scale-90"
+                                                        title="ลองเชื่อมต่อใหม่"
+                                                    >
+                                                        <RefreshCw className="w-3 h-3" />
+                                                    </button>
                                                 )}
-                                                {isDriveUploading ? 'Uploading...' : 'Drive Ready'}
                                             </div>
                                         )}
                                     </div>

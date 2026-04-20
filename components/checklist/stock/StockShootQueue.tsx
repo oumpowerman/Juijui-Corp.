@@ -27,7 +27,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
     const [queueItems, setQueueItems] = useState<MergedQueueItem[]>([]);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
-    const [viewMode, setViewMode] = useState<QueueViewMode>('GRID');
+    const [viewMode, setViewMode] = useState<QueueViewMode>('TABLE');
 
     const finishedCount = useMemo(() => 
         queueItems.filter(i => i.isSoftFinished).map(i => i.id).length
@@ -40,7 +40,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             const { data: contents, error: contentError } = await supabase
                 .from('contents')
                 .select('*')
-                .eq('is_in_shoot_queue', true);
+                .eq('is_in_shoot_queue', true)
+                .order('sort_order', { ascending: true });
 
             if (contentError) throw contentError;
 
@@ -51,6 +52,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 status: c.status,
                 isSoftFinished: !!c.is_soft_finished,
                 channelId: c.channel_id,
+                sort_order: c.sort_order || 0,
                 item: {
                     id: c.id,
                     type: 'CONTENT',
@@ -71,7 +73,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 const { data: scripts, error: scriptError } = await supabase
                     .from('scripts')
                     .select('*, contents(title)')
-                    .eq('is_in_shoot_queue', true);
+                    .eq('is_in_shoot_queue', true)
+                    .order('sort_order', { ascending: true });
 
                 if (scriptError) throw scriptError;
 
@@ -89,6 +92,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                             isSoftFinished: !!s.is_soft_finished,
                             channelId: s.channel_id,
                             contentId: s.content_id,
+                            sort_order: s.sort_order || 0,
                             item: {
                                 id: s.id,
                                 title: s.title,
@@ -102,6 +106,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 });
             }
 
+            // Final sort after merging
+            merged.sort((a, b) => a.sort_order - b.sort_order);
             setQueueItems(merged);
         } catch (err) {
             console.error('Fetch queue failed:', err);
@@ -152,6 +158,55 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             supabase.removeChannel(channel);
         };
     }, [includeScripts]);
+
+    const handleReorder = async (newItems: MergedQueueItem[]) => {
+        // Optimistic update
+        setQueueItems(newItems.map((item, index) => ({ ...item, sort_order: index })));
+
+        try {
+            // Save new order to database
+            const updates = newItems.map((item, index) => {
+                const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
+                return supabase
+                    .from(table)
+                    .update({ sort_order: index })
+                    .eq('id', item.id);
+            });
+
+            await Promise.all(updates);
+        } catch (err) {
+            console.error('Reorder update failed:', err);
+            showToast('จัดลำดับไม่สำเร็จ', 'error');
+            // We could fetch queue again to revert, but usually DnD is fine locally
+        }
+    };
+
+    const handleRemoveFromQueue = async (item: MergedQueueItem) => {
+        const confirmed = await showConfirm(
+            `คุณต้องการนำรายการ "${item.title}" ออกจากคิวถ่ายทำใช่หรือไม่?`,
+            'ยืนยันการนำออก'
+        );
+
+        if (confirmed) {
+            // Optimistic update
+            setQueueItems(prev => prev.filter(i => i.id !== item.id));
+
+            try {
+                const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
+                const { error } = await supabase
+                    .from(table)
+                    .update({ is_in_shoot_queue: false })
+                    .eq('id', item.id);
+
+                if (error) throw error;
+                showToast('นำออกจากคิวเรียบร้อย', 'success');
+            } catch (err) {
+                console.error('Remove from queue failed:', err);
+                showToast('นำออกจากคิวไม่สำเร็จ', 'error');
+                fetchQueue(); // Revert
+            }
+        }
+    };
 
     const handleMarkAsDone = async (item: MergedQueueItem) => {
         const confirmed = await showConfirm(
@@ -312,6 +367,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         onEditScript={onEditScript}
                         onToggleFinished={toggleFinished}
                         onMarkAsDone={handleMarkAsDone}
+                        onRemove={handleRemoveFromQueue}
                     />
                 ) : (
                     <QueueTableView 
@@ -323,6 +379,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         onEditScript={onEditScript}
                         onToggleFinished={toggleFinished}
                         onMarkAsDone={handleMarkAsDone}
+                        onReorder={handleReorder}
+                        onRemove={handleRemoveFromQueue}
                     />
                 )
             )}

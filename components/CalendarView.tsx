@@ -83,16 +83,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [pendingDelayTask, setPendingDelayTask] = useState<Task | null>(null);
 
   const handleMoveAttempt = (updatedTask: Task) => {
-      const originalTask = tasks.find(t => t.id === updatedTask.id);
+      // const originalTask = tasks.find(t => t.id === updatedTask.id);
       
       // If moving to a LATER date (Delay)
-      if (originalTask && !originalTask.isUnscheduled && updatedTask.endDate > originalTask.endDate) {
-          setPendingDelayTask(updatedTask);
-          setDelayModalOpen(true);
-      } else {
+      // if (originalTask && !originalTask.isUnscheduled && updatedTask.endDate > originalTask.endDate) {
+      //     setPendingDelayTask(updatedTask);
+      //     setDelayModalOpen(true);
+      // } else {
           // Just a normal move (earlier or same day or from stock)
           onMoveTask(updatedTask);
-      }
+      // }
   };
 
   const confirmDelay = (reason: string) => {

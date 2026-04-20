@@ -74,7 +74,7 @@ export const useAttendanceActions = (userId: string) => {
                 location_name: locationName || 'Unknown Location'
             };
 
-            const { error } = await supabase.from('attendance_logs').insert(payload);
+            const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
             if (error) throw error;
 
             showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
@@ -139,7 +139,7 @@ export const useAttendanceActions = (userId: string) => {
                 location_name: 'Manual Entry'
             };
 
-            const { error } = await supabase.from('attendance_logs').insert(payload);
+            const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
             if (error) throw error;
 
             showToast('บันทึกเวลาเข้างานแบบ Manual แล้ว (รอตรวจสอบ) ✅', 'success');

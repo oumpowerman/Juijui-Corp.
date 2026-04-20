@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LayoutGrid, FileText, CheckCircle2, Info, ArrowRight, Loader2 } from 'lucide-react';
+import { LayoutGrid, FileText, CheckCircle2, Info, ArrowRight, Loader2, Trash2 } from 'lucide-react';
 import { MergedQueueItem } from './types';
 import { Channel, Task, ScriptSummary, MasterOption } from '../../../../types';
 
@@ -14,6 +14,7 @@ interface QueueItemCardProps {
     onEditScript?: (scriptId: string) => void;
     onToggleFinished: (item: MergedQueueItem) => void;
     onMarkAsDone: (item: MergedQueueItem) => void;
+    onRemove: (item: MergedQueueItem) => void;
 }
 
 const QueueItemCard: React.FC<QueueItemCardProps> = ({
@@ -25,7 +26,8 @@ const QueueItemCard: React.FC<QueueItemCardProps> = ({
     onEditContent,
     onEditScript,
     onToggleFinished,
-    onMarkAsDone
+    onMarkAsDone,
+    onRemove
 }) => {
     const getStatusInfo = (statusKey: string) => {
         const option = masterOptions.find(opt => opt.key === statusKey);
@@ -108,15 +110,24 @@ const QueueItemCard: React.FC<QueueItemCardProps> = ({
             </div>
 
             <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between gap-3">
-                <button 
-                    onClick={() => {
-                        if (item.type === 'CONTENT') onEditContent(item.item as Task);
-                        else if (onEditScript) onEditScript(item.id);
-                    }}
-                    className="text-xs font-bold text-gray-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
-                >
-                    ดูรายละเอียด <ArrowRight className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => onRemove(item)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="นำออกจากคิวถ่ายทำ"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                        onClick={() => {
+                            if (item.type === 'CONTENT') onEditContent(item.item as Task);
+                            else if (onEditScript) onEditScript(item.id);
+                        }}
+                        className="text-xs font-bold text-gray-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
+                    >
+                        ดูรายละเอียด <ArrowRight className="w-3 h-3" />
+                    </button>
+                </div>
 
                 <button
                     onClick={() => isFinished ? onToggleFinished(item) : onMarkAsDone(item)}

@@ -106,7 +106,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         <div className={`
             relative z-30 transition-all duration-500 ease-in-out
             ${isExpanded 
-                ? 'bg-white/95 backdrop-blur-xl border-b border-gray-100 p-4 shadow-sm sticky top-0' 
+                ? 'bg-white/95 backdrop-blur-xl border-b border-gray-100 p-4 shadow-sm sticky top-0 md:rounded-b-[2.5rem]' 
                 : 'bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] border border-white/60 p-4 lg:p-5 ring-1 ring-white/60'
             }
         `}>
@@ -184,43 +184,73 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                 const isExclude = chip.mode === 'EXCLUDE';
                                 
                                 let channelLogo = null;
+                                let chColor = (theme as any).hex || '#fff';
                                 if (chip.type === 'CHANNEL') {
                                     const ch = channels.find(c => c.id === chip.value);
                                     if (ch?.logoUrl) {
                                         channelLogo = ch.logoUrl;
+                                        if (ch.color && ch.color !== '#000000' && ch.color !== '#000') {
+                                            chColor = ch.color;
+                                        }
                                     }
                                 }
 
+                                // Override style for Identification
+                                const isLogoChip = !!channelLogo;
+
                                 // Override style for Exclusion Mode
-                                const baseClasses = isExclude 
+                                const baseClasses = isLogoChip
+                                ? (isActive 
+                                    ? 'bg-transparent border-transparent shadow-none' 
+                                    : 'bg-transparent border-transparent shadow-none opacity-60 hover:opacity-100')
+                                : (isExclude 
                                 ? (isActive 
                                     ? 'bg-red-500 text-white border-red-500 shadow-md shadow-red-200 ring-2 ring-offset-2 ring-red-100 scale-105' 
                                     : 'bg-white text-red-500 border-red-100 hover:bg-red-50 hover:border-red-200')
                                 : (isActive 
                                     ? `${theme.activeBg} text-white border-transparent shadow-lg ${theme.ring.replace('ring-', 'shadow-')}/40 ring-2 ring-offset-2 ring-transparent scale-105` 
-                                    : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:bg-${theme.id}-50 hover:-translate-y-0.5`);
+                                    : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:bg-${theme.id}-50 hover:-translate-y-0.5`));
 
                                 return (
                                     <button
                                         key={chip.id}
                                         onClick={() => toggleChip(chip.id)}
                                         className={`
-                                            px-3 lg:px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap shadow-sm border shrink-0 flex items-center gap-1.5 active:scale-95
+                                            ${isLogoChip ? 'p-1.5' : 'px-3 lg:px-4 py-1.5 lg:py-2'} rounded-full text-xs font-bold transition-all duration-300 whitespace-nowrap shrink-0 flex items-center gap-2 active:scale-95
                                             ${baseClasses}
+                                            ${!isLogoChip ? 'shadow-sm border' : ''}
+                                            relative
                                         `}
                                     >
-                                        {isExclude && <Ban className="w-3 h-3 stroke-[3px]" />}
+                                        {isExclude && <Ban className="w-4 h-4 stroke-[3px]" />}
                                         {channelLogo ? (
-                                        <img 
-                                        src={channelLogo} 
-                                        alt={chip.label} 
-                                        className="w-5 h-5 lg:w-6 lg:h-6 rounded-full object-cover border border-white/20 hover:scale-120 transition-transform" 
-                                        title={chip.label} 
-                                        />
+                                        <div className="relative">
+                                            <img 
+                                                src={channelLogo} 
+                                                alt={chip.label} 
+                                                className={`w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover transition-all duration-500 ${isActive ? 'scale-110' : 'hover:scale-110'}`}
+                                                style={{ 
+                                                    filter: isActive 
+                                                        ? `drop-shadow(0 0 4px ${chColor}) drop-shadow(0 0 12px ${chColor}80)` 
+                                                        : 'none',
+                                                    boxShadow: isActive ? `0 0 15px ${chColor}60` : 'none',
+                                                    border: isActive ? `2px solid ${chColor}` : 'none'
+                                                }}
+                                                title={chip.label} 
+                                            />
+                                            {isActive && !isExclude && (
+                                                <div 
+                                                    className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100 animate-in zoom-in-50 duration-300"
+                                                    style={{ color: chColor }}
+                                                >
+                                                    <Check className="w-2.5 h-2.5 stroke-[4px]" />
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
-                                        chip.label
+                                        <span className="px-1">{chip.label}</span>
                                     )}
-                                        {!isExclude && isActive && <Check className="w-3 h-3 text-white stroke-[3px]" />}
+                                        {!isExclude && isActive && !isLogoChip && <Check className="w-4 h-4 text-white stroke-[3px]" />}
                                     </button>
                                 );
                             })}

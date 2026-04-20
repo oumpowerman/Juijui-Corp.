@@ -224,8 +224,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         />
                     </div>
                 ) : viewMode === 'LOGISTICS' && initialData && currentUser ? (
-                     <LogisticsTab 
-                        parentContentId={initialData.id}
+                    <LogisticsTab 
+                        parentTask={initialData}
                         users={users}
                         currentUser={currentUser}
                         onUpdate={onUpdate}

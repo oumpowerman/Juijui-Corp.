@@ -32,7 +32,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     
     // Hidden Fields (Preservation) & Linking
     const [contentId, setContentId] = useState<string | undefined>(undefined);
-    const [showOnBoard, setShowOnBoard] = useState(false);
+    const [showOnBoard, setShowOnBoard] = useState(true);
     
     // Script Linking
     const [scriptId, setScriptId] = useState<string | undefined>(undefined);
@@ -93,7 +93,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setImportance('');
             
             setContentId(undefined);
-            setShowOnBoard(false);
+            setShowOnBoard(true);
             setScriptId(undefined);
             
             setDifficulty('MEDIUM');
@@ -204,6 +204,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         importance, setImportance,
         
         contentId, handleSetParentProject,
+        showOnBoard, setShowOnBoard,
         scriptId, setScriptId,
         
         difficulty, setDifficulty,

@@ -31,14 +31,14 @@ export const updateGameStats = async (
 
         // 3. 🧮 Calculate: คำนวณค่าใหม่
         const newXp = Math.max(0, user.xp + result.xp);
-        const newHp = Math.min(user.max_hp || 100, Math.max(0, user.hp + result.hp)); // HP ห้ามเกิน Max และห้ามติดลบ
+        const newHp = Math.min(user.max_hp || 100, user.hp + result.hp); // HP ห้ามเกิน Max แต่ติดลบได้
         
         // 4. 🆙 Check Level Up: ตรวจสอบว่าเลเวลอัปไหม
         const newLevel = calculateLevel(newXp, config);
         const isLevelUp = newLevel > user.level;
         
-        // Check for Death (HP transition to 0)
-        const isDeath = user.hp > 0 && newHp === 0;
+        // Check for Death (HP transition to <= 0 from positive)
+        const isDeath = user.hp > 0 && newHp <= 0;
 
         // ให้โบนัสพิเศษเมื่อเลเวลอัป
         const levelUpBonus = config.LEVELING_SYSTEM?.level_up_bonus_coins ?? 500;

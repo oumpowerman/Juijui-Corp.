@@ -63,7 +63,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
         <div 
             key="calendar-view"
             className={`
-                bg-white rounded-[1.5rem] shadow-sm border border-gray-200 overflow-hidden 
+                bg-white rounded-[1.5rem] shadow-sm border border-gray-200 
                 ${isExpanded ? 'min-h-[85vh] shadow-2xl border-gray-300' : 'ring-4 ring-gray-50/50'} 
                 animate-slide-in-left
             `}

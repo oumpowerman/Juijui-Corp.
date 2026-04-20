@@ -10,13 +10,14 @@ import { supabase } from '../../lib/supabase';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface LogisticsTabProps {
-    parentContentId: string;
+    parentTask: Task;
     users: User[];
     currentUser: User;
     onUpdate?: (task: Task) => void;
 }
 
-const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, currentUser, onUpdate }) => {
+const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentUser, onUpdate }) => {
+    const parentContentId = parentTask.id;
     // We reuse useTasks, which fetches by content_id correctly
     const { fetchSubTasks, handleSaveTask, handleDeleteTask, handleSendToQC: sendToQC } = useTasks(() => {});
     const { showAlert, showConfirm } = useGlobalDialog();
@@ -60,6 +61,8 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
 
         setIsAdding(true);
         try {
+            const selectedUser = users.find(u => u.id === newTaskAssignee);
+
             const newTask: Task = {
                 id: crypto.randomUUID(),
                 type: 'TASK',
@@ -67,15 +70,19 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentContentId, users, cur
                 description: '',
                 status: 'TODO',
                 priority: 'MEDIUM',
-                tags: [],
+                tags: parentTask.tags || [],
                 startDate: new Date(),
-                endDate: new Date(),
+                endDate: parentTask.endDate || new Date(),
                 assigneeIds: newTaskAssignee ? [newTaskAssignee] : [],
                 assigneeType: 'INDIVIDUAL',
+                targetPosition: selectedUser?.position || '',
                 difficulty: 'EASY',
                 estimatedHours: 0,
-                contentId: parentContentId, // CRITICAL: Link to parent content
-                showOnBoard: false,
+                contentId: parentContentId, 
+                channelId: parentTask.channelId,
+                pillar: parentTask.pillar,
+                category: parentTask.category,
+                showOnBoard: true,
                 assets: [],
                 reviews: [],
                 logs: []

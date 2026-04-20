@@ -70,11 +70,11 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                 >
                     <div className="flex items-center gap-3 overflow-hidden">
                         {showLogo && selectedOption && (
-                            <div className="w-6 h-6 rounded-full overflow-hidden border border-slate-100 bg-white flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-100 bg-white flex-shrink-0">
                                 {selectedOption.logo ? (
                                     <img src={selectedOption.logo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 ) : (
-                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[8px] text-slate-400">
+                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-xs text-slate-400">
                                         {selectedOption.label.substring(0, 1)}
                                     </div>
                                 )}
@@ -121,11 +121,11 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                         className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200 ${value === opt.value ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-600'}`}
                                     >
                                         {showLogo && (
-                                            <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-100 bg-white flex-shrink-0 shadow-sm">
+                                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-slate-100 bg-white flex-shrink-0 shadow-sm">
                                                 {opt.logo ? (
                                                     <img src={opt.logo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                                 ) : (
-                                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-400">
                                                         {opt.label.substring(0, 1)}
                                                     </div>
                                                 )}

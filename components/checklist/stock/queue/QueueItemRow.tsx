@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LayoutGrid, FileText, CheckCircle2, ArrowRight, Loader2, Clock } from 'lucide-react';
+import { LayoutGrid, FileText, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2 } from 'lucide-react';
 import { MergedQueueItem } from './types';
 import { Channel, Task, ScriptSummary, MasterOption } from '../../../../types';
 
@@ -14,6 +14,7 @@ interface QueueItemRowProps {
     onEditScript?: (scriptId: string) => void;
     onToggleFinished: (item: MergedQueueItem) => void;
     onMarkAsDone: (item: MergedQueueItem) => void;
+    onRemove: (item: MergedQueueItem) => void;
 }
 
 const QueueItemRow: React.FC<QueueItemRowProps> = ({
@@ -25,7 +26,8 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
     onEditContent,
     onEditScript,
     onToggleFinished,
-    onMarkAsDone
+    onMarkAsDone,
+    onRemove
 }) => {
     const getStatusInfo = (statusKey: string) => {
         const option = masterOptions.find(opt => opt.key === statusKey);
@@ -50,6 +52,11 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                 ${isContent ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-blue-400'}
             `}
         >
+            {/* Drag Handle */}
+            <div className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors">
+                <GripVertical className="w-5 h-5" />
+            </div>
+
             {/* Checkbox/Status */}
             <div className="flex-shrink-0">
                 <button
@@ -107,7 +114,14 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+                <button 
+                    onClick={() => onRemove(item)}
+                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title="คุณต้องการนำออกจากคิวถ่ายทำ?"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
                 <button 
                     onClick={() => {
                         if (item.type === 'CONTENT') onEditContent(item.item as Task);

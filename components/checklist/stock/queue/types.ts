@@ -9,6 +9,7 @@ export interface MergedQueueItem {
     channelId?: string;
     contentId?: string; // For scripts
     scriptId?: string;  // For contents that have a linked script
+    sort_order: number;
     item: Task | ScriptSummary;
 }
 

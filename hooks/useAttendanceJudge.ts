@@ -52,7 +52,9 @@ export const useAttendanceJudge = (
             if (!isWorkingDay(checkDate, holidays, exceptions, currentUser)) continue;
 
             // 1.1 เช็คว่าก่อนวันเริ่มงานไหม? (กันหักคะแนนย้อนหลังสำหรับสมาชิกใหม่)
-            if (currentUser.startDate && isBefore(startOfDay(checkDate), startOfDay(new Date(currentUser.startDate)))) {
+            // หากไม่มี startDate ให้ใช้ createdAt แทน (กันกรณีเพิ่งสมัครแล้วโดนหักคะแนนย้อนหลัง)
+            const effectiveStartDate = currentUser.startDate || (currentUser.createdAt ? new Date(currentUser.createdAt) : today);
+            if (isBefore(startOfDay(checkDate), startOfDay(effectiveStartDate))) {
                 continue;
             }
 
@@ -100,27 +102,27 @@ export const useAttendanceJudge = (
                      if (alreadyPenalized) {
                          // ถ้ามี Penalty ใน Log แล้วแต่ไม่มี Attendance Log (อาจจะเกิด Error ตอน Insert)
                          // ให้สร้าง Attendance Log ให้สมบูรณ์เพื่อหยุด Loop
-                         await supabase.from('attendance_logs').insert({
+                         await supabase.from('attendance_logs').upsert({
                              user_id: currentUser.id,
                              date: checkDateStr,
                              status: 'ABSENT',
                              work_type: 'OFFICE',
                              note: '[SYSTEM] Auto-marked as Absent (Log Recovery)'
-                         });
+                         }, { onConflict: 'user_id, date' });
                          continue;
                      }
 
                      isProcessingRef.current.add(absentLockKey);
 
                      try {
-                         // Insert Absent Log and get the ID
-                         const { data: newLog, error: insertError } = await supabase.from('attendance_logs').insert({
+                         // Insert/Upsert Absent Log and get the ID
+                         const { data: newLog, error: insertError } = await supabase.from('attendance_logs').upsert({
                              user_id: currentUser.id,
                              date: checkDateStr,
                              status: 'ABSENT',
                              work_type: 'OFFICE',
                              note: '[SYSTEM] Auto-marked as Absent by Judge (Lookback Catch-up)'
-                         }).select('id').single();
+                         }, { onConflict: 'user_id, date' }).select('id').single();
                          
                          if (!insertError && newLog) {
                              // หักคะแนนขาดงาน

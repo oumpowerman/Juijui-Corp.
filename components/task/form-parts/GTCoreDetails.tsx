@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Flag, Activity, FileText, ChevronDown, Check, Zap, Coffee, Leaf, Flame } from 'lucide-react';
+import { Flag, Activity, FileText, ChevronDown, Check, Zap, Coffee, Leaf, Flame, Eye, EyeOff } from 'lucide-react';
 import { Priority, MasterOption, User } from '../../../types';
 
 interface GTCoreDetailsProps {
@@ -10,6 +10,8 @@ interface GTCoreDetailsProps {
     setPriority: (val: Priority) => void;
     status: string;
     setStatus: (val: string) => void;
+    showOnBoard: boolean;
+    setShowOnBoard: (val: boolean) => void;
     taskStatusOptions: MasterOption[];
     currentUser?: User;
 }
@@ -22,7 +24,7 @@ const PRIORITY_CONFIG: Record<string, { label: string, color: string, icon: any,
 };
 
 const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({ 
-    description, setDescription, priority, setPriority, status, setStatus, taskStatusOptions, currentUser 
+    description, setDescription, priority, setPriority, status, setStatus, showOnBoard, setShowOnBoard, taskStatusOptions, currentUser 
 }) => {
     
     const [isPriorityOpen, setIsPriorityOpen] = useState(false);
@@ -174,6 +176,30 @@ const GTCoreDetails: React.FC<GTCoreDetailsProps> = ({
                     )}
                 </div>
 
+            </div>
+
+            {/* Visibility Toggle */}
+            <div className={`p-4 rounded-3xl border-2 transition-all flex items-center justify-between ${showOnBoard ? 'bg-emerald-50/50 border-emerald-100 ring-4 ring-emerald-50/10' : 'bg-slate-50 border-gray-100'}`}>
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner ${showOnBoard ? 'bg-white text-emerald-600' : 'bg-gray-200 text-gray-500'}`}>
+                        {showOnBoard ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                    </div>
+                    <div>
+                        <p className={`text-sm font-bold ${showOnBoard ? 'text-emerald-900' : 'text-slate-700'}`}>
+                            {showOnBoard ? 'แสดงบนบอร์ดปฏิทิน' : 'ซ่อนจากบอร์ดปฏิทิน'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-medium">เปิดเพื่อให้งานนี้ปรากฏในหน้า Calendar และ Board รวม</p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowOnBoard(!showOnBoard)}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ring-2 ring-transparent focus:ring-offset-2 ${showOnBoard ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                    <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${showOnBoard ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                </button>
             </div>
         </div>
     );

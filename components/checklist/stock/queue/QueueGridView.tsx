@@ -13,6 +13,7 @@ interface QueueGridViewProps {
     onEditScript?: (scriptId: string) => void;
     onToggleFinished: (item: MergedQueueItem) => void;
     onMarkAsDone: (item: MergedQueueItem) => void;
+    onRemove: (item: MergedQueueItem) => void;
 }
 
 const QueueGridView: React.FC<QueueGridViewProps> = ({
@@ -23,7 +24,8 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
     onEditContent,
     onEditScript,
     onToggleFinished,
-    onMarkAsDone
+    onMarkAsDone,
+    onRemove
 }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -40,6 +42,7 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
                         onEditScript={onEditScript}
                         onToggleFinished={onToggleFinished}
                         onMarkAsDone={onMarkAsDone}
+                        onRemove={onRemove}
                     />
                 ))}
             </AnimatePresence>

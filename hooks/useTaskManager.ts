@@ -75,11 +75,18 @@ export const useTaskManager = (
 
   // Wrapper for handleSaveTask to match original signature expected by App.tsx
   // UPDATED: Pass context data (users, masterOptions, channels) for Smart Diffing
-  const handleSaveTask = (task: any) => saveTaskInternal(task, editingTask, {
+  const handleSaveTask = async (task: any) => {
+    await saveTaskInternal(task, editingTask, {
       users: allUsers,
       masterOptions: masterOptions,
       channels: channels
-  });
+    });
+    
+    // Update editingTask if it was being edited to keep the modal in sync
+    if (editingTask && editingTask.id === task.id) {
+      setEditingTask(task);
+    }
+  };
 
   const mergedUsers = useMemo(() => 
     allUsers.map(u => u.id === currentUserProfile?.id ? { ...u, ...currentUserProfile } : u),

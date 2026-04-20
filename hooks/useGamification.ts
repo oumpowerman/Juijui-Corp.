@@ -94,7 +94,7 @@ export const useGamification = (currentUser: User | null = null) => {
 
             let updates: any = {};
             if (type === 'XP') updates.xp = Math.max(0, user.xp + amount);
-            if (type === 'HP') updates.hp = Math.min(user.max_hp, Math.max(0, user.hp + amount));
+            if (type === 'HP') updates.hp = Math.min(user.max_hp, user.hp + amount); // Allow negative HP
             if (type === 'COINS') updates.available_points = Math.max(0, user.available_points + amount);
 
             const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', userId);

@@ -44,4 +44,5 @@ export interface User {
 
     // Notification
     lineUserId?: string;
+    createdAt?: Date;
 }

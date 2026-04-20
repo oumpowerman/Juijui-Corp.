@@ -60,9 +60,22 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 const currentMonthFolder = format(new Date(), 'yyyy-MM');
                 const result = await uploadFileToDrive(file, ['Attendance', currentMonthFolder]);
                 proofUrl = result.thumbnailUrl || result.url;
-            } catch (err) {
+            } catch (err: any) {
+                console.error("Drive Upload Error:", err);
+                
+                let errorDetails = "เกิดข้อผิดพลาดในการอัปโหลดรูปภาพลง Google Drive";
+                if (err.reason === 'storageQuotaExceeded') {
+                    errorDetails = "พื้นที่ Google Drive ของคุณเต็ม (Storage Quota Exceeded)";
+                } else if (err.reason === 'insufficientPermissions') {
+                    errorDetails = "ไม่ได้รับอนุญาตให้เขียนไฟล์ (Insufficient Permissions)";
+                } else if (err.reason === 'rateLimitExceeded' || err.reason === 'userRateLimitExceeded') {
+                    errorDetails = "คุณใช้งานระบบอัปโหลดบ่อยเกินไป กรุณารอสักครู่ (Rate Limit Exceeded)";
+                } else if (err.message) {
+                    errorDetails = `ข้อผิดพลาดจาก Google: ${err.message}`;
+                }
+
                 const choice = await showConfirm(
-                    "ไม่สามารถอัปโหลดรูปภาพลง Google Drive ได้ คุณต้องการบันทึกข้อมูลต่อไปโดยไม่มีรูปภาพ หรือจะตรวจสอบ Drive ก่อนครับ?",
+                    `${errorDetails}\n\nคุณต้องการบันทึกข้อมูลต่อไปโดยไม่มีรูปภาพ หรือจะตรวจสอบ Drive ก่อนครับ?`,
                     "เกิดข้อผิดพลาดในการอัปโหลด"
                 );
                 if (choice) proofUrl = null;

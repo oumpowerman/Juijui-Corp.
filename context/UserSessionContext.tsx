@@ -61,7 +61,8 @@ const mapProfileToUser = (data: any): User => ({
     ssoIncluded: data.sso_included !== false,
     taxType: data.tax_type || 'WHT_3',
     lineUserId: data.line_user_id || '',
-    startDate: data.start_date ? new Date(data.start_date) : undefined
+    startDate: data.start_date ? new Date(data.start_date) : undefined,
+    createdAt: data.created_at ? new Date(data.created_at) : undefined
 });
 
 const mapDBToUserUpdates = (u: any): Partial<User> => {

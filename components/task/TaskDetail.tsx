@@ -99,9 +99,9 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
         transition: { type: 'spring', stiffness: 400, damping: 12 }
     } as const;
 
-    const handleCopyId = () => {
-        navigator.clipboard.writeText(task.id);
-        showToast('คัดลอก ID เรียบร้อยแล้ว ✅', 'success');
+    const handleCopyTitle = () => {
+        navigator.clipboard.writeText(task.title);
+        showToast('คัดลอกชื่อรายการเรียบร้อยแล้ว ✅', 'success');
     };
 
     return (
@@ -127,9 +127,9 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                         <div className="flex items-center gap-3 mb-1.5">
                             <h3 className="text-2xl font-semibold text-slate-700 tracking-tight leading-none">{task.title}</h3>
                             <button 
-                                onClick={handleCopyId}
+                                onClick={handleCopyTitle}
                                 className="p-1.5 rounded-xl bg-slate-50 text-slate-300 hover:bg-slate-100 hover:text-slate-400 transition-all active:scale-90"
-                                title="Copy ID"
+                                title="Copy Title"
                             >
                                 <Copy className="w-3.5 h-3.5" />
                             </button>

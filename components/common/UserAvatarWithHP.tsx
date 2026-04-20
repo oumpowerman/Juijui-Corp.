@@ -27,12 +27,13 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
     const circumference = 2 * Math.PI * 46;
     const offset = circumference - (hpPercent / 100) * circumference;
     
+    const isDead = user.hp <= 0;
     const isFullHP = hpPercent >= 100;
-    const isLowHP = hpPercent < 25;
-    const isCriticalHP = hpPercent < 10;
+    const isLowHP = !isDead && hpPercent < 25;
+    const isCriticalHP = !isDead && hpPercent < 10;
 
-    const hpColor = hpPercent > 70 ? 'text-emerald-500' : hpPercent > 30 ? 'text-amber-500' : 'text-red-500';
-    const glowColor = hpPercent > 70 ? 'rgba(16, 185, 129, 0.5)' : hpPercent > 30 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+    const hpColor = isDead ? 'text-gray-400' : hpPercent > 70 ? 'text-emerald-500' : hpPercent > 30 ? 'text-amber-500' : 'text-red-500';
+    const glowColor = isDead ? 'rgba(156, 163, 175, 0.5)' : hpPercent > 70 ? 'rgba(16, 185, 129, 0.5)' : hpPercent > 30 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.5)';
 
     const sizeClasses = {
         sm: 'w-8 h-8',
@@ -136,19 +137,19 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
                 <div className="relative rounded-full overflow-hidden">
                     <img 
                         src={user.avatarUrl} 
-                        className={`${sizeClasses[size]} rounded-full object-cover shadow-inner transition-all duration-500 ${isCriticalHP ? 'grayscale contrast-125' : ''}`} 
+                        className={`${sizeClasses[size]} rounded-full object-cover shadow-inner transition-all duration-500 ${isDead ? 'grayscale brightness-125' : isCriticalHP ? 'grayscale contrast-125' : ''}`} 
                         alt={user.name} 
                     />
                     
                     {/* Low HP Red Overlay Pulse */}
                     <AnimatePresence>
-                        {isLowHP && (
+                        {(isLowHP || isDead) && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
-                                animate={{ opacity: [0, 0.3, 0] }}
+                                animate={{ opacity: isDead ? [0.1, 0.2, 0.1] : [0, 0.3, 0] }}
                                 exit={{ opacity: 0 }}
-                                transition={{ repeat: Infinity, duration: 1.5 }}
-                                className="absolute inset-0 bg-red-500 pointer-events-none"
+                                transition={{ repeat: Infinity, duration: isDead ? 3 : 1.5 }}
+                                className={`absolute inset-0 ${isDead ? 'bg-indigo-300' : 'bg-red-500'} pointer-events-none`}
                             />
                         )}
                     </AnimatePresence>
@@ -184,6 +185,15 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
                 >
                     Lv.{user.level}
                 </motion.div>
+            )}
+
+            {/* Negative HP Label */}
+            {isDead && (
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                    <span className="text-[9px] font-black text-red-600 bg-white px-1 rounded border border-red-100 shadow-sm">
+                        {user.hp} HP
+                    </span>
+                </div>
             )}
 
             {/* Full HP Sparkles */}

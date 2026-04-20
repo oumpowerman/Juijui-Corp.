@@ -255,7 +255,19 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,webContentLink,thumbnailLink,name', {
                 method: 'POST', headers: new Headers({ 'Authorization': 'Bearer ' + token }), body: formData,
             });
-            if (!response.ok) throw new Error('Upload failed');
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const googleError = errorData.error || {};
+                const errorMessage = googleError.message || 'Upload failed';
+                const errorReason = googleError.errors?.[0]?.reason || 'unknown';
+                
+                const richError = new Error(errorMessage);
+                (richError as any).reason = errorReason;
+                (richError as any).details = googleError;
+                throw richError;
+            }
+            
             const data = await response.json();
             await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
                 method: 'POST', headers: new Headers({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }),
@@ -268,7 +280,8 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (onComplete) onComplete(result);
             showToast(`อัปโหลดไฟล์เรียบร้อย 📂`, 'success');
         } catch (error: any) {
-            showToast('อัปโหลดไป Drive ไม่สำเร็จ', 'error');
+            const msg = error.message ? `: ${error.message}` : '';
+            showToast(`อัปโหลดไป Drive ไม่สำเร็จ${msg}`, 'error');
             if (onError) onError(error);
         } finally {
             setIsUploading(false);

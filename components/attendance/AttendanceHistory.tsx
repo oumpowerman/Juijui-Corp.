@@ -5,7 +5,7 @@ import { useAttendanceHistory } from '../../hooks/attendance/useAttendanceHistor
 import { useLeaveRequests } from '../../hooks/useLeaveRequests'; 
 import { useUserSession } from '../../context/UserSessionContext';
 import { supabase } from '../../lib/supabase';
-import { format, isSameDay, isBefore, startOfDay } from 'date-fns';
+import { format, isSameDay, isBefore, startOfDay, eachDayOfInterval, parseISO, isFuture } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
 import th from 'date-fns/locale/th';
@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { parseAttendanceMetadata, getWorkingDaysDifference } from '../../lib/attendanceUtils';
 import { getDirectDriveUrl } from '../../lib/imageUtils';
+import { isWorkingDay, isUserOnLeave } from '../../utils/judgeUtils';
 import LeaveRequestModal from './LeaveRequestModal'; 
 import MyRequestHistory from './MyRequestHistory'; 
+import { AnnualHoliday } from '../../types';
 
 interface AttendanceHistoryProps {
     userId: string;
@@ -42,14 +44,92 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
     // Data State
     const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
     const [totalCount, setTotalCount] = useState(0);
+    const [holidays, setHolidays] = useState<AnnualHoliday[]>([]);
+    const [exceptions, setExceptions] = useState<any[]>([]);
 
     const fetchData = useCallback(async () => {
-        const { data, count } = await getAttendanceLogs(page, PAGE_SIZE, filters);
-        setHistoryLogs(data);
-        setTotalCount(count);
-    }, [getAttendanceLogs, page, filters]);
+        // Fetch a larger set to handle gap filling (max 93 days/3 months suggested range)
+        const { data: dbLogs } = await getAttendanceLogs(1, 200, filters);
+        
+        // 1. Generate all days in the filter range
+        const start = parseISO(filters.startDate);
+        const end = parseISO(filters.endDate);
+        const allDays = eachDayOfInterval({ start, end });
+
+        // 2. Map existing logs by date for easy lookup
+        const logMap = new Map<string, AttendanceLog>();
+        dbLogs.forEach(log => {
+            const dateStr = format(new Date(log.date), 'yyyy-MM-dd');
+            logMap.set(dateStr, log);
+        });
+
+        // 3. Construct the full history list
+        const filledHistory: AttendanceLog[] = allDays.map(date => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const existingLog = logMap.get(dateStr);
+
+            if (existingLog) return existingLog;
+
+            // Generate virtual log for missing days
+            const isWorkDay = isWorkingDay(date, holidays, exceptions, targetUser || null);
+            const leaveCheck = isUserOnLeave(dateStr, requests);
+            const isPast = !isFuture(date) && !isSameDay(date, new Date());
+
+            let status: any = 'ABSENT';
+            let workType: any = 'OFFICE';
+            
+            if (leaveCheck.onLeave) {
+                status = 'LEAVE';
+                workType = 'LEAVE';
+            } else if (!isWorkDay) {
+                status = 'HOLIDAY';
+                workType = 'OFFICE'; // Default
+            } else if (!isPast) {
+                status = 'NOT_STARTED'; // Use a special label or skip
+                workType = 'OFFICE';
+            }
+
+            return {
+                id: `virtual-${dateStr}`,
+                userId: userId,
+                date: dateStr,
+                checkInTime: null,
+                checkOutTime: null,
+                status: status,
+                workType: workType,
+                note: '[VIRTUAL] Missing log',
+                locationName: undefined
+            } as AttendanceLog;
+        })
+        .filter((log: any) => {
+            // Filter out weekends/holidays if desired, or show them as non-absent
+            if (log.status === 'HOLIDAY' || log.status === 'NOT_STARTED') return false;
+            return true;
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        setTotalCount(filledHistory.length);
+        
+        // Paginate locally
+        const startIndex = (page - 1) * PAGE_SIZE;
+        const pagedData = filledHistory.slice(startIndex, startIndex + PAGE_SIZE);
+        setHistoryLogs(pagedData);
+
+    }, [getAttendanceLogs, page, filters, holidays, exceptions, targetUser, requests, userId]);
 
     // Initial Fetch & Filter Change
+    useEffect(() => {
+        const fetchPrerequisites = async () => {
+            const [hRes, eRes] = await Promise.all([
+                supabase.from('annual_holidays').select('*'),
+                supabase.from('calendar_exceptions').select('*')
+            ]);
+            if (hRes.data) setHolidays(hRes.data);
+            if (eRes.data) setExceptions(eRes.data);
+        };
+        fetchPrerequisites();
+    }, []);
+
     useEffect(() => {
         fetchData();
 
@@ -279,7 +359,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                         const isNotStarted = statusConfig.label === 'ยังไม่เริ่มงาน';
                                         
                                         // Check if it's a late correction (over 3 days)
-                                        const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date()) > 3;
+                                        const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date(), holidays, exceptions, targetUser) > 3;
                                         
                                         return (
                                             <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors group">

@@ -3,6 +3,7 @@ import { format, subDays, isBefore, startOfDay } from 'date-fns';
 import { User, AnnualHoliday, AttendanceLog, LeaveRequest } from '../types';
 import { isWorkingDay, isUserOnLeave } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
+import { mergeAttendanceNotes } from '../lib/attendanceUtils';
 
 export const useAttendanceJudge = (
     currentUser: User | null,
@@ -211,11 +212,10 @@ export const useAttendanceJudge = (
                     // Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop
                     // FETCH FRESH NOTE TO PREVENT OVERWRITE
                     const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
-                    const currentNote = freshLog?.note || log.note || '';
 
                     await supabase.from('attendance_logs').update({
                         status: 'ACTION_REQUIRED',
-                        note: `${currentNote} [SYSTEM] Status recovered (Penalized)`.trim()
+                        note: mergeAttendanceNotes(freshLog?.note || log.note, `[SYSTEM] Status recovered (Penalized)`)
                     }).eq('id', log.id);
                     continue;
                 }
@@ -229,12 +229,11 @@ export const useAttendanceJudge = (
                     try {
                         // FETCH FRESH NOTE TO PREVENT OVERWRITE
                         const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).single();
-                        const currentNote = freshLog?.note || log.note || '';
 
                         // Update status to ACTION_REQUIRED
                         await supabase.from('attendance_logs').update({
                             status: 'ACTION_REQUIRED',
-                            note: `${currentNote} [SYSTEM] Penalized for forgotten checkout`.trim()
+                            note: mergeAttendanceNotes(freshLog?.note || log.note, `[SYSTEM] Penalized for forgotten checkout`)
                         }).eq('id', log.id);
                         
                         // Penalty: Deduct HP

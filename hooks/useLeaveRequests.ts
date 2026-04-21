@@ -6,12 +6,15 @@ import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format, differenceInDays, isValid } from 'date-fns';
 import { useGamification } from './useGamification';
 import { useGoogleDrive } from './useGoogleDrive';
-import { getWorkingDaysDifference } from '../lib/attendanceUtils';
+import { getWorkingDaysDifference, mergeAttendanceNotes } from '../lib/attendanceUtils';
 import { useUserSession } from '../context/UserSessionContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useMasterData } from './useMasterData';
+import { isWorkingDay } from '../utils/judgeUtils';
 
 export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } = {}) => {
     const { leaveRequests: contextLeaveRequests, allUsers, isReady: isContextReady } = useUserSession();
+    const { annualHolidays, calendarExceptions } = useMasterData();
     const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
@@ -134,9 +137,15 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                 if (LEAVE_TYPES.includes(req.type)) {
                     const start = new Date(req.startDate);
                     const end = new Date(req.endDate);
-                    if (!isValid(start) || !isValid(end) || start > end) return; // Skip invalid intervals or dates
-                    const days = differenceInDays(end, start) + 1;
-                    usage[req.type as keyof LeaveUsage] += days;
+                    if (!isValid(start) || !isValid(end) || start > end) return; 
+                    
+                    // Count only working days within the leave interval
+                    const days = eachDayOfInterval({ start, end });
+                    const workingDaysCount = days.filter(d => 
+                        isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
+                    ).length;
+                    
+                    usage[req.type as keyof LeaveUsage] += workingDaysCount;
                 } else {
                     // For non-leave types (Corrections/Special), we just count the occurrences
                     usage[req.type as keyof LeaveUsage] += 1;
@@ -145,7 +154,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
         });
 
         return usage;
-    }, [requests, currentUser?.id]);
+    }, [requests, currentUser?.id, annualHolidays, calendarExceptions]);
 
     const submitRequest = async (
         type: LeaveType, 
@@ -162,7 +171,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
             const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
             let isLateSubmission = false;
             if (CORRECTION_TYPES.includes(type)) {
-                const workingDaysDiff = getWorkingDaysDifference(startDate, new Date());
+                const workingDaysDiff = getWorkingDaysDifference(startDate, new Date(), annualHolidays, calendarExceptions, currentUser);
                 if (workingDaysDiff > 3) {
                     isLateSubmission = true;
                     // We allow it, but mark it as late
@@ -346,7 +355,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         check_out_time: checkOutDateTime.toISOString(),
                         work_type: 'OFFICE', 
                         status: 'COMPLETED',   
-                        note: `${freshLog?.note || ''} ${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`.trim()
+                        note: mergeAttendanceNotes(freshLog?.note, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${request.reason}`)
                     };
                     await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                 } else if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
@@ -359,7 +368,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         check_in_time: checkInDateTime.toISOString(),
                         work_type: 'OFFICE', 
                         status: 'WORKING',   
-                        note: `${freshLog?.note || ''} ${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`.trim()
+                        note: mergeAttendanceNotes(freshLog?.note, `${originalStatusNote}[APPROVED ${request.type}] ${request.reason}`)
                     };
                     await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
                 }
@@ -413,7 +422,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         await supabase.from('attendance_logs').update({
                              check_out_time: checkOutDateTime.toISOString(),
                              status: 'COMPLETED',
-                             note: `${freshLogCheckout.note || ''} [APPROVED CORRECTION] ${request.reason}`.trim()
+                             note: mergeAttendanceNotes(freshLogCheckout.note, `[APPROVED CORRECTION] ${request.reason}`)
                         }).eq('id', freshLogCheckout.id);
                         await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
                             time: timeStr,
@@ -476,7 +485,7 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                         date: dateStr,
                         work_type: 'LEAVE',
                         status: 'LEAVE',
-                        note: `${existing?.note || ''} [APPROVED LEAVE: ${request.type}] ${request.reason}`.trim()
+                        note: mergeAttendanceNotes(existing?.note, `[APPROVED LEAVE: ${request.type}] ${request.reason}`)
                     };
                 });
 

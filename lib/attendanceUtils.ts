@@ -1,31 +1,57 @@
 
 import { differenceInMinutes, addMinutes, isBefore, setHours, setMinutes, parse } from 'date-fns';
+import { isWorkingDay } from '../utils/judgeUtils';
+import { AnnualHoliday, User } from '../types';
 
 /**
- * Calculates the number of working days (excluding weekends) between two dates.
+ * Calculates the number of working days between two dates.
+ * Respects annual holidays and manual exceptions if provided.
  */
-export const getWorkingDaysDifference = (startDate: Date, endDate: Date): number => {
+export const getWorkingDaysDifference = (
+    startDate: Date, 
+    endDate: Date, 
+    holidays: AnnualHoliday[] = [], 
+    exceptions: any[] = [],
+    user?: User | null
+): number => {
     let count = 0;
     let current = new Date(startDate);
     current.setHours(0, 0, 0, 0);
     let end = new Date(endDate);
     end.setHours(0, 0, 0, 0);
 
-    // Ensure current is before end
-    if (current > end) {
+    const isReverse = current > end;
+    if (isReverse) {
         const temp = current;
         current = end;
         end = temp;
     }
 
     while (current < end) {
-        const day = current.getDay();
-        if (day !== 0 && day !== 6) { // Not Sunday and Not Saturday
+        if (isWorkingDay(current, holidays, exceptions, user || null)) {
             count++;
         }
         current.setDate(current.getDate() + 1);
     }
-    return count;
+    return isReverse ? -count : count;
+};
+
+/**
+ * Safely merges an existing note with a new incoming note string.
+ * Prevents duplicates and handles spacing correctly.
+ */
+export const mergeAttendanceNotes = (existing: string | null | undefined, incoming: string | null | undefined): string => {
+    const oldNote = (existing || '').trim();
+    const newNote = (incoming || '').trim();
+
+    if (!oldNote) return newNote;
+    if (!newNote) return oldNote;
+
+    // Avoid duplicating the exact same note
+    if (oldNote.includes(newNote)) return oldNote;
+    if (newNote.includes(oldNote)) return newNote;
+
+    return `${oldNote} | ${newNote}`.trim();
 };
 
 export interface CheckOutCalculationResult {

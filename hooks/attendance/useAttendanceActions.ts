@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, mergeAttendanceNotes } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 
 export const useAttendanceActions = (userId: string) => {
@@ -55,12 +55,22 @@ export const useAttendanceActions = (userId: string) => {
                 }
             }
 
-            let finalNote = note || '';
+            let incomingNote = note || '';
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
             if (isAppeal) meta.push(`[APPEAL_PENDING]`);
             if (workType === 'WFH' && !isApprovedWFH) meta.push(`[UNAUTHORIZED_WFH]`);
-            if (meta.length > 0) finalNote = `${finalNote} ${meta.join(' ')}`.trim();
+            if (meta.length > 0) incomingNote = `${incomingNote} ${meta.join(' ')}`.trim();
+
+            // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
+            const { data: existingLog } = await supabase
+                .from('attendance_logs')
+                .select('note')
+                .eq('user_id', userId)
+                .eq('date', todayDateStr)
+                .maybeSingle();
+
+            const finalNote = mergeAttendanceNotes(existingLog?.note, incomingNote);
 
             const payload: any = {
                 user_id: userId,
@@ -126,8 +136,18 @@ export const useAttendanceActions = (userId: string) => {
                 }
             }
 
-            let note = reason;
-            if (proofUrl) note += ` [PROOF:${proofUrl}]`;
+            let incomingNote = reason;
+            if (proofUrl) incomingNote += ` [PROOF:${proofUrl}]`;
+
+            // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
+            const { data: existingLog } = await supabase
+                .from('attendance_logs')
+                .select('note')
+                .eq('user_id', userId)
+                .eq('date', dateStr)
+                .maybeSingle();
+
+            const finalNote = mergeAttendanceNotes(existingLog?.note, `[MANUAL_ENTRY] ${incomingNote}`);
 
             const payload = {
                 user_id: userId,
@@ -135,7 +155,7 @@ export const useAttendanceActions = (userId: string) => {
                 check_in_time: checkInTime.toISOString(),
                 work_type: 'OFFICE',
                 status: 'PENDING_VERIFY',
-                note: `[MANUAL_ENTRY] ${note}`,
+                note: finalNote,
                 location_name: 'Manual Entry'
             };
 
@@ -184,17 +204,17 @@ export const useAttendanceActions = (userId: string) => {
 
             let noteAppend = '';
             if (calcResult.status === 'EARLY_LEAVE') {
-                 noteAppend += ` [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
+                 noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
                  if (reason) noteAppend += ` [REASON: ${reason}]`;
             } else {
-                 noteAppend += ` [OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+                 noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
             }
 
             const newStatus = todayLog.status === 'PENDING_VERIFY' ? 'PENDING_VERIFY' : 'COMPLETED';
             const updatePayload: any = {
                 check_out_time: now.toISOString(),
                 status: newStatus,
-                note: currentNote + noteAppend,
+                note: mergeAttendanceNotes(currentNote, noteAppend),
                 check_out_lat: location?.lat,
                 check_out_lng: location?.lng,
                 check_out_location_name: locationName

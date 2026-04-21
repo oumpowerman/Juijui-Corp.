@@ -7,6 +7,7 @@ import { LeaveRequest } from '../../types/attendance';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWorkingDaysDifference } from '../../lib/attendanceUtils';
+import { useMasterData } from '../../hooks/useMasterData';
 
 interface LeaveApprovalListProps {
     requests: LeaveRequest[];
@@ -21,6 +22,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     requests, isLoading, onApprove, onReject 
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
+    const { annualHolidays, calendarExceptions } = useMasterData();
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     const [historySubFilter, setHistorySubFilter] = useState<HistoryFilter>('ALL');
     const [displayLimit, setDisplayLimit] = useState(10);
@@ -241,7 +243,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                                     
                                                     {/* NEW: Expiration Warning */}
                                                     {req.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type) && (
-                                                        getWorkingDaysDifference(req.createdAt, new Date()) >= 2 && (
+                                                        getWorkingDaysDifference(req.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (
                                                             <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-50 text-red-600 border-red-100 flex items-center gap-1 animate-pulse">
                                                                 <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
                                                             </span>

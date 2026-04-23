@@ -126,6 +126,9 @@ export interface Task {
     // Production
     shootDate?: Date;
     shootLocation?: string;
+    shootTimeStart?: string; // New
+    shootTimeEnd?: string;   // New
+    shootNotes?: string;     // New
     isInShootQueue?: boolean;
     isSoftFinished?: boolean;
 

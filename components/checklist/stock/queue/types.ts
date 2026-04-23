@@ -6,6 +6,10 @@ export interface MergedQueueItem {
     title: string;
     status: string;
     isSoftFinished: boolean;
+    shootLocation?: string;
+    shootTimeStart?: string;
+    shootTimeEnd?: string;
+    shootNotes?: string;
     channelId?: string;
     contentId?: string; // For scripts
     scriptId?: string;  // For contents that have a linked script

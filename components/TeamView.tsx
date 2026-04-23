@@ -410,8 +410,8 @@ const TeamView: React.FC<TeamViewProps> = ({
 
                 {/* --- DESKTOP VIEW: GANG TABLE --- */}
                 <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
-                  {/* Table Header */}
-                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl">
+                  {/* Table Header - Sticky */}
+                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-[-2rem] z-[100]">
                      <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
                      {weekDays.map(day => (
                          <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>

@@ -213,26 +213,26 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
         <div className="flex flex-col gap-4">
           {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl pt-7 pb-6 px-6 pr-7 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5 overflow-x-visible overflow-y-visible">
-              <div className="flex-1">
-                  <div className="flex items-center gap-4 mb-3">
-                      <h1 className="text-3xl font-bold text-gray-800 flex items-center tracking-tight">
-                          <span className="text-4xl mr-2">{viewTab === 'LIST' ? '📑' : '🎬'}</span>
-                          {viewTab === 'LIST' ? 'รายการคอนเทนต์' : 'คิวถ่ายทำวันนี้'}
+          <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl py-6 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
+              <div className="flex-1 w-full xl:w-auto min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
+                      <h1 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center tracking-tight shrink-0">
+                          <span className="text-3xl md:text-4xl mr-3 transform group-hover:scale-110 transition-transform">{viewTab === 'LIST' ? '📑' : '🎬'}</span>
+                          <span className="truncate">{viewTab === 'LIST' ? 'รายการคอนเทนต์' : 'คิวถ่ายทำวันนี้'}</span>
                           {viewTab === 'LIST' && <StockCountBadge count={totalCount} isLoading={isLoading} />}
                       </h1>
 
                       {/* Tab Switcher */}
-                      <div className="flex items-center bg-gray-100/50 p-1 rounded-2xl border border-gray-200 ml-4">
+                      <div className="inline-flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner w-full sm:w-auto">
                           <button 
                             onClick={() => setViewTab('LIST')}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewTab === 'LIST' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'LIST' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                           >
                             คลังคอนเทนต์
                           </button>
                           <button 
                             onClick={() => setViewTab('QUEUE')}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewTab === 'QUEUE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'QUEUE' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                           >
                             คิวถ่ายวันนี้
                           </button>
@@ -241,23 +241,23 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
                   {/* Quick Channel Chips */}
                   {viewTab === 'LIST' && (
-                    <div className="w-full overflow-x-auto scrollbar-hide pb-1">
-                        <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                    <div className="w-full overflow-x-auto scrollbar-hide -mx-2 px-2 pb-1">
+                        <div className="flex items-center gap-2.5 pt-1 flex-nowrap min-w-max pr-4">
                             <button
                                 onClick={() => setFilterChannel('ALL')}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm ${filterChannel === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/80 text-gray-500 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'}`}
+                                className={`px-4 py-2 rounded-xl text-xs font-black transition-all border shadow-sm shrink-0 ${filterChannel === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-200' : 'bg-white/90 text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}
                             >
                                 🔥 รวมมิตร (All)
                             </button>
                             {channels.map(ch => {
-                                const bgClass = (ch.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
+                                const bgClass = (ch.color || 'bg-slate-100').split(' ')[0].replace('bg-', 'bg-');
                                 return (
                                     <button
                                         key={ch.id}
                                         onClick={() => setFilterChannel(ch.id)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${filterChannel === ch.id ? 'ring-2 ring-indigo-500 border-transparent text-gray-800 bg-white mr-[2px]' : 'border-gray-200 hover:border-indigo-300 bg-white/80 text-gray-600 hover:text-indigo-600'}`}
+                                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all border flex items-center gap-2 shadow-sm shrink-0 ${filterChannel === ch.id ? 'ring-2 ring-indigo-500 border-transparent text-slate-800 bg-white ring-offset-2' : 'border-slate-200 hover:border-indigo-300 bg-white/90 text-slate-600 hover:text-indigo-600'}`}
                                     >
-                                    <span className={`w-2 h-2 rounded-full ${bgClass}`}></span>
+                                    <span className={`w-2.5 h-2.5 rounded-full ${bgClass} shadow-sm`}></span>
                                     {ch.name}
                                     </button>
                                 );
@@ -267,61 +267,65 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                   )}
               </div>
 
-              <div className="w-full md:w-auto overflow-x-auto scrollbar-hide pb-1">
-                  <div className="flex items-center gap-2 min-w-max lg:min-w-0 self-start md:self-center">
-                      {viewTab === 'LIST' && (
-                        <>
+              {/* Action Side */}
+              <div className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
+                  {/* Scrollable Utilities (Inventory, Import, Template) */}
+                  {viewTab === 'LIST' && (
+                    <div className="overflow-x-auto scrollbar-hide flex-1 xl:flex-none">
+                        <div className="flex items-center gap-3 min-w-max pr-2">
                             {/* Inventory Analysis Button */}
                             <button
                                 onClick={() => setIsInventoryModalOpen(true)}
-                                className="p-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm group"
+                                className="p-3.5 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all shadow-sm group active:scale-95"
                                 title="วิเคราะห์คลังคอนเทนต์"
                             >
-                                <PackageSearch className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                <PackageSearch className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                             </button>
 
                             {/* Import Buttons */}
-                            <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-gray-200 shadow-sm mr-2">
+                            <div className="flex items-center gap-1.5 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
                                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={isImporting}
-                                    className="px-3 py-1.5 text-md font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-xs font-black text-slate-600 hover:text-indigo-600 hover:bg-white rounded-xl flex items-center transition-all disabled:opacity-50 active:scale-95"
                                 >
-                                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />} Import
+                                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />} Import
                                 </button>
-                                <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                                <div className="w-[1.5px] h-5 bg-slate-200 mx-1"></div>
                                 <button
                                     onClick={handleDownloadTemplate}
-                                    className="px-3 py-1.5 text-xs font-bold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center transition-colors"
+                                    className="px-4 py-2 text-xs font-black text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl flex items-center transition-all active:scale-95"
                                 >
-                                    <Download className="w-4 h-4 mr-1" /> Template
+                                    <Download className="w-4 h-4 mr-2" /> Template
                                 </button>
                             </div>
-                        </>
-                      )}
+                        </div>
+                    </div>
+                  )}
 
+                  {/* Fixed Critical Actions (Add & Notification) */}
+                  <div className="flex items-center gap-3 shrink-0 ml-auto xl:ml-0">
                       {/* Add Item Button */}
                       <button
                           onClick={onAdd}
                           className="
-                              relative group flex items-center gap-2 px-6 py-3 rounded-2xl
-                              bg-gradient-to-r from-indigo-600 to-violet-600
+                              relative group flex items-center gap-2.5 px-6 xl:px-7 py-3.5 rounded-[1.25rem]
+                              bg-slate-900 hover:bg-indigo-600
                               text-white font-black text-sm
-                              shadow-[0_4px_0_rgb(67,56,202)]
-                              hover:shadow-[0_2px_0_rgb(67,56,202)] hover:translate-y-[2px]
-                              active:shadow-none active:translate-y-[4px]
-                              transition-all duration-150
-                              border border-indigo-500/20
+                              shadow-xl shadow-slate-200 hover:shadow-indigo-200
+                              active:scale-95
+                              transition-all duration-300
+                              border border-slate-700/10
                           "
                       >
                           <Plus className="w-5 h-5 stroke-[3px]" />
-                          <span className="tracking-wide hidden md:inline drop-shadow-sm">เพิ่มรายการใหม่</span>
+                          <span className="tracking-wide drop-shadow-sm truncate max-w-[100px] sm:max-w-none">เพิ่มรายการ</span>
                       </button>
 
                       <NotificationBellBtn
                           onClick={onOpenSettings}
-                          className="hidden md:flex"
+                          className="flex shrink-0 shadow-sm"
                       />
                   </div>
               </div>

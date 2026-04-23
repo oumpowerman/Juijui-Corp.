@@ -61,7 +61,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
       if (isOpen) {
           setViewMode('DETAILS');
           if (initialData) {
-              setActiveTab(initialData.type);
+              setActiveTab(initialData.type || 'CONTENT');
               setMode('VIEW');
           } else {
               setMode('EDIT');

@@ -16,6 +16,7 @@ import { KPIProvider } from './context/KPIContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { WikiProvider } from './context/WikiContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
+import { ShootQueueProvider } from './context/ShootQueueContext';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 import { Loader2 } from 'lucide-react';
 
@@ -133,8 +134,10 @@ function AuthenticatedAppInner({ user }: { user: any }) {
               <WikiProvider>
                 <GameConfigProvider>
                   <TaskProvider>
-                    <GlobalRealtimeSync />
-                    <AppRouter user={user} />
+                    <ShootQueueProvider>
+                      <GlobalRealtimeSync />
+                      <AppRouter user={user} />
+                    </ShootQueueProvider>
                   </TaskProvider>
                 </GameConfigProvider>
               </WikiProvider>

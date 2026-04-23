@@ -3,7 +3,7 @@
 import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ViewMode } from '../types';
+import { ViewMode, Task } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
 import InactiveScreen from '../components/InactiveScreen';
 import AppShell from '../components/layout/AppShell';
@@ -15,6 +15,7 @@ import { useChatUnread } from '../hooks/useChatUnread';
 import { useAutoJudge } from '../hooks/useAutoJudge'; 
 import { useLeaveRequests } from '../hooks/useLeaveRequests';
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
+import { useToast } from '../context/ToastContext';
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
 import ShortcutManager from '../components/common/ShortcutManager';
 import { Loader2, Search, Inbox } from 'lucide-react';
@@ -90,8 +91,6 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
       navigate(`?view=${view}`);
   }, [navigate]);
 
-  // popstate listener removed as useLocation handles it reactively
-
   // --- AUTH HOOK ---
   const { currentUserProfile, fetchProfile, updateProfile } = useAuth(user);
 
@@ -125,8 +124,50 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     
     approveMember, removeMember, toggleUserStatus, adjustStatsLocally,
 
-    quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest
+    quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest,
+    fetchTaskById
   } = useTaskManager(user, currentUserProfile, fetchProfile, updateProfile);
+
+  const { showToast } = useToast();
+
+  // --- TASK OPENER (Robust ID Resolution) ---
+  const handleOpenTaskById = useCallback(async (taskOrId: any) => {
+    if (!taskOrId) return;
+
+    let finalTask: Task | undefined;
+    
+    // 1. Resolve from input or local state
+    if (typeof taskOrId === 'string') {
+        finalTask = tasks.find(t => t.id === taskOrId);
+    } else if (taskOrId.title && taskOrId.type && taskOrId.status) {
+        // It's already a full Task object
+        finalTask = taskOrId as Task;
+    } else if (taskOrId.id) {
+        // It's a partial object (likely from TaskDetail's Linked Content)
+        finalTask = tasks.find(t => t.id === taskOrId.id);
+    }
+
+    // 2. Fetch from Supabase if not found locally
+    if (!finalTask && taskOrId) {
+        const targetId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
+        const targetType = (typeof taskOrId !== 'string' && taskOrId.type) ? taskOrId.type : 'CONTENT'; // Default to CONTENT if unsure
+        
+        if (targetId) {
+            showToast('กำลังดึงข้อมูลโครงการ...', 'info');
+            const fetchedTask = await fetchTaskById(targetId, targetType);
+            if (fetchedTask) {
+                finalTask = fetchedTask;
+            }
+        }
+    }
+
+    if (finalTask) {
+        handleEditTask(finalTask);
+    } else {
+        console.warn("[AppRouter] Task not found for resolution:", taskOrId);
+        showToast('ไม่พบข้อมูลโครงการที่ต้องการเปิด', 'error');
+    }
+  }, [tasks, handleEditTask, fetchTaskById, showToast]);
 
   // --- WORKBOX CONTEXT ---
   const { items: workboxItems, addItem: addToWorkbox, setIsDragging } = useWorkboxContext();
@@ -358,7 +399,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                         channels={channels}
                         users={activeUsers}
                         masterOptions={masterOptions}
-                        onOpenTask={handleEditTask}
+                        onOpenTask={handleOpenTaskById}
                         currentUser={currentUserProfile}
                         tasks={tasks} // Pass tasks here!
                     />
@@ -424,7 +465,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           onLogout={handleForceLogout}
           onEditProfile={() => setIsProfileModalOpen(true)}
           onAddTask={handleAddTask}
-          onOpenTask={handleEditTask}
+          onOpenTask={handleOpenTaskById}
           chatUnreadCount={chatUnread}
           systemUnreadCount={sysUnread}
           isNotificationOpen={isNotificationOpen}
@@ -477,7 +518,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       masterOptions={masterOptions}
                       currentUser={currentUserProfile}
                       projects={tasks.filter(t => t.type === 'CONTENT')} 
-                      onOpenTask={handleEditTask}
+                      onOpenTask={handleOpenTaskById}
                   />
               )}
   
@@ -505,7 +546,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               onClose={handleCloseNotification} // Changed to new handler
               notifications={notifications}
               tasks={tasks}
-              onOpenTask={handleEditTask}
+              onOpenTask={handleOpenTaskById}
               onOpenSettings={() => setIsNotifSettingsOpen(true)}
               onDismiss={dismissNotification}
               onMarkAllRead={markAllAsRead}

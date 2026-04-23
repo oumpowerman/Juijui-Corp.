@@ -15,6 +15,7 @@ interface QueueTableViewProps {
     onMarkAsDone: (item: MergedQueueItem) => void;
     onReorder: (newItems: MergedQueueItem[]) => void;
     onRemove: (item: MergedQueueItem) => void;
+    onOpenPlanning: (item: MergedQueueItem) => void;
 }
 
 const QueueTableView: React.FC<QueueTableViewProps> = ({
@@ -27,16 +28,20 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
     onToggleFinished,
     onMarkAsDone,
     onReorder,
-    onRemove
+    onRemove,
+    onOpenPlanning
 }) => {
     return (
         <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/80 overflow-hidden shadow-sm">
-            <div className="hidden md:flex items-center gap-4 px-6 py-3 bg-gray-50/50 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                <div className="w-10"></div>
-                <div className="w-6"></div>
-                <div className="w-8"></div>
-                <div className="flex-1">รายการที่ต้องถ่ายทำ</div>
-                <div className="w-20">จัดการ</div>
+            {/* Unified Grid Header */}
+            <div className="hidden md:grid grid-cols-[60px_45px_45px_1fr_160px_120px_100px] items-center gap-4 px-6 py-4 bg-slate-900 border-b border-white/10 text-[12px] font-kanit font-bold text-slate-400 uppercase tracking-widest">
+                <div className="flex justify-center">ลำดับ</div>
+                <div className="flex justify-center">สถานะ</div>
+                <div className="flex justify-center">ประเภท</div>
+                <div className="pl-2">รายการที่ต้องถ่ายทำ</div>
+                <div className="pl-4">สถานที่ถ่ายทำ</div>
+                <div className="pl-4">เวลาที่ระบุ</div>
+                <div className="text-center">จัดการ</div>
             </div>
             
             <Reorder.Group 
@@ -46,7 +51,7 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
                 className="divide-y divide-gray-50 contents"
             >
                 <AnimatePresence mode='popLayout'>
-                    {items.map((item) => (
+                    {items.map((item, index) => (
                         <Reorder.Item
                             key={item.id}
                             value={item}
@@ -61,6 +66,7 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
                         >
                             <QueueItemRow
                                 item={item}
+                                sequenceNumber={index + 1}
                                 channel={channels.find(c => c.id === item.channelId)}
                                 masterOptions={masterOptions}
                                 isFinished={item.isSoftFinished}
@@ -70,6 +76,7 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
                                 onToggleFinished={onToggleFinished}
                                 onMarkAsDone={onMarkAsDone}
                                 onRemove={onRemove}
+                                onOpenPlanning={onOpenPlanning}
                             />
                         </Reorder.Item>
                     ))}

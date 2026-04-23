@@ -26,6 +26,7 @@ import { th } from 'date-fns/locale';
 import { motion, Variants } from 'framer-motion';
 import Markdown from 'react-markdown';
 import { useToast } from '../../context/ToastContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface TaskDetailProps {
     task: Task;
@@ -41,6 +42,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
     task, users, masterOptions, onEdit, onDelete, onClose, onOpenTask 
 }) => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
     
     const getStatusInfo = (status: string) => {
         const option = masterOptions.find(o => o.key === status && o.type === 'TASK_STATUS');
@@ -104,6 +106,17 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
         showToast('คัดลอกชื่อรายการเรียบร้อยแล้ว ✅', 'success');
     };
 
+    const handleDeleteClick = async () => {
+        if (!onDelete) return;
+        const confirm = await showConfirm(
+            `คุณแน่ใจว่าต้องการลบรายการ "${task.title}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+            'ยืนยันการลบรายการ'
+        );
+        if (confirm) {
+            onDelete();
+        }
+    };
+
     return (
         <motion.div 
             variants={containerVariants}
@@ -150,7 +163,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                         <motion.button 
                             whileHover={{ scale: 1.1, color: '#f43f5e' }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={onDelete}
+                            onClick={handleDeleteClick}
                             className="p-3 text-slate-300 hover:bg-rose-50 rounded-2xl transition-all"
                         >
                             <Trash2 className="w-5 h-5" />
@@ -263,7 +276,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                                 <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest mb-3">Linked Content Project</p>
                                 <motion.button 
                                     whileHover={{ x: 5, backgroundColor: '#f8fafc' }}
-                                    onClick={() => onOpenTask && onOpenTask({ id: task.contentId } as Task)}
+                                    onClick={() => onOpenTask && onOpenTask({ id: task.contentId, type: 'CONTENT', title: 'Loading...' } as Task)}
                                     className="flex items-center gap-3 px-5 py-3 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-semibold text-slate-500 transition-all group w-full sm:w-auto"
                                 >
                                     <LinkIcon className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />

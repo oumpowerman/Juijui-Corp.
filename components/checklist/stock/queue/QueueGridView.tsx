@@ -14,6 +14,7 @@ interface QueueGridViewProps {
     onToggleFinished: (item: MergedQueueItem) => void;
     onMarkAsDone: (item: MergedQueueItem) => void;
     onRemove: (item: MergedQueueItem) => void;
+    onOpenPlanning: (item: MergedQueueItem) => void;
 }
 
 const QueueGridView: React.FC<QueueGridViewProps> = ({
@@ -25,15 +26,17 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
     onEditScript,
     onToggleFinished,
     onMarkAsDone,
-    onRemove
+    onRemove,
+    onOpenPlanning
 }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <AnimatePresence mode='popLayout'>
-                {items.map((item) => (
+                {items.map((item, index) => (
                     <QueueItemCard
                         key={item.id}
                         item={item}
+                        sequenceNumber={index + 1}
                         channel={channels.find(c => c.id === item.channelId)}
                         masterOptions={masterOptions}
                         isFinished={item.isSoftFinished}
@@ -43,6 +46,7 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
                         onToggleFinished={onToggleFinished}
                         onMarkAsDone={onMarkAsDone}
                         onRemove={onRemove}
+                        onOpenPlanning={onOpenPlanning}
                     />
                 ))}
             </AnimatePresence>

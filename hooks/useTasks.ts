@@ -178,7 +178,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
     // Consume state and fetchers from Context
     const { 
         tasks, setTasks, 
-        fetchTasks, fetchSubTasks, 
+        fetchTasks, fetchSubTasks, fetchTaskById,
         checkAndExpandRange, fetchAllTasks, 
         isFetching 
     } = useTaskContext();
@@ -527,6 +527,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         tasks,
         fetchTasks,
         fetchSubTasks,
+        fetchTaskById,
         handleSaveTask,
         handleDeleteTask,
         handleDelayTask,

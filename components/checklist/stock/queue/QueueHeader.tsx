@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListChecks, PlayCircle, LayoutGrid, List } from 'lucide-react';
+import { ListChecks, PlayCircle, LayoutGrid, List, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { QueueViewMode } from './types';
 
@@ -11,6 +11,7 @@ interface QueueHeaderProps {
     finishedCount: number;
     isBatchProcessing: boolean;
     onBatchProcess: () => void;
+    onSortByTime: () => void;
 }
 
 const QueueHeader: React.FC<QueueHeaderProps> = ({
@@ -20,7 +21,8 @@ const QueueHeader: React.FC<QueueHeaderProps> = ({
     setViewMode,
     finishedCount,
     isBatchProcessing,
-    onBatchProcess
+    onBatchProcess,
+    onSortByTime
 }) => {
     return (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-white/60">
@@ -30,11 +32,20 @@ const QueueHeader: React.FC<QueueHeaderProps> = ({
                 </div>
                 <div>
                     <h2 className="text-lg font-bold text-gray-800">Checklist ถ่ายทำวันนี้</h2>
-                    <p className="text-xs text-gray-500">จัดการรายการที่ต้องถ่ายทำในวันนี้ให้เสร็จสิ้น</p>
+                    <p className="text-sm text-gray-500">จัดการรายการที่ต้องถ่ายทำในวันนี้ให้เสร็จสิ้น</p>
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+                {/* Sort by Time */}
+                <button
+                    onClick={onSortByTime}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all shadow-sm active:scale-95"
+                    title="เรียงตามเวลาที่วางแผนไว้"
+                >
+                    <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                    เรียงตามเวลา
+                </button>
                 {/* View Switcher */}
                 <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-gray-200">
                     <button

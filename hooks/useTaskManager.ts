@@ -36,7 +36,7 @@ export const useTaskManager = (
   const { channels, fetchChannels, handleAddChannel, handleUpdateChannel, handleDeleteChannel } = useChannels();
 
   // 5. Tasks Hook (Now with Range Controls)
-  const { tasks, fetchTasks, handleSaveTask: saveTaskInternal, handleDeleteTask, handleDelayTask, checkAndExpandRange, fetchAllTasks, isFetching } = useTasks(setIsModalOpen);
+  const { tasks, fetchTasks, fetchTaskById, handleSaveTask: saveTaskInternal, handleDeleteTask, handleDelayTask, checkAndExpandRange, fetchAllTasks, isFetching } = useTasks(setIsModalOpen);
 
   // 6. Checklist Hook
   const { 
@@ -135,6 +135,7 @@ export const useTaskManager = (
     handleSaveTask,
     handleDeleteTask,
     handleDelayTask,
+    fetchTaskById,
     checkAndExpandRange, // NEW: For Calendar
     fetchAllTasks,       // NEW: For Dashboard All Time
     

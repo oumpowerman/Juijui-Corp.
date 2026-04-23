@@ -145,27 +145,40 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
         return { slots: grid, maxRows: max };
     }, [tasks, weekDays]);
 
-    // --- Workload Calculation (NEW) ---
+    // --- Workload Calculation (Distributed by days) ---
     const weeklyHours = useMemo(() => {
-        const start = startOfDay(weekDays[0]);
-        const end = endOfDay(weekDays[weekDays.length - 1]);
+        const weekStart = startOfDay(weekDays[0]);
+        const weekEnd = endOfDay(weekDays[weekDays.length - 1]);
         
-        return tasks
-            .filter(t => {
-                if (t.isUnscheduled || !t.endDate) return false;
-                const tEnd = new Date(t.endDate);
-                return isWithinInterval(tEnd, { start, end });
-            })
-            .reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+        return tasks.reduce((sum, t) => {
+            if (t.isUnscheduled || !t.startDate || !t.endDate || !t.estimatedHours) return sum;
+
+            const taskStart = startOfDay(new Date(t.startDate));
+            const taskEnd = endOfDay(new Date(t.endDate));
+
+            // 1. Calculate Total duration of the task in days (min 1 day)
+            const totalDurationDays = Math.max(1, differenceInCalendarDays(taskEnd, taskStart) + 1);
+            const hoursPerDay = t.estimatedHours / totalDurationDays;
+
+            // 2. Calculate overlap with current week
+            const overlapStart = new Date(Math.max(taskStart.getTime(), weekStart.getTime()));
+            const overlapEnd = new Date(Math.min(taskEnd.getTime(), weekEnd.getTime()));
+
+            if (overlapStart > overlapEnd) return sum; // No overlap
+
+            const overlapDays = differenceInCalendarDays(overlapEnd, overlapStart) + 1;
+            
+            return sum + (hoursPerDay * overlapDays);
+        }, 0);
     }, [tasks, weekDays]);
 
     const workloadLevel = WORKLOAD_LEVELS.find(l => weeklyHours <= l.max) || WORKLOAD_LEVELS[WORKLOAD_LEVELS.length - 1];
 
     // --- Visual Helpers ---
-    const getJuijuiScore = (workload: number) => {
-        if (workload === 0) return { text: 'ว่างจัด (Free)', color: 'text-green-600 bg-green-100', icon: <BatteryFull className="w-4 h-4" /> };
-        if (workload <= 3) return { text: 'ชิวๆ (Chill)', color: 'text-blue-600 bg-blue-100', icon: <BatteryCharging className="w-4 h-4" /> };
-        if (workload <= 6) return { text: 'ตึงมือ (Busy)', color: 'text-orange-600 bg-orange-100', icon: <Battery className="w-4 h-4" /> };
+    const getJuijuiScore = (hours: number) => {
+        if (hours === 0) return { text: 'ว่างจัด (Free)', color: 'text-green-600 bg-green-100', icon: <BatteryFull className="w-4 h-4" /> };
+        if (hours <= 15) return { text: 'ชิวๆ (Chill)', color: 'text-blue-600 bg-blue-100', icon: <BatteryCharging className="w-4 h-4" /> };
+        if (hours <= 35) return { text: 'ตึงมือ (Busy)', color: 'text-orange-600 bg-orange-100', icon: <Battery className="w-4 h-4" /> };
         return { text: 'งานเดือด! (On Fire)', color: 'text-red-600 bg-red-100 animate-pulse', icon: <BatteryWarning className="w-4 h-4" /> };
     };
 
@@ -181,8 +194,20 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
         return BUBBLE_THEMES[index];
     }, [user.id]);
 
-    const workloadCount = tasks.length;
-    const statusInfo = getJuijuiScore(workloadCount);
+    // Formatter for Hours -> HH hr MM min
+    const formatWorkload = (hours: number) => {
+        const totalMinutes = Math.round(hours * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        
+        if (h === 0 && m === 0) return '0 hr';
+        const parts = [];
+        if (h > 0) parts.push(`${h} hr`);
+        if (m > 0) parts.push(`${m} min`);
+        return parts.join(' ');
+    };
+
+    const statusInfo = getJuijuiScore(weeklyHours);
     const levelProgress = ((user.xp % 1000) / 1000) * 100;
     const isMe = user.id === currentUser?.id;
 
@@ -267,7 +292,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
 
             {/* Member Profile Column */}
             <div 
-                className={`col-span-1 pl-5 pr-3 py-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-4 ${isFocused ? 'z-20 border-r-indigo-100' : 'z-10'}`}
+                className={`col-span-1 pl-5 pr-3 py-3 flex flex-col items-center text-center border-r border-gray-100 bg-white relative cursor-pointer hover:bg-gray-50 transition-all pt-4 ${isFocused ? 'border-r-indigo-100' : ''}`}
                 onClick={() => onSelectUser(user)}
             >
                 {/* Avatar & Status */}
@@ -275,7 +300,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                     <FeelingBubble 
                         userId={user.id} 
                         feeling={user.feeling} 
-                        className="-top-8 left-1/2 -translate-x-1/2" 
+                        className="-top-8 left-1/2 -translate-x-1/2 z-[120]" 
                     />
                     <UserAvatarWithHP 
                         user={user} 
@@ -295,7 +320,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                 )}
 
                 <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden mb-2"><div className="bg-indigo-500 h-full rounded-full" style={{ width: `${levelProgress}%` }}></div></div>
-                <div className={`text-[9px] px-2 py-0.5 rounded-md font-bold flex items-center justify-center gap-1 w-full border ${statusInfo.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ')} bg-white text-gray-600`}>{statusInfo.icon} {workloadCount} Tasks</div>
+                <div className={`text-[9px] px-2 py-0.5 rounded-md font-bold flex items-center justify-center gap-1 w-full border ${statusInfo.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ')} bg-white text-gray-600`}>{statusInfo.icon} {formatWorkload(weeklyHours)}</div>
             </div>
 
             {/* Timeline Grid */}
@@ -375,6 +400,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                                             ${rowHeightClass}
                                             ${shapeClass}
                                             ${getTaskStyle(task).className}
+                                            ${isToday(day) ? 'saturate-[1.8] brightness-[1.01] z-10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] ring-1 ring-black/5 ring-inset' : ''}
                                         `}
                                         title={`${task.title} (${format(task.startDate, 'd MMM')} - ${format(task.endDate, 'd MMM')})`}
                                     >

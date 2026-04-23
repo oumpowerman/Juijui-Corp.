@@ -24,6 +24,7 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { PLATFORM_ICONS } from '../../config/taxonomy';
 import Markdown from 'react-markdown';
 import { useToast } from '../../context/ToastContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface ContentDetailProps {
     task: Task;
@@ -39,6 +40,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
     task, users, channels, masterOptions, onEdit, onDelete, onClose 
 }) => {
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
     
     const getOptionLabel = (key: string | undefined, type: string) => {
         if (!key) return 'ไม่ระบุ';
@@ -114,6 +116,17 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
         showToast('คัดลอกชื่อรายการเรียบร้อยแล้ว ✨', 'success');
     };
 
+    const handleDeleteClick = async () => {
+        if (!onDelete) return;
+        const confirm = await showConfirm(
+            `คุณแน่ใจว่าต้องการลบโปรเจกต์ "${task.title}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้ และงานย่อยทั้งหมดจะถูกลบไปด้วย`,
+            'ยืนยันการลบโครงการ'
+        );
+        if (confirm) {
+            onDelete();
+        }
+    };
+
     return (
         <motion.div 
             variants={containerVariants}
@@ -171,6 +184,17 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {onDelete && (
+                        <motion.button 
+                            whileHover={{ scale: 1.1, color: '#f43f5e' }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={handleDeleteClick}
+                            className="p-3 text-slate-300 hover:bg-rose-50 rounded-2xl transition-all"
+                            title="Delete Content"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </motion.button>
+                    )}
                     <motion.button 
                         whileHover={bouncyHover}
                         whileTap={{ scale: 0.95 }}

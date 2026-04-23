@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Task, ReviewSession } from '../types';
+import { Task, ReviewSession, TaskType } from '../types';
 import { addMonths, endOfMonth, format } from 'date-fns';
 
 // Helper to replace startOfMonth
@@ -20,6 +20,7 @@ interface TaskContextType {
     fetchAllTasks: () => void;
     checkAndExpandRange: (targetDate: Date) => void;
     fetchSubTasks: (contentId: string) => Promise<Task[]>;
+    fetchTaskById: (id: string, type: TaskType) => Promise<Task | null>;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -220,6 +221,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const fetchTaskById = async (id: string, type: TaskType): Promise<Task | null> => {
+        try {
+            const table = type === 'TASK' ? 'tasks' : 'contents';
+            let query = supabase.from(table).select(
+                type === 'TASK' 
+                    ? `*, contents (title), task_reviews(*)` 
+                    : `*, task_reviews(*)`
+            ).eq('id', id).single();
+            
+            const { data, error } = await query;
+            if (error) throw error;
+            
+            return data ? mapSupabaseToTask(data, type) : null;
+        } catch (err) {
+            console.error(`[TaskContext] Failed to fetch single ${type}:`, err);
+            return null;
+        }
+    };
+
     const checkAndExpandRange = useCallback((targetDate: Date) => {
         if (isAllLoaded) return; 
         const target = new Date(targetDate);
@@ -363,7 +383,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tasks, setTasks,
             dateRange, setDateRange,
             isFetching, isAllLoaded,
-            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks
+            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks, fetchTaskById
         }}>
             {children}
         </TaskContext.Provider>

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Users, User, Battery, BatteryCharging, BatteryFull, BatteryWarning, AlertTriangle, CalendarClock, Calendar, Layers, UserCircle, CheckCircle2, ArrowRight, LayoutGrid, List, Timer } from 'lucide-react';
 import { Task, User as UserType, Channel } from '../../types';
-import { startOfWeek, endOfWeek, addWeeks, format, isWithinInterval, startOfDay, endOfDay, isPast, isToday, isTomorrow, isSameWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, addWeeks, format, isWithinInterval, startOfDay, endOfDay, isPast, isToday, isTomorrow, isSameWeek, differenceInCalendarDays } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { isTaskCompleted } from '../../constants';
 import { Clock } from 'lucide-react';
@@ -117,29 +117,44 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
         return groups;
     }, [myActiveTasks, groupMode, channels]);
 
-    // Calculation Logic for Team View
+    // Distributed Calculation Logic (Matches TeamView)
     const calculateHours = (taskList: Task[], userId: string) => {
-        return taskList
-            .filter(t => {
-                if (t.isUnscheduled || !t.endDate) return false;
-                const taskEnd = startOfDay(new Date(t.endDate));
-                // Check if task falls within this week
-                const inWeek = isWithinInterval(taskEnd, { start: weekStart, end: weekEnd });
-                // Check ownership
-                const isOwner = t.assigneeIds.includes(userId) || t.ideaOwnerIds?.includes(userId) || t.editorIds?.includes(userId);
-                // Exclude DONE tasks? No, include them to see performance history
-                return inWeek && isOwner;
-            })
-            .reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+        return taskList.reduce((sum, t) => {
+            if (t.isUnscheduled || !t.startDate || !t.endDate || !t.estimatedHours) return sum;
+
+            // Check ownership
+            const isOwner = t.assigneeIds.includes(userId) || t.ideaOwnerIds?.includes(userId) || t.editorIds?.includes(userId);
+            if (!isOwner) return sum;
+
+            const taskStart = startOfDay(new Date(t.startDate));
+            const taskEnd = endOfDay(new Date(t.endDate));
+
+            // Calculate overlap with current week [weekStart, weekEnd]
+            const overlapStart = new Date(Math.max(taskStart.getTime(), weekStart.getTime()));
+            const overlapEnd = new Date(Math.min(taskEnd.getTime(), weekEnd.getTime()));
+
+            if (overlapStart > overlapEnd) return sum;
+
+            const totalDurationDays = Math.max(1, differenceInCalendarDays(taskEnd, taskStart) + 1);
+            const hoursPerDay = t.estimatedHours / totalDurationDays;
+            const overlapDays = differenceInCalendarDays(overlapEnd, overlapStart) + 1;
+
+            return sum + (hoursPerDay * overlapDays);
+        }, 0);
     };
 
     const getTasksForUser = (userId: string) => {
         return tasks.filter(t => {
-            if (t.isUnscheduled || !t.endDate) return false;
-            const taskEnd = startOfDay(new Date(t.endDate));
-            const inWeek = isWithinInterval(taskEnd, { start: weekStart, end: weekEnd });
+            if (t.isUnscheduled || !t.startDate || !t.endDate) return false;
+            
+            const taskStart = startOfDay(new Date(t.startDate));
+            const taskEnd = endOfDay(new Date(t.endDate));
+            
+            // Check overlap
+            const hasOverlap = taskStart <= weekEnd && taskEnd >= weekStart;
             const isOwner = t.assigneeIds.includes(userId) || t.ideaOwnerIds?.includes(userId) || t.editorIds?.includes(userId);
-            return inWeek && isOwner;
+            
+            return hasOverlap && isOwner;
         }).sort((a,b) => (b.estimatedHours || 0) - (a.estimatedHours || 0));
     };
 
@@ -154,6 +169,19 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
 
     const myData = workloadData.find(d => d.user.id === currentUser.id);
     const myTasksList = getTasksForUser(currentUser.id);
+
+    // Formatter for Hours -> HH hr MM min
+    const formatWorkload = (hours: number) => {
+        const totalMinutes = Math.round(hours * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        
+        if (h === 0 && m === 0) return '0 ชั่วโมง';
+        const parts = [];
+        if (h > 0) parts.push(`${h} ชั่วโมง`);
+        if (m > 0) parts.push(`${m} นาที`);
+        return parts.join(' ');
+    };
 
     // Stats
     const overdueCount = myActiveTasks.filter(t => !t.isUnscheduled && isPast(t.endDate) && !isToday(t.endDate)).length;
@@ -190,7 +218,7 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                                 <img src={currentUser.avatarUrl} className="w-16 h-16 rounded-full object-cover bg-white" />
                             </div>
                             <div>
-                                <h2 className="text-3xl font-black">สวัสดี, {currentUser.name.split(' ')[0]}! 👋</h2>
+                                <h2 className="text-3xl font-bold">สวัสดี, {currentUser.name.split(' ')[0]}! 👋</h2>
                                 <p className="text-indigo-100 text-base font-medium mt-1">นี่คือรายการงานที่ค้างอยู่ของคุณ</p>
                             </div>
                         </div>
@@ -204,17 +232,17 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                          {/* Total Hours Badge (NEW) */}
                         <div className="flex items-center gap-2 bg-indigo-500/80 px-4 py-2 rounded-xl border border-indigo-400 backdrop-blur-md text-white whitespace-nowrap">
                             <Timer className="w-4 h-4 text-yellow-300" />
-                            <span className="text-sm font-bold">Total Load: {totalHours} hrs</span>
+                            <span className="text-sm font-kanit font-bold">Total Load: {formatWorkload(totalHours)}</span>
                         </div>
 
                         <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl border border-white/10 backdrop-blur-md whitespace-nowrap">
                             <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></div>
-                            <span className="text-sm font-bold">{myActiveTasks.length} Active Tasks</span>
+                            <span className="text-sm font-kanit font-bold">{myActiveTasks.length} Active Tasks</span>
                         </div>
                         {overdueCount > 0 && (
                             <div className="flex items-center gap-2 bg-red-500/80 px-4 py-2 rounded-xl border border-red-400 backdrop-blur-md text-white whitespace-nowrap">
                                 <AlertTriangle className="w-4 h-4" />
-                                <span className="text-sm font-bold">{overdueCount} งานล่าช้า</span>
+                                <span className="text-sm font-kanit font-bold">{overdueCount} งานล่าช้า</span>
                             </div>
                         )}
                         {todayCount > 0 && (
@@ -317,13 +345,13 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-end mb-2">
                                             <div>
-                                                <h4 className="font-bold text-gray-800 text-sm">{data.user.name}</h4>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${data.level.text} bg-opacity-10`}>
+                                                <h4 className="font-medium font-kanit text-gray-800 text-md">{data.user.name}</h4>
+                                                <span className={`text-[12px] font-kanit font-medium px-1.5 py-0.5 rounded ${data.level.text} bg-opacity-10`}>
                                                     {data.level.label}
                                                 </span>
                                             </div>
-                                            <span className="text-xl font-black text-gray-700">
-                                                {data.hours} <span className="text-xs text-gray-400 font-medium">hrs</span>
+                                            <span className="text-[20px] font-kanit font-medium text-gray-700">
+                                                {formatWorkload(data.hours)}
                                             </span>
                                         </div>
                                         
@@ -352,7 +380,7 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                                     const tasksInGroup = items as Task[]; // Cast to Task[] to fix unknown error
                                     return (
                                         <div key={groupTitle} className="animate-in slide-in-from-bottom-2 duration-500">
-                                            <h3 className="text-base font-black text-gray-500 uppercase tracking-wider mb-4 flex items-center">
+                                            <h3 className="text-base font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center">
                                                 <span className="w-3 h-3 rounded-full bg-indigo-400 mr-3"></span>
                                                 {groupTitle} 
                                                 <span className="ml-3 bg-gray-200 text-gray-600 text-xs px-2.5 py-1 rounded-full">{tasksInGroup.length}</span>
@@ -426,7 +454,7 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                                                             <div className={`absolute left-0 top-0 bottom-0 w-2 ${channel?.color.replace('text-', 'bg-').split(' ')[0] || 'bg-gray-300'}`}></div>
                                                             
                                                             {/* Hours Badge (GRID VIEW) */}
-                                                            <div className="absolute top-4 right-4 bg-indigo-50 text-indigo-600 text-[10px] font-black px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                                                            <div className="absolute top-4 right-4 bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
                                                                 {task.estimatedHours}h
                                                             </div>
 
@@ -449,7 +477,7 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                                                                     )}
                                                                 </div>
 
-                                                                <h4 className="font-black text-gray-800 text-lg line-clamp-2 group-hover:text-indigo-600 transition-colors mb-4 leading-tight">
+                                                                <h4 className="font-bold text-gray-800 text-lg line-clamp-2 group-hover:text-indigo-600 transition-colors mb-4 leading-tight">
                                                                     {task.title}
                                                                 </h4>
                                                                 

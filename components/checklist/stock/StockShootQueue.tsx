@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, ScriptSummary, Channel, User, MasterOption } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { Loader2, Video } from 'lucide-react';
+import { Loader2, Video, Film, Clapperboard, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { useShootQueueContext } from '../../../context/ShootQueueContext';
 
 // Sub-components
 import { MergedQueueItem, QueueViewMode } from './queue/types';
 import QueueHeader from './queue/QueueHeader';
 import QueueGridView from './queue/QueueGridView';
 import QueueTableView from './queue/QueueTableView';
+import ShootPlanningModal from './queue/ShootPlanningModal';
 
 interface StockShootQueueProps {
     channels: Channel[];
@@ -22,149 +25,80 @@ interface StockShootQueueProps {
 const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, masterOptions, onEditContent, onEditScript }) => {
     const { showToast } = useToast();
     const { showConfirm, showLoading, hideLoading } = useGlobalDialog();
-    const [isLoading, setIsLoading] = useState(true);
+    const { 
+        queueItems, 
+        setQueueItems, 
+        isLoading: isContextLoading, 
+        refreshQueue, 
+        checkAndRefreshIfNeeded,
+        updateLocalItem,
+        removeItemLocally
+    } = useShootQueueContext();
+
     const [includeScripts, setIncludeScripts] = useState(true);
-    const [queueItems, setQueueItems] = useState<MergedQueueItem[]>([]);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
     const [viewMode, setViewMode] = useState<QueueViewMode>('TABLE');
+    const [planningItem, setPlanningItem] = useState<MergedQueueItem | null>(null);
+    const [isRedirecting, setIsRedirecting] = useState(false);
 
     const finishedCount = useMemo(() => 
         queueItems.filter(i => i.isSoftFinished).map(i => i.id).length
     , [queueItems]);
 
-    const fetchQueue = async () => {
-        setIsLoading(true);
-        try {
-            // 1. Fetch Contents in Queue
-            const { data: contents, error: contentError } = await supabase
-                .from('contents')
-                .select('*')
-                .eq('is_in_shoot_queue', true)
-                .order('sort_order', { ascending: true });
-
-            if (contentError) throw contentError;
-
-            let merged: MergedQueueItem[] = (contents || []).map(c => ({
-                id: c.id,
-                type: 'CONTENT',
-                title: c.title,
-                status: c.status,
-                isSoftFinished: !!c.is_soft_finished,
-                channelId: c.channel_id,
-                sort_order: c.sort_order || 0,
-                item: {
-                    id: c.id,
-                    type: 'CONTENT',
-                    title: c.title,
-                    description: c.description || '',
-                    status: c.status,
-                    priority: c.priority,
-                    startDate: new Date(c.start_date),
-                    endDate: new Date(c.end_date),
-                    channelId: c.channel_id,
-                    isInShootQueue: true,
-                    isSoftFinished: !!c.is_soft_finished,
-                } as any
-            }));
-
-            // 2. Fetch Scripts in Queue if enabled
-            if (includeScripts) {
-                const { data: scripts, error: scriptError } = await supabase
-                    .from('scripts')
-                    .select('*, contents(title)')
-                    .eq('is_in_shoot_queue', true)
-                    .order('sort_order', { ascending: true });
-
-                if (scriptError) throw scriptError;
-
-                (scripts || []).forEach(s => {
-                    const existingContentIndex = merged.findIndex(m => m.id === s.content_id);
-                    
-                    if (existingContentIndex !== -1) {
-                        merged[existingContentIndex].scriptId = s.id;
-                    } else {
-                        merged.push({
-                            id: s.id,
-                            type: 'SCRIPT',
-                            title: s.title,
-                            status: s.status,
-                            isSoftFinished: !!s.is_soft_finished,
-                            channelId: s.channel_id,
-                            contentId: s.content_id,
-                            sort_order: s.sort_order || 0,
-                            item: {
-                                id: s.id,
-                                title: s.title,
-                                status: s.status,
-                                contentId: s.content_id,
-                                isInShootQueue: true,
-                                isSoftFinished: !!s.is_soft_finished,
-                            } as any
-                        });
-                    }
-                });
-            }
-
-            // Final sort after merging
-            merged.sort((a, b) => a.sort_order - b.sort_order);
-            setQueueItems(merged);
-        } catch (err) {
-            console.error('Fetch queue failed:', err);
-            showToast('โหลดคิวถ่ายไม่สำเร็จ', 'error');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchQueue();
+        // Use smart refresh: show cache immediately, then check fingerprint
+        checkAndRefreshIfNeeded(includeScripts);
 
-        // Realtime Subscription
+        // Realtime Subscription (Lazy: Connects only when visible, Unsubscribes on unmount)
         const channel = supabase.channel('shoot-queue-realtime')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, (payload) => {
                 const updated = payload.new as any;
-                setQueueItems(prev => {
-                    if (!updated.is_in_shoot_queue) {
-                        return prev.filter(i => i.id !== updated.id);
-                    }
-                    return prev.map(i => i.id === updated.id ? {
-                        ...i,
+                if (!updated.is_in_shoot_queue) {
+                    removeItemLocally(updated.id);
+                } else {
+                    updateLocalItem(updated.id, {
                         title: updated.title,
                         status: updated.status,
                         isSoftFinished: !!updated.is_soft_finished,
+                        shootLocation: updated.shoot_location,
+                        shootTimeStart: updated.shoot_time_start,
+                        shootTimeEnd: updated.shoot_time_end,
+                        shootNotes: updated.shoot_notes,
                         channelId: updated.channel_id
-                    } : i);
-                });
+                    });
+                }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scripts' }, (payload) => {
                 const updated = payload.new as any;
-                setQueueItems(prev => {
-                    if (!updated.is_in_shoot_queue) {
-                        return prev.filter(i => i.id !== updated.id);
-                    }
-                    return prev.map(i => i.id === updated.id ? {
-                        ...i,
+                if (!updated.is_in_shoot_queue) {
+                    removeItemLocally(updated.id);
+                } else {
+                    updateLocalItem(updated.id, {
                         title: updated.title,
                         status: updated.status,
                         isSoftFinished: !!updated.is_soft_finished,
+                        shootLocation: updated.shoot_location,
+                        shootTimeStart: updated.shoot_time_start,
+                        shootTimeEnd: updated.shoot_time_end,
+                        shootNotes: updated.shoot_notes,
                         channelId: updated.channel_id
-                    } : i);
-                });
+                    });
+                }
             })
             .subscribe();
 
         return () => {
+            console.log('[StockShootQueue] Unsubscribing from Realtime to save Egress...');
             supabase.removeChannel(channel);
         };
-    }, [includeScripts]);
+    }, [includeScripts, checkAndRefreshIfNeeded, updateLocalItem, removeItemLocally]);
 
     const handleReorder = async (newItems: MergedQueueItem[]) => {
-        // Optimistic update
+        // Optimistic update in context
         setQueueItems(newItems.map((item, index) => ({ ...item, sort_order: index })));
 
         try {
-            // Save new order to database
             const updates = newItems.map((item, index) => {
                 const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
                 return supabase
@@ -177,7 +111,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         } catch (err) {
             console.error('Reorder update failed:', err);
             showToast('จัดลำดับไม่สำเร็จ', 'error');
-            // We could fetch queue again to revert, but usually DnD is fine locally
+            refreshQueue(includeScripts); // Revert from server
         }
     };
 
@@ -188,8 +122,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         );
 
         if (confirmed) {
-            // Optimistic update
-            setQueueItems(prev => prev.filter(i => i.id !== item.id));
+            removeItemLocally(item.id);
 
             try {
                 const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
@@ -203,44 +136,14 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             } catch (err) {
                 console.error('Remove from queue failed:', err);
                 showToast('นำออกจากคิวไม่สำเร็จ', 'error');
-                fetchQueue(); // Revert
-            }
-        }
-    };
-
-    const handleMarkAsDone = async (item: MergedQueueItem) => {
-        const confirmed = await showConfirm(
-            `คุณถ่ายทำรายการ "${item.title}" เสร็จแล้วใช่หรือไม่?`,
-            'ยืนยันการถ่ายทำเสร็จสิ้น'
-        );
-
-        if (confirmed) {
-            // Optimistic UI Update
-            setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: true } : i));
-            
-            try {
-                const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
-                const { error } = await supabase
-                    .from(table)
-                    .update({ is_soft_finished: true })
-                    .eq('id', item.id);
-                
-                if (error) throw error;
-                showToast('ทำเครื่องหมายว่าถ่ายเสร็จแล้ว', 'success');
-            } catch (err) {
-                console.error('Update soft finish failed:', err);
-                // Revert on error
-                setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: false } : i));
-                showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+                refreshQueue(includeScripts); // Revert
             }
         }
     };
 
     const toggleFinished = async (item: MergedQueueItem) => {
         const newStatus = !item.isSoftFinished;
-        
-        // Optimistic UI Update
-        setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: newStatus } : i));
+        updateLocalItem(item.id, { isSoftFinished: newStatus });
 
         try {
             const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
@@ -252,9 +155,19 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             if (error) throw error;
         } catch (err) {
             console.error('Toggle soft finish failed:', err);
-            // Revert on error
-            setQueueItems(prev => prev.map(i => i.id === item.id ? { ...i, isSoftFinished: !newStatus } : i));
+            updateLocalItem(item.id, { isSoftFinished: !newStatus });
             showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+        }
+    };
+
+    const handleMarkAsDone = async (item: MergedQueueItem) => {
+        const confirmed = await showConfirm(
+            `คุณถ่ายทำรายการ "${item.title}" เสร็จแล้วใช่หรือไม่?`,
+            'ยืนยันการถ่ายทำเสร็จสิ้น'
+        );
+
+        if (confirmed) {
+            toggleFinished(item);
         }
     };
 
@@ -287,7 +200,6 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             const allContentIds = Array.from(new Set([...contentIds, ...linkedContentIds]));
             const allScriptIds = Array.from(new Set([...scriptIds, ...linkedScriptIds]));
 
-            // Bulk Update Contents
             if (allContentIds.length > 0) {
                 const { error: contentError } = await supabase
                     .from('contents')
@@ -300,7 +212,6 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 if (contentError) throw contentError;
             }
 
-            // Bulk Update Scripts
             if (allScriptIds.length > 0) {
                 const { error: scriptError } = await supabase
                     .from('scripts')
@@ -314,18 +225,74 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             }
 
             // Local update to remove processed items
-            setQueueItems(prev => prev.filter(i => !i.isSoftFinished));
+            setQueueItems(queueItems.filter(i => !i.isSoftFinished));
             showToast(`ประมวลผลสำเร็จ ${itemsToProcess.length} รายการ! 🎬`, 'success');
         } catch (err) {
             console.error('Batch process failed:', err);
             showToast('เกิดข้อผิดพลาดในการประมวลผลบางรายการ', 'error');
+            refreshQueue(includeScripts);
         } finally {
             setIsBatchProcessing(false);
             hideLoading();
         }
     };
 
-    if (isLoading) {
+    const handleSavePlanning = async (id: string, type: 'CONTENT' | 'SCRIPT', data: Partial<MergedQueueItem>) => {
+        try {
+            const table = type === 'CONTENT' ? 'contents' : 'scripts';
+            const payload = {
+                shoot_location: data.shootLocation,
+                shoot_time_start: data.shootTimeStart,
+                shoot_time_end: data.shootTimeEnd,
+                shoot_notes: data.shootNotes
+            };
+
+            const { error } = await supabase.from(table).update(payload).eq('id', id);
+            if (error) throw error;
+
+            updateLocalItem(id, data);
+            showToast('บันทึกแผนเรียบร้อย ✨', 'success');
+        } catch (err) {
+            console.error('Save planning failed:', err);
+            showToast('บันทึกไม่สำเร็จ', 'error');
+            throw err;
+        }
+    };
+
+    const handleSortByTime = async () => {
+        const sorted = [...queueItems].sort((a, b) => {
+            const timeA = a.shootTimeStart || '99:99';
+            const timeB = b.shootTimeStart || '99:99';
+            return timeA.localeCompare(timeB);
+        });
+
+        const updates = sorted.map((item, index) => {
+            const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
+            return supabase.from(table).update({ sort_order: index }).eq('id', item.id);
+        });
+
+        try {
+            showLoading('กำลังจัดเรียงตามเวลา...');
+            await Promise.all(updates);
+            setQueueItems(sorted);
+            showToast('จัดเรียงตามเวลาเรียบร้อย ⏳', 'success');
+        } catch (err) {
+            console.error('Sort by time failed:', err);
+            showToast('จัดเรียงไม่สำเร็จ', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    const handleEditScript = (scriptId: string) => {
+        if (!onEditScript) return;
+        setIsRedirecting(true);
+        setTimeout(() => {
+            onEditScript(scriptId);
+        }, 1200);
+    };
+
+    if (isContextLoading && queueItems.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                 <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
@@ -344,6 +311,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 finishedCount={finishedCount}
                 isBatchProcessing={isBatchProcessing}
                 onBatchProcess={handleBatchProcess}
+                onSortByTime={handleSortByTime}
             />
 
             {queueItems.length === 0 ? (
@@ -364,10 +332,11 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         masterOptions={masterOptions}
                         isProcessing={isProcessing}
                         onEditContent={onEditContent}
-                        onEditScript={onEditScript}
+                        onEditScript={handleEditScript}
                         onToggleFinished={toggleFinished}
                         onMarkAsDone={handleMarkAsDone}
                         onRemove={handleRemoveFromQueue}
+                        onOpenPlanning={(item) => setPlanningItem(item)}
                     />
                 ) : (
                     <QueueTableView 
@@ -376,14 +345,90 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         masterOptions={masterOptions}
                         isProcessing={isProcessing}
                         onEditContent={onEditContent}
-                        onEditScript={onEditScript}
+                        onEditScript={handleEditScript}
                         onToggleFinished={toggleFinished}
                         onMarkAsDone={handleMarkAsDone}
                         onReorder={handleReorder}
                         onRemove={handleRemoveFromQueue}
+                        onOpenPlanning={(item) => setPlanningItem(item)}
                     />
                 )
             )}
+
+            {planningItem && (
+                <ShootPlanningModal 
+                    isOpen={!!planningItem}
+                    item={planningItem}
+                    onClose={() => setPlanningItem(null)}
+                    onSave={handleSavePlanning}
+                    masterOptions={masterOptions}
+                />
+            )}
+
+            {/* Redirection Loading Modal */}
+            <AnimatePresence>
+                {isRedirecting && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-white/20"
+                        >
+                            <div className="relative mb-8">
+                                <motion.div 
+                                    animate={{ 
+                                        rotate: [0, -10, 0],
+                                        scale: [1, 1.1, 1]
+                                    }}
+                                    transition={{ 
+                                        duration: 2, 
+                                        repeat: Infinity,
+                                        ease: "easeInOut"
+                                    }}
+                                    className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200"
+                                >
+                                    <Clapperboard className="w-12 h-12 text-white" />
+                                </motion.div>
+                                <motion.div
+                                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                    className="absolute -top-4 -right-4 w-10 h-10 bg-amber-400 rounded-2xl flex items-center justify-center shadow-lg"
+                                >
+                                    <Sparkles className="w-5 h-5 text-white" />
+                                </motion.div>
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-800 mb-2">Preparing Script...</h3>
+                            <p className="text-slate-500 text-sm font-bold text-center mb-6 leading-relaxed">
+                                กำลังพาคุณไปยังหน้า Script Hub<br/>เพื่อเริ่มอ่านบทสำหรับการถ่ายทำ
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <motion.div 
+                                    animate={{ scale: [1, 1.5, 1] }}
+                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
+                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
+                                />
+                                <motion.div 
+                                    animate={{ scale: [1, 1.5, 1] }}
+                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
+                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
+                                />
+                                <motion.div 
+                                    animate={{ scale: [1, 1.5, 1] }}
+                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
+                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
+                                />
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

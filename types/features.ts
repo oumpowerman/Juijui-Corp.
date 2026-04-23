@@ -129,6 +129,10 @@ export interface ScriptSummary {
     scriptType: ScriptType;
     isInShootQueue: boolean;
     isSoftFinished?: boolean;
+    shootLocation?: string;   // New
+    shootTimeStart?: string; // New
+    shootTimeEnd?: string;   // New
+    shootNotes?: string;     // New
     channelId?: string;
     category?: string;
     tags: string[];
@@ -383,6 +387,7 @@ export interface AppNotification {
     date: Date;
     isRead: boolean;
     actionLink?: string; // Optional link for navigation
+    user?: { name: string; avatarUrl: string; id?: string }; // Who this notification is about (for Admin)
     // This Metadata field is CRITICAL for the new Popover design
     metadata?: {
         hp?: number;

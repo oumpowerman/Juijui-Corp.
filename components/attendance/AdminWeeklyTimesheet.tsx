@@ -13,11 +13,20 @@ import { useCalendarExceptions } from '../../hooks/useCalendarExceptions';
 import TimesheetHeader from './timesheet/TimesheetHeader';
 import TimesheetTable from './timesheet/TimesheetTable';
 import TimesheetDetailModal from './timesheet/TimesheetDetailModal';
+import { useMasterDataContext } from '../../context/MasterDataContext';
 
 // --- Main Dashboard ---
 const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
+    const { masterOptions } = useMasterDataContext();
+    
     // View States
     const [viewMode, setViewMode] = useState<'WEEK' | 'MONTH'>('WEEK');
+
+    const workConfig = useMemo(() => {
+        const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+        const buffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
+        return { startTime, buffer };
+    }, [masterOptions]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDepartment, setFilterDepartment] = useState('ALL');
@@ -193,6 +202,7 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 logs={logs}
                 leaveRequests={leaveRequests}
                 getEffectiveDayStatus={getEffectiveDayStatus}
+                workConfig={workConfig}
                 onCellClick={(log, leaveReq) => {
                     setSelectedLog(log);
                     setSelectedLeaveRequest(leaveReq);

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { KPIRecord, MasterOption, IndividualGoal, KPIConfig, KPIStats, IDPItem, PeerReview, DisciplineAuditLog } from '../types';
 import { useToast } from './ToastContext';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { checkIsLate } from '../lib/attendanceUtils';
 import { useMasterData } from '../hooks/useMasterData';
 import { useUserSession } from './UserSessionContext';
 
@@ -231,7 +232,6 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Get Start Time from Master Data
         const startOption = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME');
         const startTimeStr = startOption?.label || '10:00';
-        const [startHour, startMin] = startTimeStr.split(':').map(Number);
 
         // 1. Attendance
         const { data: attLogs } = await supabase.from('attendance_logs')
@@ -239,13 +239,16 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             .eq('user_id', userId)
             .gte('date', start).lte('date', end);
         
+        const bufferOption = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
+        const lateBufferMinutes = parseInt(bufferOption?.label || '0');
+
         let late = 0;
         let absent = 0;
         attLogs?.forEach((log: any) => {
              if (log.status === 'LATE' || log.work_type === 'LATE') late++;
              else if (log.check_in_time) {
                  const d = new Date(log.check_in_time);
-                 if (d.getHours() > startHour || (d.getHours() === startHour && d.getMinutes() > startMin)) late++;
+                 if (checkIsLate(d, startTimeStr, lateBufferMinutes)) late++;
              }
              if (log.status === 'ABSENT' || log.work_type === 'ABSENT') absent++;
         });
@@ -288,7 +291,6 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Get Start Time from Master Data
         const startOption = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME');
         const startTimeStr = startOption?.label || '10:00';
-        const [startHour, startMin] = startTimeStr.split(':').map(Number);
 
         // 1. Attendance Logs
         const { data: attData } = await supabase.from('attendance_logs')
@@ -296,11 +298,14 @@ export const KPIProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             .eq('user_id', userId)
             .gte('date', start).lte('date', end);
         
+        const bufferOption = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
+        const lateBufferMinutes = parseInt(bufferOption?.label || '0');
+
         attData?.forEach((log: any) => {
             let isLate = log.status === 'LATE' || log.work_type === 'LATE';
             if (!isLate && log.check_in_time) {
                 const d = new Date(log.check_in_time);
-                if (d.getHours() > startHour || (d.getHours() === startHour && d.getMinutes() > startMin)) isLate = true;
+                if (checkIsLate(d, startTimeStr, lateBufferMinutes)) isLate = true;
             }
 
             if (isLate) {

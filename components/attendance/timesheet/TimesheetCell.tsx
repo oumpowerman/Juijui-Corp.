@@ -12,6 +12,7 @@ interface TimesheetCellProps {
     dayStatus: { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
     isToday: boolean;
     onClick: () => void;
+    workConfig: { startTime: string; buffer: number };
 }
 
 const TimesheetCell: React.FC<TimesheetCellProps> = ({ 
@@ -20,7 +21,8 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     leaveRequest,
     dayStatus,
     isToday, 
-    onClick 
+    onClick,
+    workConfig
 }) => {
     const isHoliday = dayStatus.status === 'HOLIDAY';
     const isPastDay = isPast(date) && !isToday;
@@ -95,7 +97,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         );
     }
 
-    const late = log.checkInTime && checkIsLate(log.checkInTime, '10:00', 15);
+    const late = log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer);
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPendingVerify = log.status === 'PENDING_VERIFY';
     const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';

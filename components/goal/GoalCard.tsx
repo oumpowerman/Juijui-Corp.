@@ -3,7 +3,7 @@ import React from 'react';
 import { Goal, Channel, User } from '../../types';
 import { PLATFORM_ICONS } from '../../constants';
 import { differenceInDays, format } from 'date-fns';
-import { MoreHorizontal, Plus, RefreshCw, Trophy, AlertCircle, Coins, Star, Flame, Zap, Heart } from 'lucide-react';
+import { MoreHorizontal, Plus, RefreshCw, Trophy, AlertCircle, Coins, Star, Flame, Zap, Heart, Calendar } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,10 +17,12 @@ interface GoalCardProps {
     onToggleBoost: (goalId: string, isBoosted: boolean) => void;
     onDelete: (id: string) => void;
     onEdit: (goal: Goal) => void;
+    onRedeem: (id: string) => void;
+    onRequestExtension: (id: string, reason: string) => void;
 }
 
 const GoalCard: React.FC<GoalCardProps> = ({ 
-    goal, channel, users, currentUser, onUpdate, onToggleOwner, onToggleBoost, onDelete, onEdit 
+    goal, channel, users, currentUser, onUpdate, onToggleOwner, onToggleBoost, onDelete, onEdit, onRedeem, onRequestExtension
 }) => {
     const { showConfirm } = useGlobalDialog();
     
@@ -56,10 +58,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
         statusText = 'Final Push: Near Target';
         StatusIcon = <Zap className="w-3 h-3 animate-bounce" />;
     } else if (isOverdue) {
-        progressBarColor = 'bg-slate-700';
-        statusColor = 'text-slate-500 border-white/5';
-        statusText = 'Mission Expired';
-        StatusIcon = <AlertCircle className="w-3 h-3" />;
+        progressBarColor = goal.isRedeemed ? 'bg-gradient-to-r from-rose-500 to-orange-400' : 'bg-slate-700';
+        statusColor = goal.isRedeemed ? 'text-rose-400 border-rose-500/30' : 'text-slate-500 border-white/5';
+        statusText = goal.isRedeemed ? 'Redemption Active' : 'Mission Failed';
+        StatusIcon = goal.isRedeemed ? <Zap className="w-3 h-3 animate-pulse" /> : <AlertCircle className="w-3 h-3" />;
     } else if (isExpiringSoon) {
         progressBarColor = 'bg-gradient-to-r from-rose-500 to-orange-400';
         statusColor = 'text-rose-400 border-rose-500/30';
@@ -73,13 +75,25 @@ const GoalCard: React.FC<GoalCardProps> = ({
         }
     };
 
+    const handleUpdateClick = () => {
+        if (isCompleted) return;
+        if (isOverdue && !goal.isRedeemed) {
+            // If overdue and not redeemed, owner must redeem first
+            if (isOwner) {
+                onRedeem(goal.id);
+            }
+            return;
+        }
+        onUpdate(goal);
+    };
+
     return (
         <motion.div 
             layout
-            onClick={() => !isCompleted && onUpdate(goal)}
+            onClick={handleUpdateClick}
             className={`
                 bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] border transition-all flex flex-col h-full group relative overflow-hidden
-                ${isCompleted ? 'border-emerald-500/30 shadow-lg shadow-emerald-900/20' : isNearCompletion ? 'border-amber-500/50 shadow-2xl shadow-amber-900/30 ring-2 ring-amber-500/20' : isOverdue ? 'border-white/5 opacity-60' : isExpiringSoon ? 'border-rose-500/30 shadow-xl shadow-rose-900/20' : 'border-white/10 shadow-2xl shadow-black/40'}
+                ${isCompleted ? 'border-emerald-500/30 shadow-lg shadow-emerald-900/20' : isNearCompletion ? 'border-amber-500/50 shadow-2xl shadow-amber-900/30 ring-2 ring-amber-500/20' : isOverdue ? (goal.isRedeemed ? 'border-rose-500/30 shadow-xl' : 'border-white/5 opacity-80') : isExpiringSoon ? 'border-rose-500/30 shadow-xl shadow-rose-900/20' : 'border-white/10 shadow-2xl shadow-black/40'}
                 ${!isCompleted ? 'cursor-pointer hover:shadow-indigo-500/20 hover:border-indigo-500/60 hover:-translate-y-1' : ''}
                 ${isNearCompletion ? 'animate-pulse-subtle' : ''}
                 transition-all duration-500
@@ -146,7 +160,10 @@ const GoalCard: React.FC<GoalCardProps> = ({
                         </button>
                         <div className="absolute right-0 top-full w-48 pt-2 hidden group-hover/menu:block z-30 animate-in fade-in zoom-in-95">
                             <div className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
-                                <button onClick={() => onEdit(goal)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-indigo-500/20 hover:text-indigo-400 transition-colors flex items-center gap-3">
+                                <button onClick={() => onRequestExtension(goal.id, goal.title)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-500/20 transition-colors flex items-center gap-3">
+                                    <Calendar className="w-4 h-4" /> Request Extension
+                                </button>
+                                <button onClick={() => onEdit(goal)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3">
                                     <RefreshCw className="w-4 h-4" /> Reconfigure
                                 </button>
                                 <button onClick={handleDelete} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 transition-colors flex items-center gap-3">
@@ -260,14 +277,14 @@ const GoalCard: React.FC<GoalCardProps> = ({
 
                     {/* Incentives Badge */}
                     <div className="flex flex-col items-end gap-1.5">
-                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em]">Mission Rewards</span>
+                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em]">Mission Rewards {goal.isRedeemed && '(30% Penalty)'}</span>
                         <div className="flex items-center gap-4 bg-black/40 px-4 py-2 rounded-xl border border-white/5 shadow-inner">
                             <div className="flex items-center text-[11px] font-black text-amber-400 italic">
-                                <Star className="w-4 h-4 text-amber-400 mr-1.5 fill-amber-400" /> {goal.rewardXp}
+                                <Star className="w-4 h-4 text-amber-400 mr-1.5 fill-amber-400" /> {goal.isRedeemed ? Math.round(goal.rewardXp * 0.3) : goal.rewardXp}
                             </div>
                             <div className="w-px h-4 bg-white/10"></div>
                             <div className="flex items-center text-[11px] font-black text-amber-400 italic">
-                                <Coins className="w-4 h-4 text-amber-500 mr-1.5 fill-amber-500" /> {goal.rewardCoin}
+                                <Coins className="w-4 h-4 text-amber-500 mr-1.5 fill-amber-500" /> {goal.isRedeemed ? Math.round(goal.rewardCoin * 0.3) : goal.rewardCoin}
                             </div>
                         </div>
                     </div>
@@ -279,10 +296,18 @@ const GoalCard: React.FC<GoalCardProps> = ({
                 <div 
                     className={`
                         w-full py-5 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border-t
-                        ${isNearCompletion ? 'bg-amber-600/20 text-amber-400 border-amber-500/20 group-hover:bg-amber-600 group-hover:text-white' : isExpiringSoon ? 'bg-rose-600/20 text-rose-400 border-rose-500/20 group-hover:bg-rose-600 group-hover:text-white' : 'bg-white/5 text-gray-500 border-white/5 group-hover:bg-indigo-600 group-hover:text-white'}
+                        ${isOverdue ? (goal.isRedeemed ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white') : isNearCompletion ? 'bg-amber-600/20 text-amber-400 border-amber-500/20 group-hover:bg-amber-600 group-hover:text-white' : isExpiringSoon ? 'bg-rose-600/20 text-rose-400 border-rose-500/20 group-hover:bg-rose-600 group-hover:text-white' : 'bg-white/5 text-gray-500 border-white/5 group-hover:bg-indigo-600 group-hover:text-white'}
                     `}
                 >
-                    <Zap className={`w-4 h-4 ${isNearCompletion ? 'animate-bounce' : ''}`} /> {isNearCompletion ? 'Final Push: Sync Now' : 'Sync Progress'}
+                    {isOverdue ? (
+                        goal.isRedeemed ? (
+                            <><Zap className="w-4 h-4" /> Sync Redemption Progress</>
+                        ) : (
+                            <><Heart className="w-4 h-4" /> Mission Failed: Tap to Redeem</>
+                        )
+                    ) : (
+                        <><Zap className="w-4 h-4" /> {isNearCompletion ? 'Final Push: Sync Now' : 'Sync Progress'}</>
+                    )}
                 </div>
             )}
              {isCompleted && (

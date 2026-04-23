@@ -6,6 +6,8 @@ import { useDashboardConfig } from './useDashboardConfig';
 import { CHART_COLORS_MAP } from '../components/dashboard/admin/constants';
 import { isTaskCompleted } from '../constants'; // Import helper
 import { supabase } from '../lib/supabase';
+import { useMasterData } from './useMasterData';
+import { checkIsLate } from '../lib/attendanceUtils';
 
 export type TimeRangeOption = 'THIS_MONTH' | 'LAST_30' | 'LAST_90' | 'CUSTOM' | 'ALL';
 export type ViewScope = 'ALL' | 'ME';
@@ -73,6 +75,7 @@ export const WEEKLY_THEMES = [
 export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     const today = new Date();
     const { configs, isLoading: configLoading } = useDashboardConfig();
+    const { masterOptions } = useMasterData();
 
     // Local State for Filters
     const [timeRange, setTimeRange] = useState<TimeRangeOption>('LAST_30');
@@ -105,6 +108,10 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                     .in('date', [todayStr, yesterdayStr]);
 
                 if (logs) {
+                    const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
+                    const startTimeStr = workConfig.find(c => c.key === 'START_TIME')?.label || '10:00';
+                    const lateBufferMinutes = parseInt(workConfig.find(c => c.key === 'LATE_BUFFER')?.label || '0');
+
                     const calcStats = (dateStr: string): AttendanceStat => {
                         const dayLogs = logs.filter(l => l.date === dateStr);
                         
@@ -117,10 +124,10 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                                 leave++;
                             } else {
                                 present++;
-                                // Check Late (Using 10:00 AM rule or status)
+                                // Check Late (Using dynamic rule)
                                 if (log.check_in_time) {
                                     const time = new Date(log.check_in_time);
-                                    if (time.getHours() > 10 || (time.getHours() === 10 && time.getMinutes() > 0)) {
+                                    if (checkIsLate(time, startTimeStr, lateBufferMinutes)) {
                                         late++;
                                     }
                                 }

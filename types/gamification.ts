@@ -53,6 +53,8 @@ export interface Goal {
     rewardCoin: number;
     owners: string[]; // User IDs
     boosts: string[]; // User IDs
+    isRedeemed?: boolean; // New field
+    extensionCount?: number; // New field
 }
 
 export interface Reward {
@@ -91,7 +93,6 @@ export interface GameActionResult {
 export interface GameConfig {
     GLOBAL_MULTIPLIERS: {
         XP_PER_HOUR: number;
-        COIN_PER_TASK: number;
         COIN_BONUS_EARLY: number;
         COIN_DUTY: number;
         COIN_ATTENDANCE: number;
@@ -117,8 +118,10 @@ export interface GameConfig {
         HP_PENALTY_MISSED_DUTY: number;
         COIN_PENALTY_LATE_PER_DAY: number;
         HP_PENALTY_DUTY_LATE_SUBMIT: number;
+        HP_REFUND_DUTY_REDEEM: number;
         HP_PENALTY_EARLY_LEAVE_RATE: number;
         HP_PENALTY_EARLY_LEAVE_INTERVAL: number;
+        HP_PENALTY_UNAUTHORIZED_WFH: number;
         [key: string]: number;
     };
     ATTENDANCE_RULES: Record<string, { xp: number; hp: number; coins: number }>;

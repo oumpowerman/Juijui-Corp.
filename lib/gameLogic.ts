@@ -8,7 +8,6 @@ import th from 'date-fns/locale/th';
 export const DEFAULT_GAME_CONFIG = {
     GLOBAL_MULTIPLIERS: {
         XP_PER_HOUR: 20,
-        COIN_PER_TASK: 10,
         COIN_BONUS_EARLY: 20,
         COIN_DUTY: 5,
         COIN_ATTENDANCE: 5,
@@ -34,13 +33,14 @@ export const DEFAULT_GAME_CONFIG = {
     PENALTY_RATES: {
         HP_PENALTY_LATE: 5,           // Base damage per day
         HP_PENALTY_LATE_MULTIPLIER: 2, // Progressive multiplier (Compound damage)
-        HP_PENALTY_MISSED_DUTY: 10,
+        HP_PENALTY_MISSED_DUTY: 20,    // Updated from 10 to 20 for consistency
         COIN_PENALTY_LATE_PER_DAY: 5,
-        // New Flexible Keys
-        HP_PENALTY_DUTY_LATE_SUBMIT: 3,
-        HP_PENALTY_EARLY_LEAVE_RATE: 1, // Deduct 1 HP...
-        HP_PENALTY_EARLY_LEAVE_INTERVAL: 10, // ...every 10 minutes
-        HP_PENALTY_UNAUTHORIZED_WFH: 5 // Penalty for WFH without approved request
+        // New Stepped Duty Penalty Keys
+        HP_REFUND_DUTY_REDEEM: 10,
+        HP_PENALTY_DUTY_LATE_SUBMIT: 5, 
+        HP_PENALTY_EARLY_LEAVE_RATE: 1, 
+        HP_PENALTY_EARLY_LEAVE_INTERVAL: 10, 
+        HP_PENALTY_UNAUTHORIZED_WFH: 5 
     },
 
     // Attendance Rules
@@ -51,7 +51,6 @@ export const DEFAULT_GAME_CONFIG = {
         ABSENT: { xp: 0, hp: -20, coins: -50 },
         NO_SHOW: { xp: 0, hp: -100, coins: -100 },
         LEAVE: { xp: 0, hp: 0, coins: 0 },
-        EARLY_LEAVE: { xp: 0, hp: 0, coins: 0 },
         WFH: { xp: 10, hp: 0, coins: 0 },
         SITE: { xp: 20, hp: 0, coins: 10 },
         FORGOT_CHECKOUT: { xp: 0, hp: -10, coins: 0 },
@@ -159,7 +158,7 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
             // 3. Early Bonus
             const isEarly = differenceInDays(new Date(endDate), new Date()) >= 1;
-            let coins = globals.COIN_TASK || globals.COIN_PER_TASK || 10;
+            let coins = globals.COIN_TASK || 10;
             if (isEarly) {
                 coins += globals.COIN_BONUS_EARLY || 20;
                 xp += globals.XP_BONUS_EARLY || 50; // Dynamic Early XP Bonus
@@ -240,15 +239,26 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'DUTY_LATE_SUBMIT': {
             const lateXp = globals.XP_DUTY_LATE_SUBMIT || 5;
-            const lateHpPenalty = penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 3;
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
+            
+            // DYNAMIC STEPPED PENALTY LOGIC:
+            const isAbandoned = context.penaltyStatus === 'ABANDONED' || context.penalty_status === 'ABANDONED';
+            
+            // Use config values if available
+            const refundValue = penalties.HP_REFUND_DUTY_REDEEM || 10;
+            const latePenaltyValue = penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5;
+            
+            const hpChange = isAbandoned ? refundValue : -latePenaltyValue;
+            const message = isAbandoned 
+                ? `กู้คืนสถานะเวรที่ทอดทิ้ง!${dateStr}` 
+                : `ส่งเวรล่าช้า (ช่วงผ่อนผัน)${dateStr}`;
 
             return {
                 xp: lateXp, 
-                hp: -lateHpPenalty, 
+                hp: hpChange, 
                 coins: 0,
-                message: `ส่งเวรย้อนหลัง${dateStr}`,
-                details: `-${lateHpPenalty} HP, +${lateXp} XP`
+                message: message,
+                details: `${hpChange > 0 ? '+' : ''}${hpChange} HP, +${lateXp} XP`
             };
         }
 

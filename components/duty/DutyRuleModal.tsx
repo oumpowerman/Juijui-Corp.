@@ -93,7 +93,7 @@ const RuleCard = ({
 };
 
 const SectionHeader = ({ title, icon: Icon, color }: { title: string, icon: any, color: string }) => (
-    <div className="flex items-center gap-2 mb-4 mt-6 first:mt-0 sticky top-0 bg-slate-50/90 backdrop-blur-md py-2 z-10 border-b border-gray-200/60 shadow-[0_4px_10px_-10px_rgba(0,0,0,0.1)]">
+    <div className="flex items-center gap-2 mb-4 mt-6 first:mt-0 top-0 bg-slate-50/90 backdrop-blur-md py-2 z-10 border-b border-gray-200/60 shadow-[0_4px_10px_-10px_rgba(0,0,0,0.1)]">
         <Icon className={`w-5 h-5 ${color} drop-shadow-sm`} />
         <h2 className={`font-bold text-lg ${color} drop-shadow-sm`}>{title}</h2>
     </div>
@@ -256,7 +256,17 @@ const DutyRuleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                     stats={{ hp: -(penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5) }}
                                     description={
                                         <span>
-                                            การส่งงานในช่วงเวลาแก้ตัว (หลังเที่ยงคืนแต่ก่อน 10 โมง) จะถูกหัก HP เล็กน้อยเป็นค่าปรับ
+                                            การส่งงานในช่วงเวลาแก้ตัว (หลังเที่ยงคืนแต่ก่อน {autoJudge.duty_grace_hour || 10}:00 น.) จะถูกหัก HP เล็กน้อยเป็นค่าปรับล่าช้า
+                                        </span>
+                                    }
+                                />
+                                
+                                <RuleCard 
+                                    icon={Scale} colorTheme="indigo" title="ขอแก้ตัวที่ศาล (Redeem)" delay={0.15}
+                                    stats={{ hp: -(penalties.HP_PENALTY_MISSED_DUTY - (penalties.HP_REFUND_DUTY_REDEEM || 10) || 10) }}
+                                    description={
+                                        <span>
+                                            หากโดนหักคะแนนไปแล้ว และส่งงานย้อนหลังย้อนหลังที่ศาล ระบบจะคืนให้ <span className="font-bold text-emerald-600">+{penalties.HP_REFUND_DUTY_REDEEM || 10} HP</span> ทันที
                                         </span>
                                     }
                                 />
@@ -266,7 +276,7 @@ const DutyRuleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                     stats={{ hp: -(autoJudge.negligence_penalty_hp || 20) }}
                                     description={
                                         <span>
-                                            หากปล่อยเวรทิ้งไว้จนเวรรอบใหม่มาถึง ระบบจะถือว่า <span className="font-bold text-rose-600">"ละเลยหน้าที่"</span> และลงโทษหนักทันที
+                                            หากละเลยจนเวรใหม่มาถึง ระบบจะหักคะแนนซ้ำซ้อนอีก <span className="font-bold text-rose-600">-{autoJudge.negligence_penalty_hp || 20} HP</span> และล็อคการใช้งานชั่วคราว
                                         </span>
                                     }
                                 />

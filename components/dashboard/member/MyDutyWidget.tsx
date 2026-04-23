@@ -6,6 +6,7 @@ import { Clock } from 'lucide-react';
 
 // Sub-components
 import AbandonedState from './duty-widgets/AbandonedState';
+import DeadState from './duty-widgets/DeadState';
 import TribunalState from './duty-widgets/TribunalState';
 import ActiveState from './duty-widgets/ActiveState';
 import CompletedState from './duty-widgets/CompletedState';
@@ -88,6 +89,11 @@ const MyDutyWidget: React.FC<MyDutyWidgetProps> = ({ duties, currentUser, users,
             })
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
     }, [duties, currentUser, todayStr]);
+
+    // --- PRIORITY 0: DEATH STATE ---
+    if (currentUser.hp <= 0) {
+        return <DeadState onNavigate={onNavigate} />;
+    }
 
     // --- PRIORITY 1: ABANDONED (SHAME LIST) ---
     if (abandonedDuties.length > 0) {

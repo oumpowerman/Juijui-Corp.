@@ -23,7 +23,7 @@ const ITEMS_PER_PAGE = 9;
 
 const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => {
     // Destructure updateGoal
-    const { goals, addGoal, updateGoal, updateGoalValue, deleteGoal, toggleOwner, toggleBoost, isLoading } = useGoals(currentUser);
+    const { goals, addGoal, updateGoal, updateGoalValue, deleteGoal, toggleOwner, toggleBoost, redeemGoal, requestExtension, isLoading } = useGoals(currentUser);
     
     // UI State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -31,7 +31,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     const [updatingGoal, setUpdatingGoal] = useState<Goal | null>(null);
     
     // Filter State
-    const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
+    const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'FAILED'>('ACTIVE');
     const [filterChannel, setFilterChannel] = useState<string>('ALL');
     const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ 
         start: null, 
@@ -45,11 +45,17 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
 
     // --- Filtering Logic ---
     const filteredGoals = useMemo(() => {
+        const now = new Date();
         return goals.filter(g => {
             // 1. Tab Filter
-            if (g.isArchived) return false; // Hide archived by default for now
-            if (filterTab === 'COMPLETED' && g.currentValue < g.targetValue) return false;
-            if (filterTab === 'ACTIVE' && g.currentValue >= g.targetValue) return false;
+            if (g.isArchived) return false; 
+            
+            const isCompleted = g.currentValue >= g.targetValue;
+            const isFailed = !isCompleted && now > new Date(g.deadline);
+
+            if (filterTab === 'COMPLETED' && !isCompleted) return false;
+            if (filterTab === 'ACTIVE' && (isCompleted || isFailed)) return false;
+            if (filterTab === 'FAILED' && !isFailed) return false;
 
             // 2. Channel Filter
             if (filterChannel !== 'ALL' && g.channelId !== filterChannel) return false;
@@ -201,6 +207,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                         <div className="flex bg-black/40 p-1.5 rounded-2xl w-full md:w-auto border border-white/5">
                             <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Active</button>
                             <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Completed</button>
+                            <button onClick={() => setFilterTab('FAILED')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'FAILED' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Failed</button>
                             <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ALL' ? 'bg-white/10 text-white shadow-lg shadow-white/5' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
                         </div>
 
@@ -332,6 +339,8 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                         onToggleBoost={toggleBoost}
                                         onDelete={deleteGoal}
                                         onEdit={(g) => { setEditingGoal(g); setIsCreateModalOpen(true); }}
+                                        onRedeem={redeemGoal}
+                                        onRequestExtension={requestExtension}
                                     />
                                 </div>
                             ))}

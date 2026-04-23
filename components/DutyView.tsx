@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Dices, Settings, CalendarDays, Info } from '
 import MentorTip from './MentorTip';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useGamification } from '../hooks/useGamification';
+import { useGameConfig } from '../context/GameConfigContext';
 import { supabase } from '../lib/supabase';
 
 // Sub Components
@@ -46,6 +47,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     } = useDuty(currentUser);
 
     const { processAction } = useGamification(currentUser);
+    const { config: gameConfig } = useGameConfig(); // Get global game config
     const { showAlert, showConfirm } = useGlobalDialog();
 
     // View State
@@ -411,6 +413,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                         onAcceptPenalty={handleAcceptPenalty}
                         onRedeem={handleRedeem}
                         onAppeal={handleAppeal}
+                        config={gameConfig} // Pass the correct global game config
                     />
                 )}
 

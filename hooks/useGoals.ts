@@ -36,6 +36,8 @@ export const useGoals = (currentUser: User) => {
                     isArchived: g.is_archived,
                     rewardXp: g.reward_xp || 500,
                     rewardCoin: g.reward_coin || 100,
+                    isRedeemed: g.is_redeemed || false,
+                    extensionCount: g.extension_count || 0,
                     owners: g.goal_owners?.map((o: any) => o.user_id) || [],
                     boosts: g.goal_boosts?.map((b: any) => b.user_id) || []
                 })));
@@ -142,24 +144,52 @@ export const useGoals = (currentUser: User) => {
             
             // Auto-Reward Logic
             if (!wasCompleted && isNowCompleted && goal.owners.length > 0) {
+                // Check if it was completed after deadline
+                const now = new Date();
+                const isLate = now > goal.deadline;
+                
+                // Reward Calculation Logic
+                let multiplier = 1.0;
+                if (isLate) {
+                    multiplier = goal.isRedeemed ? 0.3 : 0.5; // If it's redeemed, 0.3. If just late, 0.5.
+                }
+
+                const finalXp = Math.round((goal.rewardXp || 0) * multiplier);
+                const finalCoin = Math.round((goal.rewardCoin || 0) * multiplier);
+
                 // Reward each owner
                 for (const userId of goal.owners) {
-                    // This is a simplified version. In a real app, you'd have a server-side function
-                    // to ensure atomicity and prevent cheating.
                     const { data: profile } = await supabase.from('profiles').select('xp, coins').eq('id', userId).single();
                     if (profile) {
                         await supabase.from('profiles').update({
-                            xp: (profile.xp || 0) + (goal.rewardXp || 0),
-                            coins: (profile.coins || 0) + (goal.rewardCoin || 0)
+                            xp: (profile.xp || 0) + finalXp,
+                            coins: (profile.coins || 0) + finalCoin
                         }).eq('id', userId);
                     }
                 }
-                showToast(`ยินดีด้วย! เป้าหมายสำเร็จและจ่ายรางวัลให้ทีมแล้ว 🏆 +${goal.rewardXp} XP, +${goal.rewardCoin} Coins`, 'success');
+                
+                const rewardMessage = isLate 
+                    ? `ภารกิจสำเร็จ (ล่าช้า: ได้รับรางวัลลดลง)! 🏆 +${finalXp} XP, +${finalCoin} Coins`
+                    : `ยินดีด้วย! เป้าหมายสำเร็จและจ่ายรางวัลให้ทีมแล้ว 🏆 +${finalXp} XP, +${finalCoin} Coins`;
+                
+                showToast(rewardMessage, isLate ? 'info' : 'success');
             } else {
                 showToast('อัปเดตยอดล่าสุดแล้ว! 📈', 'success');
             }
         } catch (err: any) {
             showToast('อัปเดตไม่สำเร็จ', 'error');
+        }
+    };
+
+    const redeemGoal = async (id: string) => {
+        try {
+            const { error } = await supabase.from('goals').update({ is_redeemed: true }).eq('id', id);
+            if (error) throw error;
+            
+            setGoals(prev => prev.map(g => g.id === id ? { ...g, isRedeemed: true } : g));
+            showToast('ปลดล็อกคภารกิจเพื่อกู้หน้าคืน! (พยายามเข้า รางวัลจะลดลงเหลือ 30%) 🛡️', 'success');
+        } catch (err: any) {
+            showToast('ขอคืนชีพไม่สำเร็จ', 'error');
         }
     };
 
@@ -259,6 +289,31 @@ export const useGoals = (currentUser: User) => {
         }
     };
 
+    const requestExtension = async (goalId: string, reason: string) => {
+        try {
+            // In a real app, this would create a record in goal_deadline_requests
+            // For now, we will simulate by sending a notification to admins
+            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
+            if (admins && admins.length > 0) {
+                 const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'APPROVAL_REQ',
+                    title: '📅 คำขอขยายเวลาเป้าหมาย',
+                    message: `ขอขยายเวลาเป้าหมาย ภารกิจ: ${reason}`,
+                    related_id: goalId,
+                    is_read: false,
+                    link_path: 'GOALS'
+                }));
+                await supabase.from('notifications').insert(notifications);
+            }
+            showToast('ส่งคำขอขยายเวลาให้แอดมินแล้ว! 📨', 'success');
+            return true;
+        } catch (err: any) {
+            showToast('ขอขยายเวลาไม่สำเร็จ', 'error');
+            return false;
+        }
+    };
+
     return {
         goals,
         isLoading,
@@ -268,6 +323,8 @@ export const useGoals = (currentUser: User) => {
         deleteGoal,
         toggleOwner,
         toggleBoost,
+        redeemGoal,
+        requestExtension,
         refreshGoals: fetchGoals
     };
 };

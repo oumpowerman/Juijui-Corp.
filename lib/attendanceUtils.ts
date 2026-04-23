@@ -139,7 +139,7 @@ export const parseAttendanceMetadata = (note: string | undefined) => {
 /**
  * Check if a specific time is considered "Late" based on dynamic config string (e.g. "10:00")
  */
-export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: string = '10:00', bufferMinutes: number = 0): boolean => {
+export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: string, bufferMinutes: number = 0): boolean => {
     if (!checkInTime) return false;
     try {
         const checkIn = typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime;

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
 import { format } from 'date-fns';
@@ -23,17 +23,21 @@ export const useSidebarBadges = (currentUser: User) => {
         financeTrip: 0 // Init
     });
 
-    const fetchBadges = async () => {
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const fetchBadges = useCallback(async () => {
         if (!currentUser) return;
         const isAdmin = currentUser.role === 'ADMIN';
         const todayStr = format(new Date(), 'yyyy-MM-dd');
 
         try {
             // 1. Quality Gate Logic (Pending Reviews)
-            let qgQuery = supabase.from('task_reviews').select('id, task:tasks!inner(assignee_ids, idea_owner_ids, editor_ids)', { count: 'exact', head: false }).eq('status', 'PENDING');
-            
-            const { data: qgData } = await qgQuery;
+            // Users only need qg if they are involved or admin
             let qgCount = 0;
+            const { data: qgData } = await supabase
+                .from('task_reviews')
+                .select('id, task:tasks!inner(assignee_ids, idea_owner_ids, editor_ids)', { count: 'exact', head: false })
+                .eq('status', 'PENDING');
             
             if (qgData) {
                 if (isAdmin) {
@@ -49,7 +53,7 @@ export const useSidebarBadges = (currentUser: User) => {
                 }
             }
 
-            // 2. Feedback Logic
+            // 2. Feedback Logic (Admin Only)
             let fbCount = 0;
             if (isAdmin) {
                 const { count } = await supabase
@@ -59,7 +63,7 @@ export const useSidebarBadges = (currentUser: User) => {
                 fbCount = count || 0;
             }
 
-            // 3. Member Approval
+            // 3. Member Approval (Admin Only)
             let maCount = 0;
             if (isAdmin) {
                 const { count } = await supabase
@@ -69,14 +73,14 @@ export const useSidebarBadges = (currentUser: User) => {
                 maCount = count || 0;
             }
 
-            // 4. My Duty
+            // 4. My Duty (Personal)
             const { count: dutyCount } = await supabase.from('duties')
                 .select('id', { count: 'exact', head: true })
                 .eq('assignee_id', currentUser.id)
                 .eq('date', todayStr)
                 .eq('is_done', false);
 
-            // 5. Attendance Approval
+            // 5. Attendance Approval (Admin Only)
             let leaveCount = 0;
             if (isAdmin) {
                 const { count } = await supabase
@@ -86,8 +90,7 @@ export const useSidebarBadges = (currentUser: User) => {
                 leaveCount = count || 0;
             }
 
-            // 6. Finance Trip Detection (NEW)
-            // Logic: Count groupings of unlinked contents
+            // 6. Finance Trip Detection (Admin Only)
             let tripCount = 0;
             if (isAdmin) {
                 const { data: unlinkedData } = await supabase
@@ -122,26 +125,49 @@ export const useSidebarBadges = (currentUser: User) => {
         } catch (err) {
             console.error("Error fetching sidebar badges:", err);
         }
-    };
+    }, [currentUser, currentUser?.role, currentUser?.id]);
+
+    const debouncedRefresh = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+            fetchBadges();
+        }, 2000); // 2 seconds debounce
+    }, [fetchBadges]);
 
     // Realtime Subscriptions
     useEffect(() => {
         fetchBadges();
+        const isAdmin = currentUser.role === 'ADMIN';
 
-        const channel = supabase.channel('sidebar-badges-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'duties' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, fetchBadges)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, fetchBadges) // Listen to content changes for Trip Badge
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, fetchBadges) // Listen to trips
-            .subscribe();
+        // Base Channel for common events
+        const channel = supabase.channel(`sidebar-badges-${currentUser.id}`)
+            // Shared: Task Reviews (everyone needs to know if their task needs review)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, debouncedRefresh)
+            // Shared: Duties (Filtered to CURRENT USER only to prevent mass noise)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'duties',
+                filter: `assignee_id=eq.${currentUser.id}` 
+            }, debouncedRefresh);
+        
+        // Admin-Only Channels: Separate noise for regular users
+        if (isAdmin) {
+            channel
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, debouncedRefresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, debouncedRefresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, debouncedRefresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, debouncedRefresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, debouncedRefresh);
+        }
+
+        channel.subscribe();
 
         return () => {
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             supabase.removeChannel(channel);
         };
-    }, [currentUser.id]);
+    }, [currentUser.id, currentUser.role, debouncedRefresh, fetchBadges]);
 
     return { badges };
 };

@@ -14,7 +14,8 @@ import {
     ExternalLink, ChevronLeft, ChevronRight, Filter, RefreshCw, Loader2, ArrowRight,
     AlertTriangle, Clock, CheckCircle2, HelpCircle
 } from 'lucide-react';
-import { parseAttendanceMetadata, getWorkingDaysDifference } from '../../lib/attendanceUtils';
+import { parseAttendanceMetadata, getWorkingDaysDifference, checkIsLate } from '../../lib/attendanceUtils';
+import { useMasterDataContext } from '../../context/MasterDataContext';
 import { getDirectDriveUrl } from '../../lib/imageUtils';
 import { isWorkingDay, isUserOnLeave } from '../../utils/judgeUtils';
 import LeaveRequestModal from './LeaveRequestModal'; 
@@ -179,11 +180,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
 
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+    const { masterOptions } = useMasterDataContext();
+    const startTimeStr = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+    const lateBufferMinutes = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '0');
+
     // Helpers
     const isLate = (log: AttendanceLog) => {
         if (!log.checkInTime) return false;
-        const hour = log.checkInTime.getHours();
-        return hour > 10 || (hour === 10 && log.checkInTime.getMinutes() > 0);
+        return checkIsLate(log.checkInTime, startTimeStr, lateBufferMinutes);
     };
 
     const getProofUrl = (log: AttendanceLog) => {

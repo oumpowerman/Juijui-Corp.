@@ -77,10 +77,10 @@ const QuestsTuner: React.FC<QuestsTunerProps> = ({ localConfig, handleChange, se
                     <div>
                         <ConfigSlider 
                             label="Per Task" 
-                            value={localConfig.GLOBAL_MULTIPLIERS?.COIN_PER_TASK || 10} 
+                            value={localConfig.GLOBAL_MULTIPLIERS?.COIN_TASK || 10} 
                             min={0} max={100} step={5} unit="JP"
                             color="yellow"
-                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'COIN_PER_TASK', v)}
+                            onChange={(v: number) => handleChange('GLOBAL_MULTIPLIERS', 'COIN_TASK', v)}
                         />
                         <p className="text-[10px] text-yellow-600/70 mt-1 ml-1">
                             เหรียญที่ได้ทันทีเมื่อจบงาน 1 งาน

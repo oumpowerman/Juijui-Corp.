@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { PayrollCycle, PayrollSlip, User, DeductionItem } from '../types';
+import { checkIsLate } from '../lib/attendanceUtils';
 import { useToast } from '../context/ToastContext';
 import { endOfMonth, format } from 'date-fns';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -143,6 +144,9 @@ export const usePayroll = (currentUser: User) => {
 
                 // A. Attendance Deductions
                 const userAttLogs = attendanceLogs?.filter(l => l.user_id === u.id) || [];
+                const startTimeStr = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+                const lateBufferMinutes = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '0');
+
                 userAttLogs.forEach(log => {
                     // Check Absent
                     if (log.status === 'ABSENT' || log.status === 'NO_SHOW') {
@@ -157,8 +161,8 @@ export const usePayroll = (currentUser: User) => {
                     // Check Late (Time based logic matching useAttendance)
                     else if (log.check_in_time) {
                         const d = new Date(log.check_in_time);
-                        // Rule: Late after 10:00 AM
-                        if (d.getHours() > 10 || (d.getHours() === 10 && d.getMinutes() > 0)) {
+                        // Rule: Check late using dynamic config
+                        if (checkIsLate(d, startTimeStr, lateBufferMinutes)) {
                             disciplinaryDeduction += lateRate;
                             deductionSnapshot.push({ 
                                 date: log.date, 

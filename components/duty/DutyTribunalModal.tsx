@@ -14,13 +14,18 @@ interface DutyTribunalModalProps {
     onAcceptPenalty: (duty: Duty) => Promise<void>;
     onRedeem: (duty: Duty, file: File) => Promise<void>;
     onAppeal: (duty: Duty, reason: string, file?: File) => Promise<void>;
+    config?: any; // Dynamic config
 }
 
 const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({ 
-    isOpen, pendingDuty, onAcceptPenalty, onRedeem, onAppeal 
+    isOpen, pendingDuty, onAcceptPenalty, onRedeem, onAppeal, config 
 }) => {
     const { showAlert } = useGlobalDialog();
     const [step, setStep] = useState<'DECISION' | 'PROOF' | 'APPEAL'>('DECISION');
+    
+    // Dynamic values from config
+    const refundAmount = config?.PENALTY_RATES?.HP_REFUND_DUTY_REDEEM || 10;
+    const graceHour = config?.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10;
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const appealFileRef = useRef<HTMLInputElement>(null);
@@ -99,10 +104,10 @@ const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     <Camera className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                                    ขอแก้ตัวเดี๋ยวนี้!
+                                    ขอแก้ตัว (ทำแล้วแต่ลืมส่ง)
                                 </span>
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-                                <span className="absolute right-3 text-[10px] bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">-5 HP</span>
+                                <span className="absolute right-3 text-[10px] bg-green-500/20 px-2 py-0.5 rounded-full text-green-100">+{refundAmount} HP</span>
                             </button>
                             
                             <div className="grid grid-cols-2 gap-3">
@@ -118,7 +123,7 @@ const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({
                                     disabled={isProcessing}
                                     className="w-full py-3 bg-white border-2 border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-500 hover:text-red-500 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                                 >
-                                    <Skull className="w-4 h-4" /> ยอมรับผิด
+                                    <Skull className="w-4 h-4" /> ฉันลืมทำเวรจริงๆ
                                 </button>
                             </div>
                         </div>
@@ -129,9 +134,9 @@ const DutyTribunalModal: React.FC<DutyTribunalModalProps> = ({
                             <div className="text-sm text-gray-600 bg-indigo-50 p-4 rounded-xl border border-indigo-100 text-left">
                                 <p className="font-bold text-indigo-800 mb-2">เงื่อนไขการแก้ตัว:</p>
                                 <ul className="list-disc pl-4 space-y-1 text-xs">
-                                    <li>ต้องถ่ายรูปหลักฐาน <b>ณ เวลานี้</b></li>
+                                    <li>ต้องถ่ายรูปหลักฐาน <b>ณ เวลานี้</b> (เลยกำหนด {graceHour}:00 น.)</li>
                                     <li>ระบบจะบันทึกสถานะเป็น <b>LATE COMPLETED</b></li>
-                                    <li>จะถูกหักคะแนนเล็กน้อย (-5 HP) เป็นค่าปรับล่าช้า</li>
+                                    <li>จะได้รับ HP คืนส่วนหนึ่ง (+{refundAmount} HP) เพื่อล้างหนี้วินัย</li>
                                 </ul>
                             </div>
                             

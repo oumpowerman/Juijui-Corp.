@@ -10,21 +10,23 @@ interface PayrollRulesViewProps {
     onAdd: (option: Omit<MasterOption, 'id'>) => Promise<boolean>;
 }
 
-const REQUIRED_CONFIGS = [
-    { key: 'LATE_PENALTY', label: 'หักมาสาย (บาท/ครั้ง)', default: '50', desc: 'หักเมื่อเข้างานหลัง 10:00 น.' },
-    { key: 'ABSENT_PENALTY', label: 'หักขาดงาน (บาท/วัน)', default: '500', desc: 'หักเมื่อไม่มาทำงานโดยไม่ลา' },
-    { key: 'MISSED_DUTY_PENALTY', label: 'หักเบี้ยวเวร (บาท/ครั้ง)', default: '100', desc: 'หักเมื่อไม่ส่งงานเวรทำความสะอาด' },
-];
-
 const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUpdate, onAdd }) => {
     const { showAlert } = useGlobalDialog();
     const [values, setValues] = useState<Record<string, string>>({});
     const [isSaving, setIsSaving] = useState(false);
 
+    const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+
+    const rules = [
+        { key: 'LATE_PENALTY', label: 'หักมาสาย (บาท/ครั้ง)', default: '50', desc: `หักเมื่อเข้างานหลัง ${startTime} น.` },
+        { key: 'ABSENT_PENALTY', label: 'หักขาดงาน (บาท/วัน)', default: '500', desc: 'หักเมื่อไม่มาทำงานโดยไม่ลา' },
+        { key: 'MISSED_DUTY_PENALTY', label: 'หักเบี้ยวเวร (บาท/ครั้ง)', default: '100', desc: 'หักเมื่อไม่ส่งงานเวรทำความสะอาด' },
+    ];
+
     // Sync DB values to Local State
     useEffect(() => {
         const initialValues: Record<string, string> = {};
-        REQUIRED_CONFIGS.forEach(conf => {
+        rules.forEach(conf => {
             const found = masterOptions.find(o => o.type === 'PAYROLL_CONFIG' && o.key === conf.key);
             initialValues[conf.key] = found ? found.label : ''; // If empty string, it means not set yet
         });
@@ -34,7 +36,7 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            for (const conf of REQUIRED_CONFIGS) {
+            for (const conf of rules) {
                 const val = values[conf.key] || '0';
                 const found = masterOptions.find(o => o.type === 'PAYROLL_CONFIG' && o.key === conf.key);
 
@@ -78,7 +80,7 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {REQUIRED_CONFIGS.map((conf) => (
+                    {rules.map((conf) => (
                         <div key={conf.key} className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                             <label className="block text-sm font-bold text-gray-700 mb-1">
                                 {conf.label}

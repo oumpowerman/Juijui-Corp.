@@ -28,7 +28,6 @@ const PRETTY_LABELS: Record<string, string> = {
     XP_BONUS_EARLY: "XP โบนัสมาเช้า",
     COIN_BONUS_EARLY: "Coins โบนัสมาเช้า",
     XP_PER_HOUR: "XP ต่อชั่วโมงการทำงาน",
-    COIN_PER_TASK: "Coins ต่อหนึ่งงาน",
     BASE_XP_PER_LEVEL: "XP พื้นฐานต่อเลเวล (Global)",
     XP_DUTY_LATE_SUBMIT: "XP เมื่อส่งเวรสาย",
     COIN_DUTY: "Coins จากการทำเวร",
@@ -38,6 +37,7 @@ const PRETTY_LABELS: Record<string, string> = {
     HP_PENALTY_MISSED_DUTY: "โทษหัก HP ไม่ทำเวร",
     HP_PENALTY_LATE_MULTIPLIER: "ตัวคูณหัก HP มาสายรายวัน",
     HP_PENALTY_DUTY_LATE_SUBMIT: "โทษหัก HP ส่งเวรสาย",
+    HP_REFUND_DUTY_REDEEM: "รางวัล HP เมื่อแก้ตัวที่ศาล (Redeem)",
     HP_PENALTY_EARLY_LEAVE_RATE: "อัตราหัก HP กลับก่อนเวลา",
     HP_PENALTY_UNAUTHORIZED_WFH: "โทษหัก HP WFH ไม่ได้รับอนุญาต",
     HP_PENALTY_EARLY_LEAVE_INTERVAL: "ช่วงเวลาหัก HP กลับก่อน (นาที)",
@@ -93,7 +93,7 @@ const FEATURE_GROUPS = [
         color: 'orange',
         keys: [
             'XP_DUTY_COMPLETE', 'COIN_DUTY', 'XP_DUTY_ASSIST', 'HP_PENALTY_MISSED_DUTY', 
-            'HP_PENALTY_DUTY_LATE_SUBMIT', 'XP_DUTY_LATE_SUBMIT', 'duty_grace_hour'
+            'HP_PENALTY_DUTY_LATE_SUBMIT', 'HP_REFUND_DUTY_REDEEM', 'XP_DUTY_LATE_SUBMIT', 'duty_grace_hour'
         ]
     },
     {
@@ -103,7 +103,7 @@ const FEATURE_GROUPS = [
         icon: Target,
         color: 'rose',
         keys: [
-            'XP_TASK_COMPLETE', 'COIN_TASK', 'COIN_PER_TASK', 'HP_PENALTY_LATE', 
+            'XP_TASK_COMPLETE', 'COIN_TASK', 'HP_PENALTY_LATE', 
             'HP_PENALTY_LATE_MULTIPLIER', 'COIN_PENALTY_LATE_PER_DAY'
         ]
     },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, Reorder } from 'framer-motion';
+import { AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { MergedQueueItem } from './types';
 import QueueItemRow from './QueueItemRow';
 import { Channel, Task, MasterOption } from '../../../../types';
@@ -17,6 +17,54 @@ interface QueueTableViewProps {
     onRemove: (item: MergedQueueItem) => void;
     onOpenPlanning: (item: MergedQueueItem) => void;
 }
+
+const ReorderableItem: React.FC<{
+    item: MergedQueueItem;
+    index: number;
+    channels: Channel[];
+    masterOptions: MasterOption[];
+    isProcessing: string | null;
+    onEditContent: (task: Task) => void;
+    onEditScript?: (scriptId: string) => void;
+    onToggleFinished: (item: MergedQueueItem) => void;
+    onMarkAsDone: (item: MergedQueueItem) => void;
+    onRemove: (item: MergedQueueItem) => void;
+    onOpenPlanning: (item: MergedQueueItem) => void;
+}> = ({ item, index, channels, masterOptions, isProcessing, onEditContent, onEditScript, onToggleFinished, onMarkAsDone, onRemove, onOpenPlanning }) => {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={item}
+            dragListener={false}
+            dragControls={controls}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            whileDrag={{ 
+                scale: 1.02, 
+                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+                backgroundColor: "rgb(249 250 251)"
+            }}
+        >
+            <QueueItemRow
+                item={item}
+                sequenceNumber={index + 1}
+                channel={channels.find(c => c.id === item.channelId)}
+                masterOptions={masterOptions}
+                isFinished={item.isSoftFinished}
+                isProcessing={isProcessing === item.id}
+                onEditContent={onEditContent}
+                onEditScript={onEditScript}
+                onToggleFinished={onToggleFinished}
+                onMarkAsDone={onMarkAsDone}
+                onRemove={onRemove}
+                onOpenPlanning={onOpenPlanning}
+                dragControls={controls}
+            />
+        </Reorder.Item>
+    );
+};
 
 const QueueTableView: React.FC<QueueTableViewProps> = ({
     items,
@@ -52,33 +100,20 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
             >
                 <AnimatePresence mode='popLayout'>
                     {items.map((item, index) => (
-                        <Reorder.Item
+                        <ReorderableItem 
                             key={item.id}
-                            value={item}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            whileDrag={{ 
-                                scale: 1.02, 
-                                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-                                backgroundColor: "rgb(249 250 251)"
-                            }}
-                        >
-                            <QueueItemRow
-                                item={item}
-                                sequenceNumber={index + 1}
-                                channel={channels.find(c => c.id === item.channelId)}
-                                masterOptions={masterOptions}
-                                isFinished={item.isSoftFinished}
-                                isProcessing={isProcessing === item.id}
-                                onEditContent={onEditContent}
-                                onEditScript={onEditScript}
-                                onToggleFinished={onToggleFinished}
-                                onMarkAsDone={onMarkAsDone}
-                                onRemove={onRemove}
-                                onOpenPlanning={onOpenPlanning}
-                            />
-                        </Reorder.Item>
+                            item={item}
+                            index={index}
+                            channels={channels}
+                            masterOptions={masterOptions}
+                            isProcessing={isProcessing}
+                            onEditContent={onEditContent}
+                            onEditScript={onEditScript}
+                            onToggleFinished={onToggleFinished}
+                            onMarkAsDone={onMarkAsDone}
+                            onRemove={onRemove}
+                            onOpenPlanning={onOpenPlanning}
+                        />
                     ))}
                 </AnimatePresence>
             </Reorder.Group>

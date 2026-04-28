@@ -79,32 +79,47 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
                 }
                 .tiered-glass {
                     background: ${tierConfig.glassBg};
-                    backdrop-filter: blur(20px) saturate(180%);
-                    border: 1px solid rgba(255, 255, 255, 0.5);
-                    transition: background 0.5s ease, backdrop-filter 0.5s ease;
+                    backdrop-filter: blur(24px) saturate(200%);
+                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
                 }
                 .tiered-border-3d {
                     position: relative;
                     box-shadow: 
-                        0 10px 30px -5px ${glowStrong},
-                        0 20px 60px -10px ${glowSoft},
-                        inset 0 0 0 2px rgba(255, 255, 255, 0.2);
-                    transition: box-shadow 0.5s ease;
-                    ${isMaxHp ? 'animation: divine-pulse 3s infinite;' : ''}
+                        0 8px 32px -4px ${glowStrong},
+                        0 16px 48px -8px ${glowSoft},
+                        inset 0 1px 1px 0 rgba(255, 255, 255, 0.6);
+                    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                    ${isMaxHp ? 'animation: divine-pulse 4s ease-in-out infinite;' : ''}
                 }
                 .tiered-border-3d::before {
                     content: '';
                     position: absolute;
-                    inset: -4px;
+                    inset: -2px;
                     background: ${tierConfig.borderGradient};
-                    background-size: 200% auto;
-                    border-radius: 2.2rem;
+                    background-size: 200% 200%;
+                    border-radius: 2.1rem;
+                    padding: 2px;
                     z-index: -1;
-                    animation: shine-tiered 6s linear infinite;
-                    transition: background 0.5s ease;
+                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                    mask-composite: exclude;
+                    -webkit-mask-composite: destination-out;
+                    animation: shine-tiered 8s linear infinite;
+                    opacity: 0.8;
+                    transition: all 0.6s ease;
+                }
+                .tiered-border-3d::after {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 2rem;
+                    background: radial-gradient(circle at top left, rgba(255,255,255,0.4) 0%, transparent 40%);
+                    pointer-events: none;
+                    z-index: 1;
                 }
                 .animate-tiered-float {
-                    animation: float-tiered 5s ease-in-out infinite;
+                    animation: float-tiered 6s ease-in-out infinite;
                 }
             `
         };

@@ -347,11 +347,14 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                             <div className="flex gap-3">
                                 <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5 shadow-inner">
                                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-300 mb-1">
-                                        <span className="flex items-center"><Heart className="w-3 h-3 mr-1 text-red-400 fill-red-400"/> HP</span>
-                                        <span>{currentUser.hp}/{currentUser.maxHp}</span>
+                                        <span className="flex items-center"><Heart className={`w-3 h-3 mr-1 ${currentUser.hp <= 0 ? 'text-red-600 animate-pulse' : 'text-red-400'} fill-current`}/> HP</span>
+                                        <span className={currentUser.hp < 0 ? 'text-red-400 font-black' : ''}>{currentUser.hp}/{currentUser.maxHp}</span>
                                     </div>
                                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                        <div className="h-full bg-red-500 rounded-full transition-all duration-500" style={{ width: `${(currentUser.hp/currentUser.maxHp)*100}%` }}></div>
+                                        <div 
+                                            className={`h-full transition-all duration-500 ${currentUser.hp <= 0 ? 'bg-red-700' : 'bg-red-500'}`} 
+                                            style={{ width: `${Math.max(0, Math.min(100, (currentUser.hp / (currentUser.maxHp || 100)) * 100))}%` }}
+                                        ></div>
                                     </div>
                                 </div>
                                 <div className="flex-1 bg-white/10 rounded-2xl p-3 backdrop-blur-md border border-white/5 shadow-inner">

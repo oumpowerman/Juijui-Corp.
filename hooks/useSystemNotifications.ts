@@ -27,7 +27,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         const penalizedTaskIdsToday = new Set<string>();
         const processedLogKeys = new Set<string>();
 
-        // 1. Map Game Logs
+        // 1. Process Game Logs for Deduplication (Don't push to dynamicNotifs anymore as they are in DB notifications)
         gameLogs.forEach((log: any) => {
             if (log.action_type === 'TASK_LATE' && log.related_id) {
                 const logDate = new Date(log.created_at);
@@ -35,12 +35,9 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
                     penalizedTaskIdsToday.add(log.related_id);
                 }
             }
-
-            const dedupKey = `${log.action_type}_${log.related_id || log.id}`;
-            if (processedLogKeys.has(dedupKey)) return; 
-            processedLogKeys.add(dedupKey);
-
-            dynamicNotifs.push(mapGameLogToNotification(log, lastReadTime));
+            
+            // We only use gameLogs here to populate penalizedTaskIdsToday.
+            // Actual game-related notifications are now explicitly stored in the 'notifications' table.
         });
 
         // 2. Map Tasks

@@ -37,7 +37,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
     }, []);
 
     return (
-        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-3xl border border-white/40 shadow-xl shadow-indigo-500/5 flex flex-col lg:flex-row gap-4 items-center justify-between relative z-[110]">
+        <div className="bg-white/80 backdrop-blur-xl p-3 rounded-3xl border border-white/40 shadow-xl shadow-indigo-500/5 flex flex-col lg:flex-row gap-4 items-center justify-between relative z-[120]">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-pink-50/50 opacity-50 pointer-events-none" />
             
             {/* Left: Scope & Position */}
@@ -121,7 +121,7 @@ const TeamToolbar: React.FC<TeamToolbarProps> = ({
                                 animate={{ opacity: 1, y: 5, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                 transition={{ duration: 0.2, ease: "easeOut" }}
-                                className="absolute top-full left-0 w-full mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-2xl shadow-indigo-500/20 overflow-hidden z-[100]"
+                                className="absolute top-full left-0 w-full mt-2 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-2xl shadow-indigo-500/20 overflow-hidden z-[200]"
                             >
                                 <div className="max-h-[280px] overflow-y-auto p-1.5 custom-scrollbar">
                                     <button 

@@ -130,7 +130,8 @@ export const useAttendanceJudge = (
                              await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
                                  date: checkDateStr,
                                  id: `ABSENT:${checkDateStr}`, // Use as idempotency key
-                                 reason: `ABSENT_DATE:${checkDateStr}` 
+                                 reason: `ABSENT_DATE:${checkDateStr}`,
+                                 description: `ขาดงานในวันที่ ${checkDateStr} (ไม่พบข้อมูลการลงเวลาทำงาน)`
                              });
                              
                              console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
@@ -240,20 +241,21 @@ export const useAttendanceJudge = (
                         await processAction(currentUser.id, 'ATTENDANCE_FORGOT_CHECKOUT', {
                             date: log.date,
                             id: `FORGOT_OUT:${log.date}`, // Use as idempotency key
-                            reason: `FORGOT_OUT_DATE:${log.date}` 
+                            reason: `FORGOT_OUT_DATE:${log.date}`,
+                            description: `ลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนนอัตโนมัติ`
                         });
 
                         const forgotCheckoutPenalty = config?.ATTENDANCE_RULES?.FORGOT_CHECKOUT?.hp ?? -10;
 
-                        await supabase.from('notifications').insert({
-                            user_id: currentUser.id,
-                            type: 'SYSTEM_LOCK_PENALTY',
-                            title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
-                            message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
-                            is_read: false,
-                            link_path: 'ATTENDANCE',
-                            metadata: { hp: forgotCheckoutPenalty, logId: log.id }
-                        });
+  //                      await supabase.from('notifications').insert({
+  //                          user_id: currentUser.id,
+  //                          type: 'SYSTEM_LOCK_PENALTY',
+  //                          title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
+  //                          message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
+  //                          is_read: false,
+  //                          link_path: 'ATTENDANCE',
+  //                          metadata: { hp: forgotCheckoutPenalty, logId: log.id }
+  //                      });
 
                         console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);
                     } catch (err) {

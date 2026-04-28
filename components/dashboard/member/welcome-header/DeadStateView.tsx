@@ -45,7 +45,7 @@ const DeadStateView: React.FC<DeadStateViewProps> = ({ user, onOpenShop, onEditP
                         </h1>
                     </div>
                     <p className="text-gray-300 text-sm font-medium mb-6 max-w-xl leading-relaxed">
-                        <span className="text-white font-bold">{user.name}</span>, พลังชีวิตของคุณหมดลงแล้ว (0 HP)! <br/>
+                        <span className="text-white font-bold">{user.name}</span>, พลังชีวิตของคุณหมดลงแล้ว ({user.hp} HP)! <br/>
                         ประสิทธิภาพการทำงานลดลง กรุณาติดต่อฝ่ายบุคคล หรือใช้ไอเทมฟื้นฟูโดยด่วน
                     </p>
 

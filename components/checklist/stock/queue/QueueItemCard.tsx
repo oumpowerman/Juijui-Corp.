@@ -107,9 +107,23 @@ const QueueItemCard: React.FC<QueueItemCardProps> = ({
                     )}
                 </div>
 
-                <h4 className={`text-md font-bold text-gray-800 line-clamp-2 mb-2 transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-indigo-500 decoration-2' : ''}`}>
-                    {item.title}
-                </h4>
+                <div className="flex justify-between items-start mb-1">
+                    <h4 className={`text-md font-bold text-gray-800 line-clamp-2 transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-indigo-500 decoration-2' : ''}`}>
+                        {item.title}
+                    </h4>
+                    {item.scriptId && onEditScript && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEditScript(item.scriptId!);
+                            }}
+                            className="p-1.5 bg-teal-50 text-teal-600 rounded-lg hover:bg-teal-100 transition-all border border-teal-100/50 shrink-0 ml-2"
+                            title="ไปหน้าแก้บทสคริปต์"
+                        >
+                            <FileText className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
 
                 {/* Shoot Plan Summary */}
                 {item.shootLocation || item.shootTimeStart ? (

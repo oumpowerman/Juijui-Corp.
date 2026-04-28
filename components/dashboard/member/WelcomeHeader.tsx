@@ -44,8 +44,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     const progressPercent = Math.min(((user.xp % 1000) / 1000) * 100, 100);
     
     // HP Percentage
-    const hpPercent = Math.min((user.hp / (user.maxHp || 100)) * 100, 100);
-    const isHpLow = hpPercent < 30;
+    const hpPercent = Math.max(0, Math.min((user.hp / (user.maxHp || 100)) * 100, 100));
+    const isHpLow = user.hp < (user.maxHp * 0.3);
     const isDead = user.hp <= 0;
     const isDivine = hpPercent >= 90;
     const isTiered = hpPercent >= 50;

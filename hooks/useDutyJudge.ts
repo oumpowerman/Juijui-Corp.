@@ -105,15 +105,15 @@ export const useDutyJudge = (
                                  await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
 
                                  // 3. Trigger Lock Screen (via Notification)
-                                 await supabase.from('notifications').insert({
-                                     user_id: currentUser.id,
-                                     type: 'SYSTEM_LOCK_PENALTY', // Special Type
-                                     title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
-                                     message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
-                                     is_read: false,
-                                     link_path: 'DUTY',
-                                     metadata: { hp: -negligencePenalty }
-                                 });
+                                 //await supabase.from('notifications').insert({
+                                 //    user_id: currentUser.id,
+                                 //    type: 'SYSTEM_LOCK_PENALTY', // Special Type
+                                 //    title: '⚠️ คุณถูกหักคะแนนฐานเพิกเฉย!',
+                                 //    message: 'เนื่องจากคุณปล่อยเวรเก่าทิ้งไว้จนเวรรอบใหม่มาถึง ระบบได้ทำการหักคะแนนเพิ่มและเคลียร์เวรเก่าออก',
+                                 //    is_read: false,
+                                 //    link_path: 'DUTY',
+                                 //   metadata: { hp: -negligencePenalty }
+                                 //});
                              } finally {
                                  isProcessingRef.current.delete(lockKey);
                              }
@@ -181,7 +181,8 @@ export const useDutyJudge = (
                             await processAction(currentUser.id, 'DUTY_MISSED', { 
                                 ...duty, 
                                 id: `ABANDONED:${duty.id}`, // Use as idempotency key
-                                reason: 'ABANDONED_DUTY' 
+                                reason: 'ABANDONED_DUTY',
+                                description: `เพิกเฉยต่อหน้าที่ (ปล่อยเวรทิ้งไว้จนเลยกำหนด - รหัสเวร: ${duty.id})`
                             });
                          } finally {
                              isProcessingRef.current.delete(duty.id);

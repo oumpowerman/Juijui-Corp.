@@ -1,8 +1,8 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, DragControls } from 'framer-motion';
 import { LayoutGrid, FileText, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2, MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import { MergedQueueItem } from './types';
-import { Channel, Task, ScriptSummary, MasterOption } from '../../../../types';
+import { Channel, Task, MasterOption } from '../../../../types';
 
 interface QueueItemRowProps {
     item: MergedQueueItem;
@@ -17,6 +17,7 @@ interface QueueItemRowProps {
     onMarkAsDone: (item: MergedQueueItem) => void;
     onRemove: (item: MergedQueueItem) => void;
     onOpenPlanning: (item: MergedQueueItem) => void;
+    dragControls?: DragControls;
 }
 
 const QueueItemRow: React.FC<QueueItemRowProps> = ({
@@ -31,7 +32,8 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
     onToggleFinished,
     onMarkAsDone,
     onRemove,
-    onOpenPlanning
+    onOpenPlanning,
+    dragControls
 }) => {
     const getStatusInfo = (statusKey: string) => {
         const option = masterOptions.find(opt => opt.key === statusKey);
@@ -65,8 +67,11 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                 <div className="flex items-center gap-3 md:contents">
                     {/* 1. Drag Handle & Sequence */}
                     <div className="flex items-center justify-center gap-2 shrink-0">
-                        <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 transition-colors">
-                            <GripVertical className="w-4 h-4" />
+                        <div 
+                            className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 transition-colors p-1"
+                            onPointerDown={(e) => dragControls?.start(e)}
+                        >
+                            <GripVertical className="w-5 h-5 md:w-4 md:h-4" />
                         </div>
                         <span className="text-[12px] font-black font-mono text-slate-400">
                             {String(sequenceNumber).padStart(2, '0')}
@@ -110,9 +115,23 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
 
                     {/* 4. Title & Info */}
                     <div className="min-w-0 md:pl-2 flex-1">
-                        <h4 className={`text-[14px] md:text-[15px] font-kanit font-bold text-slate-800 truncate transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-indigo-500 decoration-2 text-slate-400' : ''}`}>
-                            {item.title}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                            <h4 className={`text-[14px] md:text-[15px] font-kanit font-bold text-slate-800 truncate transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-indigo-500 decoration-2 text-slate-400' : ''}`}>
+                                {item.title}
+                            </h4>
+                            {item.scriptId && onEditScript && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditScript(item.scriptId!);
+                                    }}
+                                    className="p-1 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-100 transition-all border border-teal-100/50"
+                                    title="ไปหน้าแก้บทสคริปต์"
+                                >
+                                    <FileText className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                             {channel && (
                                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded-full border border-slate-200 scale-90 origin-left">

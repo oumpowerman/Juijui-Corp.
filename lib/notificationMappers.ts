@@ -9,7 +9,14 @@ export const mapGameLogToNotification = (log: any, lastReadTime: Date): AppNotif
     const isPenalty = log.hp_change < 0 || log.jp_change < 0 || 
                       ['TASK_LATE', 'DUTY_MISSED', 'ATTENDANCE_ABSENT', 'ATTENDANCE_LATE'].includes(log.action_type);
     
-    const title = isPenalty ? '📉 โดนหักคะแนน!' : '🎉 ได้รับรางวัล!';
+    // Special cases for better UX titles
+    let title = isPenalty ? '📉 โดนหักคะแนน!' : '🎉 ได้รับรางวัล!';
+    if (log.action_type === 'ATTENDANCE_FORGOT_CHECKOUT') title = '⚠️ ลืมตอกบัตรออก';
+    if (log.action_type === 'ATTENDANCE_ABSENT') title = '❌ ขาดงาน';
+    if (log.action_type === 'TASK_LATE') title = '⏰ ส่งงานล่าช้า';
+    if (log.action_type === 'ATTENDANCE_EARLY_LEAVE') title = '🕒 กลับก่อนเวลา';
+    if (log.action_type === 'DUTY_MISSED') title = '🚫 เพิกเฉยเวร';
+    if (log.action_type === 'DUTY_LATE_SUBMIT') title = '⏰ ส่งเวรล่าช้า';
     
     // Create rich metadata instead of baking into string
     const metadata = {
@@ -19,6 +26,8 @@ export const mapGameLogToNotification = (log: any, lastReadTime: Date): AppNotif
         reason: log.description
     };
 
+    const profile = log.profiles;
+
     return {
         id: `game_${log.id}`,
         type: isPenalty ? 'GAME_PENALTY' : 'GAME_REWARD',
@@ -26,7 +35,12 @@ export const mapGameLogToNotification = (log: any, lastReadTime: Date): AppNotif
         message: log.description, // Keep simple message
         date: new Date(log.created_at),
         isRead: new Date(log.created_at) < lastReadTime,
-        metadata: metadata // Pass structured data
+        metadata: metadata, // Pass structured data
+        user: profile ? { 
+            name: profile.full_name, 
+            avatarUrl: profile.avatar_url,
+            id: log.user_id 
+        } : undefined
     };
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Task, ScriptSummary, Channel, User, MasterOption } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { Loader2, Video, Film, Clapperboard, Sparkles } from 'lucide-react';
@@ -285,7 +286,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
     };
 
     const handleEditScript = (scriptId: string) => {
-        if (!onEditScript) return;
+        if (!onEditScript || !scriptId) return;
         setIsRedirecting(true);
         setTimeout(() => {
             onEditScript(scriptId);
@@ -366,69 +367,74 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             )}
 
             {/* Redirection Loading Modal */}
-            <AnimatePresence>
-                {isRedirecting && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md"
-                    >
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {isRedirecting && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            className="bg-white p-12 rounded-[3rem] shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-white/20"
+                            key="redirect-modal"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[10000] flex items-center justify-center bg-white"
                         >
-                            <div className="relative mb-8">
-                                <motion.div 
-                                    animate={{ 
-                                        rotate: [0, -10, 0],
-                                        scale: [1, 1.1, 1]
-                                    }}
-                                    transition={{ 
-                                        duration: 2, 
-                                        repeat: Infinity,
-                                        ease: "easeInOut"
-                                    }}
-                                    className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200"
-                                >
-                                    <Clapperboard className="w-12 h-12 text-white" />
-                                </motion.div>
-                                <motion.div
-                                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                    className="absolute -top-4 -right-4 w-10 h-10 bg-amber-400 rounded-2xl flex items-center justify-center shadow-lg"
-                                >
-                                    <Sparkles className="w-5 h-5 text-white" />
-                                </motion.div>
-                            </div>
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: -20 }}
+                                className="flex flex-col items-center max-w-sm w-full mx-4"
+                            >
+                                <div className="relative mb-10">
+                                    <motion.div 
+                                        animate={{ 
+                                            rotate: [0, -15, 0],
+                                            scale: [1, 1.1, 1]
+                                        }}
+                                        transition={{ 
+                                            duration: 2.5, 
+                                            repeat: Infinity,
+                                            ease: "easeInOut"
+                                        }}
+                                        className="w-28 h-28 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-indigo-200"
+                                    >
+                                        <Clapperboard className="w-14 h-14 text-white" />
+                                    </motion.div>
+                                    <motion.div
+                                        animate={{ scale: [1, 1.3, 1], rotate: [0, 90, 0] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                        className="absolute -top-3 -right-3 w-12 h-12 bg-amber-400 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12"
+                                    >
+                                        <Sparkles className="w-6 h-6 text-white" />
+                                    </motion.div>
+                                </div>
 
-                            <h3 className="text-xl font-black text-slate-800 mb-2">Preparing Script...</h3>
-                            <p className="text-slate-500 text-sm font-bold text-center mb-6 leading-relaxed">
-                                กำลังพาคุณไปยังหน้า Script Hub<br/>เพื่อเริ่มอ่านบทสำหรับการถ่ายทำ
-                            </p>
+                                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Preparing Script...</h3>
+                                <p className="text-slate-400 text-sm font-bold text-center mb-10 leading-relaxed px-6">
+                                    กำลังพาคุณไปยังหน้า Script Hub<br/>เพื่อเริ่มอ่านบทสำหรับการถ่ายทำวันนี้
+                                </p>
 
-                            <div className="flex items-center gap-2">
-                                <motion.div 
-                                    animate={{ scale: [1, 1.5, 1] }}
-                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0 }}
-                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
-                                />
-                                <motion.div 
-                                    animate={{ scale: [1, 1.5, 1] }}
-                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }}
-                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
-                                />
-                                <motion.div 
-                                    animate={{ scale: [1, 1.5, 1] }}
-                                    transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }}
-                                    className="w-2 h-2 bg-indigo-500 rounded-full" 
-                                />
-                            </div>
+                                <div className="flex items-center gap-2.5">
+                                    {[0, 1, 2].map((i) => (
+                                        <motion.div 
+                                            key={i}
+                                            animate={{ 
+                                                scale: [1, 1.6, 1],
+                                                opacity: [0.3, 1, 0.3]
+                                            }}
+                                            transition={{ 
+                                                duration: 1, 
+                                                repeat: Infinity, 
+                                                delay: i * 0.2 
+                                            }}
+                                            className="w-2.5 h-2.5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-100" 
+                                        />
+                                    ))}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 };

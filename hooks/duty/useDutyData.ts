@@ -93,8 +93,14 @@ export const useDutyData = () => {
                     status: s.status,
                     createdAt: new Date(s.created_at),
                     requestor: s.requestor ? { name: s.requestor.full_name, avatarUrl: s.requestor.avatar_url } : undefined,
-                    targetDuty: s.target_duty,
-                    ownDuty: s.own_duty
+                    targetDuty: s.target_duty ? { 
+                        ...s.target_duty, 
+                        assigneeId: s.target_duty.assignee_id 
+                    } : undefined,
+                    ownDuty: s.own_duty ? { 
+                        ...s.own_duty, 
+                        assigneeId: s.own_duty.assignee_id 
+                    } : undefined
                 }));
                 setSwapRequests(mappedSwaps);
             }

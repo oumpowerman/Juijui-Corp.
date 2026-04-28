@@ -140,7 +140,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             contentId: data.content_id,
             showOnBoard: data.show_on_board,
             parentContentTitle: data.contents?.title,
-            scriptId: data.script_id // Map script_id correctly here
+            scriptId: data.script_id, // Map script_id correctly here
+            is_penalized: data.is_penalized,
+            last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined
         };
     }, []);
 

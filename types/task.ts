@@ -142,6 +142,8 @@ export interface Task {
 
     // SLA Penalty
     sla_revert_count?: number;
+    is_penalized?: boolean;
+    last_penalized_at?: Date;
 }
 
 export interface ChipConfig {

@@ -241,7 +241,18 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             shoot_location: task.shootLocation || null,
         } : {};
 
-        const dbPayload = { ...basePayload, ...contentPayload };
+        const nowStr = format(new Date(), 'yyyy-MM-dd');
+        const isCurrentlyOverdue = !task.isUnscheduled && format(task.endDate, 'yyyy-MM-dd') < nowStr;
+
+        const dbPayload = { 
+            ...basePayload, 
+            ...contentPayload,
+            // Reset penalization if it's no longer overdue
+            ...(isUpdate && existingTask?.is_penalized && !isCurrentlyOverdue ? {
+                is_penalized: false,
+                last_penalized_at: null
+            } : {})
+        };
 
         // --- Optimistic Update ---
         if (isUpdate) {

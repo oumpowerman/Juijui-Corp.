@@ -137,7 +137,7 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                     TEAM
                                     {viewMode === 'TEAM' && (
                                         <motion.div 
-                                            layoutId="activeTab"
+                                            layoutId="teamModeTab"
                                             className="absolute inset-0 bg-white rounded-lg shadow-sm -z-10"
                                             transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                         />
@@ -150,7 +150,7 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                     INTERNS
                                     {viewMode === 'INTERNS' && (
                                         <motion.div 
-                                            layoutId="activeTab"
+                                            layoutId="teamModeTab"
                                             className="absolute inset-0 bg-white rounded-lg shadow-sm -z-10"
                                             transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                         />

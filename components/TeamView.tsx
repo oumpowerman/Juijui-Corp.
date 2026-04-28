@@ -351,7 +351,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                 )}
 
                 {/* --- CONTROLS ROW: Date & Toolbar --- */}
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[100] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[150] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
                   
                   {/* Date Navigator */}
                   <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0">
@@ -411,7 +411,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                 {/* --- DESKTOP VIEW: GANG TABLE --- */}
                 <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
                   {/* Table Header - Sticky */}
-                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-[-2rem] z-[100]">
+                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-[-2rem] z-50">
                      <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
                      {weekDays.map(day => (
                          <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>

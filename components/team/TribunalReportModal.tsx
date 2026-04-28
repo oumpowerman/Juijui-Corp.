@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Send, AlertTriangle, User, FileText, CheckCircle2, Link2, Cloud, Clock, Gavel, MessageSquare, ChevronRight, Loader2, ShieldAlert, Search, Target } from 'lucide-react';
 import { useTribunal } from '../../hooks/useTribunal';
@@ -49,7 +50,10 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
         }
     }, []);
 
+    const [mounted, setMounted] = useState(false);
+
     useEffect(() => {
+        setMounted(true);
         checkGDriveStatus();
 
         const handleMessage = (event: MessageEvent) => {
@@ -119,11 +123,14 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || !mounted) return null;
 
-    return (
+    const portalRoot = document.getElementById('portal-root');
+    if (!portalRoot) return null;
+
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -154,14 +161,14 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
                                 className={`py-3 px-4 text-sm font-bold transition-all relative ${activeTab === 'REPORT' ? 'text-white' : 'text-white/60 hover:text-white/80'}`}
                             >
                                 ฟ้องร้องใหม่
-                                {activeTab === 'REPORT' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-full" />}
+                                {activeTab === 'REPORT' && <motion.div layoutId="tribunalActiveTab" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-full" />}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('HISTORY')}
                                 className={`py-3 px-4 text-sm font-bold transition-all relative ${activeTab === 'HISTORY' ? 'text-white' : 'text-white/60 hover:text-white/80'}`}
                             >
                                 ประวัติของฉัน
-                                {activeTab === 'HISTORY' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-full" />}
+                                {activeTab === 'HISTORY' && <motion.div layoutId="tribunalActiveTab" className="absolute bottom-0 left-0 right-0 h-1 bg-white rounded-t-full" />}
                             </button>
                         </div>
                     </div>
@@ -309,7 +316,7 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
 
                                                 {/* User List */}
                                                 {allUsers
-                                                    ?.filter(u => u.id !== currentUser?.id)
+                                                    ?.filter(u => u.isActive && u.id !== currentUser?.id)
                                                     ?.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                                     ?.map((user, idx) => (
                                                     <motion.button
@@ -481,7 +488,8 @@ const TribunalReportModal: React.FC<TribunalReportModalProps> = ({ isOpen, onClo
                     )}
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        portalRoot
     );
 };
 

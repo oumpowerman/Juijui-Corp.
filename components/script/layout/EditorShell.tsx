@@ -14,11 +14,16 @@ const EditorShell: React.FC<EditorShellProps> = ({ children }) => {
 
     return createPortal(
         <motion.div 
-            initial={{ opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 1.02, filter: 'blur(10px)' }}
-            transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-            className="fixed inset-0 z-[1000] bg-white flex flex-col h-[100dvh] font-sans overflow-hidden"
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ 
+                type: "spring",
+                damping: 30,
+                stiffness: 300,
+                mass: 0.8
+            }}
+            className="fixed inset-0 z-[10001] bg-white flex flex-col h-[100dvh] w-screen font-sans overflow-hidden"
         >
             {/* Lock Notification Banner */}
             {isReadOnly && (

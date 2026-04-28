@@ -406,13 +406,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                         />
                     </motion.div>
                 ) : activeScript ? (
-                    <motion.div
-                        key="editor-view"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100]"
-                    >
+                    <>
                         <ScriptEditor 
                             key={activeScript.id} 
                             script={activeScript} 
@@ -439,9 +433,9 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             onGenerateAI={generateScriptWithAI}
                             onPromote={handlePromoteClick}
                         />
-                        
+
                         {isPromoteModalOpen && promoteScriptData && createPortal(
-                            <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                            <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                                 <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
                                     <div className="px-8 py-5 border-b border-gray-100 bg-gradient-to-r from-orange-500 to-amber-500 text-white flex justify-between items-center">
                                         <div>
@@ -467,7 +461,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             </div>,
                             document.body
                         )}
-                    </motion.div>
+                    </>
                 ) : (
                     <motion.div
                         key="hub-view"
@@ -479,13 +473,43 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             ease: [0.23, 1, 0.32, 1] 
                         }}
                     >
-                        {isFetchingDetail && (
-                            <div className="fixed inset-0 z-[60] bg-white/50 backdrop-blur-sm flex items-center justify-center">
-                                <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center gap-3">
-                                    <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-                                    <span className="text-sm font-bold text-gray-700">กำลังโหลดเนื้อหา...</span>
+                        {isFetchingDetail && createPortal(
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[10000] bg-white flex items-center justify-center"
+                            >
+                                <div className="flex flex-col items-center gap-6 p-8">
+                                    <div className="relative">
+                                        <motion.div 
+                                            animate={{ 
+                                                rotate: 360,
+                                            }}
+                                            transition={{ 
+                                                duration: 2, 
+                                                repeat: Infinity,
+                                                ease: "linear"
+                                            }}
+                                            className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center border-2 border-indigo-100"
+                                        >
+                                            <Loader2 className="w-8 h-8 text-indigo-500" />
+                                        </motion.div>
+                                        <motion.div 
+                                            animate={{ scale: [1, 1.2, 1], opacity: [1, 0.5, 1] }}
+                                            transition={{ duration: 1.5, repeat: Infinity }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg"
+                                        >
+                                            <FileText className="w-3.5 h-3.5 text-white" />
+                                        </motion.div>
+                                    </div>
+                                    <div className="text-center">
+                                        <h3 className="text-lg font-black text-slate-800 mb-1">กำลังเตรียมเนื้อหาสคริปต์</h3>
+                                        <p className="text-sm font-bold text-slate-400">กรุณารอสักครู่...</p>
+                                    </div>
                                 </div>
-                            </div>
+                            </motion.div>,
+                            document.body
                         )}
 
                         <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">

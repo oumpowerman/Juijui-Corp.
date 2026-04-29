@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { Minimize2, Loader2, RotateCcw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
 import MentorTip from './MentorTip';
 import TaskCategoryModal from './TaskCategoryModal';
@@ -131,8 +132,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // --- MEMOIZATION: Pre-calculate filtered tasks for the view (Used ONLY for Board View now) ---
   const filteredTasksForView = useMemo(() => {
-      return filterTasks(tasks);
-  }, [tasks, viewMode, activeChipIds, customChips]); 
+      const filteredByView = filterTasks(tasks);
+      // Also filter by date range for Board View to keep it synced with Calendar
+      return filteredByView.filter(t => 
+        !t.isUnscheduled && 
+        t.endDate >= startDate && 
+        t.endDate <= endDate
+      );
+  }, [tasks, viewMode, activeChipIds, customChips, startDate, endDate]); 
 
   const handleDayClick = (day: Date, dayTasks: Task[]) => {
       setSelectedDayDate(day);
@@ -191,7 +198,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
         )}
 
-        {!isExpanded && <MentorTip variant="green" messages={CALENDAR_TIPS} />}
+        {!isExpanded && displayMode === 'CALENDAR' && <MentorTip variant="green" messages={CALENDAR_TIPS} />}
         
         <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto' : ''}`}>
            {!isExpanded && displayMode === 'CALENDAR' && (
@@ -250,49 +257,58 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               ${isStockOpen ? 'mr-4' : 'mr-0'}
           `}>
 
-              <div key={`${displayMode}-${viewMode}`} className="animate-in fade-in zoom-in-[0.98] duration-300 h-full">
-                  {displayMode === 'CALENDAR' ? (
-                      <CalendarGrid 
-                          startDate={startDate}
-                          endDate={endDate}
-                          currentDate={currentDate || new Date()}
-                          isExpanded={isExpanded || isMobileLandscape} // Force expanded mode in landscape
-                          dragOverDate={dragOverDate}
-                          viewMode={viewMode}
-                          taskDisplayMode={taskDisplayMode}
-                          activeChipIds={activeChipIds}
-                          customChips={customChips || []}
-                          highlights={highlights}
-                          masterOptions={masterOptions}
-                          getTasksForDay={getTasksForDay}
-                          filterTasks={filterTasks}
-                          onDayClick={handleDayClick}
-                          onDayContextMenu={handleDayContextMenu}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={internalHandleDrop}
-                          onTaskDragStart={handleDragStart}
-                          onTaskClick={onSelectTask}
-                      />
-                  ) : (
-                      <div 
-                          key="board-view" 
-                          className={`animate-in slide-in-from-right-8 duration-300 ${isExpanded ? 'h-[90vh]' : ''}`}
-                      >
-                          <BoardView 
-                              tasks={filteredTasksForView}
-                              channels={channels}
-                              users={users}
-                              masterOptions={masterOptions}
-                              viewMode={viewMode}
-                              onEditTask={onSelectTask}
-                              onAddTask={(status) => onAddTask(status, viewMode)} 
-                              onUpdateStatus={onUpdateStatus}
-                              onOpenSettings={onOpenSettings}
-                          />
-                      </div>
-                  )}
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div 
+                  key={`${displayMode}-${viewMode}`}
+                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 1.02, y: -10 }}
+                  transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
+                  className="h-full"
+                >
+                    {displayMode === 'CALENDAR' ? (
+                        <CalendarGrid 
+                            startDate={startDate}
+                            endDate={endDate}
+                            currentDate={currentDate || new Date()}
+                            isExpanded={isExpanded || isMobileLandscape} // Force expanded mode in landscape
+                            dragOverDate={dragOverDate}
+                            viewMode={viewMode}
+                            taskDisplayMode={taskDisplayMode}
+                            activeChipIds={activeChipIds}
+                            customChips={customChips || []}
+                            highlights={highlights}
+                            masterOptions={masterOptions}
+                            getTasksForDay={getTasksForDay}
+                            filterTasks={filterTasks}
+                            onDayClick={handleDayClick}
+                            onDayContextMenu={handleDayContextMenu}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={internalHandleDrop}
+                            onTaskDragStart={handleDragStart}
+                            onTaskClick={onSelectTask}
+                        />
+                    ) : (
+                        <div 
+                            key="board-view" 
+                            className={`h-full ${isExpanded ? 'h-[90vh]' : ''}`}
+                        >
+                            <BoardView 
+                                tasks={filteredTasksForView}
+                                channels={channels}
+                                users={users}
+                                masterOptions={masterOptions}
+                                viewMode={viewMode}
+                                onEditTask={onSelectTask}
+                                onAddTask={(status) => onAddTask(status, viewMode)} 
+                                onUpdateStatus={onUpdateStatus}
+                                onOpenSettings={onOpenSettings}
+                            />
+                        </div>
+                    )}
+                </motion.div>
+              </AnimatePresence>
           </div>
 
           {/* Stock Side Panel (Animated Slide) - Hidden in Mobile Landscape to save space */}

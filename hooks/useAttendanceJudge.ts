@@ -16,9 +16,13 @@ export const useAttendanceJudge = (
 ) => {
     // Helper to check if a penalty already exists in memory
     const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
-        if (isLoading) return true; // Assume exists while loading to be safe
+        if (isLoading || !currentUser) return true; // Assume exists while loading or if no user
         const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
+            // Check if log belongs to current user (Crucial for Admins)
+            const matchUser = log.user_id === currentUser.id;
+            if (!matchUser) return false;
+            
             const matchType = log.action_type === actionType;
             const matchId = !targetId || log.related_id === targetId;
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));

@@ -60,10 +60,11 @@ export const isHolidayOrException = (date: Date, holidays: AnnualHoliday[], exce
  */
 export const countWorkingDaysLate = (dutyDate: Date, today: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
     let count = 0;
-    let current = addDays(dutyDate, 1); // เริ่มนับจากวันถัดไป
+    // เริ่มนับจากวันถัดไป จนถึงเมื่อวาน (ไม่รวมวันนี้ เพราะวันนี้ยังไม่จบ)
+    let current = startOfDay(addDays(dutyDate, 1));
+    const endLimit = startOfDay(today);
     
-    // วนลูปจนถึงเมื่อวาน (ไม่รวมวันนี้)
-    while (isBefore(current, today)) {
+    while (isBefore(current, endLimit)) {
          if (isWorkingDay(current, holidays, exceptions, user)) {
              count++;
          }

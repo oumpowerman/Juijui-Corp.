@@ -57,6 +57,11 @@ export const useAutoJudge = (currentUser: User | null) => {
         if (isLoading) return true; // Assume exists while loading to be safe
         const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
+            if (!currentUser) return false;
+            // Check if log belongs to current user (Crucial for Admins)
+            const matchUser = log.user_id === currentUser.id;
+            if (!matchUser) return false;
+
             const matchType = log.action_type === actionType;
             // If relatedId is provided, it must match exactly.
             // This is our de-facto idempotency key.
@@ -85,6 +90,8 @@ export const useAutoJudge = (currentUser: User | null) => {
             const today = new Date();
             const todayStr = format(today, 'yyyy-MM-dd');
 
+            console.log(`[AutoJudge] Service Tick: ${today.toLocaleTimeString()} - Checking logs & duties for ${currentUser.name}`);
+
             // --- CONFIG VALUES ---
             // Fallback to default if not set in DB config
             const negligencePenalty = config?.AUTO_JUDGE_CONFIG?.negligence_penalty_hp || 20;
@@ -103,11 +110,16 @@ export const useAutoJudge = (currentUser: User | null) => {
             const exceptions = calendarExceptions;
 
             // 1.2 ข้อมูลการลาของผู้ใช้ (จาก Context)
-            // Context มี leaveRequests ของ user ปัจจุบันอยู่แล้ว
+            // IMPORTANT: Admin sees all leaves in context, so we must filter by currentUser.id
             const userLeaves = leaveRequests.filter(req => 
+                req.userId === currentUser.id &&
                 ['APPROVED', 'PENDING'].includes(req.status) &&
                 format(req.endDate, 'yyyy-MM-dd') >= format(addDays(today, -lookbackDays), 'yyyy-MM-dd')
             );
+
+            // 1.3 ข้อมูลการลงเวลาของผู้ใช้ (จาก Context)
+            // IMPORTANT: Admin sees all attendance logs, so we must filter by currentUser.id
+            const userAttendanceLogs = attendanceLogs.filter(log => log.user_id === currentUser.id);
 
             // =========================================================
             // SECTION A: DUTIES (Moved to useDutyJudge)
@@ -140,7 +152,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                 holidays,
                 exceptions,
                 userLeaves,
-                attendanceLogs
+                userAttendanceLogs
             );
 
         } catch (err) {

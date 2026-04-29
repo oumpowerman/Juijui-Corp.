@@ -18,6 +18,7 @@ import { WikiProvider } from './context/WikiContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
 import { ShootQueueProvider } from './context/ShootQueueContext';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
+import PWAReloadPrompt from './components/PWAReloadPrompt';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -136,6 +137,7 @@ function AuthenticatedAppInner({ user }: { user: any }) {
                   <TaskProvider>
                     <ShootQueueProvider>
                       <GlobalRealtimeSync />
+                      <PWAReloadPrompt />
                       <AppRouter user={user} />
                     </ShootQueueProvider>
                   </TaskProvider>

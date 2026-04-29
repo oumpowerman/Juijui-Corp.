@@ -14,9 +14,14 @@ export const useDutyJudge = (
 ) => {
     // Helper to check if a penalty already exists in memory
     const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
+        if (!currentUser) return false;
         if (isLoading) return true; // Assume exists while loading to be safe
         const targetId = toValidUuid(relatedId || null);
         return gameLogs.some(log => {
+            // Check if log belongs to specific user (Crucial for Admins who see all logs)
+            const matchUser = log.user_id === currentUser.id;
+            if (!matchUser) return false;
+
             const matchType = log.action_type === actionType;
             const matchId = !targetId || log.related_id === targetId;
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
@@ -93,7 +98,7 @@ export const useDutyJudge = (
                              
                              try {
                                  // 1. Penalize (Heavy) - Use Config Value
-                                 await processAction(currentUser.id, 'DUTY_MISSED', { 
+                                 const result = await processAction(currentUser.id, 'DUTY_MISSED', { 
                                      ...duty, 
                                      id: `NEGLIGENCE:${duty.id}`, // Use as idempotency key
                                      reason: 'NEGLIGENCE_PROTOCOL', 
@@ -101,8 +106,10 @@ export const useDutyJudge = (
                                      description: 'เพิกเฉยต่อหน้าที่จนเวรรอบใหม่มาถึง (System Cleared)'
                                  });
 
-                                 // 2. Clear Duty
+                                 // 2. Clear Duty (Only if action processed)
+                                 if (result) {
                                  await supabase.from('duties').update({ cleared_by_system: true }).eq('id', duty.id);
+                                 }
 
                                  // 3. Trigger Lock Screen (via Notification)
                                  //await supabase.from('notifications').insert({
@@ -161,29 +168,31 @@ export const useDutyJudge = (
                     if (duty.penalty_status !== 'ABANDONED') {
                          const alreadyPenalized = hasPenaltyInLogs('DUTY_MISSED', `ABANDONED:${duty.id}`);
                          if (alreadyPenalized) {
+                             console.log(`[AutoJudge] Duty ${duty.id} already has abandoned log. Finalizing DB status.`);
                              await supabase.from('duties').update({ 
                                  is_penalized: true, 
                                  penalty_status: 'ABANDONED',
-                                 abandoned_at: new Date().toISOString() 
+                                 abandoned_at: duty.abandoned_at || new Date().toISOString() 
                              }).eq('id', duty.id);
                              continue;
                          }
 
                          isProcessingRef.current.add(duty.id);
                          try {
-                             await supabase.from('duties').update({ 
-                                 is_penalized: true, 
-                                 penalty_status: 'ABANDONED',
-                                 abandoned_at: new Date().toISOString() // Mark time of abandonment
-                             }).eq('id', duty.id);
-                            
-                            // เรียก Action เพื่อหักคะแนน (Initial Abandon Penalty)
-                            await processAction(currentUser.id, 'DUTY_MISSED', { 
+                            const result = await processAction(currentUser.id, 'DUTY_MISSED', { 
                                 ...duty, 
                                 id: `ABANDONED:${duty.id}`, // Use as idempotency key
                                 reason: 'ABANDONED_DUTY',
                                 description: `เพิกเฉยต่อหน้าที่ (ปล่อยเวรทิ้งไว้จนเลยกำหนด - รหัสเวร: ${duty.id})`
                             });
+
+                            if (result) {
+                                 await supabase.from('duties').update({ 
+                                     is_penalized: true, 
+                                     penalty_status: 'ABANDONED',
+                                     abandoned_at: new Date().toISOString() 
+                                 }).eq('id', duty.id);
+                            }
                          } finally {
                              isProcessingRef.current.delete(duty.id);
                          }

@@ -114,7 +114,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
     const [isReady, setIsReady] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
     const [allUsers, setAllUsers] = useState<User[]>([]);
-    const [activeUsers, setActiveUsers] = useState<User[]>([]);
+    const activeUsers = React.useMemo(() => allUsers.filter(u => u.isActive), [allUsers]);
     const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     
@@ -161,7 +161,6 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 const mappedUsers = mergedData.map(mapProfileToUser);
                 
                 setAllUsers(mappedUsers);
-                setActiveUsers(mappedUsers.filter(u => u.isActive));
                 
                 const current = mappedUsers.find(u => u.id === sessionUser.id);
                 if (current) {

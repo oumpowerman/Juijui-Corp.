@@ -90,17 +90,50 @@ app.get('/auth/google/callback', async (req, res) => {
         
         res.send(`
             <html>
-                <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f0f4f8;">
-                    <div style="background: white; padding: 2rem; border-radius: 1rem; shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;">
-                        <h2 style="color: #4f46e5;">Connected to Google Drive!</h2>
-                        <p>This window will close automatically.</p>
+                <head>
+                    <title>Authentication Successful</title>
+                    <style>
+                        body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f0f4f8; margin: 0; }
+                        .card { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; max-width: 400px; }
+                        h2 { color: #4f46e5; margin-top: 0; }
+                        p { color: #64748b; line-height: 1.5; }
+                        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 20px auto; }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div class="loader"></div>
+                        <h2>Connected!</h2>
+                        <p>Google Drive has been successfully connected. This window will close automatically.</p>
                         <script>
-                            if (window.opener) {
-                                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, '*');
-                                window.close();
-                            } else {
-                                window.location.href = '/';
+                            // 1. Try to notify opener via postMessage
+                            const opener = window.opener;
+                            if (opener) {
+                                try {
+                                    opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, '*');
+                                } catch (e) {
+                                    console.error("postMessage failed", e);
+                                }
                             }
+
+                            // 2. Fallback via localStorage (more robust across some redirects)
+                            try {
+                                localStorage.setItem('GOOGLE_AUTH_TIMESTAMP', Date.now().toString());
+                            } catch (e) {
+                                console.error("localStorage failed", e);
+                            }
+
+                            // 3. Try to close
+                            setTimeout(() => {
+                                window.close();
+                                // If it didn't close after 1s, redirect to home as last resort
+                                setTimeout(() => {
+                                    if (!window.closed) {
+                                        window.location.href = '/';
+                                    }
+                                }, 1000);
+                            }, 500);
                         </script>
                     </div>
                 </body>

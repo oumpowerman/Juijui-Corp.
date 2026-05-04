@@ -113,8 +113,22 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 fetchServerToken();
             }
         };
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === 'GOOGLE_AUTH_TIMESTAMP') {
+                fetchServerToken();
+                // Clean up to avoid multiple triggers
+                try { localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP'); } catch(e) {}
+            }
+        };
+
         window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener('message', handleMessage);
+            window.removeEventListener('storage', handleStorage);
+        };
     }, []);
 
     const retry = () => {

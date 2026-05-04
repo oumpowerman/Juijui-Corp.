@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format, isValid } from 'date-fns';
-import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType, Script } from '../types';
+import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType, Script, User } from '../types';
 
 interface UseContentFormProps {
     initialData?: Task | null;
@@ -8,10 +8,11 @@ interface UseContentFormProps {
     sourceScript?: Script | null; // NEW: Source script for promote flow
     channels: Channel[];
     masterOptions: MasterOption[];
+    currentUser?: User;
     onSave: (task: Task) => void;
 }
 
-export const useContentForm = ({ initialData, selectedDate, sourceScript, channels, masterOptions, onSave }: UseContentFormProps) => {
+export const useContentForm = ({ initialData, selectedDate, sourceScript, channels, masterOptions, onSave, currentUser }: UseContentFormProps) => {
     // --- State ---
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -37,6 +38,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
     // Production Info
     const [shootDate, setShootDate] = useState('');
     const [shootLocation, setShootLocation] = useState('');
+    const [localPath, setLocalPath] = useState('');
 
     // People
     const [ideaOwnerIds, setIdeaOwnerIds] = useState<string[]>([]);
@@ -92,6 +94,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             // Production Info Safety Check
             setShootDate(initialData.shootDate && isValid(new Date(initialData.shootDate)) ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
             setShootLocation(initialData.shootLocation || '');
+            setLocalPath(initialData.localPath || '');
 
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
             setEditorIds(initialData.editorIds || []);
@@ -133,8 +136,10 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
 
             setShootDate('');
             setShootLocation('');
+            setLocalPath('');
             
-            setIdeaOwnerIds(sourceScript?.ideaOwnerId ? [sourceScript.ideaOwnerId] : []);
+            const initialIdeaOwners = sourceScript?.ideaOwnerId ? [sourceScript.ideaOwnerId] : (currentUser ? [currentUser.id] : []);
+            setIdeaOwnerIds(initialIdeaOwners);
             setEditorIds([]);
             setAssigneeIds([]);
             setAssets([]);
@@ -207,6 +212,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 // Production Info (Crucial for Trip Manager)
                 shootDate: finalShootDate,
                 shootLocation: shootLocation.trim() || undefined,
+                localPath: localPath.trim() || undefined,
 
                 // People
                 ideaOwnerIds,
@@ -269,6 +275,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
 
         shootDate, setShootDate,
         shootLocation, setShootLocation,
+        localPath, setLocalPath,
 
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,

@@ -16,7 +16,19 @@ const GoalOverviewWidget: React.FC<GoalOverviewWidgetProps> = ({ goals, onNaviga
     
     // --- Logic: Process Data ---
     const activeGoals = useMemo(() => {
-        const filtered = goals.filter(g => !g.isArchived);
+        const now = new Date();
+        const filtered = goals.filter(g => {
+            if (g.isArchived) return false;
+            
+            // Define Failed status (consistent with GoalView)
+            const isCompleted = g.currentValue >= g.targetValue;
+            const isFailed = !isCompleted && now > new Date(g.deadline);
+            
+            // For the widget, we consider "Active" to be NOT failed.
+            // Completed goals can still show up in "Active" for some stats unless we decide otherwise.
+            return !isFailed;
+        });
+
         const mapped = filtered.map(g => {
             const percent = Math.min(100, Math.round((g.currentValue / g.targetValue) * 100));
             const daysLeft = differenceInDays(new Date(g.deadline), new Date());

@@ -43,6 +43,7 @@ const GoalView = lazy(() => import('../components/GoalView'));
 const WikiView = lazy(() => import('../components/WikiView'));
 const LeaderboardView = lazy(() => import('../components/LeaderboardView')); 
 const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
+const RoadmapView = lazy(() => import('../components/roadmap/RoadmapView'));
 
 // --- NEW MODULE BRIDGES (Lazy Loaded) ---
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
@@ -448,6 +449,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 
             case 'NEXUS':
                 return <NexusHub currentUser={currentUserProfile} />;
+
+            case 'ROADMAP':
+                return <RoadmapView />;
 
             default:
               return <div className="p-10 text-center text-gray-500">เร็วๆ นี้... (Coming Soon)</div>;

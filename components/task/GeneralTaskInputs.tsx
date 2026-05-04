@@ -81,7 +81,8 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         users,
         masterOptions,
         onSave,
-        projects
+        projects,
+        currentUser
     });
 
     const { handleSendToQC: sendToQC } = useTasks();

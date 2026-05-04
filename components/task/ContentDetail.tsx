@@ -15,7 +15,9 @@ import {
     Sparkles,
     Copy,
     Film,
-    AlertTriangle
+    AlertTriangle,
+    Folder,
+    HardDrive
 } from 'lucide-react';
 import { Task, User, MasterOption, Platform, Channel } from '../../types';
 import { format } from 'date-fns';
@@ -114,6 +116,11 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
     const handleCopyTitle = () => {
         navigator.clipboard.writeText(task.title);
         showToast('คัดลอกชื่อรายการเรียบร้อยแล้ว ✨', 'success');
+    };
+
+    const handleCopyPath = (path: string) => {
+        navigator.clipboard.writeText(path);
+        showToast('คัดลอก Path เรียบร้อย! นำไปวางใน File Explorer ได้เลย 📁', 'success');
     };
 
     const handleDeleteClick = async () => {
@@ -414,6 +421,34 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                     className="bg-amber-50/20 p-8 rounded-[2.5rem] border border-amber-100/20 shadow-sm relative overflow-hidden"
                                 >
                                     <p className="text-sm text-amber-600/80 font-semibold leading-relaxed relative z-10">{task.remark}</p>
+                                </motion.div>
+                            </div>
+                        )}
+
+                        {task.localPath && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-slate-300 px-1">
+                                    <Folder className="w-4 h-4" />
+                                    <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em]">Local Storage</h4>
+                                </div>
+                                <motion.div 
+                                    whileHover={bouncyHover}
+                                    onClick={() => handleCopyPath(task.localPath!)}
+                                    className="bg-emerald-50/30 p-6 rounded-[2rem] border border-emerald-100/50 shadow-sm group cursor-pointer relative overflow-hidden"
+                                >
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <HardDrive className="w-10 h-10 rotate-12" />
+                                    </div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-[9px] font-bold text-emerald-600/60 uppercase tracking-widest">Folder Path</p>
+                                        <Copy className="w-3 h-3 text-emerald-400 group-hover:scale-125 transition-transform" />
+                                    </div>
+                                    <p className="text-[11px] font-mono text-slate-500 break-all bg-white/50 p-2 rounded-lg border border-emerald-50 line-clamp-2">
+                                        {task.localPath}
+                                    </p>
+                                    <p className="mt-2 text-[9px] text-emerald-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                        คลิกเพื่อคัดลอกไปวางที่ File Explorer
+                                    </p>
                                 </motion.div>
                             </div>
                         )}

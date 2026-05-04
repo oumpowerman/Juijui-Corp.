@@ -131,6 +131,7 @@ export interface Task {
     shootNotes?: string;     // New
     isInShootQueue?: boolean;
     isSoftFinished?: boolean;
+    localPath?: string;
 
     // Sub-tasks
     contentId?: string; 

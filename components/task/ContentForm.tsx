@@ -19,6 +19,7 @@ import CFStatusChannel from './content-parts/CFStatusChannel';
 import CFPlatformSelector from './content-parts/CFPlatformSelector';
 import CFCrewSelector from './content-parts/CFCrewSelector';
 import CFBrief from './content-parts/CFBrief';
+import CFStoragePath from './content-parts/CFStoragePath';
 import ContentActionFooter from './content-parts/ContentActionFooter'; // NEW
 
 import ScriptEditor from '../script/ScriptEditor';
@@ -67,6 +68,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         publishedLinks, handleLinkChange,
         shootDate, setShootDate,
         shootLocation, setShootLocation,
+        localPath, setLocalPath,
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
@@ -82,7 +84,8 @@ const ContentForm: React.FC<ContentFormProps> = ({
         sourceScript,
         channels,
         masterOptions,
-        onSave
+        onSave,
+        currentUser
     });
 
     const activeUsers = users.filter(u => u.isActive);
@@ -452,7 +455,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
                     {/* 9. Description */}
                     <CFBrief description={description} setDescription={setDescription} />
 
-                    {/* 10. Assets */}
+                    {/* 10. File Storage Path */}
+                    <CFStoragePath localPath={localPath} setLocalPath={setLocalPath} />
+
+                    {/* 11. Assets */}
                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <TaskAssets 
                             assets={assets}

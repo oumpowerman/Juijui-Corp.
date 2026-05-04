@@ -123,6 +123,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                         dayStatus={dayStatus}
                                                         isToday={isToday(day)}
                                                         workConfig={workConfig}
+                                                        userStartDate={user.startDate}
                                                         onClick={() => {
                                                             if (log || relevantRequest) {
                                                                 onCellClick(log || null, relevantRequest);

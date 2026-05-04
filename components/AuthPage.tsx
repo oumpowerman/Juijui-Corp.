@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ArrowRight, Lock, Mail, User, AlertCircle, Rocket, Camera, Briefcase, Quote, LogIn, UserPlus, Phone, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, ArrowRight, Lock, Mail, User, AlertCircle, Rocket, Camera, Briefcase, Quote, LogIn, UserPlus, Phone, Loader2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import SuccessModal from './SuccessModal';
 import ImageCropper from './ImageCropper';
@@ -8,15 +9,17 @@ import heic2any from 'heic2any';
 
 interface AuthPageProps {
   onLoginSuccess: () => void;
+  onBack?: () => void;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onBack }) => {
   const [isLogin, setIsLogin] = useState(true);
   
   // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Registration specific fields
   const [position, setPosition] = useState(''); 
@@ -240,6 +243,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
           relative w-full max-w-5xl bg-white/80 backdrop-blur-3xl rounded-[2.5rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col md:flex-row border border-white/60 transition-all duration-700
           h-full max-h-[850px] md:h-[780px]
       `}>
+        {onBack && (
+            <button 
+                onClick={onBack}
+                className="absolute top-6 left-6 z-50 flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold text-sm bg-white/50 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/60 transition-all active:scale-95 shadow-sm"
+            >
+                <ArrowRight className="w-4 h-4 rotate-180" /> กลับหน้าหลัก
+            </button>
+        )}
         
         {/* --- ARTWORK SIDE --- */}
         <div className={`
@@ -250,25 +261,45 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         `}>
              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 4px 4px, white 2px, transparent 0)', backgroundSize: '40px 40px' }}></div>
              
-             <div className="relative z-10 text-center flex flex-col items-center">
-                <div className="w-28 h-28 bg-white/20 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-md shadow-xl ring-2 ring-white/30 rotate-3 hover:rotate-6 transition-transform duration-500">
-                    {isLogin ? <Sparkles className="w-14 h-14 text-white drop-shadow-md" /> : <Rocket className="w-14 h-14 text-white drop-shadow-md" />}
-                </div>
-                
-                <h2 className="text-4xl font-black mb-4 leading-tight drop-shadow-sm tracking-tight">
-                    Juijui Planner
-                </h2>
-                <p className="text-white/90 text-lg leading-relaxed mb-10 font-medium max-w-xs">
-                    {isLogin 
-                        ? "ระบบจัดการงานคอนเทนต์ สำหรับทีมครีเอเตอร์ยุคใหม่"
-                        : "สมัครสมาชิกเพื่อเริ่มจัดการงาน และ Workload ทีมของคุณ"
-                    }
-                </p>
-             </div>
+             <AnimatePresence mode="wait">
+                <motion.div 
+                    key={isLogin ? 'login' : 'register'}
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                    transition={{ duration: 0.5, ease: "circOut" }}
+                    className="relative z-10 text-center flex flex-col items-center"
+                >
+                    <motion.div 
+                        animate={{ 
+                            rotate: [3, 8, 3, -2, 3],
+                            y: [0, -4, 0]
+                        }}
+                        transition={{ 
+                            duration: 5, 
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                        }}
+                        className="w-28 h-28 bg-white/20 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-md shadow-xl ring-2 ring-white/30"
+                    >
+                        {isLogin ? <Sparkles className="w-14 h-14 text-white drop-shadow-md" /> : <Rocket className="w-14 h-14 text-white drop-shadow-md" />}
+                    </motion.div>
+                    
+                    <h2 className="text-4xl font-black mb-4 leading-tight drop-shadow-sm tracking-tight">
+                        ContentOS
+                    </h2>
+                    <p className="text-white/90 text-lg leading-relaxed mb-10 font-medium max-w-xs">
+                        {isLogin 
+                            ? "ระบบจัดการงานคอนเทนต์ สำหรับทีมครีเอเตอร์ยุคใหม่"
+                            : "สมัครสมาชิกเพื่อเริ่มจัดการงาน และ Workload ทีมของคุณ"
+                        }
+                    </p>
+                </motion.div>
+             </AnimatePresence>
         </div>
 
         {/* --- FORM SIDE --- */}
-        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto">
+        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             
             <div className="flex justify-center mb-8">
                  <div className="bg-slate-100/80 p-1.5 rounded-2xl flex items-center border border-slate-200/80 shadow-inner w-full max-w-[340px] relative">
@@ -289,15 +320,33 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                  </div>
             </div>
 
-            <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center" key={animKey}>
-                <div className="mb-6 text-center md:text-left">
-                    <h3 className="text-3xl font-black mb-2 text-slate-800">
-                        {isLogin ? 'ยินดีต้อนรับกลับ! 👋' : 'สร้างบัญชีใหม่ ✨'}
-                    </h3>
-                    <p className="text-slate-500 font-medium">
-                        {isLogin ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการงาน' : 'กรอกข้อมูลตำแหน่งงานเพื่อเข้าร่วมทีม'}
-                    </p>
-                </div>
+            <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
+                <AnimatePresence mode="wait">
+                    <motion.div 
+                        key={isLogin ? 'login-form' : 'reg-form'}
+                        initial={{ opacity: 0, x: isLogin ? -10 : 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: isLogin ? 10 : -10 }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
+                    >
+                        <div className="mb-6 text-center md:text-left">
+                            <motion.h3 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-3xl font-black mb-2 text-slate-800"
+                            >
+                                {isLogin ? 'ยินดีต้อนรับกลับ! 👋' : 'สร้างบัญชีใหม่ ✨'}
+                            </motion.h3>
+                            <motion.p 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-slate-500 font-medium"
+                            >
+                                {isLogin ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการงาน' : 'กรอกข้อมูลตำแหน่งงานเพื่อเข้าร่วมทีม'}
+                            </motion.p>
+                        </div>
 
                 {errorMsg && (
                     <div className="mb-6 p-4 rounded-2xl bg-red-50 border-2 border-red-100 flex items-start gap-3 text-red-500 shadow-sm">
@@ -346,7 +395,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ชื่อเล่น *</label>
                                 <div className="relative group">
-                                    <User className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
+                                    <motion.div
+                                        animate={{ rotate: [0, -10, 10, -10, 0] }}
+                                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none"
+                                    >
+                                        <User className="w-5 h-5 text-slate-400 group-focus-within:text-pink-500 transition-colors" />
+                                    </motion.div>
                                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm" placeholder="ชื่อเล่น" required={!isLogin} />
                                 </div>
                             </div>
@@ -402,7 +457,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมล *</label>
                         <div className="relative group">
-                            <Mail className={`w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
+                            <motion.div
+                                animate={{ y: [0, -2, 0] }}
+                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none"
+                            >
+                                <Mail className={`w-5 h-5 text-slate-400 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
+                            </motion.div>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`} placeholder="email@example.com" required />
                         </div>
                     </div>
@@ -420,8 +481,32 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 ml-1 uppercase">รหัสผ่าน *</label>
                         <div className="relative group">
-                            <Lock className={`w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
-                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`} placeholder="••••••••" required />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                                <motion.div
+                                    animate={{ 
+                                        rotate: [0, 8, 0, -8, 0],
+                                        scale: [1, 1.1, 1]
+                                    }}
+                                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                                >
+                                    <Lock className={`w-5 h-5 text-slate-400 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
+                                </motion.div>
+                            </div>
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                value={password} 
+                                onChange={(e) => setPassword(e.target.value)} 
+                                className={`w-full pl-11 pr-12 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'} [&::-ms-reveal]:hidden [&::-webkit-password-reveal-button]:hidden`} 
+                                placeholder="••••••••" 
+                                required 
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors outline-none focus:ring-0 z-20"
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
                         </div>
                     </div>
 
@@ -446,6 +531,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                         </button>
                     </div>
                 </form>
+                    </motion.div>
+                </AnimatePresence>
             </div>
         </div>
       </div>

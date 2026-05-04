@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from './lib/supabase';
+import LandingPage from './components/landing/LandingPage';
 import AuthPage from './components/AuthPage';
 import AppRouter from './routes/AppRouter';
 import PublicScriptViewer from './components/public/PublicScriptViewer';
@@ -43,6 +44,7 @@ function App() {
 
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
 
   // --- INITIAL AUTH CHECK ---
   useEffect(() => {
@@ -92,7 +94,10 @@ function App() {
   }
 
   if (!session) {
-    return <AuthPage onLoginSuccess={() => {}} />;
+    if (showLogin) {
+      return <AuthPage onLoginSuccess={() => {}} onBack={() => setShowLogin(false)} />;
+    }
+    return <LandingPage onGoToLogin={() => setShowLogin(true)} />;
   }
 
   return (

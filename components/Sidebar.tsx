@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2 } from 'lucide-react';
+import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2, Map } from 'lucide-react';
 import { User, ViewMode, MenuGroup } from '../types';
 import SidebarBadge from './SidebarBadge';
 import NotificationPill from './NotificationPill';
@@ -27,6 +27,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     icon: Briefcase,
     items: [
       { view: 'DASHBOARD', label: 'ภาพรวม', icon: LayoutGrid },
+      { view: 'ROADMAP', label: 'แผนงาน', icon: Map },
       { view: 'CALENDAR', label: 'ปฏิทิน & บอร์ด', icon: CalendarIcon }, 
       { view: 'CHAT', label: 'ห้องแชท', icon: MessageCircle },
       { view: 'TEAM', label: 'ทีมงาน', icon: Users },
@@ -154,8 +155,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Sparkles className="w-7 h-7 stroke-[2.5px]" />
         </div>
         <div className="sidebar-item-text">
-          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none`}>Juijui</h1>
-          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase">Planner</p>
+          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none`}>Content</h1>
+          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase text-center">OS</p>
         </div>
       </div>
 

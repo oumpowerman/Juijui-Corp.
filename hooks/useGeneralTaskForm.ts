@@ -1,18 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType, TaskAsset } from '../types';
+import { Task, Status, Priority, MasterOption, Difficulty, AssigneeType, TaskAsset, User } from '../types';
 
 interface UseGeneralTaskFormProps {
     initialData?: Task | null;
     selectedDate?: Date | null;
     users: any[];
     masterOptions: MasterOption[];
+    currentUser?: User;
     onSave: (task: Task) => void;
     projects?: Task[]; // Add projects prop
 }
 
-export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, onSave, projects = [] }: UseGeneralTaskFormProps) => {
+export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, onSave, projects = [], currentUser }: UseGeneralTaskFormProps) => {
     // --- State ---
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -87,8 +88,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setEndDate(defaultDate);
             
             setAssigneeType('INDIVIDUAL'); 
-            setAssigneeIds([]);
-            setTargetPosition('');
+            setAssigneeIds(currentUser ? [currentUser.id] : []);
+            setTargetPosition(currentUser?.position || '');
             setCaution('');
             setImportance('');
             

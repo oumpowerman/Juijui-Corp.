@@ -42,7 +42,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
     task, users, masterOptions, onEdit, onDelete, onClose, onOpenTask 
 }) => {
     const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog();
     
     const getStatusInfo = (status: string) => {
         const option = masterOptions.find(o => o.key === status && o.type === 'TASK_STATUS');
@@ -309,34 +309,63 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                             </div>
                         </motion.div>
 
-                        {(task.caution || task.importance) && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {task.caution && (
-                                    <motion.div 
-                                        whileHover={{ scale: 1.02 }}
-                                        className="bg-rose-50/20 p-6 rounded-[2rem] border border-rose-100/20 flex gap-4"
-                                    >
-                                        <AlertTriangle className="w-6 h-6 text-rose-300 shrink-0" />
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-rose-400 uppercase tracking-widest mb-1">Caution</p>
-                                            <p className="text-sm text-rose-600/70 leading-relaxed font-medium">{task.caution}</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                                {task.importance && (
-                                    <motion.div 
-                                        whileHover={{ scale: 1.02 }}
-                                        className="bg-indigo-50/20 p-6 rounded-[2rem] border border-indigo-100/20 flex gap-4"
-                                    >
-                                        <Target className="w-6 h-6 text-indigo-300 shrink-0" />
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Key Focus</p>
-                                            <p className="text-sm text-indigo-600/70 leading-relaxed font-medium">{task.importance}</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
-                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <motion.div 
+                                whileHover={task.caution ? { scale: 1.02, y: -2 } : {}}
+                                onClick={() => task.caution && showAlert(task.caution, 'รายละเอียดข้อควรระวัง')}
+                                className={`group p-6 rounded-[2rem] border flex gap-4 transition-all duration-300 ${
+                                    task.caution 
+                                        ? 'bg-rose-50/20 border-rose-200/30 cursor-pointer shadow-sm' 
+                                        : 'bg-slate-50/30 border-slate-100/30 opacity-60'
+                                }`}
+                            >
+                                <AlertTriangle className={`w-6 h-6 shrink-0 ${task.caution ? 'text-rose-400' : 'text-slate-200'}`} />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className={`text-[10px] font-semibold uppercase tracking-widest ${task.caution ? 'text-rose-500' : 'text-slate-400'}`}>
+                                            Caution
+                                        </p>
+                                        {task.caution && <span className="w-1 h-1 rounded-full bg-rose-300 animate-pulse" />}
+                                    </div>
+                                    <p className={`text-sm leading-relaxed line-clamp-2 ${task.caution ? 'text-rose-600/70 font-medium' : 'text-slate-300 italic'}`}>
+                                        {task.caution || 'ไม่มีข้อควรระวังพิเศษ'}
+                                    </p>
+                                    {task.caution && (
+                                        <p className="mt-2 text-[9px] text-rose-400 font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">
+                                            คลิกเพื่ออ่านเพิ่มเติม
+                                        </p>
+                                    )}
+                                </div>
+                            </motion.div>
+
+                            <motion.div 
+                                whileHover={task.importance ? { scale: 1.02, y: -2 } : {}}
+                                onClick={() => task.importance && showAlert(task.importance, 'รายละเอียดสิ่งสำคัญ')}
+                                className={`group p-6 rounded-[2rem] border flex gap-4 transition-all duration-300 ${
+                                    task.importance 
+                                        ? 'bg-indigo-50/20 border-indigo-200/30 cursor-pointer shadow-sm' 
+                                        : 'bg-slate-50/30 border-slate-100/30 opacity-60'
+                                }`}
+                            >
+                                <Target className={`w-6 h-6 shrink-0 ${task.importance ? 'text-indigo-400' : 'text-slate-200'}`} />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className={`text-[10px] font-semibold uppercase tracking-widest ${task.importance ? 'text-indigo-500' : 'text-slate-400'}`}>
+                                            Key Focus
+                                        </p>
+                                        {task.importance && <span className="w-1 h-1 rounded-full bg-indigo-300 animate-pulse" />}
+                                    </div>
+                                    <p className={`text-sm leading-relaxed line-clamp-2 ${task.importance ? 'text-indigo-600/70 font-medium' : 'text-slate-300 italic'}`}>
+                                        {task.importance || 'ไม่มีจุดเน้นพิเศษ'}
+                                    </p>
+                                    {task.importance && (
+                                        <p className="mt-2 text-[9px] text-indigo-400 font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">
+                                            คลิกเพื่ออ่านเพิ่มเติม
+                                        </p>
+                                    )}
+                                </div>
+                            </motion.div>
+                        </div>
 
                         {task.remark && (
                             <motion.div 

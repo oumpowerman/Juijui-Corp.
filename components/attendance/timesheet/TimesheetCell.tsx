@@ -13,6 +13,7 @@ interface TimesheetCellProps {
     isToday: boolean;
     onClick: () => void;
     workConfig: { startTime: string; buffer: number };
+    userStartDate?: Date | string | null;
 }
 
 const TimesheetCell: React.FC<TimesheetCellProps> = ({ 
@@ -22,10 +23,25 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     dayStatus,
     isToday, 
     onClick,
-    workConfig
+    workConfig,
+    userStartDate
 }) => {
     const isHoliday = dayStatus.status === 'HOLIDAY';
     const isPastDay = isPast(date) && !isToday;
+
+    // Check if user has started working on this date
+    let hasStarted = true;
+    if (userStartDate) {
+        const start = new Date(userStartDate);
+        // Normalize time to midnight for comparison
+        const checkDate = new Date(date);
+        checkDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
+        
+        if (checkDate < start) {
+            hasStarted = false;
+        }
+    }
     
     // Determine if we should show a request-based status instead of "Absent"
     const hasPendingRequest = leaveRequest?.status === 'PENDING';
@@ -33,6 +49,15 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     const isWFHRequest = leaveRequest?.type === 'WFH';
 
     if (!log) {
+        // 0. Handle Not Started Yet (Priority over Absent/Holiday)
+        if (!hasStarted) {
+            return (
+                <div className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/20 grayscale opacity-40">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">NOT JOINED</span>
+                </div>
+            );
+        }
+
         // 1. Handle Requests (Pending or Approved but no log yet)
         if (leaveRequest && (hasPendingRequest || hasApprovedRequest)) {
             const isPending = hasPendingRequest;

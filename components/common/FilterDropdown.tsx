@@ -113,7 +113,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
                 onClick={() => setIsOpen(!isOpen)}
                 title={getDisplayLabel()}
                 className={`
-                    flex items-center justify-between px-5 py-3.5 border rounded-2xl text-sm font-black transition-all active:scale-95 w-full
+                    flex items-center justify-between px-5 py-3.5 border rounded-2xl text-sm font-bold transition-all active:scale-95 w-full
                     ${isActive 
                         ? `${activeColorClass} shadow-[0_0_15px_rgba(79,70,229,0.15)] border-indigo-300 ring-2 ring-indigo-500/10` 
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 shadow-sm'}
@@ -163,22 +163,22 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
                             />
                         </div>
 
-                        <div className="text-[12px] font-medium font-kanit text-slate-400 px-4 py-2 mb-1 uppercase tracking-widest bg-slate-50/50 rounded-xl flex justify-between items-center">
+                        <div className="text-[10px] font-bold text-slate-400 px-4 py-2 mb-1 uppercase tracking-widest bg-slate-50/50 rounded-xl flex justify-between items-center">
                             <span>เลือก {label}</span>
-                            <span className="text-[12px] opacity-60">{filteredOptions.length} รายการ</span>
+                            <span className="text-[9px] opacity-60">{filteredOptions.length} รายการ</span>
                         </div>
 
                         {multiSelect && (
                             <div className="flex gap-1 mb-2 px-1">
                                 <button 
                                     onClick={handleSelectAll}
-                                    className="flex-1 py-2 text-[12px] font-kanit font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors uppercase tracking-widest"
+                                    className="flex-1 py-2 text-[9px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors uppercase tracking-widest"
                                 >
                                     เลือกทั้งหมด
                                 </button>
                                 <button 
                                     onClick={handleClearAll}
-                                    className="flex-1 py-2 text-[12px] font-kanit font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors uppercase tracking-widest"
+                                    className="flex-1 py-2 text-[9px] font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors uppercase tracking-widest"
                                 >
                                     ล้างทั้งหมด
                                 </button>
@@ -190,7 +190,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
                                 <button
                                     type="button"
                                     onClick={() => { (onChange as (v: string) => void)('ALL'); setIsOpen(false); }}
-                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${value === 'ALL' ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-500'}`}
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${value === 'ALL' ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-500'}`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-2 h-2 rounded-full ${value === 'ALL' ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-400'} transition-colors`} />
@@ -210,7 +210,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
                                         type="button"
                                         key={opt.key}
                                         onClick={() => handleSelect(opt.key)}
-                                        className={`w-full flex items-start justify-between px-4 py-3 rounded-xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}
+                                        className={`w-full flex items-start justify-between px-4 py-3 rounded-xl transition-all text-left group ${isSelected ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}
                                     >
                                         <div className="flex items-start gap-3">
                                             {opt.icon ? (

@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          navigateFallbackDenylist: [/^\/api/, /^\/auth/],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         }
       })

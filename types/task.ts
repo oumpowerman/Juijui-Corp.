@@ -132,11 +132,13 @@ export interface Task {
     isInShootQueue?: boolean;
     isSoftFinished?: boolean;
     localPath?: string;
+    driveLabel?: string;
 
     // Sub-tasks
     contentId?: string; 
     showOnBoard?: boolean;
     parentContentTitle?: string;
+    roadmapId?: string;
 
     // Script Link (General Task)
     scriptId?: string;
@@ -178,4 +180,12 @@ export interface TaskComment {
     content: string;
     createdAt: Date;
     user?: User;
+}
+
+export interface StorageConfig {
+    id: string;
+    label: string;
+    currentLetter: string;
+    description?: string;
+    updatedAt: Date;
 }

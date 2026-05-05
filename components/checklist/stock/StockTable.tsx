@@ -36,13 +36,14 @@ interface StockTableProps {
     onSchedule: (task: Task) => void;
     onToggleQueue?: (id: string, currentStatus: boolean) => void;
     onAddToWorkbox?: (task: Task) => void;
+    onEditScript?: (scriptId: string) => void;
 }
 
 const StockTable: React.FC<StockTableProps> = React.memo(({ 
     isLoading, isFiltering, tasks, channels, users, masterOptions,
     sortConfig, onSort,
     totalCount, currentPage, onPageChange, itemsPerPage,
-    onEdit, onSchedule, onToggleQueue, onAddToWorkbox
+    onEdit, onSchedule, onToggleQueue, onAddToWorkbox, onEditScript
 }) => {
     const { setIsDragging, items: workboxItems } = useWorkboxContext();
     
@@ -243,6 +244,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
                                 onSchedule={onSchedule}
                                 onToggleQueue={onToggleQueue}
                                 onAddToWorkbox={onAddToWorkbox}
+                                onEditScript={onEditScript}
                                 setIsDragging={setIsDragging}
                                 getFormatLabel={getFormatLabel}
                                 getPillarLabel={getPillarLabel}

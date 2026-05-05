@@ -33,8 +33,9 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     
     // Hidden Fields (Preservation) & Linking
     const [contentId, setContentId] = useState<string | undefined>(undefined);
+    const [roadmapId, setRoadmapId] = useState<string | undefined>(undefined);
     const [showOnBoard, setShowOnBoard] = useState(true);
-    
+
     // Script Linking
     const [scriptId, setScriptId] = useState<string | undefined>(undefined);
 
@@ -66,17 +67,16 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             
             // Link & Board State
             setContentId(initialData.contentId);
+            setRoadmapId(initialData.roadmapId);
             setShowOnBoard(initialData.showOnBoard || false);
             setScriptId(initialData.scriptId);
             
             setDifficulty(initialData.difficulty || 'MEDIUM');
             setEstimatedHours(initialData.estimatedHours || 0);
             setAssets(initialData.assets || []);
-            // ⚠️ ต้องเพิ่มบรรทัดนี้ครับ:
-
         } else {
             // Defaults
-            setTitle('');
+            setTitle(initialData?.title || '');
             setDescription('');
             
             const defaultStatus = taskStatusOptions.find(o => o.isDefault)?.key || (taskStatusOptions.length > 0 ? taskStatusOptions[0].key : 'TODO');
@@ -84,8 +84,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setPriority('MEDIUM');
             
             const defaultDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-            setStartDate(defaultDate);
-            setEndDate(defaultDate);
+            setStartDate(initialData?.startDate ? format(initialData.startDate, 'yyyy-MM-dd') : defaultDate);
+            setEndDate(initialData?.endDate ? format(initialData.endDate, 'yyyy-MM-dd') : defaultDate);
             
             setAssigneeType('INDIVIDUAL'); 
             setAssigneeIds(currentUser ? [currentUser.id] : []);
@@ -94,6 +94,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             setImportance('');
             
             setContentId(undefined);
+            setRoadmapId(initialData?.roadmapId);
             setShowOnBoard(true);
             setScriptId(undefined);
             
@@ -127,7 +128,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             const endObj = new Date(ey, em - 1, ed);
 
             const newTask: Task = {
-                id: initialData ? initialData.id : crypto.randomUUID(),
+                id: initialData?.id || crypto.randomUUID(),
                 type: 'TASK',
                 title,
                 description,
@@ -151,6 +152,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
                 
                 // Context / Parent Link (CRITICAL FIX)
                 contentId: contentId,
+                roadmapId: roadmapId,
                 showOnBoard: showOnBoard,
                 
                 // Script Link

@@ -21,6 +21,7 @@ interface StockFilterBarProps {
     setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatuses: string[];
     setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
+    contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Updated for Range
     filterHasShootDate: boolean;
@@ -46,6 +47,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
     filterPillar, setFilterPillar,
     filterCategory, setFilterCategory,
     filterStatuses, setFilterStatuses,
+    contentSubTab = 'ACTIVE',
     
     filterHasShootDate, setFilterHasShootDate,
     filterShootDateStart, setFilterShootDateStart,
@@ -318,16 +320,18 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                     />
                 </motion.div>
 
-                {/* Status Multi-Select Filter */}
-                <motion.div layout>
-                    <MultiSelectFilter 
-                        label="สถานะ"
-                        values={filterStatuses}
-                        options={statusOptions}
-                        onChange={setFilterStatuses}
-                        icon={<BarChart3 className="w-4 h-4" />}
-                    />
-                </motion.div>
+                {/* Status Multi-Select Filter - Hidden in Archive */}
+                {contentSubTab === 'ACTIVE' && (
+                    <motion.div layout>
+                        <MultiSelectFilter 
+                            label="สถานะ"
+                            values={filterStatuses}
+                            options={statusOptions}
+                            onChange={setFilterStatuses}
+                            icon={<BarChart3 className="w-4 h-4" />}
+                        />
+                    </motion.div>
+                )}
 
                 <motion.div layout className="w-px h-8 bg-gray-200 mx-1 hidden xl:block"></motion.div>
 

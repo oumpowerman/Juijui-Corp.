@@ -155,8 +155,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Sparkles className="w-7 h-7 stroke-[2.5px]" />
         </div>
         <div className="sidebar-item-text">
-          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none`}>Content</h1>
-          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase text-center">OS</p>
+          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none font-inter`}>Content</h1>
+          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase text-center font-inter">OS</p>
         </div>
       </div>
 

@@ -46,7 +46,7 @@
 }
 
 .react-datepicker-time__header {
-    font-family: 'Kanit', sans-serif !important;
+    font-family: 'Inter', sans-serif !important;
     font-weight: 800 !important;
     font-size: 0.85rem !important;
     text-transform: uppercase !important;
@@ -95,7 +95,7 @@
 }
 
 .react-datepicker__current-month {
-    font-family: 'Kanit', sans-serif !important;
+    font-family: 'Inter', sans-serif !important;
     font-weight: 700 !important;
     color: #1e293b !important;
     margin-bottom: 0.5rem !important;
@@ -137,9 +137,6 @@
 @layer base {
   body {
     @apply font-sans text-gray-900;
-  }
-  * {
-    font-family: 'Kanit', 'Inter', sans-serif !important;
   }
 }
 

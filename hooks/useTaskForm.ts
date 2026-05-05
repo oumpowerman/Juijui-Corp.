@@ -56,6 +56,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
     // Production Info
     const [shootDate, setShootDate] = useState('');
     const [shootLocation, setShootLocation] = useState('');
+    const [localPath, setLocalPath] = useState('');
+    const [driveLabel, setDriveLabel] = useState('');
 
     // Metrics
     const [performance, setPerformance] = useState<TaskPerformance>({
@@ -121,6 +123,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             // Production Info
             setShootDate(initialData.shootDate ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
             setShootLocation(initialData.shootLocation || '');
+            setLocalPath(initialData.localPath || '');
+            setDriveLabel(initialData.driveLabel || '');
             
             setPerformance(initialData.performance || { views: 0, likes: 0, shares: 0, comments: 0, revenue: 0, reflection: '' });
         } else {
@@ -160,6 +164,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
             setPublishedLinks({});
             setShootDate('');
             setShootLocation('');
+            setLocalPath('');
+            setDriveLabel('');
         }
         setError('');
     }, [initialData, selectedDate, channels, lockedType, masterOptions]); 
@@ -229,7 +235,9 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
                 performance,
                 publishedLinks: publishedLinks,
                 shootDate: shootDate ? new Date(shootDate) : undefined,
-                shootLocation: shootLocation || undefined
+                shootLocation: shootLocation || undefined,
+                localPath: localPath || undefined,
+                driveLabel: driveLabel || undefined
             } : {
                 assigneeIds,
                 isUnscheduled: false,
@@ -293,6 +301,8 @@ export const useTaskForm = ({ initialData, selectedDate, channels, lockedType, m
         
         shootDate, setShootDate,
         shootLocation, setShootLocation,
+        localPath, setLocalPath,
+        driveLabel, setDriveLabel,
 
         error, setError,
         performance, setPerformance, 

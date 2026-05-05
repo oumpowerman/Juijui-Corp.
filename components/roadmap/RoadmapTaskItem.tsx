@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Diamond } from 'lucide-react';
+import { Diamond, GripVertical } from 'lucide-react';
 import { RoadmapTask, TaskStatus } from '../../services/roadmapService';
 
 interface RoadmapTaskItemProps {
@@ -10,6 +10,7 @@ interface RoadmapTaskItemProps {
   currentWeekIndex: number;
   totalWeeks: number;
   onEdit: (task: RoadmapTask) => void;
+  isDraggable?: boolean;
 }
 
 const CategoryPill = ({ category }: { category: string }) => {
@@ -23,7 +24,7 @@ const CategoryPill = ({ category }: { category: string }) => {
   const colorClass = colors[category] || 'bg-slate-50 text-slate-500 border-slate-100';
   
   return (
-    <span className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${colorClass}`}>
+    <span className={`px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${colorClass}`}>
       {category}
     </span>
   );
@@ -45,7 +46,7 @@ const StatusPill = ({ status }: { status: TaskStatus }) => {
   };
   
   return (
-    <span className={`px-3 py-1 rounded text-[11px] font-bold uppercase tracking-tight ${colors[status]}`}>
+    <span className={`px-3 py-1 rounded text-[11px] font-semibold uppercase tracking-tight ${colors[status]}`}>
       {labels[status]}
     </span>
   );
@@ -56,7 +57,8 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
   timelineStartWeek, 
   currentWeekIndex,
   totalWeeks,
-  onEdit 
+  onEdit,
+  isDraggable = false
 }) => {
   // 1 week = 40px
   const weekPixel = 40;
@@ -87,17 +89,54 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
     <div className={`flex group hover:bg-slate-50 transition-all border-b border-slate-100 ${isActive ? 'bg-indigo-50/10' : ''}`}>
       {/* Sticky Table Columns - MUST match Timeline Header widths: 48 + 320 + 112 + 96 + 80 + 160 + 5 (borders) + 1 (right border) = 822px */}
       <div className={`flex divide-x divide-slate-100 items-center shrink-0 sticky left-0 z-50 bg-white group-hover:bg-slate-50 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${isActive ? '!bg-indigo-50/30' : ''}`}>
-        <div className={`w-[48px] min-w-[48px] max-w-[48px] py-5 px-2 text-[12px] text-center font-mono ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>{task.no}</div>
+        <div className={`w-[48px] min-w-[48px] max-w-[48px] py-5 px-2 flex flex-col items-center justify-center ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
+          {isDraggable && (
+            <GripVertical className="w-3.5 h-3.5 mb-1 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+          <span className="text-[12px] font-mono leading-none">{task.no}</span>
+        </div>
         <div 
           onClick={() => onEdit(task)}
-          className={`w-[320px] min-w-[320px] max-w-[320px] py-5 px-8 text-base font-bold truncate cursor-pointer hover:text-indigo-600 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-700'}`}
+          className={`w-[320px] min-w-[320px] max-w-[320px] py-5 px-8 cursor-pointer group/title hover:text-indigo-600 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-700'}`}
         >
-          {task.initiative}
+          <div className="flex flex-col gap-1.5 overflow-hidden">
+            <span className="text-base font-semibold truncate leading-tight">{task.initiative}</span>
+            <div className="flex items-center gap-2">
+              {/* Value Markers (B) */}
+              {task.effort && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200" title={`Effort: ${task.effort}`}>
+                  <span className="text-[9px] font-black text-slate-400">E</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map(v => (
+                      <div key={v} className={`w-1.5 h-1.5 rounded-full ${v <= (task.effort || 0) ? 'bg-indigo-500' : 'bg-slate-200'}`} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {task.impact && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-100" title={`Impact: ${task.impact}`}>
+                  <span className="text-[9px] font-black text-emerald-400">I</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map(v => (
+                      <div key={v} className={`w-1.5 h-1.5 rounded-full ${v <= (task.impact || 0) ? 'bg-emerald-500' : 'bg-emerald-100'}`} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Linkage Marker (A) */}
+              {(task.dependencies?.length || 0) > 0 && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-600" title={`Has ${task.dependencies?.length} dependencies`}>
+                  <Diamond className="w-2.5 h-2.5 fill-current" />
+                  <span className="text-[9px] font-black">{task.dependencies?.length}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="w-[112px] min-w-[112px] max-w-[112px] py-5 px-2 flex justify-center"><CategoryPill category={task.category} /></div>
         <div className="w-[96px] min-w-[96px] max-w-[96px] py-5 px-2 flex justify-center"><StatusPill status={task.status} /></div>
         <div className="w-[80px] min-w-[80px] max-w-[80px] py-5 px-2 text-xs text-center text-slate-400 font-medium italic truncate px-2">{task.buffer}</div>
-        <div className="w-[160px] min-w-[160px] max-w-[160px] py-5 px-4 text-xs text-center font-bold text-slate-500 truncate">{task.milestone || '-'}</div>
+        <div className="w-[160px] min-w-[160px] max-w-[160px] py-5 px-4 text-xs text-center font-semibold text-slate-500 truncate">{task.milestone || '-'}</div>
       </div>
 
       {/* Timeline Bar Area */}
@@ -116,6 +155,17 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
 
         {/* The Strategy Pill / Gantt Bar */}
         <div className="relative h-14 w-full flex items-center">
+            {/* Baseline Bar (D) - Only visible on hover or if baseline tracking is fully implemented */}
+            {task.original_start_week && (
+              <div 
+                className="absolute h-4 bg-slate-200/50 border border-slate-300/30 rounded-full z-0 opacity-50"
+                style={{
+                  left: `${((task.original_start_week || task.start_week) - timelineStartWeek) * weekPixel + 4}px`,
+                  width: `${(task.original_duration_weeks || task.duration_weeks) * weekPixel - 8}px`,
+                }}
+              />
+            )}
+
             <motion.div
                 layoutId={`task-${task.id}`}
                 animate={{ 

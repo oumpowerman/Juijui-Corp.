@@ -69,6 +69,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         shootDate, setShootDate,
         shootLocation, setShootLocation,
         localPath, setLocalPath,
+        driveLabel, setDriveLabel,
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
@@ -400,6 +401,12 @@ const ContentForm: React.FC<ContentFormProps> = ({
                         statusOptions={statusOptions} channels={channels}
                     />
 
+                    {/* MOVED: 10. File Storage Path */}
+                    <CFStoragePath 
+                        localPath={localPath} setLocalPath={setLocalPath} 
+                        driveLabel={driveLabel} setDriveLabel={setDriveLabel}
+                    />
+
                     {/* 3. Script Integration - Updated for Linking */}
                     <CFScriptLinker 
                         hasContentId={!!initialData?.id}
@@ -454,9 +461,6 @@ const ContentForm: React.FC<ContentFormProps> = ({
 
                     {/* 9. Description */}
                     <CFBrief description={description} setDescription={setDescription} />
-
-                    {/* 10. File Storage Path */}
-                    <CFStoragePath localPath={localPath} setLocalPath={setLocalPath} />
 
                     {/* 11. Assets */}
                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">

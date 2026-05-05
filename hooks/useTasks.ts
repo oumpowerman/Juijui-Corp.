@@ -219,6 +219,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             ...(isContent ? {} : { 
                 type: 'TASK', 
                 content_id: task.contentId || null,
+                roadmap_id: task.roadmapId || null,
                 show_on_board: task.showOnBoard || false,
                 script_id: task.scriptId || null 
             }) 
@@ -239,6 +240,8 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             published_links: task.publishedLinks || null,
             shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
             shoot_location: task.shootLocation || null,
+            local_path: task.localPath || null,
+            drive_label: task.driveLabel || null,
         } : {};
 
         const nowStr = format(new Date(), 'yyyy-MM-dd');

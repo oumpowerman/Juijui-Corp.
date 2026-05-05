@@ -22,6 +22,7 @@ interface StockTableRowProps {
     onSchedule: (task: Task) => void;
     onToggleQueue?: (id: string, currentStatus: boolean) => void;
     onAddToWorkbox?: (task: Task) => void;
+    onEditScript?: (scriptId: string) => void;
     setIsDragging: (value: boolean) => void;
     getFormatLabel: (key?: string) => string;
     getPillarLabel: (key?: string) => string;
@@ -43,6 +44,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     onSchedule,
     onToggleQueue,
     onAddToWorkbox,
+    onEditScript,
     setIsDragging,
     getFormatLabel,
     getPillarLabel,

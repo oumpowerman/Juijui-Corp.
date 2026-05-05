@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Layout, Plus } from 'lucide-react';
+import { AnimatePresence, motion, Reorder } from 'framer-motion';
+import { Loader2, Layout, Plus, X } from 'lucide-react';
 import { 
   RoadmapTask, 
   timelineUtils,
@@ -13,8 +13,19 @@ import RoadmapTaskModal from './RoadmapTaskModal';
 import RoadmapHeader from './RoadmapHeader';
 import RoadmapTimeline from './RoadmapTimeline';
 import RoadmapTaskItem from './RoadmapTaskItem';
+import GeneralTaskForm from '../task/GeneralTaskForm';
+import { useTaskContext } from '../../context/TaskContext';
+import { useUserSession } from '../../context/UserSessionContext';
+import { useMasterDataContext } from '../../context/MasterDataContext';
+import { useChannels } from '../../hooks/useChannels';
+import { useTasks } from '../../hooks/useTasks';
+import { Task } from '../../types';
 
 const RoadmapView: React.FC = () => {
+  const { tasks: allTasks } = useTaskContext();
+  const { currentUserProfile, activeUsers } = useUserSession();
+  const { masterOptions } = useMasterDataContext();
+  const { channels } = useChannels();
   const [tasks, setTasks] = useState<RoadmapTask[]>([]);
   const [categories, setCategories] = useState<{name: string, id: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +34,16 @@ const RoadmapView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<RoadmapTask | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [sortMode, setSortMode] = useState<'manual' | 'timeline'>('manual');
+
+  // Execution Task Modal State
+  const [isExecModalOpen, setIsExecModalOpen] = useState(false);
+  const [selectedExecTask, setSelectedExecTask] = useState<Task | null>(null);
+  const [execInitialData, setExecInitialData] = useState<Partial<Task> | null>(null);
+
+  const { handleSaveTask: handleSaveExecOp, handleDeleteTask: handleDeleteExecutionTask } = useTasks(() => setIsExecModalOpen(false));
+
+
 
   // Timeline Config
   const timelineConfig = useMemo(() => timelineUtils.getTimelineConfig(tasks), [tasks]);
@@ -89,14 +110,46 @@ const RoadmapView: React.FC = () => {
   }, []);
 
   const filteredTasks = useMemo(() => {
-    return tasks
+    const list = [...tasks]
       .filter(t => {
         const matchCategory = filter === 'All' || t.category === filter;
         const matchSearch = t.initiative.toLowerCase().includes(searchTerm.toLowerCase());
         return matchCategory && matchSearch;
-      })
-      .sort((a, b) => a.no - b.no);
-  }, [tasks, filter, searchTerm]);
+      });
+
+    if (sortMode === 'timeline') {
+      return list.sort((a, b) => a.start_week - b.start_week);
+    }
+    
+    return list.sort((a, b) => (a.no || 0) - (b.no || 0));
+  }, [tasks, filter, searchTerm, sortMode]);
+
+  const handleReorder = async (newOrder: RoadmapTask[]) => {
+    // Only allow reorder in manual mode and when no filtering is active
+    if (sortMode !== 'manual' || filter !== 'All' || searchTerm) {
+      // Just update local state for the current view if filtering
+      setTasks(prev => {
+        const otherTasks = prev.filter(t => !newOrder.find(nt => nt.id === t.id));
+        return [...newOrder, ...otherTasks].sort((a, b) => (a.no || 0) - (b.no || 0));
+      });
+      return;
+    }
+
+    setTasks(prev => {
+      const otherTasks = prev.filter(t => !newOrder.find(nt => nt.id === t.id));
+      const reordered = newOrder.map((task, idx) => ({ ...task, no: idx + 1 }));
+      return [...reordered, ...otherTasks].sort((a, b) => (a.no || 0) - (b.no || 0));
+    });
+
+    // Persist to DB
+    try {
+      await Promise.all(newOrder.map((task, idx) => 
+        roadmapService.updateTask(task.id, { no: idx + 1 })
+      ));
+    } catch (error) {
+      console.error('Failed to save reorder:', error);
+    }
+  };
 
   const handleEditTask = (task: RoadmapTask) => {
     setSelectedTask(task);
@@ -115,7 +168,13 @@ const RoadmapView: React.FC = () => {
       } else {
         const nextNo = tasks.length > 0 ? Math.max(...tasks.map(t => t.no)) + 1 : 1;
         const { id, ...newTask } = savedTask;
-        await roadmapService.createTask({ ...newTask, no: nextNo });
+        // Set initial baseline (D)
+        await roadmapService.createTask({ 
+          ...newTask, 
+          no: nextNo,
+          original_start_week: newTask.start_week,
+          original_duration_weeks: newTask.duration_weeks
+        });
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -131,6 +190,46 @@ const RoadmapView: React.FC = () => {
       console.error('Delete failed:', error);
     }
   };
+
+  const handleAddExecTask = (roadmapId: string, initiative: string, startDate: Date, endDate: Date) => {
+    setExecInitialData({
+      title: `[${initiative}] `,
+      roadmapId,
+      startDate,
+      endDate,
+    });
+    setSelectedExecTask(null);
+    setIsExecModalOpen(true);
+  };
+
+  const handleEditExecTask = (task: Task) => {
+    setSelectedExecTask(task);
+    setExecInitialData(null);
+    setIsExecModalOpen(true);
+  };
+
+  const handleSaveExecution = async (task: Task) => {
+    await handleSaveExecOp(task, selectedExecTask);
+    setIsExecModalOpen(false);
+  };
+
+  // --- Insight Dashboard Calculations (E) ---
+  const insights = useMemo(() => {
+    const ongoing = tasks.filter(t => t.status === 'Ongoing').length;
+    const highImpact = tasks.filter(t => (t.impact || 0) >= 4).length;
+    const delayed = tasks.filter(t => t.status === 'Delayed').length;
+    
+    // Resource Peak (C)
+    const weekLoad: Record<number, number> = {};
+    tasks.forEach(t => {
+      for (let w = t.start_week; w < t.start_week + t.duration_weeks; w++) {
+        weekLoad[w] = (weekLoad[w] || 0) + 1;
+      }
+    });
+    const peakLoad = Math.max(0, ...Object.values(weekLoad));
+    
+    return { ongoing, highImpact, delayed, peakLoad };
+  }, [tasks]);
 
   if (loading) {
     return (
@@ -148,24 +247,46 @@ const RoadmapView: React.FC = () => {
       </div>
     );
   }
-
-  // Sidebar Totals: 48 + 320 + 112 + 96 + 80 + 160 = 816px. 
-  // With 5 internal borders (divide-x) and 1 right border = 822px exactly.
   const sidebarWidth = 822;
   const cursorLeftOffset = (cursorWeek - timelineStartWeek) * 40;
 
   return (
     <div className={`flex flex-col h-full bg-white text-slate-900 select-none ${isFullScreen ? 'fixed inset-0 z-[100]' : ''}`}>
       {!isFullScreen ? (
-        <RoadmapHeader 
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          filter={filter}
-          onFilterChange={setFilter}
-          categories={categories.map(c => c.name)}
-          onAddNew={handleAddNew}
-          onToggleFullScreen={() => setIsFullScreen(true)}
-        />
+        <>
+          <RoadmapHeader 
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filter={filter}
+            onFilterChange={setFilter}
+            categories={categories.map(c => c.name)}
+            onAddNew={handleAddNew}
+            onToggleFullScreen={() => setIsFullScreen(true)}
+            sortMode={sortMode}
+            onToggleSort={() => setSortMode(prev => prev === 'manual' ? 'timeline' : 'manual')}
+          />
+          
+          {/* Insight Dashboard (E) */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10 py-6 bg-slate-50/50 border-b border-slate-100">
+            {[
+              { label: 'โครงการที่ดำเนินการอยู่', value: insights.ongoing, sub: 'Active Projects', icon: '⚡', color: 'text-indigo-600' },
+              { label: 'แผนงานที่มีผลกระทบสูง', value: insights.highImpact, sub: 'High Impact', icon: '🔥', color: 'text-emerald-600' },
+              { label: 'ภาระงานสูงสุด (ขนาน)', value: insights.peakLoad, sub: 'Peak Capacity', icon: '📊', color: insights.peakLoad > 3 ? 'text-amber-600' : 'text-slate-600' },
+              { label: 'โครงการที่ล่าช้า', value: insights.delayed, sub: 'At Risk', icon: '⚠️', color: insights.delayed > 0 ? 'text-rose-600' : 'text-slate-600' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md animate-in fade-in slide-in-from-top-2" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="text-3xl">{stat.icon}</div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{stat.sub}</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-2xl font-black ${stat.color}`}>{stat.value}</span>
+                    <span className="text-xs font-bold text-slate-400">{stat.label}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <button 
           onClick={() => setIsFullScreen(false)}
@@ -230,27 +351,62 @@ const RoadmapView: React.FC = () => {
                   <Layout className="w-16 h-16 text-indigo-200" />
                 </div>
                 <h3 className="text-3xl font-bold text-slate-700 tracking-tight">ยังไม่มีแผนโครงการในขณะนี้</h3>
-                <p className="text-base font-bold text-slate-400 mt-3 max-w-sm text-center leading-relaxed">
+                <p className="text-base font-semibold text-slate-400 mt-3 max-w-sm text-center leading-relaxed">
                    เริ่มต้นวางแผนกลยุทธ์ของคุณด้วยเครื่องมือ ContentOS โดยกดปุ่มสร้างโครงการใหม่ด้านบน
                 </p>
                 <button 
                   onClick={handleAddNew}
-                  className="mt-8 flex items-center gap-3 bg-white border border-slate-200 text-indigo-600 px-8 py-4 rounded-3xl font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                  className="mt-8 flex items-center gap-3 bg-white border border-slate-200 text-indigo-600 px-8 py-4 rounded-3xl font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
                 >
                   <Plus className="w-5 h-5" />
                   เริ่มต้นสร้างแผนใหม่
                 </button>
               </div>
-            ) : filteredTasks.map((task) => (
-              <RoadmapTaskItem 
-                key={task.id} 
-                task={task}
-                timelineStartWeek={timelineStartWeek}
-                currentWeekIndex={cursorWeek}
-                totalWeeks={totalWeeks}
-                onEdit={handleEditTask}
-              />
-            ))}
+            ) : (
+              <Reorder.Group 
+                axis="y" 
+                values={filteredTasks} 
+                onReorder={handleReorder}
+                className="flex flex-col"
+              >
+                {filteredTasks.map((task) => (
+                  <Reorder.Item 
+                    key={task.id} 
+                    value={task}
+                    dragListener={sortMode === 'manual'}
+                  >
+                    <RoadmapTaskItem 
+                      task={task}
+                      timelineStartWeek={timelineStartWeek}
+                      currentWeekIndex={cursorWeek}
+                      totalWeeks={totalWeeks}
+                      onEdit={handleEditTask}
+                      isDraggable={sortMode === 'manual' && filter === 'All' && !searchTerm}
+                    />
+                  </Reorder.Item>
+                ))}
+              </Reorder.Group>
+            )}
+          </div>
+          
+          {/* Capacity Meter (C) */}
+          <div className="flex bg-slate-50/80 border-t border-slate-100 items-center">
+            <div className={`w-[822px] min-w-[822px] py-3 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 sticky left-0 z-50 bg-slate-100/50 backdrop-blur-sm border-r border-slate-200`}>
+              Resource Capacity Check (Concurrency)
+            </div>
+            <div className="flex flex-1">
+              {Array.from({ length: totalWeeks }).map((_, i) => {
+                const weekIdx = timelineStartWeek + i;
+                const count = tasks.filter(t => weekIdx >= t.start_week && weekIdx < (t.start_week + t.duration_weeks)).length;
+                const isOver = count > 3;
+                return (
+                  <div key={i} className="w-[40px] flex flex-col items-center justify-center py-2 border-r border-slate-100/50">
+                    <div className={`w-1 h-3 rounded-full ${isOver ? 'bg-rose-500 animate-pulse' : count > 0 ? 'bg-indigo-300' : 'bg-slate-200'}`} />
+                    <span className={`text-[8px] mt-1 font-bold ${isOver ? 'text-rose-500' : 'text-slate-400'}`}>{count > 0 ? count : ''}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -278,7 +434,57 @@ const RoadmapView: React.FC = () => {
             onClose={() => setIsModalOpen(false)}
             onSave={handleSaveTask}
             onDelete={handleDeleteTask}
+            allTasks={tasks}
+            executionTasks={allTasks.filter(t => t.roadmapId === selectedTask?.id)}
+            users={activeUsers}
+            onAddTask={handleAddExecTask}
+            onEditTask={handleEditExecTask}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Execution Task Form Modal */}
+      <AnimatePresence>
+        {isExecModalOpen && (
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsExecModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between px-10 py-6 border-b border-slate-100 bg-white">
+                <h3 className="text-xl font-bold text-slate-900">
+                  {selectedExecTask ? 'แก้ไขงานปฏิบัติงาน' : 'สั่งงานปฏิบัติงานใหม่'}
+                </h3>
+                <button 
+                  onClick={() => setIsExecModalOpen(false)}
+                  className="p-2 hover:bg-slate-50 rounded-xl text-slate-400"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2">
+                <GeneralTaskForm 
+                   initialData={selectedExecTask || (execInitialData as any)}
+                   users={activeUsers}
+                   masterOptions={masterOptions}
+                   channels={channels}
+                   currentUser={currentUserProfile || undefined}
+                   onSave={handleSaveExecution}
+                   onDelete={handleDeleteExecutionTask}
+                   onClose={() => setIsExecModalOpen(false)}
+                />
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

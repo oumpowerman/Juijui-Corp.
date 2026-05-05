@@ -39,6 +39,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
     const [shootDate, setShootDate] = useState('');
     const [shootLocation, setShootLocation] = useState('');
     const [localPath, setLocalPath] = useState('');
+    const [driveLabel, setDriveLabel] = useState('');
 
     // People
     const [ideaOwnerIds, setIdeaOwnerIds] = useState<string[]>([]);
@@ -95,6 +96,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             setShootDate(initialData.shootDate && isValid(new Date(initialData.shootDate)) ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
             setShootLocation(initialData.shootLocation || '');
             setLocalPath(initialData.localPath || '');
+            setDriveLabel(initialData.driveLabel || '');
 
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
             setEditorIds(initialData.editorIds || []);
@@ -137,6 +139,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             setShootDate('');
             setShootLocation('');
             setLocalPath('');
+            setDriveLabel('');
             
             const initialIdeaOwners = sourceScript?.ideaOwnerId ? [sourceScript.ideaOwnerId] : (currentUser ? [currentUser.id] : []);
             setIdeaOwnerIds(initialIdeaOwners);
@@ -213,6 +216,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 shootDate: finalShootDate,
                 shootLocation: shootLocation.trim() || undefined,
                 localPath: localPath.trim() || undefined,
+                driveLabel: driveLabel || undefined,
 
                 // People
                 ideaOwnerIds,
@@ -276,6 +280,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         shootDate, setShootDate,
         shootLocation, setShootLocation,
         localPath, setLocalPath,
+        driveLabel, setDriveLabel,
 
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,

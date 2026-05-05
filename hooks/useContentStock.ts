@@ -18,6 +18,7 @@ interface UseContentStockProps {
         hasShootDate?: boolean;
         shootDateStart?: string; // Changed to Start
         shootDateEnd?: string;   // Changed to End
+        contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     };
     sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
 }
@@ -115,9 +116,21 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             
             if (filters.pillar.length > 0) query = query.in('pillar', filters.pillar);
             if (filters.category.length > 0) query = query.in('category', filters.category);
-            if (filters.statuses.length > 0) query = query.in('status', filters.statuses);
             
-            // 2.1 Shoot Date Range Filter
+            // 2.1 Content Tab: Active vs Archive
+            if (filters.contentSubTab === 'ARCHIVE') {
+                query = query.ilike('status', '%DONE%');
+            } else {
+                // Default to ACTIVE: show everything EXCEPT statuses containing 'DONE'
+                query = query.not('status', 'ilike', '%DONE%');
+                
+                // If statuses are selected in the Active tab, apply them
+                if (filters.statuses.length > 0) {
+                    query = query.in('status', filters.statuses);
+                }
+            }
+            
+            // 2.2 Shoot Date Range Filter
             if (filters.hasShootDate) {
                 query = query.not('shoot_date', 'is', null);
             }
@@ -227,7 +240,20 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         
         if (currentFilters.pillar.length > 0 && (!task.pillar || !currentFilters.pillar.includes(task.pillar))) return false;
         if (currentFilters.category.length > 0 && (!task.category || !currentFilters.category.includes(task.category))) return false;
-        if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(task.status as any)) return false;
+        
+        // 2.1 Content Tab: Active vs Archive Invariant
+        const isArchive = currentFilters.contentSubTab === 'ARCHIVE';
+        const isDoneStatus = task.status ? task.status.toUpperCase().includes('DONE') : false;
+        
+        if (isArchive) {
+            if (!isDoneStatus) return false;
+        } else {
+            // Active Tab case
+            if (isDoneStatus) return false;
+            // Additional status filter if any
+            if (currentFilters.statuses.length > 0 && !currentFilters.statuses.includes(task.status as any)) return false;
+        }
+
         if (currentFilters.showStockOnly && !task.isUnscheduled) return false;
         
         // Shoot Date Filter

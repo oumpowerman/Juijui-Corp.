@@ -18,6 +18,7 @@ import { FinanceProvider } from './context/FinanceContext';
 import { WikiProvider } from './context/WikiContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
 import { ShootQueueProvider } from './context/ShootQueueContext';
+import { StorageProvider } from './context/StorageContext';
 import { GlobalRealtimeSync } from './components/GlobalRealtimeSync';
 import PWAReloadPrompt from './components/PWAReloadPrompt';
 import { Loader2 } from 'lucide-react';
@@ -112,7 +113,9 @@ function AuthenticatedApp({ user }: { user: any }) {
     <GoogleDriveProvider>
       <MasterDataProvider>
         <UserSessionProvider sessionUser={user}>
-          <AuthenticatedAppInner user={user} />
+          <StorageProvider>
+            <AuthenticatedAppInner user={user} />
+          </StorageProvider>
         </UserSessionProvider>
       </MasterDataProvider>
     </GoogleDriveProvider>

@@ -179,7 +179,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 availableLocations={availableLocations}
                 startTime={startTime}
                 lateBuffer={lateBuffer}
-                onSwitchToLeave={() => { setIsCheckInModalOpen(false); onOpenLeave(); }} // Handled by parent
+                onSwitchToLeave={() => { onOpenLeave(); }} // Keep CheckIn open so they can return to it if they change their mind
                 approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
                 hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
                 isDriveConnected={isDriveAuthenticated}

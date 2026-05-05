@@ -11,7 +11,7 @@ interface CFPlatformSelectorProps {
     handleLinkChange: (platform: string, url: string) => void;
 }
 
-const ALL_PLATFORMS = [
+const ALL_PLATFORMS: { id: Platform; label: string }[] = [
     { id: 'YOUTUBE', label: 'YouTube' },
     { id: 'FACEBOOK', label: 'Facebook' },
     { id: 'TIKTOK', label: 'TikTok' },
@@ -30,8 +30,8 @@ const CFPlatformSelector: React.FC<CFPlatformSelectorProps> = ({
                 </label>
                 <div className="flex flex-wrap gap-2">
                     {ALL_PLATFORMS.map((p) => {
-                        const isSelected = targetPlatforms.includes(p.id as any);
-                        const Icon = PLATFORM_ICONS[p.id as any];
+                        const isSelected = targetPlatforms.includes(p.id);
+                        const Icon = PLATFORM_ICONS[p.id];
                         return (
                             <button
                                 key={p.id}

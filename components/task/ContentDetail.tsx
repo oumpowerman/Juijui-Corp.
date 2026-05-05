@@ -27,6 +27,7 @@ import { PLATFORM_ICONS } from '../../config/taxonomy';
 import Markdown from 'react-markdown';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { useStorage } from '../../context/StorageContext';
 
 interface ContentDetailProps {
     task: Task;
@@ -43,6 +44,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
 }) => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
+    const { storageConfigs } = useStorage();
     
     const getOptionLabel = (key: string | undefined, type: string) => {
         if (!key) return 'ไม่ระบุ';
@@ -134,6 +136,11 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
         }
     };
 
+    // --- Path Resolution Logic ---
+    const activeHub = task.driveLabel ? storageConfigs.find(c => c.label === task.driveLabel) : null;
+    const resolvedPath = activeHub ? `${activeHub.currentLetter}${task.localPath}` : task.localPath;
+    const displayPath = resolvedPath || 'Not set';
+
     return (
         <motion.div 
             variants={containerVariants}
@@ -216,6 +223,71 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
 
             <div className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-10 scrollbar-hide">
                 
+                {/* --- HIGHLIGHT: STORAGE PATH (MOVED TO TOP) --- */}
+                {task.localPath && (
+                    <motion.section 
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4"
+                    >
+                        <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-2 text-slate-300">
+                                <Folder className="w-4 h-4" />
+                                <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em]">Quick Access: Local Storage</h4>
+                            </div>
+                            {activeHub && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 shadow-sm animate-in fade-in zoom-in duration-500">
+                                    <HardDrive className="w-3 h-3" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Hub: {activeHub.label}</span>
+                                </div>
+                            )}
+                        </div>
+                        <motion.div 
+                            whileHover={{ scale: 1.01, translateY: -2 }}
+                            onClick={() => handleCopyPath(resolvedPath || '')}
+                            className={`
+                                relative p-6 rounded-[2rem] border group cursor-pointer overflow-hidden transition-all duration-500
+                                ${activeHub 
+                                    ? 'bg-gradient-to-br from-emerald-50/60 to-teal-50/40 border-emerald-100 shadow-[0_12px_30px_-5px_rgba(16,185,129,0.1)]' 
+                                    : 'bg-slate-50/40 border-slate-100 shadow-sm'}
+                            `}
+                        >
+                            <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                <HardDrive className="w-16 h-16 rotate-12" />
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className={`w-2 h-2 rounded-full animate-pulse ${activeHub ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                        <p className={`text-[10px] font-bold uppercase tracking-[0.15em] ${activeHub ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                            {activeHub ? 'Resolved via Storage Hub' : 'Manual Storage Path'}
+                                        </p>
+                                    </div>
+                                    <div className={`p-4 rounded-xl shadow-inner transition-colors border group-hover:bg-white flex items-center gap-3 ${activeHub ? 'bg-white/60 border-emerald-50/50' : 'bg-white border-slate-100'}`}>
+                                        <code className="text-sm font-mono font-bold text-slate-700 break-all">
+                                            {displayPath}
+                                        </code>
+                                    </div>
+                                    {activeHub && (
+                                        <p className="text-[9px] text-emerald-500/70 mt-2 font-medium px-1">
+                                            Current Mapping: {activeHub.label} → {activeHub.currentLetter}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <div className="flex flex-col items-end hidden sm:flex">
+                                        <p className={`text-[10px] font-bold uppercase ${activeHub ? 'text-emerald-500' : 'text-slate-400'}`}>Click to Copy Path</p>
+                                        <p className="text-[9px] text-slate-400">Open in File Explorer</p>
+                                    </div>
+                                    <div className={`w-12 h-12 rounded-2xl shadow-sm flex items-center justify-center group-hover:scale-110 group-hover:text-white transition-all ${activeHub ? 'bg-white text-emerald-500 group-hover:bg-emerald-500' : 'bg-white text-slate-400 group-hover:bg-slate-500'}`}>
+                                        <Copy className="w-5 h-5" />
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.section>
+                )}
+
                 {/* --- SECTION 1: STRATEGY BENTO --- */}
                 <motion.section variants={sectionVariants} className="space-y-4">
                     <div className="flex items-center gap-2 text-slate-300 px-1">
@@ -421,34 +493,6 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                     className="bg-amber-50/20 p-8 rounded-[2.5rem] border border-amber-100/20 shadow-sm relative overflow-hidden"
                                 >
                                     <p className="text-sm text-amber-600/80 font-semibold leading-relaxed relative z-10">{task.remark}</p>
-                                </motion.div>
-                            </div>
-                        )}
-
-                        {task.localPath && (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-slate-300 px-1">
-                                    <Folder className="w-4 h-4" />
-                                    <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em]">Local Storage</h4>
-                                </div>
-                                <motion.div 
-                                    whileHover={bouncyHover}
-                                    onClick={() => handleCopyPath(task.localPath!)}
-                                    className="bg-emerald-50/30 p-6 rounded-[2rem] border border-emerald-100/50 shadow-sm group cursor-pointer relative overflow-hidden"
-                                >
-                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                        <HardDrive className="w-10 h-10 rotate-12" />
-                                    </div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <p className="text-[9px] font-bold text-emerald-600/60 uppercase tracking-widest">Folder Path</p>
-                                        <Copy className="w-3 h-3 text-emerald-400 group-hover:scale-125 transition-transform" />
-                                    </div>
-                                    <p className="text-[11px] font-mono text-slate-500 break-all bg-white/50 p-2 rounded-lg border border-emerald-50 line-clamp-2">
-                                        {task.localPath}
-                                    </p>
-                                    <p className="mt-2 text-[9px] text-emerald-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                                        คลิกเพื่อคัดลอกไปวางที่ File Explorer
-                                    </p>
                                 </motion.div>
                             </div>
                         )}

@@ -137,9 +137,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             publishedLinks: data.published_links || {},
             shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
             shootLocation: data.shoot_location || undefined,
+            localPath: data.local_path || undefined,
+            driveLabel: data.drive_label || undefined,
             contentId: data.content_id,
             showOnBoard: data.show_on_board,
             parentContentTitle: data.contents?.title,
+            roadmapId: data.roadmap_id,
             scriptId: data.script_id, // Map script_id correctly here
             is_penalized: data.is_penalized,
             last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined

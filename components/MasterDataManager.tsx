@@ -22,6 +22,7 @@ import CalendarExceptionManager from './admin/CalendarExceptionManager';
 import PayrollRulesView from './admin/master/views/PayrollRulesView'; 
 import TribunalSettingsView from './admin/master/views/TribunalSettingsView';
 import WikiCategoryMasterView from './admin/master/views/WikiCategoryMasterView';
+import StorageHubMasterView from './admin/master/views/StorageHubMasterView';
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -182,6 +183,8 @@ const MasterDataManager: React.FC = () => {
                                 selectedParentId={selectedParentId}
                                 setIsEditing={setIsEditing}
                             />
+                        ) : activeTab === 'STORAGE_HUB' ? (
+                            <StorageHubMasterView />
                         ) : activeTab === 'GREETINGS' ? (
                             <div className="animate-in slide-in-from-bottom-2 space-y-6">
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">

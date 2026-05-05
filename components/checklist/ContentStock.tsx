@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
-import { Loader2, Upload, Download, Plus, PackageSearch } from 'lucide-react';
+import { Loader2, Upload, Download, Plus, PackageSearch, Archive, History, Sparkles, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import MentorTip from '../MentorTip';
 import { useToast } from '../../context/ToastContext';
 import { useContentStock } from '../../hooks/useContentStock';
@@ -58,24 +59,38 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [viewTab, setViewTab] = useState<'LIST' | 'QUEUE'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      return params.get('tab') === 'queue' ? 'QUEUE' : 'LIST';
+      return params.get('view') === 'queue' ? 'QUEUE' : 'LIST';
     }
     return 'LIST';
+  });
+  const [contentSubTab, setContentSubTab] = useState<'ACTIVE' | 'ARCHIVE'>(() => {
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('tab') === 'archive' ? 'ARCHIVE' : 'ACTIVE';
+    }
+    return 'ACTIVE';
   });
 
   // Sync tab with URL
   useEffect(() => {
     const url = new URL(window.location.href);
-    const currentTab = url.searchParams.get('tab');
     
-    if (viewTab === 'QUEUE' && currentTab !== 'queue') {
-      url.searchParams.set('tab', 'queue');
-      window.history.replaceState({}, '', url.toString());
-    } else if (viewTab === 'LIST' && currentTab === 'queue') {
+    // View Tab
+    if (viewTab === 'QUEUE') {
+      url.searchParams.set('view', 'queue');
       url.searchParams.delete('tab');
-      window.history.replaceState({}, '', url.toString());
+    } else {
+      url.searchParams.delete('view');
+      // Sub Tab
+      if (contentSubTab === 'ARCHIVE') {
+          url.searchParams.set('tab', 'archive');
+      } else {
+          url.searchParams.delete('tab');
+      }
     }
-  }, [viewTab]);
+    
+    window.history.replaceState({}, '', url.toString());
+  }, [viewTab, contentSubTab]);
 
   // --- Sort States ---
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
@@ -102,8 +117,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       hasShootDate: filterHasShootDate, // Added
       shootDateStart: filterShootDateStart, // Added
       shootDateEnd: filterShootDateEnd,     // Added
-      showStockOnly: showStockOnly
-  }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly]);
+      showStockOnly: showStockOnly,
+      contentSubTab: contentSubTab
+  }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, contentSubTab]);
 
   // Transition Effect
   useEffect(() => {
@@ -225,8 +241,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                       {/* Tab Switcher */}
                       <div className="inline-flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner w-full sm:w-auto">
                           <button 
-                            onClick={() => setViewTab('LIST')}
-                            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'LIST' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+                            onClick={() => { setViewTab('LIST'); setContentSubTab('ACTIVE'); }}
+                            className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'LIST' && contentSubTab === 'ACTIVE' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                           >
                             คลังคอนเทนต์
                           </button>
@@ -269,6 +285,44 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
               {/* Action Side */}
               <div className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
+                  {/* Archive Toggle - New Aesthetic Button */}
+                  {viewTab === 'LIST' && (
+                    <button
+                        onClick={() => setContentSubTab(prev => prev === 'ACTIVE' ? 'ARCHIVE' : 'ACTIVE')}
+                        className={`
+                            relative overflow-hidden flex items-center gap-2.5 px-5 py-3.5 rounded-[1.25rem]
+                            transition-all duration-500 group active:scale-95 border
+                            ${contentSubTab === 'ARCHIVE' 
+                                ? 'bg-slate-900 border-slate-800 text-white shadow-xl shadow-slate-200 ring-2 ring-slate-900 ring-offset-2' 
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-lg hover:shadow-indigo-500/10'}
+                        `}
+                    >
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={contentSubTab}
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: -20, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                {contentSubTab === 'ARCHIVE' ? <History className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
+                            </motion.div>
+                        </AnimatePresence>
+                        <span className="font-black text-sm tracking-tight">
+                            {contentSubTab === 'ARCHIVE' ? 'ย้อนกลับ' : 'คลัง Archive'}
+                        </span>
+                        
+                        {/* Subtle scan line effect when active */}
+                        {contentSubTab === 'ARCHIVE' && (
+                            <motion.div 
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent w-1/2 -skew-x-12"
+                                animate={{ x: ['-100%', '200%'] }}
+                                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                            />
+                        )}
+                    </button>
+                  )}
+
                   {/* Scrollable Utilities (Inventory, Import, Template) */}
                   {viewTab === 'LIST' && (
                     <div className="overflow-x-auto scrollbar-hide flex-1 xl:flex-none">
@@ -333,9 +387,37 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
         </div>
 
         {viewTab === 'LIST' ? (
-            <>
-                {/* Filter Bar */}
-                <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 p-1 relative z-50">
+            <div className="relative overflow-hidden">
+                <AnimatePresence mode="wait">
+                    <motion.div 
+                        key={contentSubTab}
+                        initial={{ opacity: 0, scale: 0.99 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.01 }}
+                        transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                        className="space-y-6"
+                    >
+                        {/* Mode Indicator */}
+                        <div className="h-6 flex items-center">
+                            {contentSubTab === 'ARCHIVE' && (
+                                <motion.div 
+                                    initial={{ x: -20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    className="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800"
+                                >
+                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none">Archive Active</span>
+                                </motion.div>
+                            )}
+                        </div>
+
+                        {/* Filter Bar */}
+                        <motion.div 
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 p-1 relative z-50"
+                        >
                 <StockFilterBar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
@@ -349,6 +431,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                     setFilterCategory={setFilterCategory}
                     filterStatuses={filterStatuses}
                     setFilterStatuses={setFilterStatuses}
+                    contentSubTab={contentSubTab}
                     
                     filterHasShootDate={filterHasShootDate}
                     setFilterHasShootDate={setFilterHasShootDate}
@@ -363,31 +446,55 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                     channels={channels}
                     masterOptions={masterOptions}
                 />
-                </div>
+                </motion.div>
 
-                {/* Table */}
-                <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-xl shadow-indigo-500/5 border border-white/60 overflow-hidden">
-                <StockTable
-                    isLoading={isLoading}
-                    isFiltering={isFiltering}
-                    tasks={paginatedTasks}
-                    channels={channels}
-                    users={users}
-                    masterOptions={masterOptions}
-                    sortConfig={sortConfig}
-                    onSort={handleSort}
-                    totalCount={totalCount}
-                    currentPage={currentPage}
-                    onPageChange={handlePageChange}
-                    itemsPerPage={ITEMS_PER_PAGE}
-                    onEdit={onEdit}
-                    onSchedule={onSchedule}
-                    onToggleQueue={toggleShootQueue}
-                    onAddToWorkbox={onAddToWorkbox}
-                />
-                </div>
-            </>
-        ) : (
+                {/* Table Background & Container */}
+                <motion.div 
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white/40 backdrop-blur-md rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white/80 overflow-hidden relative"
+                >
+                    <StockTable
+                        isLoading={isLoading || isFiltering}
+                        isFiltering={isFiltering}
+                        tasks={paginatedTasks}
+                        channels={channels}
+                        users={users}
+                        masterOptions={masterOptions}
+                        sortConfig={sortConfig}
+                        onSort={(key) => handleSort(key as any)}
+                        totalCount={totalCount}
+                        currentPage={currentPage}
+                        itemsPerPage={ITEMS_PER_PAGE}
+                        onPageChange={setCurrentPage}
+                        onEdit={onEdit}
+                        onSchedule={onSchedule}
+                        onToggleQueue={toggleShootQueue}
+                        onAddToWorkbox={onAddToWorkbox}
+                        onEditScript={onEditScript}
+                    />
+
+                    {/* Scanning Ray effect during transitions */}
+                    <AnimatePresence>
+                        {isFiltering && (
+                            <motion.div
+                                initial={{ top: '-40%' }}
+                                animate={{ top: '120%' }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.2, ease: "easeInOut" }}
+                                className="absolute inset-x-0 h-40 z-50 pointer-events-none flex flex-col items-center"
+                            >
+                                <div className="w-full h-[2px] bg-indigo-500 shadow-[0_0_20px_2px_rgba(99,102,241,0.6)]" />
+                                <div className="w-full h-full bg-gradient-to-b from-indigo-500/10 to-transparent" />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    </div>
+) : (
             <div className="animate-in slide-in-from-bottom-4 duration-500">
                 <StockShootQueue 
                     channels={channels}

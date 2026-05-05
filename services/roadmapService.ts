@@ -14,6 +14,11 @@ export interface RoadmapTask {
   milestone?: string;
   start_week: number; // 1-52
   duration_weeks: number;
+  effort?: number; // 1-5
+  impact?: number; // 1-5
+  dependencies?: string[]; // IDs of tasks this task depends on
+  original_start_week?: number; // Baseline tracking
+  original_duration_weeks?: number; // Baseline tracking
   created_at?: string;
   updated_at?: string;
 }

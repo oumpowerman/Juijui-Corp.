@@ -68,6 +68,13 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }
     }, [isOpen]);
 
+    // Auto-hide intervention if request is submitted in the background
+    useEffect(() => {
+        if (hasLateRequest && showLateIntervention) {
+            setShowLateIntervention(false);
+        }
+    }, [hasLateRequest, showLateIntervention]);
+
     const checkLocation = () => {
         setLocationState({ ...locationState, status: 'LOADING' });
         if (!navigator.geolocation) {

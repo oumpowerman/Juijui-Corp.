@@ -15,11 +15,11 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": "server.ts"
     },
     {
-      "source": "/auth/(.*)",
+      "source": "/auth/:path*",
       "destination": "server.ts"
     },
     {

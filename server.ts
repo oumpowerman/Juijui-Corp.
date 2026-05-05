@@ -29,64 +29,55 @@ app.use(cookieSession({
     httpOnly: true 
 }));
 
-// Google OAuth Configuration
-const getRedirectUri = () => {
-    const baseUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
-    // Ensure no trailing slash before appending path
-    return `${baseUrl.replace(/\/$/, '')}/auth/google/callback`;
-};
-
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    getRedirectUri()
-);
-
-// Listen for token refreshes and update the session
-oauth2Client.on('tokens', (tokens) => {
-    // This is tricky because we don't have access to the 'req' object here
-    // However, the googleapis library will use the new tokens for the current request.
-    // To persist them, we'd ideally need a database.
-    // For now, we'll log it and hope the session-based approach is sufficient for the short term.
-    console.log('Tokens refreshed');
-});
-
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
-// --- API Routes ---
-
-// 0. Health Check (To verify API is alive)
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', environment: process.env.NODE_ENV || 'development' });
-});
-
-// 1. Auth URL
-app.get('/api/auth/google/url', (req, res) => {
-    try {
-        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-            throw new Error('Google Client ID or Secret is missing in environment variables');
-        }
-        
-        const url = oauth2Client.generateAuthUrl({
-            access_type: 'offline',
-            scope: SCOPES,
-            prompt: 'consent'
-        });
-        res.json({ url });
-    } catch (error: any) {
-        console.error('Error generating auth URL:', error);
-        res.status(500).json({ error: error.message || 'Failed to generate auth URL' });
+// Google OAuth Configuration
+const getRedirectUri = (req?: express.Request) => {
+    // 1. Priority: Fixed Env Var (set this in Vercel to your custom domain)
+    if (process.env.APP_URL) {
+        return `${process.env.APP_URL.replace(/\/$/, '')}/auth/google/callback`;
     }
-});
+    
+    // 2. Secondary: Current Request Host (Best for dynamic environments like Vercel)
+    if (req) {
+        const host = req.headers.host;
+        const protocol = (req.headers['x-forwarded-proto'] as string) || 'https';
+        return `${protocol}://${host}/auth/google/callback`;
+    }
+
+    // 3. Fallback for environment inference
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`;
+    return `${baseUrl.replace(/\/$/, '')}/auth/google/callback`;
+};
 
 // 2. Google Callback
 app.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
+    console.log('Received auth callback with code:', !!code);
+    
     try {
-        const { tokens } = await oauth2Client.getToken(code as string);
-        // In a real app, store these tokens in a database linked to the user
-        // For this demo, we'll use session (note: session might be lost on server restart)
-        (req.session as any).tokens = tokens;
+        // We MUST use the SAME redirect URI used in the first step
+        const currentRedirectUri = getRedirectUri(req);
+        console.log('Using redirect URI for token exchange:', currentRedirectUri);
+
+        const localOauthClient = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            currentRedirectUri
+        );
+
+        const { tokens } = await localOauthClient.getToken(code as string);
+        console.log('Successfully obtained tokens');
+
+        // To prevent Vercel Header size limits (4KB cookie max),
+        // we store only the strictly necessary tokens in the session.
+        (req.session as any).tokens = {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expiry_date: tokens.expiry_date,
+            token_type: tokens.token_type,
+            scope: tokens.scope
+        };
         
         res.send(`
             <html>
@@ -107,41 +98,70 @@ app.get('/auth/google/callback', async (req, res) => {
                         <h2>Connected!</h2>
                         <p>Google Drive has been successfully connected. This window will close automatically.</p>
                         <script>
-                            // 1. Try to notify opener via postMessage
-                            const opener = window.opener;
-                            if (opener) {
-                                try {
-                                    opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, '*');
-                                } catch (e) {
-                                    console.error("postMessage failed", e);
-                                }
-                            }
-
-                            // 2. Fallback via localStorage (more robust across some redirects)
-                            try {
-                                localStorage.setItem('GOOGLE_AUTH_TIMESTAMP', Date.now().toString());
-                            } catch (e) {
-                                console.error("localStorage failed", e);
-                            }
-
-                            // 3. Try to close
-                            setTimeout(() => {
-                                window.close();
-                                // If it didn't close after 1s, redirect to home as last resort
-                                setTimeout(() => {
-                                    if (!window.closed) {
-                                        window.location.href = '/';
+                            // Handle Success
+                            const notifyAndClose = () => {
+                                // 1. Try to notify opener via postMessage
+                                if (window.opener) {
+                                    try {
+                                        window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, '*');
+                                    } catch (e) {
+                                        console.error("postMessage failed", e);
                                     }
-                                }, 1000);
-                            }, 500);
+                                }
+
+                                // 2. Fallback via localStorage
+                                try {
+                                    localStorage.setItem('GOOGLE_AUTH_TIMESTAMP', Date.now().toString());
+                                } catch (e) {
+                                    console.error("localStorage failed", e);
+                                }
+
+                                // 3. Close
+                                setTimeout(() => { window.close(); }, 500);
+                            };
+
+                            notifyAndClose();
                         </script>
                     </div>
                 </body>
             </html>
         `);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error getting tokens:', error);
-        res.status(500).send('Authentication failed');
+        res.status(500).send(`
+            <div style="padding: 20px; font-family: sans-serif; text-align: center;">
+                <h2 style="color: #ef4444;">Authentication Failed</h2>
+                <p>Something went wrong while connecting to Google Drive.</p>
+                <pre style="text-align: left; background: #f1f5f9; padding: 15px; border-radius: 8px; font-size: 12px; overflow: auto;">${error.message || error}</pre>
+                <button onclick="window.close()" style="padding: 8px 16px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer;">Close Window</button>
+            </div>
+        `);
+    }
+});
+
+// Update Auth URL route as well
+app.get('/api/auth/google/url', (req, res) => {
+    try {
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+            throw new Error('Google Client ID or Secret is missing');
+        }
+        
+        const currentRedirectUri = getRedirectUri(req);
+        const localOauthClient = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            currentRedirectUri
+        );
+
+        const url = localOauthClient.generateAuthUrl({
+            access_type: 'offline',
+            scope: SCOPES,
+            prompt: 'consent'
+        });
+        res.json({ url });
+    } catch (error: any) {
+        console.error('Error generating auth URL:', error);
+        res.status(500).json({ error: error.message || 'Failed' });
     }
 });
 
@@ -160,7 +180,7 @@ app.get('/api/auth/google/token', async (req, res) => {
         const localAuthClient = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET,
-            getRedirectUri()
+            getRedirectUri(req)
         );
         localAuthClient.setCredentials(tokens);
         const { token } = await localAuthClient.getAccessToken();
@@ -223,7 +243,7 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
         const localAuthClient = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET,
-            getRedirectUri()
+            getRedirectUri(req)
         );
         localAuthClient.setCredentials(tokens);
         

@@ -292,7 +292,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                             title: `⚡ งานใหม่: ${task.title}`,
                             message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
                             related_id: task.id,
-                            link_path: isContent ? 'STOCK' : 'DASHBOARD',
+                            link_path: isContent ? 'ContentStock' : 'DASHBOARD',
                             is_read: false
                         }));
                         await supabase.from('notifications').insert(notifications);
@@ -352,7 +352,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                         title: `⚡ งานใหม่: ${task.title}`,
                         message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
                         related_id: task.id,
-                        link_path: isContent ? 'STOCK' : 'DASHBOARD',
+                        link_path: isContent ? 'ContentStock' : 'DASHBOARD',
                         is_read: false
                     }));
                     await supabase.from('notifications').insert(notifications);

@@ -48,7 +48,7 @@ const ShortcutManager: React.FC<ShortcutManagerProps> = ({
                         onNavigate('CHECKLIST');
                         break;
                     case 'KeyK':
-                        onNavigate('STOCK');
+                        onNavigate('ContentStock');
                         break;
 
                     // Admin & Management

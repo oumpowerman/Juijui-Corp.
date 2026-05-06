@@ -142,7 +142,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
 
     // --- Path Resolution Logic ---
     const activeHub = task.driveLabel ? storageConfigs.find(c => c.label === task.driveLabel) : null;
-    const resolvedPath = activeHub ? `${activeHub.currentLetter}${task.localPath}` : task.localPath;
+    const resolvedPath = activeHub ? `${activeHub.currentLetter}${task.localPath || ''}` : task.localPath;
     const displayPath = resolvedPath || 'Not set';
 
     return (
@@ -228,7 +228,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
             <div className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-10 scrollbar-hide">
                 
                 {/* --- HIGHLIGHT: STORAGE PATH (MOVED TO TOP) --- */}
-                {task.localPath && (
+                {(task.localPath || task.driveLabel) && (
                     <motion.section 
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}

@@ -114,22 +114,6 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         }, { replace: true });
     }, [setSearchParams]);
 
-    // --- CLEANUP EFFECT: Clear search params when leaving Script Hub ---
-    useEffect(() => {
-        return () => {
-            // Use window.location to check if we are actually navigating away from the view
-            // or just re-rendering. React Router's setSearchParams might not be ideal in cleanup 
-            // if the component is unmounting due to a route change.
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('q') || params.has('deep')) {
-                params.delete('q');
-                params.delete('deep');
-                const newUrl = `${window.location.pathname}?${params.toString()}`;
-                window.history.replaceState({}, '', newUrl);
-            }
-        };
-    }, []);
-
     // Pagination & Filters (Updated to Array)
     const [page, setPage] = useState(1);
     const pageSize = 20;
@@ -418,7 +402,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             onClose={() => { 
                                 if (originRef.current === 'SHOOT_QUEUE') {
                                     setActiveScript(null); 
-                                    navigate('?view=STOCK&tab=queue', { replace: true });
+                                    navigate('?view=ContentStock&stockMode=QUEUE', { replace: true });
                                     return;
                                 }
                                 setActiveScript(null); 

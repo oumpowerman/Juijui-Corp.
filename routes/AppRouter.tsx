@@ -1,7 +1,7 @@
 
 // Trigger re-process
 import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ViewMode, Task } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
@@ -70,12 +70,26 @@ interface AppRouterProps {
 const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Derive currentView from URL - Single Source of Truth
+  // Derived currentView from URL - Single Source of Truth
   const currentView = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return (params.get('view') as ViewMode) || 'DASHBOARD';
-  }, [location.search]);
+    return (searchParams.get('view') as ViewMode) || 'DASHBOARD';
+  }, [searchParams]);
+
+  // Sync URL with default view - Enhanced stability
+  useEffect(() => {
+    const view = searchParams.get('view');
+    // If we are at root and no view is set, set to DASHBOARD
+    if (!view && location.pathname === '/') {
+      setSearchParams(next => {
+        // Double check inside the update to handle race conditions in StrictMode
+        if (next.has('view')) return next;
+        next.set('view', 'DASHBOARD');
+        return next;
+      }, { replace: true });
+    }
+  }, [location.pathname, searchParams, setSearchParams]);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -87,10 +101,32 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
       await supabase.auth.signOut();
   };
 
-  // --- NAVIGATION HANDLER (Sync with URL) ---
+  // --- NAVIGATION HANDLER (Sync with URL - Preserving existing params) ---
   const handleNavigate = useCallback((view: ViewMode) => {
-      navigate(`?view=${view}`);
-  }, [navigate]);
+      setSearchParams(prev => {
+          const next = new URLSearchParams(prev);
+          
+          // 1. Set the new view
+          next.set('view', view);
+
+          // 2. Cleanup Logic: Remove view-specific params when leaving that view
+          
+          // If we move away from ContentStock, clear its sub-params
+          if (view !== 'ContentStock') {
+              next.delete('stockMode');
+              next.delete('stockTab');
+          }
+
+          // If we move away from SCRIPT_HUB, clear its sub-params (formerly handled manually in ScriptHubView cleanup)
+          if (view !== 'SCRIPT_HUB') {
+              next.delete('scriptId');
+              next.delete('q');
+              next.delete('deep');
+          }
+
+          return next;
+      }, { replace: true });
+  }, [setSearchParams]);
 
   // --- AUTH HOOK ---
   const { currentUserProfile, fetchProfile, updateProfile } = useAuth(user);
@@ -317,7 +353,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       onAddTask={handleSaveTask}
                   />
               );
-            case 'STOCK':
+            case 'ContentStock':
               return (
                 <ContentStock
                   tasks={tasks}
@@ -330,7 +366,13 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   onOpenSettings={() => setIsNotifSettingsOpen(true)}
                   onAddToWorkbox={(task) => addToWorkbox({ title: task.title, content_id: task.id, type: 'CONTENT' })}
                   onEditScript={(id) => {
-                      navigate(`?view=SCRIPT_HUB&scriptId=${id}`, { state: { from: 'SHOOT_QUEUE' } });
+                      // Consolidate into a single URL update to prevent flickering/race conditions
+                      setSearchParams(prev => {
+                          const next = new URLSearchParams(prev);
+                          next.set('view', 'SCRIPT_HUB');
+                          next.set('scriptId', id);
+                          return next;
+                      }, { replace: true });
                   }}
                 />
               );

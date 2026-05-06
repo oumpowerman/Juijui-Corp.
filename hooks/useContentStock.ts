@@ -83,6 +83,8 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         publishedLinks: data.published_links || {},
         shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
         shootLocation: data.shoot_location,
+        localPath: data.local_path,
+        driveLabel: data.drive_label,
         isInShootQueue: data.is_in_shoot_queue || false,
         
         reviews: Array.isArray(data.task_reviews) ? data.task_reviews.map((r: any) => ({

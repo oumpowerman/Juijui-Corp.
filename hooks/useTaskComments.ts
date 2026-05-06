@@ -105,7 +105,7 @@ export const useTaskComments = (taskId: string | undefined, taskType: TaskType =
                         title: `💬 คอมเมนต์ใหม่: ${title.substring(0, 20)}...`,
                         message: `${currentUser.name}: ${content.substring(0, 50)}...`,
                         related_id: taskId,
-                        link_path: 'STOCK', // Generic link
+                        link_path: taskType === 'CONTENT' ? 'ContentStock' : 'DASHBOARD', 
                         is_read: false
                 }));
                 await supabase.from('notifications').insert(notifications);

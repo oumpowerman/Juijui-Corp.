@@ -124,7 +124,7 @@ export const useQualityActions = () => {
                             ? `งาน "${task?.title}" ได้รับการอนุมัติแล้ว (+${finalXP} XP)`
                             : `งาน "${task?.title}" ผ่านแล้ว แต่ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง`,
                          related_id: taskId,
-                         link_path: 'STOCK',
+                         link_path: 'ContentStock',
                          is_read: false,
                          metadata: {
                              xp: finalXP,
@@ -168,7 +168,7 @@ export const useQualityActions = () => {
                          title: '🛠️ งานถูกส่งแก้',
                          message: `งาน "${task?.title}" ต้องแก้ไข: ${feedback}`,
                          related_id: taskId,
-                         link_path: 'STOCK',
+                         link_path: 'ContentStock',
                          is_read: false,
                          metadata: {
                              feedback: feedback,

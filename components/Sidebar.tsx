@@ -42,7 +42,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     items: [
       { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
       { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation },
-      { view: 'STOCK', label: 'คลังคลิป', icon: Film },
+      { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
       { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
     ]
   },

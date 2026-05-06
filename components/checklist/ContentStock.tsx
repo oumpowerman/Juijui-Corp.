@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Task, Channel, User, MasterOption } from '../../types';
 import { Loader2, Upload, Download, Plus, PackageSearch, Archive, History, Sparkles, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,41 +57,43 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [showStockOnly, setShowStockOnly] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-  const [viewTab, setViewTab] = useState<'LIST' | 'QUEUE'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('view') === 'queue' ? 'QUEUE' : 'LIST';
-    }
-    return 'LIST';
-  });
-  const [contentSubTab, setContentSubTab] = useState<'ACTIVE' | 'ARCHIVE'>(() => {
-    if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('tab') === 'archive' ? 'ARCHIVE' : 'ACTIVE';
-    }
-    return 'ACTIVE';
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewTab = (searchParams.get('stockMode') as 'LIST' | 'QUEUE') || 'LIST';
+  const contentSubTab = (searchParams.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
 
-  // Sync tab with URL
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    
-    // View Tab
-    if (viewTab === 'QUEUE') {
-      url.searchParams.set('view', 'queue');
-      url.searchParams.delete('tab');
-    } else {
-      url.searchParams.delete('view');
-      // Sub Tab
-      if (contentSubTab === 'ARCHIVE') {
-          url.searchParams.set('tab', 'archive');
+  const setViewTab = (tab: 'LIST' | 'QUEUE') => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      // Ensure view parameter is preserved
+      if (!next.has('view')) next.set('view', 'ContentStock');
+
+      if (tab === 'QUEUE') {
+        next.set('stockMode', 'QUEUE');
+        next.delete('stockTab');
       } else {
-          url.searchParams.delete('tab');
+        next.delete('stockMode');
       }
-    }
-    
-    window.history.replaceState({}, '', url.toString());
-  }, [viewTab, contentSubTab]);
+      return next;
+    }, { replace: true });
+  };
+
+  const setContentSubTab = (tab: 'ACTIVE' | 'ARCHIVE' | ((prev: 'ACTIVE' | 'ARCHIVE') => 'ACTIVE' | 'ARCHIVE')) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      // Ensure view parameter is preserved
+      if (!next.has('view')) next.set('view', 'ContentStock');
+
+      const currentTab = (next.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
+      const nextTab = typeof tab === 'function' ? tab(currentTab) : tab;
+      
+      if (nextTab === 'ARCHIVE') {
+        next.set('stockTab', 'ARCHIVE');
+      } else {
+        next.delete('stockTab');
+      }
+      return next;
+    }, { replace: true });
+  };
 
   // --- Sort States ---
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
@@ -241,7 +244,15 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                       {/* Tab Switcher */}
                       <div className="inline-flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner w-full sm:w-auto">
                           <button 
-                            onClick={() => { setViewTab('LIST'); setContentSubTab('ACTIVE'); }}
+                            onClick={() => {
+                              setSearchParams(prev => {
+                                const next = new URLSearchParams(prev);
+                                next.set('view', 'ContentStock'); // Ensure view is explicitly set/preserved
+                                next.delete('stockMode'); // Switch to LIST
+                                next.delete('stockTab');  // Default to ACTIVE
+                                return next;
+                              }, { replace: true });
+                            }}
                             className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'LIST' && contentSubTab === 'ACTIVE' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                           >
                             คลังคอนเทนต์

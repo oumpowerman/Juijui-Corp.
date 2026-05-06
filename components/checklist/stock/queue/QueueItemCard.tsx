@@ -84,7 +84,7 @@ const QueueItemCard: React.FC<QueueItemCardProps> = ({
                         {isContent ? (
                             <div className="px-2 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold border border-amber-100 flex items-center gap-1">
                                 <LayoutGrid className="w-3 h-3" />
-                                CONTENT STOCK
+                                CONTENT STOCK (CLIP)
                             </div>
                         ) : (
                             <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold border border-blue-100 flex items-center gap-1">

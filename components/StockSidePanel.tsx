@@ -91,8 +91,8 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
 
     // --- Helpers ---
     const handleDragStart = (e: React.DragEvent, taskId: string) => {
+        e.dataTransfer.setData('source', 'ContentStock'); 
         e.dataTransfer.setData('taskId', taskId);
-        e.dataTransfer.setData('source', 'STOCK'); 
         e.dataTransfer.effectAllowed = 'move';
         e.currentTarget.classList.add('opacity-50');
     };

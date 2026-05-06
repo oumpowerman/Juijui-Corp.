@@ -64,8 +64,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const setViewTab = (tab: 'LIST' | 'QUEUE') => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      // Ensure view parameter is preserved
-      if (!next.has('view')) next.set('view', 'ContentStock');
+      // HARD PRESERVE: Never allow view to be stripped in this view
+      next.set('view', 'ContentStock');
 
       if (tab === 'QUEUE') {
         next.set('stockMode', 'QUEUE');
@@ -80,8 +80,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const setContentSubTab = (tab: 'ACTIVE' | 'ARCHIVE' | ((prev: 'ACTIVE' | 'ARCHIVE') => 'ACTIVE' | 'ARCHIVE')) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      // Ensure view parameter is preserved
-      if (!next.has('view')) next.set('view', 'ContentStock');
+      // HARD PRESERVE: Never allow view to be stripped in this view
+      next.set('view', 'ContentStock');
 
       const currentTab = (next.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
       const nextTab = typeof tab === 'function' ? tab(currentTab) : tab;

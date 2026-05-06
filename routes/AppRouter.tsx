@@ -1,6 +1,6 @@
 
 // Trigger re-process
-import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ViewMode, Task } from '../types';
@@ -72,10 +72,28 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Derived currentView from URL - Single Source of Truth
+  // --- STABILITY GUARD: Memory for the last known valid view ---
+  const lastValidView = useRef<ViewMode>((searchParams.get('view') as ViewMode) || 'DASHBOARD');
+
+  // Derived currentView from URL - Single Source of Truth with Stability Fallback
   const currentView = useMemo(() => {
-    return (searchParams.get('view') as ViewMode) || 'DASHBOARD';
-  }, [searchParams]);
+    const v = searchParams.get('view') as ViewMode;
+    
+    if (v) {
+        lastValidView.current = v;
+        return v;
+    }
+
+    // RACE CONDITION PROTECTION:
+    // If we are at root ('/') and have OTHER query params, but 'view' is missing,
+    // it's almost certainly a race condition during setSearchParams inside a component.
+    // In this case, we fallback to the last valid view instead of jumping to DASHBOARD.
+    if (location.pathname === '/' && searchParams.toString().length > 0) {
+        return lastValidView.current;
+    }
+
+    return 'DASHBOARD';
+  }, [searchParams, location.pathname]);
 
   // Sync URL with default view - Enhanced stability
   useEffect(() => {
@@ -111,13 +129,14 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 
           // 2. Cleanup Logic: Remove view-specific params when leaving that view
           
-          // If we move away from ContentStock, clear its sub-params
+          // Special case: If navigating TO ContentStock, ensure its params are NOT cleared
+          // and if moving AWAY, then clear them.
           if (view !== 'ContentStock') {
               next.delete('stockMode');
               next.delete('stockTab');
           }
 
-          // If we move away from SCRIPT_HUB, clear its sub-params (formerly handled manually in ScriptHubView cleanup)
+          // If we move away from SCRIPT_HUB, clear its sub-params
           if (view !== 'SCRIPT_HUB') {
               next.delete('scriptId');
               next.delete('q');

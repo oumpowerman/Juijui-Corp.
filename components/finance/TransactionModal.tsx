@@ -58,7 +58,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [trips, setTrips] = useState<ShootTrip[]>([]);
 
-    const { uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { uploadFileToDrive, isReady: isDriveReady, isUploading, isAuthenticated: isDriveAuthenticated, login } = useGoogleDrive();
     
     // UX: Ref for Smart Focus
     const amountInputRef = useRef<HTMLInputElement>(null);
@@ -110,11 +110,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const isSalary = categoryKey === 'SALARY';
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
         const file = e.target.files?.[0];
         if (file) {
-            const currentMonth = format(new Date(), 'yyyy-MM');
+            const currentYear = format(new Date(), 'yyyy');
+            const currentMonth = format(new Date(), 'MM');
             try {
-                const res = await uploadFileToDrive(file, ['Finance_Receipts', currentMonth]);
+                const res = await uploadFileToDrive(file, ['Juijui_Assets', 'Finance', currentYear, currentMonth]);
                 setReceiptUrl(res.thumbnailUrl || res.url);
             } catch (error) {
                 console.error("Drive upload error:", error);
@@ -309,6 +314,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 setReceiptUrl={setReceiptUrl} 
                                 isUploading={isUploading} 
                                 isDriveReady={isDriveReady} 
+                                isDriveAuthenticated={isDriveAuthenticated}
                                 onFileChange={handleFileUpload} 
                             />
                         </div>

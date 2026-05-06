@@ -201,7 +201,11 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     }, [status, initialData?.id]);
 
     const activeUsers = users.filter(u => u.isActive);
-    const isOwnerOrAssignee = (currentUser && assigneeIds.includes(currentUser.id)) || isAdmin;
+    
+    // Fix: Permission should be based on INITIAL data to prevent self-unlocking
+    const initialAssignees = initialData?.assigneeIds || [];
+    const isOwnerOrAssignee = (currentUser && initialAssignees.includes(currentUser.id)) || isAdmin;
+    
     const isWaiting = status === 'WAITING';
     const isReadOnly = (!!initialData && !isOwnerOrAssignee) || (isWaiting && !isAdmin);
 
@@ -355,7 +359,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                         </div>
                     )}
 
-                    <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-90' : ''}`}>
+                    <fieldset disabled={isReadOnly} className={`space-y-6 ${isReadOnly ? 'opacity-95 pointer-events-none' : ''}`}>
                         
                         <GTAssigneeSelector 
                             assigneeType={assigneeType}
@@ -368,6 +372,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             toggleUserSelection={handleUserSelectWrapper} 
                             startDate={startDate}
                             endDate={endDate}
+                            isReadOnly={isReadOnly}
                         />
 
                         <GTHeaderInput 
@@ -458,6 +463,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                         isSaving={Boolean(isSaving)}
                         isSendingQC={isSendingQC}
                         canSendQC={isOwnerOrAssignee}
+                        isReadOnly={isReadOnly}
                         showSendQC={Boolean(initialData && !isTaskDone && status !== 'WAITING')}
                         showDelete={Boolean(initialData && onDelete && isAdmin)}
                     />

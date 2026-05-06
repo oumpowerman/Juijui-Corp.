@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Link as LinkIcon, Save, Type, HardDrive, UploadCloud, Loader2 } from 'lucide-react';
+import { X, Link as LinkIcon, Save, Type, HardDrive, UploadCloud, Loader2, RefreshCw } from 'lucide-react';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { format } from 'date-fns';
 
@@ -15,15 +15,27 @@ const AddLinkModal: React.FC<AddLinkModalProps> = ({ isOpen, onClose, onSave }) 
     const [url, setUrl] = useState('');
 
     const driveUploadInputRef = useRef<HTMLInputElement>(null);
-    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading, isAuthenticated: isDriveAuthenticated, login, logout, retry } = useGoogleDrive();
 
     if (!isOpen) return null;
 
     const handleDriveSelect = () => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
         openDrivePicker((file: any) => {
             onSave(file.name, file.url);
             onClose();
         });
+    };
+
+    const handleUploadClick = () => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
+        driveUploadInputRef.current?.click();
     };
 
     const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,31 +77,66 @@ const AddLinkModal: React.FC<AddLinkModalProps> = ({ isOpen, onClose, onSave }) 
                     <X className="w-5 h-5" />
                 </button>
                 
-                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-                    <span className="bg-indigo-100 p-2 rounded-xl mr-3 text-indigo-600"><LinkIcon className="w-5 h-5" /></span>
-                    แนบไฟล์ / ลิงก์
+                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center justify-between">
+                    <div className="flex items-center">
+                        <span className="bg-indigo-100 p-2 rounded-xl mr-3 text-indigo-600"><LinkIcon className="w-5 h-5" /></span>
+                        แนบไฟล์ / ลิงก์
+                    </div>
                 </h3>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Google Drive Quick Actions */}
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                        <button 
-                            type="button"
-                            onClick={handleDriveSelect}
-                            disabled={!isDriveReady}
-                            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveReady ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
-                        >
-                            <HardDrive className="w-3.5 h-3.5" /> เลือกจาก Drive
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => driveUploadInputRef.current?.click()}
-                            disabled={!isDriveReady || isUploading}
-                            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveReady ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
-                        >
-                            {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                            {isUploading ? 'กำลังอัป...' : 'อัปขึ้น Drive'}
-                        </button>
+                    {/* Google Drive Status & Quick Actions */}
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl mb-4">
+                        <div className="flex items-center justify-between mb-3 px-1">
+                            <div className="flex items-center gap-2">
+                                <HardDrive className={`w-3.5 h-3.5 ${isDriveAuthenticated ? 'text-emerald-500' : 'text-slate-400'}`} />
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDriveAuthenticated ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                    Cloud Storage {isDriveAuthenticated ? 'Online' : 'Offline'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    type="button"
+                                    onClick={retry}
+                                    className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-all"
+                                    title="Refresh connection"
+                                >
+                                    <RefreshCw className={`w-3 h-3 ${!isDriveReady && 'animate-spin'}`} />
+                                    {isDriveReady ? 'REFRESH' : 'INITIALIZING...'}
+                                </button>
+                                {isDriveAuthenticated && (
+                                    <button 
+                                        type="button"
+                                        onClick={logout}
+                                        className="text-[10px] font-bold text-red-500 hover:text-red-700 ml-1"
+                                        title="Disconnect"
+                                    >
+                                        LOGOUT
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                type="button"
+                                onClick={handleDriveSelect}
+                                disabled={!isDriveReady}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveAuthenticated ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' : 'bg-white text-slate-400 border-gray-100 hover:bg-gray-50'}`}
+                            >
+                                <HardDrive className="w-3.5 h-3.5 shadow-sm" /> 
+                                {isDriveAuthenticated ? 'เลือกจาก Drive' : 'เชื่อมต่อ Drive'}
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={handleUploadClick}
+                                disabled={!isDriveReady || isUploading}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-[12px] font-kanit font-bold uppercase tracking-wider transition-all border-b-4 ${isDriveAuthenticated ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-slate-400 border-gray-100 hover:bg-gray-50'}`}
+                            >
+                                {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5 shadow-sm" />}
+                                {isUploading ? 'กำลังอัป...' : isDriveAuthenticated ? 'อัปขึ้น Drive' : 'เชื่อมต่อเพื่ออัป'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="relative flex items-center gap-2 my-4">

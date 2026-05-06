@@ -204,7 +204,9 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                 if (isDriveReady) {
                     try {
                         showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
-                        const driveResult = await uploadFileToDrive(file, ['Attendance_Proofs', currentUser.name || 'Unknown']);
+                        const currentYear = format(new Date(), 'yyyy');
+                        const currentMonth = format(new Date(), 'MM');
+                        const driveResult = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
                         attachmentUrl = driveResult.thumbnailUrl || driveResult.url;
                         driveSuccess = true;
                     } catch (driveErr: any) {

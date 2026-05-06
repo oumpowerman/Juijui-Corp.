@@ -4,9 +4,13 @@ import { HardDrive, Plus, Edit2, Trash2, Database, Info, Save, X, ExternalLink }
 import { useStorage } from '../../../../context/StorageContext';
 import { StorageConfig } from '../../../../types/task';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 const StorageHubMasterView: React.FC = () => {
     const { storageConfigs, isLoading, saveConfig, deleteConfig } = useStorage();
+    const { showConfirm } = useGlobalDialog();
     const [isAdding, setIsAdding] = useState(false);
     const [editingItem, setEditingItem] = useState<StorageConfig | null>(null);
     const [formData, setFormData] = useState<Partial<StorageConfig>>({
@@ -171,7 +175,15 @@ const StorageHubMasterView: React.FC = () => {
                                     <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button 
-                                    onClick={() => { if(window.confirm('ยืนยันการลบ Hub นี้?')) deleteConfig(config.id!) }}
+                                    onClick={async () => { 
+                                        const confirm = await showConfirm(
+                                            'ยืนยันการลบ Hub นี้? การกระทำนี้ไม่สามารถย้อนกลับได้', 
+                                            'ลบ Storage Hub'
+                                        );
+                                        if (confirm) {
+                                            deleteConfig(config.id!);
+                                        }
+                                    }}
                                     className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -185,14 +197,21 @@ const StorageHubMasterView: React.FC = () => {
                                 <p className="text-xs text-slate-400 mt-1 line-clamp-2">{config.description || 'No description provided'}</p>
                             </div>
 
-                            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Mapping</span>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 group-hover:bg-white transition-colors duration-500">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Current Mapping
+                                    </span>
+                                    {config.updatedAt && (
+                                        <span className="text-[9px] font-bold text-slate-300 uppercase">
+                                            Updated {format(new Date(config.updatedAt), 'd MMM HH:mm', { locale: th })}
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-2 text-indigo-600 font-mono font-bold text-sm">
-                                    <ExternalLink className="w-3 h-3" />
-                                    {config.currentLetter}
+                                <div className="flex items-center gap-2 text-indigo-600 font-mono font-bold text-sm bg-white/50 p-2 rounded-xl border border-slate-50">
+                                    <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-40" />
+                                    <span className="truncate">{config.currentLetter}</span>
                                 </div>
                             </div>
                         </div>

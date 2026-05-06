@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { X, Settings, Save, ArchiveRestore, Users, Sparkles, AlertTriangle, Calendar } from 'lucide-react';
+import { X, Settings, Save, ArchiveRestore, Users, Sparkles, AlertTriangle, Calendar, HardDrive, RefreshCw, LogOut } from 'lucide-react';
 import { DutyConfig } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 
 interface ConfigModalProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
     isOpen, onClose, configs, onUpdateConfig, onUpdateTitle, onSave, onCleanup 
 }) => {
     const { showConfirm } = useGlobalDialog();
+    const { isAuthenticated, isReady, login, logout, retry } = useGoogleDrive();
     const [activeDay, setActiveDay] = useState(1); // Default to Monday
 
     if (!isOpen) return null;
@@ -109,6 +111,52 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
 
                     {/* RIGHT: Config Area */}
                     <div className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col">
+                        
+                        {/* Google Drive Status & Reconnect */}
+                        <div className="mb-8 p-6 bg-white border border-gray-100 rounded-[2rem] shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-xl border ${isAuthenticated ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+                                        <HardDrive className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-gray-800">การเชื่อมต่อ Google Drive</h4>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                {isAuthenticated ? 'Connected (Cloud Backup Active)' : 'Disconnected (Using Local Fallback)'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    {isAuthenticated ? (
+                                        <button 
+                                            onClick={logout}
+                                            className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-red-100"
+                                            title="Logout"
+                                        >
+                                            <LogOut className="w-5 h-5" />
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={login}
+                                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
+                                        >
+                                            Connect Now
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={retry}
+                                        className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-indigo-100"
+                                        title="Reload API"
+                                    >
+                                        <RefreshCw className={`w-5 h-5 ${!isReady && 'animate-spin'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="mb-6 flex items-center gap-3">
                             <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${WEEK_DAYS_MAP[activeDay-1].color}`}>
                                 {WEEK_DAYS_MAP[activeDay-1].label}

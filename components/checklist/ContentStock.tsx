@@ -15,8 +15,10 @@ import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 
 // Sub-Components
 import StockFilterBar from './stock/StockFilterBar';
+import StockQuickFilters from './stock/StockQuickFilters';
 import StockTable from './stock/StockTable';
 import StockInventoryModal from './stock/inventory/StockInventoryModal';
+import StockUtilities from './stock/StockUtilities';
 import StockCountBadge from './stock/StockCountBadge';
 import StockShootQueue from './stock/StockShootQueue';
 
@@ -223,7 +225,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
   return (
     <AppBackground theme={bgTheme} pattern="icons" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
-      <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
+      <div className="relative z-10 space-y-4 animate-in fade-in duration-500 pb-20">
         <MentorTip variant="purple" messages={[
             "มุมมอง List แบบละเอียด ช่วยให้เช็คสถานะงานได้ครบถ้วน", 
             "ใช้ตัวกรอง Status เลือกดูเฉพาะขั้นตอนที่สนใจได้ เช่น ดูเฉพาะ 'Script' และ 'Shooting'", 
@@ -232,7 +234,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
         <div className="flex flex-col gap-4">
           {/* Header */}
-          <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl py-6 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
+          <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
               <div className="flex-1 w-full xl:w-auto min-w-0">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
                       <h1 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center tracking-tight shrink-0">
@@ -296,77 +298,17 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
 
               {/* Action Side */}
               <div className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
-                  {/* Archive Toggle - New Aesthetic Button */}
+                  {/* Utilities (Inventory, Import, Template) */}
                   {viewTab === 'LIST' && (
-                    <button
-                        onClick={() => setContentSubTab(prev => prev === 'ACTIVE' ? 'ARCHIVE' : 'ACTIVE')}
-                        className={`
-                            relative overflow-hidden flex items-center gap-2.5 px-5 py-3.5 rounded-[1.25rem]
-                            transition-all duration-500 group active:scale-95 border
-                            ${contentSubTab === 'ARCHIVE' 
-                                ? 'bg-slate-900 border-slate-800 text-white shadow-xl shadow-slate-200 ring-2 ring-slate-900 ring-offset-2' 
-                                : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-lg hover:shadow-indigo-500/10'}
-                        `}
-                    >
-                        <AnimatePresence mode="wait">
-                            <motion.div
-                                key={contentSubTab}
-                                initial={{ y: 20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: -20, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                {contentSubTab === 'ARCHIVE' ? <History className="w-5 h-5" /> : <Archive className="w-5 h-5" />}
-                            </motion.div>
-                        </AnimatePresence>
-                        <span className="font-black text-sm tracking-tight">
-                            {contentSubTab === 'ARCHIVE' ? 'ย้อนกลับ' : 'คลัง Archive'}
-                        </span>
-                        
-                        {/* Subtle scan line effect when active */}
-                        {contentSubTab === 'ARCHIVE' && (
-                            <motion.div 
-                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent w-1/2 -skew-x-12"
-                                animate={{ x: ['-100%', '200%'] }}
-                                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                            />
-                        )}
-                    </button>
-                  )}
-
-                  {/* Scrollable Utilities (Inventory, Import, Template) */}
-                  {viewTab === 'LIST' && (
-                    <div className="overflow-x-auto scrollbar-hide flex-1 xl:flex-none">
-                        <div className="flex items-center gap-3 min-w-max pr-2">
-                            {/* Inventory Analysis Button */}
-                            <button
-                                onClick={() => setIsInventoryModalOpen(true)}
-                                className="p-3.5 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all shadow-sm group active:scale-95"
-                                title="วิเคราะห์คลังคอนเทนต์"
-                            >
-                                <PackageSearch className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                            </button>
-
-                            {/* Import Buttons */}
-                            <div className="flex items-center gap-1.5 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
-                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isImporting}
-                                    className="px-4 py-2 text-xs font-black text-slate-600 hover:text-indigo-600 hover:bg-white rounded-xl flex items-center transition-all disabled:opacity-50 active:scale-95"
-                                >
-                                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />} Import
-                                </button>
-                                <div className="w-[1.5px] h-5 bg-slate-200 mx-1"></div>
-                                <button
-                                    onClick={handleDownloadTemplate}
-                                    className="px-4 py-2 text-xs font-black text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl flex items-center transition-all active:scale-95"
-                                >
-                                    <Download className="w-4 h-4 mr-2" /> Template
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <>
+                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                        <StockUtilities 
+                            onOpenInventory={() => setIsInventoryModalOpen(true)}
+                            onImportClick={() => fileInputRef.current?.click()}
+                            onDownloadTemplate={handleDownloadTemplate}
+                            isImporting={isImporting}
+                        />
+                    </>
                   )}
 
                   {/* Fixed Critical Actions (Add & Notification) */}
@@ -406,21 +348,22 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 1.01 }}
                         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                        className="space-y-6"
+                        className="space-y-3"
                     >
-                        {/* Mode Indicator */}
-                        <div className="h-6 flex items-center">
-                            {contentSubTab === 'ARCHIVE' && (
-                                <motion.div 
-                                    initial={{ x: -20, opacity: 0 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                    className="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800"
-                                >
-                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none">Archive Active</span>
-                                </motion.div>
-                            )}
-                        </div>
+                        {/* Quick Filters */}
+                        <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.05 }}
+                        >
+                            <StockQuickFilters 
+                                masterOptions={masterOptions}
+                                currentStatuses={filterStatuses}
+                                setStatuses={setFilterStatuses}
+                                currentTab={contentSubTab}
+                                setTab={setContentSubTab}
+                            />
+                        </motion.div>
 
                         {/* Filter Bar */}
                         <motion.div 

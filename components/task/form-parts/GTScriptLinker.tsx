@@ -204,7 +204,7 @@ const GTScriptLinker: React.FC<GTScriptLinkerProps> = ({
         <div className="bg-gradient-to-br from-rose-50/50 to-white rounded-[1.5rem] p-1 border-2 border-rose-100 shadow-sm">
             <div className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                     <div className="flex items-center gap-2 text-rose-800 font-black text-xs uppercase tracking-widest">
+                     <div className="flex items-center gap-2 text-rose-800 font-bold text-xs uppercase tracking-widest">
                          <div className="p-1.5 bg-rose-100 rounded-lg"><FileText className="w-3.5 h-3.5 text-rose-600" /></div>
                          Script Attachment
                      </div>
@@ -256,7 +256,7 @@ const GTScriptLinker: React.FC<GTScriptLinkerProps> = ({
                             className="flex flex-col items-center justify-center gap-2 py-4 bg-white border-2 border-dashed border-rose-200 text-rose-400 rounded-2xl hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50/50 transition-all active:scale-95 group"
                         >
                             <Link className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
-                            <span className="text-xs font-bold">เลือกที่มีอยู่</span>
+                            <span className="text-xs font-medium">เลือกที่มีอยู่</span>
                         </button>
                         <button 
                             type="button"
@@ -264,7 +264,7 @@ const GTScriptLinker: React.FC<GTScriptLinkerProps> = ({
                             className="flex flex-col items-center justify-center gap-2 py-4 bg-gradient-to-br from-rose-500 to-pink-500 text-white rounded-2xl shadow-lg shadow-rose-200 hover:shadow-rose-300 hover:-translate-y-0.5 transition-all active:scale-95 group"
                         >
                             <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" /> 
-                            <span className="text-xs font-bold">สร้างใหม่</span>
+                            <span className="text-xs font-medium">สร้างใหม่</span>
                         </button>
                     </div>
                 )}

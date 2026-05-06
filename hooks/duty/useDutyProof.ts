@@ -40,8 +40,9 @@ export const useDutyProof = (
             if (isDriveReady) {
                 // ... (upload logic) ...
                 try {
-                    const currentMonthFolder = format(new Date(), 'yyyy-MM');
-                    const result = await uploadFileToDrive(file, ['Duty', currentMonthFolder]);
+                    const currentYear = format(new Date(), 'yyyy');
+                    const currentMonth = format(new Date(), 'MM');
+                    const result = await uploadFileToDrive(file, ['Juijui_Assets', 'Duty', currentYear, currentMonth]);
                     imageUrl = result.thumbnailUrl || result.url;
                     
                     if (imageUrl) {

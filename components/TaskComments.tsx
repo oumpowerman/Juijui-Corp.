@@ -15,7 +15,7 @@ interface TaskCommentsProps {
 const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUser }) => {
     // Pass taskType to the hook
     const { comments, isLoading, sendComment } = useTaskComments(taskId, taskType, currentUser);
-    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
+    const { uploadFileToDrive, isReady: isDriveReady, isAuthenticated: isDriveAuthenticated, login } = useGoogleDrive();
     
     const [input, setInput] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -46,12 +46,17 @@ const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, taskType, currentUs
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
         const file = e.target.files?.[0];
         if (file) {
             setIsUploading(true);
-            const currentMonth = format(new Date(), 'yyyy-MM');
+            const currentYear = format(new Date(), 'yyyy');
+            const currentMonth = format(new Date(), 'MM');
             try {
-                const result = await uploadFileToDrive(file, ['Task_Comments', currentMonth]);
+                const result = await uploadFileToDrive(file, ['Juijui_Assets', 'Task_Comments', currentYear, currentMonth]);
                 const fileUrl = result.thumbnailUrl || result.url;
                 sendComment(fileUrl); // Send URL as message
             } catch (error) {

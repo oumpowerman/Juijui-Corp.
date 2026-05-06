@@ -15,6 +15,7 @@ interface GoogleDriveContextType {
     isAuthenticated: boolean;
     accessToken: string | null;
     login: () => void;
+    logout: () => void;
     retry: () => void;
     uploadFileToDrive: (file: File, folderPath?: string[]) => Promise<any>;
     openDrivePicker: (onSelect: (file: any) => void) => void;
@@ -135,6 +136,16 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setIsReady(false);
         setTokenClient(null);
         initGoogleScripts();
+    };
+
+    const logout = async () => {
+        setAccessToken(null);
+        try {
+            await fetch('/api/auth/google/logout', { method: 'POST' });
+        } catch (e) {
+            console.error("Logout failed", e);
+        }
+        showToast('ตัดการเชื่อมต่อ Google Drive แล้ว', 'info');
     };
 
     const handleTokenCallback = (response: any) => {
@@ -276,6 +287,12 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 const errorMessage = googleError.message || 'Upload failed';
                 const errorReason = googleError.errors?.[0]?.reason || 'unknown';
                 
+                // --- SESSION INTEGRITY: If unauthorized, clear token ---
+                if (response.status === 401 || errorReason === 'authError' || errorReason === 'invalid_grant') {
+                    setAccessToken(null);
+                    showToast('การเชื่อมต่อ Google Drive หมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
+                }
+
                 const richError = new Error(errorMessage);
                 (richError as any).reason = errorReason;
                 (richError as any).details = googleError;
@@ -351,7 +368,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     return (
-        <GoogleDriveContext.Provider value={{ isReady, isUploading, isAuthenticated: !!accessToken, accessToken, login, retry, uploadFileToDrive, openDrivePicker }}>
+        <GoogleDriveContext.Provider value={{ isReady, isUploading, isAuthenticated: !!accessToken, accessToken, login, logout, retry, uploadFileToDrive, openDrivePicker }}>
             {children}
         </GoogleDriveContext.Provider>
     );

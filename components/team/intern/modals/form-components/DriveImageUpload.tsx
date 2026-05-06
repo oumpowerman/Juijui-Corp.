@@ -13,7 +13,7 @@ interface DriveImageUploadProps {
 }
 
 const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, onStatusChange }) => {
-    const { uploadFileToDrive, isUploading: isDriveUploading, login, retry } = useGoogleDriveContext();
+    const { uploadFileToDrive, isUploading: isDriveUploading, login, logout, retry } = useGoogleDriveContext();
     const [localPreview, setLocalPreview] = useState<string | null>(null);
     const [isCropping, setIsCropping] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -102,11 +102,12 @@ const DriveImageUpload: React.FC<DriveImageUploadProps> = ({ value, onChange, on
         }
     };
 
-    const handleReset = () => {
+    const handleReset = async () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         setUploadStatus('IDLE');
         setUploadProgress(0);
-        login(); // Trigger login to refresh account selection
+        await logout(); // Clear current session first
+        login(); // Then trigger login to refresh account selection
     };
 
     const handleRemove = () => {

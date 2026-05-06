@@ -16,12 +16,13 @@ interface GTAssigneeSelectorProps {
     toggleUserSelection: (userId: string) => void;
     startDate: string;
     endDate: string;
+    isReadOnly?: boolean;
 }
 
 const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
     assigneeType, setAssigneeType, assigneeIds, setAssigneeIds,
     targetPosition, setTargetPosition, activeUsers, toggleUserSelection,
-    startDate, endDate
+    startDate, endDate, isReadOnly = false
 }) => {
     
     // Helper to check user availability
@@ -43,18 +44,19 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
     };
 
     return (
-        <div className="bg-white p-5 rounded-[2rem] border-2 border-indigo-50 shadow-lg relative overflow-hidden group hover:border-indigo-100 transition-all duration-500">
+        <div className={`bg-white p-5 rounded-[2rem] border-2 border-indigo-50 shadow-lg relative overflow-hidden group hover:border-indigo-100 transition-all duration-500 ${isReadOnly ? 'bg-slate-50/50 grayscale-[0.2]' : ''}`}>
             <label className="block text-xl font-bold text-indigo-900 mb-6 flex items-center tracking-tight relative z-10">
                 <span className="text-3xl mr-2 animate-bounce shadow-sm rounded-full bg-yellow-100 p-1">⚡️</span> 
                 ใครรับจบงานนี้? <span className="text-sm font-normal text-indigo-400 ml-2">(Assignee)</span>
             </label>
 
             {/* Toggles */}
-            <div className="flex gap-4 mb-6 relative z-10">
+            <div className={`flex gap-4 mb-6 relative z-10 ${isReadOnly ? 'opacity-80' : ''}`}>
                     <button
                     type="button"
-                    onClick={() => { setAssigneeType('INDIVIDUAL'); setAssigneeIds([]); setTargetPosition(''); }}
-                    className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/30'}`}
+                    onClick={() => { if(!isReadOnly) { setAssigneeType('INDIVIDUAL'); setAssigneeIds([]); setTargetPosition(''); } }}
+                    disabled={isReadOnly}
+                    className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-50 border-indigo-400 text-indigo-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/30'} ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                 >
                     <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'INDIVIDUAL' ? 'bg-indigo-200 text-indigo-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
                         <Users className="w-6 h-6" />
@@ -64,8 +66,9 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                 
                 <button
                     type="button"
-                    onClick={() => { setAssigneeType('TEAM'); setAssigneeIds([]); setTargetPosition(''); }}
-                    className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'TEAM' ? 'bg-emerald-50 border-emerald-400 text-emerald-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-emerald-200 hover:text-emerald-500 hover:bg-emerald-50/30'}`}
+                    onClick={() => { if(!isReadOnly) { setAssigneeType('TEAM'); setAssigneeIds([]); setTargetPosition(''); } }}
+                    disabled={isReadOnly}
+                    className={`flex-1 flex flex-col items-center justify-center py-4 px-2 rounded-2xl transition-all duration-300 border-2 ${assigneeType === 'TEAM' ? 'bg-emerald-50 border-emerald-400 text-emerald-700 shadow-md -translate-y-1' : 'bg-white border-gray-100 text-gray-400 hover:border-emerald-200 hover:text-emerald-500 hover:bg-emerald-50/30'} ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                 >
                     <div className={`p-3 rounded-full mb-2 transition-transform duration-300 ${assigneeType === 'TEAM' ? 'bg-emerald-200 text-emerald-700 scale-110' : 'bg-gray-100 text-gray-400'}`}>
                         <Users className="w-6 h-6" />
@@ -75,7 +78,7 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
             </div>
 
             {/* User Grid */}
-            <div className="flex flex-wrap gap-4 justify-center sm:justify-start relative z-10 min-h-[80px]">
+            <div className={`flex flex-wrap gap-4 justify-center sm:justify-start relative z-10 min-h-[80px] ${isReadOnly ? 'opacity-90' : ''}`}>
                 {activeUsers.map((user) => {
                     const isSelected = assigneeIds.includes(user.id);
                     const isUnavailable = isUserUnavailable(user);
@@ -83,8 +86,8 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                         <div 
                             key={user.id} 
                             role="button"
-                            onClick={() => toggleUserSelection(user.id)} 
-                            className={`relative flex flex-col items-center gap-2 p-2 transition-all cursor-pointer duration-300 group/u ${isSelected ? 'scale-110' : 'hover:scale-105 opacity-80 hover:opacity-100'}`}
+                            onClick={() => !isReadOnly && toggleUserSelection(user.id)} 
+                            className={`relative flex flex-col items-center gap-2 p-2 transition-all duration-300 group/u ${isSelected ? 'scale-110' : 'hover:scale-105 opacity-80 hover:opacity-100'} ${isReadOnly ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                             <div className="relative">
                                 <div className={`w-14 h-14 rounded-full p-1 transition-colors duration-300 ${isSelected ? (assigneeType === 'TEAM' ? 'bg-emerald-400' : 'bg-indigo-400') : 'bg-transparent'}`}>
@@ -118,9 +121,10 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
                         <label className="block text-xs font-bold text-indigo-400 mb-1 uppercase">Role in this mission</label>
                         <input 
                             type="text" 
+                            disabled={isReadOnly}
                             value={targetPosition} 
                             onChange={e => setTargetPosition(e.target.value)} 
-                            className="w-full bg-transparent text-base font-black text-indigo-800 placeholder:text-indigo-300 outline-none" 
+                            className={`w-full bg-transparent text-base font-black text-indigo-800 placeholder:text-indigo-300 outline-none ${isReadOnly ? 'cursor-not-allowed' : ''}`} 
                             placeholder="รับบทเป็นตำแหน่งอะไร? (เช่น PM)..." 
                         />
                     </div>

@@ -61,6 +61,16 @@ export const useStockSync = (
                     globalMatch.pillar !== localTask.pillar ||
                     globalMatch.category !== localTask.category ||
                     globalMatch.isUnscheduled !== localTask.isUnscheduled ||
+                    globalMatch.localPath !== localTask.localPath ||
+                    globalMatch.driveLabel !== localTask.driveLabel ||
+                    globalMatch.shootLocation !== localTask.shootLocation ||
+                    globalMatch.isInShootQueue !== localTask.isInShootQueue ||
+                    globalMatch.isSoftFinished !== localTask.isSoftFinished ||
+                    globalMatch.difficulty !== localTask.difficulty ||
+                    globalMatch.estimatedHours !== localTask.estimatedHours ||
+                    globalMatch.caution !== localTask.caution ||
+                    globalMatch.importance !== localTask.importance ||
+                    JSON.stringify(globalMatch.publishedLinks) !== JSON.stringify(localTask.publishedLinks) ||
                     dateDiff(globalMatch.endDate, localTask.endDate) ||
                     dateDiff(globalMatch.shootDate, localTask.shootDate) ||
                     arraysDiff(globalMatch.contentFormats, localTask.contentFormats) ||

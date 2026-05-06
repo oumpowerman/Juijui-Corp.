@@ -395,13 +395,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onBack }) => {
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ชื่อเล่น *</label>
                                 <div className="relative group">
-                                    <motion.div
-                                        animate={{ rotate: [0, -10, 10, -10, 0] }}
-                                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none"
-                                    >
-                                        <User className="w-5 h-5 text-slate-400 group-focus-within:text-pink-500 transition-colors" />
-                                    </motion.div>
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                                        <motion.div
+                                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                                        >
+                                            <User className="w-5 h-5 text-slate-400 group-focus-within:text-pink-500 transition-colors" />
+                                        </motion.div>
+                                    </div>
                                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm" placeholder="ชื่อเล่น" required={!isLogin} />
                                 </div>
                             </div>
@@ -457,13 +458,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onBack }) => {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมล *</label>
                         <div className="relative group">
-                            <motion.div
-                                animate={{ y: [0, -2, 0] }}
-                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none"
-                            >
-                                <Mail className={`w-5 h-5 text-slate-400 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
-                            </motion.div>
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                                <motion.div
+                                    animate={{ y: [0, -2, 0] }}
+                                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                >
+                                    <Mail className={`w-5 h-5 text-slate-400 transition-colors ${isLogin ? 'group-focus-within:text-indigo-500' : 'group-focus-within:text-pink-500'}`} />
+                                </motion.div>
+                            </div>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white rounded-xl outline-none transition-all font-bold text-slate-700 ${isLogin ? 'focus:border-indigo-400' : 'focus:border-pink-400'}`} placeholder="email@example.com" required />
                         </div>
                     </div>

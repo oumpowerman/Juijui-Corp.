@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Paperclip, ExternalLink, Download, Trash2, File, HardDrive, Plus, UploadCloud, Loader2 } from 'lucide-react';
+import { Paperclip, ExternalLink, Download, Trash2, File, HardDrive, Plus, UploadCloud, Loader2, RefreshCw } from 'lucide-react';
 import { TaskAsset, AssetCategory } from '../../types';
 import { ASSET_CATEGORIES } from '../../constants';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
@@ -23,7 +23,7 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
     const driveUploadInputRef = useRef<HTMLInputElement>(null);
     
     // Google Drive Hook
-    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading, isAuthenticated: isDriveAuthenticated, login, retry } = useGoogleDrive();
 
     const handleAddLink = () => {
         if (!name.trim() || !url.trim()) return;
@@ -45,6 +45,10 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
     };
 
     const handleDriveSelect = () => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
         openDrivePicker((file) => {
             const newAsset: TaskAsset = {
                 id: crypto.randomUUID(),
@@ -58,6 +62,14 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         });
     };
 
+    const handleUploadClick = () => {
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
+        driveUploadInputRef.current?.click();
+    };
+
     const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -65,9 +77,11 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
         const currentMonthFolder = format(new Date(), 'yyyy-MM');
 
         try {
+            const currentYear = format(new Date(), 'yyyy');
+            const currentMonth = format(new Date(), 'MM');
             const result = await uploadFileToDrive(
                 file,
-                ['Work', currentMonthFolder] // Juijui_Uploads / Work / yyyy-MM
+                ['Juijui_Assets', 'Work', currentYear, currentMonth] 
             );
 
             const newAsset: TaskAsset = {
@@ -99,28 +113,46 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
     return (
         <div className="space-y-6">
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-                <button 
-                    type="button"
-                    onClick={() => setIsFormOpen(true)}
-                    className="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
-                >
-                    <Paperclip className="w-4 h-4" /> แปะลิงก์
-                </button>
-                
-                <button 
-                    type="button"
-                    onClick={handleDriveSelect}
-                    disabled={!isDriveReady}
-                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 border ${
-                        isDriveReady 
-                        ? 'bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600' 
-                        : 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                    title={isDriveReady ? "เลือกไฟล์จาก Google Drive" : "กำลังโหลด Google API..."}
-                >
-                    <HardDrive className="w-4 h-4" /> เลือกจาก Drive
-                </button>
+            <div className="space-y-2">
+                <div className="flex items-center justify-between px-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">การจัดการไฟล์</span>
+                    <div className="flex items-center gap-2">
+                         <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black transition-all ${isDriveAuthenticated ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
+                            <HardDrive className={`w-2.5 h-2.5 ${isDriveAuthenticated && isUploading ? 'animate-spin' : ''}`} />
+                            {isDriveAuthenticated ? 'DRIVE ONLINE' : 'DRIVE OFFLINE'}
+                        </div>
+                        <button 
+                            onClick={retry}
+                            className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                            title="รีเฟรชการเชื่อมต่อ"
+                        >
+                            <RefreshCw className={`w-3 h-3 ${!isDriveReady && 'animate-spin'}`} />
+                        </button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        type="button"
+                        onClick={() => setIsFormOpen(true)}
+                        className="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
+                    >
+                        <Paperclip className="w-4 h-4" /> แปะลิงก์
+                    </button>
+                    
+                    <button 
+                        type="button"
+                        onClick={handleDriveSelect}
+                        disabled={!isDriveReady}
+                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 border ${
+                            isDriveReady 
+                            ? 'bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600' 
+                            : 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title={isDriveReady ? "เลือกไฟล์จาก Google Drive" : "กำลังโหลด Google API..."}
+                    >
+                        <HardDrive className="w-4 h-4" /> เลือกจาก Drive
+                    </button>
+                </div>
             </div>
 
             {/* Manual Link Form */}
@@ -150,12 +182,12 @@ const TaskAssets: React.FC<TaskAssetsProps> = ({ assets, onAdd, onDelete }) => {
                                 onChange={handleDriveUpload} 
                             />
                             <button 
-                                onClick={() => driveUploadInputRef.current?.click()}
+                                onClick={handleUploadClick}
                                 disabled={!isDriveReady || isUploading}
                                 className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
                             >
-                                {isUploading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                                {isUploading ? 'กำลังอัป...' : 'เลือกไฟล์'}
+                                {isUploading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : (isDriveAuthenticated ? <Plus className="w-3 h-3 mr-1" /> : null)}
+                                {isUploading ? 'กำลังอัป...' : (isDriveAuthenticated ? 'เลือกไฟล์' : 'เชื่อมต่อ')}
                             </button>
                         </div>
 

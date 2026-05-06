@@ -267,10 +267,13 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                             {activeHub ? 'Resolved via Storage Hub' : 'Manual Storage Path'}
                                         </p>
                                     </div>
-                                    <div className={`p-4 rounded-xl shadow-inner transition-colors border group-hover:bg-white flex items-center gap-3 ${activeHub ? 'bg-white/60 border-emerald-50/50' : 'bg-white border-slate-100'}`}>
+                                    <div className={`p-4 rounded-xl shadow-inner transition-colors border group-hover:bg-white flex items-center justify-between gap-3 ${activeHub ? 'bg-white/60 border-emerald-50/50' : 'bg-white border-slate-100'}`}>
                                         <code className="text-sm font-mono font-bold text-slate-700 break-all">
                                             {displayPath}
                                         </code>
+                                        <div className={`shrink-0 transition-all text-emerald-500 scale-110 opacity-0 group-hover:opacity-100`}>
+                                           <Copy className="w-4 h-4" />
+                                        </div>
                                     </div>
                                     {activeHub && (
                                         <p className="text-[9px] text-emerald-500/70 mt-2 font-medium px-1">

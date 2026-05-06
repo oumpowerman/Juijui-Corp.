@@ -7,10 +7,11 @@ interface Props {
     setReceiptUrl: (url: string) => void;
     isUploading: boolean;
     isDriveReady: boolean;
+    isDriveAuthenticated?: boolean;
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const ReceiptUploader: React.FC<Props> = ({ receiptUrl, setReceiptUrl, isUploading, isDriveReady, onFileChange }) => {
+const ReceiptUploader: React.FC<Props> = ({ receiptUrl, setReceiptUrl, isUploading, isDriveReady, isDriveAuthenticated, onFileChange }) => {
     return (
         <div className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center transition-all ${receiptUrl ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-white'}`}>
             {receiptUrl ? (
@@ -30,9 +31,15 @@ const ReceiptUploader: React.FC<Props> = ({ receiptUrl, setReceiptUrl, isUploadi
                         <div className="text-indigo-400 text-xs font-bold flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> กำลังอัปโหลด...</div>
                     ) : (
                         <>
-                            <Upload className="w-8 h-8 text-gray-300 mb-2" />
+                            <Upload className={`w-8 h-8 ${!isDriveReady ? 'text-gray-300' : isDriveAuthenticated ? 'text-indigo-400' : 'text-amber-400'} mb-2`} />
                             <p className="text-xs font-bold text-gray-500">คลิกเพื่อแนบใบเสร็จ / สลิป</p>
-                            {!isDriveReady && <p className="text-[9px] text-orange-400 mt-1">Google Drive not ready</p>}
+                            {!isDriveReady ? (
+                                <p className="text-[9px] text-gray-400 mt-1 uppercase font-black">Drive Loading...</p>
+                            ) : !isDriveAuthenticated ? (
+                                <p className="text-[9px] text-amber-500 mt-1 uppercase font-black">Drive Offline - Tap to Connect</p>
+                            ) : (
+                                <p className="text-[9px] text-emerald-500 mt-1 uppercase font-black">Drive Online</p>
+                            )}
                         </>
                     )}
                     <input type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={!isDriveReady || isUploading} />

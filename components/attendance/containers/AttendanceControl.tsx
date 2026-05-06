@@ -57,8 +57,9 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
 
         if (isDriveReady) {
             try {
-                const currentMonthFolder = format(new Date(), 'yyyy-MM');
-                const result = await uploadFileToDrive(file, ['Attendance', currentMonthFolder]);
+                const currentYear = format(new Date(), 'yyyy');
+                const currentMonth = format(new Date(), 'MM');
+                const result = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', currentYear, currentMonth]);
                 proofUrl = result.thumbnailUrl || result.url;
             } catch (err: any) {
                 console.error("Drive Upload Error:", err);

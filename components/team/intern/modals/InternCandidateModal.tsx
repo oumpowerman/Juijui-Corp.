@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, User, Mail, Phone, GraduationCap, Briefcase, Calendar, Link as LinkIcon, MessageSquare, BarChart3, Loader2 } from 'lucide-react';
+import { X, Save, User, Mail, Phone, GraduationCap, Briefcase, Calendar, Link as LinkIcon, MessageSquare, BarChart3, Loader2, Cloud, CloudOff } from 'lucide-react';
 import { InternCandidate, InternStatus, Gender } from '../../../../types';
 import { format } from 'date-fns';
 import GenderSelector from './form-components/GenderSelector';
@@ -12,6 +12,7 @@ import DriveImageUpload from './form-components/DriveImageUpload';
 import FormSection from './form-components/FormSection';
 import FilterDropdown from '../../../common/FilterDropdown';
 import { Sparkles } from 'lucide-react';
+import { useGoogleDriveContext } from '../../../../context/GoogleDriveContext';
 
 interface InternCandidateModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ interface InternCandidateModalProps {
 }
 
 const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onClose, onSave, intern, allInterns = [] }) => {
+    const { isAuthenticated, openDrivePicker, login } = useGoogleDriveContext();
     const [formData, setFormData] = useState<Partial<InternCandidate>>({
         fullName: '',
         nickname: '',
@@ -116,7 +118,21 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                     <h2 className="text-lg font-bold text-gray-900 tracking-tight">
                                         {intern ? 'แก้ไขข้อมูลผู้สมัคร' : 'เพิ่มผู้สมัครฝึกงาน'}
                                     </h2>
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internship Application Form</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Internship Application Form</p>
+                                        <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                                        <button 
+                                            type="button"
+                                            onClick={() => !isAuthenticated && login()}
+                                            className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest ${isAuthenticated ? 'text-emerald-500' : 'text-amber-500 hover:text-amber-600'}`}
+                                        >
+                                            {isAuthenticated ? (
+                                                <><Cloud className="w-2.5 h-2.5" /> Drive Connected</>
+                                            ) : (
+                                                <><CloudOff className="w-2.5 h-2.5" /> Drive Disconnected</>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <button 
@@ -287,11 +303,19 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                 <input 
                                                     type="url"
-                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                    className="w-full pl-10 pr-12 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                     value={formData.portfolioUrl}
                                                     onChange={e => setFormData(prev => ({ ...prev, portfolioUrl: e.target.value }))}
                                                     placeholder="Portfolio URL"
                                                 />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openDrivePicker((file) => setFormData(prev => ({ ...prev, portfolioUrl: file.url })))}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                    title="Pick from Google Drive"
+                                                >
+                                                    <Cloud className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
@@ -300,11 +324,19 @@ const InternCandidateModal: React.FC<InternCandidateModalProps> = ({ isOpen, onC
                                                 <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                 <input 
                                                     type="url"
-                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
+                                                    className="w-full pl-10 pr-12 py-2.5 bg-white border border-purple-100 focus:border-purple-300 rounded-xl text-sm font-medium outline-none transition-all"
                                                     value={formData.resumeUrl || ''}
                                                     onChange={e => setFormData(prev => ({ ...prev, resumeUrl: e.target.value }))}
                                                     placeholder="Resume URL"
                                                 />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openDrivePicker((file) => setFormData(prev => ({ ...prev, resumeUrl: file.url })))}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                    title="Pick from Google Drive"
+                                                >
+                                                    <Cloud className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">

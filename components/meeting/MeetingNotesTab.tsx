@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { MeetingAgendaItem, TaskAsset, MeetingNoteSheet } from '../../types';
-import { Paperclip, Plus, Link as LinkIcon, File, Sparkles, HardDrive, UploadCloud, Loader2 } from 'lucide-react';
+import { Paperclip, Plus, Link as LinkIcon, File, Sparkles, HardDrive, UploadCloud, Loader2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MeetingAgenda from './MeetingAgenda';
 import MeetingNotes from './MeetingNotes';
@@ -39,13 +39,26 @@ const MeetingNotesTab: React.FC<MeetingNotesTabProps> = ({
     const [isAssetsExpanded, setIsAssetsExpanded] = useState(false);
 
     const driveUploadInputRef = useRef<HTMLInputElement>(null);
-    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading } = useGoogleDrive();
+    const { openDrivePicker, uploadFileToDrive, isReady: isDriveReady, isUploading, isAuthenticated: isDriveAuthenticated, login, retry } = useGoogleDrive();
 
-    const handleDriveSelect = (e: React.MouseEvent) => {
+    const handleDriveSelect = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
         openDrivePicker((file: any) => {
             onAddAsset(file.name, file.url);
         });
+    };
+
+    const handleDriveUploadClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!isDriveAuthenticated) {
+            login();
+            return;
+        }
+        driveUploadInputRef.current?.click();
     };
 
     const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,9 +68,11 @@ const MeetingNotesTab: React.FC<MeetingNotesTabProps> = ({
         const currentMonthFolder = format(new Date(), 'yyyy-MM');
 
         try {
+            const currentYear = format(new Date(), 'yyyy');
+            const currentMonth = format(new Date(), 'MM');
             const result = await uploadFileToDrive(
                 file,
-                ['Meeting_Attachments', currentMonthFolder]
+                ['Juijui_Assets', 'Meeting_Attachments', currentYear, currentMonth]
             );
             onAddAsset(result.name, result.url);
         } catch (err) {
@@ -93,6 +108,19 @@ const MeetingNotesTab: React.FC<MeetingNotesTabProps> = ({
                                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                                     ไฟล์แนบ
                                 </h4>
+                                <div className="flex items-center gap-1">
+                                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[8px] font-black tracking-tighter ${isDriveAuthenticated ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-amber-50 border-amber-100 text-amber-600'}`}>
+                                        <HardDrive className={`w-2 h-2 ${isDriveAuthenticated && isUploading ? 'animate-spin' : ''}`} />
+                                        {isDriveAuthenticated ? 'ONLINE' : 'OFFLINE'}
+                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); retry(); }}
+                                        className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                                        title="รีเฟรชการเชื่อมต่อ"
+                                    >
+                                        <RefreshCw className={`w-2 h-2 ${!isDriveReady && 'animate-spin'}`} />
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-0.5 rounded-full border border-slate-200 shadow-inner">
@@ -132,24 +160,26 @@ const MeetingNotesTab: React.FC<MeetingNotesTabProps> = ({
                                                     whileTap={{ scale: 0.97 }}
                                                     disabled={!isDriveReady}
                                                     onClick={handleDriveSelect}
-                                                    className={`flex-1 h-20 md:h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl transition-all group/drive relative overflow-hidden ${isDriveReady ? 'text-blue-300 border-blue-50' : 'text-slate-200 border-slate-50 cursor-not-allowed'}`}
+                                                    className={`flex-1 h-20 md:h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl transition-all group/drive relative overflow-hidden ${isDriveAuthenticated ? 'text-blue-500 border-blue-200 bg-blue-50/30' : 'text-slate-300 border-slate-100'}`}
                                                 >
                                                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover/drive:opacity-100 transition-opacity" />
-                                                    <HardDrive className="w-5 h-5 md:w-6 md:h-6 mb-1 opacity-20 group-hover/drive:opacity-40 group-hover/drive:scale-110 transition-all" />
-                                                    <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest group-hover/drive:text-blue-400">เลือกจาก Drive</span>
+                                                    <HardDrive className={`w-5 h-5 md:w-6 md:h-6 mb-1 opacity-20 group-hover/drive:opacity-40 group-hover/drive:scale-110 transition-all ${isDriveAuthenticated ? 'text-blue-500 opacity-40' : ''}`} />
+                                                    <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest group-hover/drive:text-blue-400">
+                                                        {isDriveAuthenticated ? 'เลือกจาก Drive' : 'เชื่อมต่อ Drive'}
+                                                    </span>
                                                 </motion.button>
 
                                                 <motion.button 
                                                     whileHover={{ scale: 0.99, backgroundColor: '#f0fdf4' }}
                                                     whileTap={{ scale: 0.97 }}
                                                     disabled={!isDriveReady || isUploading}
-                                                    onClick={(e) => { e.stopPropagation(); driveUploadInputRef.current?.click(); }}
-                                                    className={`flex-1 h-20 md:h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl transition-all group/upload relative overflow-hidden ${isDriveReady ? 'text-emerald-300 border-emerald-50' : 'text-slate-200 border-slate-50 cursor-not-allowed'}`}
+                                                    onClick={handleDriveUploadClick}
+                                                    className={`flex-1 h-20 md:h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl transition-all group/upload relative overflow-hidden ${isDriveAuthenticated ? 'text-emerald-500 border-emerald-200 bg-emerald-50/30' : 'text-slate-300 border-slate-100'}`}
                                                 >
                                                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover/upload:opacity-100 transition-opacity" />
-                                                    {isUploading ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 mb-1 animate-spin text-emerald-400" /> : <UploadCloud className="w-5 h-5 md:w-6 md:h-6 mb-1 opacity-20 group-hover/upload:opacity-40 group-hover/upload:scale-110 transition-all" />}
+                                                    {isUploading ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 mb-1 animate-spin text-emerald-400" /> : <UploadCloud className={`w-5 h-5 md:w-6 md:h-6 mb-1 opacity-20 group-hover/upload:opacity-40 group-hover/upload:scale-110 transition-all ${isDriveAuthenticated ? 'text-emerald-500 opacity-40' : ''}`} />}
                                                     <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest group-hover/upload:text-emerald-400">
-                                                        {isUploading ? 'กำลังอัป...' : 'อัปโหลดขึ้น Drive'}
+                                                        {isUploading ? 'กำลังอัป...' : isDriveAuthenticated ? 'อัปโหลดขึ้น Drive' : 'เชื่อมต่อเพื่ออัปโหลด'}
                                                     </span>
                                                 </motion.button>
                                             </div>
@@ -198,15 +228,15 @@ const MeetingNotesTab: React.FC<MeetingNotesTabProps> = ({
                                                     </motion.button>
 
                                                     <motion.button 
-                                                        whileHover={{ scale: 1.05 }}
-                                                        whileTap={{ scale: 0.95 }}
-                                                        disabled={!isDriveReady || isUploading}
-                                                        onClick={(e) => { e.stopPropagation(); driveUploadInputRef.current?.click(); }}
-                                                        className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-lg transition-all border-b-4 ${isDriveReady ? 'bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700 border-emerald-800' : 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'}`}
-                                                        title="อัปโหลดขึ้น Drive"
-                                                    >
-                                                        {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                                                    </motion.button>
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    disabled={!isDriveReady || isUploading}
+                                                    onClick={handleDriveUploadClick}
+                                                    className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-lg transition-all border-b-4 ${isDriveReady ? 'bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700 border-emerald-800' : 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'}`}
+                                                    title="อัปโหลดขึ้น Drive"
+                                                >
+                                                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                                                </motion.button>
                                                 </div>
                                             </>
                                         )}

@@ -255,7 +255,6 @@ const TaskModal: React.FC<TaskModalProps> = ({
                                 task={initialData}
                                 users={users}
                                 channels={channels}
-                                masterOptions={masterOptions}
                                 onEdit={() => setMode('EDIT')}
                                 onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
                                 onClose={onClose}

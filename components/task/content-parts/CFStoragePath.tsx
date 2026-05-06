@@ -22,6 +22,39 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
 
     const activeConfig = storageConfigs.find(c => c.label === driveLabel);
 
+    // Smart Path Parsing Logic
+    const handlePathChange = (val: string) => {
+        // 1. Clean up quotes and trim
+        let cleanVal = val.trim().replace(/^"(.*)"$/, '$1');
+
+        // 2. Try to match with existing Storage Hubs
+        // Sort by length longest first to match more specific paths (e.g. D:/Work matches before D:)
+        const sortedConfigs = [...storageConfigs].sort((a, b) => (b.currentLetter?.length || 0) - (a.currentLetter?.length || 0));
+        
+        let matched = false;
+        for (const config of sortedConfigs) {
+            if (config.currentLetter && cleanVal.toLowerCase().startsWith(config.currentLetter.toLowerCase())) {
+                // Found a match!
+                const prefixLen = config.currentLetter.length;
+                const remaining = cleanVal.substring(prefixLen);
+                
+                setDriveLabel(config.label);
+                setLocalPath(remaining);
+                matched = true;
+                break;
+            }
+        }
+
+        // 3. Fallback: If no hub matches, keep it as is (Manual Mode)
+        if (!matched) {
+            setLocalPath(cleanVal);
+            // If the user pastes an absolute path that doesn't match any hub, switch to manual
+            if (cleanVal.includes(':') || cleanVal.startsWith('/') || cleanVal.startsWith('\\\\')) {
+                setDriveLabel('');
+            }
+        }
+    };
+
     const hubOptions = storageConfigs.map(c => ({
         key: c.label,
         label: `${c.label} (${c.currentLetter})`,
@@ -124,7 +157,7 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
                             <input 
                                 type="text"
                                 value={localPath}
-                                onChange={(e) => setLocalPath(e.target.value)}
+                                onChange={(e) => handlePathChange(e.target.value)}
                                 className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm text-slate-700 font-bold placeholder:text-slate-200 outline-none"
                                 placeholder={driveLabel ? '/Works/Project/EP01' : 'E:/Works/Project/EP01'}
                             />

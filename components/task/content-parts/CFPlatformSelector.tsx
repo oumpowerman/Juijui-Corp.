@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { MonitorPlay, Check } from 'lucide-react';
+import { MonitorPlay, Check, AlertCircle, Info } from 'lucide-react';
 import { Platform } from '../../../types';
 import { PLATFORM_ICONS } from '../../../constants';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CFPlatformSelectorProps {
     targetPlatforms: Platform[];
@@ -51,6 +52,27 @@ const CFPlatformSelector: React.FC<CFPlatformSelectorProps> = ({
                         );
                     })}
                 </div>
+
+                <AnimatePresence>
+                    {targetPlatforms.length === 0 && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10, height: 0 }}
+                            animate={{ opacity: 1, y: 0, height: 'auto' }}
+                            exit={{ opacity: 0, y: -10, height: 0 }}
+                            className="mt-4 overflow-hidden"
+                        >
+                            <div className="bg-amber-50 border border-amber-200 border-dashed p-3 rounded-xl flex items-center gap-3">
+                                <div className="bg-amber-100 p-2 rounded-lg">
+                                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[11px] font-black text-amber-800 leading-tight">โปรดเลือกช่องทางการลงคอนเทนต์</span>
+                                    <span className="text-[9px] font-bold text-amber-600/70 uppercase tracking-tighter">SELECT AT LEAST ONE PLATFORM TO ENABLE UPLOAD LINKS</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Published Links */}

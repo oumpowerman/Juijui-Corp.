@@ -155,11 +155,11 @@ const StorageHubMasterView: React.FC = () => {
                         whileHover={{ y: -4 }}
                         className="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] group relative overflow-hidden"
                     >
-                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
                             <HardDrive className="w-12 h-12" />
                         </div>
 
-                        <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-start justify-between mb-4 relative z-10">
                             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
                                 <Database className="w-5 h-5" />
                             </div>

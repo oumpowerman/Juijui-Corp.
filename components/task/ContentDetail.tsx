@@ -17,31 +17,35 @@ import {
     Film,
     AlertTriangle,
     Folder,
-    HardDrive
+    HardDrive,
+    ExternalLink,
+    Link2Off
 } from 'lucide-react';
 import { Task, User, MasterOption, Platform, Channel } from '../../types';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { PLATFORM_ICONS } from '../../config/taxonomy';
+import PlatformSection from './content-parts/PlatformSection';
 import Markdown from 'react-markdown';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { useStorage } from '../../context/StorageContext';
+import { useMasterData } from '../../hooks/useMasterData';
 
 interface ContentDetailProps {
     task: Task;
     users: User[];
     channels: Channel[];
-    masterOptions: MasterOption[];
     onEdit: () => void;
     onDelete?: () => void;
     onClose: () => void;
 }
 
 const ContentDetail: React.FC<ContentDetailProps> = ({ 
-    task, users, channels, masterOptions, onEdit, onDelete, onClose 
+    task, users, channels, onEdit, onDelete, onClose 
 }) => {
+    const { masterOptions } = useMasterData();
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
     const { storageConfigs } = useStorage();
@@ -391,29 +395,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                 </div>
                             </div>
 
-                            <div className="relative z-10 space-y-4">
-                                <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Target Platforms</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM'].map(p => {
-                                        const isActive = task.targetPlatforms?.includes(p as Platform);
-                                        const Icon = PLATFORM_ICONS[p as Platform] || Globe;
-                                        const pastelStyle = getPlatformStyle(p);
-                                        return (
-                                            <motion.div 
-                                                key={p} 
-                                                whileHover={isActive ? { scale: 1.05 } : {}}
-                                                className={`
-                                                    flex items-center gap-3 p-3 rounded-2xl border transition-all
-                                                    ${isActive ? `${pastelStyle} shadow-[0_4px_12px_rgba(0,0,0,0.03)] font-semibold` : 'bg-slate-50 border-slate-50 text-slate-200 opacity-40'}
-                                                `}
-                                            >
-                                                <Icon className="w-4 h-4" />
-                                                <span className="text-[10px] font-semibold tracking-wider uppercase">{p}</span>
-                                            </motion.div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <PlatformSection task={task} />
                         </motion.div>
                     </motion.section>
 

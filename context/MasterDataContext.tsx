@@ -93,6 +93,10 @@ const DEFAULT_OPTIONS = [
     { type: 'ATTENDANCE_RULE_KEY', key: 'CORRECTION_REFUND', label: 'คืนค่า HP (แก้เวลาออก)', color: 'bg-emerald-500', sort_order: 100, description: '{"icon": "RefreshCw", "category": "SYSTEM"}' },
     { type: 'ATTENDANCE_RULE_KEY', key: 'ABSENT_REFUND', label: 'คืนค่า HP (แก้ขาดงาน)', color: 'bg-blue-500', sort_order: 101, description: '{"icon": "RefreshCw", "category": "SYSTEM"}' },
     { type: 'ATTENDANCE_RULE_KEY', key: 'FORGOT_CHECKOUT', label: 'ลืมตอกบัตรออก (Penalty)', color: 'bg-rose-500', sort_order: 102, description: '{"icon": "AlertTriangle", "category": "SYSTEM"}' },
+    { type: 'PLATFORM_CONFIG', key: 'YOUTUBE', label: 'YouTube Studio', color: 'bg-red-50 text-red-600', sort_order: 1, description: 'https://studio.youtube.com/channel/UC/videos/upload?d=ud' },
+    { type: 'PLATFORM_CONFIG', key: 'FACEBOOK', label: 'Facebook Reels', color: 'bg-blue-50 text-blue-600', sort_order: 2, description: 'https://www.facebook.com/reels/create' },
+    { type: 'PLATFORM_CONFIG', key: 'TIKTOK', label: 'TikTok Upload', color: 'bg-zinc-50 text-zinc-600', sort_order: 3, description: 'https://www.tiktok.com/upload' },
+    { type: 'PLATFORM_CONFIG', key: 'INSTAGRAM', label: 'Instagram Create', color: 'bg-pink-50 text-pink-600', sort_order: 4, description: 'https://www.instagram.com/reels/create/' },
 ];
 
 export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

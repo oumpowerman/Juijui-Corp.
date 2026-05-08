@@ -91,12 +91,13 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     });
 
     // Modal State
-    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'PASS' | 'REVISE' | null, reviewId: string, taskId: string, task?: Task }>({
+    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'PASS' | 'REVISE' | null, reviewId: string, taskId: string, task?: Task, submissionDate?: Date }>({
         isOpen: false,
         type: null,
         reviewId: '',
         taskId: '',
-        task: undefined
+        task: undefined,
+        submissionDate: undefined
     });
 
     // --- Core Logic: Re-hydrating Review Sessions with Authoritative Task Data ---
@@ -200,8 +201,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name || 'Unknown';
 
-    const handleActionClick = (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task) => {
-        setModalConfig({ isOpen: true, type: action, reviewId, taskId, task });
+    const handleActionClick = (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date) => {
+        setModalConfig({ isOpen: true, type: action, reviewId, taskId, task, submissionDate });
     };
 
     const handleForceSLACheck = async () => {
@@ -223,7 +224,8 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             feedback,
             updateReviewStatus,
             currentUser.id,
-            adjustment // Pass the manual adjustment
+            adjustment, // Pass the manual adjustment
+            modalConfig.submissionDate // Pass submission date for accurate bonus
         );
         if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };
@@ -573,6 +575,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
                     actionType={modalConfig.type}
                     task={modalConfig.task} // Pass task object for calculation
+                    submissionDate={modalConfig.submissionDate}
                     onConfirm={onConfirmModal}
                     masterOptions={masterOptions} // PASS MASTER OPTIONS
                 />

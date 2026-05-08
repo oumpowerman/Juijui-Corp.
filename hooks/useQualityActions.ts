@@ -13,7 +13,7 @@ export const useQualityActions = () => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // XP Distribution Logic (Synced with Engine)
-    const distributeXP = async (task: Task, manualBonus: number = 0) => {
+    const distributeXP = async (task: Task, manualBonus: number = 0, submissionDate?: Date) => {
         try {
             const peopleToReward = new Set([
                 ...(task.assigneeIds || []),
@@ -27,8 +27,15 @@ export const useQualityActions = () => {
 
             // 1. Give Base XP (Engine calculates from task difficulty/hours)
             if (!isPenalized) {
+                // Prepare context for Engine
+                const engineContext = {
+                    ...task,
+                    // Use submissionDate if provided, for accurate Early Bonus calculation
+                    completionDate: submissionDate || new Date()
+                };
+
                 for (let i = 0; i < userIds.length; i++) {
-                    const result = await processAction(userIds[i], 'TASK_COMPLETE', task);
+                    const result = await processAction(userIds[i], 'TASK_COMPLETE', engineContext);
                     if (i === 0 && result) {
                         actualXP = result.xp;
                     }
@@ -68,7 +75,8 @@ export const useQualityActions = () => {
         feedback: string | undefined,
         updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => Promise<void>,
         reviewerId: string,
-        manualBonus: number = 0 // New Parameter (8th argument)
+        manualBonus: number = 0,
+        submissionDate?: Date
     ) => {
         setIsProcessing(true);
 
@@ -95,7 +103,7 @@ export const useQualityActions = () => {
                 // 1. Trigger Engine for Rewards & Logs FIRST (Include Bonus)
                 let finalXP = 0;
                 if (task) {
-                    finalXP = await distributeXP(task, manualBonus);
+                    finalXP = await distributeXP(task, manualBonus, submissionDate);
                 }
 
                 // 2. Update Review Record

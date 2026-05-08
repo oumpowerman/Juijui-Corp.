@@ -1,14 +1,14 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ReviewSession, User, Task } from '../../types';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck, CalendarCheck, AlarmClock, RefreshCw } from 'lucide-react';
-import { DIFFICULTY_LABELS } from '../../constants';
+import { calculateTaskXP } from '../../lib/gameLogic';
 
 interface ReviewCardProps {
     review: ReviewSession;
     users: User[];
-    onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string, task: Task) => void;
+    onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date) => void;
     onOpenTask: (task: Task) => void;
     getChannelName: (id?: string) => string;
     getStatusInfo: (statusKey: string) => { label: string, color: string };
@@ -56,12 +56,15 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     // FIND REVIEWER (If reviewed)
     const reviewer = review.reviewerId ? users.find(u => u.id === review.reviewerId) : null;
 
-    // Calculate XP
+    // Derived Task Properties for UI
     const difficulty = review.task?.difficulty || 'MEDIUM';
     const estHours = review.task?.estimatedHours || 0;
-    const baseXP = DIFFICULTY_LABELS[difficulty].xp;
-    const bonusXP = Math.floor(estHours * 20);
-    const totalXP = baseXP + bonusXP;
+
+    // Calculate XP
+    const totalXP = useMemo(() => {
+        if (!review.task) return 0;
+        return calculateTaskXP(review.task, review.scheduledAt).total;
+    }, [review.task, review.scheduledAt]);
 
     // Admin Review Overdue Calculation
     const adminDaysLate = differenceInCalendarDays(today, review.scheduledAt);
@@ -295,13 +298,13 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     canReview ? (
                         <>
                             <button 
-                                onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!)}
+                                onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!, review.scheduledAt)}
                                 className="flex-1 md:flex-none px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center transition-all shadow-xl shadow-emerald-900/40 active:scale-95 border border-emerald-400/30 italic"
                             >
                                 <ThumbsUp className="w-4 h-4 mr-2" /> Pass
                             </button>
                             <button 
-                                onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!)}
+                                onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!, review.scheduledAt)}
                                 className="flex-1 md:flex-none px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center transition-all active:scale-95 border border-white/5 italic"
                             >
                                 <Wrench className="w-4 h-4 mr-2" /> Revise

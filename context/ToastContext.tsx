@@ -40,8 +40,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {/* Toast Container - UPDATED z-index to 9999 */}
-      <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      {/* Toast Container - UPDATED z-index to 10000 */}
+      <div className="fixed top-4 right-4 z-[10000] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}

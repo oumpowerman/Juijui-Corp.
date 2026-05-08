@@ -246,7 +246,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({ isOpen, onClose, user
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -288,7 +288,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({ isOpen, onClose, user
                                     <Dices className="w-8 h-8" />
                                 </motion.div>
                                 <div>
-                                    <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
                                         สุ่มผู้โชคดี 
                                         <motion.span
                                             animate={{ y: [0, -5, 0] }}

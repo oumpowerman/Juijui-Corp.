@@ -37,6 +37,37 @@ export const isWorkingDay = (date: Date, holidays: AnnualHoliday[], exceptions: 
 };
 
 /**
+ * 🛠️ HELPER: หา "วันทำงานถัดไป"
+ * เริ่มจากวันรุ่งขึ้น แล้วหาว่าวันไหนคือวันทำงานวันแรก
+ */
+export const getNextWorkingDay = (startDate: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
+    let current = addDays(startDate, 1);
+    let safetyCounter = 0;
+    while (!isWorkingDay(current, holidays, exceptions || [], user) && safetyCounter < 15) {
+        current = addDays(current, 1);
+        safetyCounter++;
+    }
+    return current;
+};
+
+/**
+ * 🛠️ HELPER: นับจำนวนวันทำงานระหว่างสองวันที่ระบุ (ไม่รวมวันที่เร่ิมต้น)
+ */
+export const countWorkingDaysBetween = (startDate: Date, endDate: Date, holidays: AnnualHoliday[], exceptions: any[], user: User | null) => {
+    let count = 0;
+    let current = startOfDay(addDays(startDate, 1));
+    const endLimit = startOfDay(endDate);
+
+    while (isBefore(current, endLimit) || format(current, 'yyyy-MM-dd') === format(endLimit, 'yyyy-MM-dd')) {
+        if (isWorkingDay(current, holidays, exceptions, user)) {
+            count++;
+        }
+        current = addDays(current, 1);
+    }
+    return count;
+};
+
+/**
  * 🛠️ HELPER: เช็คว่าเป็นวันหยุดบริษัทหรือไม่ (สำหรับใช้เช็คก่อนหักคะแนนทั่วไป)
  */
 export const isHolidayOrException = (date: Date, holidays: AnnualHoliday[], exceptions: any[]) => {

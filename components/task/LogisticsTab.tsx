@@ -1,22 +1,26 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, User } from '../../types';
+import { Task, User, MasterOption } from '../../types';
 import { useTasks } from '../../hooks/useTasks';
-import { Plus, CheckCircle2, Circle, Trash2, Calendar, User as UserIcon, Loader2, Lock, ShieldCheck, Send, X, Eye, EyeOff, Search, UserPlus, Briefcase } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Trash2, Calendar, User as UserIcon, Loader2, Lock, ShieldCheck, Send, X, Eye, EyeOff, Search, UserPlus, Briefcase, Info, Sparkles, ChevronDown, ChevronUp, Clock, AlignLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../context/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import TaskDetail from './TaskDetail';
 
 interface LogisticsTabProps {
     parentTask: Task;
     users: User[];
     currentUser: User;
+    masterOptions: MasterOption[];
     onUpdate?: (task: Task) => void;
+    onOpenTask?: (task: Task, currentViewMode?: string) => void;
 }
 
-const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentUser, onUpdate }) => {
+const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentUser, masterOptions, onUpdate, onOpenTask }) => {
     const parentContentId = parentTask.id;
     // We reuse useTasks, which fetches by content_id correctly
     const { fetchSubTasks, handleSaveTask, handleDeleteTask, handleSendToQC: sendToQC } = useTasks(() => {});
@@ -29,6 +33,12 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskAssignee, setNewTaskAssignee] = useState<string>('');
     const [isAdding, setIsAdding] = useState(false);
+    
+    // Detailed Form State
+    const [description, setDescription] = useState('');
+    const [difficulty, setDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('EASY');
+    const [estimatedHours, setEstimatedHours] = useState<number>(0);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Modal State
     const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
@@ -36,6 +46,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
 
     // Action Modal State
     const [actionTask, setActionTask] = useState<Task | null>(null);
+    const [detailTask, setDetailTask] = useState<Task | null>(null);
     const [adminPassReason, setAdminPassReason] = useState('');
     const [isActionProcessing, setIsActionProcessing] = useState(false);
 
@@ -67,7 +78,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                 id: crypto.randomUUID(),
                 type: 'TASK',
                 title: newTaskTitle,
-                description: '',
+                description: description || '',
                 status: 'TODO',
                 priority: 'MEDIUM',
                 tags: parentTask.tags || [],
@@ -76,8 +87,8 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                 assigneeIds: newTaskAssignee ? [newTaskAssignee] : [],
                 assigneeType: 'INDIVIDUAL',
                 targetPosition: selectedUser?.position || '',
-                difficulty: 'EASY',
-                estimatedHours: 0,
+                difficulty: difficulty,
+                estimatedHours: estimatedHours,
                 contentId: parentContentId, 
                 channelId: parentTask.channelId,
                 pillar: parentTask.pillar,
@@ -92,6 +103,10 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
             setSubTasks(prev => [...prev, newTask]);
             setNewTaskTitle('');
             setNewTaskAssignee('');
+            setDescription('');
+            setDifficulty('EASY');
+            setEstimatedHours(0);
+            setIsExpanded(false);
         } catch (error) {
             console.error("Failed to add subtask", error);
         } finally {
@@ -220,56 +235,146 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
     return (
         <div className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden relative">
             {/* Header / Add Form */}
-            <div className="p-4 bg-white border-b border-gray-100 shrink-0">
-                <form onSubmit={handleAddSubTask} className="flex gap-2 items-center">
-                    <div className="flex-1 relative">
-                        <input 
-                            type="text" 
-                            className="w-full pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                            placeholder="เพิ่มงานย่อย (เช่น จองตั๋ว, หาของ)..."
-                            value={newTaskTitle}
-                            onChange={e => setNewTaskTitle(e.target.value)}
-                        />
+            <div className="p-3 sm:p-4 bg-white border-b border-gray-100 shrink-0">
+                <form onSubmit={handleAddSubTask} className="space-y-3">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                        <div className="flex-1 relative">
+                            <input 
+                                type="text" 
+                                className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
+                                placeholder="เพิ่มงานย่อย (เช่น จองตั๋ว, หาของ)..."
+                                value={newTaskTitle}
+                                onChange={e => setNewTaskTitle(e.target.value)}
+                            />
+                            <button 
+                                type="button"
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${isExpanded ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:bg-gray-100'}`}
+                                title={isExpanded ? "ย่อรายละเอียด" : "ขยายรายละเอียดเพิ่ม"}
+                            >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                        </div>
+                        
+                        <div className="flex gap-2 shrink-0">
+                            {/* CUSTOM USER PICKER TRIGGER */}
+                            <button
+                                type="button"
+                                onClick={() => setIsAssigneeModalOpen(true)}
+                                className={`
+                                    flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 py-2 px-3 rounded-xl border transition-all sm:min-w-[140px] sm:max-w-[180px]
+                                    ${newTaskAssignee 
+                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:border-indigo-300'}
+                                `}
+                            >
+                                {selectedAssigneeUser ? (
+                                    <>
+                                        <img src={selectedAssigneeUser.avatarUrl} className="w-5 h-5 rounded-full object-cover border border-white" />
+                                        <span className="text-xs font-bold truncate">{selectedAssigneeUser.name.split(' ')[0]}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
+                                            <UserPlus className="w-3 h-3" />
+                                        </div>
+                                        <span className="text-xs font-bold">Assign</span>
+                                    </>
+                                )}
+                            </button>
+    
+                            <button 
+                                type="submit" 
+                                disabled={!newTaskTitle.trim() || isAdding}
+                                className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm min-w-[44px] flex items-center justify-center"
+                            >
+                                {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
-                    
-                    {/* CUSTOM USER PICKER TRIGGER */}
-                    <button
-                        type="button"
-                        onClick={() => setIsAssigneeModalOpen(true)}
-                        className={`
-                            flex items-center gap-2 py-2 px-3 rounded-xl border transition-all min-w-[140px] max-w-[180px]
-                            ${newTaskAssignee 
-                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
-                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:border-indigo-300'}
-                        `}
-                    >
-                        {selectedAssigneeUser ? (
-                            <>
-                                <img src={selectedAssigneeUser.avatarUrl} className="w-5 h-5 rounded-full object-cover border border-white" />
-                                <span className="text-xs font-bold truncate">{selectedAssigneeUser.name.split(' ')[0]}</span>
-                            </>
-                        ) : (
-                            <>
-                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
-                                    <UserPlus className="w-3 h-3" />
-                                </div>
-                                <span className="text-xs font-bold">มอบหมาย (Assign)</span>
-                            </>
-                        )}
-                    </button>
 
-                    <button 
-                        type="submit" 
-                        disabled={!newTaskTitle.trim() || isAdding}
-                        className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm min-w-[44px] flex items-center justify-center"
-                    >
-                        {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                    </button>
+                    <AnimatePresence>
+                        {isExpanded && (
+                            <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden space-y-3"
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                    {/* Description */}
+                                    <div className="relative group">
+                                        <div className="absolute left-3 top-3 text-gray-400 group-focus-within:text-indigo-500 transition-colors">
+                                            <AlignLeft className="w-4 h-4" />
+                                        </div>
+                                        <textarea 
+                                            placeholder="รายละเอียดเพิ่มเติม (ระบุสิ่งที่ต้องทำ)..."
+                                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all resize-none min-h-[84px]"
+                                            value={description}
+                                            onChange={e => setDescription(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {/* Estimated Hours */}
+                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between group focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                                                    <Clock className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[12px] font-medium text-gray-400 uppercase tracking-tight">ชั่วโมงที่คาดหวัง</p>
+                                                    <p className="text-[10px] text-gray-400">ระบุเป็นตัวเลข</p>
+                                                </div>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                className="w-16 bg-transparent text-right font-bold text-gray-700 outline-none"
+                                                value={estimatedHours}
+                                                onChange={e => setEstimatedHours(parseFloat(e.target.value) || 0)}
+                                            />
+                                        </div>
+
+                                        {/* Difficulty */}
+                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
+                                                    <Sparkles className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[12px] font-medium text-gray-400 uppercase tracking-tight">ความยากง่าย</p>
+                                                    <p className="text-[10px] text-gray-400">{difficulty === 'EASY' ? 'ง่าย ๆ ชิล ๆ' : difficulty === 'MEDIUM' ? 'ระดับกลาง' : 'ท้าทายมาก'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {(['EASY', 'MEDIUM', 'HARD'] as const).map((level, idx) => {
+                                                    const isSelected = difficulty === level;
+                                                    const colors = level === 'EASY' ? 'text-emerald-500' : level === 'MEDIUM' ? 'text-amber-500' : 'text-rose-500';
+                                                    return (
+                                                        <button
+                                                            key={level}
+                                                            type="button"
+                                                            onClick={() => setDifficulty(level)}
+                                                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isSelected ? `bg-white shadow-sm ring-2 ring-${level === 'EASY' ? 'emerald' : level === 'MEDIUM' ? 'amber' : 'rose'}-100 ${colors}` : 'text-gray-300 hover:bg-gray-100'}`}
+                                                        >
+                                                            <Sparkles className={`w-3.5 h-3.5 ${isSelected ? 'fill-current' : ''}`} />
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </form>
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
                 {isLoading ? (
                     <div className="text-center py-10 text-gray-400">กำลังโหลด...</div>
                 ) : subTasks.length === 0 ? (
@@ -295,10 +400,13 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                                     {isDone ? <CheckCircle2 className="w-6 h-6" /> : isWaiting ? <Lock className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
                                 </button>
                                 
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium ${isDone ? 'line-through text-gray-500' : 'text-gray-800'}`}>
+                                <div className="flex-1 min-w-0 pointer-events-auto">
+                                    <button 
+                                        onClick={() => setDetailTask(task)}
+                                        className={`text-sm font-medium text-left hover:text-indigo-600 transition-colors ${isDone ? 'line-through text-gray-500' : 'text-gray-800'}`}
+                                    >
                                         {task.title}
-                                    </p>
+                                    </button>
                                     <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
                                         <Calendar className="w-3 h-3" /> {format(task.startDate, 'd MMM')}
                                         {task.showOnBoard && (
@@ -314,32 +422,39 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0">
                                     {assignee ? (
-                                        <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                                        <div className="flex items-center gap-1.5 bg-gray-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border border-gray-100">
                                             <img src={assignee.avatarUrl} className="w-4 h-4 rounded-full" />
-                                            <span className="text-xs font-bold text-gray-600">{assignee.name.split(' ')[0]}</span>
+                                            <span className="hidden sm:inline text-xs font-bold text-gray-600">{assignee.name.split(' ')[0]}</span>
                                         </div>
                                     ) : (
-                                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                                            <UserIcon className="w-3.5 h-3.5" />
+                                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+                                            <UserIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                         </div>
                                     )}
                                     
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => setDetailTask(task)}
+                                            className="p-1 sm:p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                            title="ดูรายละเอียด"
+                                        >
+                                            <Search className="w-4 h-4" />
+                                        </button>
                                         {!isWaiting && (
                                             <>
                                                 <button 
                                                     onClick={() => handleToggleShowOnBoard(task)} 
-                                                    className={`p-1.5 rounded-lg transition-all ${task.showOnBoard ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}
+                                                    className={`hidden sm:block p-1.5 rounded-lg transition-all ${task.showOnBoard ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}
                                                     title={task.showOnBoard ? "ซ่อนจากบอร์ดหลัก" : "แสดงบนบอร์ดหลัก"}
                                                 >
                                                     {task.showOnBoard ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                                 </button>
                                                 <button 
                                                     onClick={() => handleDelete(task.id)} 
-                                                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                    className="p-1 sm:p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -444,7 +559,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-gray-800 flex items-center text-lg">
                                 <ShieldCheck className="w-6 h-6 mr-2 text-indigo-600" />
-                                จัดการงาน: {actionTask.title}
+                                จัดการงาน: {actionTask.title || ''}
                             </h3>
                             <button onClick={() => setActionTask(null)} className="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-2 rounded-full transition-colors">
                                 <X className="w-5 h-5" />
@@ -482,6 +597,40 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* --- SUB-TASK DETAIL MODAL --- */}
+            {detailTask && createPortal(
+                <div className="fixed inset-0 z-[500] flex items-center justify-center bg-indigo-950/40 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full sm:max-w-4xl h-full sm:h-[85vh] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border-0 sm:border-4 border-white ring-0 sm:ring-1 ring-black/5 animate-in zoom-in-95">
+                        <div className="flex-1 overflow-hidden">
+                            <TaskDetail 
+                                task={detailTask}
+                                users={users}
+                                masterOptions={masterOptions}
+                                onEdit={() => {
+                                    if (onOpenTask) {
+                                        onOpenTask(detailTask);
+                                        setDetailTask(null);
+                                    } else {
+                                        showToast('กรุณาแก้ไขรายละเอียดผ่านหน้าหลักของรายการนี้', 'info');
+                                    }
+                                }}
+                                onClose={() => setDetailTask(null)}
+                                onOpenTask={onOpenTask}
+                            />
+                        </div>
+                        
+                        {/* Internal Close Button (Floating) */}
+                        <button 
+                            onClick={() => setDetailTask(null)}
+                            className="absolute top-4 sm:top-6 right-4 sm:right-8 z-50 p-2 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full text-slate-400 hover:text-rose-500 hover:bg-white shadow-xl transition-all"
+                        >
+                            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </button>
                     </div>
                 </div>,
                 document.body

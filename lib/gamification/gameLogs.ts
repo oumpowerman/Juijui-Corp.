@@ -43,12 +43,14 @@ export const logGameAction = async (
         // เราจะบันทึกเฉพาะรายการที่เป็นโทษ (Penalty) หรือรางวัลใหญ่ (Level Up/Reward)
         const isPenalty = result.hp < 0 || (result.coins < 0 && action !== 'SHOP_PURCHASE');
         const isSignificantReward = result.isLevelUp || result.xp > 100 || action === 'KPI_REWARD';
+        const isAdminAdjust = action === 'MANUAL_ADJUST';
 
-        if (isPenalty || isSignificantReward) {
+        if (isPenalty || isSignificantReward || isAdminAdjust) {
             // Contextual titles for better notifications/LINE messages
             let title = isPenalty ? '📉 โดนหักคะแนน!' : '🎉 ได้รับรางวัล!';
             
             // Special cases for better UX
+            if (isAdminAdjust) title = result.xp >= 0 && result.hp >= 0 && (result.coins + bonusCoins) >= 0 ? '🎁 GM มอบรางวัลให้!' : '📉 GM ปรับลดสถานะ!';
             if (action === 'ATTENDANCE_FORGOT_CHECKOUT') title = '⚠️ ลืมตอกบัตรออก';
             if (action === 'ATTENDANCE_ABSENT') title = '❌ ขาดงาน';
             if (action === 'TASK_LATE') title = '⏰ ส่งงานล่าช้า';

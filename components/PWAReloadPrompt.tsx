@@ -27,53 +27,69 @@ function PWAReloadPrompt() {
     <AnimatePresence>
       {(offlineReady || needRefresh) && (
         <motion.div
-           initial={{ y: 100, opacity: 0 }}
-           animate={{ y: 0, opacity: 1 }}
-           exit={{ y: 100, opacity: 0 }}
-           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] p-4 min-w-[300px]"
+           initial={{ y: 150, opacity: 0, scale: 0.9 }}
+           animate={{ y: 0, opacity: 1, scale: 1 }}
+           exit={{ y: 150, opacity: 0, scale: 0.9 }}
+           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] w-[calc(100%-2rem)] sm:w-auto sm:min-w-[400px]"
         >
-          <div className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.15)] rounded-2xl p-6 flex flex-col gap-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="text-slate-900 font-extrabold text-lg">
-                  {offlineReady ? 'พร้อมใช้งานแบบ Offline!' : 'มีการอัปเดตใหม่!'}
-                </h4>
-                <p className="text-slate-500 text-sm font-medium mt-1">
-                  {offlineReady 
-                    ? 'แอปนี้พร้อมใช้งานแม้ไม่มีอินเทอร์เน็ต' 
-                    : 'เวอร์ชันใหม่พร้อมให้ใช้งานแล้ว กดรีเฟรชเพื่ออัปเดต'}
-                </p>
+          <div className="bg-white/95 backdrop-blur-2xl border border-indigo-100/50 shadow-[0_20px_70px_rgba(79,70,229,0.15)] rounded-3xl p-6 sm:p-7 flex flex-col gap-5 overflow-hidden relative group">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-32 h-32 bg-indigo-50 rounded-full blur-3xl opacity-50 group-hover:bg-indigo-100 transition-colors" />
+
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex gap-4">
+                <div className="shrink-0 w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <RefreshCw className={`w-6 h-6 ${needRefresh ? 'animate-spin-slow' : ''}`} />
+                </div>
+                <div>
+                  <h4 className="text-slate-900 font-black text-xl tracking-tight">
+                    {offlineReady ? 'พร้อมใช้งานออฟไลน์!' : 'พบเวอร์ชันใหม่! 🚀'}
+                  </h4>
+                  <p className="text-slate-500 text-sm font-medium mt-1 leading-relaxed">
+                    {offlineReady 
+                      ? 'คุณสามารถใช้งานแอปได้แม้ไม่มีอินเทอร์เน็ต' 
+                      : 'เราได้อัปเดตฟีเจอร์ใหม่ๆ เข้ามา กดรีเฟรชเพื่อสัมผัสประสบการณ์ที่ดีกว่า'}
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={close}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {needRefresh && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => updateServiceWorker(true)}
-                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:brightness-110 transition-all"
-              >
-                <RefreshCw className="w-4 h-4" />
-                อัปเดตเดี๋ยวนี้
-              </motion.button>
-            )}
-
-            {offlineReady && !needRefresh && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={close}
-                className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-sm border border-emerald-100 transition-all"
-              >
-                ตกลง
-              </motion.button>
-            )}
+            <div className="flex gap-3 relative z-10">
+              {needRefresh ? (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => updateServiceWorker(true)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-200 hover:shadow-indigo-300 transition-all border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    อัปเดตระบบเดี๋ยวนี้
+                  </motion.button>
+                  <button
+                    onClick={close}
+                    className="px-6 py-3.5 bg-slate-50 text-slate-500 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-all"
+                  >
+                    ไว้ก่อน
+                  </button>
+                </>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={close}
+                  className="w-full py-3.5 bg-emerald-50 text-emerald-600 rounded-2xl font-black text-sm border-2 border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95"
+                >
+                  รับทราบ
+                </motion.button>
+              )}
+            </div>
           </div>
         </motion.div>
       )}

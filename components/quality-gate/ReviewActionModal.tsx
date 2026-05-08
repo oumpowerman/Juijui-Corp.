@@ -2,20 +2,30 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, Wrench, Check, Send, MessageSquare, Calculator, TrendingUp, TrendingDown, ChevronDown, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle2, Wrench, Check, Send, MessageSquare, Calculator, TrendingUp, TrendingDown, ChevronDown, AlertTriangle, Zap } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 import { Task, MasterOption } from '../../types';
-import { DIFFICULTY_LABELS } from '../../config/taxonomy';
+import { calculateTaskXP } from '../../lib/gameLogic';
 
 interface ReviewActionModalProps {
     isOpen: boolean;
     onClose: () => void;
     actionType: 'PASS' | 'REVISE' | null;
     task?: Task; // Added Task prop to calculate base score
+    submissionDate?: Date; // Added Submission Date for accurate bonus
     onConfirm: (feedback?: string, adjustment?: number) => void;
     masterOptions?: MasterOption[]; // New Prop
 }
 
-const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, actionType, task, onConfirm, masterOptions = [] }) => {
+const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    actionType, 
+    task,
+    submissionDate,
+    onConfirm, 
+    masterOptions = [] 
+}) => {
     const [feedback, setFeedback] = useState('');
     const [adjustment, setAdjustment] = useState<number>(0);
     const [showReasons, setShowReasons] = useState(false);
@@ -49,19 +59,17 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
 
     // Calculate Base Score
     const baseScoreInfo = useMemo(() => {
-        if (!task) return { base: 0, timeBonus: 0, total: 0 };
+        if (!task) return { base: 0, timeBonus: 0, earlyBonus: 0, total: 0 };
         
-        const difficulty = task.difficulty || 'MEDIUM';
-        // @ts-ignore
-        const diffXP = DIFFICULTY_LABELS[difficulty]?.xp || 100;
-        const timeXP = (task.estimatedHours || 0) * 20;
+        const breakdown = calculateTaskXP(task, submissionDate);
         
         return {
-            base: diffXP,
-            timeBonus: timeXP,
-            total: diffXP + timeXP
+            base: breakdown.base,
+            timeBonus: breakdown.hourly,
+            earlyBonus: breakdown.early,
+            total: breakdown.total
         };
-    }, [task]);
+    }, [task, submissionDate]);
 
     if (!isOpen || !actionType) return null;
 
@@ -139,6 +147,14 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ isOpen, onClose, 
                                             <span>Time Bonus ({task.estimatedHours}h):</span>
                                             <span className="font-mono">+{baseScoreInfo.timeBonus} XP</span>
                                         </div>
+
+                                        {baseScoreInfo.earlyBonus > 0 && (
+                                            <div className="flex justify-between text-xs text-emerald-600 font-bold border-b border-dashed border-emerald-100 pb-2">
+                                                <span className="flex items-center"><Zap className="w-3 h-3 mr-1" /> Early Bird Bonus:</span>
+                                                <span className="font-mono">+{baseScoreInfo.earlyBonus} XP</span>
+                                            </div>
+                                        )}
+
                                         <div className="flex justify-between text-sm font-bold text-gray-700 pt-1">
                                             <span>คะแนนพื้นฐาน (Base Score):</span>
                                             <span>{baseScoreInfo.total} XP</span>

@@ -17,16 +17,16 @@ export const DEFAULT_GAME_CONFIG = {
         XP_BONUS_EARLY: 50,
         XP_DUTY_COMPLETE: 20,
         XP_ATTENDANCE: 10,
-        XP_TASK_COMPLETE: 50,
+        XP_TASK_COMPLETE: 200,
         XP_DUTY_LATE_SUBMIT: 5,
         XP_DUTY_ASSIST: 10,
     },
 
     // XP Calculation
     DIFFICULTY_XP: {
-        EASY: 50,
-        MEDIUM: 100,
-        HARD: 250
+        EASY: 100,
+        MEDIUM: 200,
+        HARD: 300
     },
 
     // Penalty Rates
@@ -135,6 +135,49 @@ const formatDate = (date: Date | string) => {
     }
 };
 
+export interface TaskXPBreakdown {
+    base: number;
+    hourly: number;
+    early: number;
+    total: number;
+}
+
+export const calculateTaskXP = (task: any, completionDate?: Date, config: any = DEFAULT_GAME_CONFIG): TaskXPBreakdown => {
+    const cfg = config || DEFAULT_GAME_CONFIG;
+    const diffXP = cfg.DIFFICULTY_XP || DEFAULT_GAME_CONFIG.DIFFICULTY_XP;
+    const globals = cfg.GLOBAL_MULTIPLIERS || DEFAULT_GAME_CONFIG.GLOBAL_MULTIPLIERS;
+
+    const difficulty = (task.difficulty || 'MEDIUM') as Difficulty;
+    const estimatedHours = task.estimatedHours || 0;
+    const endDate = task.endDate;
+
+    // 1. Base XP
+    const base = diffXP[difficulty] || globals.XP_TASK_COMPLETE || 200;
+
+    // 2. Hourly Bonus
+    let hourly = 0;
+    if (estimatedHours > 0) {
+        hourly = Math.floor(estimatedHours * (globals.XP_PER_HOUR || 20));
+    }
+
+    // 3. Early Bonus
+    let early = 0;
+    if (endDate) {
+        const finalSubmitDate = completionDate ? new Date(completionDate) : new Date();
+        const isEarly = differenceInDays(new Date(endDate), finalSubmitDate) >= 1;
+        if (isEarly) {
+            early = globals.XP_BONUS_EARLY || 50;
+        }
+    }
+
+    return {
+        base,
+        hourly,
+        early,
+        total: base + hourly + early
+    };
+};
+
 export const evaluateAction = (action: GameActionType, context: any, config: any = DEFAULT_GAME_CONFIG): GameActionResult => {
     // Ensure config exists, else fallback
     const cfg = config || DEFAULT_GAME_CONFIG;
@@ -146,22 +189,16 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
     switch (action) {
         case 'TASK_COMPLETE': {
-            const { difficulty, estimatedHours, endDate, title } = context;
+            const { title } = context;
             const taskName = title || 'งาน';
-            // 1. Base XP
-            let xp = diffXP[difficulty as Difficulty] || globals.XP_TASK_COMPLETE || diffXP.MEDIUM;
             
-            // 2. Hourly Bonus
-            if (estimatedHours > 0) {
-                xp += Math.floor(estimatedHours * (globals.XP_PER_HOUR || 20));
-            }
+            const breakdown = calculateTaskXP(context, context.completionDate, cfg);
+            const xp = breakdown.total;
 
-            // 3. Early Bonus
-            const isEarly = differenceInDays(new Date(endDate), new Date()) >= 1;
+            const isEarly = breakdown.early > 0;
             let coins = globals.COIN_TASK || 10;
             if (isEarly) {
                 coins += globals.COIN_BONUS_EARLY || 20;
-                xp += globals.XP_BONUS_EARLY || 50; // Dynamic Early XP Bonus
             }
 
             return {

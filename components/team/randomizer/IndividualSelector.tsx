@@ -27,7 +27,7 @@ const IndividualSelector: React.FC<IndividualSelectorProps> = ({
     return (
         <div className="w-full space-y-4">
             <div className="flex items-center justify-between">
-                <label className="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <label className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     เลือกรายบุคคล (Optional) 👤
                 </label>
                 {selectedIds.length > 0 && (
@@ -44,7 +44,7 @@ const IndividualSelector: React.FC<IndividualSelectorProps> = ({
             <div className="bg-slate-50/50 rounded-[2rem] p-6 border-2 border-dashed border-slate-200 min-h-[120px] flex flex-col gap-6">
                 {/* Unselected Pool */}
                 <div className="space-y-2">
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="text-[14px] font-medium text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <Plus className="w-3 h-3" /> คลิกเพื่อเพิ่มเข้ากลุ่มสุ่ม
                     </div>
                     <div 

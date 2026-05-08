@@ -143,12 +143,9 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         // Wait, the previous step implementation of adminAdjustStats takes (userId, type, amount, reason).
         // So we need to call it for each non-zero stat.
         
-        const promises = [];
-        if (adjustForm.hp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'HP', Number(adjustForm.hp), adjustForm.reason));
-        if (adjustForm.xp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'XP', Number(adjustForm.xp), adjustForm.reason));
-        if (adjustForm.points !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'COINS', Number(adjustForm.points), adjustForm.reason));
+
         
-        await Promise.all(promises);
+
         
         setIsSaving(false);
         // Optimistic Update: Update local state immediately

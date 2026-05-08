@@ -86,25 +86,32 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  let content;
   if (loading) {
-     return (
+     content = (
         <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
             <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mb-4" />
         </div>
      );
-  }
-
-  if (!session) {
+  } else if (!session) {
     if (showLogin) {
-      return <AuthPage onLoginSuccess={() => {}} onBack={() => setShowLogin(false)} />;
+      content = <AuthPage onLoginSuccess={() => {}} onBack={() => setShowLogin(false)} />;
+    } else {
+      content = <LandingPage onGoToLogin={() => setShowLogin(true)} />;
     }
-    return <LandingPage onGoToLogin={() => setShowLogin(true)} />;
+  } else {
+    content = (
+      <QueryClientProvider client={queryClient}>
+        <AuthenticatedApp user={session.user} />
+      </QueryClientProvider>
+    );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthenticatedApp user={session.user} />
-    </QueryClientProvider>
+    <>
+      <PWAReloadPrompt />
+      {content}
+    </>
   );
 }
 
@@ -145,7 +152,6 @@ function AuthenticatedAppInner({ user }: { user: any }) {
                   <TaskProvider>
                     <ShootQueueProvider>
                       <GlobalRealtimeSync />
-                      <PWAReloadPrompt />
                       <AppRouter user={user} />
                     </ShootQueueProvider>
                   </TaskProvider>

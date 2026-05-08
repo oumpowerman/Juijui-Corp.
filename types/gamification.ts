@@ -36,6 +36,7 @@ export interface UserInventoryItem {
     userId: string;
     itemId: string;
     isUsed: boolean;
+    purchasedAt?: Date;
     usedAt?: Date;
     item?: ShopItem; // Joined data
 }
@@ -72,6 +73,8 @@ export interface Redemption {
     rewardId: string;
     redeemedAt: Date;
     rewardSnapshot?: Reward; // To keep history if reward changes
+    status: 'OWNED' | 'USED' | 'APPROVED' | 'REJECTED';
+    usedAt?: Date;
 }
 
 export interface GameActionResult {

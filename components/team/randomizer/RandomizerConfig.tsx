@@ -69,7 +69,7 @@ const RandomizerConfig: React.FC<RandomizerConfigProps> = ({
         >
             {/* Topic Input */}
             <div className="w-full">
-                <label className="block text-sm font-black text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <label className="block text-lg font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-2">
                     <span className="w-2 h-2 bg-indigo-500 rounded-full animate-ping" />
                     วันนี้สุ่มเรื่องอะไรดี? ✨
                 </label>
@@ -81,7 +81,7 @@ const RandomizerConfig: React.FC<RandomizerConfigProps> = ({
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
                         disabled={isSpinning}
-                        className="relative w-full px-6 py-4 rounded-2xl border-2 border-slate-100 bg-white text-lg font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all disabled:opacity-50 shadow-sm"
+                        className="relative w-full px-6 py-4 rounded-2xl border-2 border-slate-100 bg-white text-lg font-medium outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all disabled:opacity-50 shadow-sm"
                     />
                 </div>
             </div>
@@ -89,7 +89,7 @@ const RandomizerConfig: React.FC<RandomizerConfigProps> = ({
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Number of Winners */}
                 <div className="space-y-3">
-                    <label className="block text-sm font-black text-slate-700 uppercase tracking-wider">
+                    <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">
                         จำนวนผู้โชคดี (คน) 👥
                     </label>
                     <div className="relative">
@@ -113,7 +113,7 @@ const RandomizerConfig: React.FC<RandomizerConfigProps> = ({
 
                 {/* Position Filter */}
                 <div className="space-y-3">
-                    <label className="block text-sm font-black text-slate-700 uppercase tracking-wider">
+                    <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">
                         สุ่มเฉพาะตำแหน่ง 💼
                     </label>
                     <FilterDropdown 

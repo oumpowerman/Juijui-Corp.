@@ -165,7 +165,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     activePresetId,
     activePresetName,
     
-    isModalOpen, editingTask, selectedDate, notificationSettings, lockedTaskType,
+    isModalOpen, editingTask, initialViewMode, taskStack, selectedDate, notificationSettings, lockedTaskType,
     setIsModalOpen, setEditingTask,
     
     handleAddTask, handleEditTask, handleSelectDate, closeModal,
@@ -187,7 +187,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const { showToast } = useToast();
 
   // --- TASK OPENER (Robust ID Resolution) ---
-  const handleOpenTaskById = useCallback(async (taskOrId: any) => {
+  const handleOpenTaskById = useCallback(async (taskOrId: any, currentViewMode?: string) => {
     if (!taskOrId) return;
 
     let finalTask: Task | undefined;
@@ -218,7 +218,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     }
 
     if (finalTask) {
-        handleEditTask(finalTask);
+        handleEditTask(finalTask, currentViewMode);
     } else {
         console.warn("[AppRouter] Task not found for resolution:", taskOrId);
         showToast('ไม่พบข้อมูลโครงการที่ต้องการเปิด', 'error');
@@ -584,6 +584,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       currentUser={currentUserProfile}
                       projects={tasks.filter(t => t.type === 'CONTENT')} 
                       onOpenTask={handleOpenTaskById}
+                      hasHistory={taskStack.length > 0}
+                      initialViewMode={initialViewMode}
                   />
               )}
   

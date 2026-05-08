@@ -454,7 +454,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                     </fieldset>
                 </div>
                     
-                <div className="bg-white shrink-0 z-30 px-4 sm:px-6 pb-6 pt-2 border-t border-gray-100">
+                <div className="bg-white shrink-0 z-30 px-3 sm:px-6 pb-3 sm:pb-6 pt-1 sm:pt-2 border-t border-gray-100">
                     <ContentActionFooter 
                         mode={initialData ? 'EDIT' : 'CREATE'}
                         onCancel={onClose}

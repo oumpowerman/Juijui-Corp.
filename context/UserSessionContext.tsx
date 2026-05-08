@@ -5,6 +5,7 @@ import { useToast } from './ToastContext';
 import { useGlobalDialog } from './GlobalDialogContext';
 import { subDays, format } from 'date-fns';
 import { mapAttendanceLog } from '../hooks/attendance/shared';
+import { calculateLevel } from '../lib/gameLogic';
 
 interface UserSessionContextType {
     isReady: boolean;
@@ -399,7 +400,11 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 const newHp = adjustments.hp !== undefined ? Math.min(u.maxHp, Math.max(0, u.hp + adjustments.hp)) : u.hp;
                 const newXp = adjustments.xp !== undefined ? Math.max(0, u.xp + adjustments.xp) : u.xp;
                 const newPoints = adjustments.points !== undefined ? Math.max(0, u.availablePoints + adjustments.points) : u.availablePoints;
-                return { ...u, hp: newHp, xp: newXp, availablePoints: newPoints };
+                
+                // Recalculate level optimistically
+                const newLevel = calculateLevel(newXp);
+                
+                return { ...u, hp: newHp, xp: newXp, availablePoints: newPoints, level: newLevel };
             }
             return u;
         }));

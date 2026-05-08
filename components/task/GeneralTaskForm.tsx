@@ -18,7 +18,7 @@ interface GeneralTaskFormProps {
     onClose: () => void;
     projects?: Task[]; 
     channels?: Channel[]; // Add optional channels prop
-    onOpenTask?: (task: Task) => void;
+    onOpenTask?: (task: Task, currentViewMode?: string) => void;
 }
 
 const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {

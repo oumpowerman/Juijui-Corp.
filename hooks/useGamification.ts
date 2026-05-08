@@ -86,46 +86,28 @@ export const useGamification = (currentUser: User | null = null) => {
     // --- 4. 🛠️ Legacy Support / Admin Tools ---
     const processAction = handleAction; // Alias for backward compatibility
 
-    const adminAdjustStats = useCallback(async (userId: string, type: 'XP' | 'HP' | 'COINS', amount: number, reason: string) => {
+    const adminAdjustStats = useCallback(async (userId: string, adjustments: { hp?: number, xp?: number, coins?: number }, reason: string) => {
         try {
             setIsLoading(true);
-            const { data: user, error: fetchError } = await supabase.from('profiles').select('xp, hp, max_hp, available_points').eq('id', userId).single();
-            if (fetchError || !user) throw new Error('User not found');
-
-            let updates: any = {};
-            if (type === 'XP') updates.xp = Math.max(0, user.xp + amount);
-            if (type === 'HP') updates.hp = Math.min(user.max_hp, user.hp + amount); // Allow negative HP
-            if (type === 'COINS') updates.available_points = Math.max(0, user.available_points + amount);
-
-            const { error: updateError } = await supabase.from('profiles').update(updates).eq('id', userId);
-            if (updateError) throw updateError;
             
-            await supabase.from('game_logs').insert({
-                user_id: userId,
-                action_type: 'ADMIN_ADJUST',
-                xp_change: type === 'XP' ? amount : 0,
-                hp_change: type === 'HP' ? amount : 0,
-                jp_change: type === 'COINS' ? amount : 0,
-                description: `Admin Adjusted: ${reason}`
+            // Use handleAction (which calls updateGameStats and logGameAction)
+            // with action 'MANUAL_ADJUST' to let the game engine handle level recalculation
+            const result = await handleAction(userId, 'MANUAL_ADJUST', {
+                hp: adjustments.hp || 0,
+                xp: adjustments.xp || 0,
+                coins: adjustments.coins || 0,
+                reason,
+                adminName: currentUser?.name || 'Admin'
             });
 
-            // Add to notifications table to trigger LINE and real-time bell
-            await supabase.from('notifications').insert({
-                user_id: userId,
-                type: amount >= 0 ? 'GAME_REWARD' : 'GAME_PENALTY',
-                title: amount >= 0 ? '🎁 มีการปรับเพิ่มสถานะ!' : '📉 มีการปรับลดสถานะ!',
-                message: `GM ได้ปรับ ${type} ของคุณ: ${amount > 0 ? '+' : ''}${amount} (${reason})`,
-                link_path: 'DASHBOARD'
-            });
-            
-            return { success: true };
+            return { success: !!result, result };
         } catch (e: any) {
             console.error("Admin Adjust Error:", e);
             return { success: false, message: e.message };
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [handleAction, currentUser]);
 
     const fetchGameLogs = useCallback(async (userId: string, page = 1, pageSize = 50, filter: 'ALL' | 'EARNED' | 'SPENT' | 'PENALTY' = 'ALL') => {
         try {

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Bell, Calendar, UserPlus, CheckCircle, Mail, Shield } from 'lucide-react';
 import { NotificationPreferences } from '../types';
 
@@ -58,9 +59,9 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
       </button>
     </div>
   );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  
+  const modalContent = (
+    <div className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200 font-sans">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-100 scale-100 animate-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -70,7 +71,7 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
                 <Bell className="w-5 h-5" />
             </div>
             <div>
-                <h2 className="text-lg font-bold text-gray-800">การแจ้งเตือน (Notifications)</h2>
+                <h2 className="text-lg font-bold text-gray-800 tracking-tight">การตั้งค่าการแจ้งเตือน</h2>
                 <p className="text-xs text-gray-400">เลือกรับเฉพาะเรื่องที่สำคัญกับคุณ</p>
             </div>
           </div>
@@ -136,18 +137,15 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 text-center">
-            <button 
-                onClick={onClose}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
-            >
-                บันทึกการตั้งค่า
-            </button>
+        <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-400">
+            ตั้งค่าจะมีผลทันทีหลังจากกดบันทึก
         </div>
 
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default NotificationSettingsModal;

@@ -212,18 +212,13 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 
         setIsSaving(true);
         try {
-            const promises = [];
-            if (hp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'HP', hp, adjustForm.reason));
-            if (xp !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'XP', xp, adjustForm.reason));
-            if (points !== 0) promises.push(adminAdjustStats(selectedGmUser.id, 'COINS', points, adjustForm.reason));
+            // Call adminAdjustStats once with all adjustments
+            const response = await adminAdjustStats(selectedGmUser.id, { hp, xp, coins: points }, adjustForm.reason);
             
-            const results = await Promise.all(promises);
-            const failed = results.find(r => !r?.success);
-            
-            if (failed) {
-                showToast('การปรับค่าบางรายการล้มเหลว กรุณาลองใหม่', 'error');
-            } else {
+            if (response && response.success) {
                 showToast('ปรับค่า Stats สำเร็จ! ข้อมูลจะซิงค์ไปยังทุกคนในทีม', 'success');
+            } else {
+                showToast(response?.message || 'การปรับค่าล้มเหลว กรุณาลองใหม่', 'error');
             }
         } catch (error) {
             console.error("GM Save Error:", error);
@@ -239,7 +234,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 font-sans">
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 font-sans">
                     {/* Backdrop */}
                     <motion.div 
                         initial={{ opacity: 0 }}

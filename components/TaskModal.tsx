@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck, FileText } from 'lucide-react';
 import { Task, Channel, TaskType, User, MasterOption, Script } from '../types';
 import TaskComments from './TaskComments';
@@ -28,7 +29,9 @@ interface TaskModalProps {
   masterOptions?: MasterOption[];
   currentUser?: User; 
   projects?: Task[]; 
-  onOpenTask?: (task: Task) => void;
+  onOpenTask?: (task: Task, currentViewMode?: string) => void;
+  hasHistory?: boolean;
+  initialViewMode?: string | null;
 }
 
 // --- 🎨 UI CONFIGURATION: Contextual Themes ---
@@ -43,11 +46,20 @@ const TAB_CONFIGS: Record<string, { color: string, icon: any, label: string }> =
 };
 
 const TaskModal: React.FC<TaskModalProps> = ({ 
-    isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [], onOpenTask 
+    isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [], onOpenTask, hasHistory, initialViewMode 
 }) => {
   // Main View State
-  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>('DETAILS');
+  const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>((initialViewMode as any) || 'DETAILS');
   const [mode, setMode] = useState<'VIEW' | 'EDIT'>('VIEW');
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Mobile Detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Tab State (Content vs Task) - Synced with props
   const [activeTab, setActiveTab] = useState<TaskType>('CONTENT');
@@ -59,7 +71,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   // Sync state when modal opens or props change
   useEffect(() => {
       if (isOpen) {
-          setViewMode('DETAILS');
+          setViewMode((initialViewMode as any) || 'DETAILS');
           if (initialData) {
               setActiveTab(initialData.type || 'CONTENT');
               setMode('VIEW');
@@ -72,7 +84,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
               }
           }
       }
-  }, [isOpen, initialData, lockedType]);
+  }, [isOpen, initialData, lockedType, initialViewMode]);
 
   // Load Script if viewing script tab
   useEffect(() => {
@@ -94,38 +106,45 @@ const TaskModal: React.FC<TaskModalProps> = ({
   const themeColor = currentTheme.color;
 
   if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-indigo-950/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300 font-kanit">
+  
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-950/60 backdrop-blur-md p-0 sm:p-4 md:p-6 lg:p-8 animate-in fade-in duration-300 font-kanit">
       
       {/* Dynamic Border Container */}
       <div className={`
-          bg-white text-slate-900 w-full sm:max-w-4xl h-full sm:h-[90vh] sm:rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col 
-          border-[6px] transition-colors duration-500
+          bg-white text-slate-900 w-full sm:max-w-5xl h-full sm:h-[92vh] sm:rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col 
+          ${!isMobile ? 'border-[6px]' : 'border-t-4'} transition-colors duration-500
           border-${themeColor}-100 ring-1 ring-${themeColor}-200
       `}>
         
         {/* --- DYNAMIC HEADER --- */}
         <div className={`
-            px-6 py-4 border-b flex justify-between items-center shrink-0 transition-colors duration-500
+            px-4 sm:px-8 py-2.5 sm:py-5 border-b flex justify-between items-center shrink-0 transition-colors duration-500
             bg-${themeColor}-50/50 border-${themeColor}-100
         `}>
-            <div className="flex items-center gap-4">
-                {viewMode !== 'DETAILS' && (
+            <div className="flex items-center gap-3 sm:gap-5">
+                {(viewMode !== 'DETAILS' || hasHistory) && (
                     <button 
-                        onClick={() => setViewMode('DETAILS')} 
-                        className={`p-2 rounded-xl transition-all active:scale-90 border bg-white border-${themeColor}-200 text-${themeColor}-400 hover:text-${themeColor}-600 hover:bg-${themeColor}-50`}
+                        onClick={() => {
+                            if (viewMode !== 'DETAILS') {
+                                setViewMode('DETAILS');
+                            } else if (hasHistory) {
+                                onClose();
+                            }
+                        }} 
+                        className={`p-1.5 sm:p-2 rounded-xl transition-all active:scale-90 border bg-white border-${themeColor}-200 text-${themeColor}-400 hover:text-${themeColor}-600 hover:bg-${themeColor}-50`}
+                        title={viewMode !== 'DETAILS' ? "Back to Details" : "Back to Parent Task"}
                     >
-                        <ArrowLeft className="w-5 h-5" />
+                        <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                 )}
-                <div>
-                    <h2 className={`text-2xl font-bold tracking-tight flex items-center gap-2 text-slate-800 transition-colors`}>
+                <div className="min-w-0">
+                    <h2 className={`text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2 text-slate-800 transition-colors truncate`}>
                         {viewMode === 'DETAILS' ? (
                              initialData ? (initialData.title || 'แก้ไขงาน') : (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์ใหม่' : '⚡ สร้างภารกิจใหม่')
                         ) : (
-                            <span className={`flex items-center gap-2 text-${themeColor}-600`}>
-                                {React.createElement(currentTheme.icon, { className: "w-6 h-6" })}
+                            <span className={`flex items-center gap-2 text-${themeColor}-600 truncate`}>
+                                {React.createElement(currentTheme.icon, { className: "w-5 h-5 sm:w-6 sm:h-6 shrink-0" })}
                                 {currentTheme.label}
                             </span>
                         )}
@@ -133,11 +152,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
                     
                     {/* Meta Badge */}
                     {viewMode === 'DETAILS' && (
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black tracking-widest border uppercase ${activeTab === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                        <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+                            <span className={`px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black tracking-widest border uppercase shrink-0 ${activeTab === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                                 {activeTab}
                             </span>
-                            {initialData && <span className="text-[10px] text-gray-400 font-mono">ID: {initialData.id.slice(0,8)}</span>}
+                            {initialData && <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono truncate">ID: {initialData.id.slice(0,8)}</span>}
                         </div>
                     )}
                 </div>
@@ -145,18 +164,18 @@ const TaskModal: React.FC<TaskModalProps> = ({
             
             <button 
                 onClick={onClose} 
-                className={`p-2 rounded-full transition-all border border-transparent hover:rotate-90 bg-white/50 text-slate-400 hover:text-${themeColor}-500 hover:bg-white`}
+                className={`p-1.5 sm:p-2 rounded-full transition-all border border-transparent hover:rotate-90 bg-white/50 text-slate-400 hover:text-${themeColor}-500 hover:bg-white shrink-0`}
             >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
         </div>
 
         {/* --- LIQUID NAVIGATION (Floating Capsule) --- */}
         {initialData && (
-            <div className="px-6 pt-4 pb-2 bg-white shrink-0 z-20">
-                <div className="flex bg-gray-100/80 p-1.5 rounded-2xl overflow-x-auto scrollbar-hide relative gap-1">
+            <div className="px-2 sm:px-6 pt-1 sm:pt-4 pb-1.5 sm:pb-2 bg-white shrink-0 z-20">
+                <div className="flex bg-gray-100/80 p-1 rounded-xl sm:rounded-2xl overflow-x-auto scrollbar-none relative gap-1 snap-x snap-mandatory">
                     {[
-                        { id: 'DETAILS', label: 'รายละเอียด', icon: Layout },
+                        { id: 'DETAILS', label: 'ดีเทล', icon: Layout },
                         ...(isContent ? [{ id: 'LOGISTICS', label: 'งานย่อย', icon: Truck }] : []),
                         ...(hasLinkedScript ? [{ id: 'SCRIPT', label: 'สคริปต์', icon: FileText }] : []),
                         { id: 'COMMENTS', label: 'แชท', icon: MessageSquare },
@@ -166,9 +185,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                     ].map((tab) => {
                         const isActive = viewMode === tab.id;
                         const config = TAB_CONFIGS[tab.id];
-                        // Dynamic styles based on active state
                         const activeClass = isActive 
-                            ? `bg-white text-${config.color}-600 shadow-md scale-[1.02] ring-1 ring-black/5` 
+                            ? `bg-white text-${config.color}-600 shadow-sm scale-[1.02] ring-1 ring-black/5` 
                             : `text-slate-500 hover:bg-gray-200/50 hover:text-slate-700`;
 
                         return (
@@ -176,15 +194,16 @@ const TaskModal: React.FC<TaskModalProps> = ({
                                 key={tab.id}
                                 onClick={() => setViewMode(tab.id as any)}
                                 className={`
-                                    flex-1 py-2.5 px-3 rounded-xl text-sm font-bold transition-all duration-300 ease-out flex items-center justify-center gap-2 whitespace-nowrap relative
+                                    flex-1 py-1.5 sm:py-2.5 px-3 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all duration-300 ease-out flex items-center justify-center gap-2 whitespace-nowrap relative snap-start
                                     ${activeClass}
                                 `}
                             >
-                                <tab.icon className={`w-3.5 h-3.5 ${isActive ? 'stroke-[2.5px]' : ''}`} />
-                                {tab.label}
+                                <tab.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isActive ? 'stroke-[2.5px]' : ''}`} />
+                                <span>{tab.label}</span>
+                                
                                 {!!tab.count && tab.count > 0 && (
                                     <span className={`
-                                        absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white
+                                        absolute top-1 right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border border-white
                                         ${isActive ? `bg-${config.color}-500` : 'bg-slate-400'}
                                     `}></span>
                                 )}
@@ -228,7 +247,9 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         parentTask={initialData}
                         users={users}
                         currentUser={currentUser}
+                        masterOptions={masterOptions}
                         onUpdate={onUpdate}
+                        onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                      />
                 ) : viewMode === 'WIKI' ? (
                     <TaskWiki className="flex-1" />
@@ -267,7 +288,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                                 onEdit={() => setMode('EDIT')}
                                 onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
                                 onClose={onClose}
-                                onOpenTask={onOpenTask}
+                                onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                             />
                         )
                     ) : activeTab === 'CONTENT' ? (
@@ -296,7 +317,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             onSave={(task) => { onSave(task); if (initialData) setMode('VIEW'); else onClose(); }}
                             onDelete={onDelete}
                             onClose={initialData ? () => setMode('VIEW') : onClose}
-                            onOpenTask={onOpenTask}
+                            onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                         />
                     )
                 )}
@@ -305,6 +326,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default TaskModal;

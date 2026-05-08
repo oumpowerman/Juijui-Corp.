@@ -2,6 +2,7 @@
 import { Platform, ContentPillar, ContentFormat, AssetCategory, Difficulty, WorkStatus } from '../types';
 import { Youtube, Facebook, Instagram, Video, Globe, FileText, Image, Film, Receipt, Link as LinkIcon, LucideIcon } from 'lucide-react';
 import React from 'react';
+import { DEFAULT_GAME_CONFIG } from '../lib/gameLogic';
 
 export const PLATFORM_ICONS: Record<Platform, any> = {
   YOUTUBE: Youtube,
@@ -13,9 +14,9 @@ export const PLATFORM_ICONS: Record<Platform, any> = {
 };
 
 export const DIFFICULTY_LABELS: Record<Difficulty, { label: string, xp: number, color: string }> = {
-    EASY: { label: 'Easy (ง่าย)', xp: 100, color: 'bg-green-100 text-green-700' },
-    MEDIUM: { label: 'Medium (กลาง)', xp: 200, color: 'bg-yellow-100 text-yellow-700' },
-    HARD: { label: 'Hard (ยาก)', xp: 300, color: 'bg-red-100 text-red-700' },
+    EASY: { label: 'Easy (ง่าย)', xp: DEFAULT_GAME_CONFIG.DIFFICULTY_XP.EASY, color: 'bg-green-100 text-green-700' },
+    MEDIUM: { label: 'Medium (กลาง)', xp: DEFAULT_GAME_CONFIG.DIFFICULTY_XP.MEDIUM, color: 'bg-yellow-100 text-yellow-700' },
+    HARD: { label: 'Hard (ยาก)', xp: DEFAULT_GAME_CONFIG.DIFFICULTY_XP.HARD, color: 'bg-red-100 text-red-700' },
 };
 
 export const CONTENT_PILLARS: Record<ContentPillar, string> = {

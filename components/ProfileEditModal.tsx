@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, Loader2 } from 'lucide-react';
 import { User as UserType } from '../types';
 import ImageCropper from './ImageCropper';
@@ -51,8 +52,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-indigo-900/20 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
+  const modalContent = (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-indigo-900/20 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
       
       {/* Image Cropper Modal */}
       {cropImageSrc && (
@@ -65,7 +66,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
 
       {/* Lightbox ดูรูปใหญ่ */}
       {showFullImage && previewUrl && !cropImageSrc && (
-          <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowFullImage(false)}>
+          <div className="fixed inset-0 z-[3100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowFullImage(false)}>
               <img src={previewUrl} className="max-w-full max-h-full rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" />
               <button className="absolute top-6 right-6 text-white p-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-all">
                   <X className="w-6 h-6" />
@@ -81,7 +82,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
         <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-100/50 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="px-8 py-5 border-b border-indigo-50/50 flex justify-between items-center bg-white/40 backdrop-blur-md sticky top-0 z-10">
-          <h3 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
+          <h3 className="text-xl font-bold text-gray-800 tracking-tight flex items-center gap-2">
             <span className="bg-gradient-to-r from-indigo-500 to-violet-500 text-transparent bg-clip-text">Edit Profile</span> 
             <span className="text-lg">✨</span>
           </h3>
@@ -172,6 +173,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default ProfileEditModal;

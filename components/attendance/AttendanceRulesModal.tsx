@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useGameConfig } from '../../context/GameConfigContext';
 import { useMasterData } from '../../hooks/useMasterData';
+import { DEFAULT_GAME_CONFIG } from '../../lib/gameLogic';
 
 interface Props {
     isOpen: boolean;
@@ -192,7 +193,7 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 <SectionHeader title="การเข้างาน (Check-in)" icon={Clock} color="text-emerald-600" />
                                 <RuleCard 
                                     icon={CheckCircle} colorTheme="emerald" title="เข้างานตรงเวลา" delay={0.1}
-                                    stats={{ xp: rules.ON_TIME?.xp || 15, coins: rules.ON_TIME?.coins || 5 }}
+                                    stats={{ xp: rules.ON_TIME?.xp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ON_TIME.xp, coins: rules.ON_TIME?.coins || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ON_TIME.coins }}
                                     description={
                                         <span>
                                             ตอกบัตรเข้างานก่อนเวลา <span className="font-bold text-emerald-600">{startTime} น.</span> (อนุโลมสายได้ {lateBuffer} นาที) จะได้รับโบนัสความตรงต่อเวลา
@@ -201,26 +202,26 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 />
                                 <RuleCard 
                                     icon={TrendingDown} colorTheme="orange" title="เข้างานสาย" delay={0.2}
-                                    stats={{ hp: rules.LATE?.hp || -5 }}
+                                    stats={{ hp: rules.LATE?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.LATE.hp }}
                                     description="ตอกบัตรหลังเวลาเริ่มงาน (รวมเวลาผ่อนผันแล้ว) จะถูกหัก HP ทันที"
                                 />
                                 
                                 <SectionHeader title="การขาดงาน (Absence)" icon={AlertTriangle} color="text-rose-600" />
                                 <RuleCard 
                                     icon={Ghost} colorTheme="rose" title="ขาดงาน (Absent)" delay={0.3}
-                                    stats={{ hp: rules.ABSENT?.hp || -20, coins: rules.ABSENT?.coins || -50 }}
+                                    stats={{ hp: rules.ABSENT?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT.hp, coins: rules.ABSENT?.coins || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT.coins }}
                                     description="ไม่มีการตอกบัตรเข้างานในวันที่มีกะงาน ระบบจะลงสถานะขาดงานเมื่อหมดวัน (เช็คย้อนหลังอัตโนมัติ)"
                                 />
                                 <RuleCard 
                                     icon={ShieldCheck} colorTheme="rose" title="หายตัวไปเลย (No Show)" delay={0.4}
-                                    stats={{ hp: rules.NO_SHOW?.hp || -100, coins: rules.NO_SHOW?.coins || -100 }}
+                                    stats={{ hp: rules.NO_SHOW?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.NO_SHOW.hp, coins: rules.NO_SHOW?.coins || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.NO_SHOW.coins }}
                                     description="ขาดงานโดยไม่แจ้งล่วงหน้า หรือติดต่อไม่ได้ ถือเป็นความผิดร้ายแรง"
                                 />
 
                                 <SectionHeader title="สถานที่ทำงาน (Locations)" icon={MapPin} color="text-blue-600" />
                                 <RuleCard 
                                     icon={MapPin} colorTheme="blue" title="เข้าออฟฟิศ (On-Site)" delay={0.5}
-                                    stats={{ xp: rules.SITE?.xp || 20, coins: rules.SITE?.coins || 10 }}
+                                    stats={{ xp: rules.SITE?.xp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.SITE.xp, coins: rules.SITE?.coins || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.SITE.coins }}
                                     description="ตอกบัตรเข้าทำงานที่ออฟฟิศ จะได้รับโบนัสพิเศษมากกว่าปกติ"
                                 />
                                 <RuleCard 
@@ -240,7 +241,7 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 <SectionHeader title="การลืมตอกบัตร (Forgot Punches)" icon={LogOut} color="text-purple-600" />
                                 <RuleCard 
                                     icon={LogOut} colorTheme="purple" title="ลืมตอกบัตรออกข้ามวัน" delay={0.1}
-                                    stats={{ hp: rules.FORGOT_CHECKOUT?.hp || -10 }}
+                                    stats={{ hp: rules.FORGOT_CHECKOUT?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.FORGOT_CHECKOUT.hp }}
                                     description={
                                         <span>
                                             หากเข้างานแต่ <span className="font-bold text-purple-600">ลืมตอกบัตรออกจนข้ามวัน (เลยเที่ยงคืน)</span> ระบบจะทำการหักคะแนนอัตโนมัติฐานสะเพร่า
@@ -249,10 +250,10 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 />
                                 <RuleCard 
                                     icon={History} colorTheme="emerald" title="ขอคืนคะแนน (Refund)" delay={0.2}
-                                    stats={{ hp: rules.CORRECTION_REFUND?.hp || 5 }}
+                                    stats={{ hp: rules.CORRECTION_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.CORRECTION_REFUND.hp }}
                                     description={
                                         <span>
-                                            เมื่อส่งคำขอ "แจ้งเวลาออกย้อนหลัง" และ Admin อนุมัติ จะได้รับคืน <span className="font-bold text-emerald-600">{rules.CORRECTION_REFUND?.hp || 5} HP</span> (สรุปคือเสีย {Math.abs((rules.FORGOT_CHECKOUT?.hp || -10) + (rules.CORRECTION_REFUND?.hp || 5))} HP เป็นค่าปรับความสะเพร่า)
+                                            เมื่อส่งคำขอ "แจ้งเวลาออกย้อนหลัง" และ Admin อนุมัติ จะได้รับคืน <span className="font-bold text-emerald-600">{rules.CORRECTION_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.CORRECTION_REFUND.hp} HP</span> (สรุปคือเสีย {Math.abs((rules.FORGOT_CHECKOUT?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.FORGOT_CHECKOUT.hp) + (rules.CORRECTION_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.CORRECTION_REFUND.hp))} HP เป็นค่าปรับความสะเพร่า)
                                         </span>
                                     }
                                 />
@@ -268,10 +269,10 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                 />
                                 <RuleCard 
                                     icon={ArrowRightCircle} colorTheme="blue" title="การคืนคะแนนขาดงาน" delay={0.4}
-                                    stats={{ hp: Math.abs(rules.ABSENT_REFUND?.hp || 15) }}
+                                    stats={{ hp: Math.abs(rules.ABSENT_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT_REFUND.hp) }}
                                     description={
                                         <span>
-                                            หากถูกระบบหัก HP จากการขาดงาน แต่ต่อมาส่งคำขอแก้เวลาเข้างานและได้รับการอนุมัติ ระบบจะคืน HP ให้ <span className="font-bold text-blue-600">{Math.abs(rules.ABSENT_REFUND?.hp || 15)} HP</span> (สรุปคือเสีย {Math.abs((rules.ABSENT?.hp || -20) + (rules.ABSENT_REFUND?.hp || 15))} HP เป็นค่าปรับความล่าช้าในการแจ้ง)
+                                            หากถูกระบบหัก HP จากการขาดงาน แต่ต่อมาส่งคำขอแก้เวลาเข้างานและได้รับการอนุมัติ ระบบจะคืน HP ให้ <span className="font-bold text-blue-600">{Math.abs(rules.ABSENT_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT_REFUND.hp)} HP</span> (สรุปคือเสีย {Math.abs((rules.ABSENT?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT.hp) + (rules.ABSENT_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT_REFUND.hp))} HP เป็นค่าปรับความล่าช้าในการแจ้ง)
                                         </span>
                                     }
                                 />

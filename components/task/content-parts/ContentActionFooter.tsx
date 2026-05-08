@@ -29,7 +29,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
     showDelete = false
 }) => {
     return (
-        <div className="flex flex-col gap-4 pt-6 mt-6 border-t border-gray-100 bg-white relative z-20 pb-safe-area">
+        <div className="flex flex-col gap-4 sm:pt-4 sm:mt-4 bg-white relative z-20 pb-safe-area">
             
             {/* Action Row */}
             <div className="flex items-center justify-between gap-2 sm:gap-3">

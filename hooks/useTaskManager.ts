@@ -25,7 +25,7 @@ export const useTaskManager = (
 
   // 2. UI Hook
   const { 
-    isModalOpen, setIsModalOpen, editingTask, setEditingTask, selectedDate, setSelectedDate, notificationSettings,
+    isModalOpen, setIsModalOpen, editingTask, setEditingTask, initialViewMode, taskStack, selectedDate, setSelectedDate, notificationSettings,
     updateNotificationSettings, handleAddTask, handleEditTask, handleSelectDate, closeModal, lockedTaskType
   } = useUI();
 
@@ -118,6 +118,8 @@ export const useTaskManager = (
     // UI State
     isModalOpen,
     editingTask,
+    initialViewMode,
+    taskStack,
     selectedDate,
     notificationSettings,
     lockedTaskType, 

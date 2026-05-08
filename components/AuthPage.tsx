@@ -5,6 +5,7 @@ import { Sparkles, ArrowRight, Lock, Mail, User, AlertCircle, Rocket, Camera, Br
 import { supabase } from '../lib/supabase';
 import SuccessModal from './SuccessModal';
 import ImageCropper from './ImageCropper';
+import FilterDropdown from './common/FilterDropdown';
 import heic2any from 'heic2any';
 
 interface AuthPageProps {
@@ -408,29 +409,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onBack }) => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ตำแหน่งงาน *</label>
-                                <div className="relative group">
-                                    <Briefcase className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
-                                    <select 
-                                        value={position} 
-                                        onChange={(e) => setPosition(e.target.value)} 
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm appearance-none cursor-pointer"
-                                        required={!isLogin}
-                                    >
-                                        <option value="">เลือกตำแหน่ง...</option>
-
-                                        {positions.length > 0 ? (
-                                            positions.map(p => (
-                                                <option key={p.key} value={p.label}>
-                                                    {p.label}
-                                                </option>))) : (
-                                            <>
-                                                <option value="Editor">Editor</option>
-                                                <option value="Creative">Creative</option>
-                                            </>
-                                        )}
-
-                                    </select>
-                                </div>
+                                <FilterDropdown 
+                                    label="ตำแหน่งงาน"
+                                    options={positions.length > 0 ? positions.map(p => ({ key: p.label, label: p.label })) : [
+                                        { key: 'Editor', label: 'Editor' },
+                                        { key: 'Creative', label: 'Creative' },
+                                    ]}
+                                    value={position}
+                                    onChange={(val) => setPosition(val)}
+                                    showAllOption={false}
+                                    clearable={false}
+                                    icon={<Briefcase className="w-5 h-5" />}
+                                    activeColorClass="bg-pink-50 border-pink-200 text-pink-700 font-bold"
+                                />
                             </div>
                         </div>
                     )}
@@ -438,20 +429,20 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, onBack }) => {
                     {!isLogin && (
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ประเภทพนักงาน *</label>
-                            <div className="relative group">
-                                <User className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-pink-500 transition-colors" />
-                                <select 
-                                    value={employmentType} 
-                                    onChange={(e) => setEmploymentType(e.target.value)} 
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-pink-400 rounded-xl outline-none transition-all font-bold text-slate-700 text-sm appearance-none cursor-pointer"
-                                    required={!isLogin}
-                                >
-                                    <option value="">โปรดเลือกรายการในนี้...</option>
-                                    <option value="FULL_TIME">พนักงานประจำ (Full-time)</option>
-                                    <option value="INTERN">นักศึกษาฝึกงาน (Intern)</option>
-                                    <option value="PROBATION">ทดลองงาน (Probation)</option>
-                                </select>
-                            </div>
+                            <FilterDropdown 
+                                label="ประเภทพนักงาน"
+                                options={[
+                                    { key: 'FULL_TIME', label: 'พนักงานประจำ (Full-time)' },
+                                    { key: 'INTERN', label: 'นักศึกษาฝึกงาน (Intern)' },
+                                    { key: 'PROBATION', label: 'ทดลองงาน (Probation)' },
+                                ]}
+                                value={employmentType}
+                                onChange={(val) => setEmploymentType(val)}
+                                showAllOption={false}
+                                clearable={false}
+                                icon={<User className="w-5 h-5" />}
+                                activeColorClass="bg-pink-50 border-pink-200 text-pink-700 font-bold"
+                            />
                         </div>
                     )}
 

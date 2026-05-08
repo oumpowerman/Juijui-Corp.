@@ -2,7 +2,7 @@ import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import GlassyCard from './GlassyCard';
-import { DIFFICULTY_LABELS } from '../../../../config/taxonomy';
+import { calculateTaskXP } from '../../../../lib/gameLogic';
 
 interface ReportTaskTableProps {
     tasks: any[];
@@ -35,7 +35,7 @@ const ReportTaskTable: React.FC<ReportTaskTableProps> = ({ tasks, userId }) => {
                                 </tr>
                             ) : tasks.map((task, i) => {
                                 const difficulty = task.difficulty || 'MEDIUM';
-                                const xpValue = (DIFFICULTY_LABELS[difficulty as keyof typeof DIFFICULTY_LABELS]?.xp || 100) + ((task.estimatedHours || 0) * 20);
+                                const xpValue = calculateTaskXP(task).total;
                                 
                                 // Detect role for this specific task
                                 let myRole = 'Support';

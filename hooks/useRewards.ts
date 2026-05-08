@@ -8,6 +8,7 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 export const useRewards = (currentUser: User | null) => {
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [allRedemptions, setAllRedemptions] = useState<(Redemption & { user?: any })[]>([]); // Added for Admin
+    const [userRedemptions, setUserRedemptions] = useState<Redemption[]>([]); // New: User's inventory
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
@@ -38,6 +39,33 @@ export const useRewards = (currentUser: User | null) => {
         }
     };
 
+    // NEW: Fetch user's own redemptions (Backpack)
+    const fetchUserRedemptions = async () => {
+        if (!currentUser) return;
+        try {
+            const { data, error } = await supabase
+                .from('redemptions')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+                setUserRedemptions(data.map((r: any) => ({
+                    id: r.id,
+                    userId: r.user_id,
+                    rewardId: r.reward_id,
+                    redeemedAt: new Date(r.created_at),
+                    rewardSnapshot: r.reward_snapshot,
+                    status: r.status || 'OWNED',
+                    usedAt: r.used_at ? new Date(r.used_at) : undefined
+                })));
+            }
+        } catch (err) {
+            console.error('Fetch user redemptions failed', err);
+        }
+    };
+
     // NEW: Fetch all redemptions for Admin view
     const fetchAllRedemptions = async () => {
         try {
@@ -57,6 +85,8 @@ export const useRewards = (currentUser: User | null) => {
                     rewardId: r.reward_id,
                     redeemedAt: new Date(r.created_at),
                     rewardSnapshot: r.reward_snapshot,
+                    status: r.status || 'OWNED',
+                    usedAt: r.used_at ? new Date(r.used_at) : undefined,
                     user: r.profiles ? { name: r.profiles.full_name, avatarUrl: r.profiles.avatar_url } : undefined
                 })));
             }
@@ -131,37 +161,86 @@ export const useRewards = (currentUser: User | null) => {
 
             if (profileError) throw profileError;
 
-            // 2. Log Redemption
+            // 2. Log Redemption with OWNED status
             const { error: logError } = await supabase.from('redemptions').insert({
                 user_id: currentUser.id,
                 reward_id: reward.id,
-                reward_snapshot: reward 
+                reward_snapshot: reward,
+                status: 'OWNED'
             });
 
             if (logError) throw logError;
 
-            showToast(`แลก "${reward.title}" สำเร็จ! 🎉`, 'success');
+            showToast(`ซื้อ "${reward.title}" เรียบร้อย! เช็กได้ในกระเป๋าของคุณ 🎒`, 'success');
+            fetchUserRedemptions();
         } catch (err: any) {
             console.error(err);
             showToast('แลกรางวัลไม่สำเร็จ: ' + err.message, 'error');
         }
     };
 
+    const useReward = async (redemptionId: string) => {
+        const redemption = userRedemptions.find(r => r.id === redemptionId);
+        if (!redemption) return;
+
+        if (!await showConfirm(`คุณต้องการใช้ "${redemption.rewardSnapshot?.title}" ตอนนี้เลยใช่หรือไม่?`, 'ยืนยันการใช้งาน')) return;
+
+        try {
+            const { error } = await supabase
+                .from('redemptions')
+                .update({ 
+                    status: 'USED',
+                    used_at: new Date().toISOString()
+                })
+                .eq('id', redemptionId);
+
+            if (error) throw error;
+            
+            showToast('ส่งคำขอใช้งานแล้ว! กรุณารอ Admin ตรวจสอบ ⏳', 'info');
+            fetchUserRedemptions();
+        } catch (err: any) {
+            showToast('ใช้งานไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
+    const adminUpdateRedemption = async (redemptionId: string, status: 'APPROVED' | 'REJECTED') => {
+        try {
+            const { error } = await supabase
+                .from('redemptions')
+                .update({ status })
+                .eq('id', redemptionId);
+
+            if (error) throw error;
+            
+            showToast(`อัปเดตสถานะเป็น ${status} แล้ว`, 'success');
+            fetchAllRedemptions();
+        } catch (err: any) {
+            showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
     useEffect(() => {
         fetchRewards();
-        if (currentUser?.role === 'ADMIN') {
-            fetchAllRedemptions();
+        if (currentUser) {
+            fetchUserRedemptions();
+            if (currentUser.role === 'ADMIN') {
+                fetchAllRedemptions();
+            }
         }
     }, [currentUser]);
 
     return {
         rewards,
         allRedemptions,
+        userRedemptions,
         isLoading,
         addReward,
         updateReward,
         deleteReward,
         redeemReward,
-        fetchAllRedemptions
+        useReward,
+        adminUpdateRedemption,
+        fetchAllRedemptions,
+        fetchUserRedemptions
     };
 };

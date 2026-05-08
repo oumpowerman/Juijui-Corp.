@@ -86,7 +86,15 @@ const TeamView: React.FC<TeamViewProps> = ({
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
 
   // --- HOOKS ---
-  const { rewards, allRedemptions, redeemReward, fetchAllRedemptions } = useRewards(currentUser);
+  const { 
+    rewards, 
+    allRedemptions, 
+    userRedemptions, 
+    redeemReward, 
+    useReward,
+    adminUpdateRedemption,
+    fetchAllRedemptions 
+  } = useRewards(currentUser);
   const { updateMember } = useTeam();
   const { masterOptions } = useMasterData(); // Fetch here for modal
   const internData = useInterns(viewMode === 'INTERNS'); // Lazy load interns only when needed
@@ -302,7 +310,9 @@ const TeamView: React.FC<TeamViewProps> = ({
                         <RewardShop 
                             rewards={rewards} 
                             userPoints={currentUser?.availablePoints || 0}
+                            userRedemptions={userRedemptions}
                             onRedeem={redeemReward}
+                            onUseReward={useReward}
                             onClose={() => setIsShopOpen(false)}
                             onOpenHistory={() => { setIsHistoryOpen(true); fetchAllRedemptions(); }}
                         />
@@ -315,6 +325,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                             redemptions={allRedemptions.filter(r => isAdmin || r.userId === currentUser?.id)} 
                             onClose={() => setIsHistoryOpen(false)} 
                             isAdmin={isAdmin}
+                            onUpdateStatus={adminUpdateRedemption}
                         />
                     </div>
                 )}

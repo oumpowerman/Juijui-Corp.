@@ -65,19 +65,19 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
             <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 relative border-4 border-white">
                 
                 {/* Header */}
-                <div className={`px-8 py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
-                    <div>
-                        <h3 className={`text-2xl font-bold tracking-tight ${theme.text}`}>{title}</h3>
-                        <p className="text-gray-500 text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
+                <div className={`px-5 sm:px-8 py-4 sm:py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
+                    <div className="min-w-0 pr-4">
+                        <h3 className={`text-lg sm:text-2xl font-bold tracking-tight truncate ${theme.text}`}>{title}</h3>
+                        <p className="text-gray-500 text-[10px] sm:text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-white/50 hover:bg-white rounded-full transition-colors text-gray-500 shadow-sm">
-                        <X className="w-6 h-6" />
+                    <button onClick={onClose} className="p-2 sm:p-2.5 bg-white/50 hover:bg-white rounded-xl sm:rounded-full transition-colors text-gray-500 shadow-sm shrink-0">
+                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                 </div>
 
                 {/* Grid */}
-                <div className="p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200 flex-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-4 sm:p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200 flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-2">
                         {options.map(option => {
                             const isSelected = localSelected.includes(option.key);
                             return (
@@ -85,7 +85,7 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
                                     key={option.id}
                                     onClick={() => handleToggle(option.key)}
                                     className={`
-                                        relative flex flex-col items-start p-5 rounded-2xl border-2 text-left transition-all duration-200 group
+                                        relative flex flex-col items-start p-4 sm:p-5 rounded-2xl border-2 text-left transition-all duration-200 group
                                         ${isSelected 
                                             ? `bg-white ${theme.border} ${theme.activeRing} ring-2 shadow-lg scale-[1.02] z-10` 
                                             : 'bg-white border-transparent shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-1'
@@ -114,13 +114,13 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
 
                 {/* Footer for Multi-Select */}
                 {isMulti && (
-                    <div className="px-8 py-4 bg-white border-t border-gray-100 flex justify-end items-center gap-3">
-                        <span className="text-xs font-bold text-gray-400 uppercase">เลือกแล้ว {localSelected.length} รายการ</span>
+                    <div className="px-5 sm:px-8 py-3 sm:py-4 bg-white border-t border-gray-100 flex justify-between sm:justify-end items-center gap-3">
+                        <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase">เลือกแล้ว {localSelected.length} รายการ</span>
                         <button 
                             onClick={handleConfirm}
-                            className={`px-6 py-2 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${theme.btn}`}
+                            className={`px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 text-xs sm:text-sm ${theme.btn}`}
                         >
-                            ยืนยันการเลือก
+                            ยืนยัน
                         </button>
                     </div>
                 )}

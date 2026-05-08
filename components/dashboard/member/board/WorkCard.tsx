@@ -3,11 +3,11 @@ import React from 'react';
 import { Task, User, Status, MasterOption } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
 import { Clock, ArrowRight, Zap, MonitorPlay, CheckSquare, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
-import { format, addDays, isBefore, isWeekend } from 'date-fns';
+import { format, addDays, isBefore, isWeekend, startOfDay } from 'date-fns';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { useMasterDataContext } from '../../../../context/MasterDataContext';
 import { useGameConfig } from '../../../../context/GameConfigContext';
-import { isHolidayOrException, isWorkingDay } from '../../../../utils/judgeUtils';
+import { isHolidayOrException, isWorkingDay, getNextWorkingDay, countWorkingDaysBetween } from '../../../../utils/judgeUtils';
 
 interface WorkCardProps {
     task: Task;
@@ -77,25 +77,24 @@ const WorkCard: React.FC<WorkCardProps> = React.memo(({ task, users, masterOptio
         if (isNaN(deadline.getTime())) return { level: 0, label: '' };
 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const targetDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+        const today = startOfDay(now);
+        const targetDate = startOfDay(deadline);
 
-        // Level 2: Today or Overdue
+        // 1. Check Today or Overdue
         if (today >= targetDate) {
             return { level: 2, label: today > targetDate ? 'เลยกำหนด!' : 'ส่งวันนี้!' };
         }
 
-        // Level 1: 1 Working Day before
-        // Find the previous working day from deadline
-        let prevWorkingDay = addDays(targetDate, -1);
-        let safetyCounter = 0;
-        while (!isWorkingDay(prevWorkingDay, annualHolidays, calendarExceptions || [], user || null) && safetyCounter < 10) {
-            prevWorkingDay = addDays(prevWorkingDay, -1);
-            safetyCounter++;
+        // 2. Check "Next Working Day" (Traditional "Due Tomorrow" logic)
+        const nextWorkingDay = getNextWorkingDay(today, annualHolidays, calendarExceptions || [], user || null);
+        if (format(targetDate, 'yyyy-MM-dd') === format(nextWorkingDay, 'yyyy-MM-dd')) {
+            return { level: 1, label: 'ส่งวันทำงานถัดไป!' };
         }
 
-        if (format(today, 'yyyy-MM-dd') === format(prevWorkingDay, 'yyyy-MM-dd')) {
-            return { level: 1, label: 'ส่งพรุ่งนี้!' };
+        // 3. Check "Working Days Remaining" (If close enough)
+        const workingDaysLeft = countWorkingDaysBetween(today, targetDate, annualHolidays, calendarExceptions || [], user || null);
+        if (workingDaysLeft <= 3 && workingDaysLeft > 0) {
+            return { level: 1, label: `อีก ${workingDaysLeft} วันทำงาน` };
         }
 
         return { level: 0, label: '' };

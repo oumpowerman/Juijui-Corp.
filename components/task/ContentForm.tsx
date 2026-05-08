@@ -386,10 +386,10 @@ const ContentForm: React.FC<ContentFormProps> = ({
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
                 {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     
                     {/* 1. Title Input */}
                     <CFHeader title={title} setTitle={setTitle} />
@@ -474,7 +474,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
             </div>
 
             {/* NEW FOOTER COMPONENT - IN FLOW */}
-            <div className="bg-white shrink-0 z-30 px-4 sm:px-6 pb-6 pt-2 border-t border-gray-100">
+            <div className="bg-white shrink-0 z-30 px-3 sm:px-6 pb-3 sm:pb-6 pt-1 sm:pt-2 border-t border-gray-100">
                 <ContentActionFooter 
                     mode={initialData ? 'EDIT' : 'CREATE'}
                     onCancel={onClose}

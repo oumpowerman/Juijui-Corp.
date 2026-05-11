@@ -174,7 +174,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id, title, status, priority, pillar, category, content_format, content_formats, 
             start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, 
             target_platform, assignee_ids, idea_owner_ids, editor_ids, target_position, 
-            shoot_date, is_in_shoot_queue, is_soft_finished, roadmap_id, sla_revert_count,
+            shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count,
             difficulty, assignee_type,
             task_reviews(id, round, status, is_completed)
         `.replace(/\s+/g, '');
@@ -182,7 +182,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const taskFields = forceFull ? '*' : `
             id, title, status, priority, pillar, category, channel_id, start_date, end_date, created_at, updated_at, 
             assignee_ids, content_id, show_on_board, target_position, roadmap_id, script_id, is_unscheduled,
-            sla_revert_count, difficulty, assignee_type, content_format, content_formats, target_platform,
+            sla_revert_count, difficulty, assignee_type, content_format,
             contents(title), task_reviews(id, round, status, is_completed)
         `.replace(/\s+/g, '');
 

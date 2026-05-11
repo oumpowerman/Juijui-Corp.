@@ -39,7 +39,11 @@ const CFDateAndStock: React.FC<CFDateAndStockProps> = ({
                     <input 
                         type="date" 
                         value={endDate} 
-                        onChange={(e) => { setEndDate(e.target.value); setStartDate(e.target.value); }} 
+                        onChange={(e) => { 
+                            const val = e.target.value;
+                            setEndDate(val); 
+                            setStartDate(val); 
+                        }} 
                         className="w-full px-4 py-3 bg-indigo-50/30 border-2 border-indigo-100 rounded-xl outline-none font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-200 transition-all cursor-pointer hover:bg-white" 
                     />
                 ) : (

@@ -33,7 +33,8 @@ export const useChatData = (currentUser: User | null) => {
             hp: data.profiles.hp || 100,
             maxHp: data.profiles.max_hp || 100,
             deathCount: data.profiles.death_count || 0,
-            workStatus: data.profiles.work_status || 'ONLINE'
+            workStatus: data.profiles.work_status || 'ONLINE',
+            status: data.profiles.status || 'ACTIVE'
         } : undefined
     });
 
@@ -44,7 +45,7 @@ export const useChatData = (currentUser: User | null) => {
 
             const { data, error } = await supabase
                 .from('team_messages')
-                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp, death_count, work_status)`)
+                .select(`*, profiles (id, full_name, avatar_url, role, position, email, xp, level, available_points, hp, max_hp, death_count, work_status, status)`)
                 .order('created_at', { ascending: false })
                 .range(offset, offset + PAGE_SIZE - 1);
 

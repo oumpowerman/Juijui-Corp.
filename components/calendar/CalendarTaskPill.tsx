@@ -3,8 +3,8 @@ import React, { memo, useMemo } from 'react';
 import { Task, ChipConfig, MasterOption, Channel } from '../../types';
 import { COLOR_THEMES } from '../../constants';
 import { TaskDisplayMode } from '../CalendarView';
-import { isBefore, startOfToday } from 'date-fns';
-import { AlertCircle } from 'lucide-react';
+import { isBefore, startOfToday, differenceInDays } from 'date-fns';
+import { AlertCircle, Ghost, Clock8 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CalendarTaskPillProps {
@@ -40,7 +40,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         if (!task.endDate) return false;
         
         // keywords for finished group (LIKE check)
-        const finishedKeywords = ['DONE', 'PUBLISH', 'FINISH', 'COMPLETE', 'APPROVE', 'SUCCESS', 'ARCHIVE'];
+        const finishedKeywords = ['DONE', 'PUBLISH', 'FINISH', 'COMPLETE', 'APPROVE', 'SUCCESS', 'ARCHIVE', 'POSTED'];
         const currentStatus = (task.status || '').toUpperCase();
         
         const isFinished = finishedKeywords.some(keyword => currentStatus.includes(keyword));
@@ -50,6 +50,23 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         const endDateObj = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
         return isBefore(endDateObj, startOfToday());
     }, [task.status, task.endDate]);
+
+    const isCriticalOverdue = useMemo(() => {
+        if (!isOverdue || !task.endDate) return false;
+        const endDateObj = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
+        return differenceInDays(startOfToday(), endDateObj) >= 7;
+    }, [isOverdue, task.endDate]);
+
+    // Added: Insight Overdue Logic (Posted but no analytics entered after 7 days)
+    const isInsightOverdue = useMemo(() => {
+        const currentStatus = (task.status || '').toUpperCase();
+        const isTerminal = currentStatus.includes('DONE') || ['PUBLISHED', 'FINAL', 'POSTED'].includes(currentStatus);
+        
+        if (task.type !== 'CONTENT' || task.isUnscheduled || !isTerminal || !task.endDate) return false;
+        
+        const endDateObj = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
+        return differenceInDays(startOfToday(), endDateObj) >= 7;
+    }, [task.type, task.status, task.endDate, task.isUnscheduled]);
 
     // Helper to get styling for the main card container
     const getTaskStyle = (t: Task) => {
@@ -61,7 +78,9 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
 
         // Add Overdue visual style
         if (isOverdue) {
-            styleClass = 'bg-red-50 border-l-4 border-l-red-500 border-y border-r border-red-100 text-red-900 shadow-[0_0_15px_rgba(239,68,68,0.2)]';
+            styleClass = isCriticalOverdue 
+                ? 'bg-slate-50 border-l-4 border-l-slate-400 border-y border-r border-slate-200 text-slate-400 opacity-60 grayscale hover:grayscale-0 transition-all'
+                : 'bg-red-50 border-l-4 border-l-red-500 border-y border-r border-red-100 text-red-900 shadow-[0_0_15px_rgba(239,68,68,0.2)]';
         }
 
         // Override if a channel color exists (Only if not overdue, or we can mix, but let's keep overdue prominent)
@@ -147,11 +166,20 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
     const renderContent = () => {
         const overdueIndicator = isOverdue && (
             <motion.div 
-                animate={{ scale: [1, 1.2, 1], opacity: [1, 0.6, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
+                animate={isCriticalOverdue ? { 
+                    opacity: [0.4, 1, 0.4],
+                } : { 
+                    scale: [1, 1.2, 1], 
+                    opacity: [1, 0.6, 1] 
+                }}
+                transition={{ repeat: Infinity, duration: isCriticalOverdue ? 3 : 1.5 }}
                 className="shrink-0"
             >
-                <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                {isCriticalOverdue ? (
+                    <Clock8 className="w-3.5 h-3.5 text-slate-400" />
+                ) : (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                )}
             </motion.div>
         );
 
@@ -160,6 +188,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 return (
                     <div className="flex items-center gap-1 overflow-hidden w-full">
                         {overdueIndicator}
+                        {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                         <span className="truncate flex-1 font-bold">{task.title}</span>
                     </div>
                 );
@@ -167,6 +196,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 return (
                     <div className="flex items-center gap-2 overflow-hidden w-full">
                          {isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
+                         {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                          <span className="truncate flex-1 font-bold">{task.title}</span>
                     </div>
                 );
@@ -174,6 +204,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 return (
                      <div className="flex items-center gap-1.5 overflow-hidden w-full">
                          {isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>)}
+                         {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                          <span className="truncate flex-1 font-bold">{task.title}</span>
                     </div>
                 );
@@ -183,15 +214,20 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 return (
                     <>
                         {overdueIndicator}
+                        {isInsightOverdue && (
+                            <div className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-100 rounded-full" title="Missing Analytics Insight">
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                            </div>
+                        )}
                         <span className="truncate flex-1 font-bold">{task.title}</span>
                         {statusLabel && (
                             <span className={`
                                 text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
-                                ${isOverdue ? 'bg-red-500 text-white border-red-400' : statusColor}
+                                ${isOverdue ? (isCriticalOverdue ? 'bg-slate-400 text-white border-slate-300' : 'bg-red-500 text-white border-red-400') : statusColor}
                                 ${!isExpanded ? 'hidden lg:inline-block' : ''}
                                 shadow-sm
                             `}>
-                                {isOverdue ? 'OVERDUE' : statusLabel}
+                                {isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusLabel}
                             </span>
                         )}
                     </>

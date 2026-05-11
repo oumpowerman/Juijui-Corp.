@@ -386,7 +386,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                   
                   {/* View Controls & Filter Toolbar */}
                   <div className="flex flex-col md:flex-row flex-wrap xl:flex-nowrap gap-3 w-full xl:w-auto items-center">
-                       <div className="flex-1 w-full md:w-auto overflow-x-auto no-scrollbar">
+                       <div className="flex-1 w-full md:w-auto overflow-visible no-scrollbar">
                            <TeamToolbar 
                               viewScope={viewScope} setViewScope={setViewScope}
                               searchQuery={searchQuery} setSearchQuery={setSearchQuery}

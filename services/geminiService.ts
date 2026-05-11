@@ -30,3 +30,52 @@ export const summarizeMeeting = async (content: string) => {
         throw error;
     }
 };
+
+export const extractContentAnalyticsFromImage = async (base64Image: string) => {
+    const prompt = `
+        You are a specialized Data Analyst for Content Marketing.
+        Your task is to analyze the provided screenshot of content insights (TikTok, Facebook, Instagram, or YouTube) and extract key performance metrics.
+        
+        Please extract the following data in JSON format:
+        - views (integer)
+        - likes (integer)
+        - comments (integer)
+        - shares (integer)
+        - saves (integer)
+        - retention_rate (decimal percentage 0-100, if available)
+        - avg_watch_time (seconds, if available)
+        - reach (integer, if available)
+        - platform (e.g., "TIKTOK", "FACEBOOK", "INSTAGRAM", "YOUTUBE")
+        
+        Return ONLY the JSON object. If a value is not found, set it to null.
+    `;
+
+    try {
+        const [header, content] = base64Image.split(',');
+        const mimeType = header.match(/:(.*?);/)?.[1] || "image/jpeg";
+        
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: [
+                {
+                    inlineData: {
+                        data: content || base64Image,
+                        mimeType: mimeType
+                    }
+                },
+                { text: prompt }
+            ]
+        });
+
+        const text = response.text || "";
+        // Extract JSON from potential markdown code blocks
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Gemini Extraction Error:", error);
+        throw error;
+    }
+};

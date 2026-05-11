@@ -10,7 +10,7 @@ import { isTaskCompleted } from '../constants';
 import { useAttendanceJudge } from './useAttendanceJudge';
 import { useDutyJudge } from './useDutyJudge';
 import { useTaskJudge } from './useTaskJudge';
-import { isUserOnLeave, isHolidayOrException } from '../utils/judgeUtils';
+import { isUserOnLeave, isHolidayOrException, countWorkingDaysBetween } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
@@ -77,30 +77,52 @@ export const useAutoJudge = (currentUser: User | null) => {
     };
 
     const checkAndPunish = useCallback(async () => {
-        if (!currentUser || isLoading || !currentUser.isApproved || !currentUser.isActive) return;
+        if (!currentUser || isLoading || !currentUser.isApproved) return;
         
-        // 💀 DEATH PROTECTION: If user is already dead, stop judging to prevent death loop
-        // They need to be revived first.
-        if (currentUser.hp <= 0) {
-            console.log(`[AutoJudge] Skipping checks for ${currentUser.name} because they are currently dead.`);
-            return;
-        }
+        // Allow check if user is active OR if the user is in DEATH status (to catch resurrection)
+        if (!currentUser.isActive && currentUser.status !== 'DEATH') return;
         
         try {
             const today = new Date();
             const todayStr = format(today, 'yyyy-MM-dd');
 
-            console.log(`[AutoJudge] Service Tick: ${today.toLocaleTimeString()} - Checking logs & duties for ${currentUser.name}`);
+            // Skip penalties if in DEATH status (unless we are checking for resurrection)
+            const isDead = currentUser.status === 'DEATH';
+            const isResurrecting = currentUser.hp > 0 && (currentUser.hpDepletedAt || isDead);
+
+            console.log(`[AutoJudge] Service Tick: ${today.toLocaleTimeString()} - Checking logs for ${currentUser.name} (Status: ${currentUser.status})`);
 
             // --- CONFIG VALUES ---
-            // Fallback to default if not set in DB config
             const negligencePenalty = config?.AUTO_JUDGE_CONFIG?.negligence_penalty_hp || 20;
             const lookbackDays = config?.AUTO_JUDGE_CONFIG?.lookback_days_check || 60;
-            const negligenceThreshold = config?.AUTO_JUDGE_CONFIG?.negligence_threshold_days || 1;
-            const allowHolidayPenalty = config?.AUTO_JUDGE_CONFIG?.allow_holiday_penalty ?? false;
 
             // =========================================================
-            // 1. PRELOAD DATA (โหลดข้อมูลที่จำเป็นครั้งเดียว)
+            // SECTION F: DEATH & RESURRECTION SYSTEM
+            // =========================================================
+            if (isResurrecting) {
+                console.log(`[AutoJudge] 🌟 RESURRECTION DETECTED: Restoring status for ${currentUser.name}`);
+                await supabase.from('profiles').update({ 
+                    hp_depleted_at: null,
+                    status: 'ACTIVE',
+                    is_active: true
+                }).eq('id', currentUser.id);
+                
+                // Create Resurrection Notification
+                await supabase.from('notifications').insert({
+                    user_id: currentUser.id,
+                    type: 'RESURRECTION',
+                    title: '🌟 ปาฏิหาริย์! คุณฟื้นคืนชีพแล้ว',
+                    message: 'หัวใจของคุณกลับมาเต้นอีกครั้ง! พลังชีวิตได้รับการฟื้นฟูแล้ว ขอให้วันนี้เป็นการเริ่มต้นใหม่ที่ยอดเยี่ยมนะ!',
+                    is_read: false
+                });
+                
+                return; // Stop further checks for this tick after resurrection
+            }
+
+            if (isDead) return; // If still dead and not resurrecting, skip all other checks
+
+            // =========================================================
+            // SECTION: NORMAL PENALTY CHECKS (Duties, Tasks, Attendance)
             // =========================================================
             
             // 1.1 วันหยุดและข้อยกเว้นปฏิทิน (จาก Context)
@@ -154,6 +176,67 @@ export const useAutoJudge = (currentUser: User | null) => {
                 userLeaves,
                 userAttendanceLogs
             );
+
+            // =========================================================
+            // SECTION F: DEATH SYSTEM (ระบบมีเวลาฟื้นฟู HP 7 วันทำงาน)
+            // =========================================================
+            if (currentUser.hp <= 0 && !currentUser.hpDepletedAt) {
+                console.log(`[AutoJudge] HP Depleted! Setting start of death timer for ${currentUser.name}`);
+                await supabase.from('profiles').update({ hp_depleted_at: new Date().toISOString() }).eq('id', currentUser.id);
+            } else if (currentUser.hp > 0 && currentUser.hpDepletedAt) {
+                console.log(`[AutoJudge] HP Restored! Clearing death timer for ${currentUser.name}`);
+                await supabase.from('profiles').update({ hp_depleted_at: null }).eq('id', currentUser.id);
+                
+                // Create Resurrection Notification
+                await supabase.from('notifications').insert({
+                    user_id: currentUser.id,
+                    type: 'RESURRECTION',
+                    title: '🌟 ปาฏิหาริย์! คุณฟื้นคืนชีพแล้ว',
+                    message: 'หัวใจของคุณกลับมาเต้นอีกครั้ง! พลังชีวิตได้รับการฟื้นฟูแล้ว ขอให้วันนี้เป็นการเริ่มต้นใหม่ที่ยอดเยี่ยมนะ!',
+                    is_read: false
+                });
+            }
+
+            if (currentUser.hpDepletedAt && currentUser.status !== 'DEATH') {
+                const depletedDate = new Date(currentUser.hpDepletedAt);
+                const workingDaysPassed = countWorkingDaysBetween(
+                    depletedDate, 
+                    today, 
+                    annualHolidays, 
+                    calendarExceptions, 
+                    currentUser
+                );
+
+                console.log(`[AutoJudge] Death Timer: ${workingDaysPassed}/7 working days passed for ${currentUser.name}`);
+
+                if (workingDaysPassed >= 7) {
+                    console.log(`[AutoJudge] 💀 FATALITY: ${currentUser.name} has been HP<=0 for 7 working days. Setting status to DEATH.`);
+                    await supabase.from('profiles').update({ status: 'DEATH', is_active: false }).eq('id', currentUser.id);
+                    
+                    // Create game log for burial
+                    await processAction(currentUser.id, 'SYSTEM_BURIAL', {
+                        hpChange: 0,
+                        xpChange: -100,
+                        pointsChange: 0,
+                        description: `เสียชีวิตอย่างเป็นทางการเนื่องจาก HP ไม่ได้รับการฟื้นฟูภายใน 7 วันทำการ`,
+                        relatedId: currentUser.id
+                    });
+                } else {
+                    // Send Warnings using Notifications (similar to Negligence but for Death)
+                    const daysRemaining = 7 - workingDaysPassed;
+                    
+                    if (daysRemaining <= 3 && !hasNotification('DEATH_WARNING', `${daysRemaining} วันสุดท้าย`)) {
+                        await supabase.from('notifications').insert({
+                            user_id: currentUser.id,
+                            type: 'DEATH_WARNING',
+                            title: '💀 คำเตือน: วิญญาณกำลังจะแตกสลาย',
+                            message: `HP ของคุณเป็น 0 มาแล้ว ${workingDaysPassed} วันทำการ หากไม่ฟื้นฟูภายใน ${daysRemaining} วันสุดท้าย คุณจะเข้าสู่สถานะ DEATH (พ้นสภาพพนักงาน)`,
+                            metadata: { daysRemaining, depletedAt: currentUser.hpDepletedAt },
+                            is_read: false
+                        });
+                    }
+                }
+            }
 
         } catch (err) {
             console.error("Auto Judge Error:", err);

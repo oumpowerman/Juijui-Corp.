@@ -103,7 +103,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     <AppBackground 
       theme="rainbow" 
       pattern="dots" 
-      className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen"
+      className="p-4 md:p-8 min-h-screen"
     >
       <motion.div 
         variants={containerVariants}

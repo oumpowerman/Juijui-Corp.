@@ -51,7 +51,7 @@ const BackgroundVisuals = React.memo(() => {
         <>
             {/* 1. Animated Gradient Background */}
             <motion.div 
-                className={`fixed inset-0 bg-gradient-to-br ${randomGradient} pointer-events-none z-0`}
+                className={`absolute inset-0 bg-gradient-to-br ${randomGradient} pointer-events-none z-0`}
                 animate={{
                     background: [
                         'linear-gradient(to bottom right, #e0f2fe, #f0f9ff, #e0e7ff)',
@@ -70,7 +70,7 @@ const BackgroundVisuals = React.memo(() => {
 
             {/* 2. Soft Pattern Overlay */}
             <div 
-                className="fixed inset-0 pointer-events-none z-0 opacity-20" 
+                className="absolute inset-0 pointer-events-none z-0 opacity-20" 
                 style={{ 
                     backgroundImage: `radial-gradient(#fff 2px, transparent 2px)`,
                     backgroundSize: '40px 40px'
@@ -78,7 +78,7 @@ const BackgroundVisuals = React.memo(() => {
             />
 
             {/* 3. Floating Icons */}
-            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
                 {floatingIcons.map((item) => (
                     <motion.div
                         key={item.id}
@@ -110,7 +110,7 @@ const BackgroundVisuals = React.memo(() => {
 
 const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({ children, className = "" }) => {
     return (
-        <div className={`relative min-h-screen w-full overflow-hidden ${className}`}>
+        <div className={`relative min-h-screen w-full flex flex-col overflow-hidden ${className}`}>
             <BackgroundVisuals />
 
             {/* 4. Content Layer */}

@@ -26,7 +26,7 @@ function PWAReloadPrompt() {
   return (
     <AnimatePresence>
       {(offlineReady || needRefresh) && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] w-[calc(100%-2rem)] sm:w-[420px]">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] w-[calc(100%-2rem)] max-w-[calc(100vw-2rem)] sm:w-[420px] transform">
           <motion.div
              initial={{ y: 100, opacity: 0, scale: 0.95 }}
              animate={{ y: 0, opacity: 1, scale: 1 }}

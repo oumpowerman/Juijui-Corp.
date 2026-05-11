@@ -567,6 +567,15 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             };
         }
 
+        case 'SYSTEM_BURIAL':
+            return {
+                xp: context.xpChange || -100,
+                hp: context.hpChange || 0,
+                coins: context.pointsChange || 0,
+                message: `💀 Permanent Burial: ${context.description || 'พ้นสภาพพนักงาน'}`,
+                details: 'Game Over'
+            };
+
         default:
             return { xp: 0, hp: 0, coins: 0, message: '', details: '' };
     }

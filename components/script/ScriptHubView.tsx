@@ -365,7 +365,6 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
         <AppBackground 
             theme={mode === 'STUDIO' ? 'pastel-indigo' : 'script'} 
             pattern="dots" 
-            className={!activeScript && mode !== 'LAB' ? "pb-24" : ""}
         >
             <AnimatePresence mode="wait">
                 {mode === 'LAB' ? (
@@ -496,7 +495,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             document.body
                         )}
 
-                        <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+                        <div className="max-w-[1600px] mx-auto p-6 md:p-8 pb-32 md:pb-16 space-y-8 animate-in fade-in duration-500">
                             
                             {/* 1. Header with Info Button */}
                             <ScriptHubHeader 

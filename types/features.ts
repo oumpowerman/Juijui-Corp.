@@ -384,7 +384,7 @@ export interface NotificationPreferences {
 
 export interface AppNotification {
     id: string;
-    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY' | 'SYSTEM_LOCK_PENALTY'; // Added SYSTEM_LOCK_PENALTY
+    type: 'OVERDUE' | 'UPCOMING' | 'REVIEW' | 'INFO' | 'NEW_ASSIGNMENT' | 'APPROVAL_REQ' | 'GAME_REWARD' | 'GAME_PENALTY' | 'SYSTEM_LOCK_PENALTY' | 'NEGLIGENCE' | 'DEATH_WARNING' | 'RESURRECTION';
     title: string;
     message: string;
     taskId?: string;

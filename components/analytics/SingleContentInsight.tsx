@@ -1,0 +1,228 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, BarChart3, Clock, AlertCircle, PlusCircle, Search } from 'lucide-react';
+import { Task, ContentAnalytics } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import AnalyticsStatsGrid from './dashboard/AnalyticsStatsGrid';
+import AnalyticsEntryModal from '../gamification/AnalyticsEntryModal';
+
+interface SingleContentInsightProps {
+    task: Task;
+}
+
+const SingleContentInsight: React.FC<SingleContentInsightProps> = ({ task }) => {
+    const [analytics, setAnalytics] = useState<ContentAnalytics[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+
+    const fetchTaskAnalytics = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('content_analytics')
+                .select('*')
+                .eq('content_id', task.id)
+                .order('captured_at', { ascending: true });
+
+            if (error) throw error;
+            
+            // Map snake_case to camelCase
+            const mappedData: ContentAnalytics[] = (data || []).map(item => ({
+                id: item.id,
+                contentId: item.content_id,
+                platform: item.platform,
+                capturedAt: item.captured_at,
+                views: item.views,
+                likes: item.likes,
+                comments: item.comments,
+                shares: item.shares,
+                saves: item.saves,
+                retentionRate: item.retention_rate,
+                avgWatchTime: item.avg_watch_time,
+                reach: item.reach,
+                isAiExtracted: item.is_ai_extracted,
+                rawAiData: item.raw_ai_data,
+                createdAt: item.created_at,
+                updatedAt: item.updated_at
+            }));
+
+            setAnalytics(mappedData);
+        } catch (err) {
+            console.error('Fetch Single Insight Error:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTaskAnalytics();
+    }, [task.id]);
+
+    const latest = analytics[analytics.length - 1];
+
+    const summary = useMemo(() => {
+        const v = latest?.views || 0;
+        const l = latest?.likes || 0;
+        const s = latest?.shares || 0;
+        const c = latest?.comments || 0;
+        const sv = latest?.saves || 0;
+        const interaction = l + s + c + sv;
+        const er = v > 0 ? (interaction / v) * 100 : 0;
+
+        return {
+            totalViews: v,
+            totalLikes: l,
+            totalShares: s,
+            totalInteraction: interaction,
+            avgEngagementRate: er
+        };
+    }, [latest]);
+
+    const chartData = useMemo(() => {
+        return analytics.map(a => ({
+            date: new Date(a.capturedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+            views: a.views,
+            likes: a.likes,
+            retention: a.retentionRate || 0
+        }));
+    }, [analytics]);
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20 space-y-4">
+                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest animate-pulse">Calculating Insights...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-10 py-6">
+            {/* Header / Actions */}
+            <div className="flex items-center justify-end">
+                <button 
+                    onClick={() => setIsEntryModalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-slate-900 transition-all active:scale-95"
+                >
+                    <PlusCircle className="w-4 h-4" />
+                    อัปเดตสถิติล่าสุด
+                </button>
+            </div>
+
+            {analytics.length === 0 ? (
+                <div className="bg-white border-2 border-dashed border-slate-100 rounded-[3rem] p-20 text-center space-y-6">
+                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-slate-100">
+                        <BarChart3 className="w-8 h-8 text-slate-300" />
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="text-xl font-bold text-slate-900">ยังไม่มีข้อมูลการวิเคราะห์</h4>
+                        <p className="text-slate-400 max-w-xs mx-auto">คอนเทนต์นี้น่าจะเพิ่งลงหรือยังไม่ได้บันทึกข้อมูลครับ เริ่มบันทึกข้อมูลแรกเพื่อดูการเติบโตได้เลย!</p>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                    {/* Stats Grid */}
+                    <AnalyticsStatsGrid summary={summary} />
+
+                    {/* Chart Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-slate-900">แนวโน้มจำนวนผู้ชม (Views Growth)</h3>
+                                <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
+                                    <TrendingUp className="w-4 h-4 text-indigo-500" />
+                                </div>
+                            </div>
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData}>
+                                        <defs>
+                                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
+                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        />
+                                        <Area type="monotone" dataKey="views" stroke="#6366f1" fillOpacity={1} fill="url(#colorViews)" strokeWidth={3} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold text-slate-900">อัตราการดูต่อ (Retention Rate %)</h3>
+                                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                                    <Search className="w-4 h-4 text-emerald-500" />
+                                </div>
+                            </div>
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        />
+                                        <Line type="monotone" dataKey="retention" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Timeline Log */}
+                    <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white">
+                        <div className="flex items-center gap-3 mb-6">
+                            <Clock className="w-5 h-5 text-indigo-400" />
+                            <h3 className="text-lg font-bold">Data Capture Log</h3>
+                        </div>
+                        <div className="space-y-4">
+                            {analytics.slice().reverse().map((a, idx) => (
+                                <div key={idx} className="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 hover:bg-white/5 -mx-4 px-4 rounded-xl transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-[10px] font-bold">
+                                            #{analytics.length - idx}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{new Date(a.capturedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">{new Date(a.capturedAt).toLocaleTimeString('th-TH')}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-white">{a.views.toLocaleString()}</p>
+                                            <p className="text-[9px] text-slate-400 uppercase font-medium">Views</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-indigo-400">{a.retentionRate || 0}%</p>
+                                            <p className="text-[9px] text-slate-400 uppercase font-medium">Retention</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isEntryModalOpen && (
+                <AnalyticsEntryModal 
+                    content={task}
+                    onClose={() => setIsEntryModalOpen(false)}
+                    onSave={fetchTaskAnalytics}
+                />
+            )}
+        </div>
+    );
+};
+
+export default SingleContentInsight;

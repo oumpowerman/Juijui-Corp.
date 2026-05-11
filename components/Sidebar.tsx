@@ -1,9 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2, Map } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { User, ViewMode, MenuGroup } from '../types';
 import SidebarBadge from './SidebarBadge';
 import NotificationPill from './NotificationPill';
+import AIStatusBadge from './common/AIStatusBadge';
 
 interface SidebarProps {
   currentUser: User;
@@ -43,6 +45,7 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
       { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation },
       { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
+      { view: 'ANALYTICS', label: 'Data Intelligence', icon: BarChart3 },
       { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
     ]
   },
@@ -98,10 +101,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       text: isDarkTheme ? 'text-slate-100' : 'text-gray-900',
       subtext: isDarkTheme ? 'text-slate-400' : 'text-slate-400',
       groupHeader: isDarkTheme ? 'text-slate-500 hover:text-indigo-400' : 'text-slate-400 hover:text-indigo-600',
-      itemIdle: isDarkTheme ? 'text-slate-400 hover:bg-white/5 hover:text-indigo-300' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-700',
-      itemActive: isDarkTheme 
-        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
-        : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100',
+      itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-700',
+      itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
       footer: isDarkTheme ? 'border-white/5 bg-black/20' : 'border-gray-100 bg-slate-50/50',
       userCard: isDarkTheme ? 'hover:bg-white/5 hover:border-white/10' : 'hover:bg-white hover:border-slate-200 hover:shadow-lg',
       logoArea: isDarkTheme ? 'from-slate-950 to-slate-900' : 'from-white to-slate-50/50'
@@ -206,22 +207,44 @@ const Sidebar: React.FC<SidebarProps> = ({
                       const Icon = item.icon;
 
                       return (
-                        <button
+                        <motion.button
                           key={item.view}
+                          whileHover={{ x: isCollapsed ? 0 : 4 }}
+                          whileTap={{ scale: 0.97 }}
                           onClick={() => handleMenuItemClick(item.view)}
                           className={`
-                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-visible
+                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-hidden
                             ${isCollapsed ? 'justify-center py-3.5' : 'px-4 py-3'}
-                            ${isActive 
-                              ? themeClasses.itemActive 
-                              : themeClasses.itemIdle}
+                            ${isActive ? themeClasses.itemActive : themeClasses.itemIdle}
                           `}
                           title={isCollapsed ? item.label : ''}
                         >
-                          <div className="relative shrink-0">
-                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? 'text-white' : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
+                          {/* Active Background Pill */}
+                          {isActive && (
+                            <motion.div 
+                                layoutId="active-pill"
+                                className={`absolute inset-0 z-0 ${isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100'} shadow-sm`}
+                                transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                            />
+                          )}
+
+                          {/* Active Indicator Bar */}
+                          {isActive && (
+                            <motion.div 
+                                layoutId="active-bar"
+                                className={`absolute left-0 top-1/4 bottom-1/4 w-1 ${isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500'} rounded-r-full z-10`}
+                                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                            />
+                          )}
+
+                          {/* Hover Background (When not active) */}
+                          {!isActive && (
+                            <div className={`absolute inset-0 z-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200 ${isDarkTheme ? 'bg-white/5' : 'bg-slate-100'}`} />
+                          )}
+
+                          <div className={`relative shrink-0 z-10 transition-colors duration-300 ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : ''}`}>
+                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
                                 
-                                {/* Collapsed Badge (Attached to Icon) */}
                                 {isCollapsed && (
                                      <div className="absolute -top-1.5 -right-1.5">
                                          <SidebarBadge 
@@ -234,13 +257,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                           </div>
                           
-                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5`}>
+                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5 relative z-10 transition-colors duration-300 ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : ''}`}>
                              {item.label}
                           </span>
                           
-                          {/* Expanded Badge (Pill on Right) */}
                           {!isCollapsed && (
-                             <div className="sidebar-item-text ml-auto">
+                             <div className="sidebar-item-text ml-auto relative z-10">
                                 <SidebarBadge 
                                     view={item.view as ViewMode} 
                                     currentUser={currentUser} 
@@ -248,7 +270,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 />
                              </div>
                           )}
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -256,6 +278,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* 2.5 AI Status Area */}
+      <div className={`px-4 py-2 mb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        <AIStatusBadge collapsed={isCollapsed} />
       </div>
 
       {/* 3. User Footer */}

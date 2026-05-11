@@ -2,10 +2,12 @@
 // Trigger re-process
 import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { ViewMode, Task } from '../types';
 import PendingApprovalScreen from '../components/PendingApprovalScreen';
 import InactiveScreen from '../components/InactiveScreen';
+import DeathScreen from '../components/gamification/DeathScreen';
 import AppShell from '../components/layout/AppShell';
 import NotificationPopover from '../components/NotificationPopover';
 import { useTaskManager } from '../hooks/useTaskManager';
@@ -17,6 +19,8 @@ import { useLeaveRequests } from '../hooks/useLeaveRequests';
 import { useGameEventListener } from '../hooks/useGameEventListener'; 
 import { useToast } from '../context/ToastContext';
 import NegligenceLockModal from '../components/duty/NegligenceLockModal'; // NEW IMPORT
+import DeathLockModal from '../components/gamification/DeathLockModal';
+import ResurrectionModal from '../components/gamification/ResurrectionModal';
 import ShortcutManager from '../components/common/ShortcutManager';
 import { Loader2, Search, Inbox } from 'lucide-react';
 import { WorkboxProvider, useWorkboxContext } from '../context/WorkboxContext';
@@ -44,6 +48,7 @@ const WikiView = lazy(() => import('../components/WikiView'));
 const LeaderboardView = lazy(() => import('../components/LeaderboardView')); 
 const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
 const RoadmapView = lazy(() => import('../components/roadmap/RoadmapView'));
+const ContentAnalyticsView = lazy(() => import('../components/gamification/ContentAnalyticsView'));
 
 // --- NEW MODULE BRIDGES (Lazy Loaded) ---
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
@@ -58,9 +63,18 @@ const NotificationSettingsModal = lazy(() => import('../components/NotificationS
 
 // Loading Fallback
 const PageLoader = () => (
-  <div className="flex h-full w-full items-center justify-center text-indigo-300">
-    <Loader2 className="w-10 h-10 animate-spin" />
-  </div>
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="flex-1 w-full flex flex-col items-center justify-center text-indigo-300 gap-4 min-h-[400px]"
+  >
+    <div className="relative">
+        <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
+        <div className="absolute inset-0 blur-xl bg-indigo-400/20 animate-pulse rounded-full" />
+    </div>
+    <span className="text-md font-medium font-kanit uppercase tracking-[0.2em] text-indigo-400/70 animate-pulse">กำลังโหลดข้อมูล...</span>
+  </motion.div>
 );
 
 interface AppRouterProps {
@@ -243,7 +257,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // --- GLOBAL KEYBOARD SHORTCUTS REMOVED (Moved to ShortcutManager) ---
 
   // --- DETECT LOCK NOTIFICATION ---
-  const lockNotification = undefined; 
+  const negligenceNotification = notifications.find(n => n.type === 'NEGLIGENCE' && !n.isRead);
+  const deathWarningNotification = notifications.find(n => n.type === 'DEATH_WARNING' && !n.isRead);
+  const resurrectionNotification = notifications.find(n => n.type === 'RESURRECTION' && !n.isRead);
 
   const handleToggleNotification = () => {
       // Changed: Do NOT mark as viewed immediately upon opening
@@ -289,6 +305,10 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   
   if (!currentUserProfile.isApproved) {
     return <PendingApprovalScreen user={currentUserProfile} onLogout={handleForceLogout} />;
+  }
+
+  if (currentUserProfile.status === 'DEATH') {
+    return <DeathScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
   if (!currentUserProfile.isActive) {
@@ -514,6 +534,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
             case 'ROADMAP':
                 return <RoadmapView />;
 
+            case 'ANALYTICS':
+                return <ContentAnalyticsView />;
+
             default:
               return <div className="p-10 text-center text-gray-500">เร็วๆ นี้... (Coming Soon)</div>;
           }
@@ -545,7 +568,21 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               onOpenCommandPalette={() => setIsCommandPaletteOpen(prev => !prev)}
           />
   
-          {renderContent()}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ 
+                duration: 0.3, 
+                ease: "easeOut"
+              }}
+              className="flex flex-col min-h-full w-full"
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
   
           {/* --- WORKBOX TRIGGER & PANEL --- */}
           <WorkboxTrigger 
@@ -561,8 +598,19 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           
           {/* --- SPECIAL LOCK MODAL --- */}
           <NegligenceLockModal 
-              notification={lockNotification} 
+              notification={negligenceNotification} 
               onAcknowledge={handleAcknowledgeLock} 
+          />
+
+          <DeathLockModal 
+              notification={deathWarningNotification}
+              onAcknowledge={handleAcknowledgeLock}
+              onLogout={handleForceLogout}
+          />
+
+          <ResurrectionModal 
+              notification={resurrectionNotification}
+              onAcknowledge={handleAcknowledgeLock}
           />
   
           {/* --- GLOBAL MODALS --- */}

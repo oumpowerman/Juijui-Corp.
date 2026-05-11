@@ -2,16 +2,18 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Dices, Sparkles, Wand2, RefreshCw, User as UserIcon, Repeat, Hourglass, Calendar, Download, Loader2, Save, Info, Check, ArrowRight, PlayCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { User, Duty, DutyConfig } from '../../types';
 import html2canvas from 'html2canvas';
 import DraftGrid from './randomizer/DraftGrid';
 import ExportTemplate from './randomizer/ExportTemplate';
+import CustomDatePicker from '../common/CustomDatePicker';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
 interface RandomizerModalProps {
     isOpen: boolean;
     onClose: () => void;
+    duties: Duty[];
     users: User[];
     configs: DutyConfig[];
     calculateDuties: (start: Date, mode: 'ROTATION' | 'DURATION', weeks: number, selectedUsers: User[]) => Promise<Duty[]>;
@@ -19,7 +21,7 @@ interface RandomizerModalProps {
 }
 
 const RandomizerModal: React.FC<RandomizerModalProps> = ({ 
-    isOpen, onClose, users, configs, calculateDuties, onSaveToDB
+    isOpen, onClose, duties, users, configs, calculateDuties, onSaveToDB
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
 
@@ -70,8 +72,19 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
     };
 
     const handleSave = async () => {
+        // Find if there is any overlap with existing duties
+        const draftDates = draftDuties.map(d => format(d.date, 'yyyy-MM-dd'));
+        const hasConflict = duties.some(existing => {
+            const existingDateStr = format(new Date(existing.date), 'yyyy-MM-dd');
+            return draftDates.includes(existingDateStr);
+        });
+
+        const confirmMessage = hasConflict 
+            ? 'พบรายการเวรเดิมในช่วงเวลาที่สุ่มใหม่! ต้องสร้างเวรใหม่ทับงานเก่าหรือไม่?' 
+            : 'ตารางเวรใหม่จะถูกบันทึกลงระบบ และตารางเก่าในช่วงเวลาเดียวกันจะถูกทับ';
+
         const confirmed = await showConfirm(
-            'ตารางเวรใหม่จะถูกบันทึกลงระบบ และตารางเก่าในช่วงเวลาเดียวกันจะถูกทับ',
+            confirmMessage,
             '🚀 ยืนยันการใช้ตารางเวรนี้?'
         );
 
@@ -264,15 +277,10 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                                 <div className="flex flex-col sm:flex-row gap-4">
                                     <div className="flex-1">
                                         <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block ml-1">เริ่มวันที่ (Start Date)</label>
-                                        <div className="relative group">
-                                            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500" />
-                                            <input 
-                                                type="date" 
-                                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 shadow-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all bg-white" 
-                                                value={format(startDate, 'yyyy-MM-dd')} 
-                                                onChange={(e) => setStartDate(new Date(e.target.value))} 
-                                            />
-                                        </div>
+                                        <CustomDatePicker 
+                                            selected={startDate}
+                                            onChange={(date) => date && setStartDate(date)}
+                                        />
                                     </div>
                                     {mode === 'DURATION' && (
                                         <div className="flex-1 animate-in fade-in slide-in-from-left-2">

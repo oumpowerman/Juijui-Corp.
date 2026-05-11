@@ -107,18 +107,38 @@ const TaskModal: React.FC<TaskModalProps> = ({
   // --- Theme Logic ---
   const currentTheme = TAB_CONFIGS[viewMode] || TAB_CONFIGS.DETAILS;
   const themeColor = currentTheme.color;
-
-  if (!isOpen) return null;
   
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-indigo-950/60 backdrop-blur-md p-0 sm:p-4 md:p-6 lg:p-8 animate-in fade-in duration-300 font-kanit">
-      
-      {/* Dynamic Border Container */}
-      <div className={`
-          bg-white text-slate-900 w-full sm:max-w-5xl h-full sm:h-[92vh] sm:rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col 
-          ${!isMobile ? 'border-[6px]' : 'border-t-4'} transition-colors duration-500
-          border-${themeColor}-100 ring-1 ring-${themeColor}-200
-      `}>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 font-kanit overflow-hidden">
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-indigo-950/60 backdrop-blur-md"
+          />
+
+          {/* Modal Container */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ 
+                type: 'spring', 
+                damping: 25, 
+                stiffness: 300,
+                duration: 0.4
+            }}
+            className={`
+                relative bg-white text-slate-900 w-full sm:max-w-5xl h-full sm:h-[92vh] sm:rounded-[2.5rem] shadow-[0_20px_70px_-12px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col 
+                ${!isMobile ? 'border-[6px]' : 'border-t-4'} transition-colors duration-500
+                border-${themeColor}-100 ring-1 ring-${themeColor}-200
+            `}
+          >
         
         {/* --- DYNAMIC HEADER --- */}
         <div className={`
@@ -399,11 +419,16 @@ const TaskModal: React.FC<TaskModalProps> = ({
         <div className="flex-1 overflow-hidden relative bg-white flex flex-col">
             
             {/* Animated Wrapper */}
-            <div 
-                key={viewMode} 
-                className="flex-1 overflow-hidden flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
-            >
-                {viewMode === 'HISTORY' && initialData ? (
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key={`${viewMode}-${mode}-${initialData?.id || 'new'}`} 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="flex-1 overflow-hidden flex flex-col h-full"
+                >
+                    {viewMode === 'HISTORY' && initialData ? (
                     <TaskHistory task={initialData} currentUser={currentUser} onSaveTask={onSave} />
                 ) : viewMode === 'COMMENTS' && initialData && currentUser ? (
                     <div className="flex-1 overflow-hidden p-0 bg-gray-50">
@@ -502,10 +527,13 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         />
                     )
                 )}
-            </div>
+                </motion.div>
+            </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
     </div>
+      )}
+    </AnimatePresence>
   );
 
   return createPortal(modalContent, document.body);

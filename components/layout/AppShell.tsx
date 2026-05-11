@@ -40,6 +40,12 @@ const AppShell: React.FC<AppShellProps> = ({
 }) => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
+    const isEdgeToEdgeView = [
+        'DASHBOARD', 'QUALITY_GATE', 'GOALS', 'SCRIPT_HUB', 'CHECKLIST', 'ContentStock',
+        'ANALYTICS', 'FINANCE', 'ATTENDANCE', 'DUTY', 'NEXUS', 'WIKI'
+    ].includes(currentView);
+    
+    // Legacy mapping for existing logic
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
 
     return (
@@ -62,7 +68,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <div className={`flex-1 overflow-auto scrollbar-hide ${isDarkTheme ? 'p-0' : 'p-4 md:p-6 pb-24 lg:pb-6'}`}>
+                <div className={`flex-1 overflow-auto scrollbar-hide ${isEdgeToEdgeView ? 'p-0' : 'p-4 md:p-6 pb-24 lg:pb-6'}`}>
                     {children}
                 </div>
             </main>

@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Package, ClipboardList, Tag, FileText, MoreHorizontal, CalendarPlus, Inbox, Video } from 'lucide-react';
-import { format } from 'date-fns';
+import { Package, ClipboardList, Tag, FileText, MoreHorizontal, CalendarPlus, Inbox, Video, BarChart3, AlertCircle } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { Task, Channel, User, MasterOption } from '../../../../types';
 import { ColumnKey } from './StockTableSettings';
@@ -24,6 +24,7 @@ interface StockTableRowProps {
     onToggleQueue?: (id: string, currentStatus: boolean) => void;
     onAddToWorkbox?: (task: Task) => void;
     onEditScript?: (scriptId: string) => void;
+    onOpenAnalytics?: (task: Task) => void;
     setIsDragging: (value: boolean) => void;
     getFormatLabel: (key?: string) => string;
     getPillarLabel: (key?: string) => string;
@@ -46,6 +47,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     onToggleQueue,
     onAddToWorkbox,
     onEditScript,
+    onOpenAnalytics,
     setIsDragging,
     getFormatLabel,
     getPillarLabel,
@@ -53,6 +55,18 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
 }, ref) => {
     const { showConfirm } = useGlobalDialog();
     const channelStyle = channel ? channel.color : 'bg-gray-100 text-gray-500 border-gray-200';
+
+    const isInsightOverdue = useMemo(() => {
+        const currentStatus = (task.status || '').toUpperCase();
+        const isTerminal = currentStatus.includes('DONE') || ['PUBLISHED', 'FINAL', 'POSTED'].includes(currentStatus);
+            
+        if (task.isUnscheduled || !isTerminal || !task.endDate) return false;
+            
+        const daysSincePublish = differenceInDays(new Date(), new Date(task.endDate));
+            // We only check if it's over 7 days. Ideally we'd check if an analytics entry exists, 
+            // but for now we tag all old DONE content to encourage checking insights.
+        return daysSincePublish >= 7;
+    }, [task.status, task.endDate, task.isUnscheduled]);
 
     const handleDragStart = (e: React.DragEvent) => {
         setIsDragging(true);
@@ -108,6 +122,18 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         <div className={`font-medium font-kanit text-[18px] group-hover:text-indigo-700 line-clamp-2 text-sm leading-snug ${task.isInShootQueue ? 'text-indigo-600' : 'text-gray-800'}`} title={task.title}>
                             {task.title}
                         </div>
+                        {isInsightOverdue && (
+                            <motion.div 
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="flex-shrink-0"
+                            >
+                                <span className="flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-500 border border-rose-100 text-[8px] font-black rounded-md shadow-sm animate-bounce italic uppercase tracking-wider">
+                                    <AlertCircle className="w-2.5 h-2.5" />
+                                    MISSING INSIGHT
+                                </span>
+                            </motion.div>
+                        )}
                     </div>
                     {/* Subtle fade for long text */}
                     <div className={`absolute bottom-2 right-0 w-12 h-4 bg-gradient-to-r from-transparent pointer-events-none ${
@@ -294,6 +320,18 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                     <button onClick={(e) => { e.stopPropagation(); onSchedule(task); }} className="p-2 text-gray-400 hover:text-green-600 hover:bg-white rounded-xl transition-all shadow-sm" title="ลงตาราง">
                         <CalendarPlus className="w-4 h-4" />
                     </button>
+                    {onOpenAnalytics && (
+                        <button 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                onOpenAnalytics(task); 
+                            }} 
+                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm"
+                            title="สถิติคอนเทนต์"
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                        </button>
+                    )}
                     {onAddToWorkbox && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); onAddToWorkbox(task); }} 

@@ -470,7 +470,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
 
             {/* --- USER PICKER MODAL (SMART) --- */}
             {isAssigneeModalOpen && createPortal(
-                <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 border-4 border-white ring-1 ring-gray-100">
                         
                         {/* Header */}
@@ -554,7 +554,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
 
             {/* --- ACTION MODAL (MOVED TO PORTAL) --- */}
             {actionTask && createPortal(
-                <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-4 border-indigo-50 animate-in zoom-in-95">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-gray-800 flex items-center text-lg">
@@ -604,7 +604,7 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
 
             {/* --- SUB-TASK DETAIL MODAL --- */}
             {detailTask && createPortal(
-                <div className="fixed inset-0 z-[500] flex items-center justify-center bg-indigo-950/40 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-indigo-950/40 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
                     <div className="bg-white w-full sm:max-w-4xl h-full sm:h-[85vh] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative border-0 sm:border-4 border-white ring-0 sm:ring-1 ring-black/5 animate-in zoom-in-95">
                         <div className="flex-1 overflow-hidden">
                             <TaskDetail 

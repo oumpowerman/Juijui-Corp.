@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ShoppingBag, Backpack, Loader2, History } from 'lucide-react';
 import { ShopItem, User } from '../../types';
 import { useGamification } from '../../hooks/useGamification';
@@ -72,8 +73,10 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+        }}>
             <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 border-4 border-indigo-50">
                 
                 {/* Header */}
@@ -164,7 +167,8 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
                 onClose={() => setIsHistoryOpen(false)} 
                 currentUser={currentUser} 
             />
-        </div>
+        </div>,
+        document.body
     );
 };
 

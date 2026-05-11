@@ -21,6 +21,9 @@ import StockInventoryModal from './stock/inventory/StockInventoryModal';
 import StockUtilities from './stock/StockUtilities';
 import StockCountBadge from './stock/StockCountBadge';
 import StockShootQueue from './stock/StockShootQueue';
+import AnalyticsEntryModal from '../gamification/AnalyticsEntryModal';
+import ContentAnalyticsView from '../gamification/ContentAnalyticsView';
+import { BarChart3 } from 'lucide-react';
 
 interface ContentStockProps {
   tasks: Task[]; // Sync Source
@@ -59,6 +62,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const [showStockOnly, setShowStockOnly] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [selectedContentForAnalytics, setSelectedContentForAnalytics] = useState<Task | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const viewTab = (searchParams.get('stockMode') as 'LIST' | 'QUEUE') || 'LIST';
   const contentSubTab = (searchParams.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
@@ -224,7 +228,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   }, []);
 
   return (
-    <AppBackground theme={bgTheme} pattern="icons" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
+    <AppBackground theme={bgTheme} pattern="icons" className="p-4 md:p-8 min-h-screen">
       <div className="relative z-10 space-y-4 animate-in fade-in duration-500 pb-20">
         <MentorTip variant="purple" messages={[
             "มุมมอง List แบบละเอียด ช่วยให้เช็คสถานะงานได้ครบถ้วน", 
@@ -249,9 +253,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                             onClick={() => {
                               setSearchParams(prev => {
                                 const next = new URLSearchParams(prev);
-                                next.set('view', 'ContentStock'); // Ensure view is explicitly set/preserved
-                                next.delete('stockMode'); // Switch to LIST
-                                next.delete('stockTab');  // Default to ACTIVE
+                                next.set('view', 'ContentStock'); 
+                                next.delete('stockMode'); 
+                                next.delete('stockTab'); 
                                 return next;
                               }, { replace: true });
                             }}
@@ -260,7 +264,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                             คลังคอนเทนต์
                           </button>
                           <button 
-                            onClick={() => setViewTab('QUEUE')}
+                            onClick={() => {
+                                setViewTab('QUEUE');
+                            }}
                             className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${viewTab === 'QUEUE' ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
                           >
                             คิวถ่ายวันนี้
@@ -455,6 +461,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                         onToggleQueue={toggleShootQueue}
                         onAddToWorkbox={onAddToWorkbox}
                         onEditScript={onEditScript}
+                        onOpenAnalytics={(content) => setSelectedContentForAnalytics(content)}
                     />
 
                     {/* Scanning Ray effect during transitions */}
@@ -494,6 +501,14 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           masterOptions={masterOptions}
           channels={channels}
         />
+
+        {selectedContentForAnalytics && (
+            <AnalyticsEntryModal 
+                content={selectedContentForAnalytics as any}
+                onClose={() => setSelectedContentForAnalytics(null)}
+                onSave={() => {}}
+            />
+        )}
       </div>
     </AppBackground>
   );

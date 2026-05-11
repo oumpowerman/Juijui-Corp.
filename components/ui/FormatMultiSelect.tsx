@@ -75,9 +75,9 @@ const FormatMultiSelect: React.FC<FormatMultiSelectProps> = ({
             
             {isOpen && position && createPortal(
                 <>
-                    <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)} />
+                    <div className="fixed inset-0 z-[10998]" onClick={() => setIsOpen(false)} />
                     <div 
-                        className="fixed z-[9999] bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 max-h-[200px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed z-[11000] bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 max-h-[200px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
                         style={{
                             top: position.top,
                             left: position.left,

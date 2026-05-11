@@ -2,6 +2,7 @@
 import React, { Suspense, lazy } from 'react';
 import { ViewMode, User, Task, Channel, MasterOption } from '../types';
 import { Loader2 } from 'lucide-react';
+import AppBackground from '../components/common/AppBackground';
 
 const ChannelManager = lazy(() => import('../components/ChannelManager'));
 const MasterDataManager = lazy(() => import('../components/MasterDataManager'));
@@ -9,7 +10,7 @@ const SystemLogicGuide = lazy(() => import('../components/admin/SystemLogicGuide
 const AssetRegistryView = lazy(() => import('../components/assets/AssetRegistryView'));
 
 const PageLoader = () => (
-  <div className="flex h-full w-full items-center justify-center text-indigo-300">
+  <div className="flex-1 w-full flex flex-col items-center justify-center text-indigo-300 min-h-[400px]">
     <Loader2 className="w-10 h-10 animate-spin" />
   </div>
 );
@@ -38,31 +39,33 @@ const AdminRouter: React.FC<AdminRouterProps> = ({
   onOpenSettings
 }) => {
   return (
-    <Suspense fallback={<PageLoader />}>
-      {(() => {
-        switch (currentView) {
-          case 'CHANNELS':
-            return (
-              <ChannelManager 
-                tasks={tasks}
-                channels={channels}
-                onAdd={onAddChannel}
-                onEdit={onUpdateChannel}
-                onDelete={onDeleteChannel}
-                onOpenSettings={onOpenSettings}
-              />
-            );
-          case 'MASTER_DATA':
-            return <MasterDataManager />;
-          case 'SYSTEM_GUIDE':
-            return <SystemLogicGuide />;
-          case 'ASSETS':
-            return <AssetRegistryView users={users} masterOptions={masterOptions} />;
-          default:
-            return null;
-        }
-      })()}
-    </Suspense>
+    <AppBackground theme="neutral" pattern="dots" className="p-4 md:p-8 min-h-screen">
+      <Suspense fallback={<PageLoader />}>
+        {(() => {
+          switch (currentView) {
+            case 'CHANNELS':
+              return (
+                <ChannelManager 
+                  tasks={tasks}
+                  channels={channels}
+                  onAdd={onAddChannel}
+                  onEdit={onUpdateChannel}
+                  onDelete={onDeleteChannel}
+                  onOpenSettings={onOpenSettings}
+                />
+              );
+            case 'MASTER_DATA':
+              return <MasterDataManager />;
+            case 'SYSTEM_GUIDE':
+              return <SystemLogicGuide />;
+            case 'ASSETS':
+              return <AssetRegistryView users={users} masterOptions={masterOptions} />;
+            default:
+              return null;
+          }
+        })()}
+      </Suspense>
+    </AppBackground>
   );
 };
 

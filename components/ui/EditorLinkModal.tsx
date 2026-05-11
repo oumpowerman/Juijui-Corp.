@@ -37,7 +37,7 @@ const EditorLinkModal: React.FC<EditorLinkModalProps> = ({
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 pointer-events-none">
+                <div className="fixed inset-0 z-[11001] flex items-center justify-center p-4 pointer-events-none">
                     {/* Backdrop */}
                     <motion.div 
                         initial={{ opacity: 0 }}

@@ -129,7 +129,7 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 font-sans">
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 font-sans">
                     {/* Backdrop */}
                     <motion.div 
                         initial={{ opacity: 0 }}

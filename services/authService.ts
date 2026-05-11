@@ -16,6 +16,7 @@ export const authService = {
     feeling: data.feeling || '',
     isApproved: data.is_approved,
     isActive: data.is_active !== false,
+    status: data.status || (data.is_active === false ? 'INACTIVE' : 'ACTIVE'),
     xp: data.xp || 0,
     level: data.level || 1,
     availablePoints: data.available_points || 0,

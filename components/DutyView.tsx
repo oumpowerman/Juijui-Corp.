@@ -377,6 +377,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 <RandomizerModal 
                     isOpen={isRandomModalOpen}
                     onClose={() => setIsRandomModalOpen(false)}
+                    duties={duties}
                     users={activeUsers}
                     configs={configs}
                     calculateDuties={calculateRandomDuties}

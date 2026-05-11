@@ -177,7 +177,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                                         ) : null;
                                     })}
                                 </div>
-                                <span className="text-[10px] font-black text-slate-300 group-hover:text-slate-500 transition-colors uppercase tracking-tight">Tap to reveal info</span>
+                                <span className="text-[11px] font-medium text-slate-400 group-hover:text-slate-500 transition-colors uppercase tracking-tight">Tap to reveal info</span>
                                 <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400" />
                             </div>
                         </motion.div>

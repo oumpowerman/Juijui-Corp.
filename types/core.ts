@@ -1,9 +1,11 @@
 
 export type Role = 'ADMIN' | 'MEMBER';
 export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING';
-export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'ContentStock' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE' | 'ATTENDANCE' | 'FINANCE' | 'LEADERBOARD' | 'ASSETS' | 'NEXUS' | 'ROADMAP';
+export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'ContentStock' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE' | 'ATTENDANCE' | 'FINANCE' | 'LEADERBOARD' | 'ASSETS' | 'NEXUS' | 'ROADMAP' | 'ANALYTICS';
 
 export type EmploymentType = 'INTERN' | 'PROBATION' | 'FULL_TIME';
+
+export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'DEATH';
 
 export interface User {
     id: string;
@@ -17,12 +19,14 @@ export interface User {
     feeling?: string;
     isApproved: boolean;
     isActive: boolean;
+    status: UserStatus;
     xp: number;
     level: number;
     availablePoints: number;
     hp: number;
     maxHp: number;
     deathCount: number;
+    hpDepletedAt?: Date | null;
     workStatus: WorkStatus;
     leaveStartDate?: Date | null;
     leaveEndDate?: Date | null;

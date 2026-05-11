@@ -48,12 +48,14 @@ const mapProfileToUser = (data: any): User => ({
     feeling: data.feeling || '',
     isApproved: data.is_approved,
     isActive: data.is_active !== false,
+    status: data.status || (data.is_active !== false ? 'ACTIVE' : 'INACTIVE'),
     xp: data.xp || 0,
     level: data.level || 1,
     availablePoints: data.available_points || 0,
     hp: data.hp ?? 100,
     maxHp: data.max_hp || 100,
     deathCount: data.death_count || 0,
+    hpDepletedAt: data.hp_depleted_at ? new Date(data.hp_depleted_at) : null,
     workStatus: (data.work_status as WorkStatus) || 'ONLINE',
     leaveStartDate: data.leave_start_date ? new Date(data.leave_start_date) : null,
     leaveEndDate: data.leave_end_date ? new Date(data.leave_end_date) : null,
@@ -81,12 +83,14 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('feeling' in u) updates.feeling = u.feeling;
     if ('is_approved' in u) updates.isApproved = u.is_approved;
     if ('is_active' in u) updates.isActive = u.is_active;
+    if ('status' in u) updates.status = u.status;
     if ('xp' in u) updates.xp = u.xp;
     if ('level' in u) updates.level = u.level;
     if ('available_points' in u) updates.availablePoints = u.available_points;
     if ('hp' in u) updates.hp = u.hp;
     if ('max_hp' in u) updates.maxHp = u.max_hp;
     if ('death_count' in u) updates.deathCount = u.death_count;
+    if ('hp_depleted_at' in u) updates.hpDepletedAt = u.hp_depleted_at ? new Date(u.hp_depleted_at) : null;
     if ('work_status' in u) updates.workStatus = u.work_status;
     if ('work_days' in u) updates.workDays = u.work_days;
     if ('base_salary' in u) updates.baseSalary = u.base_salary;

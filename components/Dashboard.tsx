@@ -45,7 +45,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col min-h-full relative">
       {isAdmin && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <motion.div 

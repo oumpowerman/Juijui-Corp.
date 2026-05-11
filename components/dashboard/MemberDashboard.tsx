@@ -28,8 +28,9 @@ import MyWorkBoard from './member/MyWorkBoard';
 import ItemShopModal from '../gamification/ItemShopModal';
 import WorkloadModal from '../workload/WorkloadModal'; 
 import MemberReportModal from './member/MemberReportModal'; 
-import NegligenceLockModal from '../duty/NegligenceLockModal'; // Import the Modal
+import NegligenceLockModal from '../duty/NegligenceLockModal'; 
 import SortableWidget from './widgets/SortableWidget';
+import AppBackground from '../common/AppBackground';
 
 // New Refactored Widgets
 import SmartAttendance from './widgets/SmartAttendance';
@@ -276,14 +277,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     };
 
     return (
-        <div className="min-h-full bg-[#FDFBF7] pb-24 relative overflow-hidden">
-            
-            {/* Pastel Ambient Blobs */}
-            <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-200/30 rounded-full blur-[120px] pointer-events-none mix-blend-multiply animate-pulse"></div>
-            <div className="absolute top-[10%] right-[-10%] w-[500px] h-[500px] bg-pink-200/30 rounded-full blur-[100px] pointer-events-none mix-blend-multiply" style={{ animationDelay: '2s' }}></div>
-            <div className="absolute bottom-[0%] left-[20%] w-[600px] h-[600px] bg-sky-200/30 rounded-full blur-[120px] pointer-events-none mix-blend-multiply" style={{ animationDelay: '4s' }}></div>
-
-            <div className="relative z-10 space-y-6 px-4 pt-4 md:px-6">
+        <AppBackground theme="pastel-amber" pattern="dots" className="p-4 md:p-8 min-h-screen">
+            <div className="relative z-10 space-y-6 pb-20">
                 
                 {/* --- HEADER (Fixed) --- */}
                 <div className="relative z-30">
@@ -362,7 +357,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     onAcknowledge={handleAcknowledgeNegligence}
                 />
             )}
-        </div>
+        </AppBackground>
     );
 };
 

@@ -263,7 +263,7 @@ const TeamView: React.FC<TeamViewProps> = ({
   };
 
   return (
-    <div className={`min-h-screen -m-4 p-8 space-y-6 animate-in fade-in duration-500 pb-20 transition-colors duration-1000 relative ${bgTheme}`}>
+    <div className={`min-h-screen p-8 space-y-6 animate-in fade-in duration-500 pb-20 transition-colors duration-1000 relative ${bgTheme}`}>
       {/* Grid/Notebook Pattern Gimmick */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]" 
            style={{ 

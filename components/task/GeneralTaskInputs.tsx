@@ -46,7 +46,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     initialData, selectedDate, users, masterOptions, currentUser, onSave, onDelete, onClose, projects = [], channels = [], onEditScript, onOpenTask
 }) => {
     const { showToast } = useToast();
-    const { showConfirm, showAlert } = useGlobalDialog();
+    const { showConfirm, showAlert, showPrompt } = useGlobalDialog();
     const [isSendingQC, setIsSendingQC] = useState(false);
     const [qcSenderName, setQcSenderName] = useState<string>('');
     const isAdmin = currentUser?.role === 'ADMIN';
@@ -241,17 +241,34 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             return;
         }
 
-        const confirmed = await showConfirm(
-            `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ`,
-            `🚀 ยืนยันการส่งงาน?`
+        const currentRoundCount = initialData.reviews?.length || 0;
+        const nextRound = currentRoundCount + 1;
+
+        const submissionNotes = await showPrompt(
+            `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ\n\nระบุหมายเหตุถึงผู้ตรวจ (ถ้ามี):`,
+            '',
+            `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}"`
         );
 
-        if (!confirmed) {
+        if (submissionNotes === null) {
             setIsSendingQC(false);
             return;
         }
 
         try {
+            // 1. Create Review Record directly here to include new fields
+            const { error: reviewError } = await supabase.from('task_reviews').insert({
+                task_id: initialData.id,
+                round: nextRound,
+                scheduled_at: new Date().toISOString(),
+                status: 'PENDING',
+                reviewer_id: null,
+                submission_notes: submissionNotes || null,
+                submission_asset_url: assets.length > 0 ? assets[assets.length - 1].url : null
+            });
+            if (reviewError) throw reviewError;
+
+            // 2. Update Task Status & Log
             const updatedTask = await sendToQC(initialData, currentUser!);
             
             setStatus(updatedTask.status);

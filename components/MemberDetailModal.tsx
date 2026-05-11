@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '../types';
-import { X, Quote, Mail, Phone, Briefcase, Trophy, Star, Shield, Sparkles, MapPin } from 'lucide-react';
+import { X, Quote, Mail, Phone, Briefcase, Trophy, Star, Shield, Sparkles, Timer, Skull } from 'lucide-react';
+import { useMasterData } from '../hooks/useMasterData';
+import { countWorkingDaysBetween } from '../utils/judgeUtils';
 
 interface MemberDetailModalProps {
     isOpen: boolean;
@@ -12,8 +14,28 @@ interface MemberDetailModalProps {
 }
 
 const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, user }) => {
+    const { annualHolidays, calendarExceptions } = useMasterData();
+
     // Calculate Level Progress (Example: 1000 XP per level)
     const levelProgress = user ? ((user.xp % 1000) / 1000) * 100 : 0;
+
+    const deathStats = useMemo(() => {
+        if (!user || !user.hpDepletedAt) return null;
+        
+        const workingDaysPassed = countWorkingDaysBetween(
+            new Date(user.hpDepletedAt),
+            new Date(),
+            annualHolidays,
+            calendarExceptions,
+            user
+        );
+        
+        const daysRemaining = Math.max(0, 7 - workingDaysPassed);
+        return { passed: workingDaysPassed, remaining: daysRemaining };
+    }, [user, annualHolidays, calendarExceptions]);
+
+    const isDead = user?.status === 'DEATH';
+    const isExhausted = user && user.hp <= 0 && !isDead;
 
     const modalContent = (
         <AnimatePresence>
@@ -34,7 +56,7 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden relative border-4 border-white ring-1 ring-gray-100 flex flex-col max-h-[85vh] z-10"
+                        className={`bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden relative border-4 border-white ring-1 ring-gray-100 flex flex-col max-h-[85vh] z-10 ${isDead ? 'grayscale' : ''}`}
                     >
                         
                         {/* Floating Close Button */}
@@ -49,12 +71,18 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
                         <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                             
                             {/* 1. Header Background */}
-                            <div className="h-40 bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 relative shrink-0">
+                            <div className={`h-40 relative shrink-0 ${isDead ? 'bg-slate-800' : isExhausted ? 'bg-gradient-to-br from-red-600 to-black' : 'bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400'}`}>
                                 {/* Decorative Pattern */}
                                 <div className="absolute inset-0 opacity-20" 
                                      style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 2px, transparent 0)', backgroundSize: '24px 24px' }}>
                                 </div>
                                 <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-black/10 to-transparent"></div>
+                                
+                                {isExhausted && (
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                                        <Skull className="w-24 h-24 text-white animate-pulse" />
+                                    </div>
+                                )}
                             </div>
 
                             {/* 2. Content Body */}
@@ -64,11 +92,11 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
                                 <div className="flex justify-center -mt-20 relative mb-4">
                                     <div className="relative group">
                                         {/* Profile Image */}
-                                        <div className="w-40 h-40 rounded-full p-1 bg-white shadow-xl relative z-10">
+                                        <div className={`w-40 h-40 rounded-full p-1 bg-white shadow-xl relative z-10 ${isExhausted ? 'ring-4 ring-red-500 animate-pulse' : ''}`}>
                                             <div className="w-full h-full rounded-full overflow-hidden border-4 border-white bg-gray-100 relative">
                                                 <img 
                                                     src={user.avatarUrl} 
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isDead ? 'opacity-50' : isExhausted ? 'opacity-70' : ''}`}
                                                     alt={user.name} 
                                                     referrerPolicy="no-referrer"
                                                 />
@@ -99,6 +127,34 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Death Warning Banner */}
+                                {isExhausted && deathStats && (
+                                    <div className="mb-6 bg-red-50 border-2 border-red-100 rounded-2xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+                                        <div className="bg-red-500 p-2 rounded-xl text-white">
+                                            <Timer className="w-5 h-5 animate-pulse" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-red-400 uppercase tracking-wider mb-0.5">Time Until Fatality</p>
+                                            <p className="text-sm font-bold text-red-900">เหลืออีก {deathStats.remaining} วันทำการ</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <Skull className="w-5 h-5 text-red-300" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isDead && (
+                                    <div className="mb-6 bg-slate-100 border-2 border-slate-200 rounded-2xl p-3 flex items-center gap-3">
+                                        <div className="bg-slate-800 p-2 rounded-xl text-white">
+                                            <Skull className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Historical Status</p>
+                                            <p className="text-sm font-bold text-slate-700">พ้นสภาพ (DEATH)</p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* User Info */}
                                 <div className="text-center space-y-2 mb-6">

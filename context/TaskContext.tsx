@@ -16,7 +16,7 @@ interface TaskContextType {
     setDateRange: React.Dispatch<React.SetStateAction<{ start: Date; end: Date }>>;
     isFetching: boolean;
     isAllLoaded: boolean;
-    fetchTasks: () => Promise<void>;
+    fetchTasks: (forceFull?: boolean) => Promise<void>;
     fetchAllTasks: () => void;
     checkAndExpandRange: (targetDate: Date) => void;
     fetchSubTasks: (contentId: string) => Promise<Task[]>;
@@ -79,7 +79,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Map Raw DB Data to Unified Task Type (Shared Logic)
-    const mapSupabaseToTask = useCallback((data: any, type: 'CONTENT' | 'TASK'): Task => {
+    const mapSupabaseToTask = useCallback((data: any, type: 'CONTENT' | 'TASK', isPartial = false): Task => {
         const startDateVal = data.start_date || data.startDate;
         const endDateVal = data.end_date || data.endDate;
 
@@ -146,12 +146,14 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             parentContentTitle: data.contents?.title,
             roadmapId: data.roadmap_id,
             scriptId: data.script_id, // Map script_id correctly here
+            sla_revert_count: data.sla_revert_count,
             is_penalized: data.is_penalized,
-            last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined
-        };
+            last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined,
+            _isPartial: isPartial
+        } as any;
     }, []);
 
-    const fetchTasks = useCallback(async () => {
+    const fetchTasks = useCallback(async (forceFull = false) => {
         if (isFetchingRef.current) return;
         isFetchingRef.current = true;
 
@@ -167,14 +169,31 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const stockLimitStr = twoMonthsAgo.toISOString();
 
+        // 🚀 STRATEGY: Select only essential fields for Board/Calendar (Reduce payload size by ~70%)
+        const contentFields = forceFull ? '*' : `
+            id, title, status, priority, pillar, category, content_format, content_formats, 
+            start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, 
+            target_platform, assignee_ids, idea_owner_ids, editor_ids, target_position, 
+            shoot_date, is_in_shoot_queue, is_soft_finished, roadmap_id, sla_revert_count,
+            difficulty, assignee_type,
+            task_reviews(id, round, status, is_completed)
+        `.replace(/\s+/g, '');
+
+        const taskFields = forceFull ? '*' : `
+            id, title, status, priority, pillar, category, channel_id, start_date, end_date, created_at, updated_at, 
+            assignee_ids, content_id, show_on_board, target_position, roadmap_id, script_id, is_unscheduled,
+            sla_revert_count, difficulty, assignee_type, content_format, content_formats, target_platform,
+            contents(title), task_reviews(id, round, status, is_completed)
+        `.replace(/\s+/g, '');
+
         try {
             let contentsQuery = supabase
                 .from('contents')
-                .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id)`);
+                .select(contentFields);
             
             let tasksQuery = supabase
                 .from('tasks')
-                .select(`*, contents (title), task_reviews(*)`);
+                .select(taskFields);
 
             if (!isAllLoaded) {
                 // Optimized query: (Unscheduled AND created within 2 months) OR (Scheduled within date range)
@@ -194,12 +213,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (contentsResult.error) console.warn("Contents fetch warning:", contentsResult.error.message);
             else if (contentsResult.data) {
-                newTasks = [...newTasks, ...contentsResult.data.map(d => mapSupabaseToTask(d, 'CONTENT'))];
+                newTasks = [...newTasks, ...contentsResult.data.map(d => mapSupabaseToTask(d, 'CONTENT', !forceFull))];
             }
 
             if (tasksResult.error) console.warn("Tasks fetch warning:", tasksResult.error.message);
             else if (tasksResult.data) {
-                newTasks = [...newTasks, ...tasksResult.data.map(d => mapSupabaseToTask(d, 'TASK'))];
+                newTasks = [...newTasks, ...tasksResult.data.map(d => mapSupabaseToTask(d, 'TASK', !forceFull))];
             }
 
             setTasks(newTasks);

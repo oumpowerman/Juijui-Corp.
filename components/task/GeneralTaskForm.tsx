@@ -56,46 +56,47 @@ const GeneralTaskForm: React.FC<GeneralTaskFormProps> = (props) => {
     };
 
     // --- RENDER ---
+    const showEditor = editorScript && props.currentUser;
 
-    // Loading Overlay
-    if (isLoadingScript) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-50">
-                <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
-                <p className="text-gray-500 font-bold">กำลังโหลดสคริปต์...</p>
-            </div>
-        );
-    }
-
-    // Editor Overlay Mode
-    if (editorScript && props.currentUser) {
-        return (
-            <div className="absolute inset-0 z-50 bg-white animate-in zoom-in-95 duration-200">
-                <ScriptEditor 
-                    script={editorScript}
-                    users={props.users}
-                    channels={props.channels || []} // Pass channels (fallback to empty)
-                    masterOptions={props.masterOptions}
-                    currentUser={props.currentUser}
-                    onClose={handleCloseEditor}
-                    onSave={updateScript}
-                    onGenerateAI={async (prompt, type) => {
-                        const result = await generateScriptWithAI(prompt, type);
-                        return result ?? null;
-                    }}
-                    onPromote={() => {}} // General Tasks usually don't promote to content directly here
+    return (
+        <div className="relative h-full w-full overflow-hidden">
+            {/* Form Mode */}
+            <div className={`h-full w-full ${showEditor || isLoadingScript ? 'hidden' : ''}`}>
+                <GeneralTaskInputs 
+                    {...props}
+                    onEditScript={handleOpenEditor}
+                    onOpenTask={props.onOpenTask}
                 />
             </div>
-        );
-    }
 
-    // Default: Form Inputs
-    return (
-        <GeneralTaskInputs 
-            {...props}
-            onEditScript={handleOpenEditor}
-            onOpenTask={props.onOpenTask}
-        />
+            {/* Loading Overlay */}
+            {isLoadingScript && (
+                <div className="h-full flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-[60]">
+                    <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
+                    <p className="text-gray-500 font-bold">กำลังโหลดสคริปต์...</p>
+                </div>
+            )}
+
+            {/* Editor Overlay Mode */}
+            {showEditor && (
+                <div className="absolute inset-0 z-50 bg-white animate-in zoom-in-95 duration-200">
+                    <ScriptEditor 
+                        script={editorScript}
+                        users={props.users}
+                        channels={props.channels || []} // Pass channels (fallback to empty)
+                        masterOptions={props.masterOptions}
+                        currentUser={props.currentUser!}
+                        onClose={handleCloseEditor}
+                        onSave={updateScript}
+                        onGenerateAI={async (prompt, type) => {
+                            const result = await generateScriptWithAI(prompt, type);
+                            return result ?? null;
+                        }}
+                        onPromote={() => {}} // General Tasks usually don't promote to content directly here
+                    />
+                </div>
+            )}
+        </div>
     );
 };
 

@@ -200,52 +200,61 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         const existingTask = editingTask || tasks.find(t => t.id === task.id);
         const isUpdate = !!existingTask;
 
+        // --- 🚀 Resiliency for Partial Tasks ---
+        let taskToSave = { ...task };
+        if ((task as any)._isPartial) {
+            const fullTask = await fetchTaskById(task.id, task.type);
+            if (fullTask) {
+                taskToSave = { ...fullTask, ...task };
+            }
+        }
+
         const basePayload = {
-            title: task.title,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-            tags: task.tags,
-            start_date: task.startDate.toISOString(),
-            end_date: task.endDate.toISOString(),
-            assignee_ids: task.assigneeIds || [],
-            difficulty: task.difficulty || 'MEDIUM',
-            estimated_hours: task.estimatedHours || 0,
-            assignee_type: task.assigneeType,
-            target_position: task.targetPosition,
-            caution: task.caution,
-            importance: task.importance,
-            assets: task.assets || [], 
+            title: taskToSave.title,
+            description: taskToSave.description,
+            status: taskToSave.status,
+            priority: taskToSave.priority,
+            tags: taskToSave.tags,
+            start_date: taskToSave.startDate.toISOString(),
+            end_date: taskToSave.endDate.toISOString(),
+            assignee_ids: taskToSave.assigneeIds || [],
+            difficulty: taskToSave.difficulty || 'MEDIUM',
+            estimated_hours: taskToSave.estimatedHours || 0,
+            assignee_type: taskToSave.assigneeType,
+            target_position: taskToSave.targetPosition,
+            caution: taskToSave.caution,
+            importance: taskToSave.importance,
+            assets: taskToSave.assets || [], 
             ...(isContent ? {} : { 
                 type: 'TASK', 
-                content_id: task.contentId || null,
-                roadmap_id: task.roadmapId || null,
-                show_on_board: task.showOnBoard || false,
-                script_id: task.scriptId || null 
+                content_id: taskToSave.contentId || null,
+                roadmap_id: taskToSave.roadmapId || null,
+                show_on_board: taskToSave.showOnBoard || false,
+                script_id: taskToSave.scriptId || null 
             }) 
         };
 
         const contentPayload = isContent ? {
-            pillar: task.pillar,
-            content_format: task.contentFormat || (task.contentFormats && task.contentFormats.length > 0 ? task.contentFormats[0] : null),
-            content_formats: task.contentFormats || [],
-            category: task.category || null,
-            remark: task.remark || null,
-            channel_id: task.channelId || null,
-            target_platform: task.targetPlatforms || null,
-            is_unscheduled: task.isUnscheduled || false,
-            idea_owner_ids: task.ideaOwnerIds || [],
-            editor_ids: task.editorIds || [],
-            performance: task.performance || null,
-            published_links: task.publishedLinks || null,
-            shoot_date: task.shootDate ? task.shootDate.toISOString() : null,
-            shoot_location: task.shootLocation || null,
-            local_path: task.localPath || null,
-            drive_label: task.driveLabel || null,
+            pillar: taskToSave.pillar,
+            content_format: taskToSave.contentFormat || (taskToSave.contentFormats && taskToSave.contentFormats.length > 0 ? taskToSave.contentFormats[0] : null),
+            content_formats: taskToSave.contentFormats || [],
+            category: taskToSave.category || null,
+            remark: taskToSave.remark || null,
+            channel_id: taskToSave.channelId || null,
+            target_platform: taskToSave.targetPlatforms || null,
+            is_unscheduled: taskToSave.isUnscheduled || false,
+            idea_owner_ids: taskToSave.ideaOwnerIds || [],
+            editor_ids: taskToSave.editorIds || [],
+            performance: taskToSave.performance || null,
+            published_links: taskToSave.publishedLinks || null,
+            shoot_date: taskToSave.shootDate ? taskToSave.shootDate.toISOString() : null,
+            shoot_location: taskToSave.shootLocation || null,
+            local_path: taskToSave.localPath || null,
+            drive_label: taskToSave.driveLabel || null,
         } : {};
 
         const nowStr = format(new Date(), 'yyyy-MM-dd');
-        const isCurrentlyOverdue = !task.isUnscheduled && format(task.endDate, 'yyyy-MM-dd') < nowStr;
+        const isCurrentlyOverdue = !taskToSave.isUnscheduled && format(taskToSave.endDate, 'yyyy-MM-dd') < nowStr;
 
         const dbPayload = { 
             ...basePayload, 

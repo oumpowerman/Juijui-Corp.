@@ -22,7 +22,8 @@ export const useReviews = () => {
                     tasks (*),
                     contents (*)
                 `)
-                .order('scheduled_at', { ascending: true }); 
+                .order('scheduled_at', { ascending: false })
+                .limit(100); 
 
             if (error) throw error;
 
@@ -40,6 +41,11 @@ export const useReviews = () => {
                         status: r.status,
                         feedback: r.feedback,
                         isCompleted: r.is_completed,
+                        submissionNotes: r.submission_notes,
+                        qualityScore: r.quality_score,
+                        feedbackCategories: r.feedback_categories || [],
+                        submissionAssetUrl: r.submission_asset_url,
+                        manualBonus: r.manual_bonus,
                         task: {
                             id: sourceData.id,
                             title: sourceData.title,
@@ -58,7 +64,8 @@ export const useReviews = () => {
                             caution: sourceData.caution,
                             importance: sourceData.importance,
                             difficulty: sourceData.difficulty || 'MEDIUM',
-                            estimatedHours: sourceData.estimated_hours || 0
+                            estimatedHours: sourceData.estimated_hours || 0,
+                            sla_revert_count: sourceData.sla_revert_count || 0
                         } as any
                     };
                 }).filter(Boolean) as ReviewSession[];
@@ -73,12 +80,90 @@ export const useReviews = () => {
         }
     }, []);
 
-    const updateReviewStatus = async (reviewId: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => {
+    // --- NEW: FETCH SINGLE REVIEW (For Realtime Optimization) ---
+    const fetchSingleReview = useCallback(async (id: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('task_reviews')
+                .select(`
+                    *,
+                    tasks (*),
+                    contents (*)
+                `)
+                .eq('id', id)
+                .single();
+
+            if (error || !data) return;
+
+            const sourceData = data.tasks || data.contents;
+            if (!sourceData) return;
+
+            const mapped: ReviewSession = {
+                id: data.id,
+                taskId: data.task_id || data.content_id,
+                round: data.round,
+                scheduledAt: new Date(data.scheduled_at),
+                reviewerId: data.reviewer_id,
+                status: data.status,
+                feedback: data.feedback,
+                isCompleted: data.is_completed,
+                submissionNotes: data.submission_notes,
+                qualityScore: data.quality_score,
+                feedbackCategories: data.feedback_categories || [],
+                submissionAssetUrl: data.submission_asset_url,
+                manualBonus: data.manual_bonus,
+                task: {
+                    id: sourceData.id,
+                    title: sourceData.title,
+                    description: sourceData.description,
+                    status: sourceData.status,
+                    channelId: sourceData.channel_id,
+                    startDate: new Date(sourceData.start_date),
+                    endDate: new Date(sourceData.end_date),
+                    assigneeIds: sourceData.assignee_ids || [],
+                    ideaOwnerIds: sourceData.idea_owner_ids || [],
+                    editorIds: sourceData.editor_ids || [],
+                    assigneeType: sourceData.assignee_type,
+                    type: data.contents ? 'CONTENT' : 'TASK',
+                    assets: sourceData.assets || [],
+                    targetPosition: sourceData.target_position,
+                    caution: sourceData.caution,
+                    importance: sourceData.importance,
+                    difficulty: sourceData.difficulty || 'MEDIUM',
+                    estimatedHours: sourceData.estimated_hours || 0,
+                    sla_revert_count: sourceData.sla_revert_count || 0
+                } as any
+            };
+
+            setReviews(prev => {
+                const exists = prev.find(r => r.id === id);
+                if (exists) {
+                    return prev.map(r => r.id === id ? mapped : r);
+                }
+                return [mapped, ...prev]; // Prepend new items
+            });
+        } catch (err) {
+            console.error("Single Review Fetch Error:", err);
+        }
+    }, []);
+
+    const updateReviewStatus = async (
+        reviewId: string, 
+        status: ReviewStatus, 
+        feedback?: string, 
+        reviewerId?: string,
+        qualityScore?: number,
+        categories?: string[],
+        manualBonus?: number
+    ) => {
         try {
             const payload: any = { 
                 status, 
                 feedback,
-                is_completed: status === 'PASSED'
+                is_completed: status === 'PASSED',
+                quality_score: qualityScore,
+                feedback_categories: categories,
+                manual_bonus: manualBonus
             };
 
             if (reviewerId) payload.reviewer_id = reviewerId;
@@ -92,7 +177,7 @@ export const useReviews = () => {
             
             // Optimistic update local state for UI responsiveness
             setReviews(prev => prev.map(r => 
-                r.id === reviewId ? { ...r, status, feedback, isCompleted: status === 'PASSED', reviewerId: reviewerId || r.reviewerId } : r
+                r.id === reviewId ? { ...r, status, feedback, isCompleted: status === 'PASSED', reviewerId: reviewerId || r.reviewerId, manualBonus: manualBonus ?? r.manualBonus } : r
             ));
 
             setHighlightedId(reviewId);
@@ -107,23 +192,38 @@ export const useReviews = () => {
         fetchReviews();
 
         const channel = supabase
-            .channel('quality-gate-realtime-global')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, () => {
-
-                fetchReviews(true);
+            .channel('quality-gate-realtime-surgical')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
+                if (payload.eventType === 'DELETE') {
+                    setReviews(prev => prev.filter(r => r.id !== payload.old.id));
+                } else if (payload.new && payload.new.id) {
+                    // Surgical Fetch & Update
+                    fetchSingleReview(payload.new.id);
+                }
             })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, () => {
-                fetchReviews(true);
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, (payload) => {
+                // If a task is updated, we might need to update reviews that point to it
+                setReviews(prev => prev.map(r => {
+                    if (r.taskId === payload.new.id) {
+                        return { ...r, task: { ...r.task, ...payload.new } as any };
+                    }
+                    return r;
+                }));
             })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, () => {
-                fetchReviews(true);
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contents' }, (payload) => {
+                setReviews(prev => prev.map(r => {
+                    if (r.taskId === payload.new.id) {
+                        return { ...r, task: { ...r.task, ...payload.new } as any };
+                    }
+                    return r;
+                }));
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [fetchReviews]);
+    }, [fetchReviews, fetchSingleReview]);
 
     return {
         reviews,

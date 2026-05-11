@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, Check, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { MasterOption } from '../../types';
@@ -31,9 +32,14 @@ const DayHighlightModal: React.FC<DayHighlightModalProps> = ({
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-gray-100">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-gray-100" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-700 flex items-center gap-2">
@@ -88,7 +94,8 @@ const DayHighlightModal: React.FC<DayHighlightModalProps> = ({
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

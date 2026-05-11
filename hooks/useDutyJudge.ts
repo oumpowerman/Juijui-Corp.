@@ -12,12 +12,14 @@ export const useDutyJudge = (
     gameLogs: any[],
     isLoading: boolean
 ) => {
-    // Helper to check if a penalty already exists in memory
-    const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
+    // Helper to check if a penalty already exists (Check local memory first, then DB for robustness)
+    const hasPenaltyInLogs = async (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (!currentUser) return false;
         if (isLoading) return true; // Assume exists while loading to be safe
         const targetId = toValidUuid(relatedId || null);
-        return gameLogs.some(log => {
+
+        // 1. Check local context logs first (Fast)
+        const localMatch = gameLogs.some(log => {
             // Check if log belongs to specific user (Crucial for Admins who see all logs)
             const matchUser = log.user_id === currentUser.id;
             if (!matchUser) return false;
@@ -27,6 +29,26 @@ export const useDutyJudge = (
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
             return matchType && matchId && matchDesc;
         });
+
+        if (localMatch) return true;
+
+        // 2. If not in local logs (e.g. pushed out of last 100), check DB directly (Robust)
+        if (targetId) {
+            try {
+                const { data } = await supabase
+                    .from('game_logs')
+                    .select('id')
+                    .eq('user_id', currentUser.id)
+                    .eq('related_id', targetId)
+                    .maybeSingle();
+                
+                if (data) return true;
+            } catch (err) {
+                console.error("[DutyJudge] DB Penalty Check Error:", err);
+            }
+        }
+
+        return false;
     };
 
     const runDutyChecks = async (
@@ -90,7 +112,7 @@ export const useDutyJudge = (
                          if (isProcessingRef.current.has(lockKey)) continue;
                          
                          // ✅ ตรวจสอบจาก game_logs ใน Context ว่าเคยโดน Negligence Penalty หรือยัง
-                         const alreadyPenalized = hasPenaltyInLogs('DUTY_MISSED', `NEGLIGENCE:${duty.id}`);
+                         const alreadyPenalized = await hasPenaltyInLogs('DUTY_MISSED', `NEGLIGENCE:${duty.id}`);
 
                          if (!alreadyPenalized) {
                              isProcessingRef.current.add(lockKey);
@@ -166,7 +188,7 @@ export const useDutyJudge = (
                 else if (workingDaysLate >= negligenceThreshold) {
                     // เลยกำหนดเกิน Threshold (ตาม Config) -> ตัดสินว่า "ละเลยหน้าที่" (ABANDONED)
                     if (duty.penalty_status !== 'ABANDONED') {
-                         const alreadyPenalized = hasPenaltyInLogs('DUTY_MISSED', `ABANDONED:${duty.id}`);
+                         const alreadyPenalized = await hasPenaltyInLogs('DUTY_MISSED', `ABANDONED:${duty.id}`);
                          if (alreadyPenalized) {
                              console.log(`[AutoJudge] Duty ${duty.id} already has abandoned log. Finalizing DB status.`);
                              await supabase.from('duties').update({ 

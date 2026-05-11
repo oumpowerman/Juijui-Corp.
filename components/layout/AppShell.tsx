@@ -42,7 +42,8 @@ const AppShell: React.FC<AppShellProps> = ({
 
     const isEdgeToEdgeView = [
         'DASHBOARD', 'QUALITY_GATE', 'GOALS', 'SCRIPT_HUB', 'CHECKLIST', 'ContentStock',
-        'ANALYTICS', 'FINANCE', 'ATTENDANCE', 'DUTY', 'NEXUS', 'WIKI'
+        'ANALYTICS', 'FINANCE', 'ATTENDANCE', 'DUTY', 'NEXUS', 'WIKI',
+        'CALENDAR', 'WEEKLY', 'TEAM', 'FEEDBACK', 'ASSETS', 'CHANNELS', 'MASTER_DATA', 'SYSTEM_GUIDE'
     ].includes(currentView);
     
     // Legacy mapping for existing logic

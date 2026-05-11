@@ -34,12 +34,13 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
 
         try {
             // Fetch Notifications (Personal)
+            const notifLimit = currentUser.role === 'ADMIN' ? 100 : 50;
             const { data: notifs } = await supabase
                 .from('notifications')
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .order('created_at', { ascending: false })
-                .limit(50); 
+                .limit(notifLimit); 
 
             // Fetch Game Logs (Scope based on Role)
             let logsQuery = supabase.from('game_logs').select('*');
@@ -48,9 +49,10 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 logsQuery = logsQuery.eq('user_id', currentUser.id);
             }
             
+            const logLimit = currentUser.role === 'ADMIN' ? 250 : 100;
             const { data: logs } = await logsQuery
                 .order('created_at', { ascending: false })
-                .limit(100); 
+                .limit(logLimit); 
 
             if (notifs) setNotifications(notifs);
             if (logs) setGameLogs(logs);

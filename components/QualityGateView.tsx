@@ -215,7 +215,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         }
     };
 
-    const onConfirmModal = async (feedback?: string, adjustment: number = 0) => {
+    const onConfirmModal = async (feedback?: string, adjustment: number = 0, qualityScore?: number, categories?: string[]) => {
         const success = await handleConfirmAction(
             modalConfig.reviewId,
             modalConfig.type!,
@@ -225,7 +225,9 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             updateReviewStatus,
             currentUser.id,
             adjustment, // Pass the manual adjustment
-            modalConfig.submissionDate // Pass submission date for accurate bonus
+            modalConfig.submissionDate, // Pass submission date for accurate bonus
+            qualityScore,
+            categories
         );
         if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };

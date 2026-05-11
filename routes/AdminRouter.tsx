@@ -39,7 +39,7 @@ const AdminRouter: React.FC<AdminRouterProps> = ({
   onOpenSettings
 }) => {
   return (
-    <AppBackground theme="neutral" pattern="dots" className="p-4 md:p-8 min-h-screen">
+    <div className="min-h-screen">
       <Suspense fallback={<PageLoader />}>
         {(() => {
           switch (currentView) {
@@ -65,7 +65,7 @@ const AdminRouter: React.FC<AdminRouterProps> = ({
           }
         })()}
       </Suspense>
-    </AppBackground>
+    </div>
   );
 };
 

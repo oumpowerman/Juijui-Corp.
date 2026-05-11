@@ -1,7 +1,9 @@
 
-import React from 'react';
-import { Skull, AlertOctagon, ShoppingBag } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Skull, AlertOctagon, ShoppingBag, Timer } from 'lucide-react';
 import { User } from '../../../../types';
+import { useMasterData } from '../../../../hooks/useMasterData';
+import { countWorkingDaysBetween } from '../../../../utils/judgeUtils';
 
 interface DeadStateViewProps {
     user: User;
@@ -11,6 +13,23 @@ interface DeadStateViewProps {
 }
 
 const DeadStateView: React.FC<DeadStateViewProps> = ({ user, onOpenShop, onEditProfile, onOpenDeathHistory }) => {
+    const { annualHolidays, calendarExceptions } = useMasterData();
+
+    const deathStats = useMemo(() => {
+        if (!user.hpDepletedAt) return null;
+        
+        const workingDaysPassed = countWorkingDaysBetween(
+            new Date(user.hpDepletedAt),
+            new Date(),
+            annualHolidays,
+            calendarExceptions,
+            user
+        );
+        
+        const daysRemaining = Math.max(0, 7 - workingDaysPassed);
+        return { passed: workingDaysPassed, remaining: daysRemaining };
+    }, [user, annualHolidays, calendarExceptions]);
+
     return (
         <div className="bg-slate-900 rounded-[2rem] p-6 shadow-xl border-4 border-red-600 relative overflow-hidden text-white animate-in zoom-in-95 duration-500">
             {/* Scary Background Striping */}
@@ -44,10 +63,22 @@ const DeadStateView: React.FC<DeadStateViewProps> = ({ user, onOpenShop, onEditP
                             SYSTEM CRITICAL
                         </h1>
                     </div>
-                    <p className="text-gray-300 text-sm font-medium mb-6 max-w-xl leading-relaxed">
-                        <span className="text-white font-bold">{user.name}</span>, พลังชีวิตของคุณหมดลงแล้ว ({user.hp} HP)! <br/>
-                        ประสิทธิภาพการทำงานลดลง กรุณาติดต่อฝ่ายบุคคล หรือใช้ไอเทมฟื้นฟูโดยด่วน
-                    </p>
+                    <div className="space-y-1 mb-6">
+                        <p className="text-gray-300 text-sm font-medium max-w-xl leading-relaxed">
+                            <span className="text-white font-bold">{user.name}</span>, พลังชีวิตของคุณหมดลงแล้ว ({user.hp} HP)!
+                        </p>
+                        {deathStats && (
+                            <div className="flex items-center gap-2 text-red-400 group">
+                                <Timer className="w-4 h-4 animate-pulse" />
+                                <p className="text-sm font-black uppercase tracking-tighter">
+                                    วิญญาณสลายใน: <span className="text-xl text-white ml-1">{deathStats.remaining}</span> วันทำการ
+                                </p>
+                            </div>
+                        )}
+                        <p className="text-gray-400 text-xs italic">
+                            ประสิทธิภาพการทำงานลดลง กรุณาติดต่อฝ่ายบุคคล หรือใช้ไอเทมฟื้นฟูโดยด่วน
+                        </p>
+                    </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                         <button
@@ -70,7 +101,7 @@ const DeadStateView: React.FC<DeadStateViewProps> = ({ user, onOpenShop, onEditP
                 <div className="bg-black/40 p-4 rounded-2xl border border-red-500/30 backdrop-blur-sm min-w-[150px]">
                     <div className="text-center">
                         <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">Current Status</p>
-                        <p className="text-2xl font-black text-white">EXHAUSTED</p>
+                        <p className="text-2xl font-black text-white">{user.status === 'DEATH' ? 'DEAD' : 'EXHAUSTED'}</p>
                     </div>
                     <div className="w-full h-px bg-red-500/30 my-3"></div>
                     <div className="flex justify-between items-center text-xs font-bold text-gray-400">

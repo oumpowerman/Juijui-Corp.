@@ -101,8 +101,8 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                             <Bell className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="font-black text-gray-800 text-lg tracking-tight">การแจ้งเตือน</h3>
-                            <p className="text-xs text-gray-400 font-bold flex items-center gap-1">
+                            <h3 className="font-bold text-gray-800 text-lg tracking-tight">การแจ้งเตือน</h3>
+                            <p className="text-sm text-gray-400 font-medium flex items-center gap-1">
                                 {notifications.filter(n => !n.isRead).length} เรื่องใหม่
                             </p>
                         </div>
@@ -136,27 +136,27 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 <div className="px-6 pt-2 bg-white flex gap-2 border-b border-gray-100 shrink-0 z-10 overflow-x-auto scrollbar-hide">
                     <button 
                         onClick={() => setActiveTab('ALL')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeTab === 'ALL' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${activeTab === 'ALL' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
                     >
                         ทั้งหมด
                     </button>
                     <button 
                         onClick={() => setActiveTab('URGENT')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${activeTab === 'URGENT' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-red-50 hover:text-red-500'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border flex items-center gap-1 ${activeTab === 'URGENT' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-red-50 hover:text-red-500'}`}
                     >
                         <Zap className="w-3 h-3" /> ด่วน
                         {urgentCount > 0 && <span className="bg-white text-red-500 text-[9px] px-1.5 rounded-full">{urgentCount}</span>}
                     </button>
                     <button 
                         onClick={() => setActiveTab('PEOPLE')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${activeTab === 'PEOPLE' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-green-50 hover:text-green-500'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border flex items-center gap-1 ${activeTab === 'PEOPLE' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-green-50 hover:text-green-500'}`}
                     >
                         <Users className="w-3 h-3" /> คน
                         {peopleCount > 0 && <span className="bg-white text-green-500 text-[9px] px-1.5 rounded-full">{peopleCount}</span>}
                     </button>
                      <button 
                         onClick={() => setActiveTab('SYSTEM')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${activeTab === 'SYSTEM' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-500'}`}
+                        className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border flex items-center gap-1 ${activeTab === 'SYSTEM' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-500'}`}
                     >
                         <Info className="w-3 h-3" /> ระบบ
                     </button>

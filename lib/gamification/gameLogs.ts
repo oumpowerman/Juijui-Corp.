@@ -36,6 +36,11 @@ export const logGameAction = async (
         });
 
         if (logError) {
+            // Handle duplicate key error gracefully (idempotency)
+            if (logError.code === '23505') {
+                console.warn(`[Idempotency] Game log for ${action} with related_id ${context.id} already exists. Skipping.`);
+                return; // Stop here, no need to send notification again either
+            }
             console.error("❌ Failed to insert game log:", logError);
         }
 

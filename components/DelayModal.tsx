@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarClock, AlertTriangle, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -41,9 +42,14 @@ const DelayModal: React.FC<DelayModalProps> = ({ isOpen, onClose, onConfirm, tas
         setCustomReason('');
     };
 
-    return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95">
-            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border-2 border-orange-100 overflow-hidden">
+    return createPortal(
+        <div 
+            className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border-2 border-orange-100 overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="bg-orange-50 p-4 border-b border-orange-100 flex items-center gap-3">
                     <div className="p-2 bg-orange-100 rounded-full text-orange-600">
                         <CalendarClock className="w-6 h-6" />
@@ -114,7 +120,8 @@ const DelayModal: React.FC<DelayModalProps> = ({ isOpen, onClose, onConfirm, tas
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

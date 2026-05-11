@@ -14,7 +14,7 @@ interface ReviewActionModalProps {
     actionType: 'PASS' | 'REVISE' | null;
     task?: Task; // Added Task prop to calculate base score
     submissionDate?: Date; // Added Submission Date for accurate bonus
-    onConfirm: (feedback?: string, adjustment?: number) => void;
+    onConfirm: (feedback?: string, adjustment?: number, qualityScore?: number, categories?: string[]) => void;
     masterOptions?: MasterOption[]; // New Prop
 }
 
@@ -30,12 +30,16 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
     const { config } = useGameConfig();
     const [feedback, setFeedback] = useState('');
     const [adjustment, setAdjustment] = useState<number>(0);
+    const [qualityScore, setQualityScore] = useState<number>(5);
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [showReasons, setShowReasons] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             setFeedback('');
             setAdjustment(0);
+            setQualityScore(5);
+            setSelectedCategories([]);
             setShowReasons(false);
         }
     }, [isOpen]);
@@ -86,6 +90,12 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
     const handleQuickReason = (reason: string) => {
         setFeedback(prev => prev ? `${prev}\n- ${reason}` : `- ${reason}`);
         setShowReasons(false);
+    };
+
+    const toggleCategory = (cat: string) => {
+        setSelectedCategories(prev => 
+            prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+        );
     };
 
     return createPortal(
@@ -215,6 +225,28 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
                                         </div>
                                         <div className="text-3xl font-black">{finalScore}</div>
                                     </div>
+
+                                    {/* NEW: Quality Rating */}
+                                    <div className="pt-2 border-t border-gray-100">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">
+                                            Quality Rating
+                                        </label>
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3, 4, 5].map((num) => (
+                                                <button
+                                                    key={num}
+                                                    onClick={() => setQualityScore(num)}
+                                                    className={`flex-1 py-2 rounded-xl border-2 transition-all font-black text-sm ${
+                                                        qualityScore === num 
+                                                            ? 'bg-slate-900 border-slate-900 text-white scale-105' 
+                                                            : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                                                    }`}
+                                                >
+                                                    {num}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 // --- REVISE MODE ---
@@ -265,6 +297,28 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
                                             autoFocus
                                         />
                                     </div>
+
+                                    {/* NEW: Feedback Categories */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">
+                                            Feedback Categories
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Visual', 'Audio', 'Content', 'Subtitle', 'Pacing', 'Technical'].map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => toggleCategory(cat)}
+                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+                                                        selectedCategories.includes(cat)
+                                                            ? 'bg-rose-500 border-rose-500 text-white'
+                                                            : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                                                    }`}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </>
                             )}
 
@@ -273,7 +327,7 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
                                     ยกเลิก
                                 </button>
                                 <button 
-                                    onClick={() => onConfirm(feedback, adjustment)}
+                                    onClick={() => onConfirm(feedback, adjustment, qualityScore, selectedCategories)}
                                     className={`flex-1 py-2.5 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center ${isPass ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}
                                 >
                                     {isPass ? <Check className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}

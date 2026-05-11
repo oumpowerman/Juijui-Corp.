@@ -14,11 +14,13 @@ export const useAttendanceJudge = (
     notifications: any[],
     isLoading: boolean
 ) => {
-    // Helper to check if a penalty already exists in memory
-    const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
+    // Helper to check if a penalty already exists (Check local memory first, then DB for robustness)
+    const hasPenaltyInLogs = async (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (isLoading || !currentUser) return true; // Assume exists while loading or if no user
         const targetId = toValidUuid(relatedId || null);
-        return gameLogs.some(log => {
+
+        // 1. Check local context logs first (Fast)
+        const localMatch = gameLogs.some(log => {
             // Check if log belongs to current user (Crucial for Admins)
             const matchUser = log.user_id === currentUser.id;
             if (!matchUser) return false;
@@ -28,6 +30,27 @@ export const useAttendanceJudge = (
             const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
             return matchType && matchId && matchDesc;
         });
+
+        if (localMatch) return true;
+
+        // 2. If not in local logs (e.g. pushed out of last 100), check DB directly (Robust)
+        // Only if targetId exists, we can do a precise check
+        if (targetId) {
+            try {
+                const { data, error } = await supabase
+                    .from('game_logs')
+                    .select('id')
+                    .eq('user_id', currentUser.id)
+                    .eq('related_id', targetId)
+                    .maybeSingle();
+                
+                if (data) return true;
+            } catch (err) {
+                console.error("[AttendanceJudge] DB Penalty Check Error:", err);
+            }
+        }
+
+        return false;
     };
 
     const hasNotification = (type: string, messageMatch: string) => {
@@ -103,7 +126,7 @@ export const useAttendanceJudge = (
 
                  if (!isProcessingRef.current.has(absentLockKey)) {
                      // ตรวจสอบจาก game_logs ใน Context ว่าเคยโดนหักคะแนน Absent หรือยัง
-                     const alreadyPenalized = hasPenaltyInLogs('ATTENDANCE_ABSENT', `ABSENT:${checkDateStr}`);
+                     const alreadyPenalized = await hasPenaltyInLogs('ATTENDANCE_ABSENT', `ABSENT:${checkDateStr}`);
 
                      if (alreadyPenalized) {
                          // ถ้ามี Penalty ใน Log แล้วแต่ไม่มี Attendance Log (อาจจะเกิด Error ตอน Insert)
@@ -227,7 +250,7 @@ export const useAttendanceJudge = (
                 }
                 
                 // 2. ตรวจสอบจาก game_logs ใน Context (Robust Check)
-                const alreadyPenalized = hasPenaltyInLogs('ATTENDANCE_FORGOT_CHECKOUT', `FORGOT_OUT:${log.date}`);
+                const alreadyPenalized = await hasPenaltyInLogs('ATTENDANCE_FORGOT_CHECKOUT', `FORGOT_OUT:${log.date}`);
 
                 if (alreadyPenalized) {
                     // Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop

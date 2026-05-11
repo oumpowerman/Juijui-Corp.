@@ -25,39 +25,27 @@ export const useQualityActions = () => {
             const userIds = Array.from(peopleToReward);
             const isPenalized = (task.sla_revert_count || 0) >= 3;
 
-            // 1. Give Base XP (Engine calculates from task difficulty/hours)
+            // 1. Give Base XP + Manual Bonus (Engine calculates from task difficulty/hours + adjustment)
             if (!isPenalized) {
                 // Prepare context for Engine
                 const engineContext = {
                     ...task,
-                    manualBonus,
+                    manualBonus, // Engine handles this in 'TASK_COMPLETE'
                     // Use submissionDate if provided, for accurate Early Bonus calculation
                     completionDate: submissionDate || new Date()
                 };
 
-                for (let i = 0; i < userIds.length; i++) {
-                    const result = await processAction(userIds[i], 'TASK_COMPLETE', engineContext);
-                    if (i === 0 && result) {
-                        actualXP = result.xp;
-                    }
+                // PARALLEL PROCESSING: Distribute to everyone at once
+                const results = await Promise.all(
+                    userIds.map(uid => processAction(uid, 'TASK_COMPLETE', engineContext))
+                );
+
+                // Use the first user's result for display/notification XP value
+                if (results.length > 0 && results[0]) {
+                    actualXP = results[0].xp;
                 }
             } else {
                 console.log(`[XP Penalty] Task "${task.title}" has ${task.sla_revert_count} SLA reverts. No XP awarded.`);
-            }
-
-            // 2. Give Manual Bonus (If any)
-            if (manualBonus !== 0 && !isPenalized) {
-                for (let i = 0; i < userIds.length; i++) {
-                    await processAction(userIds[i], 'MANUAL_ADJUST', {
-                        xp: manualBonus,
-                        hp: 0,
-                        coins: 0,
-                        message: manualBonus > 0 
-                            ? `👍 Bonus: งานคุณภาพเยี่ยม (${task.title})` 
-                            : `📉 Penalty: ปรับลดคะแนนงาน (${task.title})`
-                    });
-                }
-                actualXP += manualBonus;
             }
 
             return actualXP;
@@ -74,10 +62,12 @@ export const useQualityActions = () => {
         taskId: string, 
         task: Task | undefined,
         feedback: string | undefined,
-        updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string) => Promise<void>,
+        updateReviewStatus: (id: string, status: ReviewStatus, feedback?: string, reviewerId?: string, qualityScore?: number, categories?: string[], manualBonus?: number) => Promise<void>,
         reviewerId: string,
         manualBonus: number = 0,
-        submissionDate?: Date
+        submissionDate?: Date,
+        qualityScore?: number,
+        categories?: string[]
     ) => {
         setIsProcessing(true);
 
@@ -108,7 +98,7 @@ export const useQualityActions = () => {
                 }
 
                 // 2. Update Review Record
-                await updateReviewStatus(reviewId, 'PASSED', undefined, reviewerId);
+                await updateReviewStatus(reviewId, 'PASSED', undefined, reviewerId, qualityScore, categories, manualBonus);
                 
                 // 3. Update Task Status to DONE
                 const { error: updateError } = await supabase.from(tableName).update({ status: 'DONE' }).eq('id', taskId);
@@ -156,7 +146,7 @@ export const useQualityActions = () => {
                     throw new Error("กรุณาระบุสิ่งที่ต้องแก้ไข");
                 }
                 
-                await updateReviewStatus(reviewId, 'REVISE', feedback, reviewerId);
+                await updateReviewStatus(reviewId, 'REVISE', feedback, reviewerId, undefined, categories);
                 
                 const { error: updateError } = await supabase.from(tableName).update({ status: 'DOING' }).eq('id', taskId);
                 if (updateError) throw updateError;

@@ -60,6 +60,7 @@ const CommandPalette = lazy(() => import('../components/ui/CommandPalette'));
 const TaskModal = lazy(() => import('../components/TaskModal'));
 const ProfileEditModal = lazy(() => import('../components/ProfileEditModal'));
 const NotificationSettingsModal = lazy(() => import('../components/NotificationSettingsModal'));
+import TaskModalSkeleton from '../components/task/TaskModalSkeleton';
 
 // Loading Fallback
 const PageLoader = () => (
@@ -67,13 +68,22 @@ const PageLoader = () => (
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="flex-1 w-full flex flex-col items-center justify-center text-indigo-300 gap-4 min-h-[400px]"
+    className="flex-1 w-full flex flex-col items-center justify-center text-indigo-300 gap-6 min-h-[70vh] py-20"
   >
     <div className="relative">
-        <Loader2 className="w-12 h-12 animate-spin text-indigo-500" />
-        <div className="absolute inset-0 blur-xl bg-indigo-400/20 animate-pulse rounded-full" />
+        <Loader2 className="w-16 h-16 animate-spin text-indigo-500" />
+        <div className="absolute inset-0 blur-2xl bg-indigo-500/20 animate-pulse rounded-full" />
     </div>
-    <span className="text-md font-medium font-kanit uppercase tracking-[0.2em] text-indigo-400/70 animate-pulse">กำลังโหลดข้อมูล...</span>
+    <div className="flex flex-col items-center gap-2">
+        <span className="text-lg font-black font-kanit uppercase tracking-[0.3em] text-indigo-400/80 animate-pulse">กำลังโหลดข้อมูล...</span>
+        <div className="w-12 h-1 bg-indigo-500/20 rounded-full overflow-hidden">
+            <motion.div 
+                className="h-full bg-indigo-500"
+                animate={{ x: [-48, 48] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+            />
+        </div>
+    </div>
   </motion.div>
 );
 
@@ -614,7 +624,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           />
   
           {/* --- GLOBAL MODALS --- */}
-          <Suspense fallback={null}>
+          <Suspense fallback={<TaskModalSkeleton />}>
   
               {isModalOpen && (
                   <TaskModal

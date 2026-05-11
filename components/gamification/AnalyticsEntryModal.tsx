@@ -1,5 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Brain, Save, Loader2, BarChart3, TrendingUp, Users, MessageSquare, Share2, Bookmark, Heart, Clock, Target } from 'lucide-react';
 import { Task, ContentAnalytics } from '../../types';
 import { extractContentAnalyticsFromImage } from '../../services/geminiService';
@@ -129,10 +130,22 @@ const AnalyticsEntryModal: React.FC<AnalyticsEntryModalProps> = ({ content, onCl
     }, [formData]);
 
     return createPortal(
-        <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300" onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-        }}>
-            <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-400">
+        <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" 
+                onClick={onClose}
+            />
+            
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative z-10"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-white relative">
                     <div className="flex items-center gap-5">
@@ -304,7 +317,7 @@ const AnalyticsEntryModal: React.FC<AnalyticsEntryModalProps> = ({ content, onCl
                         ยืนยันการบันทึกสถิติ
                     </button>
                 </div>
-            </div>
+            </motion.div>
         </div>,
         document.body
     );

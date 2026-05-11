@@ -7,6 +7,7 @@ import { logGameAction } from '../lib/gamification/gameLogs';
 import { handleDeathSequence } from '../lib/gamification/deathSystem';
 import { fetchShopItems, buyItem } from '../lib/gamification/shopSystem';
 import { fetchUserInventory, useItem } from '../lib/gamification/inventorySystem';
+import { toValidUuid } from '../utils/gamificationUtils';
 
 export const useGamification = (currentUser: User | null = null) => {
     const { config } = useGameConfig();
@@ -17,6 +18,23 @@ export const useGamification = (currentUser: User | null = null) => {
     // --- 1. 📊 Stats Management ---
     const handleAction = useCallback(async (userId: string, action: GameActionType, context: any = {}) => {
         try {
+            // IDEMPOTENCY CHECK: If a unique ID is provided (like "ABSENT:2026-05-11"),
+            // verify we haven't already processed this exact event in the DB.
+            const targetId = toValidUuid(context.id || null);
+            if (targetId) {
+                const { data: existingLog } = await supabase
+                    .from('game_logs')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('related_id', targetId)
+                    .maybeSingle();
+                
+                if (existingLog) {
+                    console.log(`[Gamification] Action ${action} for ${userId} with key ${targetId} already exists. Skipping.`);
+                    return null;
+                }
+            }
+
             const result = await updateGameStats(userId, action, context, config);
             
             if (result) {

@@ -51,6 +51,13 @@ export interface ReviewSession {
     feedback?: string;
     isCompleted: boolean;
     task?: Task;
+
+    // --- NEW: Detailed Review Tracking (Single Source of Truth) ---
+    submissionNotes?: string;
+    qualityScore?: number;        // 1-5 or 1-100
+    feedbackCategories?: string[]; // e.g., ["Visual", "Audio", "Content"]
+    submissionAssetUrl?: string;  // Snapshot of the specific file being reviewed
+    manualBonus?: number;         // Manual adjustment given during review
 }
 
 export interface TaskLog {

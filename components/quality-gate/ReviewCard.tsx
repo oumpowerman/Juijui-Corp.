@@ -4,6 +4,7 @@ import { ReviewSession, User, Task } from '../../types';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { Star, Flame, AlertTriangle, Info, MessageSquare, ThumbsUp, Wrench, FileSearch, PlayCircle, ExternalLink, Clock, ShieldCheck, CalendarCheck, AlarmClock, RefreshCw } from 'lucide-react';
 import { calculateTaskXP } from '../../lib/gameLogic';
+import { useGameConfig } from '../../context/GameConfigContext';
 
 interface ReviewCardProps {
     review: ReviewSession;
@@ -34,6 +35,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     currentUser,
     canReview
 }) => {
+    const { config } = useGameConfig();
     const today = new Date();
     // Helper to find the latest asset link
     const latestAsset = review.task?.assets && review.task.assets.length > 0 
@@ -63,8 +65,20 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     // Calculate XP
     const totalXP = useMemo(() => {
         if (!review.task) return 0;
-        return calculateTaskXP(review.task, review.scheduledAt).total;
-    }, [review.task, review.scheduledAt]);
+        
+        // SLA Penalty Check (Must match Game Logic)
+        const isPenalized = (review.task.sla_revert_count || 0) >= 3;
+        if (isPenalized) return 0;
+
+        const baseXP = calculateTaskXP(review.task, review.scheduledAt, config).total;
+        
+        // If passed, use the stored manualBonus + baseXP as the final truth
+        if (review.status === 'PASSED' && review.manualBonus !== undefined) {
+             return Math.max(0, baseXP + review.manualBonus);
+        }
+        
+        return baseXP;
+    }, [review.task, review.scheduledAt, review.status, review.manualBonus, config]);
 
     // Admin Review Overdue Calculation
     const adminDaysLate = differenceInCalendarDays(today, review.scheduledAt);
@@ -121,6 +135,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         review.status === 'REVISE' ? 'bg-rose-500' : 
                         review.status === 'EXPIRED' ? 'bg-slate-500' :
                         'bg-emerald-500';
+
+    const isTaskPenalized = (review.task?.sla_revert_count || 0) >= 3;
 
     return (
         <div className={`p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 flex flex-col md:flex-row gap-6 items-start group relative overflow-hidden ring-1 ring-white/5 hover:ring-indigo-500/30 hover:-translate-y-1 ${borderClass}`}>
@@ -219,10 +235,10 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Meta Row: XP, User, Asset */}
                 <div className="flex items-center gap-4 pt-1 flex-wrap">
                     {/* XP Badge */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'bg-slate-800/50 text-slate-500 border-slate-700 line-through opacity-50' : 'bg-white/5 text-indigo-100 border-white/5'}`} title={review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'งานนี้ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง' : `Difficulty: ${difficulty}, Est: ${estHours}h`}>
-                        <Star className={`w-4 h-4 ${review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 'text-slate-600 fill-slate-600' : 'text-amber-400 fill-amber-400'}`} />
-                        <span className="text-xs font-black uppercase tracking-widest">{review.task?.sla_revert_count && review.task.sla_revert_count >= 3 ? 0 : totalXP} XP</span>
-                        {difficulty === 'HARD' && (!review.task?.sla_revert_count || review.task.sla_revert_count < 3) && <Flame className="w-4 h-4 text-rose-500 animate-pulse" />}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${isTaskPenalized ? 'bg-slate-800/50 text-slate-500 border-slate-700 line-through opacity-50' : 'bg-white/5 text-indigo-100 border-white/5'}`} title={isTaskPenalized ? 'งานนี้ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง' : `Difficulty: ${difficulty}, Est: ${estHours}h`}>
+                        <Star className={`w-4 h-4 ${isTaskPenalized ? 'text-slate-600 fill-slate-600' : 'text-amber-400 fill-amber-400'}`} />
+                        <span className="text-xs font-black uppercase tracking-widest">{totalXP} XP</span>
+                        {difficulty === 'HARD' && !isTaskPenalized && <Flame className="w-4 h-4 text-rose-500 animate-pulse" />}
                     </div>
 
                     {/* SLA Revert Count Badge */}
@@ -248,6 +264,14 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         </div>
                     )}
 
+                    {/* Quality Score Display (If Passed) */}
+                    {review.qualityScore !== undefined && review.qualityScore > 0 && (
+                        <div className="flex bg-slate-900/40 px-3 py-1.5 rounded-xl border border-white/5 items-center gap-2">
+                             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                             <span className="text-xs font-black text-white italic">{review.qualityScore} / 5</span>
+                        </div>
+                    )}
+
                     {/* Asset Link Shortcut */}
                     {latestAsset ? (
                         <a 
@@ -267,6 +291,27 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         </span>
                     )}
                 </div>
+
+                {/* Feedback Categories */}
+                {review.feedbackCategories && review.feedbackCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {review.feedbackCategories.map(cat => (
+                            <span key={cat} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-black text-indigo-300 uppercase tracking-widest italic">
+                                {cat}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {review.submissionNotes && (
+                    <div className="text-sm text-indigo-300 bg-indigo-500/10 p-4 rounded-2xl border border-indigo-500/20 flex items-start gap-3 backdrop-blur-md">
+                        <MessageSquare className="w-5 h-5 mt-0.5 shrink-0 text-indigo-400" />
+                        <div>
+                            <span className="font-black block text-[10px] uppercase tracking-widest text-indigo-400/60 mb-1">Creator Note:</span>
+                            <p className="font-medium leading-relaxed">{review.submissionNotes}</p>
+                        </div>
+                    </div>
+                )}
 
                 {review.feedback && (
                     <div className="text-sm text-rose-300 bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 flex items-start gap-3 backdrop-blur-md">

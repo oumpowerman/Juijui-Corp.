@@ -19,6 +19,7 @@ import AssetTableView from './registry/views/AssetTableView';
 import AssetGridView from './registry/views/AssetGridView';
 import { useAssetGrouping } from './registry/hooks/useAssetGrouping';
 import { useAssetSelection } from './registry/hooks/useAssetSelection';
+import AppBackground from '../common/AppBackground';
 
 interface AssetRegistryViewProps {
     users: User[];
@@ -215,14 +216,9 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
     );
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-20 rainbow-gradient-bg min-h-screen p-6 rounded-[3rem] shadow-inner relative overflow-hidden">
+        <AppBackground theme="pastel-orange" pattern="grid" className="p-4 md:p-6 min-h-screen relative overflow-hidden">
             {customStyles}
             
-            {/* Decorative floating elements */}
-            <div className="absolute top-10 left-10 w-24 h-24 bg-pink-300 rounded-full mix-blend-multiply filter blur-2xl opacity-40 animate-float-cute" style={{ animationDelay: '0s' }}></div>
-            <div className="absolute top-40 right-20 w-32 h-32 bg-yellow-300 rounded-full mix-blend-multiply filter blur-2xl opacity-40 animate-float-cute" style={{ animationDelay: '1s' }}></div>
-            <div className="absolute bottom-40 left-1/4 w-40 h-40 bg-purple-300 rounded-full mix-blend-multiply filter blur-2xl opacity-40 animate-float-cute" style={{ animationDelay: '2s' }}></div>
-
             <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-4">
                     <Sparkles className="w-6 h-6 text-pink-500 animate-pulse" />
@@ -376,7 +372,7 @@ const AssetRegistryView: React.FC<AssetRegistryViewProps> = ({ users, masterOpti
                     onClone={handleCloneWrapper}
                 />
             )}
-        </div>
+        </AppBackground>
     );
 };
 

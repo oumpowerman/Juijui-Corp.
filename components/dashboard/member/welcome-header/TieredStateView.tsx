@@ -6,6 +6,7 @@ import ProfileSection from './ProfileSection';
 import StatsSection from './StatsSection';
 import ActionButtons from './ActionButtons';
 import { getTierConfig } from '../../../../config/tierSystem';
+import GodlyTierView from './GodlyTierView';
 
 interface TieredStateViewProps {
     user: User;
@@ -47,6 +48,28 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
 
     // 2. Tier Config with useMemo
     const tierConfig = useMemo(() => getTierConfig(hpPercent), [hpPercent]);
+    
+    // 3. SPECIAL: Godly View for Max HP
+    if (isMaxHp) {
+        return (
+            <GodlyTierView 
+                user={user}
+                hpPercent={hpPercent}
+                progressPercent={progressPercent}
+                nextLevelXP={nextLevelXP}
+                randomGreeting={randomGreeting}
+                unreadNotifications={unreadNotifications}
+                onUpdateStatus={onUpdateStatus}
+                onOpenShop={onOpenShop}
+                onOpenNotifications={onOpenNotifications}
+                onEditProfile={onEditProfile}
+                onOpenWorkload={onOpenWorkload}
+                onOpenReport={onOpenReport}
+                onOpenRules={onOpenRules}
+                onOpenDeathHistory={onOpenDeathHistory}
+            />
+        );
+    }
 
     // 3. Dynamic Styles with useMemo for Performance
     const dynamicStyles = useMemo(() => {

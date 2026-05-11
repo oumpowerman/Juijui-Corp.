@@ -249,7 +249,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     };
 
     return (
-        <AppBackground theme={bgTheme} pattern="grid" className="-mx-4 md:-mx-6 -mt-4 md:-mt-6 p-4 md:p-8 min-h-screen">
+        <AppBackground theme={bgTheme} pattern="grid" className="p-4 md:p-8 min-h-screen">
             <div className="space-y-8 animate-in fade-in duration-500 pb-24 relative">
                 
                 {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}

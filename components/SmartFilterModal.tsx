@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Settings, Plus, Trash2, X, Filter, Palette, Check, Save, Edit3, MonitorPlay, CheckSquare, Ban, CheckCircle2, ChevronDown, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChipConfig, FilterType, Channel, MasterOption } from '../types';
@@ -43,7 +44,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
         placeholder: string;
         showLogo?: boolean;
     }> = ({ value, options, onChange, placeholder, showLogo }) => {
-        const [isOpen, setIsOpen] = useState(false);
+        const [isDropdownOpen, setIsDropdownOpen] = useState(false);
         const [search, setSearch] = useState('');
         const containerRef = useRef<HTMLDivElement>(null);
         const selectedOption = options.find(o => o.value === value);
@@ -51,7 +52,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
         useEffect(() => {
             const handleClickOutside = (event: MouseEvent) => {
                 if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                    setIsOpen(false);
+                    setIsDropdownOpen(false);
                 }
             };
             document.addEventListener('mousedown', handleClickOutside);
@@ -65,8 +66,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
         return (
             <div className="relative" ref={containerRef}>
                 <div 
-                    onClick={() => setIsOpen(!isOpen)}
-                    className={`w-full px-5 py-4 bg-white/80 border-2 rounded-2xl transition-all duration-300 font-bold text-slate-700 cursor-pointer shadow-sm flex items-center justify-between group ${isOpen ? 'border-indigo-400 ring-4 ring-indigo-500/10' : 'border-slate-100 hover:border-indigo-200'}`}
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className={`w-full px-5 py-4 bg-white border-2 rounded-2xl transition-all duration-300 font-bold text-slate-700 cursor-pointer shadow-sm flex items-center justify-between group ${isDropdownOpen ? 'border-indigo-400 ring-4 ring-indigo-500/10' : 'border-slate-100 hover:border-indigo-200'}`}
                 >
                     <div className="flex items-center gap-3 overflow-hidden">
                         {showLogo && selectedOption && (
@@ -84,16 +85,23 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                             {selectedOption ? selectedOption.label : placeholder}
                         </span>
                     </div>
-                    <ChevronDown className={`w-5 h-5 text-indigo-300 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-500' : 'group-hover:text-indigo-400'}`} />
+                    <ChevronDown className={`w-5 h-5 text-indigo-300 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-indigo-500' : 'group-hover:text-indigo-400'}`} />
                 </div>
 
                 <AnimatePresence>
-                    {isOpen && (
+                    {isDropdownOpen && createPortal(
                         <motion.div 
                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 5, scale: 1 }}
+                            animate={{ 
+                                opacity: 1, 
+                                y: 5, 
+                                scale: 1,
+                                top: (containerRef.current?.getBoundingClientRect().bottom || 0),
+                                left: (containerRef.current?.getBoundingClientRect().left || 0),
+                                width: (containerRef.current?.getBoundingClientRect().width || 0)
+                            }}
                             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            className="absolute z-[70] left-0 right-0 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden"
+                            className="fixed z-[16000] bg-white border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden"
                         >
                             {options.length > 8 && (
                                 <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
@@ -115,7 +123,7 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                         key={opt.value}
                                         onClick={() => {
                                             onChange(opt.value);
-                                            setIsOpen(false);
+                                            setIsDropdownOpen(false);
                                             setSearch('');
                                         }}
                                         className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200 ${value === opt.value ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -138,7 +146,8 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
                                     <div className="p-8 text-center text-slate-400 text-xs font-bold">ไม่พบข้อมูล</div>
                                 )}
                             </div>
-                        </motion.div>
+                        </motion.div>,
+                        document.body
                     )}
                 </AnimatePresence>
             </div>
@@ -174,226 +183,275 @@ const SmartFilterModal: React.FC<SmartFilterModalProps> = ({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in">
-            <div className="bg-white/90 backdrop-blur-2xl w-full max-w-4xl rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col md:flex-row h-[650px] border border-white/50 animate-modal-pop relative">
-                
-                {/* Decorative Glows */}
-                <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
-                <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[15000] flex items-center justify-center p-0 sm:p-4">
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute inset-0 bg-indigo-950/40 backdrop-blur-md" 
+                        onClick={onClose}
+                    />
+                    
+                    {/* Modal Content */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="bg-white/90 backdrop-blur-2xl w-full max-w-5xl h-full sm:h-[85vh] sm:rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col md:flex-row border border-white/50 relative z-10"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Decorative Elements */}
+                        <div className="absolute -top-32 -left-32 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+                        <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-                {/* Left: List */}
-                <div className="w-full md:w-1/3 bg-slate-50/30 backdrop-blur-sm border-r border-slate-200/30 flex flex-col relative z-10">
-                    <div className="p-6 border-b border-slate-200/30 bg-white/30">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
-                            <div className="p-2 bg-indigo-400 rounded-xl shadow-lg shadow-indigo-100 animate-float">
-                                <Settings className="w-5 h-5 text-white" />
+                        {/* Left Panel: Filter Chips List */}
+                        <div className="w-full md:w-[320px] bg-slate-50/40 backdrop-blur-xl border-r border-slate-200/50 flex flex-col relative z-20">
+                            <div className="p-8 border-b border-slate-100 bg-white/40">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <div className="w-10 h-10 bg-indigo-500 rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center">
+                                        <Settings className="w-5 h-5 text-white" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">Smart UI</h3>
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Custom Filter Presets</p>
                             </div>
-                            ตัวกรองอัจฉริยะ
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1 font-medium italic">ออกแบบปุ่มกรองงานได้เอง</p>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
-                        <button 
-                            onClick={initNewChip}
-                            className="w-full py-4 border-2 border-dashed border-slate-200/60 rounded-2xl text-slate-400 hover:text-indigo-400 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-300 flex items-center justify-center gap-2 font-bold group active:scale-95"
-                        >
-                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" /> เพิ่มปุ่มใหม่
-                        </button>
 
-                        {chips.map(chip => {
-                            const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
-                            const isEditingThis = editingChip?.id === chip.id;
-                            const scope = chip.scope || 'CONTENT';
-                            const isExclude = chip.mode === 'EXCLUDE';
-                            
-                            return (
-                                <div 
-                                    key={chip.id}
-                                    onClick={() => setEditingChip({...chip})}
-                                    className={`group p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex items-center justify-between relative overflow-hidden ${
-                                        isEditingThis 
-                                        ? `bg-white ${theme.ring} shadow-xl shadow-${theme.id}-50/50 translate-x-1` 
-                                        : 'bg-white/40 border-transparent hover:border-slate-200/50 hover:bg-white/80 hover:shadow-md'
-                                    }`}
+                            <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar">
+                                <button 
+                                    onClick={initNewChip}
+                                    className="w-full py-4 border-2 border-dashed border-slate-200/60 rounded-[1.5rem] text-slate-400 hover:text-indigo-500 hover:border-indigo-300 hover:bg-white hover:shadow-md transition-all duration-300 flex items-center justify-center gap-3 font-bold group active:scale-95"
                                 >
-                                    {isEditingThis && <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${theme.activeBg}`} />}
+                                    <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                                    <span className="text-xs uppercase tracking-widest">New Filter</span>
+                                </button>
+
+                                {chips.map(chip => {
+                                    const theme = COLOR_THEMES.find(t => t.id === chip.colorTheme) || COLOR_THEMES[0];
+                                    const isEditingThis = editingChip?.id === chip.id;
+                                    const scope = chip.scope || 'CONTENT';
+                                    const isExclude = chip.mode === 'EXCLUDE';
                                     
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full shadow-sm ${isExclude ? 'bg-rose-400 animate-pulse' : theme.bg}`} />
-                                        <div>
-                                            <p className={`font-bold text-sm ${isEditingThis ? 'text-slate-900' : 'text-slate-600'} flex items-center gap-1`}>
-                                                {chip.label || 'ไม่มีชื่อ'}
-                                                <span className={`text-[9px] px-1.5 rounded-full border no-underline font-black ${scope === 'CONTENT' ? 'bg-indigo-50 text-indigo-400 border-indigo-100' : 'bg-emerald-50 text-emerald-400 border-emerald-100'}`}>
-                                                    {scope}
-                                                </span>
-                                            </p>
-                                            <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">{chip.type} : {chip.value}</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(chip.id, chip.label); }}
-                                        className="p-2 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                    return (
+                                        <motion.div 
+                                            key={chip.id}
+                                            layoutId={`chip-${chip.id}`}
+                                            onClick={() => setEditingChip({...chip})}
+                                            className={`
+                                                group p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex items-center justify-between relative overflow-hidden
+                                                ${isEditingThis 
+                                                    ? `bg-white ${theme.ring} shadow-xl shadow-indigo-500/10 scale-[1.02] translate-x-1` 
+                                                    : 'bg-white/50 border-transparent hover:border-slate-200/50 hover:bg-white hover:shadow-sm'
+                                                }
+                                            `}
+                                        >
+                                            {isEditingThis && <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${theme.activeBg}`} />}
+                                            
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-3 h-3 rounded-full shrink-0 shadow-sm ${isExclude ? 'bg-rose-400 animate-pulse' : theme.bg}`} />
+                                                <div className="min-w-0">
+                                                    <p className={`font-bold text-sm truncate ${isEditingThis ? 'text-slate-900' : 'text-slate-600'} flex items-center gap-2`}>
+                                                        {chip.label || 'Untitled'}
+                                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full border font-black tracking-tighter ${scope === 'CONTENT' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
+                                                            {scope}
+                                                        </span>
+                                                    </p>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">{chip.type}: {chip.value}</p>
+                                                </div>
+                                            </div>
+
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(chip.id, chip.label); }}
+                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Right Panel: Editor Content */}
+                        <div className="flex-1 bg-white p-6 sm:p-12 overflow-y-auto relative z-10 custom-scrollbar">
+                            <button onClick={onClose} className="absolute top-8 right-8 p-3 text-slate-300 hover:bg-slate-50 hover:text-slate-500 rounded-full transition-all active:scale-95 z-50">
+                                <X className="w-6 h-6" />
+                            </button>
+
+                            <AnimatePresence mode="wait">
+                                {editingChip ? (
+                                    <motion.div 
+                                        key="editor"
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        className="max-w-md mx-auto"
                                     >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {/* Right: Editor */}
-                <div className="flex-1 bg-white/40 p-6 md:p-10 pt-16 md:pt-20 overflow-y-auto relative scrollbar-thin z-10">
-                    <button onClick={onClose} className="absolute top-8 right-8 p-3 text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-md rounded-2xl transition-all duration-300 z-20 active:scale-90">
-                        <X className="w-5 h-5" />
-                    </button>
-
-                    {editingChip ? (
-                        <div className="max-w-md mx-auto h-full flex flex-col animate-fade-in pb-12">
-                            <div className="text-center mb-10">
-                                <div className={`w-20 h-20 rounded-[2rem] mx-auto mb-6 flex items-center justify-center shadow-2xl transition-all duration-500 transform hover:rotate-6 ${editingChip.mode === 'EXCLUDE' ? 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-200' : (COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-indigo-500 shadow-indigo-200')} animate-float`}>
-                                    {editingChip.mode === 'EXCLUDE' ? <Ban className="w-10 h-10 text-white" /> : <Filter className="w-10 h-10 text-white" />}
-                                </div>
-                                <h3 className="text-3xl font-bold text-slate-800 tracking-tight">
-                                    {chips.find(c => c.id === editingChip.id) ? 'แก้ไขปุ่มกรอง' : 'สร้างปุ่มกรองใหม่'}
-                                </h3>
-                                <div className="h-1 w-12 bg-indigo-500 mx-auto mt-3 rounded-full opacity-50" />
-                            </div>
-
-                            <form onSubmit={handleSaveSubmit} className="space-y-8">
-                                {/* Mode Selector */}
-                                <div className="bg-white/60 backdrop-blur-sm p-5 rounded-[2rem] border border-slate-200/50 shadow-sm">
-                                    <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-4">1. โหมดการกรอง (Mode)</label>
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditingChip({...editingChip, mode: 'INCLUDE'})}
-                                            className={`flex-1 py-4 rounded-2xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center gap-2 ${editingChip.mode === 'INCLUDE' || !editingChip.mode ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-lg shadow-emerald-100 -translate-y-1' : 'bg-white border-slate-100 text-slate-400 opacity-60 hover:opacity-100'}`}
-                                        >
-                                            <CheckCircle2 className="w-4 h-4" /> แสดงเฉพาะ
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditingChip({...editingChip, mode: 'EXCLUDE'})}
-                                            className={`flex-1 py-4 rounded-2xl text-sm font-black border-2 transition-all duration-300 flex items-center justify-center gap-2 ${editingChip.mode === 'EXCLUDE' ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-lg shadow-rose-100 -translate-y-1' : 'bg-white border-slate-100 text-slate-400 opacity-60 hover:opacity-100'}`}
-                                        >
-                                            <Ban className="w-4 h-4" /> ไม่แสดง
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Label Input */}
-                                <div className="relative group">
-                                    <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-2 ml-1">2. ชื่อปุ่ม (Label)</label>
-                                    <input 
-                                        type="text"
-                                        className="w-full px-6 py-4 bg-white/80 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all duration-300 font-bold text-slate-700 placeholder:text-slate-300 shadow-sm group-hover:shadow-md"
-                                        placeholder="เช่น งานด่วน, Youtube Only..."
-                                        value={editingChip.label}
-                                        onChange={e => setEditingChip({...editingChip, label: e.target.value})}
-                                        required
-                                    />
-                                </div>
-
-                                {/* Filter Logic */}
-                                <div className="grid grid-cols-2 gap-6">
-                                    {/* Select: Filter By */}
-                                    <div className="relative">
-                                        <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-2 ml-1">3. กรองโดย</label>
-                                        <CustomSelect 
-                                            value={editingChip.type}
-                                            options={[
-                                                { value: 'STATUS', label: 'Status (สถานะ)' },
-                                                { value: 'FORMAT', label: 'Format (รูปแบบ)' },
-                                                { value: 'CHANNEL', label: 'Channel (ช่อง)' },
-                                                { value: 'PILLAR', label: 'Pillar (แกนเนื้อหา)' },
-                                            ]}
-                                            onChange={(val) => setEditingChip({...editingChip, type: val as FilterType, value: ''})}
-                                            placeholder="เลือกประเภท"
-                                        />
-                                    </div>
-
-                                    {/* Select: Value */}
-                                    <div className="relative">
-                                        <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-2 ml-1">4. ค่าที่ต้องการ</label>
-                                        <CustomSelect 
-                                            value={editingChip.value}
-                                            options={
-                                                editingChip.type === 'CHANNEL' 
-                                                    ? channels.map(c => ({ value: c.id, label: c.name, logo: c.logoUrl }))
-                                                    : editingChip.type === 'FORMAT' 
-                                                        ? formatOptions.map(opt => ({ value: opt.key, label: opt.label }))
-                                                        : editingChip.type === 'STATUS' 
-                                                            ? statusOptions.map(opt => ({ value: opt.key, label: opt.label }))
-                                                            : pillarOptions.map(opt => ({ value: opt.key, label: opt.label }))
-                                            }
-                                            onChange={(val) => setEditingChip({...editingChip, value: val})}
-                                            placeholder="-- เลือกค่า --"
-                                            showLogo={editingChip.type === 'CHANNEL'}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Extra Settings: Scope & Color */}
-                                <div className="grid grid-cols-2 gap-8 items-start">
-                                    <div>
-                                        <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-3 ml-1">5. Scope</label>
-                                        <div className="flex flex-col gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditingChip({...editingChip, scope: 'CONTENT'})}
-                                                className={`py-3 px-4 rounded-xl text-xs font-black border-2 flex items-center gap-3 transition-all duration-300 ${editingChip.scope === 'CONTENT' || !editingChip.scope ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-md -translate-y-0.5' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                                            >
-                                                <MonitorPlay className="w-4 h-4" /> Content
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditingChip({...editingChip, scope: 'TASK'})}
-                                                className={`py-3 px-4 rounded-xl text-xs font-black border-2 flex items-center gap-3 transition-all duration-300 ${editingChip.scope === 'TASK' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-md -translate-y-0.5' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                                            >
-                                                <CheckSquare className="w-4 h-4" /> Task
-                                            </button>
+                                        <div className="text-center mb-12">
+                                            <div className={`w-20 h-20 rounded-[2rem] mx-auto mb-6 flex items-center justify-center shadow-2xl transition-all duration-500 ${editingChip.mode === 'EXCLUDE' ? 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-200' : (COLOR_THEMES.find(t => t.id === editingChip.colorTheme)?.activeBg || 'bg-indigo-500 shadow-indigo-200')} animate-float`}>
+                                                {editingChip.mode === 'EXCLUDE' ? <Ban className="w-10 h-10 text-white" /> : <Filter className="w-10 h-10 text-white" />}
+                                            </div>
+                                            <h3 className="text-3xl font-bold text-slate-800 tracking-tight">
+                                                {chips.find(c => c.id === editingChip.id) ? 'Edit Token' : 'Build Token'}
+                                            </h3>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mt-3">Configure logic engine</p>
                                         </div>
-                                    </div>
 
-                                    <div className={editingChip.mode === 'EXCLUDE' ? 'opacity-40 pointer-events-none grayscale' : ''}>
-                                        <label className="block text-xs font-kanit font-medium text-slate-400 uppercase tracking-widest mb-3 ml-1 flex items-center"><Palette className="w-4 h-4 mr-2"/> 6. Theme</label>
-                                        <div className="flex flex-wrap gap-3">
-                                            {COLOR_THEMES.map(theme => (
-                                                <button
-                                                    key={theme.id}
-                                                    type="button"
-                                                    onClick={() => setEditingChip({...editingChip, colorTheme: theme.id})}
-                                                    className={`w-10 h-10 rounded-full border-4 transition-all duration-300 ${theme.bg} ${editingChip.colorTheme === theme.id ? `ring-4 ring-offset-2 ${theme.ring} border-white scale-110 shadow-lg` : 'border-transparent hover:scale-110'}`}
+                                        <form onSubmit={handleSaveSubmit} className="space-y-8">
+                                            {/* Mode Selector */}
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Logic Behavior</label>
+                                                <div className="flex gap-4 p-2 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingChip({...editingChip, mode: 'INCLUDE'})}
+                                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingChip.mode === 'INCLUDE' || !editingChip.mode ? 'bg-white text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" /> SHOW ONLY
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingChip({...editingChip, mode: 'EXCLUDE'})}
+                                                        className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingChip.mode === 'EXCLUDE' ? 'bg-white text-rose-600 shadow-sm border border-rose-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        <Ban className="w-4 h-4" /> HIDE THESE
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Label Input */}
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Token Label</label>
+                                                <input 
+                                                    type="text"
+                                                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700 placeholder:text-slate-300 shadow-inner"
+                                                    placeholder="e.g., Priority, Urgent..."
+                                                    value={editingChip.label}
+                                                    onChange={e => setEditingChip({...editingChip, label: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+
+                                            {/* Filter Logic */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                <div className="space-y-3">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Filter Type</label>
+                                                    <CustomSelect 
+                                                        value={editingChip.type}
+                                                        options={[
+                                                            { value: 'STATUS', label: 'Status' },
+                                                            { value: 'FORMAT', label: 'Format' },
+                                                            { value: 'CHANNEL', label: 'Channel' },
+                                                            { value: 'PILLAR', label: 'Pillar' },
+                                                        ]}
+                                                        onChange={(val) => setEditingChip({...editingChip, type: val as FilterType, value: ''})}
+                                                        placeholder="Pick type"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Value</label>
+                                                    <CustomSelect 
+                                                        value={editingChip.value}
+                                                        options={
+                                                            editingChip.type === 'CHANNEL' 
+                                                                ? channels.map(c => ({ value: c.id, label: c.name, logo: c.logoUrl }))
+                                                                : editingChip.type === 'FORMAT' 
+                                                                    ? formatOptions.map(opt => ({ value: opt.key, label: opt.label }))
+                                                                    : editingChip.type === 'STATUS' 
+                                                                        ? statusOptions.map(opt => ({ value: opt.key, label: opt.label }))
+                                                                        : pillarOptions.map(opt => ({ value: opt.key, label: opt.label }))
+                                                        }
+                                                        onChange={(val) => setEditingChip({...editingChip, value: val})}
+                                                        placeholder="Pick value"
+                                                        showLogo={editingChip.type === 'CHANNEL'}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Scope & Theme */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-start">
+                                                <div className="space-y-3">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Target Scope</label>
+                                                    <div className="flex flex-col gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingChip({...editingChip, scope: 'CONTENT'})}
+                                                            className={`py-3.5 px-5 rounded-2xl text-[11px] font-black border-2 flex items-center gap-3 transition-all duration-300 ${editingChip.scope === 'CONTENT' || !editingChip.scope ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-md ring-4 ring-indigo-500/5' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                                                        >
+                                                            <MonitorPlay className="w-4 h-4" /> CONTENT
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingChip({...editingChip, scope: 'TASK'})}
+                                                            className={`py-3.5 px-5 rounded-2xl text-[11px] font-black border-2 flex items-center gap-3 transition-all duration-300 ${editingChip.scope === 'TASK' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-md ring-4 ring-emerald-500/5' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                                                        >
+                                                            <CheckSquare className="w-4 h-4" /> TASK
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`space-y-4 ${editingChip.mode === 'EXCLUDE' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Visual Theme</label>
+                                                    <div className="flex flex-wrap gap-2.5">
+                                                        {COLOR_THEMES.map(theme => (
+                                                            <button
+                                                                key={theme.id}
+                                                                type="button"
+                                                                onClick={() => setEditingChip({...editingChip, colorTheme: theme.id})}
+                                                                className={`w-9 h-9 rounded-full border-2 transition-all duration-300 ${theme.bg} ${editingChip.colorTheme === theme.id ? `ring-4 ring-offset-2 ${theme.ring} border-white scale-110 shadow-lg` : 'border-transparent hover:scale-110'}`}
+                                                            >
+                                                                {editingChip.colorTheme === theme.id && <Check className={`w-4 h-4 mx-auto ${theme.text}`} />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-10 flex gap-4">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setEditingChip(null)} 
+                                                    className="flex-1 py-4 text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all"
                                                 >
-                                                    {editingChip.colorTheme === theme.id && <Check className={`w-5 h-5 mx-auto ${theme.text}`} />}
+                                                    Cancel
                                                 </button>
-                                            ))}
+                                                <button 
+                                                    type="submit" 
+                                                    className="flex-[2] py-4 bg-indigo-600 text-white font-bold text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-200 hover:bg-slate-900 transition-all active:scale-95 flex items-center justify-center gap-2 group"
+                                                >
+                                                    <Save className="w-4 h-4 group-hover:rotate-12 transition-transform" /> 
+                                                    Sync Changes
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div 
+                                        key="empty"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="h-full flex flex-col items-center justify-center text-center"
+                                    >
+                                        <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-6 shadow-inner animate-float">
+                                            <Edit3 className="w-10 h-10 text-slate-200" />
                                         </div>
-                                    </div>
-                                </div>
-
-                                <div className="pt-8 flex gap-4">
-                                    <button type="button" onClick={() => setEditingChip(null)} className="flex-1 py-4 text-slate-500 hover:text-slate-700 font-kanit font-bold hover:bg-slate-100 rounded-2xl transition-all duration-300 active:scale-95">ยกเลิก</button>
-                                    <button type="submit" className="flex-1 py-4 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 text-white font-kanit font-bold rounded-2xl shadow-lg shadow-purple-300/60 hover:shadow-purple-400/70 hover:-translate-y-1 hover:scale-[1.02] hover:brightness-110 transition-all duration-300 active:scale-95 flex items-center justify-center group">
-                                        <Save className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform duration-300 " /> บันทึกการตั้งค่า
-                                    </button>
-                                </div>
-                            </form>
+                                        <h4 className="text-xl font-bold text-slate-400 tracking-tight">Select a token to edit</h4>
+                                        <p className="text-sm text-slate-300 mt-2 max-w-[200px] mx-auto">Build custom filter components to organize your workspace</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-300">
-                            <div className="w-24 h-24 bg-slate-50/50 backdrop-blur-sm rounded-[2.5rem] flex items-center justify-center mb-6 shadow-inner animate-float">
-                                <Edit3 className="w-10 h-10 opacity-20" />
-                            </div>
-                            <p className="font-black text-slate-400">เลือกรายการทางซ้ายเพื่อแก้ไข</p>
-                            <p className="text-sm font-medium text-slate-300 mt-1">หรือกดปุ่ม "เพิ่มปุ่มใหม่" เพื่อเริ่มสร้าง</p>
-                        </div>
-                    )}
+                    </motion.div>
                 </div>
-            </div>
-        </div>
+            )}
+        </AnimatePresence>,
+        document.body
     );
 };
 

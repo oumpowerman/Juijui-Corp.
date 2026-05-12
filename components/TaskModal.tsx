@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck, FileText, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, ArrowLeft, Paperclip, MessageSquare, History, Film, CheckSquare, Book, Sparkles, Layout, Activity, Truck, FileText, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Channel, TaskType, User, MasterOption, Script } from '../types';
 import TaskComments from './TaskComments';
@@ -13,8 +13,9 @@ import TaskDetail from './task/TaskDetail';
 import ContentDetail from './task/ContentDetail';
 import GeneralTaskForm from './task/GeneralTaskForm';
 import LogisticsTab from './task/LogisticsTab';
-import ScriptEditor from './script/ScriptEditor'; // Import ScriptEditor
-import { useScripts } from '../hooks/useScripts'; // Import Hook
+import ScriptEditor from './script/ScriptEditor'; 
+import { useScripts } from '../hooks/useScripts'; 
+import { useTaskContext } from '../context/TaskContext';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -49,11 +50,17 @@ const TAB_CONFIGS: Record<string, { color: string, icon: any, label: string }> =
 const TaskModal: React.FC<TaskModalProps> = ({ 
     isOpen, onClose, onSave, onUpdate, onDelete, initialData, selectedDate, channels, users, lockedType, masterOptions = [], currentUser, projects = [], onOpenTask, hasHistory, initialViewMode 
 }) => {
+  const { fetchTaskById, setTasks } = useTaskContext();
+
   // Main View State
   const [viewMode, setViewMode] = useState<'DETAILS' | 'COMMENTS' | 'ASSETS' | 'HISTORY' | 'WIKI' | 'LOGISTICS' | 'SCRIPT'>((initialViewMode as any) || 'DETAILS');
   const [mode, setMode] = useState<'VIEW' | 'EDIT'>('VIEW');
   const [isMobile, setIsMobile] = useState(false);
   const [isNavExpanded, setIsNavExpanded] = useState(false);
+  
+  // Lazy Loading Data State
+  const [detailedData, setDetailedData] = useState<Task | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
   // Mobile Detection
   useEffect(() => {
@@ -78,8 +85,30 @@ const TaskModal: React.FC<TaskModalProps> = ({
           if (initialData) {
               setActiveTab(initialData.type || 'CONTENT');
               setMode('VIEW');
+
+              // 🚀 LAZY LOADING LOGIC:
+              // If the data is "partial" (from search/board/calendar list), fetch the full detail
+              if ((initialData as any)._isPartial) {
+                  const loadDetails = async () => {
+                      setIsLoadingDetails(true);
+                      console.log(`🔍 [TaskModal] Lazy loading full data for ${initialData.type}: ${initialData.id}`);
+                      const fullTask = await fetchTaskById(initialData.id, initialData.type);
+                      if (fullTask) {
+                          setDetailedData(fullTask);
+                          // Sync back to context to avoid re-fetching next time
+                          setTasks(prev => prev.map(t => t.id === fullTask.id ? fullTask : t));
+                      }
+                      setIsLoadingDetails(false);
+                  };
+                  loadDetails();
+              } else {
+                  setDetailedData(null);
+                  setIsLoadingDetails(false);
+              }
           } else {
               setMode('EDIT');
+              setDetailedData(null);
+              setIsLoadingDetails(false);
               if (lockedType) {
                   setActiveTab(lockedType);
               } else {
@@ -87,22 +116,25 @@ const TaskModal: React.FC<TaskModalProps> = ({
               }
           }
       }
-  }, [isOpen, initialData, lockedType, initialViewMode]);
+  }, [isOpen, initialData, lockedType, initialViewMode, fetchTaskById, setTasks]);
+
+  // Use detailedData if available, otherwise fallback to initialData
+  const taskData = detailedData || initialData;
 
   // Load Script if viewing script tab
   useEffect(() => {
-      if (viewMode === 'SCRIPT' && initialData?.scriptId) {
+      if (viewMode === 'SCRIPT' && taskData?.scriptId) {
           const loadScript = async () => {
-              const script = await getScriptById(initialData.scriptId!);
+              const script = await getScriptById(taskData.scriptId!);
               setTaskScript(script);
           };
           loadScript();
       }
-  }, [viewMode, initialData?.scriptId]);
+  }, [viewMode, taskData?.scriptId, getScriptById]);
 
-  const assetCount = initialData?.assets?.length || 0;
-  const isContent = initialData?.type === 'CONTENT' || activeTab === 'CONTENT';
-  const hasLinkedScript = initialData?.type === 'TASK' && !!initialData.scriptId;
+  const assetCount = taskData?.assets?.length || 0;
+  const isContent = taskData?.type === 'CONTENT' || activeTab === 'CONTENT';
+  const hasLinkedScript = taskData?.type === 'TASK' && !!taskData.scriptId;
 
   // --- Theme Logic ---
   const currentTheme = TAB_CONFIGS[viewMode] || TAB_CONFIGS.DETAILS;
@@ -164,11 +196,12 @@ const TaskModal: React.FC<TaskModalProps> = ({
                 <div className="min-w-0">
                     <h2 className={`text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2 text-slate-800 transition-colors truncate`}>
                         {viewMode === 'DETAILS' ? (
-                             initialData ? (initialData.title || 'แก้ไขงาน') : (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์ใหม่' : '⚡ สร้างภารกิจใหม่')
+                             taskData ? (taskData.title || 'แก้ไขงาน') : (activeTab === 'CONTENT' ? '🎬 สร้างคอนเทนต์ใหม่' : '⚡ สร้างภารกิจใหม่')
                         ) : (
                             <span className={`flex items-center gap-2 text-${themeColor}-600 truncate`}>
                                 {React.createElement(currentTheme.icon, { className: "w-5 h-5 sm:w-6 sm:h-6 shrink-0" })}
                                 {currentTheme.label}
+                                {isLoadingDetails && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
                             </span>
                         )}
                     </h2>
@@ -179,7 +212,12 @@ const TaskModal: React.FC<TaskModalProps> = ({
                             <span className={`px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-black tracking-widest border uppercase shrink-0 ${activeTab === 'CONTENT' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                                 {activeTab}
                             </span>
-                            {initialData && <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono truncate">ID: {initialData.id.slice(0,8)}</span>}
+                            {taskData && <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono truncate">ID: {taskData.id.slice(0,8)}</span>}
+                            {isLoadingDetails && (
+                                <span className="flex items-center gap-1 text-[10px] text-indigo-500 font-bold animate-pulse">
+                                    <Loader2 className="w-3 h-3 animate-spin"/> LOADING DETAILS...
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
@@ -421,36 +459,36 @@ const TaskModal: React.FC<TaskModalProps> = ({
             {/* Animated Wrapper */}
             <AnimatePresence mode="wait">
                 <motion.div 
-                    key={`${viewMode}-${mode}-${initialData?.id || 'new'}`} 
+                    key={`${viewMode}-${mode}-${taskData?.id || 'new'}`} 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                     className="flex-1 overflow-hidden flex flex-col h-full"
                 >
-                    {viewMode === 'HISTORY' && initialData ? (
-                    <TaskHistory task={initialData} currentUser={currentUser} onSaveTask={onSave} />
-                ) : viewMode === 'COMMENTS' && initialData && currentUser ? (
+                    {viewMode === 'HISTORY' && taskData ? (
+                    <TaskHistory task={taskData} currentUser={currentUser} onSaveTask={onSave} />
+                ) : viewMode === 'COMMENTS' && taskData && currentUser ? (
                     <div className="flex-1 overflow-hidden p-0 bg-gray-50">
-                        <TaskComments taskId={initialData.id} taskType={initialData.type} currentUser={currentUser} />
+                        <TaskComments taskId={taskData.id} taskType={taskData.type} currentUser={currentUser} />
                     </div>
-                ) : viewMode === 'ASSETS' && initialData ? (
+                ) : viewMode === 'ASSETS' && taskData ? (
                     <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
                         <TaskAssets 
-                            assets={initialData.assets || []} 
+                            assets={taskData.assets || []} 
                             onAdd={(newAsset) => {
-                                const updatedAssets = [...(initialData.assets || []), newAsset];
-                                onSave({ ...initialData, assets: updatedAssets });
+                                const updatedAssets = [...(taskData.assets || []), newAsset];
+                                onSave({ ...taskData, assets: updatedAssets });
                             }} 
                             onDelete={(id) => {
-                                const updatedAssets = (initialData.assets || []).filter(a => a.id !== id);
-                                onSave({ ...initialData, assets: updatedAssets });
+                                const updatedAssets = (taskData.assets || []).filter(a => a.id !== id);
+                                onSave({ ...taskData, assets: updatedAssets });
                             }} 
                         />
                     </div>
-                ) : viewMode === 'LOGISTICS' && initialData && currentUser ? (
+                ) : viewMode === 'LOGISTICS' && taskData && currentUser ? (
                     <LogisticsTab 
-                        parentTask={initialData}
+                        parentTask={taskData}
                         users={users}
                         currentUser={currentUser}
                         masterOptions={masterOptions}
@@ -476,53 +514,53 @@ const TaskModal: React.FC<TaskModalProps> = ({
                     </div>
                 ) : (
                     // Form Selection Logic (DETAILS)
-                    mode === 'VIEW' && initialData ? (
-                        initialData.type === 'CONTENT' ? (
+                    mode === 'VIEW' && taskData ? (
+                        taskData.type === 'CONTENT' ? (
                             <ContentDetail 
-                                task={initialData}
+                                task={taskData}
                                 users={users}
                                 channels={channels}
                                 onEdit={() => setMode('EDIT')}
-                                onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
+                                onDelete={onDelete ? () => onDelete(taskData.id) : undefined}
                                 onClose={onClose}
                             />
                         ) : (
                             <TaskDetail 
-                                task={initialData}
+                                task={taskData}
                                 users={users}
                                 masterOptions={masterOptions}
                                 onEdit={() => setMode('EDIT')}
-                                onDelete={onDelete ? () => onDelete(initialData.id) : undefined}
+                                onDelete={onDelete ? () => onDelete(taskData.id) : undefined}
                                 onClose={onClose}
                                 onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                             />
                         )
                     ) : activeTab === 'CONTENT' ? (
                         <ContentForm 
-                            key={initialData ? `content-${initialData.id}` : 'new-content'}
-                            initialData={initialData}
+                            key={taskData ? `content-${taskData.id}` : 'new-content'}
+                            initialData={taskData}
                             selectedDate={selectedDate}
                             channels={channels}
                             users={users}
                             masterOptions={masterOptions}
                             currentUser={currentUser} 
-                            onSave={(task) => { onSave(task); if (initialData) setMode('VIEW'); else onClose(); }}
+                            onSave={(task) => { onSave(task); if (taskData) setMode('VIEW'); else onClose(); }}
                             onDelete={onDelete}
-                            onClose={initialData ? () => setMode('VIEW') : onClose}
+                            onClose={taskData ? () => setMode('VIEW') : onClose}
                         />
                     ) : (
                         <GeneralTaskForm 
-                            key={initialData ? `task-${initialData.id}` : 'new-task'}
-                            initialData={initialData}
+                            key={taskData ? `task-${taskData.id}` : 'new-task'}
+                            initialData={taskData}
                             selectedDate={selectedDate}
                             users={users}
                             masterOptions={masterOptions}
                             currentUser={currentUser} 
                             projects={projects}
                             channels={channels}
-                            onSave={(task) => { onSave(task); if (initialData) setMode('VIEW'); else onClose(); }}
+                            onSave={(task) => { onSave(task); if (taskData) setMode('VIEW'); else onClose(); }}
                             onDelete={onDelete}
-                            onClose={initialData ? () => setMode('VIEW') : onClose}
+                            onClose={taskData ? () => setMode('VIEW') : onClose}
                             onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                         />
                     )

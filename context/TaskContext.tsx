@@ -21,6 +21,7 @@ interface TaskContextType {
     checkAndExpandRange: (targetDate: Date) => void;
     fetchSubTasks: (contentId: string) => Promise<Task[]>;
     fetchTaskById: (id: string, type: TaskType) => Promise<Task | null>;
+    fetchSubTasksCount: (contentId: string) => Promise<number>;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -249,6 +250,21 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const fetchSubTasksCount = async (contentId: string): Promise<number> => {
+        try {
+            const { count, error } = await supabase
+                .from('tasks')
+                .select('*', { count: 'exact', head: true })
+                .eq('content_id', contentId);
+
+            if (error) throw error;
+            return count || 0;
+        } catch (err) {
+            console.error('Fetch sub-tasks count failed', err);
+            return 0;
+        }
+    };
+
     const fetchTaskById = async (id: string, type: TaskType): Promise<Task | null> => {
         try {
             const table = type === 'TASK' ? 'tasks' : 'contents';
@@ -411,7 +427,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tasks, setTasks,
             dateRange, setDateRange,
             isFetching, isAllLoaded,
-            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks, fetchTaskById
+            fetchTasks, fetchAllTasks, checkAndExpandRange, fetchSubTasks, fetchTaskById, fetchSubTasksCount
         }}>
             {children}
         </TaskContext.Provider>

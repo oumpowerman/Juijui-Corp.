@@ -70,7 +70,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             }
         }
     };
-    const { handleConfirmAction } = useQualityActions();
+    const { handleConfirmAction, isProcessing } = useQualityActions();
     const { runReviewChecks } = useReviewJudge();
     const { annualHolidays, calendarExceptions } = useMasterDataContext();
     
@@ -580,6 +580,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     submissionDate={modalConfig.submissionDate}
                     onConfirm={onConfirmModal}
                     masterOptions={masterOptions} // PASS MASTER OPTIONS
+                    isProcessing={isProcessing}
                 />
 
                 <InfoModal 

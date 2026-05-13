@@ -63,7 +63,6 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 title: c.title,
                 description: c.description || '',
                 status: c.status,
-                priority: c.priority,
                 startDate: new Date(c.start_date),
                 endDate: new Date(c.end_date),
                 channelId: c.channel_id,

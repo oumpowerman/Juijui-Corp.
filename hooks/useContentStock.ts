@@ -53,7 +53,6 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         title: data.title,
         description: data.description || '',
         status: data.status,
-        priority: data.priority,
         startDate: new Date(data.start_date),
         endDate: new Date(data.end_date),
         createdAt: new Date(data.created_at),

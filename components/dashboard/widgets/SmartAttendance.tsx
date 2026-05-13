@@ -162,7 +162,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                         <Briefcase className="w-7 h-7" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-blue-800 flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-blue-800 flex items-center gap-2">
                             อนุมัติแล้ว (On Leave/WFH)
                         </h3>
                         <p className="text-sm text-blue-600 mt-0.5 font-medium">
@@ -198,7 +198,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                         <Coffee className="w-7 h-7" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-emerald-800 flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
                             เลิกงานแล้ว! 🎉
                         </h3>
                         <p className="text-sm text-emerald-600 mt-0.5 font-medium">พักผ่อนให้เต็มที่ เจอกันพรุ่งนี้ครับ</p>
@@ -215,7 +215,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                     <div className="h-8 w-px bg-emerald-200"></div>
                     <div className="text-right">
                         <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide mb-0.5">ออกงาน</p>
-                        <p className="text-xl font-black text-emerald-700 font-mono bg-white/80 px-3 py-1 rounded-xl shadow-sm">
+                        <p className="text-xl font-bold text-emerald-700 font-mono bg-white/80 px-3 py-1 rounded-xl shadow-sm">
                             {todayLog?.checkOutTime ? format(new Date(todayLog.checkOutTime), 'HH:mm') : '--:--'}
                         </p>
                     </div>
@@ -248,7 +248,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
                                 Check-in at {todayLog?.checkInTime ? format(new Date(todayLog.checkInTime), 'HH:mm') : '--:--'}
                             </p>
-                            <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 กำลังทำงาน 👨‍💻
                             </h3>
                             <div className="flex items-center gap-2 mt-1.5">

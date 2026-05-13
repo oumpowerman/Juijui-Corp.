@@ -44,7 +44,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
             // 2. If NO filters exist, SEED the default ones into DB
             if (data && data.length === 0) {
                 const seedData = DEFAULT_CHIPS.map(chip => ({
-                    id: chip.id,
+                    id: `${chip.id}_${userId}`, // Suffix with userId to ensure global uniqueness
                     user_id: userId,
                     label: chip.label,
                     type: chip.type,
@@ -54,14 +54,19 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
                     mode: chip.mode || 'INCLUDE'
                 }));
 
+                // Use upsert to handle potential race conditions during initial seeding
                 const { error: seedError } = await supabase
                     .from('smart_filters')
-                    .insert(seedData);
+                    .upsert(seedData, { onConflict: 'id' });
 
                 if (seedError) throw seedError;
 
-                // Set state to default chips immediately after seeding
-                setCustomChips(DEFAULT_CHIPS);
+                // Set state to default chips with user-specific IDs
+                const chipsWithUserIds = DEFAULT_CHIPS.map(chip => ({
+                    ...chip,
+                    id: `${chip.id}_${userId}`
+                }));
+                setCustomChips(chipsWithUserIds);
                 return;
             }
 

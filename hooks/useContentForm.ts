@@ -185,7 +185,6 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 description,
                 remark,
                 status: status as Status,
-                priority: 'MEDIUM', //
                 tags,
                 
                 // Dates

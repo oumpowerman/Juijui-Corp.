@@ -90,7 +90,7 @@ export interface Task {
     title: string;
     description: string;
     status: Status | string;
-    priority: Priority;
+    priority?: Priority;
     tags: string[];
     startDate: Date;
     endDate: Date;

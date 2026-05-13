@@ -36,16 +36,21 @@ export const useTaskJudge = (
         // 2. If not in local logs (e.g. pushed out of last 100), check DB directly (Robust)
         if (targetId) {
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from('game_logs')
                     .select('id')
                     .eq('user_id', currentUser.id)
                     .eq('related_id', targetId)
-                    .maybeSingle();
+                    .limit(1);
                 
-                if (data) return true;
+                if (error) {
+                    console.error("[TaskJudge] DB Penalty Check Error:", error);
+                    return false;
+                }
+                
+                if (data && data.length > 0) return true;
             } catch (err) {
-                console.error("[TaskJudge] DB Penalty Check Error:", err);
+                console.error("[TaskJudge] DB Penalty Check Exception:", err);
             }
         }
 
@@ -75,13 +80,24 @@ export const useTaskJudge = (
         if (!taskError && overdueTasks) {
             for (const task of overdueTasks) {
                 // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled หรือกำลังประมวลผล ข้ามไป
+                const rawStatus = task.status || '';
+                const normalizedStatus = rawStatus.trim().toUpperCase();
+                const isPassed = isTaskCompleted(normalizedStatus);
+                
                 if (
-                    isTaskCompleted(task.status) || 
-                    task.status === 'CANCELLED' ||
+                    isPassed || 
+                    normalizedStatus === 'CANCELLED' ||
                     task.is_unscheduled || 
-                    task.status === 'WAITING' || 
+                    normalizedStatus === 'WAITING' || 
+                    normalizedStatus === 'APPROVE' || 
+                    normalizedStatus === 'PASSED' ||
                     isProcessingRef.current.has(task.id)
-                ) continue;
+                ) {
+                    if (isPassed && !task.is_unscheduled) {
+                        console.log(`[TaskJudge] Skipping task ${task.id} because it is COMPLETED (Status: ${normalizedStatus})`);
+                    }
+                    continue;
+                }
                 
                 // 2. เช็คว่า "วันนี้" โดนหักคะแนนไปหรือยัง? (Idempotency Check)
                 // Shorten key to avoid potential DB column length limits

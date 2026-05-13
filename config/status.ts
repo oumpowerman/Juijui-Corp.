@@ -52,13 +52,14 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 
 export const isTaskCompleted = (status: string): boolean => {
     if (!status) return false;
-    const s = status.toUpperCase();
+    const s = status.trim().toUpperCase();
     
     if (s === 'DONE' || s === 'APPROVE' || s === 'PASSED') return true;
     
     const COMPLETION_KEYWORDS = [
         'COMPLETE', 'SUCCESS', 'PUBLISH', 'POSTED', 
-        'FINISH', 'CLOSED', 'ARCHIVE', 'FINAL', 'DONE'
+        'FINISH', 'CLOSED', 'ARCHIVE', 'FINAL', 'DONE',
+        'APPROVED', 'VERIFIED', 'ACCEPTED', 'PASS'
     ];
     
     return COMPLETION_KEYWORDS.some(k => s.includes(k));

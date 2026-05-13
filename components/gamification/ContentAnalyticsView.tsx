@@ -93,7 +93,6 @@ const ContentAnalyticsView: React.FC = () => {
                     title: content.title,
                     description: content.description || '',
                     status: content.status,
-                    priority: content.priority || 'MEDIUM',
                     type: 'CONTENT',
                     startDate: content.start_date ? new Date(content.start_date) : new Date(),
                     endDate: content.end_date ? new Date(content.end_date) : new Date(),

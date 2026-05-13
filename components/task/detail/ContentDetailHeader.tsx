@@ -35,18 +35,7 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
         };
     };
 
-    const getPriorityInfo = (priority: string) => {
-        switch (priority) {
-            case 'URGENT': return { label: 'ด่วนที่สุด', color: 'rose' };
-            case 'HIGH': return { label: 'สำคัญมาก', color: 'orange' };
-            case 'MEDIUM': return { label: 'ปกติ', color: 'indigo' };
-            case 'LOW': return { label: 'ต่ำ', color: 'slate' };
-            default: return { label: priority, color: 'slate' };
-        }
-    };
-
     const statusInfo = getStatusInfo(task.status);
-    const priorityInfo = getPriorityInfo(task.priority);
     const channel = getChannelInfo(task.channelId);
 
     const handleCopyTitle = (e: React.MouseEvent) => {
@@ -152,9 +141,6 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                                             )}
                                         </div>
                                     )}
-                                    <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-widest bg-${priorityInfo.color}-50 text-${priorityInfo.color}-400 border border-${priorityInfo.color}-100`}>
-                                        {priorityInfo.label}
-                                    </span>
                                     <button onClick={() => onToggleExpand(false)} className="text-[12px] font-bold text-indigo-400 hover:text-indigo-600 px-2 py-1 bg-indigo-50/50 rounded-lg transition-colors">
                                         CLOSE TOOLS
                                     </button>

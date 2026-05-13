@@ -69,6 +69,7 @@ export const useQualityActions = () => {
         qualityScore?: number,
         categories?: string[]
     ) => {
+        if (isProcessing) return false;
         setIsProcessing(true);
 
         // --- OPTIMISTIC UI: Update Local State Immediately ---

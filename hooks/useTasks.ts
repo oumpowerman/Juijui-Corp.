@@ -43,6 +43,9 @@ const TASK_FIELD_META: Record<string, { label: string; type: 'TEXT' | 'DATE' | '
     // Production
     shootDate: { label: 'วันถ่ายทำ', type: 'DATE' },
     shootLocation: { label: 'สถานที่ถ่าย', type: 'TEXT' },
+    shootTimeStart: { label: 'เวลาเริ่มถ่าย', type: 'TEXT' },
+    shootTimeEnd: { label: 'เวลาเลิกถ่าย', type: 'TEXT' },
+    shootNotes: { label: 'หมายเหตุการถ่าย', type: 'TEXT' },
     
     // Gamification
     difficulty: { label: 'ความยาก', type: 'TEXT' },
@@ -247,6 +250,11 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             published_links: taskToSave.publishedLinks || null,
             shoot_date: taskToSave.shootDate ? taskToSave.shootDate.toISOString() : null,
             shoot_location: taskToSave.shootLocation || null,
+            shoot_trip_id: taskToSave.shootTripId || null,
+            shoot_time_start: taskToSave.shootTimeStart || null,
+            shoot_time_end: taskToSave.shootTimeEnd || null,
+            shoot_notes: taskToSave.shootNotes || null,
+            is_in_shoot_queue: taskToSave.isInShootQueue || false,
             local_path: taskToSave.localPath || null,
             drive_label: taskToSave.driveLabel || null,
         } : {};

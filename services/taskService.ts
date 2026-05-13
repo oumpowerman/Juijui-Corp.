@@ -60,9 +60,22 @@ export const taskService = {
         publishedLinks: data.published_links || {},
         shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
         shootLocation: data.shoot_location || undefined,
+        shootTripId: data.shoot_trip_id || undefined,
+        shootTimeStart: data.shoot_time_start || undefined,
+        shootTimeEnd: data.shoot_time_end || undefined,
+        shootNotes: data.shoot_notes || undefined,
+        localPath: data.local_path || undefined,
+        driveLabel: data.drive_label || undefined,
+        isInShootQueue: data.is_in_shoot_queue || data.isInShootQueue || false,
+        isSoftFinished: data.is_soft_finished || data.isSoftFinished || false,
         contentId: data.content_id,
         showOnBoard: data.show_on_board,
-        parentContentTitle: data.contents?.title
+        parentContentTitle: data.contents?.title,
+        roadmapId: data.roadmap_id,
+        scriptId: data.script_id,
+        sla_revert_count: data.sla_revert_count,
+        is_penalized: data.is_penalized,
+        last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined
     };
   },
 

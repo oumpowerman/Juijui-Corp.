@@ -16,6 +16,7 @@ interface ReviewActionModalProps {
     submissionDate?: Date; // Added Submission Date for accurate bonus
     onConfirm: (feedback?: string, adjustment?: number, qualityScore?: number, categories?: string[]) => void;
     masterOptions?: MasterOption[]; // New Prop
+    isProcessing?: boolean;
 }
 
 const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ 
@@ -25,7 +26,8 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
     task,
     submissionDate,
     onConfirm, 
-    masterOptions = [] 
+    masterOptions = [],
+    isProcessing = false
 }) => {
     const { config } = useGameConfig();
     const [feedback, setFeedback] = useState('');
@@ -323,15 +325,24 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
                             )}
 
                             <div className="flex gap-3 pt-2">
-                                <button onClick={onClose} className="flex-1 py-2.5 text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+                                <button 
+                                    onClick={onClose} 
+                                    disabled={isProcessing}
+                                    className="flex-1 py-2.5 text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+                                >
                                     ยกเลิก
                                 </button>
                                 <button 
                                     onClick={() => onConfirm(feedback, adjustment, qualityScore, selectedCategories)}
-                                    className={`flex-1 py-2.5 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center ${isPass ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}
+                                    disabled={isProcessing}
+                                    className={`flex-1 py-2.5 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed ${isPass ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-red-600 hover:bg-red-700 shadow-red-200'}`}
                                 >
-                                    {isPass ? <Check className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                                    {isPass ? 'Confirm Pass' : 'Send Revise'}
+                                    {isProcessing ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                    ) : (
+                                        isPass ? <Check className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />
+                                    )}
+                                    {isProcessing ? 'Processing...' : (isPass ? 'Confirm Pass' : 'Send Revise')}
                                 </button>
                             </div>
                         </div>

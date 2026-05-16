@@ -1,43 +1,62 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, PlatformMetrics, AnalyticsSummary } from '../../types';
+import { Task, AnalyticsSummary } from '../../types';
 import { useChannels } from '../../hooks/useChannels';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Building2, BarChart3, Target } from 'lucide-react';
+import { useMasterDataContext } from '../../context/MasterDataContext';
 
 // Modular Components
-import AnalyticsHeader from './dashboard/AnalyticsHeader';
-import AnalyticsStatsGrid from './dashboard/AnalyticsStatsGrid';
-import AnalyticsCharts from './dashboard/AnalyticsCharts';
-import AnalyticsListTable from './dashboard/AnalyticsListTable';
-import PendingActionsAlert from './dashboard/PendingActionsAlert';
 import AnalyticsEntryModal from './AnalyticsEntryModal';
 import TaskModal from '../TaskModal';
 import { useTeam } from '../../hooks/useTeam';
 import { useTasks } from '../../hooks/useTasks';
 import { useContentAnalyticsFetcher } from '../../hooks/useContentAnalyticsFetcher';
+import { sponsorshipService } from '../../services/sponsorshipService';
+
+// Sub-Views
+import PlatformAnalyticsView from './views/PlatformAnalyticsView';
+import ClientAnalyticsView from './views/ClientAnalyticsView';
+import InventoryAnalyticsView from './views/InventoryAnalyticsView';
 
 const ContentAnalyticsView: React.FC = () => {
     const { channels, fetchChannels } = useChannels();
     const { allUsers: users } = useTeam();
+    const { masterOptions } = useMasterDataContext();
     const { handleSaveTask, handleDeleteTask } = useTasks();
+    
+    // View Orchestration State
+    const [viewMode, setViewMode] = useState<'PLATFORM' | 'CLIENT' | 'STRATEGY'>('PLATFORM');
+    const [clientData, setClientData] = useState<any[]>([]);
+    const [isClientModeLoading, setIsClientModeLoading] = useState(false);
     
     useEffect(() => {
         if (channels.length === 0) {
             fetchChannels();
         }
-    }, [channels.length]);
+    }, [channels.length, fetchChannels]);
+
+    // Dynamic Refresh for Client/Business Logic
+    const refreshClientData = async (start: Date, end: Date) => {
+        setIsClientModeLoading(true);
+        try {
+            const data = await sponsorshipService.getClientAnalytics(start, end);
+            setClientData(data);
+        } catch (err) {
+            console.error('Failed to refresh client analytics:', err);
+        } finally {
+            setIsClientModeLoading(false);
+        }
+    };
     
-    // Use our new custom hook for fetching and state management
+    // Main Content Analytics Hook
     const {
         data,
         pendingTasks,
         isLoading,
-        platformFilter,
-        setPlatformFilter,
-        channelFilter,
-        setChannelFilter,
-        timeRange,
-        setTimeRange,
+        platformFilter, setPlatformFilter,
+        channelFilter, setChannelFilter,
+        timeRange, setTimeRange,
         refetch
     } = useContentAnalyticsFetcher();
     
@@ -45,10 +64,7 @@ const ContentAnalyticsView: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [detailTask, setDetailTask] = useState<Task | null>(null);
 
-    // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
-
+    // Filter Logic (Centralized for scalability)
     const filteredData = useMemo(() => {
         const flattened: any[] = [];
         data.forEach(item => {
@@ -57,10 +73,8 @@ const ContentAnalyticsView: React.FC = () => {
             
             if (matchesSearch && matchesChannel) {
                 const platforms = item.targetPlatforms && item.targetPlatforms.length > 0 ? item.targetPlatforms : [(item as any).platform || 'OTHER'];
-                
                 platforms.forEach((pt: string) => {
-                    const matchesPlatform = platformFilter === 'ALL' || pt === platformFilter;
-                    if (matchesPlatform) {
+                    if (platformFilter === 'ALL' || pt === platformFilter) {
                         const platformAnalytics = (item as any).analytics?.filter((a: any) => a.platform === pt) || [];
                         flattened.push({
                             ...item,
@@ -74,188 +88,155 @@ const ContentAnalyticsView: React.FC = () => {
         return flattened;
     }, [data, searchTerm, platformFilter, channelFilter]);
 
-    // Reset page when filters change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, platformFilter, channelFilter]);
-
-    // Paginated Data
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredData.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredData, currentPage]);
-
-    const statsSummary: AnalyticsSummary = useMemo(() => {
-        let totalViews = 0, totalLikes = 0, totalShares = 0, totalComments = 0, totalSaves = 0;
-        let totalInteraction = 0;
-        const platformBreakdown: Record<string, PlatformMetrics> = {};
+    // Stats Calculation
+    const statsSummary = useMemo(() => {
+        let tv = 0, ti = 0, ts = 0;
+        const pb: any = {};
 
         filteredData.forEach(item => {
-            const arr = (item as any).analytics;
-            // Get the latest analytics for this specific platform
-            const latest = arr && arr.length > 0 ? arr[arr.length - 1] : null;
-            
+            const latest = item.analytics?.[item.analytics.length - 1];
             if (latest) {
-                const v = latest.views || 0;
-                const l = latest.likes || 0;
-                const s = latest.shares || 0;
-                const c = latest.comments || 0;
-                const sv = latest.saves || 0;
-                const interaction = l + s + c + sv;
+                const interaction = (latest.likes || 0) + (latest.shares || 0) + (latest.comments || 0) + (latest.saves || 0);
+                tv += latest.views || 0;
+                ti += interaction;
+                ts += latest.shares || 0;
 
-                totalViews += v;
-                totalLikes += l;
-                totalShares += s;
-                totalInteraction += interaction;
-                
-                const p = item.displayPlatform;
-                if (!platformBreakdown[p]) {
-                    platformBreakdown[p] = { platform: p, views: 0, engagement: 0, contentCount: 0, avgEngagementRate: 0 };
+                if (!pb[item.displayPlatform]) {
+                    pb[item.displayPlatform] = { platform: item.displayPlatform, views: 0, engagement: 0, contentCount: 0 };
                 }
-                platformBreakdown[p].views += v;
-                platformBreakdown[p].engagement += interaction;
-                platformBreakdown[p].contentCount += 1;
+                pb[item.displayPlatform].views += latest.views || 0;
+                pb[item.displayPlatform].engagement += interaction;
+                pb[item.displayPlatform].contentCount++;
             }
         });
 
-        const avgER = totalViews > 0 ? (totalInteraction / totalViews) * 100 : 0;
-
-        return { 
-            totalViews, 
-            totalLikes, 
-            totalShares, 
-            totalComments,
-            totalSaves,
-            totalEngagement: totalInteraction,
-            totalInteraction,
-            avgEngagementRate: avgER,
-            avgRetention: 0, 
-            platformBreakdown,
+        return {
+            totalViews: tv,
+            totalEngagement: ti,
+            totalShares: ts,
+            avgEngagementRate: tv > 0 ? (ti / tv) * 100 : 0,
+            platformBreakdown: pb,
             totalAnalyzed: filteredData.length
         };
     }, [filteredData]);
 
-    const chartData = useMemo(() => {
-        // Only include those with actual analytics data, sorted by views
-        const withAnalytics = filteredData.filter(item => {
-            const arr = (item as any).analytics;
-            return arr && arr.length > 0;
-        });
-        
-        withAnalytics.sort((a, b) => {
-            const latestA = (a as any).analytics[(a as any).analytics.length - 1];
-            const latestB = (b as any).analytics[(b as any).analytics.length - 1];
-            return (latestB?.views || 0) - (latestA?.views || 0);
-        });
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+    const paginatedData = useMemo(() => filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredData, currentPage]);
 
-        return withAnalytics.slice(0, 10).map(item => {
-            const latest = (item as any).analytics?.[(item as any).analytics.length - 1];
-            return {
-                name: item.title.length > 20 ? item.title.substring(0, 20) + '...' : item.title,
-                views: latest?.views || 0,
-                engagement: latest ? (latest.likes + latest.comments + latest.shares + latest.saves) : 0,
-            };
-        });
+    // Charts Data
+    const chartData = useMemo(() => {
+        return [...filteredData]
+            .filter(i => i.analytics?.length > 0)
+            .sort((a, b) => (b.analytics?.[b.analytics.length-1]?.views || 0) - (a.analytics?.[a.analytics.length-1]?.views || 0))
+            .slice(0, 10)
+            .map(i => {
+                const l = i.analytics[i.analytics.length-1];
+                return {
+                    name: i.title.length > 15 ? i.title.substring(0, 15) + '...' : i.title,
+                    views: l.views || 0,
+                    engagement: (l.likes || 0) + (l.shares || 0) + (l.comments || 0) + (l.saves || 0)
+                };
+            });
     }, [filteredData]);
 
-    const platformDistribution = useMemo(() => {
-        return Object.entries(statsSummary.platformBreakdown).map(([name, metrics]) => ({
-            name,
-            value: metrics.views
-        }));
-    }, [statsSummary]);
+    const platformDistribution = useMemo(() => Object.entries(statsSummary.platformBreakdown).map(([name, m]: any) => ({ name, value: m.views })), [statsSummary]);
 
     if (isLoading && data.length === 0) {
         return (
             <div className="flex-1 flex items-center justify-center bg-white">
-                <div className="relative">
-                    <div className="w-16 h-16 border-2 border-indigo-600/20 rounded-full"></div>
-                    <div className="w-16 h-16 border-t-2 border-indigo-600 rounded-full animate-spin absolute top-0 left-0"></div>
-                </div>
+                <div className="w-10 h-10 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="flex-1 overflow-y-auto bg-[#fdfdfe] p-6 sm:p-10 space-y-10">
-            <AnalyticsHeader 
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                platformFilter={platformFilter}
-                setPlatformFilter={setPlatformFilter}
-                channelFilter={channelFilter}
-                setChannelFilter={setChannelFilter}
-                timeRange={timeRange}
-                setTimeRange={setTimeRange}
-                channels={channels}
-            />
-
-            <AnimatePresence>
-                {pendingTasks.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
+        <div className="flex-1 overflow-y-auto bg-[#fdfdfe] p-6 sm:p-10 space-y-8">
+            {/* Master Header & Navigation */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">แดชบอร์ดวิเคราะห์อัจฉริยะ</h1>
+                    <p className="text-sm text-slate-400 font-medium mt-1">วิเคราะห์ประสิทธิภาพและมูลค่าธุรกิจเชิงลึก</p>
+                </div>
+                
+                <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1 shadow-inner border border-slate-200">
+                    <button 
+                        onClick={() => setViewMode('PLATFORM')}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            viewMode === 'PLATFORM' ? 'bg-white text-indigo-600 shadow-xl shadow-indigo-100 ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'
+                        }`}
                     >
-                        <PendingActionsAlert 
-                            pendingTasks={pendingTasks} 
-                            onAction={(task) => setDetailTask(task)} 
-                        />
-                    </motion.div>
+                        <BarChart3 className="w-4 h-4" /> แพลตฟอร์ม
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('CLIENT')}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            viewMode === 'CLIENT' ? 'bg-white text-indigo-600 shadow-xl shadow-indigo-100 ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
+                        <Building2 className="w-4 h-4" /> ธุรกิจ / ลูกค้า
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('STRATEGY')}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            viewMode === 'STRATEGY' ? 'bg-white text-indigo-600 shadow-xl shadow-indigo-100 ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
+                        <Target className="w-4 h-4" /> กลยุทธ์
+                    </button>
+                </div>
+            </div>
+
+            {/* View Dispatcher */}
+            <AnimatePresence mode="wait">
+                {viewMode === 'PLATFORM' && (
+                    <PlatformAnalyticsView 
+                        key="platform-view"
+                        searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                        platformFilter={platformFilter} setPlatformFilter={setPlatformFilter}
+                        channelFilter={channelFilter} setChannelFilter={setChannelFilter}
+                        timeRange={timeRange} setTimeRange={setTimeRange}
+                        channels={channels}
+                        pendingTasks={pendingTasks}
+                        statsSummary={statsSummary}
+                        chartData={chartData}
+                        platformDistribution={platformDistribution}
+                        paginatedData={paginatedData}
+                        currentPage={currentPage}
+                        totalPages={Math.ceil(filteredData.length / itemsPerPage)}
+                        onPageChange={setCurrentPage}
+                        totalItems={filteredData.length}
+                        onRowClick={setSelectedTask}
+                        setDetailTask={setDetailTask}
+                    />
+                )}
+                {viewMode === 'CLIENT' && (
+                    <ClientAnalyticsView 
+                        key="client-view"
+                        data={clientData}
+                        isLoading={isClientModeLoading}
+                        channels={channels}
+                        onRefresh={refreshClientData}
+                    />
+                )}
+                {viewMode === 'STRATEGY' && (
+                    <InventoryAnalyticsView 
+                        key="strategy-view"
+                        data={data}
+                        masterOptions={masterOptions}
+                        isLoading={isLoading}
+                        onDetailClick={setDetailTask}
+                    />
                 )}
             </AnimatePresence>
 
-            <div className="space-y-6">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-semibold text-slate-800 tracking-tight">ข้อมูลสรุปประสิทธิภาพรวม</h2>
-                        <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[11px] font-bold shadow-sm border border-indigo-100 uppercase tracking-wide">
-                            อิงจาก {statsSummary.totalAnalyzed} คอนเทนต์
-                        </div>
-                    </div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md">
-                        อัปเดตล่าสุด: วันนี้, {new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
-                    </div>
-                </div>
-                <AnalyticsStatsGrid summary={statsSummary as any} />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-12">
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="h-4 w-1 bg-indigo-600 rounded-full"></div>
-                        <h2 className="text-xl font-semibold text-slate-800 tracking-tight">เมทริกซ์การเติบโตเชิงลึก</h2>
-                    </div>
-                    <AnalyticsCharts 
-                        chartData={chartData} 
-                        platformDistribution={platformDistribution} 
-                    />
-                </div>
-            </div>
-
-            <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                    <div className="h-4 w-1 bg-indigo-600 rounded-full"></div>
-                    <h2 className="text-xl font-semibold text-slate-800 tracking-tight">ทะเบียนประวัติประสิทธิภาพรายรายการ</h2>
-                </div>
-                <AnalyticsListTable 
-                    data={paginatedData} 
-                    channels={channels} 
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(filteredData.length / itemsPerPage)}
-                    onPageChange={setCurrentPage}
-                    totalItems={filteredData.length}
-                    onRowClick={setSelectedTask}
-                />
-            </div>
-
+            {/* Master Modals */}
             {selectedTask && (
                 <AnalyticsEntryModal 
                     content={selectedTask}
                     onClose={() => setSelectedTask(null)}
-                    onSave={() => {
-                        refetch(); // Refresh on save
-                    }}
+                    onSave={() => refetch()}
                 />
             )}
 

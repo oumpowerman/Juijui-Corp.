@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, ChevronRight, Trash2, Edit3 } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, Trash2, Edit3 } from 'lucide-react';
 import { Task, User } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -57,7 +57,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
                             <motion.div 
                                 className={`w-7 h-7 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400 border border-slate-100/40`}
                             >
-                                <Zap className="w-3.5 h-3.5" />
+                                <ChevronDown className="w-3.5 h-3.5" />
                             </motion.div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-400 transition-colors">
                                 MORE TASK INFORMATION
@@ -103,10 +103,10 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
                                     whileHover={{ rotate: -8, scale: 1.15 }}
                                     className={`
                                         w-9 h-9 sm:w-14 sm:h-14 rounded-lg sm:rounded-[1.25rem] flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.08)]
-                                        bg-slate-50 text-slate-400 border border-slate-100 shrink-0 cursor-pointer
+                                        bg-rose-50 text-rose-400 border border-rose-100 shrink-0 cursor-pointer group
                                     `}
                                 >
-                                    <Zap className="w-5 h-5 sm:w-7 sm:h-7" />
+                                    <ChevronUp className="w-5 h-5 sm:w-7 sm:h-7 group-hover:scale-110 transition-transform" />
                                 </motion.div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -129,12 +129,6 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
                                                 </div>
                                             )}
                                         </div>
-                                        <button 
-                                            onClick={() => setIsExpanded(false)}
-                                            className="text-[12px] font-medium text-indigo-400 hover:text-indigo-600 transition-colors uppercase tracking-tight px-2 py-0.5 bg-indigo-50/50 rounded-md"
-                                        >
-                                            Hide header
-                                        </button>
                                     </div>
                                 </div>
                             </div>

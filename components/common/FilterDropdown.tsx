@@ -17,6 +17,7 @@ type FilterDropdownProps = {
     placeholder?: string;
     showAllOption?: boolean;
     clearable?: boolean;
+    disabled?: boolean;
 } & (
     | { multiSelect?: false; value: string; onChange: (value: string) => void }
     | { multiSelect: true; value: string[]; onChange: (value: string[]) => void }
@@ -31,7 +32,8 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
         placeholder = 'ทั้งหมด',
         showAllOption = true,
         clearable = true,
-        multiSelect = false
+        multiSelect = false,
+        disabled = false
     } = props;
 
     const value = props.value;
@@ -110,11 +112,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
         <div className="relative" ref={dropdownRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
                 title={getDisplayLabel()}
                 className={`
                     flex items-center justify-between px-5 py-3.5 border rounded-2xl text-sm font-bold transition-all active:scale-95 w-full
-                    ${isActive 
+                    ${disabled ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed pointer-events-none' : 
+                      isActive 
                         ? `${activeColorClass} shadow-[0_0_15px_rgba(79,70,229,0.15)] border-indigo-300 ring-2 ring-indigo-500/10` 
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 shadow-sm'}
                 `}

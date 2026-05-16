@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ArrowLeft, Loader2, Film, Activity as ActivityIcon, Copy, Check } from 'lucide-react';
+import { X, ArrowLeft, Loader2, Film, Activity as ActivityIcon, Copy, Check, Coins, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, TaskType, Channel, MasterOption } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -85,7 +85,7 @@ const TaskModalHeader: React.FC<TaskModalHeaderProps> = ({
                         exit={{ opacity: 0, height: 0 }}
                         className="absolute inset-x-0 -top-[0px] z-[100] bg-white border-b border-indigo-100 flex items-center justify-center overflow-hidden"
                     >
-                        <div className="flex items-center gap-2 text-[10px] font-black text-indigo-500 tracking-[0.2em] uppercase">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-indigo-500 tracking-[0.2em] uppercase">
                             <Loader2 className="w-3 h-3 animate-spin"/> Syncing Rich Content...
                         </div>
                     </motion.div>
@@ -164,7 +164,7 @@ const TaskModalHeader: React.FC<TaskModalHeaderProps> = ({
                                 animate={{ scale: 1, opacity: 1 }}
                                 whileHover={{ scale: 1.05 }}
                                 className={`
-                                    flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-black tracking-widest uppercase border-2 shadow-sm relative overflow-hidden
+                                    flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-widest uppercase border-2 shadow-sm relative overflow-hidden
                                     ${activeTab === 'CONTENT' 
                                         ? 'bg-white border-indigo-200 text-indigo-600 shadow-indigo-100/50' 
                                         : 'bg-white border-emerald-200 text-emerald-600 shadow-emerald-100/50'
@@ -189,6 +189,39 @@ const TaskModalHeader: React.FC<TaskModalHeaderProps> = ({
                                 )}
                             </motion.div>
 
+                            {/* Sponsorship Badge for CONTENT */}
+                            {viewMode === 'DETAILS' && activeTab === 'CONTENT' && taskData && (
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className={`
+                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-widest uppercase border-2 shadow-sm relative overflow-hidden
+                                        ${taskData.sponsorship?.isSponsored 
+                                            ? 'bg-amber-50 border-amber-200 text-amber-600 shadow-amber-100/50' 
+                                            : 'bg-slate-50 border-slate-200 text-slate-500 shadow-slate-100/30'
+                                        }
+                                    `}
+                                >
+                                    <div className={`
+                                        flex items-center justify-center w-4 h-4 rounded-full text-white shrink-0
+                                        ${taskData.sponsorship?.isSponsored ? 'bg-amber-500' : 'bg-slate-400'}
+                                    `}>
+                                        {taskData.sponsorship?.isSponsored ? <Coins className="w-2.5 h-2.5" /> : <Star className="w-2.5 h-2.5" />}
+                                    </div>
+                                    <span className="relative z-10">
+                                        {taskData.sponsorship?.isSponsored ? 'Sponsored' : 'General'}
+                                    </span>
+                                    
+                                    {taskData.sponsorship?.isSponsored && (
+                                        <motion.div 
+                                            animate={{ opacity: [0.2, 0.4, 0.2], x: ['-100%', '200%'] }}
+                                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -skew-x-12 -z-0"
+                                        />
+                                    )}
+                                </motion.div>
+                            )}
+
                                 
                             {/* Status Badge for TASK type */}
                             {taskData && activeTab === 'TASK' && (
@@ -196,7 +229,7 @@ const TaskModalHeader: React.FC<TaskModalHeaderProps> = ({
                                     initial={{ x: -10, opacity: 0 }}
                                     animate={{ x: 0, opacity: 1 }}
                                     className={`
-                                        flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-black tracking-widest uppercase border shadow-sm
+                                        flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-bold tracking-widest uppercase border shadow-sm
                                         ${(() => {
                                             const s = (taskData.status || '').toUpperCase();
                                             if (s.includes('DONE')) return 'bg-emerald-50 border-emerald-200 text-emerald-600';
@@ -239,7 +272,7 @@ const TaskModalHeader: React.FC<TaskModalHeaderProps> = ({
                             )}
 
                             {isLoadingDetails && (
-                                <div className="flex items-center gap-1.5 p-1 px-2 bg-indigo-50/50 rounded-lg text-[9px] text-indigo-500 font-black tracking-widest uppercase border border-indigo-100/50">
+                                <div className="flex items-center gap-1.5 p-1 px-2 bg-indigo-50/50 rounded-lg text-[9px] text-indigo-500 font-bold tracking-widest uppercase border border-indigo-100/50">
                                     <Loader2 className="w-3 h-3 animate-spin"/> Syncing
                                 </div>
                             )}

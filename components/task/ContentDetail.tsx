@@ -94,6 +94,10 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                         if (tab === 'EDIT') setMode('EDIT');
                         else setMode('VIEW');
                     }}
+                    viewSubTab={viewSubTab}
+                    setViewSubTab={setViewSubTab}
+                    isInsightOverdue={isInsightOverdue}
+                    isInsightCompleted={isInsightCompleted}
                 />
             </motion.div>
 
@@ -132,38 +136,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                             transition={{ duration: 0.3 }}
                             className="flex flex-col h-full"
                         >
-                            {/* --- INTERNAL VIEW TOGGLE --- */}
-                            <div className="px-6 sm:px-10 pt-6 flex items-center justify-between">
-                                <div className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/40">
-                                    <button 
-                                        onClick={() => setViewSubTab('INFO')}
-                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${viewSubTab === 'INFO' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <FileText className="w-3.5 h-3.5" />
-                                        <span>ข้อมูลทั่วไป</span>
-                                    </button>
-                                    <button 
-                                        onClick={() => setViewSubTab('INSIGHT')}
-                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all relative ${viewSubTab === 'INSIGHT' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'} ${isInsightOverdue && viewSubTab !== 'INSIGHT' ? 'animate-pulse text-rose-500' : ''} ${isInsightCompleted ? 'text-emerald-600' : ''}`}
-                                    >
-                                        <Activity className="w-3.5 h-3.5" />
-                                        <span>สถิติ (INSIGHT)</span>
-                                        {isInsightOverdue && (
-                                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border-2 border-white"></span>
-                                            </span>
-                                        )}
-                                        {isInsightCompleted && (
-                                            <span className="absolute -top-1 -right-1 flex items-center justify-center p-0.5 bg-emerald-500 rounded-full border-2 border-white text-white">
-                                                <Check strokeWidth={4} className="w-2 h-2" />
-                                            </span>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="p-4 sm:p-10 space-y-6 sm:space-y-10">
+                            <div className="p-4 sm:p-10 space-y-6 sm:space-y-10 pt-0 sm:pt-6">
                                 <AnimatePresence mode="wait">
                                     {viewSubTab === 'INFO' ? (
                                         <motion.div

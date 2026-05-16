@@ -45,7 +45,7 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
       { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation },
       { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
-      { view: 'ANALYTICS', label: 'Data Intelligence', icon: BarChart3 },
+      { view: 'ANALYTICS', label: 'วิเคราะห์ข้อมูล', icon: BarChart3 },
       { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
     ]
   },

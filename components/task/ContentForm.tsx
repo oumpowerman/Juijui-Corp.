@@ -8,6 +8,8 @@ import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import TaskAssets from '../TaskAssets'; 
 import { isTaskCompleted } from '../../constants';
 import { useScripts } from '../../hooks/useScripts'; 
+import { useSponsorship } from '../../hooks/useSponsorship';
+import { SponsorshipDetail } from '../../types/task';
 
 // Import Refactored Parts
 import CFHeader from './content-parts/CFHeader';
@@ -20,6 +22,7 @@ import CFPlatformSelector from './content-parts/CFPlatformSelector';
 import CFCrewSelector from './content-parts/CFCrewSelector';
 import CFBrief from './content-parts/CFBrief';
 import CFStoragePath from './content-parts/CFStoragePath';
+import CFSponsorship from './form-parts/CFSponsorship';
 import ContentActionFooter from './content-parts/ContentActionFooter'; // NEW
 
 import ScriptEditor from '../script/ScriptEditor';
@@ -49,11 +52,14 @@ const ContentForm: React.FC<ContentFormProps> = ({
     const [scriptToEdit, setScriptToEdit] = useState<Script | null>(null); 
     const [isLoadingScript, setIsLoadingScript] = useState(false);
     const [isSendingQC, setIsSendingQC] = useState(false);
+    
+    // Sponsorship state
+    const { sponsorship: existingSponsorship } = useSponsorship(initialData?.id);
+    const [sponsorshipData, setSponsorshipData] = useState<Partial<SponsorshipDetail> | null>(null);
 
     const {
         title, setTitle,
         description, setDescription,
-        // remark, setRemark,
         startDate, setStartDate,
         endDate, setEndDate,
         isStock, setIsStock,
@@ -71,19 +77,28 @@ const ContentForm: React.FC<ContentFormProps> = ({
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
-        assets, addAsset, removeAsset, // Assets from hook
+        assets, addAsset, removeAsset,
         error,
         formatOptions, pillarOptions, categoryOptions, statusOptions,
-        handleSubmit, togglePlatform, toggleUserSelection,
-        scriptId, setScriptId, // From Hook
-        isSaving // Added from hook to show loading state on save button
+        handleSubmit: originalHandleSubmit, togglePlatform, toggleUserSelection,
+        scriptId, setScriptId,
+        isSaving
     } = useContentForm({
         initialData,
         selectedDate,
         sourceScript,
         channels,
         masterOptions,
-        onSave,
+        onSave: (task) => {
+            const taskWithSponsorship = {
+                ...task,
+                sponsorship: sponsorshipData ? {
+                    ...sponsorshipData,
+                    taskId: task.id || initialData?.id || ''
+                } : undefined
+            };
+            onSave(taskWithSponsorship as Task);
+        },
         currentUser
     });
 
@@ -362,7 +377,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         <div className="relative h-full w-full overflow-hidden">
             {/* Form Mode */}
             <div className={`h-full w-full ${isEditorOpen || isLoadingScript ? 'hidden' : ''}`}>
-                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
+                <form onSubmit={originalHandleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
                     <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
                         {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
@@ -433,6 +448,13 @@ const ContentForm: React.FC<ContentFormProps> = ({
                                 ideaOwnerIds={ideaOwnerIds} editorIds={editorIds} assigneeIds={assigneeIds}
                                 setIdeaOwnerIds={setIdeaOwnerIds} setEditorIds={setEditorIds} setAssigneeIds={setAssigneeIds}
                                 toggleUserSelection={toggleUserSelection}
+                            />
+
+                            {/* Sponsorship Section */}
+                            <CFSponsorship 
+                                taskId={initialData?.id}
+                                initialData={existingSponsorship}
+                                onChange={setSponsorshipData}
                             />
 
                             {/* 9. Description */}

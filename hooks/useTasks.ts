@@ -8,6 +8,8 @@ import { useGamification } from './useGamification';
 import { useTaskContext } from '../context/TaskContext';
 import { format, isValid } from 'date-fns';
 
+import { sponsorshipService } from '../services/sponsorshipService';
+
 // --- 1. SMART DIFF CONFIGURATION ---
 
 interface SmartDiffContext {
@@ -49,7 +51,12 @@ const TASK_FIELD_META: Record<string, { label: string; type: 'TEXT' | 'DATE' | '
     
     // Gamification
     difficulty: { label: 'ความยาก', type: 'TEXT' },
-    estimatedHours: { label: 'เวลาที่ประเมิน', type: 'TEXT' }
+    estimatedHours: { label: 'เวลาที่ประเมิน', type: 'TEXT' },
+    
+    // Sponsorship
+    isSponsored: { label: 'สถานะสปอนเซอร์', type: 'TEXT' },
+    dealValue: { label: 'ยอดเงินดีล', type: 'MONEY' },
+    requirements: { label: 'เงื่อนไขสปอนเซอร์', type: 'TEXT' }
 };
 
 // --- 2. HELPER FUNCTIONS ---
@@ -329,6 +336,17 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                         });
                     }
                 }
+
+                // --- 🚀 NEW: Sponsorship Detail Save ---
+                if (isContent && task.sponsorship) {
+                    if (task.sponsorship.isSponsored) {
+                        await sponsorshipService.saveSponsorshipDetail(task.id, task.sponsorship);
+                    } else {
+                        // If it was sponsored but now unticked, maybe we should delete or keep?
+                        // For now, let's just delete if it's explicitly set to false
+                        await sponsorshipService.deleteSponsorshipDetail(task.id);
+                    }
+                }
                 
                 showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
                 
@@ -388,6 +406,11 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 if (isContent) logPayload.content_id = task.id;
                 else logPayload.task_id = task.id;
                 await supabase.from('task_logs').insert(logPayload);
+
+                // --- 🚀 NEW: Sponsorship Detail Save ---
+                if (isContent && task.sponsorship && task.sponsorship.isSponsored) {
+                    await sponsorshipService.saveSponsorshipDetail(task.id, task.sponsorship);
+                }
 
                 showToast('สร้างใหม่สำเร็จ', 'success');
 

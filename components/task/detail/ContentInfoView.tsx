@@ -5,6 +5,7 @@ import { Task, User } from '../../../types';
 import StorageSection from './sections/StorageSection';
 import StrategySection from './sections/StrategySection';
 import ProductionSection from './sections/ProductionSection';
+import SponsorshipSection from './sections/SponsorshipSection';
 import TeamSection from './sections/TeamSection';
 import BriefSection from './sections/BriefSection';
 
@@ -23,6 +24,7 @@ const ContentInfoView: React.FC<ContentInfoViewProps> = ({ task, users }) => {
         >
             <StorageSection task={task} />
             <StrategySection task={task} />
+            <SponsorshipSection taskId={task.id} />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">

@@ -174,13 +174,13 @@ const AnalyticsStatsGrid: React.FC<AnalyticsStatsGridProps> = ({ summary }) => {
                             </button>
                             <div className="flex flex-col md:flex-row md:items-center gap-6">
                                 <div className="p-3 bg-white rounded-xl shadow-sm border border-indigo-100 shrink-0">
-                                    <div className="text-indigo-600 font-bold text-lg">Metric Guide</div>
+                                    <div className="text-indigo-600 font-bold text-lg">คู่มือชี้วัด</div>
                                 </div>
                                 <div className="space-y-1">
                                     <h4 className="text-indigo-900 font-bold text-base">{metricInfo.title}</h4>
                                     <p className="text-indigo-700 text-sm">{metricInfo.description}</p>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <span className="text-[10px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">Expert Insight</span>
+                                        <span className="text-[10px] font-bold bg-indigo-600 text-white px-2 py-0.5 rounded uppercase tracking-wider">มุมมองจากผู้เชี่ยวชาญ</span>
                                         <p className="text-indigo-600 text-xs font-semibold italic">"{metricInfo.insight}"</p>
                                     </div>
                                 </div>

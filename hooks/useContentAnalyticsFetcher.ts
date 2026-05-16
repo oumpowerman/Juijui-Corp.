@@ -1,210 +1,142 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { ContentAnalytics, Task } from '../types';
 import { mapSupabaseToAnalytics } from '../services/analyticsService';
-import { startOfMonth, endOfMonth, subDays, isAfter } from 'date-fns';
+import { startOfMonth, endOfMonth, subDays, isWithinInterval } from 'date-fns';
+import { useTaskContext } from '../context/TaskContext';
 
 export interface ContentWithAnalytics extends Task {
     analytics?: ContentAnalytics[];
 }
 
 export const useContentAnalyticsFetcher = () => {
-    const [data, setData] = useState<ContentWithAnalytics[]>([]);
-    const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const { tasks: contextTasks, isFetching: isContextFetching } = useTaskContext();
+    const [analyticsData, setAnalyticsData] = useState<Record<string, ContentAnalytics[]>>({});
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
     
-    // We'll manage filters here except searchTerm which is purely frontend
     const [platformFilter, setPlatformFilter] = useState('ALL');
-    const [channelFilter, setChannelFilter] = useState(() => localStorage.getItem('defaultAnalyticsChannel') || 'ALL');
-    const [timeRange, setTimeRange] = useState('CURRENT_MONTH'); // Default to current month
+    const [channelFilter, setChannelFilter] = useState(() => localStorage.getItem('defaultAnalyticsChannel') || '');
+    const [timeRange, setTimeRange] = useState('CURRENT_MONTH');
 
-    const fetchAnalyticsData = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            let startDate: Date | null = null;
-            let endDate: Date | null = null;
+    // 1. Filter context tasks locally based on view settings
+    const filteredTasks = useMemo(() => {
+        let startDate: Date | null = null;
+        let endDate: Date | null = null;
 
-            if (timeRange === 'CURRENT_MONTH') {
-                startDate = startOfMonth(new Date());
-                endDate = endOfMonth(new Date());
-            } else if (timeRange !== 'ALL') {
-                const days = parseInt(timeRange);
-                startDate = subDays(new Date(), days);
-                endDate = new Date();
-            }
+        if (timeRange === 'CURRENT_MONTH') {
+            startDate = startOfMonth(new Date());
+            endDate = endOfMonth(new Date());
+        } else if (timeRange !== 'ALL') {
+            const days = parseInt(timeRange);
+            startDate = subDays(new Date(), days);
+            endDate = new Date();
+        }
 
-            // 1. Fetch content tasks
-            let contentsQuery = supabase
-                .from('contents')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            // Apply specific filters to contents
-            if (channelFilter !== 'ALL') {
-                contentsQuery = contentsQuery.eq('channel_id', channelFilter);
-            }
-
-            if (startDate) {
-                const startStr = startDate.toISOString();
-                contentsQuery = contentsQuery.or(`end_date.gte.${startStr},created_at.gte.${startStr}`);
-            }
-            if (endDate) {
-                const endStr = endDate.toISOString();
-                contentsQuery = contentsQuery.or(`end_date.lte.${endStr},created_at.lte.${endStr}`);
-            }
-
-            const { data: contentsRaw, error: contentsError } = await contentsQuery;
-            if (contentsError) throw contentsError;
-
-            // Optional: Filter by platform early if needed, or leave to frontend
-            // Since target_platform is JSONB, it's easier to filter on frontend
-
-            // 2. Fetch analytics only for these contents
-            const contentIds = (contentsRaw || []).map(c => c.id);
+        return contextTasks.filter(task => {
+            if (task.type !== 'CONTENT') return false;
             
-            let analyticsQuery = supabase
+            const matchesChannel = channelFilter === 'ALL' || task.channelId === channelFilter;
+            if (!matchesChannel) return false;
+
+            if (startDate && endDate) {
+                const taskDate = task.endDate || task.startDate || task.createdAt;
+                return isWithinInterval(taskDate, { start: startDate, end: endDate });
+            }
+
+            return true;
+        });
+    }, [contextTasks, channelFilter, timeRange]);
+
+    // 2. Fetch detailed analytics only for the tasks currently in view
+    // Use a ref to track what we've already fetched to avoid redundant calls
+    const lastFetchedIdsRef = useMemo(() => ({ ids: "" }), []);
+
+    const fetchAnalytics = useCallback(async () => {
+        const contentIds = filteredTasks.map(t => t.id).sort();
+        const idsKey = contentIds.join(',');
+        
+        if (filteredTasks.length === 0 || idsKey === lastFetchedIdsRef.ids) return;
+        
+        setIsLoadingAnalytics(true);
+        try {
+            // Keep track of what we are fetching
+            lastFetchedIdsRef.ids = idsKey;
+
+            const { data: analyticsRaw, error } = await supabase
                 .from('content_analytics')
                 .select('*')
+                .in('content_id', contentIds)
                 .order('captured_at', { ascending: true });
 
-            if (contentIds.length > 0) {
-                // Chunk queries if contentIds is very large (>1000), but standard supabse IN limit is okay up to ~500-1000
-                analyticsQuery = analyticsQuery.in('content_id', contentIds);
-            } else if (startDate) {
-                analyticsQuery = analyticsQuery.gte('captured_at', startDate.toISOString());
-            }
+            if (error) throw error;
 
-            const { data: analyticsRaw, error: analyticsError } = await analyticsQuery;
-            if (analyticsError) throw analyticsError;
-
-            const mappedAnalytics = (analyticsRaw || []).map(a => mapSupabaseToAnalytics(a));
-
-            // Merge and Map data
-            const enrichedData = (contentsRaw || []).map((content: any) => {
-                const mappedContent: Task = {
-                    id: content.id,
-                    title: content.title,
-                    description: content.description || '',
-                    status: content.status,
-                    type: 'CONTENT',
-                    startDate: content.start_date ? new Date(content.start_date) : new Date(),
-                    endDate: content.end_date ? new Date(content.end_date) : new Date(),
-                    channelId: content.channel_id,
-                    targetPlatforms: content.target_platform || [],
-                    isUnscheduled: content.is_unscheduled,
-                    ideaOwnerIds: content.idea_owner_ids || [],
-                    editorIds: content.editor_ids || [],
-                    assigneeIds: content.assignee_ids || [],
-                    performance: content.performance,
-                    // ... other fields as needed
-                } as any;
-
-                return {
-                    ...mappedContent,
-                    analytics: mappedAnalytics.filter(a => a.contentId === content.id)
-                };
-            });
-
-            setData(enrichedData as any);
-
-            // Fetch pending tasks independently of the timeRange and channel filter
-            // 4. Calculate pending tasks (from 30 days ago to 7 days ago)
-            const sevenDaysAgo = subDays(new Date(), 7);
-            const thirtyDaysAgo = subDays(new Date(), 30);
+            const mapped = (analyticsRaw || []).map(a => mapSupabaseToAnalytics(a));
             
-            let pendingContentsQuery = supabase
-                .from('contents')
-                .select('*')
-                .eq('is_unscheduled', false)
-                .gte('end_date', thirtyDaysAgo.toISOString())
-                .lte('end_date', sevenDaysAgo.toISOString());
-            
-            // Note: We deliberately DO NOT apply channelFilter here
-            // so pending tasks are global warnings
-            
-            const { data: pendingContentsRaw, error: pendingError } = await pendingContentsQuery;
-            if (pendingError) {
-                console.error("Pending contents query error:", pendingError);
-            }
-            
-            let pending: Task[] = [];
-            if (pendingContentsRaw && pendingContentsRaw.length > 0) {
-                // Filter statuses in-memory to handle variations in case
-                const doneContents = pendingContentsRaw.filter(c => {
-                    const currentStatus = (c.status || '').toUpperCase();
-                    return currentStatus.includes('DONE') || 
-                           ['PUBLISHED', 'FINAL', 'POSTED', 'COMPLETE', 'COMPLETED'].includes(currentStatus);
-                });
+            // Group by contentId
+            const grouped = mapped.reduce((acc, curr) => {
+                if (!acc[curr.contentId]) acc[curr.contentId] = [];
+                acc[curr.contentId].push(curr);
+                return acc;
+            }, {} as Record<string, ContentAnalytics[]>);
 
-                if (doneContents.length > 0) {
-                    const pendingIds = doneContents.map(c => c.id);
-                    // Get their analytics to see if any have been answered
-                    const { data: pendingAnalyticsRaw } = await supabase
-                        .from('content_analytics')
-                        .select('content_id, platform')
-                        .in('content_id', pendingIds);
-                    
-                    const answeredKeys = new Set((pendingAnalyticsRaw || []).map(a => `${a.content_id}_${a.platform}`));
-                    
-                    // Map to Task and split missing platforms
-                    doneContents.forEach(content => {
-                        const platforms = content.target_platform && content.target_platform.length > 0 ? content.target_platform : [(content as any).platform || 'OTHER'];
-                        
-                        platforms.forEach((pt: string) => {
-                            if (!answeredKeys.has(`${content.id}_${pt}`)) {
-                                pending.push({
-                                    id: content.id,
-                                    title: content.title,
-                                    description: content.description || '',
-                                    status: content.status,
-                                    type: 'CONTENT' as any,
-                                    tags: content.tags || [],
-                                    startDate: content.start_date ? new Date(content.start_date) : new Date(),
-                                    endDate: content.end_date ? new Date(content.end_date) : new Date(),
-                                    channelId: content.channel_id,
-                                    targetPlatforms: content.target_platform || [],
-                                    displayPlatform: pt, // Set displayPlatform so they save individually
-                                    isUnscheduled: content.is_unscheduled,
-                                    ideaOwnerIds: content.idea_owner_ids || [],
-                                    editorIds: content.editor_ids || [],
-                                    assigneeIds: content.assignee_ids || [],
-                                    performance: content.performance,
-                                } as any);
-                            }
-                        });
-                    });
-
-                    pending.sort((a, b) => {
-                        const timeA = a.endDate ? new Date(a.endDate).getTime() : 0;
-                        const timeB = b.endDate ? new Date(b.endDate).getTime() : 0;
-                        return timeB - timeA;
-                    });
-                }
-            }
-
-            setPendingTasks(pending as any);
-
-        } catch (error) {
-            console.error('Fetch Analytics Error:', error);
+            setAnalyticsData(grouped);
+        } catch (err) {
+            console.error('Failed to fetch analytics enrichment:', err);
+            // Reset ref on error to allow retry
+            lastFetchedIdsRef.ids = "";
         } finally {
-            setIsLoading(false);
+            setIsLoadingAnalytics(false);
         }
-    }, [channelFilter, timeRange]);
+    }, [filteredTasks, lastFetchedIdsRef]);
 
     useEffect(() => {
-        fetchAnalyticsData();
-    }, [fetchAnalyticsData]);
+        const timer = setTimeout(() => {
+            fetchAnalytics();
+        }, 150); // Small debounce
+        return () => clearTimeout(timer);
+    }, [fetchAnalytics]);
+
+    // 3. Merge tasks with their analytics
+    const enrichedData = useMemo(() => {
+        return filteredTasks.map(task => ({
+            ...task,
+            analytics: analyticsData[task.id] || []
+        }));
+    }, [filteredTasks, analyticsData]);
+
+    // 4. Calculate pending tasks (Tasks that should have analytics but don't)
+    const pendingTasks = useMemo(() => {
+        const sevenDaysAgo = subDays(new Date(), 7);
+        const thirtyDaysAgo = subDays(new Date(), 30);
+
+        return contextTasks.filter(task => {
+            if (task.type !== 'CONTENT' || task.isUnscheduled) return false;
+            
+            const taskDate = task.endDate || task.startDate;
+            if (!taskDate) return false;
+
+            const isInPendingWindow = taskDate >= thirtyDaysAgo && taskDate <= sevenDaysAgo;
+            if (!isInPendingWindow) return false;
+
+            const status = (task.status || '').toUpperCase();
+            const isDone = status.includes('DONE') || ['PUBLISHED', 'FINAL', 'POSTED', 'COMPLETE', 'COMPLETED'].includes(status);
+            if (!isDone) return false;
+
+            // Check if ANY analytics exist for this content (using the hasAnalytics flag from context)
+            return !task.hasAnalytics;
+        });
+    }, [contextTasks]);
 
     return {
-        data,
+        data: enrichedData,
         pendingTasks,
-        isLoading,
+        isLoading: isContextFetching || isLoadingAnalytics,
         platformFilter,
         setPlatformFilter,
         channelFilter,
         setChannelFilter,
         timeRange,
         setTimeRange,
-        refetch: fetchAnalyticsData
+        refetch: fetchAnalytics
     };
 };

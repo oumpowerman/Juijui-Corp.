@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layout, ChevronRight, Trash2, Edit3, FileText, Activity } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, Trash2, Edit3, FileText, Activity, Check } from 'lucide-react';
 import { Task, User, Channel } from '../../../types';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
@@ -16,10 +16,15 @@ interface ContentDetailHeaderProps {
     onDelete?: () => void;
     activeTab: 'CONTENT' | 'EDIT';
     setActiveTab: (tab: 'CONTENT' | 'EDIT') => void;
+    viewSubTab?: 'INFO' | 'INSIGHT';
+    setViewSubTab?: (tab: 'INFO' | 'INSIGHT') => void;
+    isInsightOverdue?: boolean;
+    isInsightCompleted?: boolean;
 }
 
 const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
-    task, users, channels, isExpanded, onToggleExpand, onEdit, onDelete, activeTab, setActiveTab
+    task, users, channels, isExpanded, onToggleExpand, onEdit, onDelete, activeTab, setActiveTab,
+    viewSubTab = 'INFO', setViewSubTab, isInsightOverdue = false, isInsightCompleted = false
 }) => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
@@ -58,7 +63,7 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                     >
                         <div className="flex items-center gap-3">
                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-50 text-indigo-400 border border-indigo-100/40`}>
-                                <Layout className="w-3.5 h-3.5" />
+                                <ChevronDown className="w-3.5 h-3.5" />
                             </div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-400 transition-colors">
                                 PROJECT CONTROLS
@@ -95,16 +100,64 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                             <motion.div 
                                 onClick={() => onToggleExpand(false)}
                                 whileHover={{ rotate: -8, scale: 1.15 }}
-                                className={`w-10 h-10 sm:w-16 sm:h-16 rounded-[0.85rem] sm:rounded-2xl flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.08)] bg-indigo-50 text-indigo-400 border border-indigo-100/50 shrink-0 mt-1 sm:mt-0 cursor-pointer`}
+                                className={`w-10 h-10 sm:w-16 sm:h-16 rounded-[0.85rem] sm:rounded-2xl flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.08)] bg-rose-50 text-rose-400 border border-rose-100/50 shrink-0 mt-1 sm:mt-0 cursor-pointer group`}
                             >
-                                <Layout className="w-5 h-5 sm:w-8 sm:h-8" />
+                                <ChevronUp className="w-5 h-5 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform" />
                             </motion.div>
                             <div className="flex-1 min-w-0 text-left">
-                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
-                                    <button onClick={() => onToggleExpand(false)} className="text-[12px] font-bold text-indigo-400 hover:text-indigo-600 px-2 py-1 bg-indigo-50/50 rounded-lg transition-colors">
-                                        CLOSE TOOLS
-                                    </button>
-                                </div>
+                                <AnimatePresence mode="wait">
+                                    {activeTab === 'CONTENT' && setViewSubTab && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 5 }}
+                                            className="inline-flex items-center p-1.5 bg-slate-900/5 backdrop-blur-md rounded-[1.25rem] border border-slate-200/50 shadow-inner overflow-hidden"
+                                        >
+                                            {[
+                                                { id: 'INFO', label: 'ข้อมูลทั่วไป', icon: FileText, color: 'text-indigo-600' },
+                                                { id: 'INSIGHT', label: 'สถิติ (INSIGHT)', icon: Activity, color: 'text-amber-600' }
+                                            ].map((tab) => {
+                                                const isActive = viewSubTab === tab.id;
+                                                const isInsight = tab.id === 'INSIGHT';
+                                                
+                                                return (
+                                                    <button
+                                                        key={tab.id}
+                                                        onClick={() => setViewSubTab(tab.id as any)}
+                                                        className={`
+                                                            relative flex items-center gap-2.5 px-6 py-2.5 rounded-[0.9rem] text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-300 z-10
+                                                            ${isActive ? tab.color : 'text-slate-400 hover:text-slate-600'}
+                                                        `}
+                                                    >
+                                                        {isActive && (
+                                                            <motion.div
+                                                                layoutId="subTabPill"
+                                                                className="absolute inset-0 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] rounded-[0.9rem] -z-10"
+                                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                                            />
+                                                        )}
+                                                        
+                                                        <tab.icon className={`w-4 h-4 ${isActive ? 'animate-pulse' : ''}`} />
+                                                        <span className="hidden xs:inline">{tab.label}</span>
+
+                                                        {isInsight && isInsightOverdue && !isActive && (
+                                                            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border-2 border-slate-50"></span>
+                                                            </span>
+                                                        )}
+                                                        
+                                                        {isInsight && isInsightCompleted && (
+                                                            <div className={`ml-1 flex items-center justify-center w-4 h-4 rounded-full ${isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'} transition-colors`}>
+                                                                <Check strokeWidth={4} className="w-2.5 h-2.5" />
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
 

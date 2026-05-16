@@ -84,6 +84,30 @@ export interface DeadlineRequest {
     user?: { name: string; avatarUrl: string };
 }
 
+export interface Client {
+    id: string;
+    name: string;
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+    logoUrl?: string;
+    isActive: boolean;
+}
+
+export interface SponsorshipDetail {
+    taskId: string;
+    clientId?: string;
+    client?: Client;
+    isSponsored: boolean;
+    dealValue: number;
+    requirements?: string;
+    paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' | string;
+    isPaid: boolean;
+    invoiceUrl?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 export interface Task {
     id: string;
     type: TaskType;
@@ -96,6 +120,7 @@ export interface Task {
     endDate: Date;
     createdAt?: Date;
     updatedAt?: Date;
+    sponsorship?: SponsorshipDetail; // Optional sponsorship data
     
     // Content specific
     channelId?: string;

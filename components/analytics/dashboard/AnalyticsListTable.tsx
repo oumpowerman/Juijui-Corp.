@@ -76,8 +76,12 @@ const AnalyticsListTable: React.FC<AnalyticsListTableProps> = ({
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {channel && (
-                                                    <span className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                                        <Hash className="w-2.5 h-2.5" />
+                                                    <span className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        {channel.logoUrl ? (
+                                                            <img src={channel.logoUrl} className="w-3.5 h-3.5 rounded-sm object-contain bg-slate-50 border border-slate-100" referrerPolicy="no-referrer" />
+                                                        ) : (
+                                                            <Hash className="w-2.5 h-2.5" />
+                                                        )}
                                                         {channel.name}
                                                     </span>
                                                 )}

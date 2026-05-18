@@ -9,12 +9,13 @@ interface PreviewStepProps {
     locationState: { lat: number; lng: number; matchedLocation?: LocationDef };
     selectedType: WorkLocation | null;
     isSubmitting: boolean;
+    timeLeft: number;
     onRetake: () => void;
     onSubmit: () => void;
 }
 
 const PreviewStep: React.FC<PreviewStepProps> = ({ 
-    capturedFile, challenge, locationState, selectedType, isSubmitting, onRetake, onSubmit 
+    capturedFile, challenge, locationState, selectedType, isSubmitting, timeLeft, onRetake, onSubmit 
 }) => {
     if (!capturedFile) return null;
 
@@ -66,10 +67,24 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
                 <button 
                     onClick={onSubmit}
                     disabled={isSubmitting}
-                    className="flex-[2] py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className={`flex-[2] py-3 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all
+                        ${isSubmitting ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}
+                    `}
                 >
-                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <CheckCircle2 className="w-5 h-5" />}
-                    ยืนยันเช็คอิน
+                    {isSubmitting ? (
+                        <div className="flex flex-col items-center leading-tight">
+                            <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin"/>
+                                <span>กำลังอัปโหลด...</span>
+                            </div>
+                            <span className="text-[10px] font-normal opacity-80">ระบบจะเปลี่ยนใช้วิธีสำรองใน {timeLeft} วินาที</span>
+                        </div>
+                    ) : (
+                        <>
+                            <CheckCircle2 className="w-5 h-5" />
+                            <span>ยืนยันเช็คอิน</span>
+                        </>
+                    )}
                 </button>
             </div>
         </div>

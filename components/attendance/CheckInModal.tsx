@@ -48,8 +48,21 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     const [challenge, setChallenge] = useState('');
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(60);
     const [compressing, setCompressing] = useState(false);
     const [showLateIntervention, setShowLateIntervention] = useState(false);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setInterval>;
+        if (isSubmitting && timeLeft > 0) {
+            timer = setInterval(() => {
+                setTimeLeft(prev => prev - 1);
+            }, 1000);
+        } else if (!isSubmitting) {
+            setTimeLeft(60);
+        }
+        return () => clearInterval(timer);
+    }, [isSubmitting, timeLeft]);
 
     const targets = availableLocations.length > 0 ? availableLocations : [
         { id: 'def', name: 'Office', ...OFFICE_COORDS }
@@ -189,7 +202,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                     <div>
                         <h3 className="font-bold text-gray-800 text-lg">ลงเวลาเข้างาน</h3>
                         <p className="text-xs text-gray-400">
-                            {compressing ? 'กำลังบีบอัดภาพ...' : isSubmitting ? 'กำลังอัปโหลดข้อมูล...' : `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
+                            {compressing ? 'กำลังบีบอัดภาพ...' : 
+                             isSubmitting ? `กำลังอัปโหลด... (สำรองใน ${timeLeft}s)` : 
+                             `Step: ${step === 'LOCATION' ? '1/3' : step === 'TYPE' ? '2/3' : '3/3'}`}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -272,6 +287,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                             locationState={locationState}
                             selectedType={selectedType}
                             isSubmitting={isSubmitting || compressing}
+                            timeLeft={timeLeft}
                             onRetake={() => setStep('CAMERA')}
                             onSubmit={() => handleSubmit(false)}
                         />

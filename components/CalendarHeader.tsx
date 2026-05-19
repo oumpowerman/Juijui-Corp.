@@ -154,7 +154,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-6">
                 
                 {/* --- NAVIGATION & MOBILE TOOLS --- */}
-                <div className="flex items-center justify-between lg:justify-start gap-3 w-full lg:w-auto">
+                <div className="
+                    flex items-center justify-start lg:justify-start gap-3
+                    w-full lg:w-auto
+                    overflow-x-auto scrollbar-hide
+                    min-w-0
+                ">
                     <div className="flex items-center bg-white/50 rounded-2xl shadow-sm border border-gray-100 h-11 p-1 hover:shadow-md hover:border-indigo-200 transition-all duration-300">
                         <button 
                             onClick={handlePrev} 

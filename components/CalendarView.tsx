@@ -209,12 +209,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         )}
 
         
-        <div className={`relative z-30 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] overflow-hidden  ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto rounded-b-[2.5rem]' : 'rounded-[2.5rem]'}`}>
+        <div className={`relative isolate z-30 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${isExpanded ? 'mb-6 max-w-[1920px] mx-auto rounded-b-[2.5rem]' : 'rounded-[2.5rem]'}`}>
            {!isExpanded && displayMode === 'CALENDAR' && (
-               <>
-                  <div className="absolute -top-10 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
-                  <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-3xl pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
-               </>
+                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
+                <>
+                    <div className="absolute -top-0 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
+                    <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
+                </>
+               </div>
            )}
 
            <CalendarHeader 
@@ -298,7 +300,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             isActive={isMobileLandscape}
             onClose={() => setIsMobileLandscape(false)}
           >
-        <div className={`relative transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
+        <div className={`relative z-20 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
           
           {/* Main Content Area */}
           <div className={`

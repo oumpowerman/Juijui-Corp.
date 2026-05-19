@@ -149,16 +149,70 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* 1. Brand Logo Area */}
       <div className={`flex items-center bg-gradient-to-r ${themeClasses.logoArea} overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
-        <div className={`
-          bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg ${isDarkTheme ? 'shadow-indigo-900/40' : 'shadow-indigo-100'} text-white shrink-0 sidebar-icon
-          ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
-        `}>
-          <Sparkles className="w-7 h-7 stroke-[2.5px]" />
-        </div>
-        <div className="sidebar-item-text">
-          <h1 className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none font-inter`}>Content</h1>
-          <p className="text-[11px] font-black text-indigo-500 tracking-widest mt-1 uppercase text-center font-inter">OS</p>
-        </div>
+        <motion.div 
+          initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
+          animate={{ rotate: 0, scale: 1, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className={`
+            bg-gradient-to-br from-indigo-600 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg ${isDarkTheme ? 'shadow-indigo-900/40' : 'shadow-indigo-100'} text-white shrink-0 sidebar-icon relative overflow-hidden group
+            ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
+          `}
+        >
+          <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10" />
+          <motion.div 
+            animate={{ 
+              x: ['-100%', '200%'],
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity, 
+              repeatDelay: 3,
+              ease: "linear" 
+            }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+          />
+        </motion.div>
+        
+        {!isCollapsed && (
+          <div className="sidebar-item-text">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+                }
+              }}
+              className="flex items-center"
+            >
+              {"Kontent".split('').map((char, i) => (
+                <motion.span
+                  key={i}
+                  variants={{
+                    hidden: { opacity: 0, y: 5 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
+                >
+                  {char}
+                </motion.span>
+              ))}
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 1, duration: 0.5 }}
+              className="flex items-center gap-1.5 mt-1"
+            >
+              <div className="h-[2px] w-4 bg-indigo-500 rounded-full" />
+              <p className="text-[10px] font-black text-indigo-500 tracking-[0.3em] uppercase font-inter">OS</p>
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-indigo-500/50 to-transparent rounded-full" />
+            </motion.div>
+          </div>
+        )}
       </div>
 
       {/* 2. Menu Area */}

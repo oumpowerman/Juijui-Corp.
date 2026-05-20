@@ -679,6 +679,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               onOpenTask={handleOpenTaskById}
               onOpenSettings={() => setIsNotifSettingsOpen(true)}
               onDismiss={dismissNotification}
+              onMarkRead={markNotificationAsRead}
               onMarkAllRead={markAllAsRead}
               onNavigate={handleNavigate} 
               onApproveLeave={approveRequest}

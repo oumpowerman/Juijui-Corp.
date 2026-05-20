@@ -19,6 +19,7 @@ import OnyxLuxeSkinView from './welcome-header/skins/OnyxLuxeSkinView';
 import ZenSkinView from './welcome-header/skins/ZenSkinView';
 import PastelDreamSkinView from './welcome-header/skins/PastelDreamSkinView';
 import VoltageSkinView from './welcome-header/skins/VoltageSkinView';
+import CuteNekoSkinView from './welcome-header/skins/CuteNekoSkinView';
 
 interface WelcomeHeaderProps {
     user: User;
@@ -97,6 +98,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
                 case 'frame-zen-harmony': return <ZenSkinView {...commonProps} />;
                 case 'frame-pastel-dream': return <PastelDreamSkinView {...commonProps} />;
                 case 'frame-voltage-overdrive': return <VoltageSkinView {...commonProps} />;
+                case 'frame-neko-paradise': return <CuteNekoSkinView {...commonProps} />;
             }
         }
 

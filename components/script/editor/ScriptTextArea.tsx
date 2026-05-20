@@ -294,7 +294,7 @@ const ScriptTextArea: React.FC = () => {
                     
                     {/* Paper Container - Scaled based on Zoom Level */}
                     <div 
-                        className="w-full max-w-4xl bg-white shadow-xl shadow-indigo-100/50 rounded-[2rem] border border-gray-100 relative flex flex-col transition-all duration-200 ease-out"
+                        className="w-full max-w-4xl bg-white shadow-xl shadow-indigo-100/50 rounded-[2rem] border border-gray-100 relative flex flex-col transition-[shadow,border-color,background-color] duration-200 ease-out overflow-hidden"
                         style={{ 
                             // @ts-ignore
                             zoom: zoomLevel / 100

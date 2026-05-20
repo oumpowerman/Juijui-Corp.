@@ -16,7 +16,7 @@ const ShopTab: React.FC<ShopTabProps> = ({ items, currentUser, onBuy }) => {
         name: f.name,
         description: f.description,
         price: f.price,
-        icon: f.id === 'frame-neo-cyber' ? '🌌' : f.id === 'frame-pastel-dream' ? '🎀' : f.id === 'frame-onyx-luxe' ? '🌑' : f.id === 'frame-voltage-overdrive' ? '⚡' : '🌿',
+        icon: f.id === 'frame-neo-cyber' ? '🌌' : f.id === 'frame-pastel-dream' ? '🎀' : f.id === 'frame-onyx-luxe' ? '🌑' : f.id === 'frame-voltage-overdrive' ? '⚡' : f.id === 'frame-neko-paradise' ? '🐾' : '🌿',
         effectType: 'OTHER',
         effectValue: 0,
         isActive: true

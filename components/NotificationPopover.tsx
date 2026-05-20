@@ -15,6 +15,7 @@ interface NotificationPopoverProps {
     onOpenTask: (task: Task) => void;
     onOpenSettings: () => void;
     onDismiss?: (id: string) => void;
+    onMarkRead?: (id: string) => void;
     onMarkAllRead?: () => void;
     onNavigate: (view: ViewMode) => void; 
     onApproveLeave?: (request: LeaveRequest) => Promise<void>;
@@ -23,7 +24,7 @@ interface NotificationPopoverProps {
 }
 
 const NotificationPopover: React.FC<NotificationPopoverProps> = ({ 
-    isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkAllRead, onNavigate,
+    isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkRead, onMarkAllRead, onNavigate,
     onApproveLeave, onRejectLeave, leaveRequests = []
 }) => {
     const { showAlert } = useGlobalDialog();
@@ -38,6 +39,11 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     };
 
     const handleItemClick = (notification: AppNotification) => {
+        // Explicitly sync and mark individual DB notification as read on click
+        if (onMarkRead && notification.id && !notification.id.includes('_')) {
+            onMarkRead(notification.id);
+        }
+
         if (notification.taskId) {
             // Case 1: Open Task
             const task = tasks.find(t => t.id === notification.taskId);

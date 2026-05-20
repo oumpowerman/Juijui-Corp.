@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Save, Check, Printer, Clock, Wand2, PlayCircle, LayoutTemplate, Settings, User as UserIcon, Users, MessageSquare, ChevronDown, Sparkles, Share2, Globe, Copy, X, FileText, Rocket, MessageSquarePlus, Loader2, Maximize2, Minimize2, Zap, ZapOff, Tag, Hash, Search } from 'lucide-react';
@@ -26,6 +26,55 @@ const TEMPLATES = [
 ];
 
 const ZOOM_OPTIONS = [50, 75, 100, 125, 150, 200];
+
+const FloatingPortal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    anchorRef: React.RefObject<HTMLElement>;
+    children: React.ReactNode;
+    className?: string;
+    align?: 'left' | 'right';
+}> = ({ isOpen, onClose, anchorRef, children, className = '', align = 'right' }) => {
+    const [pos, setPos] = useState({ top: 0, left: 0, right: 0 });
+    const [isReady, setIsReady] = useState(false);
+
+    useLayoutEffect(() => {
+        if (isOpen && anchorRef.current) {
+            const rect = anchorRef.current.getBoundingClientRect();
+            setPos({
+                top: rect.bottom + 8,
+                left: rect.left,
+                right: window.innerWidth - rect.right
+            });
+            setIsReady(true);
+        } else {
+            setIsReady(false);
+        }
+    }, [isOpen, anchorRef]);
+
+    if (!isOpen) return null;
+
+    return createPortal(
+        <>
+            <div className="fixed inset-0 z-[10010]" onClick={onClose} />
+            <div 
+                style={{ 
+                    position: 'fixed',
+                    top: pos.top,
+                    left: align === 'left' ? pos.left : 'auto',
+                    right: align === 'right' ? pos.right : 'auto',
+                    opacity: isReady ? 1 : 0,
+                    zIndex: 10011
+                }} 
+                className={className} 
+                onClick={e => e.stopPropagation()}
+            >
+                {children}
+            </div>
+        </>,
+        document.body
+    );
+};
 
 const EditorToolbar: React.FC = () => {
     const { 
@@ -157,55 +206,6 @@ const EditorToolbar: React.FC = () => {
     const isAnyMenuOpen = showStatusMenu || showTemplates || showZoomMenu;
     const openCommentCount = comments.filter(c => c.status === 'OPEN').length;
 
-    const FloatingPortal: React.FC<{
-        isOpen: boolean;
-        onClose: () => void;
-        anchorRef: React.RefObject<HTMLElement>;
-        children: React.ReactNode;
-        className?: string;
-        align?: 'left' | 'right';
-    }> = ({ isOpen, onClose, anchorRef, children, className = '', align = 'right' }) => {
-        const [pos, setPos] = useState({ top: 0, left: 0, right: 0 });
-        const [isReady, setIsReady] = useState(false);
-
-        useEffect(() => {
-            if (isOpen && anchorRef.current) {
-                const rect = anchorRef.current.getBoundingClientRect();
-                setPos({
-                    top: rect.bottom + 8,
-                    left: rect.left,
-                    right: window.innerWidth - rect.right
-                });
-                setIsReady(true);
-            } else {
-                setIsReady(false);
-            }
-        }, [isOpen, anchorRef]);
-
-        if (!isOpen) return null;
-
-        return createPortal(
-            <>
-                <div className="fixed inset-0 z-[10010]" onClick={onClose} />
-                <div 
-                    style={{ 
-                        position: 'fixed',
-                        top: pos.top,
-                        left: align === 'left' ? pos.left : 'auto',
-                        right: align === 'right' ? pos.right : 'auto',
-                        opacity: isReady ? 1 : 0,
-                        zIndex: 10011
-                    }} 
-                    className={className} 
-                    onClick={e => e.stopPropagation()}
-                >
-                    {children}
-                </div>
-            </>,
-            document.body
-        );
-    };
-
     const handleSelectTemplate = async (tplContent: string) => {
         const confirmed = await showConfirm(
             "เนื้อหาเดิมจะถูกแทนที่ด้วย Template ที่เลือกทั้งหมด", 
@@ -231,12 +231,14 @@ const EditorToolbar: React.FC = () => {
                     
                     {/* Top Line: Back & Title & Meta */}
                     <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={onClose} 
                             className="shrink-0 group p-2 bg-white border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl transition-all duration-300 hover:-rotate-12 shadow-sm"
                         >
                             <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-indigo-600" />
-                        </button>
+                        </motion.button>
                         
                         <div className="flex flex-col min-w-0 flex-1">
                             <input 
@@ -271,11 +273,13 @@ const EditorToolbar: React.FC = () => {
                                 )}
                                 
                                 {/* Manual Save Button (Replaces passive text) */}
-                                <button 
+                                <motion.button 
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={handleManualSave}
                                     disabled={isSaving}
                                     className={`
-                                        flex items-center gap-1.5 px-3 py-0.5 rounded-full border transition-all shrink-0 active:scale-95
+                                        flex items-center gap-1.5 px-3 py-0.5 rounded-full border transition-all shrink-0
                                         ${showSaveSuccess 
                                             ? 'bg-green-50 text-green-600 border-green-200' 
                                             : isSaving 
@@ -299,7 +303,7 @@ const EditorToolbar: React.FC = () => {
                                             ? 'Saved!' 
                                             : `Save (${format(lastSaved, 'HH:mm')})`
                                     }
-                                </button>
+                                </motion.button>
                                 
                                 <span className="flex items-center shrink-0" title="Estimated Reading Time">
                                     <Clock className="w-3 h-3 mr-1 text-orange-400" /> {formattedDuration}
@@ -338,23 +342,27 @@ const EditorToolbar: React.FC = () => {
                         </div>
 
                         {/* Metadata Button */}
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setIsMetadataOpen(true)}
                             className="p-2 text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-100 transition-all shrink-0"
                             title="แก้ไขรายละเอียด (Metadata)"
                         >
                             <FileText className="w-5 h-5" />
-                        </button>
+                        </motion.button>
                         
                         {/* Promote to Content Button */}
                         {!contentId && isScriptOwner && (
-                             <button 
+                             <motion.button 
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={onPromote}
-                                className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
+                                className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all shrink-0 animate-pulse"
                                 title="ส่งเข้ากระบวนการผลิต (Create Content)"
                              >
-                                 <Rocket className="w-4 h-4" /> ส่งเข้าผลิต
-                             </button>
+                                 <Rocket className="w-4 h-4 text-white" /> ส่งเข้าผลิต
+                             </motion.button>
                         )}
                     </div>
 
@@ -362,27 +370,33 @@ const EditorToolbar: React.FC = () => {
                     <div className="flex items-center gap-2 shrink-0 overflow-x-auto xl:overflow-visible pb-1 xl:pb-0 scrollbar-hide w-full xl:w-auto -mx-4 px-4 xl:mx-0 xl:px-0">
                         
                         {/* Focus Mode Toggle */}
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setIsFocusMode(true)}
                             className="p-2 bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm shrink-0"
                             title="Focus Mode (เต็มจอ)"
                         >
                             <Maximize2 className="w-4 h-4" />
-                        </button>
+                        </motion.button>
 
                         {/* Auto Character Toggle */}
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setIsAutoCharacter(!isAutoCharacter)}
                             className={`p-2 rounded-xl transition-all border shadow-sm shrink-0 ${isAutoCharacter ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:text-orange-600'}`}
                             title={isAutoCharacter ? "ปิด Auto Character" : "เปิด Auto Character (Enter เพื่อสลับตัวละคร)"}
                         >
-                            {isAutoCharacter ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
-                        </button>
+                            {isAutoCharacter ? <Zap className="w-4 h-4 animate-pulse" /> : <ZapOff className="w-4 h-4" />}
+                        </motion.button>
 
                         <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
 
                         {/* Comments Toggle */}
-                    <button 
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setIsCommentsOpen(!isCommentsOpen)}
                         className={`relative p-2 rounded-xl transition-all border shadow-sm shrink-0 ${isCommentsOpen ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : 'bg-white text-gray-500 border-gray-200 hover:text-yellow-600'}`}
                         title="Comments"
@@ -393,33 +407,37 @@ const EditorToolbar: React.FC = () => {
                                 {openCommentCount}
                             </span>
                         )}
-                    </button>
+                    </motion.button>
 
                     {/* Share Button */}
-                    <button 
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setShowShareModal(true)}
                         className={`
-                            h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border shadow-sm active:scale-95 shrink-0
+                            h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border shadow-sm shrink-0
                             ${isPublic ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-gray-500 border-gray-200 hover:text-indigo-600'}
                         `}
                     >
                         {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                         {isPublic ? 'Public' : 'Share'}
-                    </button>
+                    </motion.button>
 
                      {/* Status Pill */}
                     <div className="relative shrink-0" ref={statusBtnRef}>
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setShowStatusMenu(!showStatusMenu)}
                             className={`
-                                h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border shadow-sm active:scale-95
+                                h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border shadow-sm
                                 ${STATUS_CONFIG[status].color} hover:shadow-md
                             `}
                         >
                             <span className="text-base">{STATUS_CONFIG[status].icon}</span>
                             {STATUS_CONFIG[status].label}
                             <ChevronDown className="w-3 h-3 opacity-50 ml-1" />
-                        </button>
+                        </motion.button>
                         
                         <FloatingPortal 
                             isOpen={showStatusMenu} 
@@ -450,12 +468,14 @@ const EditorToolbar: React.FC = () => {
 
                      {/* Zoom Dropdown */}
                     <div className="relative shrink-0" ref={zoomBtnRef}>
-                         <button 
+                         <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setShowZoomMenu(!showZoomMenu)}
                             className="h-9 px-3 bg-gray-100 rounded-lg flex items-center gap-1 text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors border border-gray-200"
                         >
                              {zoomLevel}% <ChevronDown className="w-3 h-3 opacity-50" />
-                        </button>
+                        </motion.button>
                         
                         <FloatingPortal
                             isOpen={showZoomMenu}
@@ -480,52 +500,76 @@ const EditorToolbar: React.FC = () => {
 
                     {/* Mode Toggle */}
                     <div className="bg-gray-100 p-1 rounded-lg flex border border-gray-200 shrink-0 h-9 items-center">
-                        <button onClick={() => setScriptType('MONOLOGUE')} className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 text-[10px] font-bold ${scriptType === 'MONOLOGUE' ? 'bg-white shadow text-indigo-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`} title="Monologue"><UserIcon className="w-3 h-3" /> Mono</button>
-                        <button onClick={() => setScriptType('DIALOGUE')} className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 text-[10px] font-bold ${scriptType === 'DIALOGUE' ? 'bg-white shadow text-indigo-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`} title="Dialogue"><Users className="w-3 h-3" /> Dial</button>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setScriptType('MONOLOGUE')} className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 text-[10px] font-bold ${scriptType === 'MONOLOGUE' ? 'bg-white shadow text-indigo-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`} title="Monologue"><UserIcon className="w-3 h-3" /> Mono</motion.button>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setScriptType('DIALOGUE')} className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 text-[10px] font-bold ${scriptType === 'DIALOGUE' ? 'bg-white shadow text-indigo-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`} title="Dialogue"><Users className="w-3 h-3" /> Dial</motion.button>
                     </div>
 
                     <div className="h-6 w-px bg-gray-200 mx-1 shrink-0"></div>
                     
                     {/* Tools */}
                     {scriptType === 'DIALOGUE' && (
-                        <button 
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setIsChatPreviewOpen(!isChatPreviewOpen)}
-                            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm hover:-translate-y-0.5 active:translate-y-0 shrink-0 ${isChatPreviewOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
+                            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm shrink-0 ${isChatPreviewOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
                             title="Chat Preview"
                         >
                             <MessageSquare className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                     )}
 
-                    <button 
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setIsFindReplaceOpen(!isFindReplaceOpen)} 
-                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm hover:-translate-y-0.5 active:translate-y-0 shrink-0 ${isFindReplaceOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm shrink-0 ${isFindReplaceOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
                         title="Find & Replace (Ctrl+F)"
                     >
                         <Search className="w-4 h-4" />
-                    </button>
+                    </motion.button>
 
-                    <button 
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setShowConfig(true)} 
-                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm hover:-translate-y-0.5 active:translate-y-0 shrink-0 ${showConfig ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all border shadow-sm shrink-0 ${showConfig ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200'}`}
                         title="Character Manager"
                     >
                         <Settings className="w-4 h-4" />
-                    </button>
+                    </motion.button>
 
-                    <button onClick={() => setIsAIOpen(true)} className="w-9 h-9 flex items-center justify-center bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white rounded-lg shadow-lg shadow-purple-200 transition-all hover:scale-105 active:scale-95 border border-white/20 shrink-0" title="AI Magic">
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsAIOpen(true)} 
+                        className="w-9 h-9 flex items-center justify-center bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white rounded-lg shadow-lg shadow-purple-200 transition-all border border-white/20 shrink-0" 
+                        title="AI Magic"
+                    >
                         <Wand2 className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                     
-                    <button onClick={() => setIsTeleprompterOpen(true)} className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-200 hover:bg-green-50 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 shrink-0" title="Teleprompter">
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsTeleprompterOpen(true)} 
+                        className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-200 hover:bg-green-50 rounded-lg shadow-sm transition-all shrink-0" 
+                        title="Teleprompter"
+                    >
                         <PlayCircle className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                     
                      {/* Templates Dropdown */}
                     <div className="relative shrink-0" ref={templatesBtnRef}>
-                        <button onClick={() => setShowTemplates(!showTemplates)} className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-200 hover:bg-orange-50 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0" title="Templates">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowTemplates(!showTemplates)} 
+                            className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-200 hover:bg-orange-50 rounded-lg shadow-sm transition-all" 
+                            title="Templates"
+                        >
                             <LayoutTemplate className="w-4 h-4" />
-                        </button>
+                        </motion.button>
                         
                         <FloatingPortal
                             isOpen={showTemplates}
@@ -551,9 +595,15 @@ const EditorToolbar: React.FC = () => {
                         </FloatingPortal>
                     </div>
 
-                    <button onClick={handlePrint} className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 shrink-0" title="Print Script">
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handlePrint} 
+                        className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg shadow-sm transition-all shrink-0" 
+                        title="Print Script"
+                    >
                         <Printer className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                 </div>
             </div>
         )}

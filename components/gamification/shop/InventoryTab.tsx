@@ -37,7 +37,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, onUse, onGoToSho
                         actionButton={
                             <button 
                                 onClick={() => inv.item && onUse(inv.id, inv.item)}
-                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-md shadow-green-200 transition-all active:scale-95 whitespace-nowrap"
+                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-medium shadow-md shadow-green-200 transition-all active:scale-95 whitespace-nowrap"
                             >
                                 ใช้ทันที
                             </button>

@@ -5,6 +5,7 @@ import PastelDreamFrame from './frames/PastelDreamFrame';
 import OnyxLuxeFrame from './frames/OnyxLuxeFrame';
 import VoltageOverdriveFrame from './frames/VoltageOverdriveFrame';
 import ZenHarmonyFrame from './frames/ZenHarmonyFrame';
+import NekoParadiseFrame from './frames/NekoParadiseFrame';
 import { User } from '../../../../types';
 
 interface SkinManagerProps {
@@ -66,6 +67,15 @@ export const SKIN_CONFIGS: Record<string, {
         glassBg: 'rgba(240, 255, 250, 0.85)',
         textColor: 'text-emerald-600',
         label: 'ZEN HARMONY PATH'
+    },
+    'frame-neko-paradise': {
+        bannerGradient: 'from-amber-400 via-orange-300 to-rose-300',
+        borderGradient: 'linear-gradient(135deg, #f59e0b, #fb923c, #f43f5e)',
+        glowRgb: '245, 158, 11',
+        rayRgb: '251, 146, 60',
+        glassBg: 'rgba(254, 252, 248, 0.84)',
+        textColor: 'text-amber-600',
+        label: 'NEO NEKO SHNRYU'
     }
 };
 
@@ -97,6 +107,9 @@ export const SkinPattern: React.FC<{ user: User }> = ({ user }) => {
             )}
             {skinId === 'frame-zen-harmony' && (
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-[0.03]" />
+            )}
+            {skinId === 'frame-neko-paradise' && (
+                <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 via-transparent to-rose-500/5" />
             )}
 
             {/* Special Skin Particles */}
@@ -181,6 +194,7 @@ const SkinManager: React.FC<SkinManagerProps> = ({ user, mode = 'avatar', childr
             case 'frame-onyx-luxe': return <OnyxLuxeFrame>{children}</OnyxLuxeFrame>;
             case 'frame-voltage-overdrive': return <VoltageOverdriveFrame>{children}</VoltageOverdriveFrame>;
             case 'frame-zen-harmony': return <ZenHarmonyFrame>{children}</ZenHarmonyFrame>;
+            case 'frame-neko-paradise': return <NekoParadiseFrame>{children}</NekoParadiseFrame>;
             default:
                 return (
                     <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full p-1 bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg">

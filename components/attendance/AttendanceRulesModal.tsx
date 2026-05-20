@@ -92,7 +92,7 @@ const RuleCard = ({
 };
 
 const SectionHeader = ({ title, icon: Icon, color }: { title: string, icon: any, color: string }) => (
-    <div className="flex items-center gap-2 mb-4 mt-6 first:mt-0 sticky top-0 bg-slate-50/90 backdrop-blur-md py-2 z-10 border-b border-gray-200/60 shadow-[0_4px_10px_-10px_rgba(0,0,0,0.1)]">
+    <div className="flex items-center gap-2 mb-4 mt-6 first:mt-0 top-0 bg-slate-50/90 backdrop-blur-md py-2 z-10 border-b border-gray-200/60 shadow-[0_4px_10px_-10px_rgba(0,0,0,0.1)]">
         <Icon className={`w-5 h-5 ${color} drop-shadow-sm`} />
         <h2 className={`font-bold text-lg ${color} drop-shadow-sm`}>{title}</h2>
     </div>

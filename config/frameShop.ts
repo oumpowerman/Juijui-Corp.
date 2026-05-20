@@ -48,5 +48,13 @@ export const FRAME_SHOP_CONFIG: FrameConfig[] = [
         price: 10000,
         rarity: 'LEGENDARY',
         theme: 'nature'
+    },
+    {
+        id: 'frame-neko-paradise',
+        name: '🐾 NEKO PARADISE',
+        description: 'Whimsical cozy frame with playful animated kittens walking around.',
+        price: 1000,
+        rarity: 'EPIC',
+        theme: 'cute'
     }
 ];

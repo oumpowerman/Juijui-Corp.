@@ -68,6 +68,8 @@ const mapProfileToUser = (data: any): User => ({
     ssoIncluded: data.sso_included !== false,
     taxType: data.tax_type || 'WHT_3',
     lineUserId: data.line_user_id || '',
+    equippedFrameId: data.equipped_frame_id || '',
+    ownedFrameIds: data.owned_frame_ids || [],
     startDate: data.start_date ? new Date(data.start_date) : undefined,
     createdAt: data.created_at ? new Date(data.created_at) : undefined
 });
@@ -99,6 +101,8 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
     if ('tax_type' in u) updates.taxType = u.tax_type;
     if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
+    if ('equipped_frame_id' in u) updates.equippedFrameId = u.equipped_frame_id;
+    if ('owned_frame_ids' in u) updates.ownedFrameIds = u.owned_frame_ids;
     if ('start_date' in u) updates.startDate = u.start_date ? new Date(u.start_date) : undefined;
     if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
     if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
@@ -313,6 +317,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.leaveStartDate !== undefined) payload.leave_start_date = updates.leaveStartDate ? updates.leaveStartDate.toISOString() : null;
             if (updates.leaveEndDate !== undefined) payload.leave_end_date = updates.leaveEndDate ? updates.leaveEndDate.toISOString() : null;
             if (updates.lineUserId !== undefined) payload.line_user_id = updates.lineUserId;
+            if (updates.equippedFrameId !== undefined) payload.equipped_frame_id = updates.equippedFrameId;
+            if (updates.ownedFrameIds !== undefined) payload.owned_frame_ids = updates.ownedFrameIds;
 
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();

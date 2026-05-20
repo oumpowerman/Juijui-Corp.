@@ -46,6 +46,10 @@ export interface User {
     ssoIncluded?: boolean;
     taxType?: string;
 
+    // Gamification
+    equippedFrameId?: string;
+    ownedFrameIds?: string[];
+
     // Notification
     lineUserId?: string;
     createdAt?: Date;

@@ -7,6 +7,7 @@ import ProfileSection from './ProfileSection';
 import StatsSection from './StatsSection';
 import ActionButtons from './ActionButtons';
 import { getTierConfig } from '../../../../config/tierSystem';
+import { SKIN_CONFIGS, SkinStyles, SkinPattern } from './SkinManager';
 
 interface GodlyTierViewProps {
     user: User;
@@ -41,7 +42,20 @@ const GodlyTierView: React.FC<GodlyTierViewProps> = ({
     onOpenRules,
     onOpenDeathHistory
 }) => {
-    const tierConfig = useMemo(() => getTierConfig(100), []);
+    // 1. Tier Config with Skin Override
+    const tierConfig = useMemo(() => {
+        const base = getTierConfig(100);
+        const skinId = (user as any).equippedFrameId;
+        const skin = SKIN_CONFIGS[skinId];
+        
+        if (skin) {
+            return {
+                ...base,
+                ...skin
+            };
+        }
+        return base;
+    }, [user]);
 
     // 1. RAINBOW STYLES
     const rainbowStyles = useMemo(() => {
@@ -123,20 +137,25 @@ const GodlyTierView: React.FC<GodlyTierViewProps> = ({
     return (
         <>
             <style>{rainbowStyles.css}</style>
+            <SkinStyles user={user} />
             
-            <div className="rainbow-border-3d rainbow-glass rounded-[2rem] p-4 sm:p-8 relative overflow-visible animate-in fade-in zoom-in-95 duration-1000">
+            <div className={`${(user as any).equippedFrameId ? `skin-border-${(user as any).equippedFrameId}` : 'rainbow-border-3d'} rainbow-glass rounded-[2rem] p-4 sm:p-8 relative overflow-visible animate-in fade-in zoom-in-95 duration-1000`}>
                 
                 {/* 1. RAINBOW AURA (Background) */}
-                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
-                    <div 
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300%] h-[300%] animate-[rainbow-rays_30s_linear_infinite]" 
-                        style={{ 
-                            background: `radial-gradient(circle at center, rgba(255,255,255,0.8) 0%, rgba(200,200,255,0.1) 30%, transparent 60%)` 
-                        }}
-                    />
-                    {/* Hue Rotating Layer */}
-                    <div className="absolute inset-0 bg-white/10 mix-blend-overlay" />
-                </div>
+                <SkinPattern user={user} />
+
+                {!(user as any).equippedFrameId && (
+                    <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
+                        <div 
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300%] h-[300%] animate-[rainbow-rays_30s_linear_infinite]" 
+                            style={{ 
+                                background: `radial-gradient(circle at center, rgba(255,255,255,0.8) 0%, rgba(200,200,255,0.1) 30%, transparent 60%)` 
+                            }}
+                        />
+                        {/* Hue Rotating Layer */}
+                        <div className="absolute inset-0 bg-white/10 mix-blend-overlay" />
+                    </div>
+                )}
 
                 {/* Floating Particles */}
                 <div className="absolute inset-0 pointer-events-none z-0">

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, X } from 'lucide-react';
@@ -23,10 +24,10 @@ function PWAReloadPrompt() {
     setNeedRefresh(false);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {(offlineReady || needRefresh) && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] w-[calc(100%-2rem)] max-w-[calc(100vw-2rem)] sm:w-[420px] transform">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100000] w-[calc(100%-2rem)] max-w-[calc(100vw-2rem)] sm:w-[420px] transform">
           <motion.div
              initial={{ y: 100, opacity: 0, scale: 0.95 }}
              animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -95,7 +96,8 @@ function PWAReloadPrompt() {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 

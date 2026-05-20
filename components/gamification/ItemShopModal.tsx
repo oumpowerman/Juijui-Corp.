@@ -32,6 +32,56 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
     if (!isOpen) return null;
 
     const handleBuy = async (item: ShopItem) => {
+        // Intercept Frame Purchases (Since they are local config)
+        if (item.id.startsWith('frame-')) {
+            const ownedFrameIds = (currentUser as any).ownedFrameIds || [];
+            const isAlreadyOwned = ownedFrameIds.includes(item.id);
+
+            if (!isAlreadyOwned && currentUser.availablePoints < item.price) {
+                showToast('แต้มไม่พอครับ!', 'error');
+                return;
+            }
+
+            try {
+                const { supabase } = await import('../../lib/supabase');
+                
+                const isEquipped = (currentUser as any).equippedFrameId === item.id;
+
+                // Logic: 
+                // 1. If currently equipped: unequip (set to empty)
+                // 2. If not owned: subtract points + add to owned list + set as equipped
+                // 3. If already owned but not equipped: just set as equipped (Free)
+                const updates: any = { 
+                    equipped_frame_id: isEquipped ? '' : item.id 
+                };
+                
+                if (!isAlreadyOwned && !isEquipped) {
+                    updates.available_points = currentUser.availablePoints - item.price;
+                    updates.owned_frame_ids = [...ownedFrameIds, item.id];
+                }
+
+                const { error } = await supabase
+                    .from('profiles')
+                    .update(updates)
+                    .eq('id', currentUser.id);
+
+                if (error) throw error;
+                
+                if (isEquipped) {
+                    showToast(`ถอด ${item.name} ออกแล้ว`, 'info');
+                } else {
+                    showToast(isAlreadyOwned ? `ติดตั้ง ${item.name} แล้ว` : `ซื้อและติดตั้ง ${item.name} เรียบร้อย!`, 'success');
+                }
+                
+                if (onRefreshProfile) await onRefreshProfile();
+                return;
+            } catch (err) {
+                console.error("Frame Buy Error:", err);
+                showToast('เกิดข้อผิดพลาดในการซื้อเฟรม', 'error');
+                return;
+            }
+        }
+
         const result = await buyItem(item);
         if (result.success) {
             // Manual refresh to update wallet points immediately

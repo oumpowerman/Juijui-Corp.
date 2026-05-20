@@ -128,10 +128,10 @@ const RichTextToolbar: React.FC<RichTextToolbarProps> = ({
 
     return (
         <div className={`
-            flex items-center gap-1 p-2 border-b ${variant === 'dark' ? 'border-white/10 bg-[#1a1a1a]' : 'border-gray-100 bg-white/80'} backdrop-blur-md sticky top-0 z-20 overflow-x-auto no-scrollbar rounded-t-[1.5rem] md:rounded-t-[2rem] transition-shadow duration-300
+            flex flex-wrap items-center gap-1 p-2 border-b ${variant === 'dark' ? 'border-white/10 bg-[#1a1a1a]' : 'border-gray-100 bg-white/80'} backdrop-blur-md sticky top-0 z-30 overflow-visible rounded-t-[1.5rem] md:rounded-t-[2rem] transition-shadow duration-300
             ${isScrolled ? 'shadow-[0_4px_20px_rgba(0,0,0,0.03)]' : ''}
         `}>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto">
             <ImageInsertModal 
                 isOpen={isImageModalOpen}
                 onClose={() => setIsImageModalOpen(false)}

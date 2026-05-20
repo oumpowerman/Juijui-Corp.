@@ -7,6 +7,7 @@ import StatsSection from './StatsSection';
 import ActionButtons from './ActionButtons';
 import { getTierConfig } from '../../../../config/tierSystem';
 import GodlyTierView from './GodlyTierView';
+import { SKIN_CONFIGS, SkinStyles, SkinPattern } from './SkinManager';
 
 interface TieredStateViewProps {
     user: User;
@@ -46,8 +47,20 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
     const isHpLow = hpPercent < 40;
     const isMaxHp = hpPercent === 100;
 
-    // 2. Tier Config with useMemo
-    const tierConfig = useMemo(() => getTierConfig(hpPercent), [hpPercent]);
+    // 2. Tier Config with Skin Override
+    const tierConfig = useMemo(() => {
+        const base = getTierConfig(hpPercent);
+        const skinId = (user as any).equippedFrameId;
+        const skin = SKIN_CONFIGS[skinId];
+        
+        if (skin && hpPercent >= 50) {
+            return {
+                ...base,
+                ...skin
+            };
+        }
+        return base;
+    }, [hpPercent, user]);
     
     // 3. SPECIAL: Godly View for Max HP
     if (isMaxHp) {
@@ -151,19 +164,23 @@ const TieredStateView: React.FC<TieredStateViewProps> = ({
     return (
         <>
             <style>{dynamicStyles.css}</style>
+            <SkinStyles user={user} />
 
-            <div className="tiered-border-3d tiered-glass rounded-[2rem] p-4 sm:p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700">
+            <div className={`${(user as any).equippedFrameId && hpPercent >= 50 ? `skin-border-${(user as any).equippedFrameId}` : 'tiered-border-3d'} tiered-glass rounded-[2rem] p-4 sm:p-6 relative overflow-visible animate-in fade-in zoom-in-95 duration-700`}>
                 
                 {/* Background Decor - Dynamic Rays */}
+                <SkinPattern user={user} />
                 
-                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
-                    <div 
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250%] h-[250%] animate-[rays-tiered_40s_linear_infinite]" 
-                        style={{ 
-                            background: `radial-gradient(circle at center, ${dynamicStyles.rayColor} 0%, ${dynamicStyles.rayColor.replace('0.12', '0.05')} 40%, transparent 70%)` 
-                        }}
-                    />
-                </div>
+                {!((user as any).equippedFrameId && hpPercent >= 50) && (
+                    <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none z-0">
+                        <div 
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250%] h-[250%] animate-[rays-tiered_40s_linear_infinite]" 
+                            style={{ 
+                                background: `radial-gradient(circle at center, ${dynamicStyles.rayColor} 0%, ${dynamicStyles.rayColor.replace('0.12', '0.05')} 40%, transparent 70%)` 
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Floating Particles */}
                 <div className="absolute inset-0 pointer-events-none z-0">

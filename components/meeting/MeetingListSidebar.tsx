@@ -35,7 +35,8 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
     const [viewTab, setViewTab] = useState<ViewTab>('UPCOMING');
     const [selectedDate, setSelectedDate] = useState<Date | null>(null); // Specific day filter
     const [filterCategory, setFilterCategory] = useState<string>('ALL'); // Changed type to string to match MasterOption key
-    const [showCalendar, setShowCalendar] = useState(true);
+    const [showCalendar, setShowCalendar] = useState(true); // Default to false for space saving
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     // --- Helpers ---
     const getCategoryKey = (m: MeetingLog): string => m.category || 'GENERAL';
@@ -217,32 +218,20 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
                 <div className="absolute top-1/2 -left-20 w-48 h-48 bg-purple-200/40 rounded-full blur-3xl" />
             </div>
 
-            {/* 1. Search & Filter Header */}
-            <div className="p-3 md:p-4 bg-white/40 backdrop-blur-md border-b border-white/60 space-y-3 md:space-y-4 shadow-sm z-10">
-            <div className="relative group">
-                    <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-400 group-focus-within:text-indigo-500 transition-all duration-300 z-10" />
-                    <input 
-                        type="text" 
-                        placeholder="ค้นหาบันทึก..." 
-                        className="w-full px-3 md:px-4 py-2 md:py-3 bg-white/60 border border-white/80 rounded-xl md:rounded-2xl text-[11px] md:text-sm focus:border-indigo-400 focus:bg-white focus:ring-4 md:focus:ring-8 focus:ring-indigo-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-inner text-center"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                    />
-                </div>
-
-                {/* Main Tabs */}
-                <div className="bg-slate-200/50 backdrop-blur-sm p-1 md:p-1.5 rounded-xl md:rounded-2xl flex font-medium text-[9px] font-kanit md:text-[12px] relative shadow-inner border border-white/40">
+            {/* 1. Sleek Compact Header Row */}
+            <div className="p-3 bg-white/50 backdrop-blur-md border-b border-white/60 flex items-center justify-between gap-3 shadow-sm z-30">
+                {/* Clean, Rounded Segmented Tabs */}
+                <div className="flex-1 bg-slate-200/40 backdrop-blur-sm p-1 rounded-full flex font-medium text-[10px] font-kanit md:text-[11px] relative shadow-inner border border-white/40 max-w-[280px]">
                     <button 
                         onClick={() => { 
                             setViewTab('UPCOMING'); 
                             setSelectedDate(null); 
-                            setShowCalendar(true); // Automatically show for better UX in Upcoming
                         }}
-                        className={`flex-1 py-2 md:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 uppercase tracking-widest relative ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-white text-indigo-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 py-1.5 rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-widest relative ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-white text-indigo-600 shadow-sm scale-[1.02]' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                        <span className="relative">
+                        <span className="relative font-bold flex items-center">
                             นัดหมาย
-                            <span className={`absolute -right-6 md:-right-7 top-1/2 -translate-y-1/2 px-1 md:px-1.5 py-0.5 rounded-full text-[7px] md:text-[8px] min-w-[16px] md:min-w-[18px] text-center ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>
+                            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${viewTab === 'UPCOMING' && !selectedDate ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-300/60 text-slate-500'}`}>
                                 {meetings.filter(m => (isFuture(m.date) || isToday(m.date)) && isSameMonth(m.date, currentMonth)).length}
                             </span>
                         </span>
@@ -251,14 +240,98 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
                         onClick={() => { 
                             setViewTab('HISTORY'); 
                             setSelectedDate(null); 
-                            setShowCalendar(false); // Automatically collapse for History
                         }}
-                        className={`flex-1 py-2 md:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 uppercase tracking-widest ${viewTab === 'HISTORY' && !selectedDate ? 'bg-white text-indigo-600 shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 py-1.5 rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-widest ${viewTab === 'HISTORY' && !selectedDate ? 'bg-white text-indigo-600 shadow-sm scale-[1.02]' : 'text-slate-500 hover:text-slate-705'}`}
                     >
-                        ประวัติเก่า
+                        <span className="font-bold">ประวัติ</span>
                     </button>
                 </div>
+
+                {/* Search/Filter Toggle Button */}
+                <button
+                    onClick={() => setIsSearchOpen(!isSearchOpen)}
+                    className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all duration-300 flex items-center justify-center gap-1.5 border relative ${isSearchOpen || searchQuery || filterCategory !== 'ALL' ? 'bg-indigo-600 text-white border-transparent shadow-md scale-105' : 'bg-white/60 text-slate-500 border-white/80 hover:bg-white'}`}
+                >
+                    <Search className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline font-bold">
+                        {searchQuery || filterCategory !== 'ALL' ? 'ตัวกรองที่ทำงาน' : 'ค้นหา & กรอง'}
+                    </span>
+                    {(searchQuery || filterCategory !== 'ALL') && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500 border border-white"></span>
+                    )}
+                </button>
             </div>
+
+            {/* Sliding Search & Filter Panel */}
+            <AnimatePresence>
+                {isSearchOpen && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-white/40 backdrop-blur-md border-b border-white/60 max-h-[220px] md:max-h-[280px] overflow-y-auto scrollbar-thin z-20"
+                    >
+                        <div className="p-3 md:p-4 space-y-3">
+                            {/* Search Input */}
+                            <div className="relative group">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-500 transition-all duration-300 z-10" />
+                                <input 
+                                    type="text" 
+                                    placeholder="ค้นหาบันทึก..." 
+                                    className="w-full pl-9 pr-4 py-2 bg-white/60 border border-white/85 rounded-xl text-[11px] md:text-xs focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-inner"
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                />
+                                {searchQuery && (
+                                    <button 
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Category Filter Chips inside the Panel */}
+                            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide py-1">
+                                <button 
+                                    onClick={() => setFilterCategory('ALL')}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === 'ALL' ? 'bg-slate-800 text-white border-slate-800 shadow-md scale-102' : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
+                                >
+                                    ทั้งหมด
+                                </button>
+                                {categoryOptions.map(opt => {
+                                    const activeClass = `${opt.color} shadow-md scale-102 border-transparent`;
+                                    return (
+                                        <button
+                                            key={opt.key}
+                                            onClick={() => setFilterCategory(opt.key)}
+                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === opt.key ? activeClass : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
+                                        >
+                                            {opt.label.split('(')[0]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Reset All Filters Indicator inside the Drawer if anything is filtered */}
+                            {(searchQuery || filterCategory !== 'ALL') && (
+                                <div className="flex justify-end pt-1">
+                                    <button 
+                                        onClick={() => {
+                                            setSearchQuery('');
+                                            setFilterCategory('ALL');
+                                        }}
+                                        className="text-[9px] font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 uppercase tracking-wider"
+                                    >
+                                        <X className="w-3 h-3" /> ล้างตัวกรองทั้งหมด
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             
             {/* 2. Mini Calendar (Expandable) */}
             <AnimatePresence>
@@ -267,7 +340,7 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="bg-white/40 backdrop-blur-md border-b border-white/60 overflow-hidden z-20"
+                        className="bg-white/40 backdrop-blur-md border-b border-white/60 max-h-[220px] md:max-h-[280px] overflow-y-auto scrollbar-thin z-20"
                     >
                         <div className="px-3 md:px-4 pb-3 md:pb-4 pt-2 md:pt-3">
                             <div className="flex justify-between items-center mb-3 md:mb-4">
@@ -324,7 +397,7 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
             {/* Calendar Toggle Bar */}
             <button 
                 onClick={() => setShowCalendar(!showCalendar)}
-                className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-md border-b border-white/60 font-kanit text-[12px] font-bold text-indigo-600 hover:text-indigo-700 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-pink-500/20 transition-all duration-500 uppercase tracking-[0.2em] group shadow-sm"
+                className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-md border-b border-white/60 font-kanit text-[12px] font-bold text-indigo-600 hover:text-indigo-700 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-pink-500/20 transition-all duration-500 uppercase tracking-[0.2em] group shadow-sm z-25"
             >
                 {showCalendar ? (
                     <>
@@ -340,29 +413,6 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
                     </>
                 )}
             </button>
-
-            {/* 3. Category Filter Chips (Dynamic) */}
-            <div className="px-3 md:px-4 py-3 md:py-4 flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide bg-white/20 backdrop-blur-md border-b border-white/60 shadow-sm sticky top-0 z-10">
-                <button 
-                    onClick={() => setFilterCategory('ALL')}
-                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === 'ALL' ? 'bg-slate-800 text-white border-slate-800 shadow-lg scale-105' : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
-                >
-                    ทั้งหมด
-                </button>
-                {categoryOptions.map(opt => {
-                    const activeClass = `${opt.color} shadow-lg scale-105 border-transparent`;
-                    
-                    return (
-                        <button
-                            key={opt.key}
-                            onClick={() => setFilterCategory(opt.key)}
-                            className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-bold whitespace-nowrap border transition-all duration-300 uppercase tracking-widest ${filterCategory === opt.key ? activeClass : 'bg-white/60 text-slate-400 border-white/80 hover:border-slate-300 hover:bg-white'}`}
-                        >
-                            {opt.label.split('(')[0]}
-                        </button>
-                    );
-                })}
-            </div>
             
             {/* 4. Scrollable List Area */}
             <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-200/50">

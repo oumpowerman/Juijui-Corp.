@@ -11,6 +11,14 @@ import TieredStateView from './welcome-header/TieredStateView';
 import ProfileSection from './welcome-header/ProfileSection';
 import StatsSection from './welcome-header/StatsSection';
 import ActionButtons from './welcome-header/ActionButtons';
+import { SKIN_CONFIGS, SkinStyles, SkinPattern } from './welcome-header/SkinManager';
+
+// Specialized Skin Views
+import NeoCyberSkinView from './welcome-header/skins/NeoCyberSkinView';
+import OnyxLuxeSkinView from './welcome-header/skins/OnyxLuxeSkinView';
+import ZenSkinView from './welcome-header/skins/ZenSkinView';
+import PastelDreamSkinView from './welcome-header/skins/PastelDreamSkinView';
+import VoltageSkinView from './welcome-header/skins/VoltageSkinView';
 
 interface WelcomeHeaderProps {
     user: User;
@@ -63,7 +71,36 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
             );
         }
 
-        // --- TIERED & DIVINE STATES (HP 50-100) ---
+        // --- SKIN ROUTING (Total Conversion) ---
+        // If user has a skin and HP is healthy enough, use the specialized Skin View
+        const skinId = (user as any).equippedFrameId;
+        if (skinId && hpPercent >= 50) {
+            const commonProps = {
+                user,
+                onUpdateStatus,
+                onOpenShop,
+                onEditProfile,
+                onOpenRules: () => setIsRulesOpen(true),
+                onOpenDeathHistory: () => setIsDeathHistoryOpen(true),
+                hpPercent,
+                progressPercent,
+                randomGreeting,
+                unreadNotifications,
+                onOpenNotifications,
+                onOpenWorkload,
+                onOpenReport
+            };
+
+            switch (skinId) {
+                case 'frame-neo-cyber': return <NeoCyberSkinView {...commonProps} />;
+                case 'frame-onyx-luxe': return <OnyxLuxeSkinView {...commonProps} />;
+                case 'frame-zen-harmony': return <ZenSkinView {...commonProps} />;
+                case 'frame-pastel-dream': return <PastelDreamSkinView {...commonProps} />;
+                case 'frame-voltage-overdrive': return <VoltageSkinView {...commonProps} />;
+            }
+        }
+
+        // --- TIERED & DIVINE STATES (Fallback for non-skinned users) ---
         if (isTiered || isDivine) {
             return (
                 <TieredStateView 
@@ -86,12 +123,19 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
         }
 
         // --- NORMAL STATE ---
+        const isSkinned = skinId && SKIN_CONFIGS[skinId] && hpPercent >= 50;
+
         return (
-            <div className="bg-white rounded-[2rem] p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-visible">
+            <div className={`rounded-[2rem] p-4 sm:p-6 shadow-sm border relative overflow-visible transition-all duration-700 ${isSkinned ? `skin-border-${skinId}` : 'bg-white border-gray-100'}`}>
+                <SkinStyles user={user} />
                 {/* Background Decor Mask */}
-                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50" />
-                </div>
+                {isSkinned ? (
+                    <SkinPattern user={user} />
+                ) : (
+                    <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-purple-50 rounded-bl-full opacity-50" />
+                    </div>
+                )}
 
                 <div className="relative z-10 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-6">
                     {/* 1. User Profile & Status */}

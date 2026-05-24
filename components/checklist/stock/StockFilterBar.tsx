@@ -237,12 +237,22 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                     {/* Autocomplete suggestions dropdown */}
                     <AnimatePresence>
                         {showSuggestions && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                                className="absolute top-full left-0 mt-2 w-full max-w-[420px] bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 z-[100] overflow-hidden text-left"
-                            >
+                            <>
+                                {/* Mobile Background Backdrop Overlay */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 0.4 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowSuggestions(false)}
+                                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 md:hidden"
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                                    className="fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-full md:left-0 md:right-auto md:inset-x-auto mt-2 md:w-full md:max-w-[420px] bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 z-[100] overflow-hidden text-left origin-bottom md:origin-top-left"
+                                >
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
                                     <div className="flex items-center gap-1.5 text-xs font-black text-indigo-500 uppercase tracking-widest">
                                         <Tags className="w-3.5 h-3.5" />
@@ -289,6 +299,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                                     </div>
                                 )}
                             </motion.div>
+                            </>
                         )}
                     </AnimatePresence>
                 </motion.div>
@@ -344,12 +355,22 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
 
                                 <AnimatePresence>
                                     {isDatePickerOpen && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 p-6 z-[60]"
-                                        >
+                                        <>
+                                            {/* Mobile Background Backdrop Overlay */}
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 0.4 }}
+                                                exit={{ opacity: 0 }}
+                                                onClick={() => setIsDatePickerOpen(false)}
+                                                className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[55] md:hidden"
+                                            />
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 30, scale: 0.95 }}
+                                                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                                                className="fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-full md:left-0 md:right-auto md:inset-x-auto mt-2 md:w-[320px] bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 p-6 z-[60] overflow-hidden origin-bottom md:origin-top-left"
+                                            >
                                             <div className="flex justify-between items-center mb-6 px-1">
                                                 <span className="text-xs font-black text-gray-400 uppercase tracking-widest">เลือกช่วงเวลาถ่ายทำ</span>
                                                 <button onClick={() => setIsDatePickerOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400"><X className="w-4 h-4" /></button>
@@ -391,6 +412,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                                                 })}
                                             </div>
                                         </motion.div>
+                                        </>
                                     )}
                                 </AnimatePresence>
                             </motion.div>

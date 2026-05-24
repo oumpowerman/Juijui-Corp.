@@ -54,7 +54,7 @@ const StockCountBadge: React.FC<StockCountBadgeProps> = ({ count, isLoading }) =
             }}
             whileHover={{ scale: 1.05, y: -4 }}
             className={`
-                inline-flex items-center gap-2 px-4 py-1.5 ml-4 rounded-2xl
+                inline-flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-4 sm:py-1.5 ml-2 sm:ml-4 rounded-xl sm:rounded-2xl
                 bg-gradient-to-br from-indigo-500/10 to-violet-500/10
                 backdrop-blur-md border border-indigo-200/50
                 shadow-[0_4px_12px_rgba(79,70,229,0.1)]
@@ -88,7 +88,7 @@ const StockCountBadge: React.FC<StockCountBadgeProps> = ({ count, isLoading }) =
                     </motion.div>
                 </AnimatePresence>
                 
-                <div className="flex flex-col space-y-1">
+                <div className="hidden sm:flex flex-col space-y-0.5">
                     <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none">
                         Items
                     </span>

@@ -40,18 +40,19 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {/* Toast Container - UPDATED z-index to 10000 */}
-      <div className="fixed top-4 right-4 z-[120000] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      {/* Toast Container - Responsive position (Centering with safe padding on Mobile, Top-Right on PC) */}
+      <div className="fixed top-4 inset-x-4 md:left-auto md:right-4 md:inset-x-auto z-[120000] flex flex-col gap-2 md:w-full md:max-w-sm pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={`
-              pointer-events-auto flex items-start p-4 rounded-xl shadow-lg border backdrop-blur-md animate-in slide-in-from-right-full duration-300
+              pointer-events-auto flex items-start p-4 rounded-xl shadow-lg border backdrop-blur-md w-full
+              animate-in slide-in-from-top-8 md:slide-in-from-right-full duration-300
               ${toast.type === 'success' ? 'bg-white/95 border-green-200 text-green-800' : ''}
               ${toast.type === 'error' ? 'bg-white/95 border-red-200 text-red-800' : ''}
               ${toast.type === 'info' ? 'bg-white/95 border-blue-200 text-blue-800' : ''}
               ${toast.type === 'warning' ? 'bg-white/95 border-orange-200 text-orange-800' : ''}
-              ${toast.type === 'penalty' ? 'bg-red-600 border-red-700 text-white shadow-red-200 shadow-2xl scale-105' : ''}
+              ${toast.type === 'penalty' ? 'bg-red-600 border-red-700 text-white shadow-red-200 shadow-2xl scale-[1.02] md:scale-105' : ''}
               ${toast.type === 'reward' ? 'bg-yellow-500 border-yellow-600 text-white shadow-yellow-200' : ''}
             `}
           >

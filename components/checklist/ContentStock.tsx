@@ -121,9 +121,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -15, scale: 0.99 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="relative overflow-hidden w-full"
+              className="relative overflow-visible w-full"
             >
-              <div className="relative overflow-hidden">
+              <div className="relative overflow-visible">
                 <AnimatePresence mode="wait">
                   <motion.div 
                     key={contentSubTab}

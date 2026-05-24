@@ -79,12 +79,22 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
 
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-2 overflow-hidden origin-top-left"
-                    >
+                    <>
+                        {/* Mobile Background Backdrop Overlay */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.5 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsOpen(false)}
+                            className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 md:hidden"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                            className="fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-full md:left-0 md:right-auto md:inset-x-auto mt-2 md:w-72 bg-white rounded-3xl md:rounded-2xl shadow-2xl border border-gray-100 z-50 p-4 md:p-2 overflow-hidden origin-bottom md:origin-top-left"
+                        >
                         <div className="flex justify-between items-center px-3 py-2 mb-1 bg-gray-50/50 rounded-xl">
                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                 กรองตาม {label}
@@ -134,6 +144,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                             </div>
                         )}
                     </motion.div>
+                    </>
                 )}
             </AnimatePresence>
         </div>

@@ -173,7 +173,7 @@ const WorkHistoryModal: React.FC<WorkHistoryModalProps> = ({
     const modalContent = (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 sm:p-4 md:p-8">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -186,7 +186,7 @@ const WorkHistoryModal: React.FC<WorkHistoryModalProps> = ({
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="bg-white w-full max-w-5xl max-h-[92vh] rounded-[3rem] shadow-[0_20px_60px_rgba(0,0,0,0.3)] relative z-10 flex flex-col border border-white overflow-hidden"
+                        className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-[3rem] shadow-[0_20px_60px_rgba(0,0,0,0.3)] relative z-10 flex flex-col border-0 sm:border border-white overflow-hidden"
                     >
                         {/* Header */}
                         <HistoryHeader 
@@ -210,7 +210,7 @@ const WorkHistoryModal: React.FC<WorkHistoryModalProps> = ({
                         />
 
                         {/* Content Area */}
-                        <div className="flex-1 overflow-y-auto p-10 space-y-8 bg-gradient-to-b from-slate-50/30 to-white overflow-x-hidden scrollbar-thin scrollbar-thumb-indigo-100 scrollbar-track-transparent hover:scrollbar-thumb-indigo-200">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-10 space-y-6 sm:space-y-8 bg-gradient-to-b from-slate-50/30 to-white overflow-x-hidden scrollbar-thin scrollbar-thumb-indigo-100 scrollbar-track-transparent hover:scrollbar-thumb-indigo-200">
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-24 gap-6">
                                     <div className="relative">

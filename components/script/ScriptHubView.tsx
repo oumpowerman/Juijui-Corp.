@@ -243,7 +243,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                 fetchScripts({ 
                                     page, pageSize, searchQuery, viewTab, filterOwner, filterChannel, 
                                     filterCategory, filterTags, filterStatus, sortOrder, isDeepSearch,
-                                    isPersonal: mode === 'STUDIO'
+                                    isPersonal: mode === 'STUDIO',
+                                    silent: true
                                 }); 
                                 setRefreshStatsKey(prev => prev + 1);
                             }} 

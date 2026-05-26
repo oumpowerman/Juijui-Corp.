@@ -200,7 +200,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 🚀 STRATEGY: Select only essential fields for Board/Calendar (Reduce payload size by ~70%)
         const contentFields = `
-            id, title, description, status, pillar, category, content_formats, 
+            id, title, description, status, pillar, category, content_formats, tags,
             start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
             target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
             shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count, 
@@ -371,34 +371,74 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 fetchSingle();
             } else if (payload.eventType === 'UPDATE') {
-                // 🚀 FIX ISSUE 1: Fetch single record on UPDATE to preserve joined data
-                const fetchSingle = async () => {
-                    const table = type === 'TASK' ? 'tasks' : 'contents';
-                    let query = supabase.from(table).select(
-                        type === 'TASK' 
-                            ? `*, contents (title), task_reviews(*)` 
-                            : `*, task_reviews(*), content_analytics(id, platform), sponsorship_details(*)`
-                    ).eq('id', payload.new.id).maybeSingle();
-                    
-                    const { data } = await query;
-                    if (data) {
-                        const updatedTask = mapSupabaseToTask(data, type);
-                        setTasks(prev => {
-                            const exists = prev.some(t => t.id === updatedTask.id);
-                            if (exists) {
-                                return prev.map(t => t.id === updatedTask.id ? updatedTask : t);
-                            } else {
-                                const isScheduledInRange = updatedTask.startDate && updatedTask.endDate && 
-                                    updatedTask.endDate >= dateRange.start && updatedTask.startDate <= dateRange.end;
-                                if (isScheduledInRange || !updatedTask.isUnscheduled) {
-                                    return [...prev, updatedTask];
-                                }
-                                return prev;
+                // 🚀 SMART STATE HYDRATION:
+                // Instead of always forcing an expensive network select query on update, 
+                // we first check if the task is already present in our local state. 
+                // If it is, we can directly merge the changed fields into the existing object.
+                // This eliminates the redundant API call entirely while keeping joined data intact!
+                setTasks(prev => {
+                    const existingTask = prev.find(t => t.id === payload.new.id);
+                    if (existingTask) {
+                        // Map only the fields that are sent in the payload.new
+                        const mappedPartial = mapSupabaseToTask(payload.new, type, true);
+                        
+                        // Merge payload fields with existing relations
+                        const mergedTask = {
+                            ...existingTask,
+                            ...mappedPartial,
+                            // Ensure joined fields/relations from existingTask are explicitly preserved if they are absent in payload.new
+                            reviews: existingTask.reviews && existingTask.reviews.length > 0 && (!payload.new.task_reviews) 
+                                ? existingTask.reviews 
+                                : mappedPartial.reviews,
+                            sponsorship: existingTask.sponsorship && (!payload.new.sponsorship_details)
+                                ? existingTask.sponsorship
+                                : mappedPartial.sponsorship,
+                            parentContentTitle: existingTask.parentContentTitle || mappedPartial.parentContentTitle,
+                            hasAnalytics: existingTask.hasAnalytics || mappedPartial.hasAnalytics,
+                            analyticsStatus: existingTask.analyticsStatus !== 'NONE' 
+                                ? existingTask.analyticsStatus 
+                                : mappedPartial.analyticsStatus,
+                        };
+
+                        const isScheduledInRange = mergedTask.startDate && mergedTask.endDate && 
+                            mergedTask.endDate >= dateRange.start && mergedTask.startDate <= dateRange.end;
+                        
+                        if (isScheduledInRange || !mergedTask.isUnscheduled) {
+                            return prev.map(t => t.id === payload.new.id ? mergedTask : t);
+                        } else {
+                            // If it is moved out of range or unscheduled of non-onboard tasks, filter it out
+                            return prev.filter(t => t.id !== payload.new.id);
+                        }
+                    } else {
+                        // If it doesn't exist locally, we can safely pull it from the database
+                        const fetchSingle = async () => {
+                            const table = type === 'TASK' ? 'tasks' : 'contents';
+                            let query = supabase.from(table).select(
+                                type === 'TASK' 
+                                    ? `*, contents (title), task_reviews(*)` 
+                                    : `*, task_reviews(*), content_analytics(id, platform), sponsorship_details(*)`
+                            ).eq('id', payload.new.id).maybeSingle();
+                            
+                            const { data } = await query;
+                            if (data) {
+                                const newTask = mapSupabaseToTask(data, type);
+                                setTasks(current => {
+                                    const exists = current.some(t => t.id === newTask.id);
+                                    if (exists) return current;
+                                    
+                                    const isScheduledInRange = newTask.startDate && newTask.endDate && 
+                                        newTask.endDate >= dateRange.start && newTask.startDate <= dateRange.end;
+                                    if (isScheduledInRange || !newTask.isUnscheduled) {
+                                        return [...current, newTask];
+                                    }
+                                    return current;
+                                });
                             }
-                        });
+                        };
+                        fetchSingle();
+                        return prev;
                     }
-                };
-                fetchSingle();
+                });
             } else if (payload.eventType === 'DELETE') {
                 setTasks(prev => prev.filter(t => t.id !== payload.old.id));
             }
@@ -408,10 +448,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .channel('global-tasks-channel-main') // Unique channel for Context
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (p) => handleIncrementalUpdate(p, 'TASK'))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (p) => handleIncrementalUpdate(p, 'CONTENT'))
-            // 🚀 FIX ISSUE 3: Targeted update instead of full fetchTasks() avalanche
+            // 🚀 SMART REVIEWS HYDRATION: Update review array directly in-memory instead of a full database query
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
-                const newRecord = payload.new as { task_id?: string; content_id?: string };
-                const oldRecord = payload.old as { task_id?: string; content_id?: string };
+                const eventType = payload.eventType;
+                const newRecord = payload.new as any;
+                const oldRecord = payload.old as any;
                 const taskId = newRecord?.task_id || newRecord?.content_id || oldRecord?.task_id || oldRecord?.content_id;
                 if (!taskId) return;
                 
@@ -419,33 +460,91 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const existing = prev.find(t => t.id === taskId);
                     if (!existing) return prev;
                     
-                    const type = existing.type;
-                    const table = type === 'TASK' ? 'tasks' : 'contents';
-                    
-                    supabase.from(table).select(
-                        type === 'TASK' ? `*, contents (title), task_reviews(*)` : `*, task_reviews(*), content_analytics(id, platform)`
-                    ).eq('id', taskId).maybeSingle().then(({ data }) => {
-                        if (data) {
-                            const updatedTask = mapSupabaseToTask(data, type);
-                            setTasks(current => current.map(t => t.id === updatedTask.id ? updatedTask : t));
+                    let updatedReviews = existing.reviews ? [...existing.reviews] : [];
+
+                    if (eventType === 'INSERT') {
+                        const rSession: ReviewSession = {
+                            id: newRecord.id,
+                            taskId: taskId,
+                            round: newRecord.round,
+                            scheduledAt: new Date(newRecord.scheduled_at),
+                            reviewerId: newRecord.reviewer_id,
+                            status: newRecord.status,
+                            feedback: newRecord.feedback,
+                            isCompleted: newRecord.is_completed
+                        };
+                        if (!updatedReviews.some(r => r.id === rSession.id)) {
+                            updatedReviews.push(rSession);
                         }
-                    });
-                    return prev;
+                    } else if (eventType === 'UPDATE') {
+                        const rSession: ReviewSession = {
+                            id: newRecord.id,
+                            taskId: taskId,
+                            round: newRecord.round,
+                            scheduledAt: new Date(newRecord.scheduled_at),
+                            reviewerId: newRecord.reviewer_id,
+                            status: newRecord.status,
+                            feedback: newRecord.feedback,
+                            isCompleted: newRecord.is_completed
+                        };
+                        updatedReviews = updatedReviews.map(r => r.id === rSession.id ? rSession : r);
+                    } else if (eventType === 'DELETE') {
+                        updatedReviews = updatedReviews.filter(r => r.id !== oldRecord.id);
+                    }
+
+                    // Sort reviews by round
+                    updatedReviews.sort((a, b) => a.round - b.round);
+
+                    const updatedTask = {
+                        ...existing,
+                        reviews: updatedReviews
+                    };
+
+                    return prev.map(t => t.id === taskId ? updatedTask : t);
                 });
             })
+            // 🚀 SMART ANALYTICS HYDRATION: Fetch ONLY the other tiny analytics row rather than complete outer row
             .on('postgres_changes', { event: '*', schema: 'public', table: 'content_analytics' }, (payload) => {
-                const newRecord = payload.new as { content_id?: string };
-                const oldRecord = payload.old as { content_id?: string };
+                const eventType = payload.eventType;
+                const newRecord = payload.new as any;
+                const oldRecord = payload.old as any;
                 const contentId = newRecord?.content_id || oldRecord?.content_id;
                 if (!contentId) return;
 
-                // When analytics change, re-fetch the content to update hasAnalytics status
-                supabase.from('contents').select(`*, task_reviews(*), content_analytics(id, platform)`).eq('id', contentId).maybeSingle().then(({ data }) => {
-                    if (data) {
-                        const updatedTask = mapSupabaseToTask(data, 'CONTENT');
-                        setTasks(current => current.map(t => t.id === updatedTask.id ? updatedTask : t));
-                    }
-                });
+                // Query ONLY the other analytics rows for this content to perform calculations locally
+                supabase.from('content_analytics')
+                    .select('id, platform')
+                    .eq('content_id', contentId)
+                    .then(({ data: analyticsData }) => {
+                        setTasks(prev => {
+                            const existing = prev.find(t => t.id === contentId);
+                            if (!existing) return prev;
+
+                            const analytics = analyticsData || [];
+                            const hasAnalytics = analytics.length > 0;
+                            
+                            const filledPlatforms = analytics.map((r: any) => r.platform).filter(Boolean);
+                            let analyticsStatus: 'NONE' | 'PARTIAL' | 'COMPLETE' = 'NONE';
+                            
+                            if (filledPlatforms.length > 0) {
+                                const platforms = existing.targetPlatforms || [];
+                                if (platforms.length === 0) {
+                                    analyticsStatus = 'COMPLETE';
+                                } else {
+                                    const allMatched = platforms.every((p: string) => filledPlatforms.includes(p));
+                                    analyticsStatus = allMatched ? 'COMPLETE' : 'PARTIAL';
+                                }
+                            }
+
+                            const updated = {
+                                ...existing,
+                                hasAnalytics,
+                                analyticsStatus
+                            };
+
+                            return prev.map(t => t.id === contentId ? updated : t);
+                        });
+                    });
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {

@@ -21,6 +21,7 @@ interface FetchScriptsOptions {
     isDeepSearch?: boolean; // NEW: Deep search in content
     isPersonal?: boolean; // NEW: Filter for personal workspace
     append?: boolean; // NEW: Append results instead of replacing
+    silent?: boolean; // NEW: Silent fetch without setting loading state
 }
 
 export const useScripts = (currentUser: User) => {
@@ -64,7 +65,7 @@ export const useScripts = (currentUser: User) => {
         const fetchId = Date.now();
         (fetchScripts as any).lastFetchId = fetchId;
         
-        if (!options.append) setIsLoading(true);
+        if (!options.append && !options.silent) setIsLoading(true);
         try {
             // OPTIMIZATION: Select specific columns excluding 'content' and 'sheets'
             let query = supabase

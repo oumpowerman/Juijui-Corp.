@@ -158,15 +158,15 @@ const HistoryQuickStats: React.FC<HistoryQuickStatsProps> = ({ stats, isCollapse
             </div>
 
             {/* Secondary Insights & Difficulty Breakdown */}
-            <div className="flex flex-wrap gap-4 items-stretch">
+            <div className="flex flex-col lg:flex-row gap-4 items-stretch">
                 {/* Difficulty Breakdown */}
-                <div className="flex-1 min-w-[300px] bg-slate-50/50 p-4 rounded-[2rem] border border-slate-100 flex items-center gap-6">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <div className="flex-1 bg-slate-50/50 p-4 rounded-[2rem] border border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white rounded-2xl border border-slate-100 shadow-sm self-start sm:self-auto">
                         <Star className="w-4 h-4 text-indigo-400" />
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Difficulty Levels</span>
+                        <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Difficulty Levels</span>
                     </div>
                     
-                    <div className="flex items-center gap-8 px-4">
+                    <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-8 px-2 sm:px-4 flex-1">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Easy</span>
                             <span className="text-lg font-bold text-emerald-500">{stats.difficultyCounts.EASY}</span>
@@ -185,9 +185,9 @@ const HistoryQuickStats: React.FC<HistoryQuickStatsProps> = ({ stats, isCollapse
                 </div>
 
                 {/* Quick Alerts */}
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                     {alerts.map((alert) => (
-                        <div key={alert.label} className={`flex items-center gap-3 px-6 py-4 rounded-[2rem] border ${alert.color} shadow-sm group hover:shadow-md transition-all`}>
+                        <div key={alert.label} className={`flex-1 flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-[2rem] border ${alert.color} shadow-sm group hover:shadow-md transition-all`}>
                             <div className="p-2 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform">
                                 {alert.icon}
                             </div>

@@ -113,7 +113,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="flex-shrink-0"
                             >
-                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-500 border border-indigo-100 text-[8px] font-black rounded-md shadow-sm animate-pulse uppercase tracking-wider">
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 text-indigo-500 border border-indigo-100 text-[8px] font-bold rounded-md shadow-sm animate-pulse uppercase tracking-wider">
                                     <Video className="w-2 h-2 fill-current" />
                                     IN QUEUE
                                 </span>
@@ -139,7 +139,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                 animate={{ scale: 1, opacity: 1 }}
                                 className="flex-shrink-0"
                             >
-                                <span className="flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-500 border border-rose-100 text-[8px] font-black rounded-md shadow-sm animate-bounce italic uppercase tracking-wider">
+                                <span className="flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-500 border border-rose-100 text-[8px] font-bold rounded-md shadow-sm animate-bounce italic uppercase tracking-wider">
                                     <AlertCircle className="w-2.5 h-2.5" />
                                     MISSING INSIGHT
                                 </span>
@@ -209,20 +209,22 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                     {task.pillar && <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 font-bold flex items-center">{getPillarLabel(task.pillar)}</span>}
                     {task.category && <span className="text-[9px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 font-bold flex items-center"><Tag className="w-2.5 h-2.5 mr-1 opacity-50" />{getCategoryLabel(task.category)}</span>}
                     {task.tags && task.tags.length > 0 && (
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             {task.tags.slice(0, 2).map((tag) => (
-                                <span 
+                                <motion.span 
                                     key={tag} 
-                                    className="text-[9px] text-indigo-600 bg-indigo-50/60 hover:bg-indigo-100/70 px-2 py-0.5 rounded-full border border-indigo-100/60 font-black transition-colors"
+                                    whileHover={{ scale: 1.05, y: -0.5 }}
+                                    className="text-[9px] font-bold inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/5 to-purple-500/5 hover:from-indigo-500/10 hover:to-purple-500/10 text-indigo-650 hover:text-indigo-700 border border-indigo-500/20 shadow-[0_2px_4px_rgba(99,102,241,0.03)] hover:shadow-[0_6px_12px_rgba(99,102,241,0.12)] hover:border-indigo-400/50 transition-all duration-300"
                                 >
-                                    #{tag}
-                                </span>
+                                    <span className="text-[10px] text-indigo-400 font-extrabold leading-none animate-pulse">#</span>
+                                    {tag}
+                                </motion.span>
                             ))}
                             {task.tags.length > 2 && (
                                 <div className="relative group/tag-tooltip">
                                     <motion.span 
-                                        whileHover={{ scale: 1.15 }}
-                                        className="text-[9px] text-indigo-500 bg-indigo-100/40 px-1.5 py-0.5 rounded-full border border-indigo-200 font-extrabold cursor-help flex items-center justify-center transition-all"
+                                        whileHover={{ scale: 1.1 }}
+                                        className="text-[9px] text-indigo-500 bg-white px-1.5 py-0.5 rounded-full border border-indigo-100 font-extrabold cursor-help flex items-center justify-center shadow-[0_2px_4px_rgba(99,102,241,0.02)] hover:shadow-[0_4px_8px_rgba(99,102,241,0.08)] transition-all"
                                     >
                                         +{task.tags.length - 2}
                                     </motion.span>

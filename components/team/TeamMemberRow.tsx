@@ -1,12 +1,14 @@
 
-import React, { memo, useMemo } from 'react';
-import { User, Task, Status, Priority } from '../../types';
-import { Crown, BatteryFull, BatteryCharging, Battery, BatteryWarning, Users, Briefcase as JobIcon, Sparkles } from 'lucide-react';
+import React, { memo, useMemo, useState } from 'react';
+import { User, Task, Status, Priority, Channel, MasterOption } from '../../types';
+import { Crown, BatteryFull, BatteryCharging, Battery, BatteryWarning, Users, Briefcase as JobIcon, Sparkles, AlertCircle, Clock8, Zap } from 'lucide-react';
 import { STATUS_COLORS, WORK_STATUS_CONFIG, PRIORITY_COLORS } from '../../constants';
-import { isToday, differenceInCalendarDays, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { isToday, differenceInCalendarDays, format, isWithinInterval, startOfDay, endOfDay, differenceInDays, isBefore, startOfToday } from 'date-fns';
 import { ColorLensMode } from '../TeamView';
 import FeelingBubble, { BUBBLE_THEMES } from '../common/FeelingBubble';
 import UserAvatarWithHP from '../common/UserAvatarWithHP';
+import { motion, AnimatePresence } from 'framer-motion';
+import { isStockTerminalStatus } from '../../config/status';
 
 // DnD Wrappers
 import DraggableTask from './dnd/DraggableTask';
@@ -27,6 +29,8 @@ interface TeamMemberRowProps {
     // Visual Props
     colorLens?: ColorLensMode;
     isFocused?: boolean;
+    channels?: Channel[];
+    masterOptions?: MasterOption[];
 }
 
 // 7-Level Color Scale for Workload (Matching Modal)
@@ -69,6 +73,8 @@ const getTaskTypeStyle = (task: Task) => {
     return 'bg-slate-50 text-slate-700 border-slate-200'; // General Task
 };
 
+import TeamTaskPill from './TeamTaskPill';
+
 const TeamMemberRow: React.FC<TeamMemberRowProps> = ({ 
     user, 
     tasks, 
@@ -80,7 +86,9 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
     onDragOver,
     onDrop,
     colorLens = 'STATUS',
-    isFocused = false
+    isFocused = false,
+    channels,
+    masterOptions
 }) => {
     // 1. Calculate Slots for Timeline View (Tetris Logic)
     const { slots, maxRows } = useMemo(() => {
@@ -224,20 +232,43 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
     const statusColorClass = getStatusColor(user.workStatus || 'ONLINE');
     
     const getTaskStyle = (task: Task) => {
-        if (colorLens === 'PRIORITY') return { className: getPriorityStyle(task.priority) };
-        if (colorLens === 'TYPE') return { className: getTaskTypeStyle(task) };
-        
-        // Default: Glassy Randomized Theme
-        const id = task.id || 'default';
-        let hash = 0;
-        for (let i = 0; i < id.length; i++) {
-            hash = id.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const index = Math.abs(hash) % GLASS_THEMES.length;
-        const theme = GLASS_THEMES[index];
-
         const isUrgent = task.priority === 'URGENT';
         const isHigh = task.priority === 'HIGH';
+
+        let theme = GLASS_THEMES[0];
+
+        if (colorLens === 'PRIORITY') {
+            switch (task.priority) {
+                case 'URGENT':
+                    theme = { bg: 'bg-red-400/20', border: 'border-red-400/40', text: 'text-red-950 font-bold', accent: 'bg-red-500', shadow: 'shadow-red-500/10' };
+                    break;
+                case 'HIGH':
+                    theme = { bg: 'bg-orange-400/20', border: 'border-orange-400/40', text: 'text-orange-950 font-bold', accent: 'bg-orange-500', shadow: 'shadow-orange-500/10' };
+                    break;
+                case 'MEDIUM':
+                    theme = { bg: 'bg-blue-400/20', border: 'border-blue-400/40', text: 'text-blue-950', accent: 'bg-blue-500', shadow: 'shadow-blue-500/10' };
+                    break;
+                case 'LOW':
+                default:
+                    theme = { bg: 'bg-slate-400/10', border: 'border-slate-400/30', text: 'text-slate-800', accent: 'bg-slate-400', shadow: 'shadow-slate-500/5' };
+                    break;
+            }
+        } else if (colorLens === 'TYPE') {
+            if (task.type === 'CONTENT') {
+                theme = { bg: 'bg-purple-400/20', border: 'border-purple-400/40', text: 'text-purple-950 font-semibold', accent: 'bg-purple-500', shadow: 'shadow-purple-550/10' };
+            } else {
+                theme = { bg: 'bg-slate-400/15', border: 'border-slate-400/35', text: 'text-slate-800', accent: 'bg-slate-500', shadow: 'shadow-slate-500/5' };
+            }
+        } else {
+            // Default Status/Glassy Theme
+            const id = task.id || 'default';
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const index = Math.abs(hash) % GLASS_THEMES.length;
+            theme = GLASS_THEMES[index];
+        }
 
         return {
             theme,
@@ -258,7 +289,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
     const spacerClass = isFocused ? 'h-11 mb-1.5' : 'h-8 mb-1';
 
     return (
-        <div className={`grid grid-cols-8 group transition-all duration-500 relative ${isMe ? 'bg-indigo-50/10' : 'hover:bg-gray-50/30'}`}>
+        <div className={`grid grid-cols-8 group transition-all duration-500 relative z-60 hover:z-[170] ${isMe ? 'bg-indigo-50/10' : 'hover:bg-gray-50/30'}`}>
             {/* Vertical Status Rail (Mood & Workload Gain) */}
             <div className="absolute left-0 top-0 bottom-0 w-2 flex flex-col z-30 border-r border-gray-100/50">
                 {/* Workload Gain Meter (Segmented) */}
@@ -338,7 +369,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                         date={day}
                         onDragOver={onDragOver}
                         onDrop={onDrop}
-                        className={`col-span-1 border-l border-gray-100 p-0 py-1.5 flex flex-col ${isToday(day) ? 'bg-indigo-50/20' : ''}`}
+                        className={`col-span-1 border-l border-gray-100 p-0 py-1.5 flex flex-col hover:z-[20] ${isToday(day) ? 'bg-indigo-50/20' : ''}`}
                     >
                         {itemsToRender.map((task, rowIndex) => {
                             // 1. SPACER (Empty Slot)
@@ -393,40 +424,20 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                                     onDragStart={(e, taskId) => onDragStart(e, taskId, day)}
                                     onDragEnd={() => {}}
                                 >
-                                    <div 
-                                        onClick={() => onEditTask(task)} 
-                                        className={`
-                                            relative flex items-center overflow-hidden cursor-pointer transition-all duration-300
-                                            ${rowHeightClass}
-                                            ${shapeClass}
-                                            ${getTaskStyle(task).className}
-                                            ${isToday(day) ? 'saturate-[1.8] brightness-[1.01] z-10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] ring-1 ring-black/5 ring-inset' : ''}
-                                        `}
-                                        title={`${task.title} (${format(task.startDate, 'd MMM')} - ${format(task.endDate, 'd MMM')})`}
-                                    >
-                                        {/* 3D Glossy Layer */}
-                                        <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
-                                        
-                                        {/* Side Accent Line */}
-                                        {getTaskStyle(task).theme && (
-                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTaskStyle(task).theme?.accent} opacity-50`} />
-                                        )}
-
-                                        {/* Urgent Pattern */}
-                                        {task.priority === 'URGENT' && (
-                                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-                                                 style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 20px)' }} />
-                                        )}
-
-                                        {showContent && (
-                                            <div className="relative z-10 flex items-center px-2 min-w-0 w-full">
-                                                {task.assigneeType === 'TEAM' ? <Users className="w-3 h-3 mr-1 shrink-0" /> : <JobIcon className="w-3 h-3 mr-1 opacity-50 shrink-0" />}
-                                                <span className={`font-bold truncate ${isFocused ? 'text-xs whitespace-normal line-clamp-2 leading-tight' : 'text-[10px] whitespace-nowrap'}`}>
-                                                    {task.title}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <TeamTaskPill
+                                        task={task}
+                                        day={day}
+                                        dayIndex={dayIndex}
+                                        showContent={showContent}
+                                        rowHeightClass={rowHeightClass}
+                                        shapeClass={shapeClass}
+                                        taskStyle={getTaskStyle(task)}
+                                        isTodayDay={isToday(day)}
+                                        onEditTask={onEditTask}
+                                        channels={channels}
+                                        masterOptions={masterOptions}
+                                        isFocused={isFocused}
+                                    />
                                 </DraggableTask>
                             );
                         })}

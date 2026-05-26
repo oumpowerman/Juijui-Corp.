@@ -300,7 +300,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             isActive={isMobileLandscape}
             onClose={() => setIsMobileLandscape(false)}
           >
-        <div className={`relative z-20 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
+        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
           
           {/* Main Content Area */}
           <div className={`

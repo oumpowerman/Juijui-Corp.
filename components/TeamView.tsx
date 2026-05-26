@@ -425,6 +425,9 @@ const TeamView: React.FC<TeamViewProps> = ({
                         userTaskMap={userTaskMap}
                         weekDays={weekDays}
                         onEditTask={onEditTask}
+                        channels={channels}
+                        masterOptions={masterOptions}
+                        currentUser={currentUser}
                     />
                     {/* Mobile Pagination */}
                     <div className="mt-4">
@@ -440,7 +443,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                 {/* --- DESKTOP VIEW: GANG TABLE --- */}
                 <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
                   {/* Table Header - Sticky */}
-                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-[-2rem] z-50">
+                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-0 z-50">
                      <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
                      {weekDays.map(day => (
                          <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>
@@ -473,6 +476,8 @@ const TeamView: React.FC<TeamViewProps> = ({
                               onDragStart={handleDragStart}
                               onDragOver={handleDragOver}
                               onDrop={handleDrop}
+                              channels={channels}
+                              masterOptions={masterOptions}
                           />
                       ))}
                   </div>

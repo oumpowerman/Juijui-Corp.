@@ -139,11 +139,13 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                                                     masterStatus = masterOptions.find(opt => opt.key.toUpperCase() === s);
                                                 }
 
-                                                const label = masterStatus?.label || STATUS_LABELS[s as any] || task.status;
+                                                const rawLabel = masterStatus?.label || STATUS_LABELS[s as any] || task.status;
+                                                const cleanLabel = rawLabel.replace(/^\d+\s*/, '');
+                                                const colorClass = masterStatus?.color || STATUS_COLORS[s as any] || 'bg-gray-100 text-gray-600 border-gray-200';
                                                 
                                                 return (
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${STATUS_COLORS[s as any] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                                        {label}
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${colorClass}`}>
+                                                        {cleanLabel}
                                                     </span>
                                                 );
                                             })()}

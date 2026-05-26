@@ -5,6 +5,8 @@ import { Camera, CheckCircle2, Loader2, Sparkles, ArrowRightLeft, HardDrive } fr
 import { compressImage } from '../../lib/imageUtils';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { isPast, isToday, isSameDay, subDays } from 'date-fns';
+import { useGameConfig } from '../../context/GameConfigContext';
 
 interface MobileDutyActionProps {
     duty: Duty;
@@ -18,7 +20,19 @@ const MobileDutyAction: React.FC<MobileDutyActionProps> = ({ duty, onToggle, onS
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
     const { isAuthenticated, login } = useGoogleDrive();
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showAlert } = useGlobalDialog();
+    const { config } = useGameConfig();
+
+    // Logic Checks matching DutyCard.tsx
+    const today = new Date();
+    const dutyDate = new Date(duty.date);
+    const isYesterday = isSameDay(dutyDate, subDays(today, 1));
+    const graceHour = config?.AUTO_JUDGE_CONFIG?.duty_grace_hour || 10;
+    const isGracePeriod = isYesterday && today.getHours() < graceHour;
+
+    const isMissed = !duty.isDone && isPast(dutyDate) && !isToday(dutyDate) && !isGracePeriod;
+    const isAbandoned = duty.penaltyStatus === 'ABANDONED';
+    const isTribunal = duty.penaltyStatus === 'AWAITING_TRIBUNAL';
 
     const handleFileClick = async () => {
         if (!isAuthenticated) {
@@ -47,6 +61,34 @@ const MobileDutyAction: React.FC<MobileDutyActionProps> = ({ duty, onToggle, onS
                 await onSubmitProof(duty.id, file, userName);
             }
             setIsUploading(false);
+        }
+    };
+
+    const handleToggleCheck = async () => {
+        if (isAbandoned) return;
+
+        if (!duty.isDone) {
+            if (isMissed || isTribunal) {
+                if (isTribunal) {
+                    await showAlert('กรุณากดปุ่ม "ขอแก้ตัว" ที่หน้า Dashboard หรือรอ Tribunal Modal เด้งขึ้นมาครับ', 'ใช้ช่องทางพิเศษ');
+                    return;
+                }
+
+                const confirmed = await showConfirm(
+                    'รายการนี้เลยกำหนดแล้ว การติ๊กเสร็จตอนนี้อาจถือเป็น Late Submit ยืนยันหรือไม่?',
+                    'ยืนยันการส่งงานย้อนหลัง'
+                );
+                if (confirmed) onToggle(duty.id);
+            } else {
+                const confirmed = await showConfirm(
+                    'ยืนยันว่าทำเวรเสร็จเรียบร้อยแล้วใช่หรือไม่? (ไม่มีการถ่ายรูปแนบหลักฐาน)',
+                    'ยืนยันการส่งงาน'
+                );
+                if (confirmed) onToggle(duty.id);
+            }
+        } else {
+            // Unchecking
+            onToggle(duty.id);
         }
     };
 
@@ -94,8 +136,8 @@ const MobileDutyAction: React.FC<MobileDutyActionProps> = ({ duty, onToggle, onS
                 />
 
                 <button
-                    onClick={() => onToggle(duty.id)}
-                    disabled={isUploading}
+                    onClick={handleToggleCheck}
+                    disabled={isUploading || isAbandoned}
                     className="flex flex-col items-center justify-center gap-2 bg-indigo-500/50 border border-white/30 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all hover:bg-indigo-500/70"
                 >
                     <CheckCircle2 className="w-8 h-8" />

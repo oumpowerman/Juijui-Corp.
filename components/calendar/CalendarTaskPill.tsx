@@ -3,8 +3,8 @@ import React, { memo, useMemo, useState } from 'react';
 import { Task, ChipConfig, MasterOption, Channel } from '../../types';
 import { COLOR_THEMES } from '../../constants';
 import { TaskDisplayMode } from '../CalendarView';
-import { isBefore, startOfToday, differenceInDays, format } from 'date-fns';
-import { AlertCircle, Ghost, Clock8, Zap } from 'lucide-react';
+import { isBefore, startOfToday, differenceInDays, format, isToday } from 'date-fns';
+import { AlertCircle, Ghost, Clock8, Zap, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isStockTerminalStatus } from '../../config/status';
 
@@ -19,6 +19,8 @@ interface CalendarTaskPillProps {
     masterOptions?: MasterOption[];
     channels: Channel[];
     dayOfWeek?: number; // Added to prevent border clipping during scale
+    cellDate?: Date; // Added for context checking of "Today"
+    isFirstWeek?: boolean; // Added for popover collision prevention
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
 }
@@ -34,6 +36,8 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
     masterOptions,
     channels,
     dayOfWeek,
+    cellDate,
+    isFirstWeek = false,
     onDragStart,
     onClick
 }) => {
@@ -82,6 +86,15 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         const endDateObj = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
         return differenceInDays(startOfToday(), endDateObj) >= 7;
     }, [task.type, task.status, task.endDate, task.isUnscheduled, task.hasAnalytics]);
+
+    // Check if the current item is an active, unfinished content item (clip release planned for today)
+    const isUnfinishedContent = useMemo(() => {
+        if (task.type !== 'CONTENT') return false;
+        if (cellDate && !isToday(cellDate)) return false;
+        const finishedKeywords = ['DONE', 'PUBLISH', 'FINISH', 'COMPLETE', 'APPROVE', 'SUCCESS', 'ARCHIVE', 'POSTED'];
+        const currentStatus = (task.status || '').toUpperCase();
+        return !finishedKeywords.some(keyword => currentStatus.includes(keyword));
+    }, [task.type, task.status, cellDate]);
 
     // Helper to get styling for the main card container
     const getTaskStyle = (t: Task) => {
@@ -227,10 +240,30 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             </motion.div>
         );
 
+        const unfinishedContentIndicator = isUnfinishedContent && (
+            <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ 
+                    scale: [1, 1.15, 1],
+                    opacity: [0.85, 1, 0.85]
+                }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-50 border border-rose-200/60 rounded-xl text-rose-550 shadow-[0_2px_8px_rgba(244,63,94,0.08)]"
+                title="มีคิวลงคลิปวันนี้! (ยังไม่เสร็จสิ้น)"
+            >
+                <Film className="w-3 h-3 text-rose-500" />
+            </motion.div>
+        );
+
         switch (displayMode) {
             case 'MINIMAL':
                 return (
                     <div className="flex items-center gap-1 overflow-hidden w-full">
+                        {isUnfinishedContent && (
+                            <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
+                                <Film className="w-3 h-3 text-rose-500 animate-pulse" />
+                            </span>
+                        )}
                         {overdueIndicator}
                         {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                         {hasAnalyticsIndicator}
@@ -240,7 +273,11 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             case 'DOT':
                 return (
                     <div className="flex items-center gap-2 overflow-hidden w-full">
-                         {isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
+                         {isUnfinishedContent ? (
+                             <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
+                                 <Film className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                             </span>
+                         ) : isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
                          {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                          {hasAnalyticsIndicator}
                          <span className="truncate flex-1 font-bold">{task.title}</span>
@@ -249,6 +286,11 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             case 'EMOJI':
                 return (
                      <div className="flex items-center gap-1.5 overflow-hidden w-full">
+                         {isUnfinishedContent && (
+                             <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
+                                 <Film className="w-3 h-3 text-rose-500 animate-pulse" />
+                             </span>
+                         )}
                          {isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>)}
                          {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                          {hasAnalyticsIndicator}
@@ -260,6 +302,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 // Default Expanded View with Badge
                 return (
                     <>
+                        {isUnfinishedContent && unfinishedContentIndicator}
                         {overdueIndicator}
                         {isInsightOverdue && (
                             <div className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-100 rounded-full" title="Missing Analytics Insight">
@@ -323,13 +366,22 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             <AnimatePresence>
                 {isHovered && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 10, x: '-50%' }}
+                        initial={{ opacity: 0, scale: 0.95, y: isFirstWeek ? -10 : 10, x: '-50%' }}
                         animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
-                        exit={{ opacity: 0, scale: 0.95, y: 6, x: '-50%' }}
+                        exit={{ opacity: 0, scale: 0.95, y: isFirstWeek ? -6 : 6, x: '-50%' }}
                         transition={{ type: 'spring', damping: 15, stiffness: 300 }}
-                        className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_30px_rgba(0,0,0,0.12)] border border-slate-100 p-4 z-[9999] pointer-events-none text-left flex flex-col gap-2.5 origin-bottom"
+                        className={`absolute left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_30px_rgba(0,0,0,0.12)] border border-slate-100 p-4 z-[9999] pointer-events-none text-left flex flex-col gap-2.5 ${
+                            isFirstWeek ? 'top-[calc(100%+8px)] origin-top' : 'bottom-[calc(100%+8px)] origin-bottom'
+                        }`}
                     >
                         {/* Warning Header */}
+                        {isUnfinishedContent && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-50 border border-orange-100 text-orange-600 font-bold text-[11px] leading-tight shadow-[0_2px_8px_rgba(249,115,22,0.06)] animate-pulse">
+                                <Film className="w-4 h-4 text-orange-500 shrink-0" />
+                                <span>ด่วน! วันนี้มีคิวลงคลิปนี้ (ยังไม่เสร็จสิ้น) 🎥</span>
+                            </div>
+                        )}
+
                         {isOverdue && (
                             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 font-bold text-[11px] leading-tight shadow-[0_2px_8px_rgba(239,68,68,0.06)] animate-pulse">
                                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />

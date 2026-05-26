@@ -70,28 +70,28 @@ const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({ task, channels, onCli
             whileHover={{ y: -4, scale: 1.01 }}
             onClick={onClick}
             className={cn(
-                "group rounded-[2.5rem] border backdrop-blur-sm shadow-sm hover:shadow-xl transition-all cursor-pointer flex items-center justify-between gap-6",
-                isLean ? "p-3 px-6 rounded-[1.5rem]" : "p-6",
+                "group border backdrop-blur-sm shadow-sm hover:shadow-xl transition-all cursor-pointer flex items-center justify-between gap-4 md:gap-6",
+                isLean ? "p-3 px-5 sm:px-6 rounded-[1.5rem]" : "p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem]",
                 status.border,
                 status.bg,
                 "hover:bg-white"
             )}
         >
-            <div className={cn("flex items-center flex-1 min-w-0", isLean ? "gap-4" : "gap-6")}>
+            <div className={cn("flex items-center flex-1 min-w-0", isLean ? "gap-3 sm:gap-4" : "gap-4 sm:gap-6")}>
                 {/* Channel Indicator */}
                 <div 
                     className={cn(
                         "rounded-full shrink-0 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]",
-                        isLean ? "w-1.5 h-10" : "w-2 h-16"
+                        isLean ? "w-1.5 h-10" : "w-1.5 sm:w-2 h-12 sm:h-16"
                     )} 
                     style={{ backgroundColor: channel?.color || '#CBD5E1' }}
                 />
 
                 <div className="flex-1 min-w-0">
-                    <div className={cn("flex flex-wrap items-center gap-3", isLean ? "mb-1" : "mb-2.5")}>
+                    <div className={cn("flex flex-wrap items-center gap-1.5 sm:gap-3", isLean ? "mb-1" : "mb-2 sm:mb-2.5")}>
                         <div className={cn(
-                            "flex items-center gap-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white shadow-sm border transition-shadow group-hover:shadow-md",
-                            isLean ? "px-2.5 py-1" : "px-3.5 py-1.5",
+                            "flex items-center gap-1 sm:gap-1.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-white shadow-sm border transition-shadow group-hover:shadow-md",
+                            isLean ? "px-2.5 py-1" : "px-2.5 py-1 sm:px-3.5 sm:py-1.5",
                             status.text,
                             status.border
                         )}>
@@ -101,42 +101,42 @@ const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({ task, channels, onCli
                         
                         {task.status === 'DONE' && (
                             <div className={cn(
-                                "flex items-center gap-1.5 bg-amber-50 rounded-full border border-amber-100 text-amber-600 shadow-sm transition-transform hover:scale-105",
-                                isLean ? "px-2.5 py-1" : "px-3 py-1.5"
+                                "flex items-center gap-1 sm:gap-1.5 bg-amber-50 rounded-full border border-amber-100 text-amber-600 shadow-sm transition-transform hover:scale-105",
+                                isLean ? "px-2 py-0.5 sm:px-2.5 sm:py-1" : "px-2.5 py-1 sm:px-3 sm:py-1.5"
                             )}>
-                                <Zap className={isLean ? "w-3 h-3" : "w-3.5 h-3.5"} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                <Zap className={isLean ? "w-2.5 h-2.5 sm:w-3 sm:h-3" : "w-3 h-3 sm:w-3.5 sm:h-3.5"} />
+                                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
                                     {isLean ? `+${xpBreakdown.total} XP` : `+${xpBreakdown.total} XP Earned`}
                                 </span>
                             </div>
                         )}
 
-                        <span className="text-[10px] font-bold text-slate-400/80 uppercase tracking-widest tabular-nums ml-auto">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-400/80 uppercase tracking-widest tabular-nums ml-auto">
                             {task.createdAt ? format(new Date(task.createdAt), isLean ? 'd MMM' : 'd MMM yyyy • HH:mm', { locale: th }) : 'No Date'}
                         </span>
                     </div>
 
                     <h4 className={cn(
                         "font-bold text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors tracking-tight",
-                        isLean ? "text-base mb-1" : "text-xl mb-2"
+                        isLean ? "text-sm sm:text-base mb-1" : "text-base sm:text-xl mb-1 sm:mb-2"
                     )}>
                         {task.title}
                     </h4>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                         {channel && (
-                            <div className="flex items-center gap-2 bg-white/40 px-2 py-0.5 rounded-xl border border-white shadow-sm">
-                                <div className="w-2 h-2 rounded-full ring-2 ring-white" style={{ backgroundColor: channel.color }} />
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{channel.name}</span>
+                            <div className="flex items-center gap-1.5 bg-white/40 px-1.5 py-0.5 sm:px-2 rounded-xl border border-white shadow-sm">
+                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ring-2 ring-white" style={{ backgroundColor: channel.color }} />
+                                <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wide">{channel.name}</span>
                             </div>
                         )}
                         
-                        <div className="flex items-center gap-2 px-2 py-0.5 bg-white/60 rounded-xl border border-slate-100 shadow-sm">
+                        <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-white/60 rounded-xl border border-slate-100 shadow-sm">
                             <div className={cn(
-                                "w-2 h-2 rounded-full ring-2 ring-white",
+                                "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ring-2 ring-white",
                                 task.difficulty === 'HARD' ? 'bg-rose-500' : task.difficulty === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'
                             )} />
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.1em]">{task.difficulty}</span>
+                            <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-[0.1em]">{task.difficulty}</span>
                         </div>
 
                         {/* Quick View Indicators */}
@@ -150,7 +150,7 @@ const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({ task, channels, onCli
                         </div>
 
                         {task.category && !isLean && (
-                            <span className="text-[11px] font-bold text-indigo-400/80 bg-indigo-50/50 px-3 py-1 rounded-xl border border-indigo-100/50 ml-auto">
+                            <span className="text-[9px] sm:text-[11px] font-bold text-indigo-400/80 bg-indigo-50/50 px-2 sm:px-3 py-0.5 sm:py-1 rounded-xl border border-indigo-100/50 ml-auto hidden sm:inline-block">
                                 # {task.category}
                             </span>
                         )}
@@ -158,17 +158,17 @@ const HistoryTaskCard: React.FC<HistoryTaskCardProps> = ({ task, channels, onCli
                 </div>
             </div>
 
-            <div className={cn("flex items-center shrink-0", isLean ? "gap-2" : "gap-4")}>
+            <div className={cn("flex items-center shrink-0", isLean ? "gap-2" : "gap-3 sm:gap-4")}>
                 {!isLean && (
-                    <span className="hidden sm:block text-[10px] font-bold text-indigo-500 bg-indigo-50 px-5 py-2.5 rounded-[1.25rem] border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 uppercase tracking-[0.2em] shadow-md shadow-indigo-500/5">
+                    <span className="hidden lg:block text-[10px] font-bold text-indigo-500 bg-indigo-50 px-5 py-2.5 rounded-[1.25rem] border border-indigo-100 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 uppercase tracking-[0.2em] shadow-md shadow-indigo-500/5">
                         Open Insights
                     </span>
                 )}
                 <div className={cn(
                     "rounded-[1.75rem] bg-white border border-slate-100 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:rotate-45 group-hover:scale-110 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)]",
-                    isLean ? "w-10 h-10 rounded-[1rem]" : "w-14 h-14"
+                    isLean ? "w-8 h-8 sm:w-10 sm:h-10 rounded-[1rem]" : "w-10 h-10 sm:w-14 sm:h-14"
                 )}>
-                    <ArrowUpRight className={isLean ? "w-5 h-5" : "w-7 h-7"} />
+                    <ArrowUpRight className={isLean ? "w-4 h-4 sm:w-5 h-5" : "w-5 h-5 sm:w-7 sm:h-7"} />
                 </div>
             </div>
         </motion.div>

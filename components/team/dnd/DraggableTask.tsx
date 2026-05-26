@@ -21,7 +21,7 @@ const DraggableTask: React.FC<DraggableTaskProps> = ({
             draggable
             onDragStart={(e) => onDragStart(e, taskId)}
             onDragEnd={onDragEnd}
-            className={`cursor-grab active:cursor-grabbing hover:scale-105 transition-transform ${className}`}
+            className={`relative cursor-grab active:cursor-grabbing hover:scale-105 hover:z-50 transition-all ${className}`}
             style={{ touchAction: 'none' }} // Help mobile browsers understand dragging
         >
             {children}

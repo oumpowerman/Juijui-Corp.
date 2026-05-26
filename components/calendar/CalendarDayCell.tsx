@@ -15,6 +15,7 @@ interface CalendarDayCellProps {
     taskDisplayMode: TaskDisplayMode;
     activeChipIds: string[];
     customChips: ChipConfig[];
+    isFirstWeek?: boolean; // Added
     
     // Highlights
     highlight?: CalendarHighlight;
@@ -40,6 +41,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     taskDisplayMode,
     activeChipIds,
     customChips,
+    isFirstWeek = false,
     highlight,
     masterOptions,
     channels,
@@ -167,6 +169,8 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                             masterOptions={masterOptions}
                             channels={channels}
                             dayOfWeek={day.getDay()}
+                            cellDate={day}
+                            isFirstWeek={isFirstWeek}
                             onDragStart={onTaskDragStart}
                             onClick={onTaskClick}
                         />
@@ -200,6 +204,8 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 masterOptions={masterOptions}
                                 channels={channels}
                                 dayOfWeek={day.getDay()}
+                                cellDate={day}
+                                isFirstWeek={isFirstWeek}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
                             />

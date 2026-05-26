@@ -389,13 +389,66 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         fetchContentsRef.current = fetchContents;
     }, [fetchContents]);
 
-    const handleRealtimeUpdate = useCallback(async (id: string) => {
+    const handleRealtimeUpdate = useCallback(async (eventType: 'INSERT' | 'UPDATE' | 'DELETE', newRec: any, oldRec: any) => {
         try {
+            if (eventType === 'DELETE') {
+                const oldId = oldRec?.id;
+                if (!oldId) return;
+                console.log(`[Realtime] Deleting item: ${oldId}`);
+                setContents(prevList => {
+                    const exists = prevList.some(item => item.id === oldId);
+                    if (exists || trackedAddedIds.current.has(oldId)) {
+                        setTotalCount(prev => Math.max(0, prev - 1));
+                        trackedAddedIds.current.delete(oldId);
+                        return prevList.filter(item => item.id !== oldId);
+                    }
+                    return prevList;
+                });
+                return;
+            }
+
+            // 🚀 SMART STATE HYDRATION (Phase 2): Merge local fields on UPDATE first
+            // to completely bypass database select queries if the row is already in memory!
+            if (eventType === 'UPDATE' && newRec) {
+                let mergedSuccess = false;
+                setContents(prevList => {
+                    const existingItem = prevList.find(item => item.id === newRec.id);
+                    if (existingItem) {
+                        mergedSuccess = true;
+                        const mappedPartial = mapSupabaseToTask(newRec);
+                        const mergedTask: Task = {
+                            ...existingItem,
+                            ...mappedPartial,
+                            // Preserve relations that postgres changes don't send
+                            reviews: existingItem.reviews,
+                            hasAnalytics: existingItem.hasAnalytics,
+                            analyticsStatus: existingItem.analyticsStatus,
+                        };
+
+                        const isMatch = checkDoesItMatchFilters(mergedTask);
+
+                        if (isMatch) {
+                            return prevList.map(item => item.id === newRec.id ? mergedTask : item);
+                        } else {
+                            setTotalCount(prev => Math.max(0, prev - 1));
+                            trackedAddedIds.current.delete(newRec.id);
+                            return prevList.filter(item => item.id !== newRec.id);
+                        }
+                    }
+                    return prevList;
+                });
+
+                if (mergedSuccess) return;
+            }
+
+            const targetId = newRec?.id;
+            if (!targetId) return;
+
             const { data, error } = await supabase
                 .from('contents')
                 .select(`*, task_reviews(id, round, scheduled_at, reviewer_id, status, feedback, is_completed, content_id), content_analytics(id, platform)`)
-                .eq('id', id)
-                .single();
+                .eq('id', targetId)
+                .maybeSingle();
 
             if (error || !data) return; 
 
@@ -406,14 +459,14 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 // If it's a match, we should check if it's already in the list
                 // If not, it's a new item (INSERT or moved into view), so increment totalCount
                 setContents(prevList => {
-                    const exists = prevList.some(item => item.id === id);
-                    if (!exists && !trackedAddedIds.current.has(id)) {
+                    const exists = prevList.some(item => item.id === targetId);
+                    if (!exists && !trackedAddedIds.current.has(targetId)) {
                         setTotalCount(prev => prev + 1);
-                        trackedAddedIds.current.add(id);
+                        trackedAddedIds.current.add(targetId);
                     }
                     
                     if (exists) {
-                        return prevList.map(item => item.id === id ? fullTask : item);
+                        return prevList.map(item => item.id === targetId ? fullTask : item);
                     } else if (pageRef.current === 1) {
                         return [fullTask, ...prevList];
                     }
@@ -422,11 +475,11 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             } else {
                 // If it no longer matches filters, remove it and decrement count if it was there
                 setContents(prevList => {
-                    const exists = prevList.some(item => item.id === id);
-                    if (exists || trackedAddedIds.current.has(id)) {
+                    const exists = prevList.some(item => item.id === targetId);
+                    if (exists || trackedAddedIds.current.has(targetId)) {
                         setTotalCount(prev => Math.max(0, prev - 1));
-                        trackedAddedIds.current.delete(id);
-                        return prevList.filter(item => item.id !== id);
+                        trackedAddedIds.current.delete(targetId);
+                        return prevList.filter(item => item.id !== targetId);
                     }
                     return prevList;
                 });
@@ -513,11 +566,10 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                     console.log(`[Realtime] Event: ${eventType} on table 'contents'`);
 
                     if (eventType === 'UPDATE' || eventType === 'INSERT') {
-                        await handleRealtimeUpdate(newRec.id);
+                        await handleRealtimeUpdate(eventType, newRec, oldRec);
                         if (eventType === 'INSERT') debouncedCountRefresh();
                     } else if (eventType === 'DELETE') {
-                        console.log(`[Realtime] Deleting item: ${oldRec.id}`);
-                        setContents(prev => prev.filter(item => item.id !== oldRec.id));
+                        await handleRealtimeUpdate('DELETE', null, oldRec);
                         debouncedCountRefresh();
                     }
                 }

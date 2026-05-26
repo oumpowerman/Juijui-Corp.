@@ -84,7 +84,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                 grid grid-cols-7 bg-gray-100 gap-px border-b border-gray-200 
                 ${isExpanded ? 'auto-rows-[minmax(140px,1fr)] md:auto-rows-[minmax(180px,1fr)]' : 'auto-rows-[minmax(70px,1fr)] lg:auto-rows-[minmax(120px,1fr)]'}
             `}>
-                {gridDays.map((day) => {
+                {gridDays.map((day, idx) => {
                     const dayTasks = getTasksForDay(day);
                     const filteredDayTasks = filterTasks(dayTasks);
                     const dayHighlight = highlights.find(h => isSameDay(h.date, day));
@@ -104,6 +104,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                             highlight={dayHighlight}
                             masterOptions={masterOptions}
                             channels={channels}
+                            isFirstWeek={idx < 7}
                             onDayClick={onDayClick}
                             onContextMenu={onDayContextMenu}
                             onDragOver={onDragOver}

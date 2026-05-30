@@ -24,6 +24,29 @@ export const ScreenSessionLimiter: React.FC<{ user: any }> = ({ user }) => {
 
   const tabId = getTabId();
 
+  const verifySessionStillActive = async () => {
+    if (!user?.id || !tableExists || isKicked || isBlocked) return;
+    try {
+      const { data, error } = await supabase
+        .from('user_screens')
+        .select('id')
+        .eq('id', tabId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Verification check error:", error);
+        return;
+      }
+
+      if (!data) {
+        console.log("🔒 Screen evicted: Current tabId no longer exists in db.");
+        setIsKicked(true);
+      }
+    } catch (e) {
+      console.warn("Error verifying session status:", e);
+    }
+  };
+
   // Periodically force an update of elapsed time strings when blocked
   useEffect(() => {
     if (!isBlocked) return;
@@ -115,6 +138,21 @@ export const ScreenSessionLimiter: React.FC<{ user: any }> = ({ user }) => {
       }
     }, 30000);
 
+    // Fast backup check: If this tab's record gets deleted, evict. Run every 10 seconds.
+    const verifyInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        verifySessionStillActive();
+      }
+    }, 10000);
+
+    // Immediate check on gain focus or visibility change to ensure instant reaction
+    const handleFocusCheck = () => {
+      verifySessionStillActive();
+    };
+
+    window.addEventListener('focus', handleFocusCheck);
+    document.addEventListener('visibilitychange', handleFocusCheck);
+
     // Real-time listener to trigger user logout if current session ID (tabId) gets deleted
     const screenSubscription = supabase
       .channel(`screen-limits:${user.id}`)
@@ -137,6 +175,9 @@ export const ScreenSessionLimiter: React.FC<{ user: any }> = ({ user }) => {
 
     return () => {
       clearInterval(heartbeatInterval);
+      clearInterval(verifyInterval);
+      window.removeEventListener('focus', handleFocusCheck);
+      document.removeEventListener('visibilitychange', handleFocusCheck);
       supabase.removeChannel(screenSubscription);
     };
   }, [user?.id, tableExists, isBlocked, isKicked]);

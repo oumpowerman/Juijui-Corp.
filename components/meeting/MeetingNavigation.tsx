@@ -8,6 +8,7 @@ type MeetingTab = 'AGENDA' | 'NOTES' | 'FILES' | 'ACTIONS' | 'DECISIONS';
 interface MeetingNavigationProps {
     activeTab: MeetingTab;
     setActiveTab: (tab: MeetingTab) => void;
+    meetingId?: string;
 }
 
 const TABS = [
@@ -18,7 +19,7 @@ const TABS = [
     { id: 'DECISIONS', label: 'มติ', icon: Share2, color: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-500', shadow: 'shadow-emerald-100' }
 ];
 
-const MeetingNavigation: React.FC<MeetingNavigationProps> = React.memo(({ activeTab, setActiveTab }) => {
+const MeetingNavigation: React.FC<MeetingNavigationProps> = React.memo(({ activeTab, setActiveTab, meetingId }) => {
     const activeTheme = TABS.find(t => t.id === activeTab) || TABS[1];
 
     return (
@@ -72,7 +73,7 @@ const MeetingNavigation: React.FC<MeetingNavigationProps> = React.memo(({ active
                     {activeTheme.label} Mode
                 </div>
                 <div className="hidden xs:block">
-                    <MeetingTimer />
+                    <MeetingTimer meetingId={meetingId} />
                 </div>
             </div>
         </div>

@@ -27,6 +27,8 @@ Deno.serve(async (req: any) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
+  let claimedIds: string[] = [];
+
   try {
     const payload = await req.json();
     const { record } = payload; // 'record' is the row from 'notifications' table
@@ -36,7 +38,39 @@ Deno.serve(async (req: any) => {
       return new Response(JSON.stringify({ error: 'Invalid Payload' }), { status: 400 });
     }
 
-    console.log(`Processing notification ${record.id} for user ${record.user_id}`);
+    console.log(`Processing notification trigger ${record.id} for user ${record.user_id}`);
+
+    // Wait 6 seconds to capture other notifications generated in the same user action/flow
+    const DEBOUNCE_DELAY_MS = 6000;
+    console.log(`Debouncing: waiting ${DEBOUNCE_DELAY_MS}ms for potential concurrent messages...`);
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_DELAY_MS));
+
+    // Atomically claim all pending (null status) notifications for this specific user.
+    // Whichever concurrent thread executes this query first will mutate them to 'SENDING' and capture them.
+    const { data: claimedRecords, error: claimError } = await supabaseAdmin
+      .from('notifications')
+      .update({ line_status: 'SENDING' })
+      .eq('user_id', record.user_id)
+      .is('line_status', null)
+      .select('*');
+
+    if (claimError) {
+      throw new Error(`DB Claim Error: ${claimError.message}`);
+    }
+
+    // Check if there are any claimed notifications, and if the current trigger's record ID is amongst them.
+    // If our current record is NOT in the list, it means a previous concurrent thread already claimed and processed it.
+    // This maintains perfect idempotency and prevents duplicate sends.
+    const isOurRecordClaimed = (claimedRecords || []).some((r: any) => r.id === record.id);
+    
+    if (!claimedRecords || claimedRecords.length === 0 || !isOurRecordClaimed) {
+      console.log(`Notification ${record.id} was already claimed/processed by a sibling thread. Gracefully idling.`);
+      return new Response(JSON.stringify({ message: 'Processed by sibling handler thread' }), { status: 200 });
+    }
+
+    // Extract claimed notification IDs for updating status later
+    claimedIds = claimedRecords.map((r: any) => r.id);
+    console.log(`Thread ${record.id} successfully claimed ${claimedRecords.length} notifications: [${claimedIds.join(', ')}]`);
 
     // 1. Get User's LINE ID
     const { data: userProfile, error: userError } = await supabaseAdmin
@@ -47,27 +81,165 @@ Deno.serve(async (req: any) => {
 
     // CASE: No LINE ID Linked
     if (userError || !userProfile || !userProfile.line_user_id) {
-      console.log(`User ${record.user_id} has no LINE ID linked.`);
+      console.log(`User ${record.user_id} has no LINE ID linked. Marking as ABANDONED.`);
       
-      // Update DB: Abandoned
       await supabaseAdmin.from('notifications').update({
           line_status: 'ABANDONED',
           last_error: 'No LINE ID linked in profile'
-      }).eq('id', record.id);
+      }).in('id', claimedIds);
 
-      return new Response(JSON.stringify({ message: 'No LINE ID linked, marked as ABANDONED' }), { status: 200 });
+      return new Response(JSON.stringify({ message: 'No LINE ID linked, batch marked as ABANDONED' }), { status: 200 });
     }
 
     // 2. Construct LINE Message (Flex Message)
-    const config = TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO'];
     const lineAccessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
+    const isBatch = claimedRecords.length > 1;
+
+    // Use a distinct Indigo background for batched notifications, or the single config type color if solo
+    const primaryConfig = isBatch 
+      ? { color: '#4f46e5', emoji: '🔔', label: 'การแจ้งเตือนแบบรวม' }
+      : (TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO']);
+
+    // Build Flex Contents dynamically
+    const bodyContents: any[] = [];
+
+    if (isBatch) {
+      bodyContents.push({
+        type: "text",
+        text: `คุณได้รับการแจ้งเตือนใหม่ ${claimedRecords.length} รายการ`,
+        weight: "bold",
+        size: "sm",
+        color: "#1e293b",
+        margin: "none"
+      });
+
+      // Limit display inside the LINE Flex bubbles to max 4 to fit clean height limits comfortably
+      const displayRecords = claimedRecords.slice(0, 4);
+      displayRecords.forEach((rec: any, idx: number) => {
+        const itemConfig = TYPE_CONFIG[rec.type] || TYPE_CONFIG['INFO'];
+        
+        bodyContents.push({
+          type: "box",
+          layout: "vertical",
+          margin: "md",
+          paddingAll: "10px",
+          backgroundColor: "#f8fafc",
+          cornerRadius: "md",
+          borderWidth: "1px",
+          borderColor: "#e2e8f0",
+          contents: [
+            {
+              type: "box",
+              layout: "horizontal",
+              contents: [
+                {
+                  type: "text",
+                  text: `${itemConfig.emoji} ${rec.title}`,
+                  weight: "bold",
+                  size: "xs",
+                  wrap: true,
+                  color: "#334155",
+                  flex: 1
+                }
+              ]
+            },
+            rec.message ? {
+              type: "text",
+              text: rec.message,
+              size: "xxs",
+              color: "#64748b",
+              wrap: true,
+              margin: "xs",
+              maxLines: 2
+            } : null,
+            {
+              type: "box",
+              layout: "horizontal",
+              margin: "xs",
+              contents: [
+                {
+                  type: "text",
+                  text: itemConfig.label,
+                  size: "xxs",
+                  color: "#94a3b8",
+                  flex: 1
+                },
+                {
+                  type: "text",
+                  text: new Date(rec.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                  size: "xxs",
+                  color: "#cbd5e1",
+                  align: "end"
+                }
+              ]
+            }
+          ].filter(Boolean) as any[]
+        });
+      });
+
+      if (claimedRecords.length > 4) {
+        bodyContents.push({
+          type: "text",
+          text: `• มีการแจ้งเตือนเพิ่มเติมอีก ${claimedRecords.length - 4} รายการในระบบ`,
+          size: "xxs",
+          color: "#6366f1",
+          margin: "sm",
+          align: "center",
+          weight: "bold"
+        });
+      }
+    } else {
+      // Normal single notification format
+      bodyContents.push(
+        {
+          type: "text",
+          text: record.title,
+          weight: "bold",
+          size: "md",
+          wrap: true,
+          color: "#334155"
+        },
+        {
+          type: "text",
+          text: record.message || "-",
+          size: "xs",
+          color: "#64748b",
+          wrap: true,
+          margin: "md",
+          maxLines: 4
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "lg",
+          contents: [
+            {
+              type: "text",
+              text: primaryConfig.label,
+              size: "xxs",
+              color: "#94a3b8",
+              flex: 1
+            },
+            {
+              type: "text",
+              text: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+              size: "xxs",
+              color: "#cbd5e1",
+              align: "end"
+            }
+          ]
+        }
+      );
+    }
 
     const flexMessage = {
       to: userProfile.line_user_id,
       messages: [
         {
           type: "flex",
-          altText: `[Juijui] ${record.title}`,
+          altText: isBatch 
+            ? `[Juijui] แจ้งเตือนใหม่ ${claimedRecords.length} รายการ`
+            : `[Juijui] ${record.title}`,
           contents: {
             type: "bubble",
             size: "kilo",
@@ -81,12 +253,12 @@ Deno.serve(async (req: any) => {
                   contents: [
                     {
                       type: "text",
-                      text: config.emoji,
+                      text: primaryConfig.emoji,
                       size: "xl"
                     },
                     {
                       type: "text",
-                      text: "Juijui Alert",
+                      text: "Juijui Alert Center",
                       weight: "bold",
                       color: "#ffffff",
                       size: "sm",
@@ -97,55 +269,15 @@ Deno.serve(async (req: any) => {
                   ]
                 }
               ],
-              backgroundColor: config.color,
+              backgroundColor: primaryConfig.color,
               paddingAll: "15px"
             },
             body: {
               type: "box",
               layout: "vertical",
-              contents: [
-                {
-                  type: "text",
-                  text: record.title,
-                  weight: "bold",
-                  size: "md",
-                  wrap: true,
-                  color: "#334155"
-                },
-                {
-                  type: "text",
-                  text: record.message || "-",
-                  size: "xs",
-                  color: "#64748b",
-                  wrap: true,
-                  margin: "md",
-                  maxLines: 4
-                },
-                {
-                    type: "box",
-                    layout: "horizontal",
-                    margin: "lg",
-                    contents: [
-                        {
-                            type: "text",
-                            text: config.label,
-                            size: "xxs",
-                            color: "#94a3b8",
-                            flex: 1
-                        },
-                        {
-                            type: "text",
-                            text: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-                            size: "xxs",
-                            color: "#cbd5e1",
-                            align: "end"
-                        }
-                    ]
-                }
-              ],
+              contents: bodyContents,
               paddingAll: "20px"
             },
-            // Optional: Add button to open app
             footer: {
               type: "box",
               layout: "vertical",
@@ -154,8 +286,8 @@ Deno.serve(async (req: any) => {
                   type: "button",
                   action: {
                     type: "uri",
-                    label: "เปิดดูในแอป",
-                    uri: "https://juijui-corp.vercel.app/" // เปลี่ยนเป็น URL จริงของคุณ
+                    label: "เปิดเข้าแอป",
+                    uri: "https://juijui-corp.vercel.app/"
                   },
                   style: "secondary",
                   height: "sm",
@@ -184,43 +316,43 @@ Deno.serve(async (req: any) => {
       throw new Error(`LINE API Error (${lineResponse.status}): ${errorText}`);
     }
 
-    // CASE: Success
-    // Update DB: SUCCESS
+    // Update DB: SUCCESS for all batched records
     await supabaseAdmin.from('notifications').update({
         line_status: 'SUCCESS',
         sent_at: new Date().toISOString(),
         last_error: null
-    }).eq('id', record.id);
+    }).in('id', claimedIds);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, count: claimedIds.length }), {
       headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (err: any) {
     console.error("Error in push-to-line:", err);
 
-    // CASE: Failed
-    // We catch errors here to update the DB status instead of letting the function crash entirely.
-    // This allows us to track failures.
     try {
-        const payload = await req.clone().json(); // Clone req to read body again if needed
-        const { record } = payload;
-        
-        if (record && record.id) {
-             const currentRetry = record.retry_count || 0;
+        if (claimedIds.length > 0) {
              await supabaseAdmin.from('notifications').update({
                 line_status: 'FAILED',
-                retry_count: currentRetry + 1,
-                last_error: err.message?.substring(0, 500) // Truncate error if too long
-            }).eq('id', record.id);
+                last_error: err.message?.substring(0, 500)
+            }).in('id', claimedIds);
+        } else {
+             // Fallback for individual record if failed before claiming block
+             const payload = await req.clone().json();
+             const { record } = payload;
+             if (record && record.id) {
+                  const currentRetry = record.retry_count || 0;
+                  await supabaseAdmin.from('notifications').update({
+                     line_status: 'FAILED',
+                     retry_count: currentRetry + 1,
+                     last_error: err.message?.substring(0, 500)
+                 }).eq('id', record.id);
+             }
         }
     } catch (e) {
-        // Fallback if we can't even read the record ID
-        console.error("Critical failure updating DB status:", e);
+        console.error("Critical failure during error-status update:", e);
     }
 
-    // Return 200 OK to the Webhook even on logical error to prevent the Database Webhook from retrying indefinitely on its own.
-    // We handle our own retries via the `line_status` column logic.
     return new Response(JSON.stringify({ error: err.message }), { status: 200 });
   }
 });

@@ -161,7 +161,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
           {/* Right Column: Widgets */}
           <div className="xl:col-span-1 space-y-8 flex flex-col">
             <motion.div variants={itemVariants} className="flex-shrink-0">
-               <AdminDeadlineRequests currentUser={currentUser} />
+               <AdminDeadlineRequests currentUser={currentUser} users={users} tasks={tasks} />
             </motion.div>
 
             <motion.div variants={itemVariants} className="flex-shrink-0">
@@ -172,6 +172,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
                <AttendanceComparisonWidget 
                   todayStats={attendanceToday}
                   yesterdayStats={attendanceYesterday}
+                  users={users}
                />
             </motion.div>
 

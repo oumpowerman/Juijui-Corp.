@@ -1,8 +1,11 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { DeadlineRequest, User } from '../types';
+import { useUserSession } from '../context/UserSessionContext';
 
-export const useDeadlineRequests = (currentUser?: User) => {
+export const useDeadlineRequests = (passedUser?: User) => {
+    const { currentUserProfile } = useUserSession();
+    const currentUser = passedUser || currentUserProfile || undefined;
     const [isLoading, setIsLoading] = useState(false);
 
     // 1. Fetch Pending Requests for a specific Task
@@ -145,7 +148,31 @@ export const useDeadlineRequests = (currentUser?: User) => {
 
     // 4. Resolve a Request (Admin)
     const resolveRequest = useCallback(async (requestId: string, taskId: string, isApproved: boolean, newDate?: Date): Promise<{ success: boolean; error?: string }> => {
-        if (!currentUser || currentUser.role !== 'ADMIN') return { success: false, error: 'Unauthorized' };
+        let userRole = currentUser?.role;
+        let userId = currentUser?.id;
+
+        if (!userRole || !userId) {
+            try {
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                if (authUser) {
+                    userId = authUser.id;
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', authUser.id)
+                        .single();
+                    if (profile) {
+                        userRole = profile.role;
+                    }
+                }
+            } catch (authErr) {
+                console.error('Error fetching fallback auth user role:', authErr);
+            }
+        }
+
+        if (!userRole || userRole.toUpperCase() !== 'ADMIN' || !userId) {
+            return { success: false, error: `Unauthorized (User Role: ${userRole || 'NONE'})` };
+        }
 
         try {
             setIsLoading(true);
@@ -157,7 +184,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 .update({ 
                     status,
                     resolved_at: new Date().toISOString(),
-                    resolved_by: currentUser.id
+                    resolved_by: userId
                 })
                 .eq('id', requestId);
                 
@@ -178,7 +205,7 @@ export const useDeadlineRequests = (currentUser?: User) => {
                 task_id: taskId,
                 action: isApproved ? 'DEADLINE_EXTENSION_APPROVED' : 'DEADLINE_EXTENSION_REJECTED',
                 details: isApproved ? `อนุมัติการเลื่อน Deadline เป็นวันที่ ${newDate?.toISOString().split('T')[0]}` : `ปฏิเสธคำขอเลื่อน Deadline`,
-                user_id: currentUser.id
+                user_id: userId
             });
 
             return { success: true };

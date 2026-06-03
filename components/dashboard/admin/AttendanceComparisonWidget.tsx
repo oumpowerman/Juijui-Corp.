@@ -1,16 +1,29 @@
-
-import React from 'react';
-import { motion } from 'framer-motion';
-import { UserCheck, Clock, UserX, Briefcase, ArrowUp, ArrowDown, Minus, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { UserCheck, Clock, UserX, Briefcase, ArrowUp, ArrowDown, Minus, Sparkles, ChevronRight } from 'lucide-react';
 import { AttendanceStat } from '../../../hooks/useDashboardStats';
+import { User } from '../../../types';
+import AttendanceDetailModal from './attendance/AttendanceDetailModal';
 
 interface AttendanceComparisonWidgetProps {
     todayStats: AttendanceStat;
     yesterdayStats: AttendanceStat;
+    users?: User[];
 }
 
-const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({ todayStats, yesterdayStats }) => {
-    
+const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({ 
+    todayStats, 
+    yesterdayStats, 
+    users = [] 
+}) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedTab, setSelectedTab] = useState<'ALL' | 'ON_TIME' | 'LATE' | 'LEAVE' | 'ABSENT'>('ALL');
+
+    const openModalWithTab = (tab: 'ALL' | 'ON_TIME' | 'LATE' | 'LEAVE' | 'ABSENT') => {
+        setSelectedTab(tab);
+        setIsModalOpen(true);
+    };
+
     const getTrendDisplay = (current: number, prev: number, isGoodMetric: boolean) => {
         const diff = current - prev;
         let colorClass = 'text-slate-400 bg-slate-50';
@@ -38,6 +51,7 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
 
     return (
         <div className="glass-card rounded-[2.5rem] p-6 h-full flex flex-col shadow-indigo-100/50">
+            {/* Header section with live indicator and Detail trigger */}
             <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-slate-800 flex items-center gap-3 text-lg tracking-tight">
                     <span className="p-2 bg-indigo-50 text-indigo-500 rounded-2xl shadow-sm border border-indigo-100">
@@ -45,14 +59,25 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
                     </span>
                     การเข้างานวันนี้
                 </h3>
-                <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase tracking-widest">Live</span>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => openModalWithTab('ALL')}
+                        className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full border border-indigo-100 transition-colors uppercase tracking-widest flex items-center gap-1 cursor-pointer"
+                    >
+                        ดูรายคน
+                        <ChevronRight className="w-3 h-3" />
+                    </button>
+                    <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase tracking-widest animate-pulse">Live</span>
+                </div>
             </div>
 
+            {/* Attendance Status Cards Grid */}
             <div className="grid grid-cols-2 gap-4 flex-1">
                 {/* 1. Present */}
                 <motion.div 
                     whileHover={{ scale: 1.02, y: -2 }}
-                    className="bg-emerald-50/40 rounded-3xl p-4 border border-emerald-100/50 flex flex-col justify-between group transition-all"
+                    onClick={() => openModalWithTab('ON_TIME')}
+                    className="bg-emerald-50/40 rounded-3xl p-4 border border-emerald-100/50 flex flex-col justify-between group transition-all cursor-pointer"
                 >
                     <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-widest mb-2">
                         <UserCheck className="w-4 h-4" /> มาทำงาน
@@ -66,21 +91,23 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
                 {/* 2. Late */}
                 <motion.div 
                     whileHover={{ scale: 1.02, y: -2 }}
-                    className="bg-orange-50/40 rounded-3xl p-4 border border-orange-100/50 flex flex-col justify-between group transition-all"
+                    onClick={() => openModalWithTab('LATE')}
+                    className="bg-orange-50/40 rounded-3xl p-4 border border-orange-100/50 flex flex-col justify-between group transition-all cursor-pointer"
                 >
                     <div className="flex items-center gap-2 text-orange-600 font-black text-[10px] uppercase tracking-widest mb-2">
                         <Clock className="w-4 h-4" /> สาย
                     </div>
                     <div className="flex items-end">
                         <span className="text-3xl font-black text-orange-700 tracking-tighter">{todayStats.late}</span>
-                         {getTrendDisplay(todayStats.late, yesterdayStats.late, false)}
+                        {getTrendDisplay(todayStats.late, yesterdayStats.late, false)}
                     </div>
                 </motion.div>
 
-                {/* 3. Leave */}
+                {/* 3. Leave / WFH */}
                 <motion.div 
                     whileHover={{ scale: 1.02, y: -2 }}
-                    className="bg-indigo-50/40 rounded-3xl p-4 border border-indigo-100/50 flex flex-col justify-between group transition-all"
+                    onClick={() => openModalWithTab('LEAVE')}
+                    className="bg-indigo-50/40 rounded-3xl p-4 border border-indigo-100/50 flex flex-col justify-between group transition-all cursor-pointer"
                 >
                     <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">
                         <Briefcase className="w-4 h-4" /> ลา/WFH
@@ -91,13 +118,14 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
                     </div>
                 </motion.div>
 
-                {/* 4. Absent (Approx) */}
+                {/* 4. Absent */}
                 <motion.div 
                     whileHover={{ scale: 1.02, y: -2 }}
-                    className="bg-rose-50/40 rounded-3xl p-4 border border-rose-100/50 flex flex-col justify-between group transition-all"
+                    onClick={() => openModalWithTab('ABSENT')}
+                    className="bg-rose-50/40 rounded-3xl p-4 border border-rose-100/50 flex flex-col justify-between group transition-all cursor-pointer"
                 >
                     <div className="flex items-center gap-2 text-rose-600 font-black text-[10px] uppercase tracking-widest mb-2">
-                        <UserX className="w-4 h-4" /> ขาด/ยังไม่เข้า
+                        <UserX className="w-4 h-4" /> ยังไม่เข้างาน
                     </div>
                     <div className="flex items-end">
                         <span className="text-3xl font-black text-rose-700 tracking-tighter">{todayStats.absent}</span>
@@ -105,7 +133,7 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
                 </motion.div>
             </div>
             
-            {/* Footer Summary */}
+            {/* Footer Summary & Attendance rate */}
             <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -118,6 +146,18 @@ const AttendanceComparisonWidget: React.FC<AttendanceComparisonWidgetProps> = ({
                     </span>
                 </div>
             </div>
+
+            {/* Modularized Real-time Detailed Modal */}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <AttendanceDetailModal 
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        users={users}
+                        initialTab={selectedTab}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

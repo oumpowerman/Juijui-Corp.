@@ -202,6 +202,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-4 md:p-8 min-h-screen"}
     >
       <div className={containerClasses}>
+        {isExpanded && (
+           <button 
+             onClick={() => setIsExpanded(false)}
+             className="absolute top-4 right-4 p-2.5 bg-white hover:bg-gray-100 text-gray-500 hover:text-gray-800 rounded-full z-50 shadow-lg border border-gray-200 transition-all hover:scale-110 active:scale-95"
+             title="ย่อหน้าจอ"
+           >
+               <Minimize2 className="w-6 h-6" />
+           </button>
+        )}
 
         {isFetching && (
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] bg-white/90 backdrop-blur border border-indigo-100 shadow-xl px-4 py-2 rounded-full flex items-center gap-2 animate-in slide-in-from-top-4">

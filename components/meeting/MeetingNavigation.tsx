@@ -72,7 +72,7 @@ const MeetingNavigation: React.FC<MeetingNavigationProps> = React.memo(({ active
                     <div className={`w-1.5 h-1.5 rounded-full ${activeTheme.bg.replace('bg-', 'bg-').replace('50', '500')} animate-pulse`}></div>
                     {activeTheme.label} Mode
                 </div>
-                <div className="hidden xs:block">
+                <div className="block">
                     <MeetingTimer meetingId={meetingId} />
                 </div>
             </div>

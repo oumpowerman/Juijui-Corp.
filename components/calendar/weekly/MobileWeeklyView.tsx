@@ -19,6 +19,7 @@ interface MobileWeeklyViewProps {
     masterOptions: MasterOption[];
     onTaskClick: (task: Task) => void;
     isLandscape?: boolean;
+    onDayClick?: (day: Date, dayTasks: Task[]) => void;
 }
 
 export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
@@ -32,7 +33,8 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
     channels,
     masterOptions,
     onTaskClick,
-    isLandscape = false
+    isLandscape = false,
+    onDayClick
 }) => {
     return (
         <div className={`${isLandscape ? 'hidden' : 'lg:hidden'} flex flex-col gap-4`}>
@@ -46,7 +48,13 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
                     return (
                         <button
                             key={day.toString()}
-                            onClick={() => setSelectedDay(day)}
+                            onClick={() => {
+                                if (isSelected) {
+                                    onDayClick?.(day, tasksForSelectedDay);
+                                } else {
+                                    setSelectedDay(day);
+                                }
+                            }}
                             className={`flex flex-col items-center gap-0.5 sm:gap-1 transition-all relative ${isSelected ? 'scale-105 sm:scale-110' : 'hover:scale-105'}`}
                         >
                             <span className={`text-[11px] sm:text-[14px] font-bold tracking-tighter ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>
@@ -75,15 +83,20 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
             {/* Task List for Selected Day */}
             <div className="p-1 space-y-4">
                 <div className="flex items-center justify-between px-2">
-                    <div className="flex flex-col">
-                        <span className="text-[12px] font-bold text-indigo-500 uppercase tracking-widest">
+                    <button 
+                        onClick={() => onDayClick?.(selectedDay, tasksForSelectedDay)}
+                        className="flex flex-col text-left group/mhdr hover:opacity-85 transition-opacity cursor-pointer focus:outline-none"
+                        title="คลิกเพื่อเปิดบอร์ดรายงานช่องงาน"
+                    >
+                        <span className="text-[12px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1.5 transition-colors group-hover/mhdr:text-indigo-600">
                             {format(selectedDay, 'EEEE, d MMMM', { locale: th })}
+                            <span className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-black scale-95 origin-left shrink-0">แตะเพื่อเปิดบอร์ดช่องงาน</span>
                         </span>
-                        <h3 className="text-lg font-bold text-slate-800">งานที่คุณวางแผนไว้</h3>
-                    </div>
+                        <h3 className="text-lg font-bold text-slate-800 transition-colors group-hover/mhdr:text-indigo-700">งานที่คุณวางแผนไว้</h3>
+                    </button>
                     <button 
                         onClick={() => onSelectDate(selectedDay, viewMode)}
-                        className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95"
+                        className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 shrink-0"
                     >
                         <Plus className="w-5 h-5" />
                     </button>

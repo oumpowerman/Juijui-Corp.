@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
+import { BRAND_CONFIG } from '../../../../config/brand.ts';
 
 interface ReportSignOffProps {
     userName: string;
@@ -28,7 +29,7 @@ const ReportSignOff: React.FC<ReportSignOffProps> = ({ userName }) => {
             <div className="mt-24 pt-10 border-t border-slate-100 flex justify-between items-center text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
                 <div className="flex items-center gap-4">
                     <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                    <span>Powered by Juijui Planner V10 Architecture</span>
+                    <span>Powered by {BRAND_CONFIG.name} Architecture</span>
                 </div>
                 <span>Confidentially Recorded • {format(new Date(), 'yyyy')}</span>
             </div>

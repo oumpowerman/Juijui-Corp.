@@ -50,7 +50,7 @@ const AppShell: React.FC<AppShellProps> = ({
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
 
     return (
-        <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDarkTheme ? 'bg-slate-950 text-white' : 'bg-[#f8fafc] text-gray-900'}`}>
+        <div className={`flex h-[100dvh] overflow-hidden font-sans transition-colors duration-500 ${isDarkTheme ? 'bg-slate-950 text-white' : 'bg-[#f8fafc] text-gray-900'}`}>
             <ConnectionStatus />
             
             {/* Desktop Sidebar */}

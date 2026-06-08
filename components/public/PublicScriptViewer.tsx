@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Script } from '../../types';
 import { MessageCircle, FileText, Loader2, Share2, Info, Moon, Sun, ArrowRightLeft } from 'lucide-react';
+import { BRAND_CONFIG } from '../../config/brand.ts';
 
 interface PublicScriptViewerProps {
     token: string;
@@ -292,7 +293,7 @@ const PublicScriptViewer: React.FC<PublicScriptViewerProps> = ({ token }) => {
 
             {/* Footer Credit - Fixed at bottom */}
             <div className={`shrink-0 p-4 text-center text-xs ${isDarkMode ? 'text-gray-600 bg-gray-900' : 'text-gray-400 bg-[#eef2f6]'} backdrop-blur-sm z-40 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200/50'}`}>
-                Powered by <span className="font-bold">Juijui Planner</span>
+                Powered by <span className="font-bold">{BRAND_CONFIG.name}</span>
             </div>
         </div>
     );

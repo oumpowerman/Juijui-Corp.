@@ -7,6 +7,7 @@ import MentorTip from '../../MentorTip';
 import { TimeRangeOption, ViewScope } from '../../../hooks/useDashboardStats';
 import { useGreetings } from '../../../hooks/useGreetings';
 import NotificationBellBtn from '../../NotificationBellBtn';
+import FilterDropdown from '../../common/FilterDropdown';
 
 interface DashboardHeaderProps {
     currentUser: User;
@@ -22,6 +23,8 @@ interface DashboardHeaderProps {
     unreadCount?: number; 
     getTimeRangeLabel: () => string;
     onOpenWorkload: () => void; // New Prop
+    currentSeason: 'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn';
+    onSeasonChange: (season: 'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn') => void;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -37,7 +40,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     onOpenNotifications,
     unreadCount = 0,
     getTimeRangeLabel,
-    onOpenWorkload
+    onOpenWorkload,
+    currentSeason,
+    onSeasonChange
 }) => {
     const { randomGreeting } = useGreetings();
     
@@ -56,7 +61,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         <motion.h1 
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            className="text-4xl font-bold text-slate-800 tracking-tighter flex items-center"
+                            className={`text-4xl font-bold tracking-tighter flex items-center ${
+                                ['season-snow'].includes(currentSeason) 
+                                    ? 'text-white drop-shadow-lg' 
+                                    : 'text-slate-800'
+                            }`}
                         >
                             ยินดีต้อนรับ, {currentUser.name.split(' ')[0]}! 
                             <motion.span 
@@ -74,22 +83,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.5 }}
-                                className="text-sm font-kanit font-bold text-indigo-500/80 mt-2 flex items-center italic"
+                                className={`text-sm font-kanit font-bold mt-2 flex items-center italic ${
+                                    ['season-snow'].includes(currentSeason) 
+                                        ? 'text-blue-100 drop-shadow' 
+                                        : 'text-indigo-500/80'
+                                }`}
                             >
                                 <Sparkles className="w-4 h-4 mr-2 text-amber-400 animate-pulse" />
                                 "{randomGreeting}"
                             </motion.p>
                         ) : (
                             <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10px] bg-white/60 backdrop-blur-md text-indigo-600 px-3 py-1 rounded-full font-black border border-white/40 flex items-center shadow-sm uppercase tracking-widest">
+                                <span className={`text-[10px] bg-white/60 backdrop-blur-md px-3 py-1 rounded-full font-black flex items-center shadow-sm uppercase tracking-widest ${
+                                    ['season-snow'].includes(currentSeason) 
+                                        ? 'text-indigo-900 border-white/20' 
+                                        : 'text-indigo-600 border-white/40'
+                                }`}>
                                     <Palette className="w-3 h-3 mr-1.5" /> Theme: {currentThemeName}
                                 </span>
                             </div>
                         )}
                         
-                         <p className="text-slate-600 text-[12x] font-kanit font-bold uppercase tracking-widest mt-3 flex items-center gap-2">
+                         <p className={`text-[12px] font-kanit font-bold uppercase tracking-widest mt-3 flex items-center gap-2 ${
+                             ['season-snow'].includes(currentSeason) 
+                                 ? 'text-slate-200 drop-shadow-md' 
+                                 : 'text-slate-600'
+                         }`}>
                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                             ภาพรวมในช่วง: <span className="text-slate-600">{getTimeRangeLabel()}</span>
+                             ภาพรวมในช่วง: <span>{getTimeRangeLabel()}</span>
                         </p>
                     </div>
                     
@@ -160,6 +181,22 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                             </motion.div>
                             )}
                         </div>
+                    </div>
+
+                    <div className="z-20">
+                        <FilterDropdown 
+                            label="ฤดูกาล"
+                            value={currentSeason}
+                            onChange={(val) => onSeasonChange(val as any)}
+                            showAllOption={false}
+                            options={[
+                                { key: 'season-summer', label: 'ฤดูร้อน ☀️' },
+                                { key: 'season-rain', label: 'ฤดูฝน 🌧️' },
+                                { key: 'season-snow', label: 'ฤดูหนาว ❄️' },
+                                { key: 'season-autumn', label: 'ฤดูใบไม้ร่วง 🍂' },
+                            ]}
+                            activeColorClass="bg-white/80 border-white/40 text-indigo-600"
+                        />
                     </div>
                 </div>
             </div>

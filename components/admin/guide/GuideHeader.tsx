@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Terminal, Cpu, Share2 } from 'lucide-react';
+import { BRAND_CONFIG } from '../../../config/brand.ts';
 
 const GuideHeader: React.FC = () => {
     return (
@@ -27,7 +28,7 @@ const GuideHeader: React.FC = () => {
                             System Logic <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">& Architecture</span>
                         </h1>
                         <p className="text-slate-400 font-medium text-lg max-w-2xl leading-relaxed">
-                            คัมภีร์เจาะลึกการทำงานของระบบ Juijui Planner <br/>
+                            คัมภีร์เจาะลึกการทำงานของระบบ {BRAND_CONFIG.name} <br/>
                             <span className="text-slate-500 text-base">เข้าใจกลไกเบื้องหลัง เพื่อการบริหารจัดการที่แม่นยำและมีประสิทธิภาพสูงสุด</span>
                         </p>
                     </div>

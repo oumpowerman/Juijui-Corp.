@@ -49,6 +49,8 @@ export interface User {
     // Gamification
     equippedFrameId?: string;
     ownedFrameIds?: string[];
+    equippedBgId?: string;
+    ownedBgIds?: string[];
 
     // Background Wave option
     waveBgEnabled?: boolean;

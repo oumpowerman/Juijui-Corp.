@@ -26,7 +26,7 @@ const DeadlineRequestsList: React.FC<DeadlineRequestsListProps> = ({
     return (
         <div className="lg:col-span-5 border-r border-slate-200 flex flex-col justify-between min-h-0 bg-white">
             {/* Selector control header */}
-            <div className="bg-slate-50/50 hover:bg-slate-50 border-b p-3 flex items-center justify-between text-[11px] h-11">
+            <div className="bg-slate-50 hover:bg-slate-100 border-b p-3 flex items-center justify-between text-[11px] h-11">
                 <button
                     onClick={handleSelectAll}
                     className="flex items-center gap-2 text-slate-600 hover:text-slate-800 focus:outline-none font-bold"
@@ -119,7 +119,7 @@ const DeadlineRequestsList: React.FC<DeadlineRequestsListProps> = ({
                                             <span>{origDateStr} ➔ <strong className="text-indigo-600 text-left font-bold">{req.newDeadline.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}</strong></span>
                                         </div>
 
-                                        <p className="text-[9px] text-slate-400 mt-2 italic bg-slate-50/50 p-1.5 border border-slate-100 rounded-lg line-clamp-1 text-left">
+                                        <p className="text-[9px] text-slate-400 mt-2 italic bg-slate-50 p-1.5 border border-slate-100 rounded-lg line-clamp-1 text-left">
                                             "{req.reason || 'ไม่ได้ระบุสาเหตุคอยหนุน...'}"
                                         </p>
                                     </div>

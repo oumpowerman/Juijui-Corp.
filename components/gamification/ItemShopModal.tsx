@@ -31,6 +31,61 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
     }, [isOpen, loadShopItems, loadUserInventory]);
 
     const handleBuy = async (item: ShopItem) => {
+        // Intercept Background Purchases
+        if (item.id.startsWith('bg-')) {
+            const ownedBgIds = (currentUser as any).ownedBgIds || ['bg-pastel-wave'];
+            const isAlreadyOwned = ownedBgIds.includes(item.id);
+
+            if (!isAlreadyOwned && currentUser.availablePoints < item.price) {
+                showToast('แต้มไม่พอครับ!', 'error');
+                return;
+            }
+
+            try {
+                const { supabase } = await import('../../lib/supabase');
+                
+                const isEquipped = (currentUser as any).equippedBgId === item.id;
+
+                if (item.id === 'bg-pastel-wave' && isEquipped) {
+                    showToast('สกินคลื่นพาสเทลเริ่มต้นเป็นวอลเปเปอร์หลักของคุณอยู่แล้วครับ ✨', 'info');
+                    return;
+                }
+
+                // Logic:
+                // 1. If currently equipped and default is not clicked: revert to default bg-pastel-wave
+                // 2. If already owned but not equipped: equip it
+                // 3. If not owned: buy, add to owned, and equip it
+                const updates: any = {
+                    equipped_bg_id: isEquipped ? 'bg-pastel-wave' : item.id
+                };
+                
+                if (!isAlreadyOwned && !isEquipped) {
+                    updates.available_points = currentUser.availablePoints - item.price;
+                    updates.owned_bg_ids = [...ownedBgIds, item.id];
+                }
+
+                const { error } = await supabase
+                    .from('profiles')
+                    .update(updates)
+                    .eq('id', currentUser.id);
+
+                if (error) throw error;
+                
+                if (isEquipped) {
+                    showToast(`ถอด ${item.name} และคืนสู่ระบบคลื่นเริ่มต้นแล้ว`, 'info');
+                } else {
+                    showToast(isAlreadyOwned ? `ติดตั้ง ${item.name} แล้ว` : `ซื้อและติดตั้ง ${item.name} เรียบร้อย!`, 'success');
+                }
+                
+                if (onRefreshProfile) await onRefreshProfile();
+                return;
+            } catch (err) {
+                console.error("Background Buy Error:", err);
+                showToast('เกิดข้อผิดพลาดในการซื้อพื้นหลัง', 'error');
+                return;
+            }
+        }
+
         // Intercept Frame Purchases (Since they are local config)
         if (item.id.startsWith('frame-')) {
             const ownedFrameIds = (currentUser as any).ownedFrameIds || [];

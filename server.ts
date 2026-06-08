@@ -10,6 +10,7 @@ import { Readable } from 'stream';
 import { createClient } from '@supabase/supabase-js';
 import { isAfter, isBefore, addDays, isSameMonth, isPast, isToday, subDays } from 'date-fns';
 import { tagIndexService } from './utils/tagIndexer.js';
+import { BRAND_CONFIG } from './config/brand.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -252,8 +253,8 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
         
         const drive = google.drive({ version: 'v3', auth: localAuthClient });
 
-        // Professional Folder Structure: Juijui_Planner_Assets -> Script_Images
-        const rootFolderName = 'Juijui_Planner_Assets';
+        // Professional Folder Structure: {BrandName}_Assets -> Script_Images
+        const rootFolderName = `${BRAND_CONFIG.name.replace(/\s+/g, '_')}_Assets`;
         const subFolderName = 'Script_Images';
 
         const rootFolderId = await getOrCreateFolder(drive, rootFolderName);

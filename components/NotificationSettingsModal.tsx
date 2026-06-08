@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, Bell, Calendar, UserPlus, CheckCircle, Mail, Shield } from 'lucide-react';
 import { NotificationPreferences } from '../types';
+import { BRAND_CONFIG } from '../config/brand.ts';
 
 interface NotificationSettingsModalProps {
   isOpen: boolean;
@@ -133,7 +134,7 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
              <ToggleItem 
                 itemKey="systemUpdates"
                 label="ข่าวสารจากระบบ"
-                description="การอัปเดตฟีเจอร์ใหม่ๆ ของ Juijui Planner"
+                description={`การอัปเดตฟีเจอร์ใหม่ๆ ของ ${BRAND_CONFIG.name}`}
                 icon={Shield}
                 colorClass="bg-purple-100 text-purple-600"
              />

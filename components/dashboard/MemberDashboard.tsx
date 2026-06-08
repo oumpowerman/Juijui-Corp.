@@ -32,6 +32,7 @@ import NegligenceLockModal from '../duty/NegligenceLockModal';
 import SortableWidget from './widgets/SortableWidget';
 import AppBackground from '../common/AppBackground';
 import PastelWaveBackground from './member/PastelWaveBackground';
+import { BACKGROUND_SHOP_CONFIG } from '../../config/backgroundShop';
 import { Sparkles } from 'lucide-react';
 
 // New Refactored Widgets
@@ -309,10 +310,15 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         }
     };
 
+    const currentBg = BACKGROUND_SHOP_CONFIG.find(b => b.id === (localUser as any).equippedBgId) 
+                      || BACKGROUND_SHOP_CONFIG[0];
+
     return (
-        <AppBackground theme="pastel-amber" pattern="dots" className="p-4 md:p-8 min-h-screen relative overflow-hidden">
+        <AppBackground theme={currentBg.theme} pattern={currentBg.pattern} className="p-4 md:p-8 min-h-screen relative overflow-hidden">
             {/* Ambient Animated Pastel Wave Background */}
-            <PastelWaveBackground enabled={localUser.waveBgEnabled !== false} />
+            {currentBg.id === 'bg-pastel-wave' && (
+                <PastelWaveBackground enabled={localUser.waveBgEnabled !== false} />
+            )}
 
             <div className="relative z-10 space-y-6 pb-20">
                 

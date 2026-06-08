@@ -3,12 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Sparkles, Folder, FolderPlus, Tags, Plus, Link, 
     Save, Loader2, Globe, Check, Youtube, Radio, FileText, 
-    Video, MessageSquare, Instagram, Compass 
+    Video, MessageSquare, Instagram, Compass, CheckCircle2,
+    LogOut, LayoutDashboard
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { NexusPlatform, NexusFolder } from '../../types';
 import { GoogleGenAI } from "@google/genai";
+
+// Import modular subcomponents
+import { UrlPreviewPanel } from './share/UrlPreviewPanel';
+import { FolderSelector } from './share/FolderSelector';
+import { TagSelector } from './share/TagSelector';
 
 interface PWAShareTargetModalProps {
     isOpen: boolean;
@@ -67,6 +73,10 @@ export const PWAShareTargetModal: React.FC<PWAShareTargetModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [aiEnrichment, setAiEnrichment] = useState(true);
     const [isAiProcessing, setIsAiProcessing] = useState(false);
+    
+    // Post-save flow states
+    const [isSaveSuccessful, setIsSaveSuccessful] = useState(false);
+    const [autoCloseAfterSave, setAutoCloseAfterSave] = useState(true);
 
     // Helpers to extract URL from text/url
     const extractUrl = (text: string, urlStr: string): string => {
@@ -124,6 +134,7 @@ export const PWAShareTargetModal: React.FC<PWAShareTargetModalProps> = ({
     useEffect(() => {
         if (isOpen && data && currentUser) {
             loadFolders();
+            setIsSaveSuccessful(false); // Reset success view on reopening
             
             const extracted = extractUrl(data.text || '', data.url || '');
             setUrl(extracted);
@@ -217,6 +228,20 @@ export const PWAShareTargetModal: React.FC<PWAShareTargetModalProps> = ({
         setCustomTagInput('');
     };
 
+    // Safe Window Exit Helper
+    const handleAppClosure = () => {
+        try {
+            // Attempt standard programmatic window close
+            window.close();
+        } catch (e) {
+            console.warn("window.close is blocked by browser policies:", e);
+        }
+        
+        // Notify of closure outcome & fallback
+        showToast('บอร์ดเซฟสำเร็จ! คุณสามารถกดปุ่มโฮมเพื่อกลับไปใช้งานแอปอื่นได้เลย', 'info');
+        onClose();
+    };
+
     // Save Integration to Database
     const handleSaveIdea = async () => {
         if (!currentUser || !url) return;
@@ -288,57 +313,25 @@ export const PWAShareTargetModal: React.FC<PWAShareTargetModalProps> = ({
 
             showToast('บันทึกไอเดียเข้าคลังสมองเรียบร้อย! 🚀🧠', 'success');
             localStorage.removeItem('juijui_pwa_shared_ref'); // Clean up link payload
+            
             if (onSaveSuccess) {
                 onSaveSuccess();
             }
-            onClose();
+
+            // Transit to success screen
+            setIsSaveSuccessful(true);
+
+            // If user checked Auto-exit, execute immediate smart exit
+            if (autoCloseAfterSave) {
+                setTimeout(() => {
+                    handleAppClosure();
+                }, 1800);
+            }
         } catch (err: any) {
             console.error('Error saving shared integration to database:', err);
             showToast('ไม่สามารถบันทึกไอเดียได้ โปรดลองอีกครั้ง', 'error');
         } finally {
             setIsSaving(false);
-        }
-    };
-
-    // Render Platform Badge Icon
-    const renderPlatformBadge = () => {
-        const iconClasses = "w-6 h-6 text-indigo-500 shrink-0";
-        switch (platform) {
-            case NexusPlatform.YOUTUBE:
-                return (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-bold text-xs">
-                        <Youtube className="w-4 h-4 text-rose-500" />
-                        <span>YouTube</span>
-                    </div>
-                );
-            case NexusPlatform.TIKTOK:
-                return (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950 border border-slate-800 text-white font-bold text-xs">
-                        <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        <span>TikTok</span>
-                    </div>
-                );
-            case NexusPlatform.INSTAGRAM:
-                return (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-tr from-yellow-500 to-pink-500 text-white font-bold text-xs">
-                        <Instagram className="w-4 h-4" />
-                        <span>Instagram</span>
-                    </div>
-                );
-            case NexusPlatform.NOTION:
-                return (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-100 text-orange-700 font-bold text-xs">
-                        <FileText className="w-4 h-4 text-orange-500" />
-                        <span>Notion</span>
-                    </div>
-                );
-            default:
-                return (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold text-xs">
-                        <Globe className="w-4 h-4" />
-                        <span>Website Reference</span>
-                    </div>
-                );
         }
     };
 
@@ -366,269 +359,216 @@ export const PWAShareTargetModal: React.FC<PWAShareTargetModalProps> = ({
                         <div className="absolute top-0 right-0 -translate-y-8 translate-x-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
                         <div className="absolute bottom-0 left-0 translate-y-8 -translate-x-8 w-48 h-48 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                        {/* Close button */}
-                        <button 
-                            onClick={onClose}
-                            className="absolute top-6 right-6 p-2 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        {/* Title Header */}
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                                <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black font-kanit text-slate-900 dark:text-white">แชร์ด่วนเก็บเข้าคลังสมอง 🧠💡</h3>
-                                <p className="text-xs text-slate-400 font-medium">แชร์จากหน้าสไลด์ TikTok, IG หรือแอปพลิเคชันใดก็ได้ผ่านระบบ PWA</p>
-                            </div>
-                        </div>
-
-                        {/* Main body content */}
-                        <div className="space-y-5 relative">
-                            {/* PREVIEW CONTAINER */}
-                            <div className="p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Link className="w-4 h-4 text-indigo-500" />
-                                        <span className="text-slate-400 text-xs font-semibold">ตรวจพบลิงก์ต้นทาง</span>
+                        {/* Success Screen Overlay */}
+                        <AnimatePresence mode="wait">
+                            {isSaveSuccessful ? (
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="flex flex-col items-center justify-center py-8 text-center"
+                                >
+                                    <div className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 mb-6 shadow-inner animate-bounce">
+                                        <CheckCircle2 className="w-12 h-12" />
                                     </div>
-                                    {renderPlatformBadge()}
-                                </div>
 
-                                <div className="text-xs font-mono select-all break-all bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2.5 rounded-2xl text-slate-500 leading-relaxed font-bold">
-                                    {url || 'กำลังวิเคราะห์ลิงก์...'}
-                                </div>
+                                    <h3 className="text-2xl font-black font-kanit text-slate-900 dark:text-white mb-2">
+                                        บันทึกไอเดียเรียบร้อยแล้ว! 🎉🧠
+                                    </h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium max-w-sm mb-6 leading-relaxed">
+                                        เก็บเข้าหมวดระบบ Nexus เรียบร้อย! ทีมงานสามารถร่วมคอมเมนต์ เขียนบท และแปลงโฟลเดอร์เป็นสคริปต์ได้ทันที
+                                    </p>
 
-                                {isMetaDataLoading ? (
-                                    <div className="flex items-center justify-center py-4 text-indigo-600 gap-2 font-medium text-sm">
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        <span>กำลังดึงข้อมูล Preview ด้วย NoEmbed...</span>
-                                    </div>
-                                ) : (
-                                    (thumbnailUrl || title) && (
-                                        <div className="flex gap-3 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                            {thumbnailUrl && (
-                                                <img 
-                                                    src={thumbnailUrl} 
-                                                    alt="embed thumbnail" 
-                                                    referrerPolicy="no-referrer"
-                                                    className="w-20 h-20 object-cover rounded-xl border border-slate-100 shrink-0" 
-                                                />
-                                            )}
-                                            <div className="flex flex-col justify-center gap-1 min-w-0">
-                                                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">พรีวิววิดีโอ</span>
-                                                <span className="text-slate-700 dark:text-slate-200 text-sm font-bold leading-snug line-clamp-2">
-                                                    {title}
-                                                </span>
-                                            </div>
+                                    {autoCloseAfterSave ? (
+                                        <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-8 animate-pulse">
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            <span>กำลังปิดหน้าจอแชร์เพื่อนำคุณกลับแอปเดิมโดยอัตโนมัติ...</span>
                                         </div>
-                                    )
-                                )}
-                            </div>
+                                    ) : (
+                                        <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-4" />
+                                    )}
 
-                            {/* TITLE INPUT */}
-                            <div>
-                                <label className="block text-slate-700 dark:text-slate-300 font-bold font-kanit text-sm mb-1.5 flex items-center gap-2">
-                                    ปรับปรุงหัวข้อวิดีโอ/ไอเดีย
-                                </label>
-                                <input 
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="ชื่อไอเดีย / คลังข้อมูลจำ"
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-white rounded-2xl px-4 py-3 text-sm font-bold placeholder-slate-400 transition"
-                                />
-                            </div>
-
-                            {/* FOLDER SELECTION */}
-                            <div>
-                                <div className="flex justify-between items-center mb-1.5">
-                                    <label className="text-slate-700 dark:text-slate-300 font-bold font-kanit text-sm flex items-center gap-2">
-                                        <Folder className="w-4 h-4 text-yellow-500" />
-                                        โปรดเลือกคลังโฟลเดอร์ใน Nexus
-                                    </label>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setIsCreatingFolder(!isCreatingFolder)}
-                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5"
-                                    >
-                                        <FolderPlus className="w-3.5 h-3.5" />
-                                        {isCreatingFolder ? 'ยกเลิก' : '+ โฟลเดอร์ใหม่'}
-                                    </button>
-                                </div>
-
-                                {isCreatingFolder ? (
-                                    <div className="flex gap-2 p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 mb-3 block">
-                                        <input 
-                                            type="text"
-                                            value={newFolderName}
-                                            onChange={(e) => setNewFolderName(e.target.value)}
-                                            placeholder="ระบุชื่อโฟลเดอร์ใหม่..."
-                                            className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold"
-                                        />
-                                        <button 
+                                    {/* Success Options Grid */}
+                                    <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+                                        <button
                                             type="button"
-                                            onClick={handleCreateFolderDirectly}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shrink-0"
+                                            onClick={handleAppClosure}
+                                            className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 hover:dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-sm rounded-2xl transition duration-200 flex items-center justify-center gap-2"
                                         >
-                                            ตกลง
+                                            <LogOut className="w-4 h-4" />
+                                            <span>ปิดและย้อนกลับ</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsSaveSuccessful(false);
+                                                onClose();
+                                            }}
+                                            className="px-6 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-indigo-150 transition active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                            <LayoutDashboard className="w-4 h-4" />
+                                            <span>เปิดแผงงานหลัก Juijui</span>
                                         </button>
                                     </div>
-                                ) : null}
 
-                                <select
-                                    value={selectedFolderId || ''}
-                                    onChange={(e) => setSelectedFolderId(e.target.value || null)}
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-white rounded-2xl px-4 py-3 text-sm font-bold transition"
-                                >
-                                    <option value="">📁 คลังส่วนกลาง (Root Folder) - ไม่จัดหมวด</option>
-                                    {folders.map(f => (
-                                        <option key={f.id} value={f.id}>
-                                            📁 {f.name} {f.description ? `(${f.description})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* CREATIVE TAGS HUB */}
-                            <div>
-                                <label className="block text-slate-700 dark:text-slate-300 font-bold font-kanit text-sm mb-2 flex items-center gap-2">
-                                    <Tags className="w-4 h-4 text-emerald-500" />
-                                    ติดแท็กไอเดียที่เกี่ยวข้อง
-                                </label>
-                                
-                                {/* Preset tags badge layout */}
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                    {PRESET_CREATOR_TAGS.map(presetTag => {
-                                        const isSelected = tags.includes(presetTag);
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={presetTag}
-                                                onClick={() => handleTogglePresetTag(presetTag)}
-                                                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all border-b-2 active:border-b-0 ${
-                                                    isSelected 
-                                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-800' 
-                                                        : 'bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-500 border-slate-200'
-                                                }`}
-                                            >
-                                                {presetTag}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Custom tags addition row */}
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text"
-                                        value={customTagInput}
-                                        onChange={(e) => setCustomTagInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleAddCustomTag();
-                                            }
-                                        }}
-                                        placeholder="ระบุแท็กที่เจาะจงเอง (เช่น #มุมกล้องเฉียง) กด Enter"
-                                        className="flex-1 bg-slate-50 dark:bg-slate-800 border bg-white rounded-2xl px-4 py-2.5 text-xs font-bold"
-                                    />
+                                    <p className="text-[10px] text-slate-400 font-medium mt-6 max-w-xs leading-relaxed">
+                                        *หากระบบความปลอดภัยของเบราว์เซอร์ไม่ปิดหน้าต่างอัติโนมัติ คุณสามารถแตะปุ่มโฮม หรือใช้นิ้วปัดปิดแท็บนี้ได้โดยตรง
+                                    </p>
+                                </motion.div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Close button */}
                                     <button 
-                                        type="button"
-                                        onClick={handleAddCustomTag}
-                                        className="px-4 py-2 bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-2xl text-xs font-black transition shrink-0"
+                                        onClick={onClose}
+                                        className="absolute top-6 right-6 p-2 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition dark:bg-slate-800 dark:hover:bg-slate-700"
                                     >
-                                        <Plus className="w-4 h-4" />
+                                        <X className="w-5 h-5" />
                                     </button>
-                                </div>
 
-                                {/* Selected custom tags indicator */}
-                                {tags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-3 items-center">
-                                        <span className="text-[10px] uppercase font-black text-slate-400">แท็กที่เตรียมไว้:</span>
-                                        {tags.map(t => (
-                                            <div 
-                                                key={t}
-                                                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold text-xs"
-                                            >
-                                                <span>{t}</span>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => handleTogglePresetTag(t)}
-                                                    className="hover:bg-emerald-100 rounded-full p-0.5 text-emerald-400 hover:text-emerald-700 transition"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* GEMINI INTELLIGENT WRITING OPT-IN */}
-                            {apiKey && (
-                                <div className="flex items-center justify-between p-4 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-3xl border border-indigo-100/30">
-                                    <div className="flex items-center gap-3 pr-2">
-                                        <div className="w-10 h-10 rounded-2xl bg-indigo-100/50 flex items-center justify-center text-indigo-600 shrink-0">
-                                            <Sparkles className="w-5 h-5 text-indigo-500 shrink-0 animate-pulse" />
+                                    {/* Title Header */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                                            <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
                                         </div>
                                         <div>
-                                            <h4 className="text-xs sm:text-sm font-black font-kanit text-indigo-900 leading-tight">ใช้ผู้สกัดอัจฉริยะ Gemini AI</h4>
-                                            <p className="text-[10px] sm:text-xs text-indigo-600/70 font-semibold leading-relaxed mt-0.5">
-                                                ประมวลผลวิดีโอเพื่อแปลงเนื้อหาเป็นไทย แนะนำชื่อหัวข้อและแท็กโดยอัตโนมัติ
-                                            </p>
+                                            <h3 className="text-xl font-black font-kanit text-slate-900 dark:text-white">แชร์ด่วนเก็บเข้าคลังสมอง 🧠💡</h3>
+                                            <p className="text-xs text-slate-400 font-medium">แชร์จากหน้าสไลด์ TikTok, IG หรือแอปพลิเคชันใดก็ได้ผ่านระบบ PWA</p>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAiEnrichment(!aiEnrichment)}
-                                        className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus:ring-0 ${
-                                            aiEnrichment ? 'bg-indigo-600' : 'bg-slate-200'
-                                        }`}
-                                    >
-                                        <div
-                                            className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ${
-                                                aiEnrichment ? 'translate-x-6' : 'translate-x-0'
-                                            }`}
+
+                                    {/* Main body content */}
+                                    <div className="space-y-5 relative">
+                                        {/* PREVIEW CONTAINER */}
+                                        <UrlPreviewPanel 
+                                            url={url}
+                                            platform={platform}
+                                            title={title}
+                                            thumbnailUrl={thumbnailUrl}
+                                            isMetaDataLoading={isMetaDataLoading}
                                         />
-                                    </button>
+
+                                        {/* TITLE INPUT */}
+                                        <div>
+                                            <label className="block text-slate-700 dark:text-slate-300 font-bold font-kanit text-sm mb-1.5 flex items-center gap-2">
+                                                ปรับปรุงหัวข้อวิดีโอ/ไอเดีย
+                                            </label>
+                                            <input 
+                                                type="text"
+                                                value={title}
+                                                onChange={(e) => setTitle(e.target.value)}
+                                                placeholder="ชื่อไอเดีย / คลังข้อมูลจำ"
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-white rounded-2xl px-4 py-3 text-sm font-bold placeholder-slate-400 transition"
+                                            />
+                                        </div>
+
+                                        {/* FOLDER SELECTION */}
+                                        <FolderSelector 
+                                            folders={folders}
+                                            selectedFolderId={selectedFolderId}
+                                            setSelectedFolderId={setSelectedFolderId}
+                                            isCreatingFolder={isCreatingFolder}
+                                            setIsCreatingFolder={setIsCreatingFolder}
+                                            newFolderName={newFolderName}
+                                            setNewFolderName={setNewFolderName}
+                                            handleCreateFolderDirectly={handleCreateFolderDirectly}
+                                        />
+
+                                        {/* CREATIVE TAGS HUB */}
+                                        <TagSelector 
+                                            tags={tags}
+                                            presetTags={PRESET_CREATOR_TAGS}
+                                            handleTogglePresetTag={handleTogglePresetTag}
+                                            customTagInput={customTagInput}
+                                            setCustomTagInput={setCustomTagInput}
+                                            handleAddCustomTag={handleAddCustomTag}
+                                        />
+
+                                        {/* GEMINI INTELLIGENT WRITING OPT-IN */}
+                                        {apiKey && (
+                                            <div className="flex items-center justify-between p-4 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-3xl border border-indigo-100/30 dark:border-indigo-900/30">
+                                                <div className="flex items-center gap-3 pr-2">
+                                                    <div className="w-10 h-10 rounded-2xl bg-indigo-100/50 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                                        <Sparkles className="w-5 h-5 text-indigo-500 shrink-0 animate-pulse" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs sm:text-sm font-black font-kanit text-indigo-900 dark:text-indigo-300 leading-tight">ใช้ผู้สกัดอัจฉริยะ Gemini AI</h4>
+                                                        <p className="text-[10px] sm:text-xs text-indigo-600/70 dark:text-indigo-400/70 font-semibold leading-relaxed mt-0.5">
+                                                            ประมวลผลวิดีโอเพื่อแปลงเนื้อหาเป็นไทย แนะนำชื่อหัวข้อและแท็กโดยอัตโนมัติ
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAiEnrichment(!aiEnrichment)}
+                                                    className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus:ring-0 shrink-0 ${
+                                                        aiEnrichment ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-800'
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ${
+                                                            aiEnrichment ? 'translate-x-6' : 'translate-x-0'
+                                                        }`}
+                                                    />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* CLOSE PREFERENCE CHECKBOX */}
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800/80">
+                                            <div className="flex items-center h-5">
+                                                <input
+                                                    id="auto-close-pwa-toggle"
+                                                    type="checkbox"
+                                                    checked={autoCloseAfterSave}
+                                                    onChange={(e) => setAutoCloseAfterSave(e.target.checked)}
+                                                    className="w-4 border-2 border-slate-200 dark:border-slate-700 rounded text-indigo-600 focus:ring-indigo-500 h-4"
+                                                />
+                                            </div>
+                                            <div className="text-xs">
+                                                <label htmlFor="auto-close-pwa-toggle" className="font-extrabold text-slate-700 dark:text-slate-300 font-kanit cursor-pointer">
+                                                    ปิดตัวแอปโดยอัตโนมัติทันทีที่บันทึกเสร็จ 🚪
+                                                </label>
+                                                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+                                                    อำนวยความสะดวกในการแชร์ลิงก์อย่างว่องไวแล้วกลับไปเล่นแอปเดิมโดยไม่ต้องนั่งปิดหน้าจอเอง
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer operations */}
+                                    <div className="flex gap-3 justify-end items-center mt-8 border-t border-slate-100 dark:border-slate-800/60 pt-6">
+                                        <button
+                                            type="button"
+                                            onClick={onClose}
+                                            disabled={isSaving}
+                                            className="px-6 py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 hover:dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-bold text-sm rounded-2xl transition duration-200 disabled:opacity-40"
+                                        >
+                                            ไว้ก่อน
+                                        </button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            type="button"
+                                            onClick={handleSaveIdea}
+                                            disabled={isSaving || !url}
+                                            className="px-7 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-150 transition border-b-4 border-indigo-800 hover:border-b-2 active:border-b-0 active:translate-y-1 flex items-center gap-2"
+                                        >
+                                            {isSaving ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                                    <span>{isAiProcessing ? 'Gemini กำลังวิเคราะห์วิดีโอ...' : 'กำลังจัดเก็บ...'}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save className="w-4 h-4 text-white" />
+                                                    <span>บันทึกไอเดีย 🎯</span>
+                                                </>
+                                            )}
+                                        </motion.button>
+                                    </div>
                                 </div>
                             )}
-                        </div>
-
-                        {/* Footer operations */}
-                        <div className="flex gap-3 justify-end items-center mt-8 border-t border-slate-100/60 pt-6">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={isSaving}
-                                className="px-6 py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 hover:dark:bg-slate-700 text-slate-500 font-bold text-sm rounded-2xl transition duration-200 disabled:opacity-40"
-                            >
-                                ไว้ก่อน
-                            </button>
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                type="button"
-                                onClick={handleSaveIdea}
-                                disabled={isSaving || !url}
-                                className="px-7 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-150 transition border-b-4 border-indigo-800 hover:border-b-2 active:border-b-0 active:translate-y-1 flex items-center gap-2"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                                        <span>{isAiProcessing ? 'Gemini กำลังวิเคราะห์วิดีโอ...' : 'กำลังจัดเก็บ...'}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-4 h-4 text-white" />
-                                        <span>บันทึกไอเดีย 🎯</span>
-                                    </>
-                                )}
-                            </motion.button>
-                        </div>
+                        </AnimatePresence>
                     </motion.div>
                 </div>
             )}

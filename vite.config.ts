@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { BRAND_CONFIG } from './config/brand.ts';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -16,9 +17,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         manifest: {
-          name: 'Juijui Planner V10',
-          short_name: 'Juijui',
-          description: 'A professional script planning and asset management tool',
+          name: BRAND_CONFIG.name,
+          short_name: BRAND_CONFIG.title,
+          description: BRAND_CONFIG.description,
           theme_color: '#4f46e5',
           background_color: '#f8fafc',
           display: 'standalone',
@@ -52,7 +53,15 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [/^\/api/, /^\/auth/],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         }
-      })
+      }),
+      {
+        name: 'html-transform',
+        transformIndexHtml(html) {
+          return html.replace(/<title>(.*?)<\/title>/, `<title>${BRAND_CONFIG.name}</title>`)
+                     .replace(/<h1 class="loader-title">(.*?)<\/h1>/, `<h1 class="loader-title">${BRAND_CONFIG.name}</h1>`)
+                     .replace(/<meta name="apple-mobile-web-app-title" content="(.*?)">/, `<meta name="apple-mobile-web-app-title" content="${BRAND_CONFIG.title}">`);
+        }
+      }
     ],
     define: {
       // Polyfill process.env for libraries that expect it

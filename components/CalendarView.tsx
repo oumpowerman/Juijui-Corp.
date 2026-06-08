@@ -374,6 +374,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 isLandscape={isMobileLandscape}
                                 allTasks={tasks}
                                 onMoveTask={handleMoveAttempt}
+                                onDayClick={handleDayClick}
                             />
                         )
                     ) : (

@@ -5,6 +5,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .pb-safe-area {
+    padding-bottom: max(env(safe-area-inset-bottom), 1.5rem) !important;
+  }
+}
+
 .custom-calendar {
     border: none !important;
     border-radius: 2.5rem !important;

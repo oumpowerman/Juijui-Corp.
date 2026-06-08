@@ -124,6 +124,7 @@ interface DesktopWeeklyViewProps {
     masterOptions: MasterOption[];
     onTaskClick: (task: Task) => void;
     isLandscape?: boolean;
+    onDayClick?: (day: Date, dayTasks: Task[]) => void;
 }
 
 export const DesktopWeeklyView: React.FC<DesktopWeeklyViewProps> = ({
@@ -134,7 +135,8 @@ export const DesktopWeeklyView: React.FC<DesktopWeeklyViewProps> = ({
     channels,
     masterOptions,
     onTaskClick,
-    isLandscape = false
+    isLandscape = false,
+    onDayClick
 }) => {
     return (
         <div className={`${isLandscape ? 'flex' : 'hidden lg:flex'} flex-col h-full overflow-hidden`}>
@@ -146,14 +148,19 @@ export const DesktopWeeklyView: React.FC<DesktopWeeklyViewProps> = ({
                         {days.map((day) => {
                             const isToday = isDateToday(day);
                             return (
-                                <div key={day.toString()} className="flex-1 min-w-[140px] md:min-w-[170px] lg:min-w-[185px] xl:min-w-[240px] p-3 md:p-4 text-center border-r border-gray-50 last:border-r-0">
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                <button 
+                                    key={day.toString()} 
+                                    onClick={() => onDayClick?.(day, getSortedTasksForDay(day))}
+                                    className="flex-1 min-w-[140px] md:min-w-[170px] lg:min-w-[185px] xl:min-w-[240px] p-3 md:p-4 text-center border-r border-gray-50 last:border-r-0 cursor-pointer hover:bg-indigo-50/20 active:scale-95 transition-all group/hdr focus:outline-none"
+                                    title="คลิกเพื่อเปิดบอร์ดรายงานช่องงานของวันนี้"
+                                >
+                                    <span className={`text-[10px] font-black uppercase tracking-widest block transition-colors duration-200 ${isToday ? 'text-indigo-600' : 'text-slate-400 group-hover/hdr:text-indigo-500'}`}>
                                         {format(day, 'EEE')}
                                     </span>
-                                    <div className={`mt-1 text-2xl font-black ${isToday ? 'text-indigo-600' : 'text-slate-700'}`}>
+                                    <div className={`mt-1 text-2xl font-black flex items-center justify-center transition-all duration-200 group-hover/hdr:scale-110 ${isToday ? 'text-indigo-600' : 'text-slate-700 group-hover/hdr:text-indigo-600'}`}>
                                         {format(day, 'd')}
                                     </div>
-                                </div>
+                                </button>
                             );
                         })}
                     </div>

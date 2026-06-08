@@ -47,6 +47,16 @@ const AdminDashboard: React.FC<DashboardProps> = ({
     masterOptions = []
 }) => {
   
+  const getCurrentSeason = () => {
+      const month = new Date().getMonth();
+      if (month >= 2 && month <= 4) return 'season-summer';
+      if (month >= 5 && month <= 9) return 'season-rain';
+      if (month >= 10 && month <= 11) return 'season-autumn';
+      return 'season-snow';
+  };
+
+  const [currentSeason, setCurrentSeason] = useState<'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn'>(getCurrentSeason());
+
   const {
       timeRange, setTimeRange,
       customDays, setCustomDays,
@@ -101,7 +111,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
 
   return (
     <AppBackground 
-      theme="rainbow" 
+      theme={currentSeason} 
       pattern="dots" 
       className="p-4 md:p-8 min-h-screen"
     >
@@ -127,6 +137,8 @@ const AdminDashboard: React.FC<DashboardProps> = ({
               unreadCount={unreadCount}
               getTimeRangeLabel={getTimeRangeLabel}
               onOpenWorkload={() => setIsWorkloadOpen(true)}
+              currentSeason={currentSeason}
+              onSeasonChange={setCurrentSeason}
           />
         </motion.div>
 

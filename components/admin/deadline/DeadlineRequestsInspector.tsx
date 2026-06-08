@@ -37,7 +37,7 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
     handleResolve
 }) => {
     return (
-        <div className="lg:col-span-7 bg-slate-50/60 p-6 overflow-y-auto flex flex-col justify-between text-left">
+        <div className="lg:col-span-7 bg-slate-50 p-6 overflow-y-auto flex flex-col justify-between text-left">
             <AnimatePresence mode="wait">
                 {!selectedReq ? (
                     <motion.div 
@@ -160,7 +160,7 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
 
                         {/* Custom Adjust date block */}
                         <div className="border-t pt-4 space-y-3 border-slate-200 text-left">
-                            <div className="bg-indigo-50/40 hover:bg-indigo-50/80 p-3 rounded-2xl border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-2.5 transition-colors">
+                            <div className="bg-indigo-50 hover:bg-indigo-100 p-3 rounded-2xl border border-indigo-200 flex flex-col md:flex-row items-center justify-between gap-2.5 transition-colors">
                                 <div className="text-left">
                                     <h5 className="text-[11px] text-indigo-950 flex items-center gap-1 font-bold">
                                         <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
@@ -208,7 +208,7 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
 
             {/* Interactive footer action indicators */}
             {selectedReq && (
-                <div className="flex items-center justify-between gap-4 border-t pt-4 mt-4 bg-slate-50/20 shrink-0">
+                <div className="flex items-center justify-between gap-4 border-t pt-4 mt-4 shrink-0">
                     <button
                         onClick={() => setSelectedReq(null)}
                         className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] text-slate-500 hover:text-slate-800 transition-colors font-bold"

@@ -69,28 +69,28 @@ const TribunalReviewWidget: React.FC<TribunalReviewWidgetProps> = ({ currentUser
     return (
         <div id="tribunal-review-widget" className={`rounded-3xl border p-6 space-y-5 relative overflow-hidden text-left transition-all duration-500 hover:-translate-y-1 hover:shadow-md ${
             hasPending 
-                ? 'bg-gradient-to-br from-rose-50/60 via-purple-50/40 to-violet-50/30 border-rose-100 shadow-sm shadow-rose-100/20' 
+                ? 'bg-gradient-to-br from-rose-50 via-red-50/50 to-orange-50 border-red-200 shadow-xl shadow-red-500/20 ring-2 ring-red-500/40' 
                 : 'bg-white border-slate-100 shadow-2xs'
         }`}>
             {/* Ambient dynamic pulsing crimson glow indicator */}
             {hasPending && (
-                <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-rose-200/15 to-violet-200/10 blur-3xl pointer-events-none rounded-full" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-red-500/20 to-orange-500/20 blur-3xl pointer-events-none rounded-full animate-pulse" />
             )}
 
             {/* Subtle giant back banner gavel icon that knocks elegantly on loop when pending */}
-            <div className="absolute -top-1 -right-1 p-3 opacity-[0.03] pointer-events-none select-none">
+            <div className="absolute -top-1 -right-1 p-3 opacity-[0.06] pointer-events-none select-none">
                 <motion.div
                     animate={hasPending ? {
-                        rotate: [0, -15, 8, -15, 0],
-                        scale: [1, 1.05, 0.95, 1.05, 1],
+                        rotate: [0, -15, 15, -15, 0],
+                        scale: [1, 1.1, 0.9, 1.1, 1],
                     } : {}}
                     transition={{
                         repeat: Infinity,
-                        duration: 5,
+                        duration: 3,
                         ease: "easeInOut"
                     }}
                 >
-                    <Gavel className="w-24 h-24 text-rose-500" />
+                    <Gavel className={`w-36 h-36 ${hasPending ? 'text-red-600' : 'text-slate-400'}`} />
                 </motion.div>
             </div>
 
@@ -99,28 +99,28 @@ const TribunalReviewWidget: React.FC<TribunalReviewWidgetProps> = ({ currentUser
                 <div className="flex items-center gap-3">
                     <span className={`p-2.5 rounded-2xl shrink-0 transition-all duration-500 flex items-center justify-center ${
                         hasPending 
-                            ? 'bg-rose-100 text-rose-600 border border-rose-200/20 shadow-2xs' 
+                            ? 'bg-red-500 text-white border border-red-400 shadow-lg shadow-red-500/40 animate-bounce' 
                             : 'bg-slate-50 text-slate-400 border border-slate-100/50'
                     }`}>
-                        <Scale className={`w-4.5 h-4.5 ${hasPending ? 'animate-pulse' : ''}`} />
+                        <Scale className={`w-4.5 h-4.5`} />
                     </span>
                     <div className="text-left">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <h3 className="text-base md:text-lg text-slate-800 font-bold tracking-tight">ศูนย์ศาลตัดสินเวรยาม</h3>
+                            <h3 className={`text-base md:text-lg font-bold tracking-tight ${hasPending ? 'text-red-950' : 'text-slate-800'}`}>ศูนย์ศาลตัดสินเวรยาม</h3>
                             {hasPending && (
-                                <span className="bg-rose-100 text-rose-800 text-[8.5px] font-semibold px-2 py-0.5 rounded-lg flex items-center gap-0.5 border border-rose-200/50 shadow-2xs">
-                                    <Sparkles className="w-2 h-2 text-rose-500" /> ศาลร้อน
+                                <span className="bg-red-500 text-white text-[8.5px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-0.5 border border-red-400 shadow-sm animate-pulse">
+                                    <Sparkles className="w-2 h-2" /> ศาลร้อน
                                 </span>
                             )}
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium">คำร้องละเว้นหน้าที่เวรยามและการตัดสินโทษ</p>
+                        <p className={`text-[10px] mt-0.5 font-medium ${hasPending ? 'text-red-800' : 'text-slate-400'}`}>คำร้องละเว้นหน้าที่เวรยามและการตัดสินโทษ!</p>
                     </div>
                 </div>
 
                 <div className="shrink-0">
-                    <span className={`h-6 px-3 text-[10px] rounded-full flex items-center justify-center transition-all duration-500 font-semibold ${
+                    <span className={`h-6 px-3 text-[10px] rounded-full flex items-center justify-center transition-all duration-500 font-bold ${
                         hasPending
-                            ? 'bg-rose-100 text-rose-700 border border-rose-200/50 animate-pulse'
+                            ? 'bg-red-600 text-white border border-red-500 shadow-md shadow-red-500/30 animate-pulse'
                             : 'bg-slate-50 border border-slate-100 text-slate-400 font-medium'
                     }`}>
                         {hasPending ? `คดีค้าง ${reports.length} เรื่อง` : 'ศาลสงบเรียบร้อย'}
@@ -132,41 +132,41 @@ const TribunalReviewWidget: React.FC<TribunalReviewWidgetProps> = ({ currentUser
             <div className="grid grid-cols-2 gap-2.5 text-left relative z-10">
                 <div className={`p-3 rounded-2xl border transition-all duration-500 ${
                     hasPending && metrics.critical > 0
-                        ? 'bg-rose-50/65 border-rose-150'
-                        : 'bg-slate-50/40 border-slate-100/50'
+                        ? 'bg-white/80 border-red-200'
+                        : 'bg-slate-50 border-slate-100'
                 }`}>
                     <span className={`text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${
-                        hasPending && metrics.critical > 0 ? 'text-rose-500' : 'text-slate-455'
+                        hasPending && metrics.critical > 0 ? 'text-red-600' : 'text-slate-400'
                     }`}>
-                        <ShieldAlert className="w-3 h-3 text-rose-500 shrink-0" /> ร้ายแรง/วิกฤต
+                        <ShieldAlert className={`w-3 h-3 shrink-0 ${hasPending && metrics.critical > 0 ? 'animate-pulse' : ''}`} /> ร้ายแรง/วิกฤต
                     </span>
-                    <p className={`text-sm mt-0.5 font-bold ${
-                        hasPending && metrics.critical > 0 ? 'text-rose-600' : 'text-slate-700'
+                    <p className={`text-sm mt-0.5 font-black ${
+                        hasPending && metrics.critical > 0 ? 'text-red-700' : 'text-slate-700'
                     }`}>{metrics.critical} เรื่อง</p>
-                    <p className="text-[8.5px] text-slate-450 font-medium mt-0.5">พฤติกรรมขัดกฎค่อนข้างรุนแรง</p>
+                    <p className={`text-[8.5px] font-medium mt-0.5 ${hasPending && metrics.critical > 0 ? 'text-red-500' : 'text-slate-450'}`}>พฤติกรรมขัดกฎค่อนข้างรุนแรง</p>
                 </div>
                 
                 <div className={`p-3 rounded-2xl border transition-all duration-500 min-w-0 ${
                     hasPending
-                        ? 'bg-violet-50/50 border-violet-150'
-                        : 'bg-slate-50/40 border-slate-100/50'
+                        ? 'bg-white/80 border-orange-200'
+                        : 'bg-slate-50 border-slate-100'
                 }`}>
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
-                        <AlertTriangle className={`w-3 h-3 shrink-0 ${hasPending ? 'text-violet-500' : 'text-slate-400'}`} /> รายงานบ่อยที่สุด
+                    <span className={`text-[9px] uppercase tracking-wider font-semibold flex items-center gap-1 ${hasPending ? 'text-orange-600' : 'text-slate-400'}`}>
+                        <AlertTriangle className={`w-3 h-3 shrink-0 ${hasPending ? 'animate-pulse' : ''}`} /> รายงานบ่อยที่สุด
                     </span>
                     <p className={`text-xs mt-0.5 truncate font-bold ${
-                        hasPending ? 'text-violet-950' : 'text-slate-650'
+                        hasPending ? 'text-orange-900' : 'text-slate-650'
                     }`}>{metrics.topReporter}</p>
-                    <p className="text-[8.5px] text-slate-455 font-medium mt-0.5">สถิติคดีสะสมสะกิดพฤติกรรม</p>
+                    <p className={`text-[8.5px] font-medium mt-0.5 ${hasPending ? 'text-orange-600' : 'text-slate-455'}`}>สถิติคดีสะสมสะกิดพฤติกรรม</p>
                 </div>
             </div>
 
             {/* Real-Time Tribunal Incidents Feed - Only shown when there are pending incidents */}
             {hasPending && (
-                <div className="relative z-10 space-y-2 pt-1 border-t border-dashed border-rose-100/50">
+                <div className="relative z-10 space-y-2 pt-1 border-t border-dashed border-red-200/50">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-violet-950 font-semibold tracking-wide uppercase">รายการคดีที่รอดุลยพินิจ</span>
-                        <span className="text-[9px] text-slate-400 font-medium">แสดงล่าสุด {Math.min(reports.length, 2)} เรื่อง</span>
+                        <span className="text-[10px] text-red-900 font-bold tracking-wide uppercase">รายการคดีที่รอดุลยพินิจ</span>
+                        <span className="text-[9px] text-red-600 font-medium animate-pulse">รอพิจารณา {Math.min(reports.length, 2)} เรื่อง</span>
                     </div>
 
                     <div className="space-y-2">
@@ -178,41 +178,41 @@ const TribunalReviewWidget: React.FC<TribunalReviewWidgetProps> = ({ currentUser
                                 <div 
                                     key={rep.id} 
                                     onClick={() => setIsCtrlOpen(true)}
-                                    className="p-3 bg-white/90 rounded-2xl border border-rose-100/40 hover:bg-white hover:border-rose-250/55 transition-all duration-300 cursor-pointer text-left space-y-1.5 shadow-2xs flex flex-col justify-between"
+                                    className="p-3 bg-white/90 rounded-2xl border-2 border-red-100 hover:border-red-400 hover:bg-white hover:shadow-md hover:shadow-red-500/10 transition-all duration-300 cursor-pointer text-left space-y-1.5 flex flex-col justify-between"
                                 >
                                     {/* Category Pill and Target info */}
                                     <div className="flex items-center justify-between gap-1.5">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-semibold tracking-wide border uppercase shrink-0 ${styleObj.bg} ${styleObj.border}`}>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-bold tracking-wide border uppercase shrink-0 ${styleObj.bg} ${styleObj.border}`}>
                                             {styleObj.label}
                                         </span>
                                         <div className="flex items-center gap-1 min-w-0">
-                                            <span className="text-[8.5px] text-slate-400 font-semibold shrink-0">จำเลย:</span>
+                                            <span className="text-[8.5px] text-slate-400 font-bold shrink-0">จำเลย:</span>
                                             {matchedTarget?.avatarUrl ? (
                                                 <img 
                                                     src={matchedTarget.avatarUrl} 
                                                     alt={matchedTarget.name} 
-                                                    className="w-4.5 h-4.5 rounded-full object-cover ring-1 ring-rose-100 shrink-0" 
+                                                    className="w-4.5 h-4.5 rounded-full object-cover ring-2 ring-red-200 shrink-0" 
                                                     referrerPolicy="no-referrer"
                                                 />
                                             ) : (
-                                                <div className="w-4.5 h-4.5 rounded-full bg-rose-100 text-rose-700 font-semibold text-[8px] flex items-center justify-center shrink-0">
+                                                <div className="w-4.5 h-4.5 rounded-full bg-red-100 text-red-700 font-bold text-[8px] flex items-center justify-center shrink-0 ring-2 ring-red-200">
                                                     {matchedTarget?.name?.slice(0, 1) || 'จ'}
                                                 </div>
                                             )}
-                                            <span className="text-[10px] text-rose-700 font-semibold truncate max-w-[70px]">{matchedTarget?.name || 'นิรนาม'}</span>
+                                            <span className="text-[10px] text-red-950 font-bold truncate max-w-[70px]">{matchedTarget?.name || 'นิรนาม'}</span>
                                         </div>
                                     </div>
 
                                     {/* Complaint Description Description Snippet */}
-                                    <div className="bg-slate-50/50 p-1.5 rounded-lg border border-slate-100/50">
-                                        <p className="text-[9px] text-slate-650 italic font-medium line-clamp-1">
+                                    <div className="bg-red-50/50 p-1.5 rounded-lg border border-red-100">
+                                        <p className="text-[9px] text-red-700 italic font-medium line-clamp-1">
                                             "{rep.description || 'ไม่มีรายละเอียดพฤติการณ์เพิ่มเติม'}"
                                         </p>
                                     </div>
 
                                     {/* Reporter & Metadata */}
-                                    <div className="flex items-center justify-between text-[8px] text-slate-400 font-semibold pt-0.5">
-                                        <span>ผู้ยื่นร้อง: {rep.is_anonymous ? '🤫 นิรนามกระซิบข่าว' : '🔍 ยื่นร้องโดยเปิดเผย'}</span>
+                                    <div className="flex items-center justify-between text-[8px] text-slate-500 font-bold pt-0.5">
+                                        <span className="text-red-800">ผู้ยื่นร้อง: {rep.is_anonymous ? '🤫 นิรนามกระซิบข่าว' : '🔍 ยื่นร้องโดยเปิดเผย'}</span>
                                         <span>
                                             {new Date(rep.created_at).toLocaleDateString('th-TH', { 
                                                 day: 'numeric', 
@@ -235,15 +235,15 @@ const TribunalReviewWidget: React.FC<TribunalReviewWidgetProps> = ({ currentUser
                     whileHover={{ scale: 1.02, y: -0.5 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setIsCtrlOpen(true)}
-                    className={`w-full py-2.5 rounded-2xl text-[11px] flex items-center justify-center gap-1.5 shadow-2xs transition-all duration-300 font-semibold text-center focus:outline-none ${
+                    className={`w-full py-2.5 rounded-2xl text-[11px] flex items-center justify-center gap-1.5 shadow-2xs transition-all duration-300 font-bold text-center focus:outline-none ${
                         hasPending 
-                            ? 'bg-gradient-to-r from-rose-500 to-violet-500 hover:from-rose-600 hover:to-violet-600 text-white shadow-xs' 
+                            ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-500/40 animate-pulse' 
                             : 'bg-slate-800 hover:bg-slate-900 text-white'
                     }`}
                 >
-                    <SlidersHorizontal className="w-3.5 h-3.5" /> 
+                    <Gavel className={`w-3.5 h-3.5 ${hasPending ? 'animate-bounce' : ''}`} /> 
                     {hasPending 
-                        ? `เปิดห้องพิจารณาไต่สวนคดี (${reports.length})` 
+                        ? `เปิดสภาไต่สวนด่วน (${reports.length} คดี)` 
                         : 'เปิดประตูสู่ทำเนียบคดีศาล'
                     }
                     <ExternalLink className="w-3 h-3 opacity-70" />

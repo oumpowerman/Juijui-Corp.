@@ -22,6 +22,7 @@ interface WeeklyViewProps {
     isLandscape?: boolean;
     allTasks: Task[];
     onMoveTask: (task: Task) => void;
+    onDayClick?: (day: Date, dayTasks: Task[]) => void;
 }
 
 const WeeklyView: React.FC<WeeklyViewProps> = ({
@@ -36,7 +37,8 @@ const WeeklyView: React.FC<WeeklyViewProps> = ({
     onSelectDate,
     isLandscape = false,
     allTasks,
-    onMoveTask
+    onMoveTask,
+    onDayClick
 }) => {
     const [selectedDay, setSelectedDay] = useState<Date>(currentDate);
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -144,6 +146,7 @@ const WeeklyView: React.FC<WeeklyViewProps> = ({
                     masterOptions={masterOptions}
                     onTaskClick={onTaskClick}
                     isLandscape={isLandscape}
+                    onDayClick={onDayClick}
                 />
 
                 <DesktopWeeklyView 
@@ -155,6 +158,7 @@ const WeeklyView: React.FC<WeeklyViewProps> = ({
                     masterOptions={masterOptions}
                     onTaskClick={onTaskClick}
                     isLandscape={isLandscape}
+                    onDayClick={onDayClick}
                 />
 
                 <DragOverlay 

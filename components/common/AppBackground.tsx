@@ -1,13 +1,18 @@
 
 import React, { useMemo } from 'react';
 import { PenTool, Eraser, FileText, Edit3, Type, Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, Target, Rocket, Zap, TrendingUp, Trophy, Activity, Sparkles } from 'lucide-react';
+import SeasonRain from './backgrounds/SeasonRain';
+import SeasonSnow from './backgrounds/SeasonSnow';
+import SeasonSummer from './backgrounds/SeasonSummer';
+import SeasonAutumn from './backgrounds/SeasonAutumn';
 
 export type BackgroundTheme = 
   | 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
   | 'pastel-red' | 'pastel-orange' | 'pastel-yellow' | 'pastel-green' | 'pastel-blue' 
   | 'pastel-indigo' | 'pastel-purple' | 'pastel-pink' | 'pastel-rose' | 'pastel-teal'
   | 'pastel-cyan' | 'pastel-sky' | 'pastel-emerald' | 'pastel-lime' | 'pastel-amber'
-  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script' | 'inspector' | 'productivity' | 'rainbow';
+  | 'pastel-stone' | 'pastel-slate' | 'pastel-zinc' | 'neutral' | 'script' | 'inspector' | 'productivity' | 'rainbow'
+  | 'season-rain' | 'season-snow' | 'season-summer' | 'season-autumn';
 
 interface AppBackgroundProps {
     theme?: BackgroundTheme;
@@ -54,6 +59,10 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             inspector: 'from-slate-900 via-slate-800 to-slate-950', // Dark professional desk
             productivity: 'from-slate-950 via-slate-900 to-emerald-950/30', // Strategic Mission Control
             rainbow: 'from-pink-100 via-indigo-50 to-sky-100', // Soft pastel rainbow base
+            'season-rain': 'from-slate-800 via-slate-900 to-slate-950', // base for rain
+            'season-snow': 'from-slate-50 via-sky-50 to-indigo-50/50', // base for snow
+            'season-summer': 'from-amber-50 via-yellow-50 to-orange-50', // base for summer
+            'season-autumn': 'from-orange-50 via-red-50 to-amber-100', // base for autumn
         };
 
         if (theme === 'script') {
@@ -190,7 +199,15 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             />
             
             {/* Pattern Layer */}
-            <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle }} />
+            {(!theme.startsWith('season-')) && (
+                <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle }} />
+            )}
+
+            {/* Seasonal Background Layers */}
+            {theme === 'season-rain' && <SeasonRain />}
+            {theme === 'season-snow' && <SeasonSnow />}
+            {theme === 'season-summer' && <SeasonSummer />}
+            {theme === 'season-autumn' && <SeasonAutumn />}
             
             {/* Decorative Elements for Script, Inspector, Productivity & Rainbow Theme */}
             {(theme === 'script' || theme === 'inspector' || theme === 'productivity' || theme === 'rainbow') && (

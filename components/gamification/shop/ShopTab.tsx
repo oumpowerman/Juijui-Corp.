@@ -2,6 +2,7 @@ import React from 'react';
 import { ShopItem, User } from '../../../types';
 import ItemCard from './ItemCard';
 import { FRAME_SHOP_CONFIG } from '../../../config/frameShop';
+import { BACKGROUND_SHOP_CONFIG } from '../../../config/backgroundShop';
 
 interface ShopTabProps {
     items: ShopItem[];
@@ -10,7 +11,7 @@ interface ShopTabProps {
 }
 
 const ShopTab: React.FC<ShopTabProps> = ({ items, currentUser, onBuy }) => {
-    // 1. Combined Items: DB Items + Code-defined Frames
+    // 1. Combined Items: DB Items + Code-defined Frames + Code-defined Backgrounds
     const frameItems: ShopItem[] = FRAME_SHOP_CONFIG.map(f => ({
         id: f.id,
         name: f.name,
@@ -22,7 +23,18 @@ const ShopTab: React.FC<ShopTabProps> = ({ items, currentUser, onBuy }) => {
         isActive: true
     }));
 
-    const allItems = [...items, ...frameItems];
+    const backgroundItems: ShopItem[] = BACKGROUND_SHOP_CONFIG.map(bg => ({
+        id: bg.id,
+        name: bg.name,
+        description: bg.description,
+        price: bg.price,
+        icon: bg.id === 'bg-pastel-wave' ? '🌊' : bg.id === 'bg-season-summer' ? '☀️' : bg.id === 'bg-season-snow' ? '❄️' : bg.id === 'bg-season-rain' ? '🌧️' : '🍁',
+        effectType: 'OTHER',
+        effectValue: 0,
+        isActive: true
+    }));
+
+    const allItems = [...items, ...frameItems, ...backgroundItems];
 
     return (
         <div className="space-y-6">
@@ -86,6 +98,50 @@ const ShopTab: React.FC<ShopTabProps> = ({ items, currentUser, onBuy }) => {
                                     </span>
                                     <span className="text-[9px] opacity-80">
                                         {isEquipped ? 'REMOVE' : isOwned ? 'OWNED' : 'POINTS'}
+                                    </span>
+                                </button>
+                            }
+                        />
+                    );
+                })}
+            </div>
+
+            {/* Category: Wallpaper Backgrounds (New) */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Wallpaper Skins & Backgrounds</h3>
+                    <span className="text-[9px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full animate-pulse">DASHBOARD BEAUTY</span>
+                </div>
+                {backgroundItems.map(item => {
+                    const isDefaultBg = item.id === 'bg-pastel-wave';
+                    const isEquipped = (currentUser as any).equippedBgId === item.id || 
+                        ((!(currentUser as any).equippedBgId) && isDefaultBg);
+                    const ownedBgIds = (currentUser as any).ownedBgIds || ['bg-pastel-wave'];
+                    const isOwned = ownedBgIds.includes(item.id);
+                    
+                    return (
+                        <ItemCard 
+                            key={item.id}
+                            item={item}
+                            actionButton={
+                                <button 
+                                    onClick={() => onBuy(item)}
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold flex flex-col items-center min-w-[80px] transition-all ${
+                                        isEquipped
+                                        ? (isDefaultBg ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 cursor-default' : 'bg-rose-500 text-white shadow-lg shadow-rose-200 hover:bg-rose-600 active:scale-95')
+                                        : isOwned
+                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-200 hover:bg-amber-600 active:scale-95'
+                                        : currentUser.availablePoints >= item.price 
+                                        ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-indigo-200 hover:shadow-indigo-300 active:scale-95' 
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    }`}
+                                    disabled={(isDefaultBg && isEquipped) || (!isEquipped && !isOwned && currentUser.availablePoints < item.price)}
+                                >
+                                    <span>
+                                        {isEquipped ? (isDefaultBg ? 'ACTIVE' : 'UNEQUIP') : isOwned ? 'EQUIP' : item.price}
+                                    </span>
+                                    <span className="text-[9px] opacity-80">
+                                        {isEquipped ? (isDefaultBg ? 'DEFAULT' : 'REMOVE') : isOwned ? 'OWNED' : 'POINTS'}
                                     </span>
                                 </button>
                             }

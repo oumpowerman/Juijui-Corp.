@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#4f46e5">
     <link rel="apple-touch-icon" href="/icon-192.png">
 
-    <title>Juijui Planner</title>
+    <title>Kontent OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -107,14 +107,97 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            color: #475569;
+            height: 100dvh;
+            color: #0f172a;
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(to bottom right, #f8fafc, #eff6ff);
+            background-color: #ffffff;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,0) 0, hsla(253,16%,7%,0) 50%, hsla(253,16%,7%,0.02) 100%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.02) 0, hsla(225,39%,30%,0) 50%, hsla(225,39%,30%,0) 100%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.02) 0, hsla(339,49%,30%,0) 50%, hsla(339,49%,30%,0) 100%);
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
         }
+
+        .loader-logo-container {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .loader-logo-bg {
+            position: absolute;
+            inset: -20px;
+            background: linear-gradient(135deg, #e0e7ff 0%, #fae8ff 100%);
+            filter: blur(24px);
+            border-radius: 50%;
+            opacity: 0.6;
+            animation: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .loader-logo {
+            font-size: 3.5rem;
+            position: relative;
+            z-index: 10;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .loader-title {
+            margin-top: 0.5rem; 
+            font-weight: 800; 
+            font-family: 'Kanit', sans-serif;
+            font-size: 24px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+        
+        .loader-subtitle {
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+
+        .loader-progress-bar {
+            width: 140px;
+            height: 3px;
+            background-color: #f1f5f9;
+            border-radius: 4px;
+            margin-top: 32px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loader-progress-value {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            border-radius: 4px;
+            animation: progress-load 2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+
         @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(2deg); }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; transform: scale(0.9); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+        }
+
+        @keyframes progress-load {
+            0% { width: 0%; left: 0%; }
+            50% { width: 50%; left: 25%; }
+            100% { width: 0%; left: 100%; }
         }
         
         /* Editor Page Styles */
@@ -162,9 +245,15 @@
 <body class="text-slate-700 antialiased">
     <div id="root">
         <div class="initial-loader">
-            <div style="font-size: 4rem; animation: float 3s infinite;">🚀</div>
-            <h1 style="margin-top: 1rem; font-weight: 900;">Juijui Planner</h1>
-            <p style="opacity: 0.6;">Loading your workspace...</p>
+            <div class="loader-logo-container">
+                <div class="loader-logo-bg"></div>
+                <div class="loader-logo">⚡</div>
+            </div>
+            <h1 class="loader-title">Kontent OS</h1>
+            <p class="loader-subtitle">Loading System Environment</p>
+            <div class="loader-progress-bar">
+                <div class="loader-progress-value"></div>
+            </div>
         </div>
     </div>
     <!-- Dedicated Portal Root to avoid removeChild errors -->

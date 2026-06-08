@@ -50,7 +50,11 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
 
     const fetchData = useCallback(async () => {
         // Fetch a larger set to handle gap filling (max 93 days/3 months suggested range)
-        const { data: dbLogs } = await getAttendanceLogs(1, 200, filters);
+        const { data: dbLogs, aborted } = await getAttendanceLogs(1, 200, filters);
+        
+        if (aborted) {
+            return;
+        }
         
         // 1. Generate all days in the filter range
         const start = parseISO(filters.startDate);

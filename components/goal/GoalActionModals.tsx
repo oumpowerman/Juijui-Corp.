@@ -109,25 +109,25 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border-4 border-white ring-1 ring-gray-100 relative z-10"
+                        className="bg-white w-full max-w-2xl rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh] border-4 border-white ring-1 ring-gray-100 relative z-10"
                     >
                         {/* Header */}
-                        <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center shrink-0">
+                        <div className="px-5 sm:px-8 py-4 sm:py-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center shrink-0">
                             <div>
-                                <h3 className="text-2xl font-black text-gray-800 flex items-center gap-3">
-                                    <span className="bg-indigo-100 text-indigo-600 p-2 rounded-xl">
-                                        <Target className="w-6 h-6" />
+                                <h3 className="text-xl sm:text-2xl font-black text-gray-800 flex items-center gap-2.5 sm:gap-3">
+                                    <span className="bg-indigo-100 text-indigo-600 p-1.5 sm:p-2 rounded-xl">
+                                        <Target className="w-5 h-5 sm:w-6 sm:h-6" />
                                     </span>
                                     {initialData ? 'แก้ไขภารกิจ' : 'สร้างเป้าหมายใหม่'}
                                 </h3>
-                                <p className="text-gray-500 text-sm mt-1 ml-1 font-medium">ตั้งเป้าให้ชัดเจน แล้วพุ่งชนให้สำเร็จ! 🚀</p>
+                                <p className="text-gray-500 text-xs sm:text-sm mt-1 ml-1 font-medium">ตั้งเป้าให้ชัดเจน แล้วพุ่งชนให้สำเร็จ! 🚀</p>
                             </div>
-                            <button onClick={onClose} className="p-2 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-all">
-                                <X className="w-6 h-6" />
+                            <button onClick={onClose} className="p-1.5 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-all">
+                                <X className="w-5 h-5 sm:w-6 sm:h-6" />
                             </button>
                         </div>
                         
-                        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 bg-[#f8fafc] p-6 md:p-8 space-y-8 scrollbar-thin scrollbar-thumb-gray-200">
+                        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 bg-[#f8fafc] p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-8 scrollbar-thin scrollbar-thumb-gray-200">
                             
                             {/* Section 1: Basic Info */}
                             <div className="space-y-4">
@@ -216,10 +216,10 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
                             </div>
 
                             {/* Section 2: Progress & Date */}
-                            <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
+                            <div className="bg-white p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-[4rem] opacity-50 pointer-events-none"></div>
                                 
-                                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4">
                                     <div>
                                         <label className="text-xs font-black text-indigo-400 uppercase tracking-wider ml-1 mb-2 block">🎯 เป้าหมาย (Target)</label>
                                         <input 
@@ -265,8 +265,8 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
                             </div>
 
                             {/* Section 3: Rewards */}
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-[2rem] border border-amber-100 relative overflow-hidden">
-                                 <div className="grid grid-cols-2 gap-6 relative z-10">
+                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-amber-100 relative overflow-hidden">
+                                 <div className="grid grid-cols-2 gap-4 sm:gap-6 relative z-10">
                                      <div>
                                          <label className="text-xs font-black text-amber-600 uppercase tracking-wider ml-1 mb-2 block flex items-center"><Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500"/> Reward XP</label>
                                          <input type="number" className="w-full px-4 py-3 bg-white/60 border-2 border-amber-100 rounded-xl font-bold text-amber-800 focus:bg-white focus:border-amber-300 outline-none" value={rewardXp} onChange={e => setRewardXp(Number(e.target.value))} />
@@ -281,17 +281,17 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
                         </form>
 
                         {/* Footer */}
-                        <div className="p-6 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                        <div className="p-4 sm:p-6 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0">
                             <button 
                                 type="button"
                                 onClick={onClose}
-                                className="px-6 py-3 rounded-2xl text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 transition-colors"
+                                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-gray-500 font-bold bg-gray-100 hover:bg-gray-200 transition-colors text-xs sm:text-sm"
                             >
                                 ยกเลิก
                             </button>
                             <button 
                                 onClick={handleSubmit} 
-                                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2 transform hover:-translate-y-0.5"
+                                className="px-5 sm:px-8 py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl sm:rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2 transform hover:-translate-y-0.5 text-xs sm:text-sm"
                             >
                                 <Save className="w-5 h-5" /> บันทึกเป้าหมาย
                             </button>
@@ -341,7 +341,7 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({ isOpen
                         animate={{ opacity: 1, scale: 1, rotateX: 0 }}
                         exit={{ opacity: 0, scale: 0.8, rotateX: 20 }}
                         transition={{ type: "spring", damping: 20, stiffness: 250 }}
-                        className={`bg-white w-full max-w-sm rounded-[3rem] shadow-2xl p-10 relative border-4 ring-1 z-10 overflow-hidden transition-colors duration-500 ${isNearCompletion ? 'border-amber-500 ring-amber-100' : 'border-white ring-gray-100'}`}
+                        className={`bg-white w-full max-w-sm rounded-[2rem] sm:rounded-[3rem] shadow-2xl p-5 sm:p-10 relative border-4 ring-1 z-10 overflow-hidden transition-colors duration-500 ${isNearCompletion ? 'border-amber-500 ring-amber-100' : 'border-white ring-gray-100'}`}
                     >
                         {/* Decorative Background */}
                         <div className={`absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-transparent opacity-50 pointer-events-none transition-colors duration-500 ${isNearCompletion ? 'from-amber-100' : 'from-indigo-50'}`}></div>
@@ -355,40 +355,40 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({ isOpen
                             />
                         )}
 
-                        <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors z-20"><X className="w-5 h-5"/></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 sm:top-6 sm:right-6 text-gray-400 hover:text-gray-600 p-1.5 hover:bg-gray-100 rounded-full transition-colors z-20"><X className="w-5 h-5"/></button>
                         
-                        <div className="text-center mb-10 relative z-10">
+                        <div className="text-center mb-6 sm:mb-10 relative z-10">
                             <motion.div 
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1, rotate: isNearCompletion ? 720 : 360 }}
                                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                                className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 text-white shadow-2xl border-4 border-white transition-colors duration-500 ${isNearCompletion ? 'bg-amber-500 shadow-amber-200' : 'bg-indigo-600 shadow-indigo-200'}`}
+                                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 text-white shadow-2xl border-4 border-white transition-colors duration-500 ${isNearCompletion ? 'bg-amber-500 shadow-amber-200' : 'bg-indigo-600 shadow-indigo-200'}`}
                             >
-                                <RefreshCw className={`w-12 h-12 ${isNearCompletion ? 'animate-spin-slow' : ''}`} />
+                                <RefreshCw className={`w-10 h-10 sm:w-12 sm:h-12 ${isNearCompletion ? 'animate-spin-slow' : ''}`} />
                             </motion.div>
-                            <h3 className={`text-3xl font-black tracking-tight uppercase italic transition-colors duration-500 ${isNearCompletion ? 'text-amber-600' : 'text-gray-800'}`}>
+                            <h3 className={`text-xl sm:text-3xl font-black tracking-tight uppercase italic transition-colors duration-500 ${isNearCompletion ? 'text-amber-600' : 'text-gray-800'}`}>
                                 {isNearCompletion ? 'CRITICAL UPDATE' : 'MISSION UPDATE'}
                             </h3>
-                            <p className={`text-sm mt-2 font-black uppercase tracking-widest transition-colors duration-500 ${isNearCompletion ? 'text-amber-500' : 'text-indigo-500'}`}>{goal.title}</p>
+                            <p className={`text-xs sm:text-sm mt-1 sm:mt-2 font-black uppercase tracking-widest transition-colors duration-500 ${isNearCompletion ? 'text-amber-500' : 'text-indigo-500'}`}>{goal.title}</p>
                             
                             {isNearCompletion && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200"
+                                    className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 bg-amber-100 text-amber-700 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-amber-200"
                                 >
                                     <Zap className="w-3 h-3 fill-amber-500 animate-pulse" /> Final Stretch: {percent}% Complete
                                 </motion.div>
                             )}
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
+                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 relative z-10">
                             <div className="relative">
-                                <label className={`text-[10px] font-black uppercase text-center block mb-4 tracking-[0.2em] transition-colors duration-500 ${isNearCompletion ? 'text-amber-400' : 'text-gray-400'}`}>Current Progress Value</label>
+                                <label className={`text-[9px] sm:text-[10px] font-black uppercase text-center block mb-2 sm:mb-4 tracking-[0.2em] transition-colors duration-500 ${isNearCompletion ? 'text-amber-400' : 'text-gray-400'}`}>Current Progress Value</label>
                                 <div className="relative group">
                                     <input 
                                         type="number" 
-                                        className={`w-full text-center text-6xl font-black border-b-4 pb-4 outline-none bg-transparent transition-all placeholder:opacity-20 ${isNearCompletion ? 'text-amber-600 border-amber-100 focus:border-amber-500 placeholder:text-amber-200' : 'text-indigo-600 border-indigo-100 focus:border-indigo-600 placeholder:text-indigo-100'}`}
+                                        className={`w-full text-center text-4xl sm:text-6xl font-black border-b-4 pb-3 sm:pb-4 outline-none bg-transparent transition-all placeholder:opacity-20 ${isNearCompletion ? 'text-amber-600 border-amber-100 focus:border-amber-500 placeholder:text-amber-200' : 'text-indigo-600 border-indigo-100 focus:border-indigo-600 placeholder:text-indigo-100'}`}
                                         value={val}
                                         onChange={e => setVal(Number(e.target.value))}
                                         autoFocus
@@ -396,9 +396,9 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({ isOpen
                                     />
                                     <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-1 transition-all group-focus-within:w-full ${isNearCompletion ? 'bg-amber-500' : 'bg-indigo-600'}`}></div>
                                 </div>
-                                <div className="flex justify-between items-center mt-4 px-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Target</span>
-                                    <span className={`text-sm font-black transition-colors duration-500 ${isNearCompletion ? 'text-amber-700' : 'text-gray-800'}`}>{goal.targetValue.toLocaleString()}</span>
+                                <div className="flex justify-between items-center mt-3 sm:mt-4 px-2">
+                                    <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Target</span>
+                                    <span className={`text-xs sm:text-sm font-black transition-colors duration-500 ${isNearCompletion ? 'text-amber-700' : 'text-gray-800'}`}>{goal.targetValue.toLocaleString()}</span>
                                 </div>
                             </div>
                             
@@ -406,9 +406,9 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({ isOpen
                                 whileHover={{ scale: 1.02, y: -2 }}
                                 whileTap={{ scale: 0.98 }}
                                 type="submit" 
-                                className={`w-full py-5 text-white font-black rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-3 text-sm uppercase tracking-widest ${isNearCompletion ? 'bg-amber-500 shadow-amber-200 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700'}`}
+                                className={`w-full py-4 sm:py-5 text-white font-black rounded-xl sm:rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-2.5 sm:gap-3 text-xs sm:text-sm uppercase tracking-widest ${isNearCompletion ? 'bg-amber-500 shadow-amber-200 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-200 hover:bg-indigo-700'}`}
                             >
-                                <Check className="w-6 h-6 stroke-[4px]" /> {isNearCompletion ? 'Execute Final Push' : 'Confirm Update'}
+                                <Check className="w-5 h-5 sm:w-6 sm:h-6 stroke-[4px]" strokeWidth={4} /> {isNearCompletion ? 'Execute Final Push' : 'Confirm Update'}
                             </motion.button>
                         </form>
                     </motion.div>

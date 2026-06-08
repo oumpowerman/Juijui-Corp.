@@ -44,14 +44,14 @@ export const useAttendanceHistory = (userId: string) => {
             }
 
             const mappedLogs: AttendanceLog[] = (data || []).map(mapAttendanceLog);
-            return { data: mappedLogs, count: count || 0 };
+            return { data: mappedLogs, count: count || 0, aborted: false };
 
         } catch (err: any) {
-            if (err.name === 'AbortError') {
-                 return { data: [], count: 0 };
+            if (err.name === 'AbortError' || err.message?.includes('Abort') || err.message?.includes('aborted')) {
+                 return { data: [], count: 0, aborted: true };
             }
             console.error("Fetch logs failed", err);
-            return { data: [], count: 0 };
+            return { data: [], count: 0, aborted: false };
         } finally {
             setIsHistoryLoading(false);
         }

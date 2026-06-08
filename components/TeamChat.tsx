@@ -25,6 +25,7 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
     const [isBotEnabled, setIsBotEnabled] = useState(true);
     const [isProcessingFile, setIsProcessingFile] = useState(false);
     const [uploadStatus, setUploadStatus] = useState('');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     
     // --- Hooks ---
     const { messages, isLoading, isLoadingMore, hasMore, loadMore, sendMessage, sendFile, markAsRead } = useTeamChat(currentUser, allUsers, onAddTask, isBotEnabled);
@@ -77,16 +78,18 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
     };
 
     return (
-        <div className="flex flex-col h-full animate-in fade-in duration-500">
-            <div className="flex-1 flex gap-6 overflow-hidden h-full">
+        <div className="flex flex-col h-full animate-in fade-in duration-500 p-0 lg:p-6 pb-24 lg:pb-0">
+            <div className="flex-1 flex gap-0 lg:gap-6 overflow-hidden h-full">
                 
                 {/* Main Chat Area */}
-                <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col overflow-hidden relative">
+                <div className="flex-1 bg-white rounded-none lg:rounded-2xl shadow-none lg:shadow-sm border-0 lg:border border-gray-200 flex flex-col overflow-hidden relative">
                     
                     <ChatHeader 
                         isBotEnabled={isBotEnabled} 
                         setIsBotEnabled={setIsBotEnabled} 
                         allUsers={allUsers} 
+                        isSidebarOpen={isSidebarOpen}
+                        setIsSidebarOpen={setIsSidebarOpen}
                     />
 
                     <MessageList 
@@ -108,10 +111,12 @@ const TeamChat: React.FC<TeamChatProps> = ({ currentUser, allUsers, onAddTask })
                     />
                 </div>
 
-                {/* Right Sidebar */}
+                {/* Right Sidebar (Responsive: Inline on desktop, Drawer on mobile/tablet) */}
                 <ChatSidebar 
                     isBotEnabled={isBotEnabled}
                     allUsers={allUsers}
+                    isOpenMobile={isSidebarOpen}
+                    onCloseMobile={() => setIsSidebarOpen(false)}
                 />
             </div>
         </div>

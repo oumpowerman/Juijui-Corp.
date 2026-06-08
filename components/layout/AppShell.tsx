@@ -43,7 +43,7 @@ const AppShell: React.FC<AppShellProps> = ({
     const isEdgeToEdgeView = [
         'DASHBOARD', 'QUALITY_GATE', 'GOALS', 'SCRIPT_HUB', 'CHECKLIST', 'ContentStock',
         'ANALYTICS', 'FINANCE', 'ATTENDANCE', 'DUTY', 'NEXUS', 'WIKI',
-        'CALENDAR', 'WEEKLY', 'TEAM', 'FEEDBACK', 'ASSETS', 'CHANNELS', 'MASTER_DATA', 'SYSTEM_GUIDE'
+        'CALENDAR', 'WEEKLY', 'TEAM', 'FEEDBACK', 'ASSETS', 'CHANNELS', 'MASTER_DATA', 'SYSTEM_GUIDE', 'CHAT'
     ].includes(currentView);
     
     // Legacy mapping for existing logic
@@ -69,7 +69,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <div className={`flex-1 overflow-auto scrollbar-hide ${isEdgeToEdgeView ? 'p-0' : 'p-4 md:p-6 pb-24 lg:pb-6'}`}>
+                <div className={`flex-1 min-h-0 ${currentView === 'CHAT' ? 'p-0 overflow-hidden flex flex-col' : isEdgeToEdgeView ? 'p-0 overflow-auto scrollbar-hide' : 'p-4 md:p-6 pb-24 lg:pb-6 overflow-auto scrollbar-hide'}`}>
                     {children}
                 </div>
             </main>

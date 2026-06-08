@@ -481,7 +481,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                         duration: 0.3, 
                         ease: "easeOut"
                       }}
-                      className="flex flex-col min-h-full w-full"
+                      className={`flex flex-col w-full ${currentView === 'CHAT' ? 'h-full min-h-0' : 'min-h-full'}`}
                     >
                       <ViewRouteRegistry
                         currentView={currentView}

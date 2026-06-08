@@ -168,64 +168,64 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
 
     return (
         <SpaceBackground className="pb-24">
-            <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 animate-in fade-in duration-500">
                 
                 {/* 1. Header & Stats */}
                 <div className="relative">
-                    <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-indigo-500/20 rounded-xl border border-indigo-500/30 backdrop-blur-sm">
-                                    <Rocket className="w-6 h-6 text-indigo-400 animate-pulse" />
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 sm:mb-8 gap-4 sm:gap-6">
+                        <div className="relative z-10 w-full sm:w-auto">
+                            <div className="flex items-center gap-2.5 sm:gap-3 mb-1 sm:mb-2">
+                                <div className="p-1.5 sm:p-2 bg-indigo-500/20 rounded-lg sm:rounded-xl border border-indigo-500/30 backdrop-blur-sm shrink-0">
+                                    <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400 animate-pulse" />
                                 </div>
-                                <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tighter uppercase italic">
                                     Mission Control
                                 </h1>
                             </div>
-                            <p className="text-indigo-300/70 font-bold text-sm tracking-widest uppercase ml-1">Strategic Objective Tracking System</p>
+                            <p className="text-indigo-300/70 font-bold text-[10px] sm:text-xs md:text-sm tracking-widest uppercase ml-1">Strategic Objective Tracking System</p>
                         </div>
                         
                         <button 
                             onClick={() => { setEditingGoal(null); setIsCreateModalOpen(true); }}
-                            className="flex items-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-900/40 hover:shadow-indigo-500/20 hover:-translate-y-1 transition-all active:scale-95 text-xs uppercase tracking-widest border border-indigo-400/30"
+                            className="w-full sm:w-auto flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-xl sm:rounded-2xl shadow-xl shadow-indigo-900/40 hover:shadow-indigo-500/20 hover:-translate-y-1 transition-all active:scale-95 text-[10px] sm:text-xs uppercase tracking-widest border border-indigo-400/30"
                         >
-                            <Plus className="w-5 h-5 mr-2 stroke-[4px]" /> Initiate New Mission
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 stroke-[4px]" /> Initiate New Mission
                         </button>
                     </div>
                     
-                    <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-2">
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-[1.5rem] sm:rounded-[2.5rem] p-1.5 sm:p-2">
                         <GoalStatsHeader goals={filteredGoals} />
                     </div>
                 </div>
 
                 {/* 2. Controls & Filters */}
-                <div className="bg-slate-900/60 p-4 rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/50 flex flex-col xl:flex-row gap-4 items-center justify-between sticky top-4 z-40 backdrop-blur-xl">
+                <div className="bg-slate-900/60 p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/50 flex flex-col xl:flex-row gap-3 sm:gap-4 items-center justify-between sticky top-2 sm:top-4 z-40 backdrop-blur-xl">
                     
                     {/* Left: Tab & Date Range */}
                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
                         {/* Tabs */}
-                        <div className="flex bg-black/40 p-1.5 rounded-2xl w-full md:w-auto border border-white/5">
-                            <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Active</button>
-                            <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Completed</button>
-                            <button onClick={() => setFilterTab('FAILED')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'FAILED' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Failed</button>
-                            <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterTab === 'ALL' ? 'bg-white/10 text-white shadow-lg shadow-white/5' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
+                        <div className="flex bg-black/40 p-1 rounded-xl sm:rounded-2xl w-full md:w-auto border border-white/5 overflow-x-auto scrollbar-hide">
+                            <button onClick={() => setFilterTab('ACTIVE')} className={`flex-1 md:flex-none px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'ACTIVE' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Active</button>
+                            <button onClick={() => setFilterTab('COMPLETED')} className={`flex-1 md:flex-none px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'COMPLETED' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Completed</button>
+                            <button onClick={() => setFilterTab('FAILED')} className={`flex-1 md:flex-none px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'FAILED' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/50' : 'text-gray-500 hover:text-gray-300'}`}>Failed</button>
+                            <button onClick={() => setFilterTab('ALL')} className={`flex-1 md:flex-none px-3 sm:px-6 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === 'ALL' ? 'bg-white/10 text-white shadow-lg shadow-white/5' : 'text-gray-500 hover:text-gray-300'}`}>All</button>
                         </div>
 
                         {/* Date Range Picker UI */}
                         <div className="relative w-full md:w-auto">
                             <button 
                                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                                className={`flex items-center justify-between gap-3 px-6 py-2.5 rounded-2xl border transition-all w-full md:w-auto min-w-[240px] ${isDatePickerOpen ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-black/20 hover:border-indigo-500/50 shadow-sm'}`}
+                                className={`flex items-center justify-between gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border transition-all w-full md:w-auto min-w-[220px] ${isDatePickerOpen ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 bg-black/20 hover:border-indigo-500/50 shadow-sm'}`}
                             >
-                                <div className="flex items-center gap-2">
-                                    <CalendarDays className={`w-4 h-4 ${dateRange.start ? 'text-indigo-400' : 'text-gray-500'}`} />
-                                    <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <CalendarDays className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${dateRange.start ? 'text-indigo-400' : 'text-gray-500'}`} />
+                                    <span className="text-[9px] sm:text-[10px] font-black text-gray-300 uppercase tracking-widest truncate">
                                         {dateRange.start && dateRange.end 
                                             ? `${format(dateRange.start, 'd MMM', { locale: th })} - ${format(dateRange.end, 'd MMM yy', { locale: th })}`
                                             : 'Temporal Range: All Time'}
                                     </span>
                                 </div>
-                                <Filter className={`w-3.5 h-3.5 transition-transform ${isDatePickerOpen ? 'rotate-180 text-indigo-400' : 'text-gray-500'}`} />
+                                <Filter className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform shrink-0 ${isDatePickerOpen ? 'rotate-180 text-indigo-400' : 'text-gray-500'}`} />
                             </button>
 
                             <AnimatePresence>
@@ -234,18 +234,18 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute top-full left-0 mt-2 w-full md:w-[320px] bg-slate-900/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/10 p-6 z-50"
+                                        className="absolute top-full left-0 mt-2 w-full md:w-[320px] max-w-[calc(100vw-32px)] bg-slate-900/95 backdrop-blur-2xl rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl border border-white/10 p-4 sm:p-6 z-50 overflow-hidden"
                                     >
-                                        <div className="flex justify-between items-center mb-6 px-1">
-                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Temporal Selection</span>
-                                            <button onClick={() => setIsDatePickerOpen(false)} className="p-2 hover:bg-white/5 rounded-xl text-gray-500"><X className="w-4 h-4" /></button>
+                                        <div className="flex justify-between items-center mb-4 sm:mb-6 px-1">
+                                            <span className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-widest">Temporal Selection</span>
+                                            <button onClick={() => setIsDatePickerOpen(false)} className="p-1.5 hover:bg-white/5 rounded-xl text-gray-500"><X className="w-4 h-4" /></button>
                                         </div>
                                         
                                         {/* Calendar Header */}
-                                        <div className="flex items-center justify-between mb-4 px-1">
-                                            <button onClick={() => setViewMonth(prev => addMonths(prev, -1))} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500"><ChevronLeft className="w-4 h-4" /></button>
-                                            <span className="text-xs font-black text-white uppercase tracking-widest">{format(viewMonth, 'MMMM yyyy', { locale: th })}</span>
-                                            <button onClick={() => setViewMonth(prev => addMonths(prev, 1))} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500"><ChevronRight className="w-4 h-4" /></button>
+                                        <div className="flex items-center justify-between mb-3 sm:mb-4 px-1">
+                                            <button onClick={() => setViewMonth(prev => addMonths(prev, -1))} className="p-1 hover:bg-white/5 rounded-lg text-gray-500"><ChevronLeft className="w-4 h-4" /></button>
+                                            <span className="text-[11px] sm:text-xs font-black text-white uppercase tracking-widest">{format(viewMonth, 'MMMM yyyy', { locale: th })}</span>
+                                            <button onClick={() => setViewMonth(prev => addMonths(prev, 1))} className="p-1 hover:bg-white/5 rounded-lg text-gray-500"><ChevronRight className="w-4 h-4" /></button>
                                         </div>
 
                                         {/* Calendar Grid */}
@@ -291,11 +291,11 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                     </div>
 
                     {/* Right: Channel Filter */}
-                    <div className="w-full xl:w-auto overflow-x-auto pb-1 xl:pb-0 scrollbar-hide">
-                        <div className="flex gap-2">
+                    <div className="w-full xl:w-auto overflow-x-auto pb-1 xl:pb-0 scrollbar-hide shrink-0">
+                        <div className="flex gap-2 flex-nowrap">
                             <button 
                                 onClick={() => setFilterChannel('ALL')}
-                                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all ${filterChannel === 'ALL' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
+                                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all ${filterChannel === 'ALL' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
                             >
                                 All Sectors
                             </button>
@@ -303,9 +303,9 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                 <button
                                     key={c.id}
                                     onClick={() => setFilterChannel(c.id)}
-                                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all flex items-center gap-2 ${filterChannel === c.id ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50 shadow-sm ring-1 ring-indigo-500/30' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
+                                    className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest border whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${filterChannel === c.id ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50 shadow-sm ring-1 ring-indigo-500/30' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:text-gray-300'}`}
                                 >
-                                    {c.logoUrl && <img src={c.logoUrl} className="w-4 h-4 rounded-full opacity-70" />}
+                                    {c.logoUrl && <img src={c.logoUrl} className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full opacity-70 bg-white/20 object-cover" />}
                                     {c.name}
                                 </button>
                             ))}

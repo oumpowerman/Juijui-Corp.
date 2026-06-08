@@ -10,8 +10,8 @@ import { fileURLToPath } from 'url';
 import { Readable } from 'stream';
 import { createClient } from '@supabase/supabase-js';
 import { isAfter, isBefore, addDays, isSameMonth, isPast, isToday, subDays } from 'date-fns';
-import { tagIndexService } from './utils/tagIndexer.ts';
-import { BRAND_CONFIG } from './config/brand.ts';
+import { tagIndexService } from './utils/tagIndexer.js';
+import { BRAND_CONFIG } from './config/brand.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

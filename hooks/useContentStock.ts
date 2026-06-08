@@ -407,8 +407,15 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             let missingStorageQuery = supabase
                 .from('contents')
                 .select('*', { count: 'exact', head: true })
-                .or('local_path.is.null,drive_label.is.null')
-                .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%,status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
+                .or('local_path.is.null,drive_label.is.null');
+
+            if (filters.contentSubTab === 'ARCHIVE') {
+                missingStorageQuery = missingStorageQuery
+                    .or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
+            } else {
+                missingStorageQuery = missingStorageQuery
+                    .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%');
+            }
 
             if (filters.channelId && filters.channelId.length > 0) missingStorageQuery = missingStorageQuery.in('channel_id', filters.channelId);
 

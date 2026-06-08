@@ -14,6 +14,7 @@ interface CommandPaletteProps {
     onOpenTask: (task: Task) => void;
     onClose: () => void;
     isActive: boolean;
+    isDarkTheme?: boolean;
 }
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -26,7 +27,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     onLogout,
     onOpenTask,
     onClose,
-    isActive
+    isActive,
+    isDarkTheme = false
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -89,17 +91,28 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
         return [...matchedMenu, ...matchedTasks];
     }, [searchQuery, allMenuItems, tasks, onOpenTask, onClose]);
 
+    const themeClasses = {
+        background: isDarkTheme ? 'bg-slate-950 text-white' : 'bg-white text-gray-800',
+        inputBg: isDarkTheme ? 'bg-slate-900 border-white/10 text-white placeholder-slate-500' : 'bg-gray-50 border-gray-100 text-gray-900 placeholder-gray-400',
+        border: isDarkTheme ? 'border-white/5' : 'border-gray-100',
+        titleText: isDarkTheme ? 'text-slate-500' : 'text-gray-400',
+        itemBg: isDarkTheme ? 'hover:bg-white/5 active:bg-white/10' : 'hover:bg-gray-50 active:bg-gray-100',
+        itemText: isDarkTheme ? 'text-slate-200' : 'text-gray-700',
+        cardBg: isDarkTheme ? 'bg-slate-905 bg-zinc-900/40 border-white/5' : 'bg-white border-gray-100',
+        chevron: isDarkTheme ? 'text-slate-600' : 'text-gray-300',
+    };
+
     return (
-        <div className="w-full h-full flex flex-col bg-white touch-action-pan-y" style={{ touchAction: 'pan-y' }}>
+        <div className={`w-full h-full flex flex-col touch-action-pan-y ${themeClasses.background}`} style={{ touchAction: 'pan-y' }}>
             {/* Search Header */}
-            <div className="p-4 border-b border-gray-100 shrink-0">
+            <div className={`p-4 border-b shrink-0 ${themeClasses.border}`}>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input 
                         ref={searchInputRef}
                         type="text"
                         placeholder="ค้นหาเมนู หรืองาน..."
-                        className="w-full bg-gray-50 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                        className={`w-full border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition-all ${themeClasses.inputBg}`}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -111,7 +124,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                 {filteredSearchItems.length === 0 ? (
                     <div className="py-20 text-center flex flex-col items-center">
                         <Search className="w-12 h-12 text-gray-100 mb-4" />
-                        <p className="text-gray-400 text-sm font-bold">ไม่พบผลลัพธ์</p>
+                        <p className={`text-sm font-bold ${isDarkTheme ? 'text-slate-500' : 'text-gray-400'}`}>ไม่พบผลลัพธ์</p>
                     </div>
                 ) : (
                     <div className="space-y-6">
@@ -119,7 +132,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                             const groupItems = filteredSearchItems.filter(i => i.group === groupName);
                             return (
                                 <div key={groupName} className="space-y-2">
-                                    <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                    <h5 className={`text-[10px] font-black uppercase tracking-widest px-1 ${themeClasses.titleText}`}>
                                         {groupName}
                                     </h5>
                                     <div className="space-y-1">
@@ -127,15 +140,15 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                                             <button 
                                                 key={item.id}
                                                 onClick={item.action}
-                                                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-all border border-transparent active:border-gray-200"
+                                                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all border border-transparent ${themeClasses.itemBg} ${isDarkTheme ? 'active:border-white/10' : 'active:border-gray-200'}`}
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-white rounded-xl shadow-sm border border-gray-100">
+                                                    <div className={`p-2 rounded-xl shadow-sm border ${themeClasses.cardBg}`}>
                                                         <item.icon className={`w-4 h-4 ${item.color || 'text-gray-500'}`} />
                                                     </div>
-                                                    <span className="text-sm font-bold text-gray-700">{item.label}</span>
+                                                    <span className={`text-sm font-bold ${themeClasses.itemText}`}>{item.label}</span>
                                                 </div>
-                                                <ChevronRight className="w-4 h-4 text-gray-300" />
+                                                <ChevronRight className={`w-4 h-4 ${themeClasses.chevron}`} />
                                             </button>
                                         ))}
                                     </div>

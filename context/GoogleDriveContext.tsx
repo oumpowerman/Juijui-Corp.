@@ -214,10 +214,19 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
             // 2. Fetch the actual OAuth URL from our server
             const response = await fetch('/api/auth/google/url');
-            const data = await response.json();
+            const contentType = response.headers.get('content-type');
             
-            if (!response.ok || !data.url) {
-                throw new Error(data.error || 'Failed to get auth URL');
+            if (!response.ok) {
+                throw new Error('Failed to fetch auth URL');
+            }
+            
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('กรุณากดเปิดในหน้าต่างใหม่ (Open in new tab) หรือกดยินยอมรับคุกกี้ของระบบเนื่องจากเบราว์เซอร์ของคุณบล็อกคุกกี้ใน iFrame');
+            }
+            
+            const data = await response.json();
+            if (!data.url) {
+                throw new Error(data.error || 'ไม่พบลิงก์เชื่อมต่อ');
             }
             
             // 3. Update the existing window's location to the actual Google Auth URL

@@ -181,14 +181,20 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 });
                 const res = await fetch(`/api/dashboard/stats?${params.toString()}`);
                 if (!res.ok) throw new Error('Failed to fetch stats');
-                const json = await res.json();
-                if (json.success && active) {
-                    setStats({
-                        cardStats: json.cardStats || [],
-                        chartData: json.chartData || [],
-                        totalFilteredTasks: json.totalFilteredTasks || 0,
-                        progressPercentage: json.progressPercentage || 0
-                    });
+                
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const json = await res.json();
+                    if (json.success && active) {
+                        setStats({
+                            cardStats: json.cardStats || [],
+                            chartData: json.chartData || [],
+                            totalFilteredTasks: json.totalFilteredTasks || 0,
+                            progressPercentage: json.progressPercentage || 0
+                        });
+                    }
+                } else {
+                    console.warn('Dashboard stats returned non-JSON response');
                 }
             } catch (err) {
                 console.error('Error loading dashboard stats:', err);

@@ -51,28 +51,28 @@ const StatDetailModal = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300, mass: 0.8 }}
-                        className="relative bg-slate-50 w-full max-w-[calc(100%-1rem)] md:max-w-2xl h-[70vh] md:h-[600px] rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col border-4 border-white ring-1 ring-black/5"
+                        className="relative bg-slate-50 w-full max-w-[calc(100%-1rem)] md:max-w-2xl h-[85vh] sm:h-[70vh] md:h-[600px] rounded-[1.5rem] sm:rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col border-2 sm:border-4 border-white ring-1 ring-black/5"
                     >
                         {/* Premium Header */}
-                        <div className={`px-6 py-6 h-28 shrink-0 flex justify-between items-center text-white relative overflow-hidden ${headerBg} shadow-lg`}>
+                        <div className={`px-4 sm:px-6 py-4 sm:py-6 h-24 sm:h-28 shrink-0 flex justify-between items-center text-white relative overflow-hidden ${headerBg} shadow-lg`}>
                             {/* Decor Pattern */}
                             <motion.div 
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 0.15, x: 0 }}
                                 className="absolute top-0 right-0 p-8 transform rotate-12 -mr-4 -mt-4 pointer-events-none"
                             >
-                                <Icon className="w-32 h-32" />
+                                <Icon className="w-24 sm:w-32 h-24 sm:h-32" />
                             </motion.div>
                             
                             <div className="relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl shadow-inner border border-white/20">
-                                        <Icon className="w-7 h-7 text-white" />
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                    <div className="p-2 sm:p-3 bg-white/20 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-inner border border-white/20">
+                                        <Icon className="w-5 sm:w-7 h-5 sm:h-7 text-white" />
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-bold tracking-tight leading-none drop-shadow-sm">{title}</h3>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span className="px-2 py-0.5 bg-white/20 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                                        <h3 className="text-lg sm:text-2xl font-bold tracking-tight leading-none drop-shadow-sm">{title}</h3>
+                                        <div className="flex items-center gap-2 mt-1.5 sm:mt-2">
+                                            <span className="px-2 py-0.5 bg-white/20 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
                                                 {items.length} รายการในระบบ
                                             </span>
                                         </div>
@@ -84,9 +84,9 @@ const StatDetailModal = ({
                                 whileHover={{ scale: 1.1, rotate: 90 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={onClose} 
-                                className="relative z-10 p-2 bg-white/10 hover:bg-white/30 rounded-full text-white transition-colors backdrop-blur-md border border-white/20"
+                                className="relative z-10 p-1.5 sm:p-2 bg-white/10 hover:bg-white/30 rounded-full text-white transition-colors backdrop-blur-md border border-white/20"
                             >
-                                <X className="w-6 h-6" />
+                                <X className="w-5 h-5 sm:w-6 h-6" />
                             </motion.button>
                         </div>
 
@@ -203,76 +203,76 @@ const QualityStatsWidget: React.FC<QualityStatsWidgetProps> = ({ reviews, users 
 
     return (
         <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
                 
                 {/* 1. Pending Card */}
                 <div 
                     onClick={() => setActiveModal({ title: 'รายการรอตรวจ (Pending)', items: pendingList, colorClass: 'text-yellow-600', icon: Clock })}
-                    className="bg-white p-4 rounded-2xl border border-yellow-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-yellow-200"
+                    className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-yellow-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-yellow-200"
                 >
-                    <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-yellow-600 uppercase tracking-wide">รอตรวจ (Pending)</span>
-                        <div className="p-2 bg-yellow-50 text-yellow-600 rounded-lg group-hover:bg-yellow-100 transition-colors">
-                            <Clock className="w-4 h-4" />
+                    <div className="flex justify-between items-start gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-yellow-600 uppercase tracking-wide leading-tight">รอตรวจ (Pending)</span>
+                        <div className="p-1.5 sm:p-2 bg-yellow-50 text-yellow-600 rounded-lg group-hover:bg-yellow-100 transition-colors shrink-0">
+                            <Clock className="w-3.5 h-3.5 sm:w-4 h-4" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800 mt-2 group-hover:text-yellow-600 transition-colors">{pendingList.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-1 sm:mt-2 group-hover:text-yellow-600 transition-colors">{pendingList.length}</p>
                 </div>
 
                 {/* 2. Passed Today Card */}
                 <div 
                     onClick={() => setActiveModal({ title: 'ผ่านวันนี้ (Passed Today)', items: passedTodayList, colorClass: 'text-green-600', icon: CheckCircle2 })}
-                    className="bg-white p-4 rounded-2xl border border-green-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-green-200"
+                    className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-green-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-green-200"
                 >
-                    <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-green-600 uppercase tracking-wide">ผ่านวันนี้ (Passed)</span>
-                        <div className="p-2 bg-green-50 text-green-600 rounded-lg group-hover:bg-green-100 transition-colors">
-                            <CheckCircle2 className="w-4 h-4" />
+                    <div className="flex justify-between items-start gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-green-600 uppercase tracking-wide leading-tight">ผ่านวันนี้ (Passed)</span>
+                        <div className="p-1.5 sm:p-2 bg-green-50 text-green-600 rounded-lg group-hover:bg-green-100 transition-colors shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 h-4" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800 mt-2 group-hover:text-green-600 transition-colors">{passedTodayList.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-1 sm:mt-2 group-hover:text-green-600 transition-colors">{passedTodayList.length}</p>
                 </div>
 
                 {/* 3. Revise Card */}
                 <div 
                     onClick={() => setActiveModal({ title: 'รายการสั่งแก้ (Revise)', items: reviseList, colorClass: 'text-red-600', icon: Activity })}
-                    className="bg-white p-4 rounded-2xl border border-red-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-red-200"
+                    className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-red-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-red-200"
                 >
-                    <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-red-600 uppercase tracking-wide">สั่งแก้ (Revise)</span>
-                        <div className="p-2 bg-red-50 text-red-600 rounded-lg group-hover:bg-red-100 transition-colors">
-                            <Activity className="w-4 h-4" />
+                    <div className="flex justify-between items-start gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-red-600 uppercase tracking-wide leading-tight">สั่งแก้ (Revise)</span>
+                        <div className="p-1.5 sm:p-2 bg-red-50 text-red-600 rounded-lg group-hover:bg-red-100 transition-colors shrink-0">
+                            <Activity className="w-3.5 h-3.5 sm:w-4 h-4" />
                         </div>
                     </div>
-                    <p className="text-3xl font-medium text-gray-800 mt-2 group-hover:text-red-600 transition-colors">{reviseList.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-1 sm:mt-2 group-hover:text-red-600 transition-colors">{reviseList.length}</p>
                 </div>
 
                 {/* 4. Overdue Card */}
                 <div 
                     onClick={() => setActiveModal({ title: 'รายการเลยกำหนด (Overdue)', items: overdueList, colorClass: 'text-orange-600', icon: AlertTriangle })}
-                    className="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-orange-200"
+                    className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-orange-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-orange-200"
                 >
-                    <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-orange-600 uppercase tracking-wide">เลยกำหนด (Overdue)</span>
-                        <div className="p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-100 transition-colors">
-                            <AlertTriangle className="w-4 h-4" />
+                    <div className="flex justify-between items-start gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-orange-600 uppercase tracking-wide leading-tight">เลยกำหนด (Overdue)</span>
+                        <div className="p-1.5 sm:p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-100 transition-colors shrink-0">
+                            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 h-4" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800 mt-2 group-hover:text-orange-600 transition-colors">{overdueList.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-1 sm:mt-2 group-hover:text-orange-600 transition-colors">{overdueList.length}</p>
                 </div>
 
                 {/* 5. Expired Card */}
                 <div 
                     onClick={() => setActiveModal({ title: 'รายการหมดอายุ (Expired)', items: expiredList, colorClass: 'text-slate-600', icon: AlertTriangle })}
-                    className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-slate-200"
+                    className="col-span-2 sm:col-span-1 lg:col-span-1 bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group active:scale-95 hover:border-slate-200"
                 >
-                    <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">หมดอายุ (Expired)</span>
-                        <div className="p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:bg-slate-100 transition-colors">
-                            <AlertTriangle className="w-4 h-4" />
+                    <div className="flex justify-between items-start gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wide leading-tight">หมดอายุ (Expired)</span>
+                        <div className="p-1.5 sm:p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:bg-slate-100 transition-colors shrink-0">
+                            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 h-4" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800 mt-2 group-hover:text-slate-600 transition-colors">{expiredList.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-1 sm:mt-2 group-hover:text-slate-600 transition-colors">{expiredList.length}</p>
                 </div>
             </div>
 

@@ -139,43 +139,47 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     const isTaskPenalized = (review.task?.sla_revert_count || 0) >= 3;
 
     return (
-        <div className={`p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 flex flex-col md:flex-row gap-6 items-start group relative overflow-hidden ring-1 ring-white/5 hover:ring-indigo-500/30 hover:-translate-y-1 ${borderClass}`}>
+        <div className={`p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border backdrop-blur-xl shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 flex flex-col md:flex-row gap-4 sm:gap-6 items-start group relative overflow-hidden ring-1 ring-white/5 hover:ring-indigo-500/30 hover:-translate-y-1 ${borderClass}`}>
             
             {/* Status Strip on Left */}
-            <div className={`absolute left-0 top-0 bottom-0 w-2 ${statusColor} opacity-50 group-hover:opacity-100 transition-opacity`}></div>
+            <div className={`absolute left-0 top-0 bottom-0 w-1.5 sm:w-2 ${statusColor} opacity-50 group-hover:opacity-100 transition-opacity`}></div>
             
             {/* Subtle Scanline Overlay */}
             <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_4px,3px_100%] opacity-20"></div>
 
             {/* Time & Review Status Badge */}
-            <div className="flex flex-col items-center min-w-[100px] text-center pt-1 pl-2 relative z-10">
-                <span className="text-3xl font-black text-white leading-none italic tracking-tighter">{format(review.scheduledAt, 'HH:mm')}</span>
-                <span className="text-[10px] text-indigo-400/60 font-black uppercase tracking-[0.3em] mt-1">{format(review.scheduledAt, 'dd MMM')}</span>
+            <div className="flex flex-row md:flex-col items-center justify-between md:justify-start w-full md:w-auto md:min-w-[100px] text-center pt-1 pl-2 relative z-10 pb-3 md:pb-0 border-b md:border-b-0 border-white/5 gap-3 shrink-0">
+                <div className="flex flex-col items-start md:items-center text-left md:text-center shrink-0">
+                    <span className="text-2xl sm:text-3xl font-black text-white leading-none italic tracking-tighter">{format(review.scheduledAt, 'HH:mm')}</span>
+                    <span className="text-[10px] text-indigo-400/60 font-black uppercase tracking-[0.3em] mt-1">{format(review.scheduledAt, 'dd MMM')}</span>
+                </div>
                 
-                {isExpired ? (
-                    <div className="mt-4 px-3 py-1.5 bg-slate-500/20 text-slate-400 rounded-xl text-[10px] font-black w-full border border-slate-500/30 shadow-lg shadow-slate-900/20 uppercase tracking-widest" title="ระบบดีดกลับงานอัตโนมัติเนื่องจากตรวจไม่ทัน">
-                        SLA Expired
-                    </div>
-                ) : isOverdue ? (
-                    <div className="mt-4 px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black w-full border border-rose-500/30 shadow-lg shadow-rose-900/20 uppercase tracking-widest animate-pulse" title="แอดมินดองงาน (Admin Pending)">
-                        +{adminDaysLate} Days Late
-                    </div>
-                ) : (
-                    <div className={`mt-4 px-3 py-1.5 text-[10px] font-black rounded-xl border flex items-center justify-center gap-2 w-full uppercase tracking-widest shadow-lg ${
-                        review.status === 'PENDING' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-900/20' :
-                        review.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-900/20' :
-                        review.status === 'EXPIRED' ? 'bg-slate-500/20 text-slate-400 border-slate-500/30 shadow-slate-900/20' :
-                        'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-900/20'
-                    }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                            review.status === 'PENDING' ? 'bg-indigo-400 animate-pulse' :
-                            review.status === 'PASSED' ? 'bg-emerald-400' :
-                            review.status === 'EXPIRED' ? 'bg-slate-400' :
-                            'bg-rose-400'
-                        }`}></div>
-                        {review.status === 'PENDING' ? 'Pending' : review.status === 'PASSED' ? 'Passed' : review.status === 'EXPIRED' ? 'Expired' : 'Revise'}
-                    </div>
-                )}
+                <div className="w-auto md:w-full shrink-0">
+                    {isExpired ? (
+                        <div className="px-3 py-1.5 bg-slate-500/20 text-slate-400 rounded-xl text-[10px] font-black border border-slate-500/30 shadow-lg shadow-slate-900/20 uppercase tracking-widest text-center" title="ระบบดีดกลับงานอัตโนมัติเนื่องจากตรวจไม่ทัน">
+                            SLA Expired
+                        </div>
+                    ) : isOverdue ? (
+                        <div className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black border border-rose-500/30 shadow-lg shadow-rose-900/20 uppercase tracking-widest text-center animate-pulse" title="แอดมินดองงาน (Admin Pending)">
+                            +{adminDaysLate} Days Late
+                        </div>
+                    ) : (
+                        <div className={`px-3 py-1.5 text-[10px] font-black rounded-xl border flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg text-center ${
+                            review.status === 'PENDING' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-900/20' :
+                            review.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-900/20' :
+                            review.status === 'EXPIRED' ? 'bg-slate-500/20 text-slate-400 border-slate-500/30 shadow-slate-900/20' :
+                            'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-900/20'
+                        }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                                review.status === 'PENDING' ? 'bg-indigo-400 animate-pulse' :
+                                review.status === 'PASSED' ? 'bg-emerald-400' :
+                                review.status === 'EXPIRED' ? 'bg-slate-400' :
+                                'bg-rose-400'
+                            }`}></div>
+                            {review.status === 'PENDING' ? 'Pending' : review.status === 'PASSED' ? 'Passed' : review.status === 'EXPIRED' ? 'Expired' : 'Revise'}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Task Info */}
@@ -325,11 +329,11 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex flex-row md:flex-col gap-3 w-full md:w-auto mt-2 md:mt-0 shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-6 relative z-10">
+            <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto mt-4 md:mt-0 shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6 relative z-10">
                 
                 {/* SHOW REVIEWER IF COMPLETED */}
                 {(review.status === 'PASSED' || review.status === 'REVISE') && reviewer && (
-                     <div className="flex items-center gap-3 mb-2 p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
+                     <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md w-full md:w-auto">
                          <img src={reviewer.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/10" />
                          <div className="min-w-0">
                              <p className="text-[9px] text-indigo-400/40 font-black uppercase tracking-widest leading-none mb-1">Inspector</p>
@@ -341,23 +345,23 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* ACTION BUTTONS (Only if Pending and Permission Granted) */}
                 {review.status === 'PENDING' && review.task && (
                     canReview ? (
-                        <>
+                        <div className="grid grid-cols-2 md:flex md:flex-col gap-2 w-full">
                             <button 
                                 onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!, review.scheduledAt)}
-                                className="flex-1 md:flex-none px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center transition-all shadow-xl shadow-emerald-900/40 active:scale-95 border border-emerald-400/30 italic"
+                                className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all shadow-xl shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 italic"
                             >
-                                <ThumbsUp className="w-4 h-4 mr-2" /> Pass
+                                <ThumbsUp className="w-4 h-4 mr-1.5" /> Pass
                             </button>
                             <button 
                                 onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!, review.scheduledAt)}
-                                className="flex-1 md:flex-none px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center transition-all active:scale-95 border border-white/5 italic"
+                                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all active:scale-95 border border-white/5 italic"
                             >
-                                <Wrench className="w-4 h-4 mr-2" /> Revise
+                                <Wrench className="w-4 h-4 mr-1.5" /> Revise
                             </button>
-                        </>
+                        </div>
                     ) : (
-                        <div className="p-4 bg-white/5 rounded-2xl text-center border border-white/5 backdrop-blur-md">
-                            <ShieldCheck className="w-6 h-6 text-indigo-500/40 mx-auto mb-2" />
+                        <div className="p-3 bg-white/5 rounded-2xl text-center border border-white/5 backdrop-blur-md w-full">
+                            <ShieldCheck className="w-5 h-5 text-indigo-500/40 mx-auto mb-1.5" />
                             <p className="text-[9px] text-indigo-400/40 font-black uppercase tracking-widest">Awaiting Inspection</p>
                         </div>
                     )
@@ -365,9 +369,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
                 <button 
                     onClick={() => review.task && onOpenTask(review.task)}
-                    className="flex-1 md:flex-none px-6 py-3.5 bg-white/5 hover:bg-white/10 text-indigo-200/60 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center transition-all border border-white/5 italic"
+                    className="w-full md:w-auto px-4 py-3 bg-white/5 hover:bg-white/10 text-indigo-200/60 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all border border-white/5 italic"
                 >
-                    <FileSearch className="w-4 h-4 mr-2" /> Details
+                    <FileSearch className="w-4 h-4 mr-1.5" /> Details
                 </button>
             </div>
         </div>

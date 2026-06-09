@@ -1,6 +1,6 @@
 
-import React, { memo, useState } from 'react';
-import { Send, ShoppingBag, Wallet, Settings, Sparkles, MoreHorizontal, AlertTriangle } from 'lucide-react';
+import React, { memo, useState, useRef, useEffect } from 'react';
+import { Send, ShoppingBag, Wallet, Settings, Sparkles, MoreHorizontal, AlertTriangle, ChevronDown } from 'lucide-react';
 import { User } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MobileActionSheet } from './MobileActionSheet';
@@ -30,26 +30,45 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
 }) => {
     const isAdmin = currentUser?.role === 'ADMIN';
     const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+    const [isCommandHubOpen, setIsCommandHubOpen] = useState(false);
+    const hubRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (hubRef.current && !hubRef.current.contains(event.target as Node)) {
+                setIsCommandHubOpen(false);
+            }
+        };
+
+        if (isCommandHubOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isCommandHubOpen]);
 
     return (
-        <div className="relative p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white/40 backdrop-blur-xl border border-white/80 shadow-2xl shadow-indigo-500/10 overflow-hidden group w-full">
-            {/* Decorative Floating Elements */}
-            <motion.div 
-                animate={{ 
-                    y: [0, -10, 0],
-                    rotate: [0, 5, 0]
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-4 -right-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"
-            />
-            <motion.div 
-                animate={{ 
-                    y: [0, 10, 0],
-                    rotate: [0, -5, 0]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl"
-            />
+        <div className="relative z-[200] p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-white/40 backdrop-blur-xl border border-white/80 shadow-2xl shadow-indigo-500/10 group w-full">
+            {/* Decorative Floating Elements (Clipped inside a dedicated overlay container) */}
+            <div className="absolute inset-0 rounded-[2rem] md:rounded-[2.5rem] overflow-hidden pointer-events-none">
+                <motion.div 
+                    animate={{ 
+                        y: [0, -10, 0],
+                        rotate: [0, 5, 0]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -top-4 -right-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"
+                />
+                <motion.div 
+                    animate={{ 
+                        y: [0, 10, 0],
+                        rotate: [0, -5, 0]
+                    }}
+                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                    className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl"
+                />
+            </div>
 
             <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-5 md:gap-6 w-full">
                 <div className="flex items-start gap-3.5 md:gap-4 w-full md:w-auto">
@@ -172,32 +191,6 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                 transition={{ duration: 0.3 }}
                                 className="flex flex-wrap items-center gap-3"
                             >
-                                {/* Randomizer Button */}
-                                {onOpenRandomizer && (
-                                    <motion.button 
-                                        whileHover={{ scale: 1.05, y: -2 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={onOpenRandomizer} 
-                                        className="group flex items-center px-6 py-3.5 bg-gradient-to-br from-pink-400 to-rose-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-pink-500/20 hover:shadow-pink-500/40 transition-all border border-white/20"
-                                    >
-                                        <span className="text-lg mr-2 group-hover:rotate-12 transition-transform">🎲</span>
-                                        สุ่มผู้โชคดี
-                                    </motion.button>
-                                )}
-
-                                {/* Report Issue Button */}
-                                {onOpenReport && (
-                                    <motion.button 
-                                        whileHover={{ scale: 1.05, y: -2 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={onOpenReport} 
-                                        className="group flex items-center px-6 py-3.5 bg-gradient-to-br from-red-400 to-orange-600 text-white rounded-2xl text-sm font-black shadow-xl shadow-red-500/20 hover:shadow-red-500/40 transition-all border border-white/20"
-                                    >
-                                        <AlertTriangle className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
-                                        ฟ้อง/แจ้งเหตุ
-                                    </motion.button>
-                                )}
-
                                 {/* Distribute Task Button */}
                                 {onAddTask && (
                                     <motion.button 
@@ -227,16 +220,94 @@ const TeamHeader: React.FC<TeamHeaderProps> = ({
                                         </div>
                                     </motion.div>
                                 )}
-                                
-                                <motion.button 
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={toggleShop} 
-                                    className={`flex items-center px-5 py-3.5 rounded-2xl text-sm font-black shadow-lg transition-all border ${isShopOpen ? 'bg-indigo-50/80 backdrop-blur-md border-indigo-200 text-indigo-700' : 'bg-white/60 backdrop-blur-md border-white/80 text-gray-600 hover:text-indigo-600 hover:border-indigo-200'}`}
-                                >
-                                    <ShoppingBag className={`w-4 h-4 mr-2 transition-transform ${isShopOpen ? 'scale-110' : ''}`} /> 
-                                    {isShopOpen ? 'ปิดร้าน' : 'ร้านค้า'}
-                                </motion.button>
+
+                                {/* Team Command Hub Dropdown */}
+                                <div className="relative" ref={hubRef}>
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05, y: -2 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setIsCommandHubOpen(!isCommandHubOpen)} 
+                                        className={`flex items-center px-6 py-3.5 rounded-2xl text-sm font-black shadow-lg transition-all border ${isCommandHubOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/60 backdrop-blur-md border-white/80 text-gray-700 hover:text-indigo-600 hover:border-indigo-200'}`}
+                                    >
+                                        <Sparkles className="w-4 h-4 mr-2 text-indigo-500 shrink-0" />
+                                        ควบคุมทีม ⚡
+                                        <ChevronDown className={`w-4 h-4 ml-2 transition-transform duration-300 ${isCommandHubOpen ? 'rotate-180' : ''}`} />
+                                    </motion.button>
+
+                                    <AnimatePresence>
+                                        {isCommandHubOpen && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                                className="absolute right-0 top-full mt-2.5 w-76 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-3xl shadow-2xl p-3 flex flex-col gap-1.5 z-[100000]"
+                                                style={{ transformOrigin: "top right" }}
+                                            >
+                                                <div className="px-2.5 py-1.5 mb-1 border-b border-gray-100/85">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                        ⚡ เมนูควบคุมระบบ
+                                                    </p>
+                                                </div>
+
+                                                {/* Randomizer Option */}
+                                                {onOpenRandomizer && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            onOpenRandomizer();
+                                                            setIsCommandHubOpen(false);
+                                                        }}
+                                                        className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-gradient-to-r hover:from-pink-50 hover:to-rose-50 border border-transparent hover:border-pink-100 text-left transition-all group w-full"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white flex items-center justify-center text-lg shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                                                            🎲
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-black text-gray-800">สุ่มผู้โชคดี</p>
+                                                            <p className="text-[10px] text-pink-600 font-medium mt-0.5 leading-tight">จับรายชื่อเพื่อนในบอร์ดสุ่มสนุกๆ</p>
+                                                        </div>
+                                                    </button>
+                                                )}
+
+                                                {/* Report Issue Option */}
+                                                {onOpenReport && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            onOpenReport();
+                                                            setIsCommandHubOpen(false);
+                                                        }}
+                                                        className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-gradient-to-r hover:from-red-50 hover:to-orange-50 border border-transparent hover:border-red-100 text-left transition-all group w-full"
+                                                    >
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-400 to-orange-500 text-white flex items-center justify-center shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                                                            <AlertTriangle className="w-4.5 h-4.5 text-white" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-black text-gray-800">ฟ้อง/แจ้งเหตุ</p>
+                                                            <p className="text-[10px] text-red-600 font-medium mt-0.5 leading-tight">ร้องเรียนพฤติกรรม แจ้งเหตุปัญหาทีม</p>
+                                                        </div>
+                                                    </button>
+                                                )}
+
+                                                {/* Shop Option */}
+                                                <button 
+                                                    onClick={() => {
+                                                        toggleShop();
+                                                        setIsCommandHubOpen(false);
+                                                    }}
+                                                    className={`flex items-center gap-3 p-2.5 rounded-2xl text-left transition-all group border border-transparent w-full ${isShopOpen ? 'bg-indigo-50 border-indigo-100' : 'hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:border-indigo-100'}`}
+                                                >
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 group-hover:scale-110 transition-transform ${isShopOpen ? 'bg-indigo-600 text-white' : 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white'}`}>
+                                                        <ShoppingBag className="w-4.5 h-4.5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-black text-gray-800">{isShopOpen ? 'ปิดร้านค้า' : 'ร้านค้าพอยต์'}</p>
+                                                        <p className="text-[10px] text-indigo-600 font-medium mt-0.5 leading-tight">แลกของรางวัล ซื้อบัฟ แกล้งเกลอ</p>
+                                                    </div>
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>

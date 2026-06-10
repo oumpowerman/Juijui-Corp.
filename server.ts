@@ -302,6 +302,120 @@ app.post('/api/upload/google-drive', upload.single('file'), async (req, res) => 
     }
 });
 
+// --- Export Script to Google Docs API ---
+app.post('/api/export/google-docs', async (req, res) => {
+    const tokens = (req.session as any).tokens;
+    if (!tokens) {
+        return res.status(401).json({ error: 'Not connected to Google Drive' });
+    }
+
+    const { title, content } = req.body;
+    if (!title || !content) {
+        return res.status(400).json({ error: 'Title and content are required' });
+    }
+
+    try {
+        const localAuthClient = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            getRedirectUri(req)
+        );
+        localAuthClient.setCredentials(tokens);
+        
+        const drive = google.drive({ version: 'v3', auth: localAuthClient });
+
+        const rootFolderName = `${BRAND_CONFIG.name.replace(/\s+/g, '_')}_Assets`;
+        const subFolderName = 'Exported_Scripts';
+
+        const rootFolderId = await getOrCreateFolder(drive, rootFolderName);
+        const scriptFolderId = await getOrCreateFolder(drive, subFolderName, rootFolderId);
+
+        // Professional HTML mapping that Drive converts to a Document representation automatically.
+        // Styled with generous standard margins, clear typography, and color-coded brand signatures.
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {
+                        font-family: "Arial", "Inter", sans-serif;
+                        font-size: 11pt;
+                        line-height: 1.6;
+                        color: #1e293b;
+                        margin: 1in;
+                    }
+                    h1 {
+                        font-family: "Arial", "Inter", sans-serif;
+                        color: #1e1b4b;
+                        font-size: 22pt;
+                        font-weight: bold;
+                        margin-bottom: 6px;
+                    }
+                    h2 {
+                        font-family: "Arial", "Inter", sans-serif;
+                        color: #4f46e5;
+                        font-size: 15pt;
+                        font-weight: bold;
+                        border-bottom: 1.5px solid #e2e8f0;
+                        padding-bottom: 6px;
+                        margin-top: 24px;
+                        margin-bottom: 12px;
+                    }
+                    p {
+                        margin-top: 0;
+                        margin-bottom: 10px;
+                    }
+                    strong {
+                        font-weight: bold;
+                        color: #0f172a;
+                    }
+                    ul, ol {
+                        margin-top: 0;
+                        margin-bottom: 10px;
+                        padding-left: 20px;
+                    }
+                    li {
+                        margin-bottom: 6px;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>${title}</h1>
+                <hr style="border: none; border-top: 1px solid #cbd5e1; margin-bottom: 24px;" />
+                ${content}
+            </body>
+            </html>
+        `;
+
+        const fileMetadata = {
+            name: title,
+            mimeType: 'application/vnd.google-apps.document',
+            parents: [scriptFolderId]
+        };
+
+        const media = {
+            mimeType: 'text/html',
+            body: Readable.from(htmlContent)
+        };
+
+        const file = await drive.files.create({
+            requestBody: fileMetadata,
+            media: media,
+            fields: 'id, name, webViewLink'
+        });
+
+        res.json({
+            id: file.data.id,
+            name: file.data.name,
+            webViewLink: file.data.webViewLink
+        });
+    } catch (error: any) {
+        console.error('Export Google Docs error:', error);
+        res.status(500).json({ error: error.message || 'Failed to export script to Google Docs' });
+    }
+});
+
 // --- Enterprise Server-Side Tag Index & Search API ---
 app.get('/api/tags', async (req, res) => {
     const q = (req.query.q as string) || '';

@@ -1,4 +1,3 @@
-
 export const googleDriveService = {
     async getAuthUrl() {
         try {
@@ -54,5 +53,29 @@ export const googleDriveService = {
             return await response.json(); // { id, url }
         }
         throw new Error('Server returned custom non-JSON response on upload');
+    },
+
+    async exportToGoogleDocs(title: string, content: string) {
+        const response = await fetch('/api/export/google-docs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, content })
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!response.ok) {
+            if (contentType && contentType.includes('application/json')) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to export to Google Docs');
+            }
+            throw new Error('Failed to export to Google Docs');
+        }
+
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json(); // { id, name, webViewLink }
+        }
+        throw new Error('Server returned invalid response on export');
     }
 };

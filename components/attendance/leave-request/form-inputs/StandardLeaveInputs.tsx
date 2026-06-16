@@ -21,8 +21,8 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                 <span>ช่วงเวลาที่ลา (Period)</span>
                 {daysCount > 0 && <span className="text-indigo-500 font-bold">{daysCount} วัน</span>}
             </label>
-            <div className="flex items-center gap-3 bg-gray-50/50 p-3 rounded-[2rem] border border-gray-100 shadow-inner">
-                <div className="flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 bg-gray-50/50 p-3 rounded-[2rem] border border-gray-100 shadow-inner">
+                <div className="flex-1 w-full relative">
                     <CustomDatePicker 
                         selected={selectedStartDate}
                         onChange={(date) => {
@@ -30,17 +30,18 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                             setStartDate(dateStr);
                             if(endDate && dateStr > endDate) setEndDate(dateStr);
                         }}
-                        placeholderText="dd/mm/yyyy"
+                        placeholderText="dd/mm/yyyy (เริ่ม)"
                     />
                 </div>
-                <div className="bg-white p-1.5 rounded-full shadow-sm">
-                    <span className="text-gray-300 font-bold text-xs">→</span>
+                <div className="bg-white p-1.5 sm:p-2 rounded-full shadow-sm text-gray-400 font-bold text-xs flex items-center justify-center shrink-0 w-8 h-8 sm:w-auto sm:h-auto mx-auto my-1 sm:my-0">
+                    <span className="hidden sm:inline">→</span>
+                    <span className="inline sm:hidden">↓</span>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 w-full relative">
                     <CustomDatePicker 
                         selected={selectedEndDate}
                         onChange={(date) => setEndDate(date ? date.toISOString().split('T')[0] : '')}
-                        placeholderText="dd/mm/yyyy"
+                        placeholderText="dd/mm/yyyy (สิ้นสุด)"
                     />
                 </div>
             </div>

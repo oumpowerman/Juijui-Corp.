@@ -86,7 +86,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
                 </div>
             </div>
 
-                /* List Container */
+                {/* List Container */}
                 <div className="flex-1 overflow-y-auto max-h-[175px] pr-1 space-y-1.5 scrollbar-thin">
                     <AnimatePresence initial={false}>
                         {checkedInRacers.length === 0 ? (

@@ -13,6 +13,7 @@ import {
 } from '../components/attendance';
 import { useAttendanceStats } from '../hooks/attendance/useAttendanceStats'; 
 import { useLeaveRequests } from '../hooks/useLeaveRequests';
+import { useAttendanceAlerts } from '../hooks/attendance/useAttendanceAlerts';
 import { Clock, Calendar, PieChart, FileCheck, TableProperties } from 'lucide-react';
 import AppBackground, { BackgroundTheme } from '../components/common/AppBackground';
 
@@ -29,6 +30,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     
     // Hooks
     const { stats } = useAttendanceStats(currentUser.id);
+    const { actionRequiredLogs } = useAttendanceAlerts(currentUser.id);
     // Lift state up: Fetch all requests here so we can pass actions to child
     // If Admin, fetch all requests for the approval list
     const { requests, leaveUsage, isLoading: isRequestsLoading, approveRequest, rejectRequest } = useLeaveRequests(
@@ -43,6 +45,8 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     const myPendingCount = useMemo(() => 
         requests.filter(r => r.userId === currentUser.id && r.status === 'PENDING').length, 
     [requests, currentUser.id]);
+
+    const actionRequiredCount = useMemo(() => actionRequiredLogs.length, [actionRequiredLogs]);
 
     const bgTheme = useMemo(() => {
         const themes: BackgroundTheme[] = [
@@ -80,14 +84,19 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                         
                         <button 
                             onClick={() => setCurrentTab('HISTORY')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                         >
-                            <Calendar className="w-4 h-4" /> ประวัติ
-                            {myPendingCount > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-bounce shadow-sm ring-2 ring-white">
+                            <Calendar className="w-4 h-4" /> 
+                            <span>ประวัติ</span>
+                            {actionRequiredCount > 0 ? (
+                                <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
+                                    {actionRequiredCount}
+                                </span>
+                            ) : myPendingCount > 0 ? (
+                                <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
                                     {myPendingCount}
                                 </span>
-                            )}
+                            ) : null}
                         </button>
 
                         {/* Only Admin see these tabs */}

@@ -62,9 +62,9 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
     const note = log?.note || leaveRequest?.reason || '';
     
-    return (
+    return createPortal(
         <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-300"
+            className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-300"
             onClick={onClose}
         >
             <div 
@@ -218,7 +218,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                     onClose={() => setShowLightbox(false)} 
                 />
             )}
-        </div>
+        </div>,
+        document.body
     );
 };
 

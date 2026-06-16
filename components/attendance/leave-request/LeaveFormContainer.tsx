@@ -70,7 +70,7 @@ const LeaveFormContainer: React.FC<Props> = ({
         return { limit, used, remaining };
     }, [selectedType, leaveUsage, metadata]);
 
-    const isOverQuota = quotaInfo && daysRequested > quotaInfo.remaining;
+    const isOverQuota = !!(quotaInfo && daysRequested > quotaInfo.remaining);
 
     const getPlaceholder = () => {
         if (metadata.placeholder) return metadata.placeholder;
@@ -103,20 +103,20 @@ const LeaveFormContainer: React.FC<Props> = ({
             className="flex flex-col flex-1 min-h-0 bg-white/40 backdrop-blur-2xl"
         >
             {/* Header */}
-            <div className={`px-6 py-6 border-b border-white/40 bg-white/60 backdrop-blur-md flex items-center gap-4 shrink-0 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${fixedType ? 'bg-orange-50/40' : ''}`}>
+            <div className={`px-4 py-4 sm:px-6 sm:py-6 border-b border-white/40 bg-white/60 backdrop-blur-md flex items-center gap-3 sm:gap-4 shrink-0 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${fixedType ? 'bg-orange-50/40' : ''}`}>
                 <motion.button 
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={isReviewing ? () => setIsReviewing(false) : onBack} 
-                    className="p-3 bg-white/80 hover:bg-white rounded-2xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-white/50"
+                    className="p-2.5 sm:p-3 bg-white/80 hover:bg-white rounded-xl sm:rounded-2xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-white/50"
                 >
-                    <ChevronLeft className="w-6 h-6" />
+                    <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </motion.button>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <motion.h3 
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="text-2xl font-bold text-slate-800 flex items-center gap-3"
+                        className="text-lg sm:text-2xl font-bold text-slate-800 flex items-center gap-2.5 sm:gap-3"
                     >
                         <motion.span 
                             animate={{ 
@@ -128,17 +128,17 @@ const LeaveFormContainer: React.FC<Props> = ({
                                 repeat: Infinity,
                                 ease: "easeInOut"
                             }}
-                            className={`p-2.5 rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.08)] ${theme.bg} ${theme.text} border border-white/50`}
+                            className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.08)] ${theme.bg} ${theme.text} border border-white/50 shrink-0`}
                         >
-                            {fixedType ? <AlertCircle className="w-6 h-6" /> : (theme.icon && React.createElement(theme.icon, { className: "w-6 h-6" }))}
+                            {fixedType ? <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> : (theme.icon && React.createElement(theme.icon, { className: "w-5 h-5 sm:w-6 sm:h-6" }))}
                         </motion.span>
-                        <span className="tracking-tight">{isReviewing ? 'ตรวจสอบความถูกต้อง' : headerLabel}</span>
+                        <span className="tracking-tight truncate">{isReviewing ? 'ตรวจสอบความถูกต้อง' : headerLabel}</span>
                     </motion.h3>
                 </div>
             </div>
 
             {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-6 pb-60 space-y-8 
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-6 sm:pb-8 space-y-5 sm:space-y-8 
                 scroll-smooth 
                 scrollbar-thin scrollbar-thumb-slate-300/60 scrollbar-track-transparent
                 hover:scrollbar-thumb-slate-400/80"
@@ -152,76 +152,76 @@ const LeaveFormContainer: React.FC<Props> = ({
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="space-y-6"
+                            className="space-y-4 sm:space-y-6"
                         >
-                            <div className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 backdrop-blur-xl border border-white/60 p-8 rounded-[3rem] space-y-5 shadow-xl shadow-indigo-100/20 relative overflow-hidden group">
+                            <div className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-indigo-100/20 relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-300/30 transition-colors" />
                                 
-                                <div className="flex items-center gap-3 text-indigo-600 mb-2 relative">
+                                <div className="flex items-center gap-2.5 sm:gap-3 text-indigo-600 mb-2 relative">
                                     <div className="p-2 bg-white rounded-xl shadow-sm">
-                                        <CalendarClock className="w-5 h-5" />
+                                        <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5" />
                                     </div>
-                                    <span className="text-sm font-bold uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
+                                    <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-5 relative">
-                                    <div className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2 tracking-widest">เริ่มต้น (Start)</p>
-                                        <p className="text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
-                                        {isTimeSpecific && <p className="text-2xl font-bold text-indigo-600 mt-2">{targetTime} น.</p>}
+                                <div className="grid grid-cols-2 gap-3 sm:gap-5 relative">
+                                    <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
+                                        <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">เริ่มต้น (Start)</p>
+                                        <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
+                                        {isTimeSpecific && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{targetTime} น.</p>}
                                     </div>
                                     
-                                    <div className="bg-white/70 backdrop-blur-md p-5 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[10px] font-bold text-indigo-300 uppercase mb-2 tracking-widest">สิ้นสุด (End)</p>
-                                        <p className="text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
-                                        {selectedType === 'FORGOT_BOTH' && <p className="text-2xl font-bold text-indigo-600 mt-2">{endTime} น.</p>}
-                                        {selectedType === 'OVERTIME' && <p className="text-2xl font-bold text-indigo-600 mt-2">{otHours} ชั่วโมง</p>}
+                                    <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
+                                        <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">สิ้นสุด (End)</p>
+                                        <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
+                                        {selectedType === 'FORGOT_BOTH' && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{endTime} น.</p>}
+                                        {selectedType === 'OVERTIME' && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{otHours} ชั่วโมง</p>}
                                     </div>
                                 </div>
 
                                 {!isTimeSpecific && daysRequested > 0 && (
-                                    <div className="bg-indigo-600 text-white p-4 rounded-[1.5rem] text-center shadow-xl shadow-indigo-200 relative">
-                                        <p className="text-sm font-bold tracking-wide">รวมระยะเวลา: {daysRequested} วัน</p>
+                                    <div className="bg-indigo-600 text-white p-3 sm:p-4 rounded-[1.25rem] sm:rounded-[1.5rem] text-center shadow-xl shadow-indigo-200 relative">
+                                        <p className="text-xs sm:text-sm font-bold tracking-wide">รวมระยะเวลา: {daysRequested} วัน</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-xl border border-white/60 p-8 rounded-[3rem] space-y-5 shadow-xl shadow-emerald-100/20 relative overflow-hidden group">
+                            <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-emerald-100/20 relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-300/30 transition-colors" />
                                 
-                                <div className="flex items-center gap-3 text-emerald-600 mb-2 relative">
+                                <div className="flex items-center gap-2.5 sm:gap-3 text-emerald-600 mb-2 relative">
                                     <div className="p-2 bg-white rounded-xl shadow-sm">
-                                        <FileText className="w-5 h-5" />
+                                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                                     </div>
-                                    <span className="text-sm font-bold uppercase tracking-[0.2em]">เหตุผลที่ระบุ</span>
+                                    <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">เหตุผลที่ระบุ</span>
                                 </div>
-                                <div className="bg-white/70 backdrop-blur-md p-6 rounded-[2rem] border border-white shadow-sm">
-                                    <p className="text-base font-bold text-emerald-950 leading-relaxed italic">"{reason}"</p>
+                                <div className="bg-white/70 backdrop-blur-md p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm">
+                                    <p className="text-sm sm:text-base font-bold text-emerald-950 leading-relaxed italic">"{reason}"</p>
                                 </div>
                             </div>
 
                             {file && (
-                                <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/80 backdrop-blur-xl border border-white/60 p-8 rounded-[3rem] space-y-5 shadow-xl shadow-amber-100/20">
-                                    <div className="flex items-center gap-3 text-amber-600 mb-2">
+                                <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-amber-100/20">
+                                    <div className="flex items-center gap-2.5 sm:gap-3 text-amber-600 mb-2">
                                         <div className="p-2 bg-white rounded-xl shadow-sm">
-                                            <ImageIcon className="w-5 h-5" />
+                                            <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                                         </div>
-                                        <span className="text-sm font-medium font-kanit uppercase tracking-[0.2em]">เอกสารแนบ</span>
+                                        <span className="text-xs sm:text-sm font-medium font-kanit uppercase tracking-[0.2em]">เอกสารแนบ</span>
                                     </div>
-                                    <div className="bg-white/70 backdrop-blur-md p-4 rounded-[1.5rem] border border-white shadow-sm flex items-center gap-4">
-                                        <div className="bg-amber-100 p-3 rounded-2xl text-amber-600">
-                                            <Upload className="w-5 h-5" />
+                                    <div className="bg-white/70 backdrop-blur-md p-3 sm:p-4 rounded-[1.25rem] sm:rounded-[1.5rem] border border-white shadow-sm flex items-center gap-3 sm:gap-4">
+                                        <div className="bg-amber-100 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-amber-600">
+                                            <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
                                         </div>
-                                        <p className="text-sm font-bold text-amber-900 truncate flex-1">{file.name}</p>
+                                        <p className="text-xs sm:text-sm font-bold text-amber-900 truncate flex-1">{file.name}</p>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="flex items-center gap-4 p-5 bg-blue-50/40 backdrop-blur-md rounded-[2rem] border border-white/60 shadow-sm">
-                                <div className="p-2 bg-blue-100 rounded-xl text-blue-500">
-                                    <AlertCircle className="w-5 h-5" />
+                            <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-blue-50/40 backdrop-blur-md rounded-[1.5rem] sm:rounded-[2rem] border border-white/60 shadow-sm">
+                                <div className="p-2 bg-blue-100 rounded-xl text-blue-500 shrink-0">
+                                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
-                                <p className="text-xs font-bold text-blue-700 leading-relaxed">เมื่อกดยืนยัน ระบบจะส่งคำขอไปยัง Admin เพื่อพิจารณาและแจ้งเตือนผ่านกลุ่มทันที</p>
+                                <p className="text-[11px] sm:text-xs font-bold text-blue-700 leading-relaxed">เมื่อกดยืนยัน ระบบจะส่งคำขอไปยัง Admin เพื่อพิจารณาและแจ้งเตือนผ่านกลุ่มทันที</p>
                             </div>
                         </motion.div>
                     ) : (
@@ -249,14 +249,14 @@ const LeaveFormContainer: React.FC<Props> = ({
                                 <motion.div 
                                     initial={{ x: -20, opacity: 0 }}
                                     animate={{ x: 0, opacity: 1 }}
-                                    className="bg-rose-50/80 backdrop-blur-xl border border-rose-100/50 p-6 rounded-[2.5rem] flex items-start gap-5 shadow-xl shadow-rose-100/20"
+                                    className="bg-rose-50/80 backdrop-blur-xl border border-rose-100/50 p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] flex items-start gap-4 sm:gap-5 shadow-xl shadow-rose-100/20"
                                 >
-                                    <div className="bg-rose-100 p-3 rounded-2xl text-rose-600 shadow-sm">
-                                        <AlertCircle className="w-6 h-6" />
+                                    <div className="bg-rose-100 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-rose-600 shadow-sm shrink-0">
+                                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-rose-800 text-base">วันลาเกินสิทธิ์ (Over Quota)</h4>
-                                        <p className="text-xs text-rose-500 mt-1.5 leading-relaxed font-bold">
+                                        <h4 className="font-bold text-rose-800 text-sm sm:text-base">วันลาเกินสิทธิ์ (Over Quota)</h4>
+                                        <p className="text-[11px] sm:text-xs text-rose-500 mt-1 sm:mt-1.5 leading-relaxed font-bold">
                                             คุณเหลือสิทธิ์ {quotaInfo?.remaining} วัน แต่ต้องการลา {daysRequested} วัน <br/>
                                             กรุณาปรับเปลี่ยนวันที่ หรือติดต่อ HR ครับ
                                         </p>
@@ -265,7 +265,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                             )}
 
                             {/* Dynamic Inputs */}
-                            <div className={`relative z-30 bg-white/60 backdrop-blur-xl p-8 rounded-[3.5rem] border-2 transition-all duration-500 shadow-2xl ${isOverQuota ? 'border-rose-200 ring-8 ring-rose-50/50' : 'border-white/80 hover:border-indigo-100 hover:shadow-indigo-100/20'}`}>
+                            <div className={`relative z-30 bg-white/60 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 transition-all duration-500 shadow-2xl ${isOverQuota ? 'border-rose-200 ring-8 ring-rose-50/50' : 'border-white/80 hover:border-indigo-100 hover:shadow-indigo-100/20'}`}>
                                 {isTimeSpecific ? (
                                     <TimeCorrectionInputs 
                                         date={startDate} setDate={setStartDate} 
@@ -288,9 +288,9 @@ const LeaveFormContainer: React.FC<Props> = ({
                             </div>
 
                             {/* Common Fields */}
-                            <div className="relative z-10 space-y-6">
-                                <div className="bg-white/60 backdrop-blur-xl p-8 rounded-[3.5rem] border-2 border-white/80 shadow-2xl space-y-4 group focus-within:border-indigo-100 transition-all">
-                                    <label className="flex items-center gap-2.5 text-[13px] font-kanit font-bold text-slate-400 uppercase ml-2 tracking-[0.25em] group-focus-within:text-indigo-400 transition-colors">
+                            <div className="relative z-10 space-y-4 sm:space-y-6">
+                                <div className="bg-white/60 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 border-white/80 shadow-2xl space-y-3 sm:space-y-4 group focus-within:border-indigo-100 transition-all">
+                                    <label className="flex items-center gap-2 text-[11px] sm:text-[13px] font-kanit font-bold text-slate-400 uppercase ml-1 sm:ml-2 tracking-[0.20em] sm:tracking-[0.25em] group-focus-within:text-indigo-400 transition-colors">
                                         <FileText className="w-4 h-4" />
                                         {getReasonLabel()} <span className="text-rose-400">*</span>
                                     </label>
@@ -298,7 +298,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         value={reason} 
                                         onChange={e => setReason(e.target.value)}
                                         placeholder={getPlaceholder()}
-                                        className="w-full p-6 bg-white/40 border-2 border-transparent rounded-[2rem] focus:bg-white focus:border-indigo-100 focus:ring-[12px] focus:ring-indigo-50/50 outline-none text-base font-bold text-slate-700 resize-none h-40 transition-all placeholder:text-slate-300 shadow-inner"
+                                        className="w-full p-4 sm:p-6 bg-white/40 border-2 border-transparent rounded-[1.5rem] sm:rounded-[2rem] focus:bg-white focus:border-indigo-100 focus:ring-[8px] sm:focus:ring-[12px] focus:ring-indigo-50/50 outline-none text-sm sm:text-base font-bold text-slate-700 resize-none h-32 sm:h-40 transition-all placeholder:text-slate-300 shadow-inner"
                                     />
                                 </div>
                                 
@@ -307,18 +307,18 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => fileInputRef.current?.click()}
                                     className={`
-                                        p-8 rounded-[3.5rem] border-2 border-dashed transition-all cursor-pointer flex items-center justify-center gap-5 group relative overflow-hidden shadow-xl
+                                        p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed transition-all cursor-pointer flex items-center justify-center gap-4 sm:gap-5 group relative overflow-hidden shadow-xl
                                         ${file ? 'border-emerald-200 bg-emerald-50/60 backdrop-blur-md' : 'border-slate-200 bg-white/40 backdrop-blur-md hover:bg-white hover:border-indigo-200 hover:shadow-indigo-100/30'}
                                     `}
                                 >
-                                    <div className={`p-4 rounded-[1.5rem] shadow-lg transition-all group-hover:rotate-12 ${file ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400'}`}>
-                                        {file ? <CheckCircle2 className="w-8 h-8"/> : <Upload className="w-8 h-8"/>}
+                                    <div className={`p-3 sm:p-4 rounded-xl sm:rounded-[1.5rem] shadow-lg transition-all group-hover:rotate-12 ${file ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400'}`}>
+                                        {file ? <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8"/> : <Upload className="w-6 h-6 sm:w-8 sm:h-8"/>}
                                     </div>
-                                    <div className="text-left flex-1">
-                                        <p className={`text-base font-bold ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className={`text-sm sm:text-base font-bold truncate ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
                                             {file ? file.name : (selectedType === 'SICK' ? 'แนบใบรับรองแพทย์' : 'แนบเอกสารประกอบ')}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
+                                        <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
                                     </div>
                                     <input type="file" ref={fileInputRef} className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} accept="image/*,.pdf" />
                                 </motion.div>
@@ -329,16 +329,16 @@ const LeaveFormContainer: React.FC<Props> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-8 border-t border-white/40 bg-white/60 backdrop-blur-xl shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+            <div className="p-4 sm:p-8 border-t border-white/40 bg-white/60 backdrop-blur-xl shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
                 {isReviewing ? (
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 sm:gap-4">
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setIsReviewing(false)}
-                            className="flex-1 py-5 rounded-[2rem] font-bold text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2.5"
+                            className="flex-1 py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-bold text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
                         >
-                            <Edit3 className="w-5 h-5" /> แก้ไข
+                            <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" /> แก้ไข
                         </motion.button>
                         <motion.button 
                             whileHover={{ scale: 1.05, y: -2 }}
@@ -346,12 +346,12 @@ const LeaveFormContainer: React.FC<Props> = ({
                             onClick={() => handleSubmit(selectedType)}
                             disabled={isSubmitting}
                             className={`
-                                flex-[2.5] py-5 rounded-[2rem] font-bold text-white text-xl shadow-2xl transition-all flex items-center justify-center gap-3
+                                flex-[2.5] py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-bold text-white text-base sm:text-xl shadow-2xl transition-all flex items-center justify-center gap-2 sm:gap-3
                                 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200/50
                                 disabled:opacity-50 disabled:cursor-not-allowed
                             `}
                         >
-                            {isSubmitting ? <Loader2 className="w-7 h-7 animate-spin"/> : <Send className="w-6 h-6" />}
+                            {isSubmitting ? <Loader2 className="w-5 h-5 sm:w-7 sm:h-7 animate-spin"/> : <Send className="w-5 h-5 sm:w-6 sm:h-6" />}
                             ยืนยันและส่งคำขอ
                         </motion.button>
                     </div>
@@ -362,12 +362,12 @@ const LeaveFormContainer: React.FC<Props> = ({
                         onClick={handleReview}
                         disabled={isOverQuota}
                         className={`
-                            w-full py-5 rounded-[2.5rem] font-bold font-kanit text-white text-xl shadow-2xl transition-all flex items-center justify-center gap-3
+                            w-full py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-bold font-kanit text-white text-base sm:text-xl shadow-2xl transition-all flex items-center justify-center gap-2 sm:gap-3
                             ${theme.btn} hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed
-                            ${isOverQuota ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'shadow-indigo-200/50'}
+                            ${isOverQuota ? 'bg-slate-300 pointer-events-none opacity-50 shadow-none' : 'shadow-indigo-200/50'}
                         `}
                     >
-                        ตรวจสอบข้อมูล <ArrowRight className="w-6 h-6" />
+                        ตรวจสอบข้อมูล <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
                 )}
             </div>

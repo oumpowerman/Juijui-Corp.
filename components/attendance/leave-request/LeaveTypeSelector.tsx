@@ -50,18 +50,18 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                 <button 
                                     key={opt.key}
                                     onClick={() => onSelect(opt.key)} 
-                                    className={`flex flex-row items-center justify-between p-4 rounded-2xl border-2 transition-all group active:scale-95 ${th.bg} ${th.border} hover:shadow-md`}
+                                    className={`flex flex-row items-center justify-between p-3 sm:p-4 rounded-2xl border-2 transition-all group active:scale-95 ${th.bg} ${th.border} hover:shadow-md`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                            {renderIcon(meta.icon || 'Home', `w-5 h-5 ${th.text}`)}
+                                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
+                                            {renderIcon(meta.icon || 'Home', `w-4 h-4 sm:w-5 sm:h-5 ${th.text}`)}
                                         </div>
                                         <div className="text-left">
-                                            <span className={`font-black text-sm block ${th.text}`}>{opt.label}</span>
-                                            {meta.subLabel && <span className={`text-[10px] font-medium opacity-80 ${th.text}`}>{meta.subLabel}</span>}
+                                            <span className={`font-black text-xs sm:text-sm block ${th.text}`}>{opt.label}</span>
+                                            {meta.subLabel && <span className={`text-[9px] sm:text-[10px] font-medium opacity-80 ${th.text}`}>{meta.subLabel}</span>}
                                         </div>
                                     </div>
-                                    <LucideIcons.ChevronRight className={`w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity ${th.text}`} />
+                                    <LucideIcons.ChevronRight className={`w-4 h-4 sm:w-5 sm:h-5 opacity-40 group-hover:opacity-100 transition-opacity ${th.text}`} />
                                 </button>
                             );
                         })}
@@ -84,12 +84,12 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                 <button 
                                     key={opt.key}
                                     onClick={() => onSelect(opt.key)}
-                                    className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95"
+                                    className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95"
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 transition-colors ${th.bg} ${th.text}`}>
-                                        {renderIcon(meta.icon || 'FileText', "w-6 h-6")}
+                                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 transition-colors ${th.bg} ${th.text}`}>
+                                        {renderIcon(meta.icon || 'FileText', "w-5 h-5 sm:w-6 sm:h-6")}
                                     </div>
-                                    <span className="font-bold text-gray-700 text-xs group-hover:text-indigo-600 text-center leading-tight">{opt.label}</span>
+                                    <span className="font-bold text-gray-700 text-[11px] sm:text-xs group-hover:text-indigo-600 text-center leading-tight">{opt.label}</span>
                                 </button>
                             );
                         })}
@@ -117,12 +117,12 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                 <button 
                                     key={opt.key}
                                     onClick={() => onSelect(opt.key)}
-                                    className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95 ${hoverBorderColor}`}
+                                    className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border border-gray-100 bg-white hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95 ${hoverBorderColor}`}
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 ${th.bg} ${th.text}`}>
-                                        {renderIcon(meta.icon || 'Clock', "w-6 h-6")}
+                                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${th.bg} ${th.text}`}>
+                                        {renderIcon(meta.icon || 'Clock', "w-5 h-5 sm:w-6 sm:h-6")}
                                     </div>
-                                    <span className={`font-bold text-gray-700 text-xs text-center leading-tight group-hover:${th.text}`}>{opt.label}</span>
+                                    <span className={`font-bold text-gray-700 text-[11px] sm:text-xs text-center leading-tight group-hover:${th.text}`}>{opt.label}</span>
                                 </button>
                             );
                         })}
@@ -145,12 +145,12 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                 <button 
                                     key={opt.key}
                                     onClick={() => onSelect(opt.key)}
-                                    className="flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95"
+                                    className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border border-gray-100 bg-white hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all group active:scale-95"
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 ${th.bg} ${th.text}`}>
-                                        {renderIcon(meta.icon || 'FileText', "w-6 h-6")}
+                                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 ${th.bg} ${th.text}`}>
+                                        {renderIcon(meta.icon || 'FileText', "w-5 h-5 sm:w-6 sm:h-6")}
                                     </div>
-                                    <span className="font-bold text-gray-700 text-xs text-center leading-tight">{opt.label}</span>
+                                    <span className="font-bold text-gray-700 text-[11px] sm:text-xs text-center leading-tight">{opt.label}</span>
                                 </button>
                             );
                         })}

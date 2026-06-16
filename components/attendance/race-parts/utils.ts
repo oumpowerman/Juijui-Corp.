@@ -95,3 +95,89 @@ export const getChillZonePosition = (index: number, total: number) => {
     
     return { left: `${left}%`, bottom: `${bottom}px` };
 };
+
+export const getPositionGroup = (position: string = '') => {
+    const pos = (position || '').toLowerCase();
+    
+    // Engineering
+    if (
+        pos.includes('dev') || 
+        pos.includes('prog') || 
+        pos.includes('eng') || 
+        pos.includes('tech') || 
+        pos.includes('coder') || 
+        pos.includes('system') || 
+        pos.includes('คุม') || 
+        pos.includes('ซอฟต์แวร์') || 
+        pos.includes('ไอที') || 
+        pos.includes('web') || 
+        pos.includes('front') || 
+        pos.includes('back') || 
+        pos.includes('full') ||
+        pos.includes('devops')
+    ) {
+        return { name: 'Engineering & Dev', color: 'indigo', hex: '#6366f1', emoji: '💻', textStyles: 'text-indigo-600 bg-indigo-50 border-indigo-200' };
+    }
+    
+    // Creative/Design
+    if (
+        pos.includes('design') || 
+        pos.includes('art') || 
+        pos.includes('ux') || 
+        pos.includes('ui') || 
+        pos.includes('creative') || 
+        pos.includes('กราฟิก') || 
+        pos.includes('วาด') || 
+        pos.includes('มัลติ')
+    ) {
+        return { name: 'Design & Creative', color: 'pink', hex: '#ec4899', emoji: '🎨', textStyles: 'text-pink-600 bg-pink-50 border-pink-200' };
+    }
+    
+    // HR & Administrative
+    if (
+        pos.includes('hr') || 
+        pos.includes('admin') || 
+        pos.includes('people') || 
+        pos.includes('recruit') || 
+        pos.includes('ประสาน') || 
+        pos.includes('บุคคล') || 
+        pos.includes('ธุรการ') || 
+        pos.includes('การเงิน') ||
+        pos.includes('finance') ||
+        pos.includes('account')
+    ) {
+        return { name: 'HR & Administrative', color: 'teal', hex: '#14b8a6', emoji: '👥', textStyles: 'text-teal-600 bg-teal-50 border-teal-200' };
+    }
+    
+    // Admin/Core Leadership
+    if (
+        pos.includes('manage') || 
+        pos.includes('lead') || 
+        pos.includes('head') || 
+        pos.includes('ceo') || 
+        pos.includes('director') || 
+        pos.includes('pm') || 
+        pos.includes('product') || 
+        pos.includes('หัวหน้า') || 
+        pos.includes('ประธาน') || 
+        pos.includes('ประสานงาน')
+    ) {
+        return { name: 'Management & Product', color: 'rose', hex: '#f43f5e', emoji: '👑', textStyles: 'text-rose-600 bg-rose-50 border-rose-200' };
+    }
+    
+    // Business/Sales/Marketing
+    if (
+        pos.includes('sale') || 
+        pos.includes('market') || 
+        pos.includes('biz') || 
+        pos.includes('content') || 
+        pos.includes('seo') || 
+        pos.includes('ขาย') || 
+        pos.includes('ตลาด')
+    ) {
+        return { name: 'Sales & Marketing', color: 'amber', hex: '#f59e0b', emoji: '📢', textStyles: 'text-amber-600 bg-amber-50 border-amber-200' };
+    }
+    
+    // Default / All-Star
+    return { name: 'All-Stars Crew', color: 'slate', hex: '#475569', emoji: '⭐', textStyles: 'text-slate-600 bg-slate-50 border-slate-200' };
+};

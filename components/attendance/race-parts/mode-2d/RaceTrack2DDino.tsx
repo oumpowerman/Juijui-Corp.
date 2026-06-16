@@ -79,6 +79,8 @@ export const RaceTrack2DDino: React.FC<RaceTrack2DDinoProps> = ({
                                 checkInTime={null}
                                 order={999}
                                 scale={1.0}
+                                status={racer.status}
+                                activeLeave={racer.activeLeave}
                             />
                             
                             {/* Hover Badge */}
@@ -125,6 +127,8 @@ export const RaceTrack2DDino: React.FC<RaceTrack2DDinoProps> = ({
                                     checkInTime={racer.checkInTime}
                                     order={racer.checkInOrder}
                                     scale={1.0}
+                                    status={racer.status}
+                                    activeLeave={racer.activeLeave}
                                 />
 
                                 {/* Order Sticker */}

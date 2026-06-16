@@ -15,6 +15,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
   onSelectChannels,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [displayMode, setDisplayMode] = useState<'classic' | 'logo'>('classic');
 
   // Parse color classes safely
   const getColorClasses = (chColor?: string) => {
@@ -28,7 +29,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
   // Build a single unified array of interactive tabs (ALL + channel list)
   const items = useMemo(() => {
     return [
-      { id: 'ALL', name: 'รวมทุกช่องทาง', isAll: true, color: 'bg-indigo-500', serial: 'DRW-ALL' },
+      { id: 'ALL', name: 'รวมทุกช่องทาง', isAll: true, color: 'bg-indigo-500', serial: 'DRW-ALL', logoUrl: undefined },
       ...channels.map((ch, idx) => {
         // Dynamic mix of mechanical labels: DRW, CAB, RACK, IDX
         const prefixes = ['CAB', 'DRW', 'RACK', 'IDX'];
@@ -39,7 +40,8 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
           name: ch.name,
           isAll: false,
           color: ch.color || 'bg-slate-400',
-          serial: `${pfx}-${num}`
+          serial: `${pfx}-${num}`,
+          logoUrl: ch.logoUrl
         };
       }),
     ];
@@ -100,12 +102,12 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                 transition={{ repeat: activeCount > 0 ? Infinity : 0, duration: 2, ease: "easeInOut" }}
                 className={`w-2 h-2 rounded-full ${activeCount > 0 ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.7)]' : 'bg-indigo-400/60'}`} 
               />
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500/80 leading-none">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-500/80 leading-none">
                 {activeCount > 0 ? 'MULTI FILTER ACTIVE' : 'ALL RACKS OFFLINE'}
               </span>
             </div>
             
-            <h4 className="text-sm font-black text-slate-800 tracking-tight flex items-center gap-2 mt-1">
+            <h4 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2 mt-1">
               <span>แฟ้มแยกช่อง</span>
               
               <AnimatePresence mode="wait">
@@ -114,12 +116,38 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
-                  className="inline-flex items-center justify-center bg-indigo-50 px-2.5 py-0.5 rounded-full text-[10px] text-indigo-600 font-extrabold border border-indigo-100/60 shadow-sm"
+                  className="inline-flex items-center justify-center bg-indigo-50 px-2.5 py-0.5 rounded-full text-[10px] text-indigo-600 font-semibold border border-indigo-100/60 shadow-sm"
                 >
                   {activeCount > 0 ? `เลือกอยู่ ${activeCount} ช่อง` : `ทั้งหมด (${channels.length})`}
                 </motion.span>
               </AnimatePresence>
             </h4>
+
+            {/* Display Mode Switcher */}
+            <div className="flex items-center gap-1 mt-1.5 bg-slate-100/80 p-0.5 rounded-md w-fit border border-slate-200/30">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('classic')}
+                className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                  displayMode === 'classic'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                แบบแฟ้ม
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('logo')}
+                className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                  displayMode === 'logo'
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                แสดงโลโก้
+              </button>
+            </div>
           </div>
         </div>
 
@@ -155,7 +183,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                   layout="position"
                   onClick={() => handleToggleChannel(item.id)}
                   animate={{
-                    marginLeft: (isHovered || isSelected || isFirst) ? 8 : -32, // Tactile fanning/deck stack effect
+                    marginLeft: (isHovered || isSelected || isFirst) ? 8 : (displayMode === 'logo' ? -20 : -32), // Tactile fanning/deck stack effect
                     y: isSelected ? -6 : 0,
                     scale: isSelected ? 1.04 : 1,
                     zIndex: isSelected ? 50 : items.length - index,
@@ -175,39 +203,75 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                     layout: { type: 'spring', stiffness: 300, damping: 26 }
                   }}
                   className={`
-                    relative h-11 pr-5 pl-4 rounded-t-2xl rounded-b-xl text-xs font-black tracking-tight transition-colors border flex items-center gap-3 shrink-0 outline-none select-none cursor-pointer
+                    relative h-11 transition-colors border flex items-center gap-2.5 shrink-0 outline-none select-none cursor-pointer
+                    ${displayMode === 'logo'
+                      ? 'rounded-full pr-4 pl-3 text-xs'
+                      : 'rounded-t-2xl rounded-b-xl pr-5 pl-4 text-xs'
+                    }
                     ${isSelected
                       ? 'bg-white/95 border-violet-300 text-violet-700 backdrop-blur-xl shadow-lg shadow-violet-200/50'
                       : 'bg-white text-slate-500 border-slate-200/80 shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:border-slate-300 hover:text-slate-700'
                     }
                   `}
                   style={{
-                    borderRadius: '16px 16px 12px 12px',
+                    borderRadius: displayMode === 'logo' ? '24px' : '16px 16px 12px 12px',
                     transformOrigin: 'bottom center',
                   }}
                 >
                   {/* Miniature Physical Filing Tab protruding from the folder */}
-                  <div 
-                    className={`absolute -top-1.5 left-4.5 px-2 py-0.25 rounded-t-md text-[7px] font-black uppercase tracking-wider text-white shadow-sm flex items-center justify-center h-3 bg-gradient-to-r from-indigo-500 to-indigo-600 ${bgClass}`}
-                    style={{ fontSize: '7px', zIndex: 10 }}
-                  >
-                    {/* Show checking label if selected, otherwise print dynamic serials */}
-                    {item.isAll ? 'ALL' : hasRank ? `SEL #${selectIndex + 1}` : item.serial}
-                  </div>
+                  {displayMode === 'classic' && (
+                    <div 
+                      className={`absolute -top-1.5 left-4.5 px-2 py-0.25 rounded-t-md text-[7px] font-bold uppercase tracking-wider text-white shadow-sm flex items-center justify-center h-3 bg-gradient-to-r from-indigo-500 to-indigo-600 ${bgClass}`}
+                      style={{ fontSize: '7px', zIndex: 10 }}
+                    >
+                      {/* Show checking label if selected, otherwise print dynamic serials */}
+                      {item.isAll ? 'ALL' : hasRank ? `SEL #${selectIndex + 1}` : item.serial}
+                    </div>
+                  )}
 
                   {/* Tactile Inner Folder Document Line Mockup */}
-                  <div className={`absolute top-1 left-4 right-6 h-[1.5px] rounded-full ${isSelected ? 'bg-violet-200' : 'bg-slate-100'}`} />
-                  <div className={`absolute top-[7px] left-4 w-10 h-[1px] rounded-full ${isSelected ? 'bg-violet-100' : 'bg-slate-50'}`} />
+                  {displayMode === 'classic' && (
+                    <>
+                      <div className={`absolute top-1 left-4 right-6 h-[1.5px] rounded-full ${isSelected ? 'bg-violet-200' : 'bg-slate-100'}`} />
+                      <div className={`absolute top-[7px] left-4 w-10 h-[1px] rounded-full ${isSelected ? 'bg-violet-100' : 'bg-slate-50'}`} />
+                    </>
+                  )}
 
-                  {/* Physical Indicator circle node */}
-                  <span className={`w-2.5 h-2.5 rounded-full ${bgClass} shadow-[inset_0_1px_2.5px_rgba(255,255,255,0.45)] border border-black/5 shrink-0 relative flex items-center justify-center`}>
-                    {isSelected && (
-                      <motion.span 
-                        layoutId="activeSubTabNode"
-                        className="absolute w-1 h-1 rounded-full bg-white" 
-                      />
-                    )}
-                  </span>
+                  {/* Indicator or Logo Image */}
+                  {displayMode === 'logo' ? (
+                    <div className="relative w-6 h-6 rounded-full overflow-hidden border border-slate-100/80 bg-slate-50 flex items-center justify-center shrink-0 shadow-sm">
+                      {item.isAll ? (
+                        <div className="w-full h-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[9px] font-bold">
+                          ALL
+                        </div>
+                      ) : item.logoUrl ? (
+                        <img 
+                          src={item.logoUrl} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className={`w-full h-full ${bgClass} flex items-center justify-center text-white text-[9px] font-bold`}>
+                          {item.name.charAt(0)}
+                        </div>
+                      )}
+                      
+                      {isSelected && (
+                        <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
+                      )}
+                    </div>
+                  ) : (
+                    /* Physical Indicator circle node */
+                    <span className={`w-2.5 h-2.5 rounded-full ${bgClass} shadow-[inset_0_1px_2.5px_rgba(255,255,255,0.45)] border border-black/5 shrink-0 relative flex items-center justify-center`}>
+                      {isSelected && (
+                        <motion.span 
+                          layoutId="activeSubTabNode"
+                          className="absolute w-1 h-1 rounded-full bg-white" 
+                        />
+                      )}
+                    </span>
+                  )}
 
                   {/* Dynamic clean width expansion of label */}
                   <motion.span
@@ -216,7 +280,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                       width: (isHovered || isSelected || item.isAll) ? 'auto' : '52px',
                     }}
                     transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-                    className="overflow-hidden whitespace-nowrap block text-[11px] font-black truncate text-left"
+                    className="overflow-hidden whitespace-nowrap block text-[11px] font-bold truncate text-left"
                   >
                     {item.name}
                   </motion.span>
@@ -233,7 +297,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                         {item.isAll ? (
                           <Sparkles className="w-3.5 h-3.5 fill-violet-200 text-violet-500" />
                         ) : (
-                          <div className="flex items-center justify-center bg-violet-100 text-violet-700 w-4 h-4 rounded-full font-black text-[9px] border border-violet-200">
+                          <div className="flex items-center justify-center bg-violet-100 text-violet-700 w-4 h-4 rounded-full font-semibold text-[9px] border border-violet-200">
                             {selectIndex !== -1 ? selectIndex + 1 : <Check className="w-2.5 h-2.5 stroke-[3]" />}
                           </div>
                         )}

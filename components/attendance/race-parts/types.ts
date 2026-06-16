@@ -6,4 +6,12 @@ export interface RacetrackActiveUser {
     checkInTime: string | null;
     checkInOrder: number; // 1 = first, 2 = second, etc.
     status: string;
+    activeLeave?: {
+        id: string;
+        type: string;
+        reason: string;
+        status: string;
+        startDate: Date;
+        endDate: Date;
+    } | null;
 }

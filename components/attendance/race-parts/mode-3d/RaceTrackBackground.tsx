@@ -1,34 +1,77 @@
 import React from 'react';
 import { get3DCoordinates } from './projection';
+import { User } from '../../../../types';
+import { getPositionGroup } from '../utils';
 
 interface RaceTrackBackgroundProps {
     totalLanes: number;
+    sortedProfiles?: User[];
 }
 
-export const RaceTrackBackground: React.FC<RaceTrackBackgroundProps> = ({ totalLanes }) => {
+export const RaceTrackBackground: React.FC<RaceTrackBackgroundProps> = ({ totalLanes, sortedProfiles }) => {
     return (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-current text-slate-200" viewBox="0 0 1000 360" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-current text-slate-200 animate-fade-in" viewBox="0 0 1000 360" preserveAspectRatio="none">
             {/* Isometric parallel lane markers drawn programmatically based on user lane indices */}
             {Array.from({ length: totalLanes }).map((_, idx) => {
                 const start = get3DCoordinates(idx, 0, totalLanes);
                 const finish = get3DCoordinates(idx, 1, totalLanes);
                 
+                const user = sortedProfiles?.[idx];
+                const group = getPositionGroup(user?.position);
+                
+                // Determine whether this lane is the head/beginning of a new section
+                const isSectionHeader = idx === 0 || (
+                    sortedProfiles && sortedProfiles[idx - 1] && 
+                    getPositionGroup(sortedProfiles[idx - 1]?.position).name !== group.name
+                );
+
+                const trackColor = group ? group.hex : "#cbd5e1";
+                
                 return (
                     <g key={idx}>
-                        {/* The main dashed horizontal running track vector */}
+                        {/* The main dashed horizontal running track vector (dynamically colored by department) */}
                         <line 
                             x1={start.x} 
                             y1={start.y} 
                             x2={finish.x} 
                             y2={finish.y} 
-                            stroke="#cbd5e1" 
+                            stroke={trackColor} 
                             strokeWidth="1.5" 
                             strokeDasharray="4 6" 
+                            className="transition-colors duration-500 opacity-60"
                         />
                         {/* Starting lane boundary node */}
-                        <circle cx={start.x} cy={start.y} r="2.5" fill="#94a3b8" />
+                        <circle cx={start.x} cy={start.y} r="2.8" fill={trackColor} className="opacity-90 transition-colors duration-500" />
                         {/* Finishing lane boundary node */}
-                        <circle cx={finish.x} cy={finish.y} r="2.5" fill="#475569" />
+                        <circle cx={finish.x} cy={finish.y} r="2.8" fill={trackColor} className="opacity-90 transition-colors duration-500" />
+
+                        {/* Text Label on the side of the lane for section header */}
+                        {isSectionHeader && group && (
+                            <g>
+                                <text 
+                                    x={start.x - 14} 
+                                    y={start.y + 2.5} 
+                                    fill={group.hex} 
+                                    fontSize="7.5" 
+                                    fontWeight="900" 
+                                    textAnchor="end"
+                                    className="font-sans tracking-wider"
+                                >
+                                    {group.emoji} {group.name}
+                                </text>
+                                {/* Subtle indicator line grouping the section */}
+                                <line
+                                    x1={start.x - 10}
+                                    y1={start.y}
+                                    x2={start.x - 3}
+                                    y2={start.y}
+                                    stroke={group.hex}
+                                    strokeWidth="1"
+                                    strokeDasharray="1 1"
+                                    className="opacity-40"
+                                />
+                            </g>
+                        )}
                     </g>
                 );
             })}

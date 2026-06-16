@@ -11,9 +11,28 @@ export interface StickRacerProps {
     order: number;
     isDashing?: boolean;
     scale?: number;
+    status?: string | null;
+    activeLeave?: {
+        id: string;
+        type: string;
+        reason: string;
+        status: string;
+        startDate: Date;
+        endDate: Date;
+    } | null;
 }
 
-// getDeterministicEmoji is imported from central constants
+const getLeaveMiniIcon = (type: string) => {
+    switch (type) {
+        case 'SICK': return '🤒';
+        case 'VACATION': return '✈️';
+        case 'PERSONAL': return '💼';
+        case 'EMERGENCY': return '🚨';
+        case 'WFH': return '🏠';
+        case 'UNPAID': return '🔇';
+        default: return '⏳';
+    }
+};
 
 export const StickRacer: React.FC<StickRacerProps> = ({ 
     user, 
@@ -22,7 +41,9 @@ export const StickRacer: React.FC<StickRacerProps> = ({
     checkInTime, 
     order, 
     isDashing = false,
-    scale = 1.0
+    scale = 1.0,
+    status = null,
+    activeLeave = null
 }) => {
     // Custom keyframe animations for the pure emoji (bounce, sway, or hover)
     const rawAnimationStyles = `
@@ -74,7 +95,7 @@ export const StickRacer: React.FC<StickRacerProps> = ({
                         }}
                         className="font-mono text-[9px] font-black text-[#58a6ff] tracking-wider"
                     >
-                        Zzz
+                        {activeLeave ? '💤(Leave)' : 'Zzz'}
                     </motion.span>
                 </div>
             )}
@@ -102,21 +123,69 @@ export const StickRacer: React.FC<StickRacerProps> = ({
                             : 'emoji-bob-idle 2.4s infinite ease-in-out'
                 }}
             >
-                <span 
-                    className="leading-none transition-all duration-300 transform group-hover:scale-115 text-[24px] sm:text-[28px] md:text-[32px]"
-                    style={{ 
-                        ...glowStyle,
-                        imageRendering: 'pixelated'
-                    }}
-                >
-                    {user.emoji || getDeterministicEmoji(user.id)}
-                </span>
+                <div className="relative">
+                    {/* The main character emoji */}
+                    <span 
+                        className="leading-none transition-all duration-300 transform group-hover:scale-115 text-[24px] sm:text-[28px] md:text-[32px] block"
+                        style={{ 
+                            ...glowStyle,
+                            imageRendering: 'pixelated'
+                        }}
+                    >
+                        {user.emoji || getDeterministicEmoji(user.id)}
+                    </span>
+
+                    {/* Corner overlay: Active/Pending leave badge */}
+                    {activeLeave && (
+                        <div 
+                            className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full border border-slate-900 flex items-center justify-center text-[7.5px] font-bold shadow-md select-none pointer-events-none z-40 ${
+                                activeLeave.status === 'APPROVED' 
+                                    ? 'bg-emerald-550 text-white animate-pulse' 
+                                    : 'bg-amber-500 text-white'
+                            }`}
+                            style={{
+                                backgroundColor: activeLeave.status === 'APPROVED' ? '#10b981' : '#f59e0b',
+                                filter: 'drop-shadow(0px 1px 1px rgba(0,0,0,0.3))'
+                            }}
+                        >
+                            {getLeaveMiniIcon(activeLeave.type)}
+                        </div>
+                    )}
+
+                    {/* Corner overlay: Came Late (⏱️) */}
+                    {status === 'LATE' && (
+                        <div 
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-550 text-white border border-slate-900 flex items-center justify-center text-[7px] shadow-sm select-none pointer-events-none z-40 animate-bounce"
+                            style={{ backgroundColor: '#ef4444' }}
+                        >
+                            ⏱️
+                        </div>
+                    )}
+
+                    {/* Corner overlay: Action Required (⚠️) */}
+                    {status === 'ACTION_REQUIRED' && (
+                        <div 
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-orange-550 text-white border border-slate-900 flex items-center justify-center text-[7px] shadow-sm select-none pointer-events-none z-40"
+                            style={{ backgroundColor: '#f97316' }}
+                        >
+                            ⚠️
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Time stamp indicator or Status text */}
             {checkInTime ? (
                 <div className="mt-2 px-1.5 py-0.5 rounded bg-slate-900 text-[7.5px] font-mono font-black text-white leading-none shadow-sm whitespace-nowrap z-10">
                     {checkInTime}
+                </div>
+            ) : activeLeave ? (
+                <div className={`mt-2 px-1.5 py-0.5 rounded text-[7.5px] font-bold leading-none shadow-sm whitespace-nowrap z-10 ${
+                    activeLeave.status === 'APPROVED' 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                        : 'bg-amber-50 text-amber-800 border border-amber-200'
+                }`}>
+                    {activeLeave.status === 'APPROVED' ? 'APPROVED' : 'PENDING'}
                 </div>
             ) : (
                 <div className="mt-2 text-[7.5px] font-bold text-slate-400 uppercase tracking-tighter z-10">

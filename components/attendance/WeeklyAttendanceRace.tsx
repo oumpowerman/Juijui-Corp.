@@ -16,9 +16,10 @@ import {
     RaceTrack2DDino,
     RaceTrack3DArena
 } from './race-parts';
+import { getPositionGroup } from './race-parts/utils';
 
 export const WeeklyAttendanceRace: React.FC = () => {
-    const { allUsers, currentUserProfile } = useUserSession();
+    const { allUsers, currentUserProfile, leaveRequests } = useUserSession();
     const { annualHolidays, calendarExceptions } = useMasterData();
     const [todayLogs, setTodayLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -141,12 +142,19 @@ export const WeeklyAttendanceRace: React.FC = () => {
         };
     }, [todayDateStr, currentUserProfile?.id]);
 
-    // Active users list sorted alphabetically to maintain solid lane locking
+    // Active users list sorted by position group and then name to align teammates on adjacent lanes/tracks
     const sortedProfiles = useMemo(() => {
         if (!allUsers) return [];
         return [...allUsers]
             .filter(u => u.isActive)
-            .sort((a, b) => a.name.localeCompare(b.name));
+            .sort((a, b) => {
+                const groupA = getPositionGroup(a.position).name;
+                const groupB = getPositionGroup(b.position).name;
+                if (groupA !== groupB) {
+                    return groupA.localeCompare(groupB);
+                }
+                return a.name.localeCompare(b.name);
+            });
     }, [allUsers]);
 
     // Track dimensions accommodates exactly the registered active users in the system
@@ -156,6 +164,10 @@ export const WeeklyAttendanceRace: React.FC = () => {
         const checkedInLogs = [...todayLogs]
             .filter(l => l.check_in_time)
             .sort((a, b) => new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime());
+
+        const today = new Date();
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+        const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
         return sortedProfiles.map((user) => {
             const userLog = todayLogs.find(l => l.user_id === user.id);
@@ -175,15 +187,36 @@ export const WeeklyAttendanceRace: React.FC = () => {
                 }
             }
 
+            // Find if there is an active approved/pending leave request for today
+            const activeLeaveReq = leaveRequests ? leaveRequests.find(req => {
+                if (req.userId !== user.id) return false;
+                if (req.status === 'REJECTED') return false;
+                try {
+                    const start = new Date(req.startDate);
+                    const end = new Date(req.endDate);
+                    return (start <= endOfToday && end >= startOfToday);
+                } catch {
+                    return false;
+                }
+            }) : null;
+
             return {
                 user,
                 isCheckedIn,
                 checkInTime,
                 checkInOrder,
-                status: userLog ? userLog.status : 'absent'
+                status: userLog ? userLog.status : 'absent',
+                activeLeave: activeLeaveReq ? {
+                    id: activeLeaveReq.id,
+                    type: activeLeaveReq.type,
+                    reason: activeLeaveReq.reason,
+                    status: activeLeaveReq.status,
+                    startDate: new Date(activeLeaveReq.startDate),
+                    endDate: new Date(activeLeaveReq.endDate)
+                } : null
             };
         });
-    }, [sortedProfiles, todayLogs]);
+    }, [sortedProfiles, todayLogs, leaveRequests]);
 
     const idleRacers = useMemo(() => racers.filter(r => !r.isCheckedIn), [racers]);
     const checkedInRacers = useMemo(() => 

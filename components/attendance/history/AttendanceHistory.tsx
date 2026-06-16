@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AttendanceLog, LeaveType } from '../../../types/attendance';
 import { useAttendanceHistory } from '../../../hooks/attendance/useAttendanceHistory';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests'; 
@@ -498,15 +499,15 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                 </div>
 
                 {/* Proof Modal */}
-                {viewProofUrl && (
-                    <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setViewProofUrl(null)}>
-                        <div className="relative max-w-lg w-full bg-white p-2 rounded-2xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setViewProofUrl(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300">
-                                <XCircle className="w-8 h-8" />
+                {viewProofUrl && createPortal(
+                    <div className="fixed inset-0 z-[200] bg-slate-950/95 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setViewProofUrl(null)}>
+                        <div className="relative max-w-lg w-full bg-white p-2 rounded-2xl shadow-2xl animate-in zoom-in-95 cursor-auto" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setViewProofUrl(null)} className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-1 font-bold text-xs bg-slate-900/60 hover:bg-slate-900/80 px-2.5 py-1.5 rounded-full cursor-pointer transition-all">
+                                <XCircle className="w-5 h-5" /> ปิด
                             </button>
                             <img 
                                 src={getDirectDriveUrl(viewProofUrl)} 
-                                className="w-full h-auto rounded-xl shadow-inner bg-gray-100" 
+                                className="w-full h-auto max-h-[75vh] object-contain rounded-xl shadow-inner bg-slate-950" 
                                 alt="Proof" 
                                 referrerPolicy="no-referrer"
                             />
@@ -514,7 +515,8 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                                 เปิดรูปต้นฉบับ <ExternalLink className="w-4 h-4 ml-1.5" />
                             </a>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
                 
                 {/* Resubmit Modal */}

@@ -58,6 +58,8 @@ export const RaceTrackParticipant: React.FC<RaceTrackParticipantProps> = ({
                         checkInTime={null} 
                         order={999}
                         scale={startCoords.scale}
+                        status={racer.status}
+                        activeLeave={racer.activeLeave}
                     />
                     <RacerTooltip 
                         racer={racer}
@@ -110,6 +112,8 @@ export const RaceTrackParticipant: React.FC<RaceTrackParticipantProps> = ({
                     order={racer.checkInOrder}
                     isDashing={isCurrentRacerDashing}
                     scale={1.1} // Base scale factor inside StickRacer
+                    status={racer.status}
+                    activeLeave={racer.activeLeave}
                 />
 
                 {/* Wind particles during dash */}

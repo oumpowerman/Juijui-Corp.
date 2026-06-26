@@ -483,7 +483,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                         duration: 0.3, 
                         ease: "easeOut"
                       }}
-                      className={`flex flex-col w-full ${currentView === 'CHAT' ? 'h-full min-h-0' : 'min-h-full'}`}
+                      className={`flex flex-col w-full ${['CHAT', 'CALENDAR'].includes(currentView) ? 'h-full min-h-0 flex-1' : 'min-h-full'}`}
                     >
                       <ViewRouteRegistry
                         currentView={currentView}

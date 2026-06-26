@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface Props {
     amount: string;
@@ -13,6 +14,8 @@ interface Props {
 }
 
 const AmountDateInput: React.FC<Props> = ({ amount, setAmount, date, setDate, netAmount, showNet, inputRef }) => {
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
     return (
         <div className="grid grid-cols-2 gap-4">
             <div>
@@ -39,15 +42,27 @@ const AmountDateInput: React.FC<Props> = ({ amount, setAmount, date, setDate, ne
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">วันที่ (Date)</label>
                 <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input 
-                        type="date" 
-                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-700 focus:border-indigo-400 transition-all cursor-pointer"
-                        value={date}
-                        onChange={e => setDate(e.target.value)}
-                    />
+                    <button 
+                        type="button" 
+                        onClick={() => setIsDatePickerOpen(true)}
+                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold text-gray-700 hover:border-indigo-400 transition-all text-left flex items-center justify-between"
+                    >
+                        <span>{formatDisplayDate(date)}</span>
+                        <Calendar className="w-5 h-5 text-gray-400" />
+                    </button>
                 </div>
             </div>
+
+            <DatePickerModal
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                selectedDate={date ? new Date(date) : undefined}
+                onSelect={(d) => {
+                    if (d) {
+                        setDate(d.toISOString().split('T')[0]);
+                    }
+                }}
+            />
         </div>
     );
 };

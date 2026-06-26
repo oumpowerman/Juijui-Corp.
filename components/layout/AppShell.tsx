@@ -71,7 +71,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <div className={`flex-1 min-h-0 ${currentView === 'CHAT' ? 'p-0 overflow-hidden flex flex-col' : isEdgeToEdgeView ? 'p-0 overflow-auto scrollbar-hide' : 'p-4 md:p-6 pb-24 lg:pb-6 overflow-auto scrollbar-hide'}`}>
+                <div className={`flex-1 min-h-0 ${currentView === 'CHAT' ? 'p-0 overflow-hidden flex flex-col' : isEdgeToEdgeView ? 'p-0 overflow-auto flex flex-col scrollbar-hide' : 'p-4 md:p-6 pb-24 lg:pb-6 overflow-auto scrollbar-hide'}`}>
                     {children}
                 </div>
             </main>

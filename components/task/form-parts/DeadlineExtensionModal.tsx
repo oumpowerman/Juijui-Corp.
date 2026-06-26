@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Send } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface DeadlineExtensionModalProps {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface DeadlineExtensionModalProps {
 const DeadlineExtensionModal: React.FC<DeadlineExtensionModalProps> = ({ isOpen, onClose, onSubmit, currentEndDate }) => {
     const [newDate, setNewDate] = useState(currentEndDate);
     const [reason, setReason] = useState('');
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     if (!isOpen) return null;
 
@@ -38,15 +40,14 @@ const DeadlineExtensionModal: React.FC<DeadlineExtensionModalProps> = ({ isOpen,
                     <div className="space-y-2">
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">วันที่ต้องการเลื่อนไป (New Date)</label>
                         <div className="relative">
-                            <input 
-                                type="date" 
-                                value={newDate}
-                                onChange={(e) => setNewDate(e.target.value)}
-                                min={currentEndDate}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                                required
-                            />
-                            <CalendarIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <button 
+                                type="button" 
+                                onClick={() => setIsDatePickerOpen(true)}
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-100 outline-none transition-all text-left flex items-center justify-between"
+                            >
+                                <span>{formatDisplayDate(newDate)}</span>
+                                <CalendarIcon className="w-5 h-5 text-gray-400" />
+                            </button>
                         </div>
                     </div>
 
@@ -80,6 +81,18 @@ const DeadlineExtensionModal: React.FC<DeadlineExtensionModalProps> = ({ isOpen,
                     </div>
                 </form>
             </div>
+
+            <DatePickerModal
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                selectedDate={newDate ? new Date(newDate) : undefined}
+                minDate={currentEndDate ? new Date(currentEndDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        setNewDate(date.toISOString().split('T')[0]);
+                    }
+                }}
+            />
         </div>
     );
 };

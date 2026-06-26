@@ -83,16 +83,14 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         const now = new Date();
         
         const urgent = localRequests.filter(r => {
-            const matchedTask = tasks.find(t => t.id === r.taskId);
-            if (!matchedTask) return false;
-            const originalEnd = new Date(matchedTask.endDate);
+            const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+            if (!originalEnd) return false;
             return originalEnd.getTime() < now.getTime() || (originalEnd.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
         }).length;
 
         const longExtensions = localRequests.filter(r => {
-            const matchedTask = tasks.find(t => t.id === r.taskId);
-            if (!matchedTask) return false;
-            const originalEnd = new Date(matchedTask.endDate);
+            const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+            if (!originalEnd) return false;
             const diffDays = Math.ceil((r.newDeadline.getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24));
             return diffDays >= 7;
         }).length;
@@ -113,7 +111,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         });
 
         return { total, urgent, longExtensions, topRequester };
-    }, [localRequests, tasks]);
+    }, [localRequests]);
 
     // Data filtering and Sorting matching standard structures
     const filteredRequests = useMemo(() => {
@@ -131,16 +129,14 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
 
         if (filterCategory === 'URGENT') {
             result = result.filter(r => {
-                const matchedTask = tasks.find(t => t.id === r.taskId);
-                if (!matchedTask) return false;
-                const originalEnd = new Date(matchedTask.endDate);
+                const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+                if (!originalEnd) return false;
                 return originalEnd.getTime() < now.getTime() || (originalEnd.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
             });
         } else if (filterCategory === 'LONG') {
             result = result.filter(r => {
-                const matchedTask = tasks.find(t => t.id === r.taskId);
-                if (!matchedTask) return false;
-                const originalEnd = new Date(matchedTask.endDate);
+                const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+                if (!originalEnd) return false;
                 const diffDays = Math.ceil((r.newDeadline.getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24));
                 return diffDays >= 7;
             });
@@ -179,7 +175,8 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
             setSelectedReq(null);
         }
 
-        const { success, error } = await resolveRequest(requestId, taskId, isApproved, targetDate);
+        const reqType = previousLocal.find(r => r.id === requestId)?.requestType || 'TASK';
+        const { success, error } = await resolveRequest(requestId, taskId, isApproved, targetDate, reqType);
         setIsProcessingBatch(false);
         
         if (success) {
@@ -221,7 +218,8 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
             setSelectedReq(null);
         }
 
-        const { success, error } = await resolveRequest(req.id, req.taskId, false);
+        const reqType = previousLocal.find(r => r.id === req.id)?.requestType || 'TASK';
+        const { success, error } = await resolveRequest(req.id, req.taskId, false, undefined, reqType);
         setIsProcessingBatch(false);
 
         if (success) {
@@ -279,7 +277,8 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         try {
             const results = await Promise.all(
                 targetRequests.map(async (req) => {
-                    const { success } = await resolveRequest(req.id, req.taskId, isApproved, req.newDeadline);
+                    const reqType = req.requestType || 'TASK';
+                    const { success } = await resolveRequest(req.id, req.taskId, isApproved, req.newDeadline, reqType);
                     return success;
                 })
             );
@@ -324,8 +323,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
             t.id !== selectedReq.taskId
         );
 
-        const parentTask = tasks.find(t => t.id === selectedReq.taskId);
-        const originalEnd = parentTask ? new Date(parentTask.endDate) : null;
+        const originalEnd = selectedReq.originalDeadline ? new Date(selectedReq.originalDeadline) : null;
         const diffDays = originalEnd 
             ? Math.ceil((selectedReq.newDeadline.getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24))
             : 0;
@@ -333,7 +331,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         return {
             requester,
             activeTasks,
-            parentTask,
+            parentTask: selectedReq.requestType === 'GOAL' ? ({ id: selectedReq.taskId, title: selectedReq.goalTitle } as any) : tasks.find(t => t.id === selectedReq.taskId),
             diffDays,
             workloadRank: activeTasks.length >= 4 ? 'งานทับถมหนักมาก (Overload)' : activeTasks.length >= 2 ? 'ปานกลาง' : 'เบาบาง / งานเดียวเสร็จ'
         };

@@ -206,13 +206,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const containerClasses = isExpanded 
     ? "relative min-h-screen overflow-x-hidden p-2 md:p-6 pb-16 animate-in zoom-in-95 duration-300" 
-    : "relative z-10 space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20 md:pb-24 overflow-x-hidden";
+    : "relative z-10 space-y-4 md:space-y-8 animate-in fade-in duration-500 pb-20 sm:pb-12 md:pb-24 overflow-hidden flex-1 flex flex-col h-full";
 
   return (
     <AppBackground 
       theme={bgTheme} 
       pattern="dots" 
-      className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-4 md:p-8 min-h-screen"}
+      className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-3 sm:p-4 md:p-8 h-full md:min-h-screen flex flex-col overflow-hidden"}
     >
       <div className={containerClasses}>
         {isExpanded && (
@@ -332,11 +332,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             isActive={isMobileLandscape}
             onClose={() => setIsMobileLandscape(false)}
           >
-        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'min-h-[600px]'}`}>
+        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'flex-1 min-h-[300px] md:min-h-[600px] h-full'}`}>
           
           {/* Main Content Area */}
           <div className={`
-              flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] 
+              flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex flex-col h-full
               ${isStockOpen ? 'mr-4' : 'mr-0'}
           `}>
 
@@ -347,7 +347,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 1.02, y: -10 }}
                   transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
-                  className="h-full"
+                  className="h-full flex flex-col flex-1"
                 >
                     {displayMode === 'CALENDAR' ? (
                         calendarViewType === 'MONTH' ? (

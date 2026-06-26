@@ -6,6 +6,7 @@ import { Goal, Channel, Platform } from '../../types';
 import { PLATFORM_ICONS } from '../../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../context/ToastContext';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface GoalFormModalProps {
     isOpen: boolean;
@@ -33,6 +34,7 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
     const [channelId, setChannelId] = useState('');
     const [rewardXp, setRewardXp] = useState(500);
     const [rewardCoin, setRewardCoin] = useState(100);
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     useEffect(() => {
         if (initialData) {
@@ -254,12 +256,26 @@ export const GoalFormModal: React.FC<GoalFormModalProps> = ({ isOpen, onClose, i
 
                                 <div>
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1 mb-2 flex items-center"><Calendar className="w-3 h-3 mr-1" /> เส้นตาย (Deadline)</label>
-                                    <input 
-                                        type="date" 
-                                        className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all" 
-                                        value={deadline} 
-                                        onChange={e => setDeadline(e.target.value)} 
-                                        required 
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsDatePickerOpen(true)}
+                                        className="w-full px-4 py-3 bg-white border-2 border-gray-200 hover:border-indigo-300 rounded-xl text-sm font-bold text-gray-700 text-left flex items-center justify-between outline-none transition-all shadow-xs"
+                                    >
+                                        <span>{formatDisplayDate(deadline)}</span>
+                                        <Calendar className="w-4 h-4 text-gray-400" />
+                                    </button>
+
+                                    <DatePickerModal
+                                        isOpen={isDatePickerOpen}
+                                        onClose={() => setIsDatePickerOpen(false)}
+                                        selectedDate={deadline ? new Date(deadline) : undefined}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDeadline(date.toISOString().split('T')[0]);
+                                            } else {
+                                                setDeadline('');
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>

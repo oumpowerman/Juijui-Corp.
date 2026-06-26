@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, ArrowRight, Filter, RefreshCw, Briefcase } from 'lucide-react';
 import FilterDropdown from '../../../common/FilterDropdown';
+import DatePickerModal, { formatDisplayDate } from '../../../ui/DatePickerModal';
 
 interface AttendanceFiltersProps {
     filters: {
@@ -29,25 +30,30 @@ export const AttendanceFilters: React.FC<AttendanceFiltersProps> = ({
     onRefresh,
     isFetching
 }) => {
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
+
     return (
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
                 {/* Date Range */}
                 <div className="flex items-center gap-2 bg-gray-50 p-2.5 rounded-2xl border border-gray-200 w-full sm:w-auto">
                     <Calendar className="w-4 h-4 text-gray-400 ml-1" />
-                    <input 
-                        type="date" 
-                        className="bg-transparent text-xs font-bold text-gray-600 outline-none w-28 cursor-pointer"
-                        value={filters.startDate}
-                        onChange={(e) => onFilterChange('startDate', e.target.value)}
-                    />
+                    <button
+                        type="button"
+                        onClick={() => setIsStartOpen(true)}
+                        className="bg-transparent text-xs font-bold text-gray-600 outline-none w-28 text-left hover:text-indigo-600 transition-colors"
+                    >
+                        {formatDisplayDate(filters.startDate)}
+                    </button>
                     <ArrowRight className="w-3 h-3 text-gray-300" />
-                    <input 
-                        type="date" 
-                        className="bg-transparent text-xs font-bold text-gray-600 outline-none w-28 cursor-pointer"
-                        value={filters.endDate}
-                        onChange={(e) => onFilterChange('endDate', e.target.value)}
-                    />
+                    <button
+                        type="button"
+                        onClick={() => setIsEndOpen(true)}
+                        className="bg-transparent text-xs font-bold text-gray-600 outline-none w-28 text-left hover:text-indigo-600 transition-colors"
+                    >
+                        {formatDisplayDate(filters.endDate)}
+                    </button>
                 </div>
 
                 {/* Work Type Filter with FilterDropdown */}
@@ -82,6 +88,29 @@ export const AttendanceFilters: React.FC<AttendanceFiltersProps> = ({
                     <RefreshCw className="w-4 h-4" />
                 </button>
             </div>
+
+            <DatePickerModal
+                isOpen={isStartOpen}
+                onClose={() => setIsStartOpen(false)}
+                selectedDate={filters.startDate ? new Date(filters.startDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        onFilterChange('startDate', date.toISOString().split('T')[0]);
+                    }
+                }}
+            />
+
+            <DatePickerModal
+                isOpen={isEndOpen}
+                onClose={() => setIsEndOpen(false)}
+                selectedDate={filters.endDate ? new Date(filters.endDate) : undefined}
+                minDate={filters.startDate ? new Date(filters.startDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        onFilterChange('endDate', date.toISOString().split('T')[0]);
+                    }
+                }}
+            />
         </div>
     );
 };

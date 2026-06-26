@@ -5,6 +5,7 @@ import { RefreshCw, AlertCircle, MessageSquare, Check, ArrowRight, Calendar, Clo
 import { format, addDays, isValid, parse } from 'date-fns';
 import { STATUS_COLORS } from '../../constants';
 import { motion, AnimatePresence } from 'framer-motion';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface MeetingActionModuleProps {
     users: User[];
@@ -32,6 +33,7 @@ const MeetingActionModule: React.FC<MeetingActionModuleProps> = ({
     const [newTaskAssignee, setNewTaskAssignee] = useState('');
     const [taskType, setTaskType] = useState<'TASK' | 'CONTENT'>('TASK');
     const [targetDateStr, setTargetDateStr] = useState(''); // Empty = ASAP
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     
     // UI State
     const [recentActions, setRecentActions] = useState<RecentAction[]>([]);
@@ -185,32 +187,27 @@ const MeetingActionModule: React.FC<MeetingActionModuleProps> = ({
                                 <span className="text-indigo-500 font-bold">{targetDateStr ? format(new Date(targetDateStr), 'EEE, d MMM') : 'ASAP (เร็วที่สุด)'}</span>
                             </label>
                             <div className="flex gap-3">
-                                <div className="relative flex-1 group/date">
-                                    <Calendar className="w-5 h-5 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <div className="relative w-full">
-                                        {/* Display Layer */}
-                                        <div className="absolute inset-0 px-12 py-4 rounded-2xl border border-white/80 bg-white/60 flex items-center text-sm font-bold text-slate-700 pointer-events-none shadow-sm group-hover/date:bg-white transition-colors">
-                                            {targetDateStr ? format(new Date(targetDateStr), 'dd/MM/yyyy') : 'dd/mm/yyyy'}
-                                        </div>
-                                        {/* Actual Input Layer (Invisible but clickable) */}
-                                        <input 
-                                            ref={dateInputRef}
-                                            type="date" 
-                                            className="w-full opacity-0 px-12 py-4 rounded-2xl cursor-pointer relative z-20"
-                                            value={targetDateStr}
-                                            onChange={e => setTargetDateStr(e.target.value)}
-                                            onClick={(e) => {
-                                                try {
-                                                    if ('showPicker' in HTMLInputElement.prototype) {
-                                                        (e.target as any).showPicker();
-                                                    }
-                                                } catch (err) {
-                                                    console.warn('showPicker failed:', err);
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDatePickerOpen(true)}
+                                    className="w-full px-12 py-4 rounded-2xl border border-white/80 bg-white/60 flex items-center text-sm font-bold text-slate-700 shadow-sm hover:bg-white hover:border-indigo-200 transition-all text-left relative justify-between"
+                                >
+                                    <Calendar className="w-5 h-5 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    <span>{targetDateStr ? formatDisplayDate(targetDateStr) : 'เลือกวันกำหนดส่ง'}</span>
+                                </button>
+
+                                <DatePickerModal
+                                    isOpen={isDatePickerOpen}
+                                    onClose={() => setIsDatePickerOpen(false)}
+                                    selectedDate={targetDateStr ? new Date(targetDateStr) : undefined}
+                                    onSelect={(date) => {
+                                        if (date) {
+                                            setTargetDateStr(date.toISOString().split('T')[0]);
+                                        } else {
+                                            setTargetDateStr('');
+                                        }
+                                    }}
+                                />
                             </div>
                             {/* Quick Chips */}
                             <div className="flex gap-2 mt-3 overflow-x-auto pb-2 scrollbar-hide">

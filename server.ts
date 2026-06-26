@@ -3,7 +3,6 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 // Import modular routers
 import authRouter from './server/routes/auth.js';
@@ -11,9 +10,6 @@ import driveRouter from './server/routes/drive.js';
 import tagsRouter from './server/routes/tags.js';
 import dashboardRouter from './server/routes/dashboard.js';
 import chatRouter from './server/routes/chat.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 const app = express();
@@ -40,25 +36,30 @@ app.use(tagsRouter);
 app.use(dashboardRouter);
 app.use(chatRouter);
 
-// Vite middleware for development
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-    });
-    app.use(vite.middlewares);
-} else if (!process.env.VERCEL) {
-    app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('*all', (req, res) => {
-        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-    });
+async function startServer() {
+    // Vite middleware for development
+    if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+        const { createServer: createViteServer } = await import('vite');
+        const vite = await createViteServer({
+            server: { middlewareMode: true },
+            appType: 'spa',
+        });
+        app.use(vite.middlewares);
+    } else if (!process.env.VERCEL) {
+        const distPath = path.join(process.cwd(), 'dist');
+        app.use(express.static(distPath));
+        app.get('*all', (req, res) => {
+            res.sendFile(path.join(distPath, 'index.html'));
+        });
+    }
+
+    if (!process.env.VERCEL) {
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    }
 }
+
+startServer();
 
 export default app;
-
-if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-    });
-}

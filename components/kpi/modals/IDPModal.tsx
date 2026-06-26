@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Target, Calendar, Tag, MessageSquare, Sparkles, Rocket, ListTodo, Plus, Minus } from 'lucide-react';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface IDPModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ const IDPModal: React.FC<IDPModalProps> = ({ isOpen, onClose, onAdd }) => {
     const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
     const [subGoals, setSubGoals] = useState<{ title: string }[]>([]);
     const [newSubGoal, setNewSubGoal] = useState('');
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     const addSubGoal = () => {
         if (!newSubGoal.trim()) return;
@@ -137,11 +139,24 @@ const IDPModal: React.FC<IDPModalProps> = ({ isOpen, onClose, onAdd }) => {
                                         <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                                             <Calendar className="w-3 h-3" /> วันที่เป้าหมาย
                                         </label>
-                                        <input
-                                            type="date"
-                                            value={targetDate}
-                                            onChange={(e) => setTargetDate(e.target.value)}
-                                            className="w-full bg-white/50 border border-gray-100 rounded-2xl px-6 py-4 text-gray-900 font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsDatePickerOpen(true)}
+                                            className="w-full bg-white/50 border border-gray-100 hover:border-emerald-300 rounded-2xl px-6 py-4 text-gray-900 font-bold text-left flex items-center justify-between outline-none transition-all shadow-xs"
+                                        >
+                                            <span>{formatDisplayDate(targetDate)}</span>
+                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                        </button>
+
+                                        <DatePickerModal
+                                            isOpen={isDatePickerOpen}
+                                            onClose={() => setIsDatePickerOpen(false)}
+                                            selectedDate={targetDate ? new Date(targetDate) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    setTargetDate(date.toISOString().split('T')[0]);
+                                                }
+                                            }}
                                         />
                                     </div>
                                 </div>

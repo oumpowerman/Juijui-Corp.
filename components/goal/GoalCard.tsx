@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Goal, Channel, User } from '../../types';
 import { PLATFORM_ICONS } from '../../constants';
 import { differenceInDays, format } from 'date-fns';
 import { MoreHorizontal, Plus, RefreshCw, Trophy, AlertCircle, Coins, Star, Flame, Zap, Heart, Calendar } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useGoalDeadlineRequests } from '../../hooks/useGoalDeadlineRequests';
 
 interface GoalCardProps {
     goal: Goal;
@@ -18,13 +19,26 @@ interface GoalCardProps {
     onDelete: (id: string) => void;
     onEdit: (goal: Goal) => void;
     onRedeem: (id: string) => void;
-    onRequestExtension: (id: string, reason: string) => void;
+    onRequestExtensionClick: (goal: Goal, onSubmitted: () => void) => void;
 }
 
 const GoalCard: React.FC<GoalCardProps> = ({ 
-    goal, channel, users, currentUser, onUpdate, onToggleOwner, onToggleBoost, onDelete, onEdit, onRedeem, onRequestExtension
+    goal, channel, users, currentUser, onUpdate, onToggleOwner, onToggleBoost, onDelete, onEdit, onRedeem, onRequestExtensionClick
 }) => {
     const { showConfirm } = useGlobalDialog();
+    const [pendingRequest, setPendingRequest] = useState<any | null>(null);
+    const { getPendingRequestForGoal } = useGoalDeadlineRequests(currentUser);
+
+    const fetchPendingRequest = async () => {
+        if (goal.id) {
+            const req = await getPendingRequestForGoal(goal.id);
+            setPendingRequest(req);
+        }
+    };
+
+    useEffect(() => {
+        fetchPendingRequest();
+    }, [goal.id, getPendingRequestForGoal]);
     
     // Calculations
     const percent = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
@@ -52,6 +66,11 @@ const GoalCard: React.FC<GoalCardProps> = ({
         statusColor = 'text-emerald-400 border-emerald-500/30';
         statusText = 'Mission Accomplished';
         StatusIcon = <Trophy className="w-3 h-3" />;
+    } else if (pendingRequest) {
+        progressBarColor = 'bg-gradient-to-r from-yellow-500 to-amber-500';
+        statusColor = 'text-yellow-400 border-yellow-500/30 animate-pulse';
+        statusText = `Pending: ${format(new Date(pendingRequest.newDeadline), 'dd MMM yyyy')}`;
+        StatusIcon = <Calendar className="w-3 h-3" />;
     } else if (isNearCompletion) {
         progressBarColor = 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400';
         statusColor = 'text-amber-400 border-amber-500/30';
@@ -160,9 +179,15 @@ const GoalCard: React.FC<GoalCardProps> = ({
                         </button>
                         <div className="absolute right-0 top-full w-48 pt-2 hidden group-hover/menu:block z-30 animate-in fade-in zoom-in-95">
                             <div className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
-                                <button onClick={() => onRequestExtension(goal.id, goal.title)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-500/20 transition-colors flex items-center gap-3">
-                                    <Calendar className="w-4 h-4" /> Request Extension
-                                </button>
+                                {pendingRequest ? (
+                                    <div className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-amber-500/60 flex items-center gap-3 select-none cursor-not-allowed">
+                                        <Calendar className="w-4 h-4" /> Extension Pending
+                                    </div>
+                                ) : (
+                                    <button onClick={() => onRequestExtensionClick(goal, fetchPendingRequest)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-500/20 transition-colors flex items-center gap-3">
+                                        <Calendar className="w-4 h-4" /> Request Extension
+                                    </button>
+                                )}
                                 <button onClick={() => onEdit(goal)} className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3">
                                     <RefreshCw className="w-4 h-4" /> Reconfigure
                                 </button>

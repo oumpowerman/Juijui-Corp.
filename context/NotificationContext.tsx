@@ -60,7 +60,7 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
 
             // Fetch Leave Requests (if ADMIN)
             if (currentUser.role === 'ADMIN') {
-                const [leavesRes, deadlinesRes] = await Promise.all([
+                const [leavesRes, deadlinesRes, goalDeadlinesRes] = await Promise.all([
                     supabase
                         .from('leave_requests')
                         .select(`*, profiles:profiles!leave_requests_user_id_fkey(full_name)`)
@@ -70,28 +70,66 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                         .select(`
                             id, task_id, requested_by, new_deadline, reason, status, created_at,
                             profiles:requested_by (full_name, avatar_url),
-                            tasks:task_id (title)
+                            tasks:task_id (title, end_date)
+                        `)
+                        .eq('status', 'PENDING')
+                        .order('created_at', { ascending: false }),
+                    supabase
+                        .from('goal_deadline_requests')
+                        .select(`
+                            id, goal_id, requested_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url),
+                            goals:goal_id (title, deadline)
                         `)
                         .eq('status', 'PENDING')
                         .order('created_at', { ascending: false })
                 ]);
                 
                 if (leavesRes.data) setLeaveRequests(leavesRes.data);
+                
+                const allMappedDeadlines: any[] = [];
+                
                 if (deadlinesRes.data) {
-                    const mappedDeadlines = deadlinesRes.data.map(req => {
+                    const mappedTaskDeadlines = deadlinesRes.data.map(req => {
                         const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
                         const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
                         return {
                             ...req,
-                            taskId: req.task_id, // Add CamelCase mapping
+                            taskId: req.task_id,
+                            requestType: 'TASK' as const,
                             newDeadline: new Date(req.new_deadline),
                             createdAt: new Date(req.created_at),
                             user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
-                            taskTitle: task?.title
+                            taskTitle: task?.title,
+                            originalDeadline: task?.end_date ? new Date(task.end_date) : undefined
                         };
                     });
-                    setDeadlineRequests(mappedDeadlines);
+                    allMappedDeadlines.push(...mappedTaskDeadlines);
                 }
+                
+                if (goalDeadlinesRes.data) {
+                    const mappedGoalDeadlines = goalDeadlinesRes.data.map(req => {
+                        const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                        const goal = Array.isArray(req.goals) ? req.goals[0] : req.goals;
+                        return {
+                            ...req,
+                            taskId: req.goal_id,
+                            goalId: req.goal_id,
+                            requestType: 'GOAL' as const,
+                            newDeadline: new Date(req.new_deadline),
+                            createdAt: new Date(req.created_at),
+                            user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                            taskTitle: `🎯 เป้าหมาย: ${goal?.title || 'เป้าหมาย'}`,
+                            goalTitle: goal?.title,
+                            originalDeadline: goal?.deadline ? new Date(goal.deadline) : undefined
+                        };
+                    });
+                    allMappedDeadlines.push(...mappedGoalDeadlines);
+                }
+                
+                // Sort by createdAt descending
+                allMappedDeadlines.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+                setDeadlineRequests(allMappedDeadlines);
             }
             
         } catch (err) {
@@ -192,7 +230,7 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                         .select(`
                             id, task_id, requested_by, new_deadline, reason, status, created_at,
                             profiles:requested_by (full_name, avatar_url),
-                            tasks:task_id (title)
+                            tasks:task_id (title, end_date)
                         `)
                         .eq('id', payload.new.id)
                         .single()
@@ -202,11 +240,57 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                                 const task = Array.isArray(data.tasks) ? data.tasks[0] : data.tasks;
                                 const mapped = {
                                     ...data,
-                                    taskId: data.task_id, // Add CamelCase mapping
+                                    taskId: data.task_id,
+                                    requestType: 'TASK' as const,
                                     newDeadline: new Date(data.new_deadline),
                                     createdAt: new Date(data.created_at),
                                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
-                                    taskTitle: task?.title
+                                    taskTitle: task?.title,
+                                    originalDeadline: task?.end_date ? new Date(task.end_date) : undefined
+                                };
+                                setDeadlineRequests(prev => [mapped, ...prev]);
+                            }
+                        });
+                } else if (payload.eventType === 'UPDATE') {
+                    if (payload.new.status !== 'PENDING') {
+                        setDeadlineRequests(prev => prev.filter(r => r.id !== payload.new.id));
+                    } else {
+                        setDeadlineRequests(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    setDeadlineRequests(prev => prev.filter(r => r.id !== payload.old.id));
+                }
+            })
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'goal_deadline_requests'
+            }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    supabase
+                        .from('goal_deadline_requests')
+                        .select(`
+                            id, goal_id, requested_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url),
+                            goals:goal_id (title, deadline)
+                        `)
+                        .eq('id', payload.new.id)
+                        .single()
+                        .then(({ data }) => {
+                            if (data && data.status === 'PENDING') {
+                                const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const goal = Array.isArray(data.goals) ? data.goals[0] : data.goals;
+                                const mapped = {
+                                    ...data,
+                                    taskId: data.goal_id,
+                                    goalId: data.goal_id,
+                                    requestType: 'GOAL' as const,
+                                    newDeadline: new Date(data.new_deadline),
+                                    createdAt: new Date(data.created_at),
+                                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    taskTitle: `🎯 เป้าหมาย: ${goal?.title || 'เป้าหมาย'}`,
+                                    goalTitle: goal?.title,
+                                    originalDeadline: goal?.deadline ? new Date(goal.deadline) : undefined
                                 };
                                 setDeadlineRequests(prev => [mapped, ...prev]);
                             }

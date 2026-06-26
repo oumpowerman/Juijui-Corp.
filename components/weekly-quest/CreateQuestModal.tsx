@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import FilterDropdown from '../common/FilterDropdown';
 import { Target, X, PlusCircle, Trash2, CheckCircle2, Sparkles, Calendar, ArrowRight, CheckSquare, Square, ChevronDown, Layers } from 'lucide-react';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 import { Channel, MasterOption, WeeklyQuest, Platform } from '../../types';
 import { CONTENT_FORMATS } from '../../constants';
 import { format, addDays, differenceInDays } from 'date-fns';
@@ -148,6 +149,16 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
     // Custom Dates
     const [customStartDate, setCustomStartDate] = useState(format(weekStart, 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState(format(addDays(weekStart, 6), 'yyyy-MM-dd'));
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
+
+    const handleStartDateChangeVal = (date: Date) => {
+        if (!date) return;
+        const dateStr = date.toISOString().split('T')[0];
+        setCustomStartDate(dateStr);
+        // Automatically adjust end date to be +6 days (1 week) by default
+        setCustomEndDate(format(addDays(date, 6), 'yyyy-MM-dd'));
+    };
 
     // Master Data
     const statusOptions = masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder);
@@ -354,27 +365,50 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ isOpen, onClose, ch
                                 <label className="text-sm font-bold text-gray-700 flex items-center">ช่วงเวลา (Period)</label>
                                 <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
                                     <div className="relative flex-1">
-                                        <input 
-                                            type="date" 
-                                            className="w-full pl-2 pr-2 py-2 bg-white rounded-lg font-bold text-gray-700 focus:ring-2 focus:ring-indigo-100 outline-none text-xs"
-                                            value={customStartDate}
-                                            onChange={handleStartDateChange}
-                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsStartOpen(true)}
+                                            className="w-full px-2 py-2.5 bg-white rounded-lg font-bold text-gray-700 text-xs border border-transparent hover:border-indigo-300 transition-all text-left truncate flex items-center justify-between"
+                                        >
+                                            <span>{formatDisplayDate(customStartDate)}</span>
+                                            <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1" />
+                                        </button>
                                     </div>
                                     <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
                                     <div className="relative flex-1">
-                                        <input 
-                                            type="date" 
-                                            className="w-full pl-2 pr-2 py-2 bg-white rounded-lg font-bold text-gray-700 focus:ring-2 focus:ring-indigo-100 outline-none text-xs"
-                                            value={customEndDate}
-                                            onChange={e => setCustomEndDate(e.target.value)}
-                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEndOpen(true)}
+                                            className="w-full px-2 py-2.5 bg-white rounded-lg font-bold text-gray-700 text-xs border border-transparent hover:border-indigo-300 transition-all text-left truncate flex items-center justify-between"
+                                        >
+                                            <span>{formatDisplayDate(customEndDate)}</span>
+                                            <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1" />
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="text-right text-[10px] text-gray-400 font-bold px-1">
                                     รวมระยะเวลา: {durationDays} วัน
                                 </div>
                             </div>
+
+                            <DatePickerModal
+                                isOpen={isStartOpen}
+                                onClose={() => setIsStartOpen(false)}
+                                selectedDate={customStartDate ? new Date(customStartDate) : undefined}
+                                onSelect={handleStartDateChangeVal}
+                            />
+
+                            <DatePickerModal
+                                isOpen={isEndOpen}
+                                onClose={() => setIsEndOpen(false)}
+                                selectedDate={customEndDate ? new Date(customEndDate) : undefined}
+                                minDate={customStartDate ? new Date(customStartDate) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setCustomEndDate(date.toISOString().split('T')[0]);
+                                    }
+                                }}
+                            />
                         </div>
 
                         {/* Quest Items */}

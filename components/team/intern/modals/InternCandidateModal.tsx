@@ -14,6 +14,7 @@
     import { Sparkles } from 'lucide-react';
     import { useGoogleDriveContext } from '../../../../context/GoogleDriveContext';
     import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+    import DatePickerModal, { formatDisplayDate } from '../../../ui/DatePickerModal';
 
     interface InternCandidateModalProps {
         isOpen: boolean;
@@ -51,6 +52,8 @@
         const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'CROPPING' | 'UPLOADING' | 'SUCCESS' | 'ERROR' | 'TIMEOUT'>('IDLE');
         const [errors, setErrors] = useState<Record<string, string>>({});
         const [isSubmitting, setIsSubmitting] = useState(false);
+        const [isStartOpen, setIsStartOpen] = useState(false);
+        const [isEndOpen, setIsEndOpen] = useState(false);
 
         const uniqueUniversities = useMemo(() => {
             const unis = allInterns.map(i => i.university).filter(u => u && u.trim() !== '');
@@ -451,24 +454,49 @@
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-kanit font-bold text-gray-600 ml-1">วันที่เริ่มฝึกงาน</label>
-                                            <input 
-                                                required
-                                                type="date"
-                                                className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
-                                                value={formData.startDate ? format(formData.startDate, 'yyyy-MM-dd') : ''}
-                                                onChange={e => setFormData(prev => ({ ...prev, startDate: new Date(e.target.value) }))}
-                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsStartOpen(true)}
+                                                className="w-full px-4 py-2.5 bg-white border border-emerald-100 hover:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all text-left flex items-center justify-between"
+                                            >
+                                                <span>{formatDisplayDate(formData.startDate)}</span>
+                                                <Calendar className="w-4 h-4 text-emerald-400" />
+                                            </button>
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-kanit font-bold text-gray-600 ml-1">วันที่จบการฝึกงาน</label>
-                                            <input 
-                                                required
-                                                type="date"
-                                                className="w-full px-4 py-2.5 bg-white border border-emerald-100 focus:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all"
-                                                value={formData.endDate ? format(formData.endDate, 'yyyy-MM-dd') : ''}
-                                                onChange={e => setFormData(prev => ({ ...prev, endDate: new Date(e.target.value) }))}
-                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEndOpen(true)}
+                                                className="w-full px-4 py-2.5 bg-white border border-emerald-100 hover:border-emerald-300 rounded-xl text-sm font-medium outline-none transition-all text-left flex items-center justify-between"
+                                            >
+                                                <span>{formatDisplayDate(formData.endDate)}</span>
+                                                <Calendar className="w-4 h-4 text-emerald-400" />
+                                            </button>
                                         </div>
+
+                                        <DatePickerModal
+                                            isOpen={isStartOpen}
+                                            onClose={() => setIsStartOpen(false)}
+                                            selectedDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    setFormData(prev => ({ ...prev, startDate: date }));
+                                                }
+                                            }}
+                                        />
+
+                                        <DatePickerModal
+                                            isOpen={isEndOpen}
+                                            onClose={() => setIsEndOpen(false)}
+                                            selectedDate={formData.endDate ? new Date(formData.endDate) : undefined}
+                                            minDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    setFormData(prev => ({ ...prev, endDate: date }));
+                                                }
+                                            }}
+                                        />
                                         <div className="space-y-1.5">
                                             <label className="text-sm font-kanit font-bold text-gray-600 ml-1">สถานะปัจจุบัน</label>
                                             <FilterDropdown 

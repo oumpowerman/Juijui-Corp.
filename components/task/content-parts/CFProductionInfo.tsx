@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Clapperboard, Video, MapPin, ChevronDown, Check, Loader2, Sparkles, Search, Map, AlertCircle } from 'lucide-react';
+import { Clapperboard, Video, MapPin, ChevronDown, Check, Loader2, Sparkles, Search, Map, AlertCircle, Calendar } from 'lucide-react';
 import { MasterOption } from '../../../types';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useMasterData } from '../../../hooks/useMasterData';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface CFProductionInfoProps {
     shootDate: string;
@@ -25,8 +26,7 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
     const [newlyCreatedOptions, setNewlyCreatedOptions] = useState<MasterOption[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [isInteractingWithDropdown, setIsInteractingWithDropdown] = useState(false);
-
-    // Combine props options with locally created ones
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const locationOptions = useMemo(() => {
         const propOptions = masterOptions.filter(o => o.type === 'SHOOT_LOCATION' && o.isActive);
         // Merge and remove duplicates based on label
@@ -196,17 +196,18 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
                     <label className="text-[12px] font-bold text-slate-400 mb-1.5 block uppercase tracking-wider ml-1 group-focus-within/date:text-orange-500 transition-colors">
                         วันที่ถ่าย (Date)
                     </label>
-                    <div className="relative overflow-hidden rounded-2xl bg-white border-2 border-gray-100 group-focus-within/date:border-orange-300 group-focus-within/date:ring-4 group-focus-within/date:ring-orange-50 group-hover/date:border-orange-200 transition-all duration-300 shadow-sm">
-                        <div className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center bg-gray-50 border-r border-gray-100 group-focus-within/date:bg-orange-50 group-focus-within/date:border-orange-100 transition-colors">
-                            <Video className="w-5 h-5 text-gray-400 group-focus-within/date:text-orange-500 transition-colors" />
+                    <button
+                        type="button"
+                        onClick={() => setIsDatePickerOpen(true)}
+                        className="w-full relative overflow-hidden rounded-2xl bg-white border-2 border-gray-100 hover:border-orange-200 hover:shadow-md transition-all duration-300 shadow-sm flex items-center h-[54px] text-left group"
+                    >
+                        <div className="w-12 h-full flex items-center justify-center bg-gray-50 border-r border-gray-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-colors">
+                            <Video className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" />
                         </div>
-                        <input 
-                            type="date" 
-                            value={shootDate} 
-                            onChange={(e) => setShootDate(e.target.value)} 
-                            className="w-full pl-14 pr-4 py-3.5 bg-transparent outline-none text-sm font-bold text-slate-700 cursor-pointer" 
-                        />
-                    </div>
+                        <span className="pl-4 text-sm font-bold text-slate-700">
+                            {formatDisplayDate(shootDate)}
+                        </span>
+                    </button>
                 </div>
 
                 {/* Location Autocomplete */}
@@ -301,6 +302,17 @@ const CFProductionInfo: React.FC<CFProductionInfoProps> = ({
                     </div>
                 </div>
             </div>
+
+            <DatePickerModal
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                selectedDate={shootDate ? new Date(shootDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        setShootDate(date.toISOString().split('T')[0]);
+                    }
+                }}
+            />
         </div>
     );
 };

@@ -6,6 +6,7 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 import GoalStatsHeader from './goal/GoalStatsHeader';
 import GoalCard from './goal/GoalCard';
 import { GoalFormModal, UpdateProgressModal } from './goal/GoalActionModals';
+import GoalDeadlineExtensionModal from './goal/GoalDeadlineExtensionModal';
 import SpaceBackground from './common/SpaceBackground';
 import FilterDropdown from './common/FilterDropdown';
 import { Plus, Filter, Calendar, ChevronLeft, ChevronRight, LayoutGrid, List, Target, X, CalendarDays, Rocket } from 'lucide-react';
@@ -30,6 +31,8 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
     const [updatingGoal, setUpdatingGoal] = useState<Goal | null>(null);
+    const [extendingGoal, setExtendingGoal] = useState<Goal | null>(null);
+    const [onExtensionSubmitted, setOnExtensionSubmitted] = useState<(() => void) | null>(null);
     
     // Filter State
     const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'FAILED'>('ACTIVE');
@@ -367,7 +370,10 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                                         onDelete={deleteGoal}
                                         onEdit={(g) => { setEditingGoal(g); setIsCreateModalOpen(true); }}
                                         onRedeem={redeemGoal}
-                                        onRequestExtension={requestExtension}
+                                        onRequestExtensionClick={(g, callback) => {
+                                            setExtendingGoal(g);
+                                            setOnExtensionSubmitted(() => callback);
+                                        }}
                                     />
                                 </div>
                             ))}
@@ -415,6 +421,27 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                         onUpdate={handleUpdateProgress}
                     />
                 )}
+
+                <GoalDeadlineExtensionModal
+                    isOpen={!!extendingGoal}
+                    onClose={() => {
+                        setExtendingGoal(null);
+                        setOnExtensionSubmitted(null);
+                    }}
+                    goalId={extendingGoal?.id || ''}
+                    goalTitle={extendingGoal?.title || ''}
+                    currentDeadline={extendingGoal ? new Date(extendingGoal.deadline) : new Date()}
+                    currentValue={extendingGoal?.currentValue}
+                    targetValue={extendingGoal?.targetValue}
+                    unit={extendingGoal && extendingGoal.platform !== 'ALL' ? extendingGoal.platform : undefined}
+                    onRequestExtension={async (id, newDate, reason) => {
+                        const success = await requestExtension(id, newDate, reason);
+                        if (success && onExtensionSubmitted) {
+                            onExtensionSubmitted();
+                        }
+                        return success;
+                    }}
+                />
 
             </div>
         </SpaceBackground>

@@ -14,6 +14,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import TransactionModal from '../TransactionModal';
 import ContentPickerModal from './ContentPickerModal'; // Import New Component
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface Props {
     trip: ShootTrip;
@@ -41,6 +42,7 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, 
     const [editLocation, setEditLocation] = useState(trip.locationName);
     const [editDate, setEditDate] = useState(format(trip.date, 'yyyy-MM-dd'));
     const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     // Sync state when trip prop changes
     useEffect(() => {
@@ -187,11 +189,24 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, 
                                                     className="flex-1 bg-white/20 border border-white/30 rounded-xl px-3 py-1.5 text-sm font-bold text-white placeholder:text-white/50 outline-none focus:bg-white/30"
                                                     placeholder="Location"
                                                 />
-                                                <input 
-                                                    type="date" 
-                                                    value={editDate}
-                                                    onChange={e => setEditDate(e.target.value)}
-                                                    className="w-40 bg-white/20 border border-white/30 rounded-xl px-3 py-1.5 text-sm font-bold text-white outline-none focus:bg-white/30 cursor-pointer"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsDatePickerOpen(true)}
+                                                    className="w-44 bg-white/20 border border-white/30 rounded-xl px-3 py-1.5 text-sm font-bold text-white outline-none focus:bg-white/30 hover:bg-white/30 transition-all text-left flex items-center justify-between"
+                                                >
+                                                    <span>{formatDisplayDate(editDate)}</span>
+                                                    <Calendar className="w-4 h-4 text-white/70" />
+                                                </button>
+
+                                                <DatePickerModal
+                                                    isOpen={isDatePickerOpen}
+                                                    onClose={() => setIsDatePickerOpen(false)}
+                                                    selectedDate={editDate ? new Date(editDate) : undefined}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            setEditDate(date.toISOString().split('T')[0]);
+                                                        }
+                                                    }}
                                                 />
                                             </div>
                                         </div>

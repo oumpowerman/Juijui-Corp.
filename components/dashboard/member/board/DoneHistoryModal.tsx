@@ -5,6 +5,7 @@ import { X, Search, Calendar, ChevronLeft, ChevronRight, CheckCircle2, ArrowUpRi
 import { Task, Channel } from '../../../../types';
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { STATUS_COLORS } from '../../../../constants';
+import DatePickerModal, { formatDisplayDate } from '../../../ui/DatePickerModal';
 
 interface DoneHistoryModalProps {
     isOpen: boolean;
@@ -26,6 +27,8 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
     const [startDate, setStartDate] = useState(firstDay);
     const [endDate, setEndDate] = useState(lastDay);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
 
     // Quick Filter Actions
     const setPast7Days = () => {
@@ -139,20 +142,51 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <div className="flex items-center bg-white border border-gray-200 rounded-xl px-3 py-2 gap-2 shadow-sm">
                                 <Calendar className="w-4 h-4 text-emerald-500" />
-                                <input 
-                                    type="date" 
-                                    className="text-xs font-bold text-gray-600 outline-none bg-transparent"
-                                    value={startDate}
-                                    onChange={e => { setStartDate(e.target.value); setCurrentPage(1); }}
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStartOpen(true)}
+                                    className="text-xs font-bold text-gray-600 outline-none bg-transparent hover:text-emerald-600 transition-colors"
+                                >
+                                    {formatDisplayDate(startDate)}
+                                </button>
                                 <span className="text-gray-300">-</span>
-                                <input 
-                                    type="date" 
-                                    className="text-xs font-bold text-gray-600 outline-none bg-transparent"
-                                    value={endDate}
-                                    onChange={e => { setEndDate(e.target.value); setCurrentPage(1); }}
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEndOpen(true)}
+                                    className="text-xs font-bold text-gray-600 outline-none bg-transparent hover:text-emerald-600 transition-colors"
+                                >
+                                    {formatDisplayDate(endDate)}
+                                </button>
                             </div>
+
+                            <DatePickerModal
+                                isOpen={isStartOpen}
+                                onClose={() => setIsStartOpen(false)}
+                                selectedDate={startDate ? new Date(startDate) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setStartDate(date.toISOString().split('T')[0]);
+                                    } else {
+                                        setStartDate('');
+                                    }
+                                    setCurrentPage(1);
+                                }}
+                            />
+
+                            <DatePickerModal
+                                isOpen={isEndOpen}
+                                onClose={() => setIsEndOpen(false)}
+                                selectedDate={endDate ? new Date(endDate) : undefined}
+                                minDate={startDate ? new Date(startDate) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setEndDate(date.toISOString().split('T')[0]);
+                                    } else {
+                                        setEndDate('');
+                                    }
+                                    setCurrentPage(1);
+                                }}
+                            />
                         </div>
                     </div>
 

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CalendarDays, Archive, Clock } from 'lucide-react';
 import TimePickerModal from '../../ui/TimePickerModal';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface CFDateAndStockProps {
     startDate: string;
@@ -19,6 +20,7 @@ const CFDateAndStock: React.FC<CFDateAndStockProps> = ({
     scheduledTime, setScheduledTime
 }) => {
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     return (
         <div className={`p-5 rounded-[1.5rem] border-2 transition-all duration-300 relative overflow-hidden ${isStock ? 'bg-gray-50 border-gray-200' : 'bg-white border-indigo-100 shadow-sm'}`}>
@@ -43,16 +45,14 @@ const CFDateAndStock: React.FC<CFDateAndStockProps> = ({
             <div className="relative z-10">
                 {!isStock ? (
                     <div className="flex gap-2">
-                        <input 
-                            type="date" 
-                            value={endDate} 
-                            onChange={(e) => { 
-                                const val = e.target.value;
-                                setEndDate(val); 
-                                setStartDate(val); 
-                            }} 
-                            className="flex-1 px-4 py-3 bg-indigo-50/30 border-2 border-indigo-100 rounded-xl outline-none font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-200 transition-all cursor-pointer hover:bg-white" 
-                        />
+                        <button
+                            type="button"
+                            onClick={() => setIsDatePickerOpen(true)}
+                            className="flex-1 px-4 py-3 bg-indigo-50/30 border-2 border-indigo-100 rounded-xl outline-none font-bold text-indigo-700 hover:bg-white text-left transition-all flex items-center justify-between"
+                        >
+                            <span>{formatDisplayDate(endDate)}</span>
+                            <CalendarDays className="w-4 h-4 text-indigo-400" />
+                        </button>
                         
                         <button
                             type="button"
@@ -69,6 +69,19 @@ const CFDateAndStock: React.FC<CFDateAndStockProps> = ({
                     </div>
                 )}
             </div>
+
+            <DatePickerModal
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                selectedDate={endDate ? new Date(endDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        const dateStr = date.toISOString().split('T')[0];
+                        setEndDate(dateStr);
+                        setStartDate(dateStr);
+                    }
+                }}
+            />
 
             <TimePickerModal 
                 isOpen={isTimePickerOpen}

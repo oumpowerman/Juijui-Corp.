@@ -6,6 +6,7 @@ import { InventoryItem, MasterOption, User as AppUser, AssetCondition, AssetGrou
 import { format } from 'date-fns';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { useGoogleDriveContext } from '../../context/GoogleDriveContext';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface AssetFormModalProps {
     isOpen: boolean;
@@ -83,6 +84,8 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
     const [warranty, setWarranty] = useState('');
     const [condition, setCondition] = useState<AssetCondition>('GOOD');
     const [holderId, setHolderId] = useState('');
+    const [isBuyDateOpen, setIsBuyDateOpen] = useState(false);
+    const [isWarrantyOpen, setIsWarrantyOpen] = useState(false);
 
     // Consumable Fields
     const [quantity, setQuantity] = useState(1);
@@ -614,9 +617,56 @@ const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                         </h4>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
                                             <div className="col-span-2 md:col-span-1 space-y-2"><label className="text-[12px] font-kanit font-medium text-emerald-600 uppercase">ราคาซื้อ</label><input type="number" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 rounded-2xl text-sm font-black text-emerald-800 outline-none transition-all" placeholder="0.00" /></div>
-                                            <div className="col-span-2 md:col-span-1 space-y-2"><label className="text-[12px] font-kanit font-medium  text-emerald-600 uppercase">วันที่ซื้อ</label><input type="date" value={buyDate} onChange={e => setBuyDate(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 rounded-2xl text-xs font-black text-emerald-800 outline-none transition-all" /></div>
-                                            <div className="col-span-2 md:col-span-1 space-y-2"><label className="text-[12px] font-kanit font-medium  text-emerald-600 uppercase">S/N</label><input type="text" value={serial} onChange={e => setSerial(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 rounded-2xl text-xs font-mono font-black text-emerald-800 outline-none transition-all" placeholder="Serial No." /></div>
-                                            <div className="col-span-2 md:col-span-1 space-y-2"><label className="text-[12px] font-kanit font-medium  text-emerald-600 uppercase">หมดประกัน</label><input type="date" value={warranty} onChange={e => setWarranty(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 rounded-2xl text-xs font-black text-emerald-800 outline-none transition-all" /></div>
+                                            <div className="col-span-2 md:col-span-1 space-y-2">
+                                                <label className="text-[12px] font-kanit font-medium text-emerald-600 uppercase">วันที่ซื้อ</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsBuyDateOpen(true)}
+                                                    className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 hover:border-emerald-200 focus:bg-white focus:border-emerald-300 rounded-2xl text-xs font-black text-emerald-800 text-left flex items-center justify-between outline-none transition-all shadow-xs"
+                                                >
+                                                    <span>{formatDisplayDate(buyDate)}</span>
+                                                    <Calendar className="w-4 h-4 text-emerald-400" />
+                                                </button>
+                                                <DatePickerModal
+                                                    isOpen={isBuyDateOpen}
+                                                    onClose={() => setIsBuyDateOpen(false)}
+                                                    selectedDate={buyDate ? new Date(buyDate) : undefined}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            setBuyDate(date.toISOString().split('T')[0]);
+                                                        } else {
+                                                            setBuyDate('');
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="col-span-2 md:col-span-1 space-y-2">
+                                                <label className="text-[12px] font-kanit font-medium text-emerald-600 uppercase">S/N</label>
+                                                <input type="text" value={serial} onChange={e => setSerial(e.target.value)} className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 focus:bg-white focus:border-emerald-300 focus:ring-4 focus:ring-emerald-50 rounded-2xl text-xs font-mono font-black text-emerald-800 outline-none transition-all" placeholder="Serial No." />
+                                            </div>
+                                            <div className="col-span-2 md:col-span-1 space-y-2">
+                                                <label className="text-[12px] font-kanit font-medium text-emerald-600 uppercase">หมดประกัน</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsWarrantyOpen(true)}
+                                                    className="w-full px-4 py-3 bg-white/80 border-2 border-emerald-100 hover:border-emerald-200 focus:bg-white focus:border-emerald-300 rounded-2xl text-xs font-black text-emerald-800 text-left flex items-center justify-between outline-none transition-all shadow-xs"
+                                                >
+                                                    <span>{formatDisplayDate(warranty)}</span>
+                                                    <Calendar className="w-4 h-4 text-emerald-400" />
+                                                </button>
+                                                <DatePickerModal
+                                                    isOpen={isWarrantyOpen}
+                                                    onClose={() => setIsWarrantyOpen(false)}
+                                                    selectedDate={warranty ? new Date(warranty) : undefined}
+                                                    onSelect={(date) => {
+                                                        if (date) {
+                                                            setWarranty(date.toISOString().split('T')[0]);
+                                                        } else {
+                                                            setWarranty('');
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     {/* 3. Status & Holder */}

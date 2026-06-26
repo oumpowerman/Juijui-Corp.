@@ -63,7 +63,7 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                         }
                     `}
                 >
-                    <div className="max-w-[1920px] mx-auto px-4 lg:px-8 py-5">
+                    <div className="w-full px-4 lg:px-8 py-5">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             
                             {/* --- FILTERS SECTION --- */}

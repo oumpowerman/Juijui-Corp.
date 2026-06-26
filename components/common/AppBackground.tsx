@@ -198,7 +198,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     }, [theme]);
 
     return (
-        <div className={`relative w-auto min-h-screen flex flex-col overflow-x-hidden max-w-full ${className}`}>
+        <div className={`relative w-auto min-h-full flex flex-col overflow-x-hidden max-w-full ${className}`}>
             {/* Background Layer */}
             {customBgUrl ? (
                 <div 

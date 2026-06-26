@@ -66,12 +66,12 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
             key="calendar-view"
             className={`
                 bg-white rounded-[1.5rem] shadow-sm border border-gray-200 
-                ${isExpanded ? 'min-h-[85vh] shadow-2xl border-gray-300' : 'ring-4 ring-gray-50/50'} 
+                ${isExpanded ? 'min-h-[85vh] shadow-2xl border-gray-300' : 'ring-4 ring-gray-50/50 flex-1 flex flex-col h-full'} 
                 animate-slide-in-left
             `}
         >
             {/* Weekday Headers */}
-            <div className="grid grid-cols-7 border-b border-gray-200">
+            <div className="grid grid-cols-7 border-b border-gray-200 shrink-0">
                 {weekDays.map((day, index) => (
                     <div key={day} className={`py-3 text-center font-black uppercase tracking-widest ${isExpanded ? 'text-sm py-4' : 'text-[10px] md:text-xs'} ${index === 0 || index === 6 ? 'text-red-400 bg-red-50/30' : 'text-gray-400 bg-gray-50/50'}`}>
                         {day}
@@ -80,10 +80,13 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
             </div>
 
             {/* Days Grid */}
-            <div className={`
-                grid grid-cols-7 bg-gray-100 gap-px border-b border-gray-200 
-                ${isExpanded ? 'auto-rows-[minmax(140px,1fr)] md:auto-rows-[minmax(180px,1fr)]' : 'auto-rows-[minmax(70px,1fr)] lg:auto-rows-[minmax(120px,1fr)]'}
-            `}>
+            <div 
+                className={`
+                    grid grid-cols-7 bg-gray-100 gap-px border-b border-gray-200 flex-1 h-full
+                    ${isExpanded ? 'auto-rows-[minmax(140px,1fr)] md:auto-rows-[minmax(180px,1fr)]' : 'lg:auto-rows-[minmax(120px,1fr)]'}
+                `}
+                style={!isExpanded ? { gridTemplateRows: `repeat(${gridDays.length / 7}, 1fr)` } : undefined}
+            >
                 {gridDays.map((day, idx) => {
                     const dayTasks = getTasksForDay(day);
                     const filteredDayTasks = filterTasks(dayTasks);

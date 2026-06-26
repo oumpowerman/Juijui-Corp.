@@ -81,6 +81,11 @@ export interface DeadlineRequest {
     resolvedAt?: Date;
     resolvedBy?: string;
     user?: { name: string; avatarUrl: string };
+    requestType?: 'TASK' | 'GOAL';
+    goalId?: string;
+    taskTitle?: string;
+    goalTitle?: string;
+    originalDeadline?: Date;
 }
 
 export interface Client {

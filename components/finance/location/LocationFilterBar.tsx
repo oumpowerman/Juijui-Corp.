@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, Calendar, Filter, RotateCcw, LayoutGrid, List, SlidersHorizontal, ArrowUpDown, ChevronDown, Check, X } from 'lucide-react';
 import { DateRangeType } from '../../../hooks/useLocationAnalytics';
 import { format } from 'date-fns';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 export type ViewType = 'GRID' | 'LIST' | 'AUTO';
 export type SortOption = 'MOST_VISITED' | 'MOST_CLIPS' | 'RECENTLY_VISITED' | 'NAME_AZ';
@@ -48,6 +49,8 @@ const LocationFilterBar: React.FC<LocationFilterBarProps> = ({
     // Dropdown States
     const [isDateOpen, setIsDateOpen] = useState(false);
     const [isFreqOpen, setIsFreqOpen] = useState(false);
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
     
     const dateRef = useRef<HTMLDivElement>(null);
     const freqRef = useRef<HTMLDivElement>(null);
@@ -147,19 +150,46 @@ const LocationFilterBar: React.FC<LocationFilterBarProps> = ({
 
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Custom Range</p>
                             <div className="space-y-2">
-                                <input 
-                                    type="date" 
-                                    className="w-full px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-indigo-400"
-                                    value={dateFilter.customStart}
-                                    onChange={(e) => setDateFilter({ ...dateFilter, type: 'CUSTOM', customStart: e.target.value })}
-                                />
-                                <input 
-                                    type="date" 
-                                    className="w-full px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 outline-none focus:border-indigo-400"
-                                    value={dateFilter.customEnd}
-                                    onChange={(e) => setDateFilter({ ...dateFilter, type: 'CUSTOM', customEnd: e.target.value })}
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStartOpen(true)}
+                                    className="w-full px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 outline-none text-left flex items-center justify-between hover:bg-slate-100 transition-all"
+                                >
+                                    <span>{formatDisplayDate(dateFilter.customStart)}</span>
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEndOpen(true)}
+                                    className="w-full px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 outline-none text-left flex items-center justify-between hover:bg-slate-100 transition-all"
+                                >
+                                    <span>{formatDisplayDate(dateFilter.customEnd)}</span>
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                </button>
                             </div>
+
+                            <DatePickerModal
+                                isOpen={isStartOpen}
+                                onClose={() => setIsStartOpen(false)}
+                                selectedDate={dateFilter.customStart ? new Date(dateFilter.customStart) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setDateFilter({ ...dateFilter, type: 'CUSTOM', customStart: date.toISOString().split('T')[0] });
+                                    }
+                                }}
+                            />
+
+                            <DatePickerModal
+                                isOpen={isEndOpen}
+                                onClose={() => setIsEndOpen(false)}
+                                selectedDate={dateFilter.customEnd ? new Date(dateFilter.customEnd) : undefined}
+                                minDate={dateFilter.customStart ? new Date(dateFilter.customStart) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setDateFilter({ ...dateFilter, type: 'CUSTOM', customEnd: date.toISOString().split('T')[0] });
+                                    }
+                                }}
+                            />
                         </div>
                     )}
                 </div>

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DeadlineRequest } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     SlidersHorizontal, CalendarDays, AlertCircle, FileText, Sparkles 
 } from 'lucide-react';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface DeadlineRequestsInspectorProps {
     selectedReq: DeadlineRequest | null;
@@ -36,6 +37,7 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
     setSelectedReq,
     handleResolve
 }) => {
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     return (
         <div className="lg:col-span-7 bg-slate-50 p-6 overflow-y-auto flex flex-col justify-between text-left">
             <AnimatePresence mode="wait">
@@ -169,11 +171,24 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                                     <p className="text-[9px] text-indigo-400 mt-0.5">ระบุความเหมาะสมใหม่เป็นกรณีพิเศษ เพื่อความลื่นไหลในโปรดักชัน</p>
                                 </div>
                                 <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end md:justify-start">
-                                    <input 
-                                        type="date" 
-                                        value={customDate}
-                                        onChange={(e) => setCustomDate(e.target.value)}
-                                        className="px-2 py-1.5 border border-indigo-200 rounded-xl text-[11px] bg-white text-indigo-900 font-bold"
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsDatePickerOpen(true)}
+                                        className="px-2.5 py-1.5 border border-indigo-200 rounded-xl text-[11px] bg-white text-indigo-900 font-bold hover:bg-indigo-50/50 transition-all flex items-center justify-between gap-1"
+                                    >
+                                        <span>{formatDisplayDate(customDate)}</span>
+                                        <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
+                                    </button>
+
+                                    <DatePickerModal
+                                        isOpen={isDatePickerOpen}
+                                        onClose={() => setIsDatePickerOpen(false)}
+                                        selectedDate={customDate ? new Date(customDate) : undefined}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setCustomDate(date.toISOString().split('T')[0]);
+                                            }
+                                        }}
                                     />
                                     <button 
                                         onClick={() => handleCustomApprove(selectedReq)}

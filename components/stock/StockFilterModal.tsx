@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Channel, MasterOption } from '../../types';
 import { X, Check, Filter, RotateCcw, ChevronDown, ChevronUp, Type, Layers, Tag, LayoutTemplate, Activity, CalendarDays } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface StockFilterModalProps {
     isOpen: boolean;
@@ -32,6 +33,8 @@ const StockFilterModal: React.FC<StockFilterModalProps> = ({
 }) => {
     // Local State for "Drafting" filters
     const [localFilters, setLocalFilters] = useState(filters);
+    const [isStartOpen, setIsStartOpen] = useState(false);
+    const [isEndOpen, setIsEndOpen] = useState(false);
     
     // UI State for Collapsible Zones
     const [expandedZones, setExpandedZones] = useState<{
@@ -254,28 +257,56 @@ const StockFilterModal: React.FC<StockFilterModalProps> = ({
                                 <div className="px-6 pb-6 pt-2 border-t border-gray-50 relative">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-full opacity-50 pointer-events-none transition-opacity duration-500"></div>
                                     <div className="relative z-10 pt-2">
-                                        <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-50 transition-all">
+                                        <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-2xl border border-gray-200 transition-all">
                                             <div className="relative flex-1">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><CalendarDays className="w-4 h-4" /></span>
-                                                <input 
-                                                    type="date" 
-                                                    className="w-full pl-9 pr-3 py-2 bg-white rounded-xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-200"
-                                                    value={localFilters.shootDateStart}
-                                                    onChange={(e) => handleDateChange('shootDateStart', e.target.value)}
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsStartOpen(true)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-white rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all text-left flex items-center justify-between"
+                                                >
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><CalendarDays className="w-4 h-4" /></span>
+                                                    <span className="truncate">{formatDisplayDate(localFilters.shootDateStart)}</span>
+                                                </button>
                                             </div>
                                             <span className="text-gray-400 font-bold">➜</span>
                                             <div className="relative flex-1">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><CalendarDays className="w-4 h-4" /></span>
-                                                <input 
-                                                    type="date" 
-                                                    className="w-full pl-9 pr-3 py-2 bg-white rounded-xl text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-200"
-                                                    value={localFilters.shootDateEnd}
-                                                    onChange={(e) => handleDateChange('shootDateEnd', e.target.value)}
-                                                    min={localFilters.shootDateStart}
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEndOpen(true)}
+                                                    className="w-full pl-9 pr-3 py-2 bg-white rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all text-left flex items-center justify-between"
+                                                >
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><CalendarDays className="w-4 h-4" /></span>
+                                                    <span className="truncate">{formatDisplayDate(localFilters.shootDateEnd)}</span>
+                                                </button>
                                             </div>
                                         </div>
+
+                                        <DatePickerModal
+                                            isOpen={isStartOpen}
+                                            onClose={() => setIsStartOpen(false)}
+                                            selectedDate={localFilters.shootDateStart ? new Date(localFilters.shootDateStart) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    handleDateChange('shootDateStart', date.toISOString().split('T')[0]);
+                                                } else {
+                                                    handleDateChange('shootDateStart', '');
+                                                }
+                                            }}
+                                        />
+
+                                        <DatePickerModal
+                                            isOpen={isEndOpen}
+                                            onClose={() => setIsEndOpen(false)}
+                                            selectedDate={localFilters.shootDateEnd ? new Date(localFilters.shootDateEnd) : undefined}
+                                            minDate={localFilters.shootDateStart ? new Date(localFilters.shootDateStart) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    handleDateChange('shootDateEnd', date.toISOString().split('T')[0]);
+                                                } else {
+                                                    handleDateChange('shootDateEnd', '');
+                                                }
+                                            }}
+                                        />
                                         <p className="text-[10px] text-gray-400 mt-2 ml-1">
                                             * เลือกช่วงเวลาวันที่ถ่ายทำ (Shoot Date) เพื่อดูคิวงาน
                                         </p>

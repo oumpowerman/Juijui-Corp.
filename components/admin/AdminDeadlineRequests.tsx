@@ -25,16 +25,14 @@ const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({
         const now = new Date();
         
         const urgent = requests.filter(r => {
-            const matchedTask = tasks.find(t => t.id === r.taskId);
-            if (!matchedTask) return false;
-            const originalEnd = new Date(matchedTask.endDate);
+            const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+            if (!originalEnd) return false;
             return originalEnd.getTime() < now.getTime() || (originalEnd.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
         }).length;
 
         const longExtensions = requests.filter(r => {
-            const matchedTask = tasks.find(t => t.id === r.taskId);
-            if (!matchedTask) return false;
-            const originalEnd = new Date(matchedTask.endDate);
+            const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
+            if (!originalEnd) return false;
             const diffDays = Math.ceil((r.newDeadline.getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24));
             return diffDays >= 7;
         }).length;
@@ -55,7 +53,7 @@ const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({
         });
 
         return { total, urgent, longExtensions, topRequester };
-    }, [requests, tasks]);
+    }, [requests]);
 
     const hasPending = requests.length > 0;
 
@@ -174,8 +172,7 @@ const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({
 
                     <div className="space-y-2">
                         {requests.slice(0, 2).map((req) => {
-                            const matchedTask = tasks.find(t => t.id === req.taskId);
-                            const originalEnd = matchedTask ? new Date(matchedTask.endDate) : null;
+                            const originalEnd = req.originalDeadline ? new Date(req.originalDeadline) : null;
                             const diffDays = originalEnd ? Math.ceil((new Date(req.newDeadline).getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
                             return (
@@ -208,9 +205,9 @@ const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({
                                         )}
                                     </div>
 
-                                    {/* Task title */}
+                                    {/* Title */}
                                     <p className="text-[10px] text-slate-800 font-bold leading-tight line-clamp-1">
-                                        📌 {matchedTask?.title || 'ไม่พบชิ้นงานในระบบ'}
+                                        {req.requestType === 'GOAL' ? '🎯' : '📌'} {req.taskTitle || 'ไม่พบชิ้นงานในระบบ'}
                                     </p>
 
                                     {/* Request Reason */}

@@ -3,6 +3,7 @@ import { WorkStatus } from '../../types';
 import { WORK_STATUS_CONFIG } from '../../constants';
 import { Palmtree, MessageCircle, Sparkles, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface ProfileStatusSectionProps {
   workStatus: WorkStatus;
@@ -39,6 +40,8 @@ const ProfileStatusSection: React.FC<ProfileStatusSectionProps> = ({
   onFeelingChange
 }) => {
   const [showInfo, setShowInfo] = useState(false);
+  const [isStartOpen, setIsStartOpen] = useState(false);
+  const [isEndOpen, setIsEndOpen] = useState(false);
 
   const randomFeeling = () => {
       const random = FUNNY_FEELINGS[Math.floor(Math.random() * FUNNY_FEELINGS.length)];
@@ -88,25 +91,56 @@ const ProfileStatusSection: React.FC<ProfileStatusSectionProps> = ({
                         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 relative z-10">
                             <div className="flex-1 space-y-1">
                                 <span className="text-[10px] font-bold text-orange-300 ml-1 uppercase">Start Date</span>
-                                <input 
-                                    type="date" 
-                                    value={leaveStart} 
-                                    onChange={e => onLeaveStartChange(e.target.value)}
-                                    className="w-full p-3 rounded-2xl border-2 border-orange-100 bg-white text-sm font-bold text-orange-900 focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100 transition-all shadow-sm"
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStartOpen(true)}
+                                    className="w-full p-3 rounded-2xl border-2 border-orange-100 bg-white text-sm font-bold text-orange-900 focus:outline-none hover:border-orange-200 transition-all shadow-sm text-left flex items-center justify-between"
+                                >
+                                    <span>{formatDisplayDate(leaveStart)}</span>
+                                    <Palmtree className="w-4 h-4 text-orange-400" />
+                                </button>
                             </div>
                             <div className="hidden md:flex items-center justify-center pt-5">
                                 <span className="text-orange-300 font-black text-xl">➜</span>
                             </div>
                             <div className="flex-1 space-y-1">
                                 <span className="text-[10px] font-bold text-orange-300 ml-1 uppercase">End Date</span>
-                                <input 
-                                    type="date" 
-                                    value={leaveEnd} 
-                                    onChange={e => onLeaveEndChange(e.target.value)}
-                                    className="w-full p-3 rounded-2xl border-2 border-orange-100 bg-white text-sm font-bold text-orange-900 focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100 transition-all shadow-sm"
-                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEndOpen(true)}
+                                    className="w-full p-3 rounded-2xl border-2 border-orange-100 bg-white text-sm font-bold text-orange-900 focus:outline-none hover:border-orange-200 transition-all shadow-sm text-left flex items-center justify-between"
+                                >
+                                    <span>{formatDisplayDate(leaveEnd)}</span>
+                                    <Palmtree className="w-4 h-4 text-orange-400" />
+                                </button>
                             </div>
+
+                            <DatePickerModal
+                                isOpen={isStartOpen}
+                                onClose={() => setIsStartOpen(false)}
+                                selectedDate={leaveStart ? new Date(leaveStart) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        onLeaveStartChange(date.toISOString().split('T')[0]);
+                                    } else {
+                                        onLeaveStartChange('');
+                                    }
+                                }}
+                            />
+
+                            <DatePickerModal
+                                isOpen={isEndOpen}
+                                onClose={() => setIsEndOpen(false)}
+                                selectedDate={leaveEnd ? new Date(leaveEnd) : undefined}
+                                minDate={leaveStart ? new Date(leaveStart) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        onLeaveEndChange(date.toISOString().split('T')[0]);
+                                    } else {
+                                        onLeaveEndChange('');
+                                    }
+                                }}
+                            />
                         </div>
                     </div>
                 </motion.div>

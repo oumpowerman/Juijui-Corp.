@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { History, Loader2, FileCheck, Calendar, Clock, Activity } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import TimePickerModal from '../ui/TimePickerModal';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 interface TaskHistoryProps {
     task: Task;
@@ -23,6 +24,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
     const [bookingDate, setBookingDate] = useState('');
     const [bookingTime, setBookingTime] = useState('14:00');
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     // Fetch Logs
     useEffect(() => {
@@ -228,13 +230,31 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                         </div>
                         <div className="mb-3">
                                 <label className="text-xs font-bold text-gray-500 mb-1 block">วันที่</label>
-                                <input type="date" className="w-full p-2 rounded-lg border border-purple-200 text-sm" value={bookingDate} onChange={e => setBookingDate(e.target.value)} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDatePickerOpen(true)}
+                                    className="w-full p-2 rounded-lg border border-purple-200 text-sm bg-white text-left flex items-center justify-between font-bold text-purple-700"
+                                >
+                                    <span>{formatDisplayDate(bookingDate)}</span>
+                                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                                </button>
                         </div>
                         <button onClick={handleBookReview} className="w-full py-2 bg-purple-600 text-white rounded-lg font-bold text-sm hover:bg-purple-700 shadow-sm transition-all active:scale-95">
                             ยืนยันการจองคิว
                         </button>
                     </div>
                     
+                    <DatePickerModal
+                        isOpen={isDatePickerOpen}
+                        onClose={() => setIsDatePickerOpen(false)}
+                        selectedDate={bookingDate ? new Date(bookingDate) : undefined}
+                        onSelect={(date) => {
+                            if (date) {
+                                setBookingDate(date.toISOString().split('T')[0]);
+                            }
+                        }}
+                    />
+
                     <TimePickerModal 
                         isOpen={isTimePickerOpen}
                         onClose={() => setIsTimePickerOpen(false)}

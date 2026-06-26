@@ -339,6 +339,21 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                         <Plus className="w-5 h-5 stroke-[3px]" />
                                     </button>
 
+                                    {/* Mobile Landscape Toggle Button */}
+                                    <button
+                                        id="mobile-landscape-toggle-btn"
+                                        onClick={onToggleMobileLandscape}
+                                        className={`
+                                            h-11 w-11 flex items-center justify-center rounded-2xl border transition-all duration-300 shadow-sm active:scale-95
+                                            ${isMobileLandscape 
+                                                ? 'bg-indigo-650 text-white border-indigo-700 shadow-indigo-100' 
+                                                : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-100 hover:text-indigo-600'}
+                                        `}
+                                        title={isMobileLandscape ? "กลับสู่มุมมองแนวตั้ง" : "สลับเป็นมุมมองแนวนอน"}
+                                    >
+                                        <Smartphone className={`w-5 h-5 transition-transform duration-500 ${isMobileLandscape ? 'rotate-90 text-indigo-100' : ''}`} />
+                                    </button>
+
                                     {/* Collapse Button (Mobile) */}
                                     {isExpanded && (
                                         <button

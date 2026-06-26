@@ -1,34 +1,49 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { DeadlineRequest, User } from '../types';
+import { User } from '../types';
 import { useUserSession } from '../context/UserSessionContext';
 
-export const useDeadlineRequests = (passedUser?: User) => {
+export interface GoalDeadlineRequest {
+    id: string;
+    goalId: string;
+    requestedBy: string;
+    newDeadline: Date;
+    reason: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: Date;
+    resolvedAt?: Date;
+    resolvedBy?: string;
+    user?: { name: string; avatarUrl: string };
+    goalTitle?: string;
+}
+
+export const useGoalDeadlineRequests = (passedUser?: User) => {
     const { currentUserProfile } = useUserSession();
     const currentUser = passedUser || currentUserProfile || undefined;
     const [isLoading, setIsLoading] = useState(false);
 
-    // 1. Fetch Pending Requests for a specific Task
-    const getPendingRequestForTask = useCallback(async (taskId: string): Promise<DeadlineRequest | null> => {
+    // 1. Fetch Pending Requests for a specific Goal
+    const getPendingRequestForGoal = useCallback(async (goalId: string): Promise<GoalDeadlineRequest | null> => {
         try {
             const { data, error } = await supabase
-                .from('task_deadline_requests')
+                .from('goal_deadline_requests')
                 .select(`
-                    id, task_id, requested_by, new_deadline, reason, status, created_at,
+                    id, goal_id, requested_by, new_deadline, reason, status, created_at,
                     profiles:requested_by (full_name, avatar_url)
                 `)
-                .eq('task_id', taskId)
+                .eq('goal_id', goalId)
                 .eq('status', 'PENDING')
                 .maybeSingle();
             
             if (error) throw error;
             if (!data) return null;
 
+            // Handle nested objects / arrays from supabase relations
             const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
 
             return {
                 id: data.id,
-                taskId: data.task_id,
+                goalId: data.goal_id,
                 requestedBy: data.requested_by,
                 newDeadline: new Date(data.new_deadline),
                 reason: data.reason,
@@ -37,21 +52,21 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
             };
         } catch (err) {
-            console.error('Error fetching pending request:', err);
+            console.error('Error fetching pending goal request:', err);
             return null;
         }
     }, []);
 
     // 2. Fetch ALL Pending Requests (For Admin Dashboard)
-    const getAllPendingRequests = useCallback(async (): Promise<DeadlineRequest[]> => {
+    const getAllPendingRequests = useCallback(async (): Promise<GoalDeadlineRequest[]> => {
         try {
             setIsLoading(true);
             const { data, error } = await supabase
-                .from('task_deadline_requests')
+                .from('goal_deadline_requests')
                 .select(`
-                    id, task_id, requested_by, new_deadline, reason, status, created_at,
+                    id, goal_id, requested_by, new_deadline, reason, status, created_at,
                     profiles:requested_by (full_name, avatar_url),
-                    tasks:task_id (title)
+                    goals:goal_id (title)
                 `)
                 .eq('status', 'PENDING')
                 .order('created_at', { ascending: false });
@@ -60,22 +75,22 @@ export const useDeadlineRequests = (passedUser?: User) => {
 
             return (data || []).map(req => {
                 const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
-                const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
+                const goal = Array.isArray(req.goals) ? req.goals[0] : req.goals;
                 
                 return {
                     id: req.id,
-                    taskId: req.task_id,
+                    goalId: req.goal_id,
                     requestedBy: req.requested_by,
                     newDeadline: new Date(req.new_deadline),
                     reason: req.reason,
                     status: req.status,
                     createdAt: new Date(req.created_at),
                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
-                    taskTitle: task?.title // Add task title for admin view
-                } as DeadlineRequest & { taskTitle?: string };
+                    goalTitle: goal?.title
+                } as GoalDeadlineRequest;
             });
         } catch (err) {
-            console.error('Error fetching all pending requests:', err);
+            console.error('Error fetching all pending goal requests:', err);
             return [];
         } finally {
             setIsLoading(false);
@@ -83,15 +98,15 @@ export const useDeadlineRequests = (passedUser?: User) => {
     }, []);
 
     // 3. Create a new Request (Member)
-    const createRequest = useCallback(async (taskId: string, newDateStr: string, reason: string): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
+    const createRequest = useCallback(async (goalId: string, newDateStr: string, reason: string): Promise<{ success: boolean; data?: GoalDeadlineRequest; error?: string }> => {
         if (!currentUser) return { success: false, error: 'Not authenticated' };
         
         try {
             setIsLoading(true);
             const { data, error } = await supabase
-                .from('task_deadline_requests')
+                .from('goal_deadline_requests')
                 .insert({
-                    task_id: taskId,
+                    goal_id: goalId,
                     requested_by: currentUser.id,
                     new_deadline: new Date(newDateStr).toISOString(),
                     reason: reason,
@@ -102,25 +117,16 @@ export const useDeadlineRequests = (passedUser?: User) => {
 
             if (error) throw error;
 
-            // Log the action
-            await supabase.from('task_logs').insert({
-                task_id: taskId,
-                action: 'DEADLINE_EXTENSION_REQUESTED',
-                details: `ขอเลื่อนส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason}`,
-                user_id: currentUser.id
-            });
-
             // 🔔 Create Notification for Admins
-            // First, get all admin IDs
             const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
             if (admins && admins.length > 0) {
                 const notifications = admins.map(admin => ({
                     user_id: admin.id,
                     type: 'APPROVAL_REQ',
-                    title: '📅 คำขอเลื่อน Deadline ใหม่',
-                    message: `คุณ ${currentUser.name} ขอเลื่อนงาน: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
-                    related_id: taskId,
-                    link_path: 'ADMIN_DASHBOARD'
+                    title: '📅 คำขอเลื่อน Deadline เป้าหมาย',
+                    message: `คุณ ${currentUser.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+                    related_id: goalId,
+                    link_path: 'GOALS'
                 }));
                 await supabase.from('notifications').insert(notifications);
             }
@@ -129,7 +135,7 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 success: true, 
                 data: {
                     id: data.id,
-                    taskId: data.task_id,
+                    goalId: data.goal_id,
                     requestedBy: data.requested_by,
                     newDeadline: new Date(data.new_deadline),
                     reason: data.reason,
@@ -139,7 +145,7 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 }
             };
         } catch (err: any) {
-            console.error('Error creating request:', err);
+            console.error('Error creating goal request:', err);
             return { success: false, error: err.message };
         } finally {
             setIsLoading(false);
@@ -147,7 +153,7 @@ export const useDeadlineRequests = (passedUser?: User) => {
     }, [currentUser]);
 
     // 4. Resolve a Request (Admin)
-    const resolveRequest = useCallback(async (requestId: string, taskIdOrGoalId: string, isApproved: boolean, newDate?: Date, requestType: 'TASK' | 'GOAL' = 'TASK'): Promise<{ success: boolean; error?: string }> => {
+    const resolveRequest = useCallback(async (requestId: string, goalId: string, isApproved: boolean, newDate?: Date): Promise<{ success: boolean; error?: string }> => {
         let userRole = currentUser?.role;
         let userId = currentUser?.id;
 
@@ -178,75 +184,43 @@ export const useDeadlineRequests = (passedUser?: User) => {
             setIsLoading(true);
             const status = isApproved ? 'APPROVED' : 'REJECTED';
             
-            if (requestType === 'GOAL') {
-                // Update Request Status
-                const { error: reqError } = await supabase
-                    .from('goal_deadline_requests')
+            // Update Request Status
+            const { error: reqError } = await supabase
+                .from('goal_deadline_requests')
+                .update({ 
+                    status,
+                    resolved_at: new Date().toISOString(),
+                    resolved_by: userId
+                })
+                .eq('id', requestId);
+                
+            if (reqError) throw reqError;
+
+            // If Approved, update Goal Deadline and increment extension count
+            if (isApproved && newDate) {
+                // First get current extension_count
+                const { data: goalData } = await supabase
+                    .from('goals')
+                    .select('extension_count')
+                    .eq('id', goalId)
+                    .maybeSingle();
+
+                const currentCount = goalData?.extension_count || 0;
+
+                const { error: goalError } = await supabase
+                    .from('goals')
                     .update({ 
-                        status,
-                        resolved_at: new Date().toISOString(),
-                        resolved_by: userId
+                        deadline: newDate.toISOString(),
+                        extension_count: currentCount + 1
                     })
-                    .eq('id', requestId);
-                    
-                if (reqError) throw reqError;
-
-                // If Approved, update Goal Deadline and increment extension count
-                if (isApproved && newDate) {
-                    // First get current extension_count
-                    const { data: goalData } = await supabase
-                        .from('goals')
-                        .select('extension_count')
-                        .eq('id', taskIdOrGoalId)
-                        .maybeSingle();
-
-                    const currentCount = goalData?.extension_count || 0;
-
-                    const { error: goalError } = await supabase
-                        .from('goals')
-                        .update({ 
-                            deadline: newDate.toISOString(),
-                            extension_count: currentCount + 1
-                        })
-                        .eq('id', taskIdOrGoalId);
-                    
-                    if (goalError) throw goalError;
-                }
-            } else {
-                // Update Request Status
-                const { error: reqError } = await supabase
-                    .from('task_deadline_requests')
-                    .update({ 
-                        status,
-                        resolved_at: new Date().toISOString(),
-                        resolved_by: userId
-                    })
-                    .eq('id', requestId);
-                    
-                if (reqError) throw reqError;
-
-                // If Approved, update Task End Date
-                if (isApproved && newDate) {
-                    const { error: taskError } = await supabase
-                        .from('tasks')
-                        .update({ end_date: newDate.toISOString() })
-                        .eq('id', taskIdOrGoalId);
-                    
-                    if (taskError) throw taskError;
-                }
-
-                // Add Log
-                await supabase.from('task_logs').insert({
-                    task_id: taskIdOrGoalId,
-                    action: isApproved ? 'DEADLINE_EXTENSION_APPROVED' : 'DEADLINE_EXTENSION_REJECTED',
-                    details: isApproved ? `อนุมัติการเลื่อน Deadline เป็นวันที่ ${newDate?.toISOString().split('T')[0]}` : `ปฏิเสธคำขอเลื่อน Deadline`,
-                    user_id: userId
-                });
+                    .eq('id', goalId);
+                
+                if (goalError) throw goalError;
             }
 
             return { success: true };
         } catch (err: any) {
-            console.error('Error resolving request:', err);
+            console.error('Error resolving goal request:', err);
             return { success: false, error: err.message };
         } finally {
             setIsLoading(false);
@@ -255,7 +229,7 @@ export const useDeadlineRequests = (passedUser?: User) => {
 
     return {
         isLoading,
-        getPendingRequestForTask,
+        getPendingRequestForGoal,
         getAllPendingRequests,
         createRequest,
         resolveRequest

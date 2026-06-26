@@ -289,27 +289,40 @@ export const useGoals = (currentUser: User) => {
         }
     };
 
-    const requestExtension = async (goalId: string, reason: string) => {
+    const requestExtension = async (goalId: string, newDateStr: string, reason: string) => {
         try {
-            // In a real app, this would create a record in goal_deadline_requests
-            // For now, we will simulate by sending a notification to admins
+            const { data, error } = await supabase
+                .from('goal_deadline_requests')
+                .insert({
+                    goal_id: goalId,
+                    requested_by: currentUser.id,
+                    new_deadline: new Date(newDateStr).toISOString(),
+                    reason: reason,
+                    status: 'PENDING'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
             const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
             if (admins && admins.length > 0) {
                  const notifications = admins.map(admin => ({
                     user_id: admin.id,
                     type: 'APPROVAL_REQ',
-                    title: '📅 คำขอขยายเวลาเป้าหมาย',
-                    message: `ขอขยายเวลาเป้าหมาย ภารกิจ: ${reason}`,
+                    title: '📅 คำขอเลื่อน Deadline เป้าหมาย',
+                    message: `คุณ ${currentUser.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
                     related_id: goalId,
                     is_read: false,
                     link_path: 'GOALS'
                 }));
                 await supabase.from('notifications').insert(notifications);
             }
-            showToast('ส่งคำขอขยายเวลาให้แอดมินแล้ว! 📨', 'success');
+            showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้แอดมินพิจารณาแล้ว! 📨', 'success');
             return true;
         } catch (err: any) {
-            showToast('ขอขยายเวลาไม่สำเร็จ', 'error');
+            console.error('requestExtension error:', err);
+            showToast('ขอขยายเวลาไม่สำเร็จ: ' + err.message, 'error');
             return false;
         }
     };

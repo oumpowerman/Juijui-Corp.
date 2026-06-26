@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Task, MasterOption } from '../../types';
-import { Plus, BarChart3, Sparkles, X } from 'lucide-react';
+import { Plus, BarChart3, Sparkles, X, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../../context/ToastContext';
 import { useFinance } from '../../hooks/useFinance';
 import { useTripManagement } from '../../hooks/useTripManagement';
+import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
 
 // Sub-components
 import TripOverviewHeader from './trip/TripOverviewHeader';
@@ -47,6 +48,7 @@ const ShootTripManager: React.FC<ShootTripManagerProps> = ({ masterOptions, task
     const [newTripTitle, setNewTripTitle] = useState('');
     const [newTripLocation, setNewTripLocation] = useState('');
     const [newTripDate, setNewTripDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     useEffect(() => {
         fetchTrips();
@@ -180,7 +182,14 @@ const ShootTripManager: React.FC<ShootTripManagerProps> = ({ masterOptions, task
                             </div>
                             <div className="space-y-2 group">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-2 group-focus-within:text-sky-500 transition-colors">วันที่ถ่ายทำ</label>
-                                <input type="date" className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-slate-700 focus:bg-white focus:border-sky-400 focus:ring-4 focus:ring-sky-50 transition-all outline-none cursor-pointer" value={newTripDate} onChange={e => setNewTripDate(e.target.value)} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDatePickerOpen(true)}
+                                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent hover:border-sky-300 hover:bg-white rounded-2xl font-bold text-slate-700 transition-all outline-none text-left flex items-center justify-between"
+                                >
+                                    <span>{formatDisplayDate(newTripDate)}</span>
+                                    <Calendar className="w-5 h-5 text-slate-400" />
+                                </button>
                             </div>
                         </div>
 
@@ -191,6 +200,17 @@ const ShootTripManager: React.FC<ShootTripManagerProps> = ({ masterOptions, task
                     </div>
                 </div>
             )}
+
+            <DatePickerModal
+                isOpen={isDatePickerOpen}
+                onClose={() => setIsDatePickerOpen(false)}
+                selectedDate={newTripDate ? new Date(newTripDate) : undefined}
+                onSelect={(date) => {
+                    if (date) {
+                        setNewTripDate(date.toISOString().split('T')[0]);
+                    }
+                }}
+            />
         </div>
     );
 };

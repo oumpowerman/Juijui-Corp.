@@ -46,15 +46,15 @@ const WORKLOAD_LEVELS = [
 
 // Glassy 3D Themes for Tasks
 const GLASS_THEMES = [
-    { bg: 'bg-blue-400/10', border: 'border-blue-400/20', text: 'text-blue-900', accent: 'bg-blue-400', shadow: 'shadow-blue-500/5' },
-    { bg: 'bg-indigo-400/10', border: 'border-indigo-400/20', text: 'text-indigo-900', accent: 'bg-indigo-400', shadow: 'shadow-indigo-500/5' },
-    { bg: 'bg-purple-400/10', border: 'border-purple-400/20', text: 'text-purple-900', accent: 'bg-purple-400', shadow: 'shadow-purple-500/5' },
-    { bg: 'bg-rose-400/10', border: 'border-rose-400/20', text: 'text-rose-900', accent: 'bg-rose-400', shadow: 'shadow-rose-500/5' },
-    { bg: 'bg-amber-400/10', border: 'border-amber-400/20', text: 'text-amber-900', accent: 'bg-amber-400', shadow: 'shadow-amber-500/5' },
-    { bg: 'bg-emerald-400/10', border: 'border-emerald-400/20', text: 'text-emerald-900', accent: 'bg-emerald-400', shadow: 'shadow-emerald-500/5' },
-    { bg: 'bg-cyan-400/10', border: 'border-cyan-400/20', text: 'text-cyan-900', accent: 'bg-cyan-400', shadow: 'shadow-cyan-500/5' },
-    { bg: 'bg-violet-400/10', border: 'border-violet-400/20', text: 'text-violet-900', accent: 'bg-violet-400', shadow: 'shadow-violet-500/5' },
-    { bg: 'bg-fuchsia-400/10', border: 'border-fuchsia-400/20', text: 'text-fuchsia-900', accent: 'bg-fuchsia-400', shadow: 'shadow-fuchsia-500/5' },
+    { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-900', accent: 'bg-blue-400', shadow: 'shadow-blue-500/5' },
+    { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-900', accent: 'bg-indigo-400', shadow: 'shadow-indigo-500/5' },
+    { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-900', accent: 'bg-purple-400', shadow: 'shadow-purple-500/5' },
+    { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-900', accent: 'bg-rose-400', shadow: 'shadow-rose-500/5' },
+    { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-900', accent: 'bg-amber-400', shadow: 'shadow-amber-500/5' },
+    { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-900', accent: 'bg-emerald-400', shadow: 'shadow-emerald-500/5' },
+    { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-900', accent: 'bg-cyan-400', shadow: 'shadow-cyan-500/5' },
+    { bg: 'bg-violet-50', border: 'border-violet-100', text: 'text-violet-900', accent: 'bg-violet-400', shadow: 'shadow-violet-500/5' },
+    { bg: 'bg-fuchsia-50', border: 'border-fuchsia-100', text: 'text-fuchsia-900', accent: 'bg-fuchsia-400', shadow: 'shadow-fuchsia-500/5' },
 ];
 
 const getPriorityStyle = (priority: Priority) => {
@@ -342,7 +342,7 @@ const MobileTeamCard: React.FC<MobileTeamCardProps> = ({
     const levelProgressPercent = ((user.xp || 0) % 1000) / 1000 * 100;
 
     return (
-        <div className={`bg-white rounded-3xl p-5 border border-slate-150/70 shadow-sm mb-4 relative overflow-hidden ${isMe ? 'ring-2 ring-indigo-500/10 bg-indigo-50/5' : ''}`}>
+        <div className={`rounded-3xl p-5 border border-slate-150/70 shadow-sm mb-4 relative overflow-hidden ${isMe ? 'bg-indigo-50 ring-2 ring-indigo-500/10' : 'bg-white'}`}>
             {/* Visual Side Accent for Me */}
             {isMe && (
                 <div className="absolute right-0 top-0 bg-indigo-500 text-white font-black text-[9px] px-3.5 py-1 rounded-bl-xl tracking-widest flex items-center gap-1 shadow-md z-15 select-none">
@@ -444,7 +444,7 @@ const MobileTeamCard: React.FC<MobileTeamCardProps> = ({
                         ))}
                     </div>
                 ) : (
-                    <div className="text-[11px] text-slate-400 font-medium italic bg-slate-50/50 border border-slate-100/50 p-4 rounded-xl text-center">
+                    <div className="text-[11px] text-slate-400 font-medium italic bg-slate-50 border border-slate-100 p-4 rounded-xl text-center">
                         ไม่มีงานที่ต้องดูแลวันนี้
                     </div>
                 )}
@@ -455,7 +455,7 @@ const MobileTeamCard: React.FC<MobileTeamCardProps> = ({
                 <div className="mt-4">
                     <button 
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-black text-indigo-600 bg-indigo-50/60 border border-indigo-100/40 py-2.5 rounded-2xl hover:bg-indigo-100 transition-colors cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 py-2.5 rounded-2xl hover:bg-indigo-100 transition-colors cursor-pointer"
                     >
                         <span>{isExpanded ? 'ซ่อนงานอื่นๆ ในสัปดาห์นี้' : `ดูแผนที่เหลืออีก ${otherTasks.length} งาน`}</span>
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

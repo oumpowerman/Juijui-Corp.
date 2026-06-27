@@ -71,6 +71,8 @@ const DEFAULT_OPTIONS = [
     { type: 'WORK_CONFIG', key: 'END_TIME', label: '19:00', color: '', sort_order: 2 },
     { type: 'WORK_CONFIG', key: 'LATE_BUFFER', label: '15', color: '', sort_order: 3 },
     { type: 'WORK_CONFIG', key: 'MIN_HOURS', label: '9', color: '', sort_order: 4 },
+    { type: 'WORK_CONFIG', key: 'OT_THRESHOLD_HOURS', label: '2', color: '', sort_order: 5 },
+    { type: 'WORK_CONFIG', key: 'CHECKOUT_PENALTY_TIME', label: '06:00', color: '', sort_order: 6 },
     { type: 'ATTENDANCE_TYPE', key: 'OFFICE', label: 'เข้าออฟฟิศ', color: 'bg-indigo-600', sort_order: 10 },
     { type: 'ATTENDANCE_TYPE', key: 'ON_TIME', label: 'มาตรงเวลา (On Time)', color: 'bg-emerald-600', sort_order: 15, description: '{"icon": "CheckCircle", "category": "STANDARD"}' },
     { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10, description: '{"icon": "Home", "category": "STANDARD"}' },

@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
@@ -16,6 +17,22 @@ import DashboardHeader from './DashboardHeader';
 import DashboardStats from './DashboardStats';
 import DashboardTable from './DashboardTable';
 import DashboardUserDetailModal from './DashboardUserDetailModal';
+
+// Lazy Loaded Analytics Component
+const AttendanceAnalytics = lazy(() => import('./analytics/AttendanceAnalytics'));
+
+const AnalyticsSkeleton = () => (
+    <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-4 bg-gray-100 h-[440px] rounded-3xl" />
+            <div className="lg:col-span-8 bg-gray-100 h-[440px] rounded-3xl" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-5 bg-gray-100 h-[380px] rounded-3xl" />
+            <div className="lg:col-span-7 bg-gray-100 h-[380px] rounded-3xl" />
+        </div>
+    </div>
+);
 
 interface AdminAttendanceDashboardProps {
     users: User[];
@@ -42,6 +59,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmploymentType, setSelectedEmploymentType] = useState('ALL');
     const [selectedPosition, setSelectedPosition] = useState('ALL');
+    const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
     
     // Modal State
     const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
@@ -296,24 +314,70 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 selectedPosition={selectedPosition}
                 setSelectedPosition={setSelectedPosition}
                 positions={positions}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
             />
 
-            <DashboardStats 
-                totalCheckins={totalCheckins}
-                totalLates={totalLates}
-                lateRate={lateRate}
-                totalAbsents={totalAbsents}
-                totalLeaves={totalLeaves}
-                activeUsersCount={users.filter(u => u.isActive).length}
-            />
+            <AnimatePresence mode="wait">
+                {viewMode === 'TABLE' ? (
+                    <motion.div
+                        key="TABLE"
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="space-y-6"
+                    >
+                        <DashboardStats 
+                            totalCheckins={totalCheckins}
+                            totalLates={totalLates}
+                            lateRate={lateRate}
+                            totalAbsents={totalAbsents}
+                            totalLeaves={totalLeaves}
+                            activeUsersCount={users.filter(u => u.isActive).length}
+                        />
 
-            <DashboardTable 
-                isLoading={isLoading}
-                filteredStats={filteredStats}
-                users={users}
-                getGrade={getGrade}
-                onUserClick={(user, stat) => setSelectedUser({ user, stat })}
-            />
+                        <DashboardTable 
+                            isLoading={isLoading}
+                            filteredStats={filteredStats}
+                            users={users}
+                            getGrade={getGrade}
+                            onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                        />
+
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={handleExportCSV}
+                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95"
+                            >
+                                <Download className="w-4 h-4" /> Export CSV Report
+                            </button>
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="ANALYTICS"
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="w-full"
+                    >
+                        <Suspense fallback={<AnalyticsSkeleton />}>
+                            <AttendanceAnalytics 
+                                users={users}
+                                userStats={userStats}
+                                workingDaysInMonth={workingDaysInMonth}
+                                startTime={startTime}
+                                lateBuffer={lateBuffer}
+                                currentMonth={currentMonth}
+                                getGrade={getGrade}
+                                onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                            />
+                        </Suspense>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             
             {selectedUser && (
                 <DashboardUserDetailModal 
@@ -325,15 +389,6 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     onClose={() => setSelectedUser(null)}
                 />
             )}
-            
-            <div className="flex justify-end">
-                <button 
-                    onClick={handleExportCSV}
-                    className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95"
-                >
-                    <Download className="w-4 h-4" /> Export CSV Report
-                </button>
-            </div>
         </div>
     );
 };

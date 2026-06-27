@@ -20,6 +20,7 @@ export const DEFAULT_GAME_CONFIG = {
         XP_TASK_COMPLETE: 200,
         XP_DUTY_LATE_SUBMIT: 5,
         XP_DUTY_ASSIST: 10,
+        OT_JP_RATE_PER_HOUR: 10,
     },
 
     // XP Calculation
@@ -575,6 +576,20 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 message: `💀 Permanent Burial: ${context.description || 'พ้นสภาพพนักงาน'}`,
                 details: 'Game Over'
             };
+
+        case 'ATTENDANCE_OVERTIME': {
+            const hours = context.hours || 0;
+            const rate = globals.OT_JP_RATE_PER_HOUR !== undefined ? globals.OT_JP_RATE_PER_HOUR : 10;
+            const coins = Math.round(hours * rate);
+            const xp = Math.round(hours * rate);
+            return {
+                xp,
+                hp: 0,
+                coins,
+                message: `🎉 ได้รับโบนัสการทำงานล่วงเวลา +${coins} JP (${hours} ชั่วโมง)`,
+                details: `+${xp} XP, +${coins} JP`
+            };
+        }
 
         default:
             return { xp: 0, hp: 0, coins: 0, message: '', details: '' };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Layout, Layers, Tag, ChevronRight } from 'lucide-react';
 import { MasterOption } from '../../../types';
-import OptionSelectionModal from '../../ui/OptionSelectionModal';
+import OptionSelectionModal from '../../ui/OptionSelectionModal.tsx';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 
 interface CFCategorizationProps {

@@ -51,8 +51,7 @@ const WorkboxTrigger: React.FC<WorkboxTriggerProps> = ({ onClick, itemCount, onD
     if (isDocked) return null;
 
     return (
-        <>
-            <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden" />
+        <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
             <motion.div
                 drag
                 dragConstraints={constraintsRef}
@@ -61,7 +60,7 @@ const WorkboxTrigger: React.FC<WorkboxTriggerProps> = ({ onClick, itemCount, onD
                 onDragStart={() => setDragged(true)}
                 onDragEnd={() => setTimeout(() => setDragged(false), 100)}
                 style={{ x, y }}
-                className="fixed right-6 bottom-24 z-50"
+                className="absolute right-6 bottom-24 z-50 pointer-events-auto"
                 whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
             >
             <motion.button
@@ -114,7 +113,7 @@ const WorkboxTrigger: React.FC<WorkboxTriggerProps> = ({ onClick, itemCount, onD
                 </div>
             </motion.button>
             </motion.div>
-        </>
+        </div>
     );
 };
 

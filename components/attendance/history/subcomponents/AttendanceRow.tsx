@@ -19,6 +19,8 @@ interface AttendanceRowProps {
     exceptions: any[];
     onResubmit: (log: AttendanceLog) => void;
     onViewProof: (proofUrl: string) => void;
+    isHighlighted?: boolean;
+    onClearHighlight?: () => void;
 }
 
 export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
@@ -32,8 +34,44 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     holidays,
     exceptions,
     onResubmit,
-    onViewProof
+    onViewProof,
+    isHighlighted,
+    onClearHighlight
 }) => {
+    const rowRef = React.useRef<HTMLTableRowElement>(null);
+    const [localHighlight, setLocalHighlight] = React.useState(false);
+    const [isFading, setIsFading] = React.useState(false);
+
+    React.useEffect(() => {
+        if (isHighlighted) {
+            setLocalHighlight(true);
+            setIsFading(false);
+            const scrollTimeout = setTimeout(() => {
+                rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 150);
+
+            // Start fading out after 3 seconds
+            const fadeTimeoutId = setTimeout(() => {
+                setIsFading(true);
+            }, 3000);
+
+            // Fully clear highlight after 4 seconds (1 second fade duration)
+            const clearTimeoutId = setTimeout(() => {
+                setLocalHighlight(false);
+                setIsFading(false);
+                if (onClearHighlight) {
+                    onClearHighlight();
+                }
+            }, 4000);
+
+            return () => {
+                clearTimeout(scrollTimeout);
+                clearTimeout(fadeTimeoutId);
+                clearTimeout(clearTimeoutId);
+            };
+        }
+    }, [isHighlighted, onClearHighlight]);
+
     const late = isLate(log);
     const proof = getProofUrl(log);
     const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
@@ -45,8 +83,34 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     // Check if it's a late correction (over 3 days)
     const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date(), holidays, exceptions, targetUser) > 3;
 
+    // Check if user forgot to clock out
+    const isForgotClockOut = 
+        !!log.checkInTime && 
+        !log.checkOutTime && 
+        !isPending && 
+        !isLeave && 
+        !isNotStarted && 
+        log.status !== 'ABSENT' && 
+        log.status !== 'NO_SHOW' && 
+        !isSameDay(new Date(log.date), new Date());
+
     return (
-        <tr className="hover:bg-indigo-50/30 transition-colors group">
+        <tr 
+            ref={rowRef}
+            id={`attendance-row-${log.id}`}
+            style={localHighlight ? {
+                '--rainbow-alpha': isFading ? '0' : '0.75'
+            } as React.CSSProperties : undefined}
+            className={`transition-all duration-1000 group ${
+                localHighlight
+                    ? `bg-rainbow-pastel animate-gradient-x-slow ring-2 hover:opacity-95 ${
+                        isFading ? 'ring-purple-400/0' : 'ring-purple-400/50'
+                      }`
+                    : isForgotClockOut 
+                    ? 'bg-orange-50 hover:bg-orange-100/80 border-l-4 border-l-orange-500' 
+                    : 'hover:bg-indigo-50/30'
+            }`}
+        >
             <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${isSameDay(new Date(log.date), new Date()) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`}></div>

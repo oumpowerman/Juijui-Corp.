@@ -14,7 +14,7 @@ import LeaveRequestModal from '../leave-request/LeaveRequestModal';
 
 interface AttendanceWidgetProps {
     user: User;
-    onNavigateToHistory?: () => void;
+    onNavigateToHistory?: (date?: string) => void;
 }
 
 const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToHistory }) => {

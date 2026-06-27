@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    Inbox, Package, Eye, Wrench, Check, Plus, X, Ban
+    Inbox, Package, Eye, Wrench, Check, Plus, X, Ban, Orbit, Sparkles, SlidersHorizontal
 } from 'lucide-react';
 import NotificationBellBtn from '../NotificationBellBtn';
 import { COLOR_THEMES } from '../../constants';
@@ -18,6 +18,8 @@ interface CalendarSecondaryHeaderProps {
     channels: Channel[];
     users?: User[];
     onManageFilters: () => void;
+    onOpenCosmicFilter: () => void;
+    activeFiltersCount?: number;
     
     // Tools logic
     unreadCount: number;
@@ -36,7 +38,8 @@ interface CalendarSecondaryHeaderProps {
 
 const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
     show, onClose,
-    activeChipIds, toggleChip, customChips, channels, users = [], onManageFilters,
+    activeChipIds, toggleChip, customChips, channels, users = [], onManageFilters, onOpenCosmicFilter,
+    activeFiltersCount = 0,
     unreadCount, onOpenNotifications, onOpenSettings, onToggleWorkbox, onToggleStock,
     isWorkboxOpen, isStockOpen,
     taskDisplayMode, setTaskDisplayMode,
@@ -162,10 +165,32 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                     })}
 
                                     <button 
-                                        onClick={onManageFilters}
-                                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 hover:text-indigo-600 transition-all shrink-0 active:scale-90"
+                                        onClick={onOpenCosmicFilter}
+                                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border transition-all duration-300 shrink-0 active:scale-95 text-[10px] font-black tracking-wide uppercase group relative overflow-visible ${
+                                            activeFiltersCount > 0
+                                                ? 'bg-gradient-to-r from-indigo-50 to-violet-50/90 border-indigo-300 text-indigo-600 shadow-[0_4px_16px_rgba(99,102,241,0.16)] ring-4 ring-indigo-100/40'
+                                                : 'bg-gradient-to-r from-stone-50 to-indigo-50/40 border-stone-200 hover:border-indigo-300/80 text-stone-700 hover:text-indigo-600 shadow-[0_2px_10px_rgba(120,113,108,0.03)] hover:shadow-[0_4px_16px_rgba(99,102,241,0.12)]'
+                                        }`}
+                                        title="ตัวกรองรายละเอียด (ช่อง, รูปแบบ, สถานะ)"
                                     >
-                                        <Plus className="w-4 h-4" />
+                                        {/* Subtle breathing aura pulse back-layer when active */}
+                                        {activeFiltersCount > 0 && (
+                                            <span className="absolute inset-0 rounded-2xl bg-indigo-400/10 animate-ping pointer-events-none scale-105" />
+                                        )}
+
+                                        <SlidersHorizontal className={`w-3.5 h-3.5 transition-all duration-300 ${
+                                            activeFiltersCount > 0 
+                                                ? 'text-indigo-500 group-hover:rotate-45' 
+                                                : 'text-stone-500 group-hover:text-indigo-500 group-hover:rotate-12'
+                                        }`} />
+                                        
+                                        <span>ตัวกรองละเอียด</span>
+
+                                        {activeFiltersCount > 0 && (
+                                            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-white text-indigo-600 border border-indigo-200/60 shadow-sm transition-transform duration-200 group-hover:scale-110">
+                                                {activeFiltersCount}
+                                            </span>
+                                        )}
                                     </button>
                                 </div>
                             </div>

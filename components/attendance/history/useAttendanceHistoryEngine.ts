@@ -15,13 +15,30 @@ import { Clock, CheckCircle2, XCircle, Calendar, HelpCircle, Loader2, AlertTrian
 
 const PAGE_SIZE = 15;
 
-export const useAttendanceHistoryEngine = (userId: string) => {
+export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: string | null) => {
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState<any>({
         startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
         endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
         workType: 'ALL'
     });
+
+    useEffect(() => {
+        if (highlightedDate) {
+            const dateObj = parseISO(highlightedDate);
+            if (!isNaN(dateObj.getTime())) {
+                const startOfHighlightMonth = format(startOfMonth(dateObj), 'yyyy-MM-dd');
+                const endOfHighlightMonth = format(endOfMonth(dateObj), 'yyyy-MM-dd');
+                
+                setFilters((prev: any) => ({
+                    ...prev,
+                    startDate: startOfHighlightMonth,
+                    endDate: endOfHighlightMonth,
+                    workType: 'ALL' // Reset workType filter to make sure the target row isn't filtered out
+                }));
+            }
+        }
+    }, [highlightedDate]);
 
     const { getAttendanceLogs, isHistoryLoading: isFetching } = useAttendanceHistory(userId);
     const { allUsers } = useUserSession();
@@ -128,6 +145,18 @@ export const useAttendanceHistoryEngine = (userId: string) => {
         filteredActiveDays.sort((a, b) => b.date.getTime() - a.date.getTime());
 
         setTotalCount(filteredActiveDays.length);
+
+        // If highlightedDate is provided, let's find the page and make sure page is set correctly
+        if (highlightedDate) {
+            const targetIndex = filteredActiveDays.findIndex(day => day.dateStr === highlightedDate);
+            if (targetIndex !== -1) {
+                const targetPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
+                if (page !== targetPage) {
+                    setPage(targetPage);
+                    return; // Return early, the state update will trigger another fetchData call with the correct page.
+                }
+            }
+        }
         
         // 6. Paginate the calendar metadata list first to identify target 15 days
         const startIndex = (page - 1) * PAGE_SIZE;
@@ -154,7 +183,7 @@ export const useAttendanceHistoryEngine = (userId: string) => {
 
         setHistoryLogs(pagedData);
 
-    }, [getAttendanceLogs, page, filters, holidays, exceptions, targetUser, requests, userId]);
+    }, [getAttendanceLogs, page, filters, holidays, exceptions, targetUser, requests, userId, highlightedDate]);
 
     // Initial Fetch & Filter Change
     useEffect(() => {

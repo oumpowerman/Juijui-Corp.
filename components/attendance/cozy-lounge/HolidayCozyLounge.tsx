@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Map, List, ArrowRightLeft } from 'lucide-react';
 import { User } from '../../../types/core';
 import { CafeChamber } from './CafeChamber';
 import { SleeperChamber } from './SleeperChamber';
@@ -14,6 +15,15 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [activeHoverZone, setActiveHoverZone] = useState<number | null>(null);
     const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+    const [viewMode, setViewMode] = useState<'visual' | 'compact'>('visual');
+
+    // Automatically collapse and switch to compact mode on mobile screens upon initial render
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            setIsCollapsed(true);
+            setViewMode('visual');
+        }
+    }, []);
 
     // Active zones meta definitions
     const zones = useMemo(() => [
@@ -234,7 +244,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
     return (
         <div className="w-full py-2 select-none animate-in fade-in duration-500 font-sans" id="holiday-cozy-lounge-root-view">
             {/* Header section with cute labels */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-slate-900 pb-3 mb-5" id="holiday-cozy-header">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-slate-900 pb-3 mb-4" id="holiday-cozy-header">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-md border-2 border-slate-900 bg-amber-400 flex items-center justify-center text-xl shadow-[2px_2px_0px_#000] font-black">
                         🏡
@@ -246,12 +256,6 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border-2 border-slate-900 bg-white shadow-[2px_2px_0px_#000] text-[9.5px] font-black uppercase text-slate-800">
-                        😴 พักเงียบ {renderedUsersInLounge.filter(u => u.zoneIdx === 1).length} คน
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border-2 border-slate-900 bg-amber-400 shadow-[2px_2px_0px_#000] text-[9.5px] font-black uppercase text-slate-900">
-                        ☕ ดริปกาแฟ {renderedUsersInLounge.filter(u => u.zoneIdx === 0).length} คน
-                    </span>
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border-2 border-slate-900 shadow-[2px_2px_0px_#000] text-[9.5px] font-black uppercase transition-all active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] cursor-pointer ${
@@ -266,63 +270,170 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                 </div>
             </div>
 
+            {/* TAB SELECTOR: Toggle between immersive 2D map & convenient compact text list */}
+            {!isCollapsed && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-100 p-1 rounded-xl border-2 border-slate-900 w-full sm:w-auto overflow-x-auto" id="cozy-viewmode-tab-selector">
+                    <button
+                        onClick={() => setViewMode('visual')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase transition-all cursor-pointer ${
+                            viewMode === 'visual'
+                                ? "bg-amber-400 text-slate-900 border-2 border-slate-900 shadow-[2px_2px_0px_#000] -translate-y-[1.5px]"
+                                : "text-slate-600 hover:text-slate-950 border-2 border-transparent"
+                        }`}
+                    >
+                        <Map className="w-3.5 h-3.5 text-slate-900" />
+                        🎮 มุมมอง 2D Cozy Lounge (ปัดเลื่อนได้)
+                    </button>
+                    <button
+                        onClick={() => setViewMode('compact')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase transition-all cursor-pointer ${
+                            viewMode === 'compact'
+                                ? "bg-amber-400 text-slate-900 border-2 border-slate-900 shadow-[2px_2px_0px_#000] -translate-y-[1.5px]"
+                                : "text-slate-600 hover:text-slate-950 border-2 border-transparent"
+                        }`}
+                    >
+                        <List className="w-3.5 h-3.5 text-slate-900" />
+                        📋 รายชื่อสรุปตามห้อง (Mobile List)
+                    </button>
+                </div>
+            )}
+
             {/* THE AWESOME 2D SIDE-VIEW PLAYGROUND COZY DECK */}
             <AnimatePresence initial={false}>
-                {!isCollapsed && (
+                {!isCollapsed && viewMode === 'visual' && (
                     <motion.div 
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className="overflow-hidden flex flex-col"
+                        className="overflow-hidden flex flex-col pt-3"
                         id="cozy-collapse-wrapper"
                     >
-                        <div 
-                            className="relative w-full h-[320px] border-4 border-slate-900 rounded-3xl overflow-hidden bg-slate-50 shadow-[4px_4px_0px_#000] flex flex-col justify-end"
-                            id="cozy-2d-viewframe"
-                            style={{
-                                backgroundImage: 'linear-gradient(to top, #e2e8f0 1.5px, transparent 1.5px)',
-                                backgroundSize: '100% 12px',
-                                backgroundColor: '#fafaf9'
-                            }}
-                        >
-                            {/* 1) CHAMBER OVERLAYS & SKY WALLPAPERS */}
-                            <div className="absolute inset-x-0 top-0 bottom-[40px] grid grid-cols-4 divide-x-2 divide-dashed divide-slate-300/60 z-10">
-                                <CafeChamber
-                                    residents={renderedUsersInLounge.filter(u => u.zoneIdx === 0)}
-                                    selectedUser={selectedUser}
-                                    setSelectedUser={setSelectedUser}
-                                    activeHoverZone={activeHoverZone}
-                                    setActiveHoverZone={setActiveHoverZone}
-                                />
-                                <SleeperChamber
-                                    residents={renderedUsersInLounge.filter(u => u.zoneIdx === 1)}
-                                    selectedUser={selectedUser}
-                                    setSelectedUser={setSelectedUser}
-                                    activeHoverZone={activeHoverZone}
-                                    setActiveHoverZone={setActiveHoverZone}
-                                />
-                                <FitnessChamber
-                                    residents={renderedUsersInLounge.filter(u => u.zoneIdx === 2)}
-                                    selectedUser={selectedUser}
-                                    setSelectedUser={setSelectedUser}
-                                    activeHoverZone={activeHoverZone}
-                                    setActiveHoverZone={setActiveHoverZone}
-                                />
-                                <ArcadeChamber
-                                    residents={renderedUsersInLounge.filter(u => u.zoneIdx === 3)}
-                                    selectedUser={selectedUser}
-                                    setSelectedUser={setSelectedUser}
-                                    activeHoverZone={activeHoverZone}
-                                    setActiveHoverZone={setActiveHoverZone}
-                                />
-                            </div>
-
-                            {/* FLOOR LINE BASE (2px strong line art) */}
-                            <div className="absolute inset-x-0 bottom-[40px] h-1.5 bg-slate-900 z-20" />
-                            {/* Ground grass dirt floor block */}
-                            <div className="absolute inset-x-0 bottom-0 h-[40px] bg-slate-100 border-t border-slate-300 z-20" />
+                        {/* Mobile Swipe Hint */}
+                        <div className="lg:hidden flex justify-center mt-1 mb-3 items-center gap-2 text-[10px] font-black text-indigo-700 bg-indigo-50 border-2 border-slate-900 shadow-[2px_2px_0px_#000] rounded-xl py-1.5 px-3.5 w-fit mx-auto animate-bounce">
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            ปัดซ้าย-ขวา เพื่อสำรวจพื้นที่ผ่อนคลายวันหยุดได้เลย! ↔️
                         </div>
+
+                        {/* Scroll container allowing full details width of 1000px without squeezing on mobile screens */}
+                        <div className="w-full overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-slate-400 scrollbar-track-transparent">
+                            <div 
+                                className="relative min-w-[1000px] lg:min-w-full h-[320px] border-4 border-slate-900 rounded-3xl overflow-hidden bg-slate-50 shadow-[4px_4px_0px_#000] flex flex-col justify-end"
+                                id="cozy-2d-viewframe"
+                                style={{
+                                    backgroundImage: 'linear-gradient(to top, #e2e8f0 1.5px, transparent 1.5px)',
+                                    backgroundSize: '100% 12px',
+                                    backgroundColor: '#fafaf9'
+                                }}
+                            >
+                                {/* 1) CHAMBER OVERLAYS & SKY WALLPAPERS */}
+                                <div className="absolute inset-x-0 top-0 bottom-[40px] grid grid-cols-4 divide-x-2 divide-dashed divide-slate-300/60 z-10">
+                                    <CafeChamber
+                                        residents={renderedUsersInLounge.filter(u => u.zoneIdx === 0)}
+                                        selectedUser={selectedUser}
+                                        setSelectedUser={setSelectedUser}
+                                        activeHoverZone={activeHoverZone}
+                                        setActiveHoverZone={setActiveHoverZone}
+                                    />
+                                    <SleeperChamber
+                                        residents={renderedUsersInLounge.filter(u => u.zoneIdx === 1)}
+                                        selectedUser={selectedUser}
+                                        setSelectedUser={setSelectedUser}
+                                        activeHoverZone={activeHoverZone}
+                                        setActiveHoverZone={setActiveHoverZone}
+                                    />
+                                    <FitnessChamber
+                                        residents={renderedUsersInLounge.filter(u => u.zoneIdx === 2)}
+                                        selectedUser={selectedUser}
+                                        setSelectedUser={setSelectedUser}
+                                        activeHoverZone={activeHoverZone}
+                                        setActiveHoverZone={setActiveHoverZone}
+                                    />
+                                    <ArcadeChamber
+                                        residents={renderedUsersInLounge.filter(u => u.zoneIdx === 3)}
+                                        selectedUser={selectedUser}
+                                        setSelectedUser={setSelectedUser}
+                                        activeHoverZone={activeHoverZone}
+                                        setActiveHoverZone={setActiveHoverZone}
+                                    />
+                                </div>
+
+                                {/* FLOOR LINE BASE (2px strong line art) */}
+                                <div className="absolute inset-x-0 bottom-[40px] h-1.5 bg-slate-900 z-20" />
+                                {/* Ground grass dirt floor block */}
+                                <div className="absolute inset-x-0 bottom-0 h-[40px] bg-slate-100 border-t border-slate-300 z-20" />
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* COMPACT TEXT/AVATAR MOBILE LIST VIEW */}
+            <AnimatePresence>
+                {!isCollapsed && viewMode === 'compact' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 15 }}
+                        transition={{ duration: 0.25 }}
+                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                        id="cozy-compact-list-grid"
+                    >
+                        {zones.map((zone) => {
+                            const zoneResidents = renderedUsersInLounge.filter(u => u.zoneIdx === zone.id);
+                            return (
+                                <div 
+                                    key={zone.id}
+                                    className="p-4 border-2 border-slate-900 rounded-2xl bg-white shadow-[4px_4px_0px_#000] flex flex-col justify-between"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2 mb-3">
+                                            <span className="font-black text-slate-950 text-xs tracking-wide uppercase">{zone.title}</span>
+                                            <span className={`px-2 py-0.5 rounded-md border border-slate-900 text-[9.5px] font-black uppercase ${zone.badgeClass}`}>
+                                                {zoneResidents.length} คน
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 font-bold mb-3 text-left leading-normal">{zone.desc}</p>
+                                        
+                                        {zoneResidents.length === 0 ? (
+                                            <div className="text-center py-5 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-black">
+                                                💤 โซนนี้เงียบเหงา ยังไม่มีใครเข้ามาพักผ่อน
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {zoneResidents.map(({ user, actionText, statusIcon }) => (
+                                                    <div 
+                                                        key={user.id} 
+                                                        onClick={() => setSelectedUser(user)}
+                                                        className="group p-2.5 bg-slate-50 border-2 border-slate-200 hover:border-slate-900 hover:bg-amber-50 rounded-xl flex items-center justify-between gap-3 transition-all duration-150 cursor-pointer text-left"
+                                                    >
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <span className="text-xl flex items-center justify-center bg-white border-2 border-slate-200 group-hover:border-slate-900 w-8 h-8 rounded-lg shadow-sm shrink-0">
+                                                                {user.emoji || '👾'}
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="font-black text-xs text-slate-950 truncate">{user.name}</span>
+                                                                    {user.name && (
+                                                                        <span className="text-[9px] font-black text-slate-400 truncate">({user.name})</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-[9.5px] text-slate-500 font-bold leading-tight mt-0.5 truncate">
+                                                                    {actionText}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-xs bg-white border-2 border-slate-200 px-1.5 py-0.5 rounded-md shadow-sm shrink-0">
+                                                            {statusIcon}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -353,9 +464,9 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
 
                         <button 
                             onClick={() => setSelectedUser(null)}
-                            className="bg-slate-100 hover:bg-slate-200 border-2 border-slate-900 text-slate-900 text-[10px] font-black px-3.5 py-1 rounded-md transition-colors"
+                            className="bg-slate-100 hover:bg-slate-200 border-2 border-slate-900 text-slate-900 text-[10px] font-black px-3.5 py-1 rounded-md transition-colors cursor-pointer"
                         >
-                            ปิดพจนานุกรมกิจกรรม
+                            ปิดคำอธิบายกิจกรรม
                         </button>
                     </motion.div>
                 )}

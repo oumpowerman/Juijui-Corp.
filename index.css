@@ -421,3 +421,30 @@ body.calendar-focus-mode .mobile-nav-dock {
   display: none !important;
 }
 
+@property --rainbow-alpha {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.75;
+}
+
+/* Pastel Rainbow background for highlighted elements */
+.bg-rainbow-pastel {
+  --rainbow-alpha: 0.75;
+  background-image: linear-gradient(
+    90deg,
+    rgba(254, 226, 226, var(--rainbow-alpha)) 0%,   /* Rose */
+    rgba(254, 243, 199, var(--rainbow-alpha)) 20%,  /* Amber */
+    rgba(209, 250, 229, var(--rainbow-alpha)) 40%,  /* Emerald */
+    rgba(224, 242, 254, var(--rainbow-alpha)) 60%,  /* Sky */
+    rgba(243, 232, 255, var(--rainbow-alpha)) 80%,  /* Purple */
+    rgba(254, 226, 226, var(--rainbow-alpha)) 100%  /* Rose */
+  );
+  background-size: 200% 200%;
+  transition: --rainbow-alpha 1000ms ease-in-out, border-color 1000ms ease-in-out, box-shadow 1000ms ease-in-out;
+}
+
+.animate-gradient-x-slow {
+  animation: gradient-x 6s ease infinite;
+}
+
+

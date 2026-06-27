@@ -182,7 +182,18 @@ export const useAttendanceActions = (userId: string) => {
         if (!todayLog || !todayLog.checkInTime) return false;
         setIsActionLoading(true);
         try {
-            const now = new Date();
+            let now = new Date();
+            let isAdjustedCheckout = false;
+            let finalReason = reason || '';
+            if (reason && reason.includes('[ADJUSTED_CHECKOUT:')) {
+                const match = reason.match(/\[ADJUSTED_CHECKOUT:([^\]]+)\]/);
+                if (match && match[1]) {
+                    now = new Date(match[1]);
+                    isAdjustedCheckout = true;
+                    finalReason = reason.replace(/\[ADJUSTED_CHECKOUT:[^\]]+\]/, '').trim();
+                }
+            }
+
             const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
             const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
             const minHours = parseFloat(minHoursStr) || 9;
@@ -203,11 +214,15 @@ export const useAttendanceActions = (userId: string) => {
             const currentNote = freshLog?.note || todayLog.note || '';
 
             let noteAppend = '';
-            if (calcResult.status === 'EARLY_LEAVE') {
+            if (isAdjustedCheckout) {
+                 noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
+            } else if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
-                 if (reason) noteAppend += ` [REASON: ${reason}]`;
+                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             } else {
                  noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             }
 
             const newStatus = todayLog.status === 'PENDING_VERIFY' ? 'PENDING_VERIFY' : 'COMPLETED';

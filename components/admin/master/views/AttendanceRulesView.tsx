@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MasterOption } from '../../../../types';
-import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair, Clock } from 'lucide-react';
+import { Settings, Save, Heart, Edit2, Trash2, MapPin, Crosshair, Clock, Sparkles } from 'lucide-react';
 import { useGameConfig } from '../../../../context/GameConfigContext';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext'; // Added
 import { supabase } from '../../../../lib/supabase'; // Needed for direct inserts
@@ -68,9 +68,11 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
     const { showAlert, showConfirm } = useGlobalDialog(); // Destructure
 
     // Attendance Rules Local State
-    const [tempTimeConfig, setTempTimeConfig] = useState<{ start: string, end: string, buffer: string, minHours: string }>({ start: '10:00', end: '19:00', buffer: '15', minHours: '9' });
+    const [tempTimeConfig, setTempTimeConfig] = useState<{ start: string, end: string, buffer: string, minHours: string, otThreshold: string, checkoutPenaltyTime: string }>({ start: '10:00', end: '19:00', buffer: '15', minHours: '9', otThreshold: '2', checkoutPenaltyTime: '06:00' });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
+    const [isCheckoutPenaltyTimeOpen, setIsCheckoutPenaltyTimeOpen] = useState(false);
+    const [otJpRate, setOtJpRate] = useState<string>('10');
     
     // Location Config State
     const [officeConfig, setOfficeConfig] = useState<{ lat: string, lng: string, radius: string }>({ lat: '', lng: '', radius: '500' });
@@ -83,14 +85,22 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const endOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'END_TIME');
         const bufferOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
         const minHoursOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MIN_HOURS');
+        const otThresholdOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OT_THRESHOLD_HOURS');
+        const checkoutPenaltyTimeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'CHECKOUT_PENALTY_TIME');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
                 buffer: bufferOpt?.label || '15',
-                minHours: minHoursOpt?.label || '9'
+                minHours: minHoursOpt?.label || '9',
+                otThreshold: otThresholdOpt?.label || '2',
+                checkoutPenaltyTime: checkoutPenaltyTimeOpt?.label || '06:00'
             });
+        }
+
+        if (config?.GLOBAL_MULTIPLIERS?.OT_JP_RATE_PER_HOUR !== undefined) {
+            setOtJpRate(config.GLOBAL_MULTIPLIERS.OT_JP_RATE_PER_HOUR.toString());
         }
 
         // Location
@@ -105,7 +115,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 radius: radOpt?.label || '500'
             });
         }
-    }, [masterOptions]);
+    }, [masterOptions, config]);
 
     const handleSaveTimeConfig = async () => {
         const updateOrInsert = async (key: string, val: string) => {
@@ -129,6 +139,18 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrInsert('END_TIME', tempTimeConfig.end);
         await updateOrInsert('LATE_BUFFER', tempTimeConfig.buffer);
         await updateOrInsert('MIN_HOURS', tempTimeConfig.minHours);
+        await updateOrInsert('OT_THRESHOLD_HOURS', tempTimeConfig.otThreshold);
+        await updateOrInsert('CHECKOUT_PENALTY_TIME', tempTimeConfig.checkoutPenaltyTime);
+        
+        // Save OT JP Rate to Game Config GLOBAL_MULTIPLIERS
+        const parsedRate = parseInt(otJpRate, 10);
+        if (!isNaN(parsedRate)) {
+            const currentMultipliers = config.GLOBAL_MULTIPLIERS || {};
+            await updateConfigValue('GLOBAL_MULTIPLIERS', {
+                ...currentMultipliers,
+                OT_JP_RATE_PER_HOUR: parsedRate
+            });
+        }
         
         await showAlert('บันทึกเวลาทำการเรียบร้อย ✅', 'สำเร็จ');
     };
@@ -259,7 +281,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                     ตั้งค่าเวลาทำการ (Hybrid Logic)
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 items-end">
                         <div className="space-y-2">
                             <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">เวลาเข้างาน (Start Time)</label>
                             <button
@@ -306,7 +328,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Hrs</span>
                             </div>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">อนุโลมสายได้ (Late Buffer)</label>
                             <div className="relative">
                                 <input 
@@ -318,7 +340,99 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Min</span>
                             </div>
                         </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">เกณฑ์ลืมออกงาน (OT Threshold)</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    value={tempTimeConfig.otThreshold}
+                                    onChange={e => setTempTimeConfig(prev => ({ ...prev, otThreshold: e.target.value }))}
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-bold">Hrs</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">อัตราคะแนน OT (OT JP Rate)</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    className="w-full pl-4 pr-16 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    value={otJpRate}
+                                    onChange={e => setOtJpRate(e.target.value)}
+                                    placeholder="10"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-bold">JP/ชม.</span>
+                            </div>
+                        </div>
                 </div>
+
+                {/* Server-Side Automated Checks Sub-section */}
+                <div className="mt-8 pt-6 border-t border-dashed border-gray-100">
+                    <h4 className="text-xs font-black text-indigo-600 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                        ระบบตรวจสอบและเตือนสติเซิร์ฟเวอร์ (Server-Side Automated Reminders & Penalties)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Plan B Info Card */}
+                        <div className="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-100/60 flex flex-col justify-between">
+                            <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 mb-2">
+                                    📋 แผนที่ B (Active)
+                                </span>
+                                <h5 className="font-bold text-sm text-gray-800 mb-1">เตือนสติพนักงานเมื่อลืมเข้างาน</h5>
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    เซิร์ฟเวอร์จะคำนวณเวลางานอัตโนมัติ และแจ้งเตือนแถบสีแดงเข้า LINE ทันทีเมื่อเลยเวลาเข้างานที่กำหนดไว้
+                                </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-indigo-100/40 flex items-center justify-between text-xs font-bold text-indigo-700">
+                                <span>⏰ เวลาทำงานของนาฬิกาปลุกเซิร์ฟเวอร์วันนี้:</span>
+                                <span className="bg-indigo-100/80 px-2 py-1 rounded-lg">
+                                    {(() => {
+                                        const [h, m] = tempTimeConfig.start.split(':').map(Number);
+                                        const buf = parseInt(tempTimeConfig.buffer) || 0;
+                                        const date = new Date();
+                                        date.setHours(h, m + buf + 1);
+                                        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} น.`;
+                                    })()}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Plan C Config Card */}
+                        <div className="p-4 bg-amber-50/40 rounded-2xl border border-amber-100/60 flex flex-col justify-between">
+                            <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 mb-2">
+                                    🛠️ แผนที่ C (Active)
+                                </span>
+                                <h5 className="font-bold text-sm text-gray-800 mb-1">ตรวจเช็คพนักงานลืมออกงานข้ามวัน</h5>
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    เซิร์ฟเวอร์จะตื่นเช้าตรู่ของวันใหม่มาตรวจเช็ค และหักแต้ม/ส่งคำเตือนลืมตอกบัตรออกของเมื่อวานโดยอัตโนมัติ
+                                </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-amber-100/40 flex items-center justify-between gap-4">
+                                <span className="text-xs font-bold text-amber-800">⏰ ตั้งเวลาตรวจเช็คของเซิร์ฟเวอร์:</span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCheckoutPenaltyTimeOpen(true)}
+                                        className="px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold text-amber-800 flex items-center gap-1 hover:border-amber-400 transition-all shadow-sm"
+                                    >
+                                        {tempTimeConfig.checkoutPenaltyTime} น.
+                                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                    </button>
+                                    <TimePickerModal 
+                                        isOpen={isCheckoutPenaltyTimeOpen}
+                                        onClose={() => setIsCheckoutPenaltyTimeOpen(false)}
+                                        initialTime={tempTimeConfig.checkoutPenaltyTime}
+                                        onSelect={(val) => setTempTimeConfig(prev => ({ ...prev, checkoutPenaltyTime: val }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="mt-6 flex justify-end">
                      <button 
                             onClick={handleSaveTimeConfig}

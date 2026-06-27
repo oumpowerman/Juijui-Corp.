@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Loader2, AlertTriangle, Send, LogOut, RefreshCw, Clock, CheckCircle2, MessageSquare } from 'lucide-react';
+import { X, MapPin, Loader2, AlertTriangle, Send, LogOut, RefreshCw, Clock, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react';
 import { LocationDef } from '../../../types/attendance';
 import { calculateDistance } from '../../../lib/locationUtils';
 import { format } from 'date-fns';
@@ -16,10 +16,11 @@ interface CheckOutModalProps {
     onRequest: (time: string, reason: string) => Promise<boolean>; // Correction request
     availableLocations: LocationDef[];
     checkInTime: Date; // Passed from parent for calculation
+    onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
 }
 
 export const CheckOutModal: React.FC<CheckOutModalProps> = ({ 
-    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime
+    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime, onOvertimeSubmit
 }) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData(); // Fetch latest config
@@ -34,6 +35,10 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
     const [checkOutStatus, setCheckOutStatus] = useState<'COMPLETED' | 'EARLY_LEAVE'>('COMPLETED');
     const [statusDetails, setStatusDetails] = useState<any>(null);
 
+    // Overtime Flow State
+    const [otFlowStep, setOtFlowStep] = useState<'NONE' | 'PROMPT' | 'REASON'>('NONE');
+    const [otReason, setOtReason] = useState('');
+
     // Form for Request / Early Leave
     const [time, setTime] = useState('');
     const [reason, setReason] = useState('');
@@ -41,12 +46,23 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
 
+    // Calculate real-time projected OT hours and JP rewards
+    const otDetails = React.useMemo(() => {
+        if (!statusDetails || !statusDetails.requiredEndTime) return { minutes: 0, hours: "0", calculatedJP: 0 };
+        const minutes = Math.max(0, Math.round((new Date().getTime() - statusDetails.requiredEndTime.getTime()) / (60 * 1000)));
+        const hours = (minutes / 60).toFixed(1);
+        const calculatedJP = Math.round((minutes / 60) * 10); // Base rate 10 JP per hour
+        return { minutes, hours, calculatedJP };
+    }, [statusDetails]);
+
     useEffect(() => {
         if (isOpen) {
             checkLocation();
             setTime(format(new Date(), 'HH:mm'));
             setReason('');
             setEarlyReason('');
+            setOtFlowStep('NONE');
+            setOtReason('');
             setStatus('LOADING');
             
             // Calculate Status Logic (Strict Duration)
@@ -102,6 +118,21 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
             showAlert('กรุณาระบุเหตุผลที่กลับก่อนเวลาด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
         }
+
+        // Overtime check logic
+        if (checkOutStatus === 'COMPLETED' && otFlowStep === 'NONE') {
+            const otThresholdOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OT_THRESHOLD_HOURS');
+            const otThreshold = parseFloat(otThresholdOpt?.label || '2');
+            
+            // thresholdEndTime = requiredEndTime + otThreshold (hours)
+            if (statusDetails && statusDetails.requiredEndTime) {
+                const thresholdEndTime = new Date(statusDetails.requiredEndTime.getTime() + otThreshold * 60 * 60 * 1000);
+                if (new Date() > thresholdEndTime) {
+                    setOtFlowStep('PROMPT');
+                    return;
+                }
+            }
+        }
         
         setIsSubmitting(true);
         // Pass location and potential reason
@@ -110,6 +141,49 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
             matchedLocation?.name, 
             earlyReason
         );
+        setIsSubmitting(false);
+        onClose();
+    };
+
+    const handleForgetfulSubmit = async () => {
+        if (!statusDetails || !statusDetails.requiredEndTime) return;
+        setIsSubmitting(true);
+        
+        // Pass the adjusted checkout timestamp inside the reason parameter using a parsed format
+        const adjustedCheckoutTime = statusDetails.requiredEndTime;
+        await onConfirm(
+            { lat: currentLat, lng: currentLng },
+            matchedLocation?.name,
+            `[ADJUSTED_CHECKOUT:${adjustedCheckoutTime.toISOString()}] ลืมลงเวลากลับตามปกติ`
+        );
+        
+        setIsSubmitting(false);
+        showAlert('ระบบลงเวลากลับตามปกติเวลา ' + format(adjustedCheckoutTime, 'HH:mm') + ' น. สำเร็จแล้วครับ 👍', 'ลงเวลากลับ');
+        onClose();
+    };
+
+    const handleOvertimeSubmit = async () => {
+        if (!otReason.trim()) {
+            showAlert('กรุณาระบุรายละเอียดงานล่วงเวลาด้วยครับ', 'ข้อมูลไม่ครบ');
+            return;
+        }
+        if (!statusDetails || !statusDetails.requiredEndTime) return;
+
+        setIsSubmitting(true);
+        
+        // 1. Check out now at the actual current time with OT reason
+        await onConfirm(
+            { lat: currentLat, lng: currentLng },
+            matchedLocation?.name,
+            `[OT_PENDING:${otReason}] ทำงานล่วงเวลา (OT): ${otReason}`
+        );
+
+        // 2. Calculate OT minutes and submit the formal OT request
+        const otMinutes = Math.round((new Date().getTime() - statusDetails.requiredEndTime.getTime()) / (60 * 1000));
+        if (onOvertimeSubmit) {
+            await onOvertimeSubmit(otMinutes, `[OT_MINUTES:${otMinutes}] ${otReason}`);
+        }
+
         setIsSubmitting(false);
         onClose();
     };
@@ -135,8 +209,127 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                 </div>
 
                 <div className="p-6 overflow-y-auto">
-                    {/* Status Feedback */}
-                    {statusDetails && (
+                    {otFlowStep === 'PROMPT' && statusDetails && (
+                        <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4">
+                            <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse shadow-lg shadow-violet-100">
+                                <Clock className="w-8 h-8 text-violet-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black text-violet-800">ยืนยันการบันทึก OT</h3>
+                                <p className="text-xs text-gray-500">คุณเลิกงานเกินเวลาเลิกงานมาตรฐานมามากกว่า 2 ชั่วโมง</p>
+                            </div>
+                            
+                            <div className="bg-violet-50/50 p-4 rounded-2xl border border-violet-100 text-left space-y-1">
+                                <p className="text-xs font-bold text-violet-700">สรุปเวลาทำงานของวันนี้:</p>
+                                <p className="text-xs text-gray-600">เวลาเข้างานจริง: <span className="font-bold text-gray-800">{format(checkInTime, 'HH:mm')} น.</span></p>
+                                <p className="text-xs text-gray-600">เวลาเลิกงานเกณฑ์ปกติ: <span className="font-bold text-gray-800">{format(statusDetails.requiredEndTime, 'HH:mm')} น.</span></p>
+                                <p className="text-xs text-gray-600">เวลาปัจจุบัน: <span className="font-bold text-violet-700">{format(new Date(), 'HH:mm')} น.</span></p>
+                            </div>
+
+                            <p className="text-sm font-bold text-gray-700">คุณทำงานล่วงเวลา (OT) ใช่หรือไม่?</p>
+
+                            <div className="space-y-3">
+                                <button 
+                                    onClick={handleForgetfulSubmit}
+                                    disabled={isSubmitting}
+                                    className="w-full p-4 border border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/20 rounded-2xl text-left transition-all active:scale-98 flex items-start gap-3 group"
+                                >
+                                    <div className="p-2 bg-gray-100 rounded-xl text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 shrink-0">
+                                        <RefreshCw className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">ไม่ใช่ ฉันแค่ลืมลงเวลา</p>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">ระบบจะบันทึกเวลาเลิกงานของคุณเป็นแบบมาตรฐาน ({format(statusDetails.requiredEndTime, 'HH:mm')} น.)</p>
+                                    </div>
+                                </button>
+
+                                <button 
+                                    onClick={() => setOtFlowStep('REASON')}
+                                    className="w-full p-4 border-2 border-violet-200 hover:border-violet-300 bg-gradient-to-br from-violet-50/60 to-fuchsia-50/60 rounded-2xl text-left transition-all active:scale-98 flex items-start gap-3 shadow-lg shadow-violet-100/50 hover:shadow-violet-200/50 relative overflow-hidden group"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-violet-300/10 via-fuchsia-300/10 to-indigo-300/10 animate-pulse pointer-events-none" />
+                                    <div className="p-2 bg-violet-100 rounded-xl text-violet-600 group-hover:bg-violet-200 shrink-0 relative z-10">
+                                        <Send className="w-4 h-4" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <p className="text-sm font-bold text-violet-900 flex items-center gap-1.5">
+                                            ใช่ ฉันทำงานล่วงเวลาจริง 
+                                            <span className="text-[10px] bg-violet-200/60 text-violet-700 px-1.5 py-0.5 rounded-full font-bold">OT ✨</span>
+                                        </p>
+                                        <p className="text-[11px] text-violet-700/80 mt-0.5">บันทึกเวลาออกงานปัจจุบัน และส่งคำขออนุมัติชั่วโมง OT ล่วงเวลาอย่างเป็นทางการ</p>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <button 
+                                onClick={() => setOtFlowStep('NONE')}
+                                className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                ย้อนกลับ
+                            </button>
+                        </div>
+                    )}
+
+                    {otFlowStep === 'REASON' && (
+                        <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4">
+                            <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
+                                <MessageSquare className="w-8 h-8 text-violet-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black text-violet-800">ระบุรายละเอียดงาน OT</h3>
+                                <p className="text-xs text-gray-500">กรุณากรอกเหตุผลหรือรายละเอียดการทำงานล่วงเวลา</p>
+                            </div>
+
+                            {/* JP Prediction Card */}
+                            {otDetails && otDetails.minutes > 0 && (
+                                <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 p-4 rounded-2xl text-left space-y-1.5 shadow-sm relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-2 opacity-10">
+                                        <Sparkles className="w-12 h-12 text-violet-600" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-violet-700 flex items-center gap-1">
+                                        <Sparkles className="w-3.5 h-3.5 text-violet-500 animate-pulse" /> แต้มรางวัลคาดการณ์ (Projected Rewards)
+                                    </p>
+                                    <p className="text-[11px] text-gray-600 leading-relaxed">
+                                        หากคำขอนี้ได้รับการอนุมัติ คุณจะได้รับโบนัสประมาณ <span className="font-black text-violet-700 text-sm">+{otDetails.calculatedJP} JP</span> (คำนวณจาก <span className="font-bold text-gray-800">{otDetails.hours} ชม.</span> x อัตรา JP พื้นฐาน 10 JP/ชม.)
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="text-left space-y-2">
+                                <label className="text-xs font-bold text-gray-500">รายละเอียดงานที่ทำล่วงเวลา (Required)</label>
+                                <textarea
+                                    value={otReason}
+                                    onChange={e => setOtReason(e.target.value)}
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-4 focus:ring-violet-100 focus:border-violet-300 outline-none resize-none"
+                                    placeholder="เช่น ประชุมวางแผนโปรเจกต์ใหม่, แก้ไขข้อผิดพลาดบนระบบเซิร์ฟเวอร์..."
+                                    rows={4}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <button
+                                    onClick={handleOvertimeSubmit}
+                                    disabled={isSubmitting || !otReason.trim()}
+                                    className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-violet-200 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+                                    ส่งคำขอและเลิกงาน
+                                </button>
+
+                                <button
+                                    onClick={() => setOtFlowStep('PROMPT')}
+                                    className="w-full py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-colors"
+                                >
+                                    ย้อนกลับ
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {otFlowStep === 'NONE' && (
+                        <>
+                            {statusDetails && (
                         <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${checkOutStatus === 'EARLY_LEAVE' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
                             <div className={`p-2 rounded-full shrink-0 ${checkOutStatus === 'EARLY_LEAVE' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
                                 {checkOutStatus === 'EARLY_LEAVE' ? <Clock className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
@@ -281,6 +474,8 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                 </button>
                              </form>
                         </div>
+                    )}
+                        </>
                     )}
                 </div>
             </div>

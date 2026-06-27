@@ -281,7 +281,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
                 </div>
             )}
 
-            <div className="relative">
+            <div className="relative flex-1 flex flex-col min-h-0">
                 {children}
             </div>
         </div>

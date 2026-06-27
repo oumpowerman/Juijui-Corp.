@@ -193,6 +193,19 @@ const StatusCard: React.FC<StatusCardProps> = ({
         return await onCheckOutRequest('FORGOT_CHECKOUT', now, now, formattedReason);
     };
 
+    const handleOvertimeSubmit = async (otMinutes: number, reason: string) => {
+        const now = new Date();
+        const success = await onCheckOutRequest('OVERTIME', now, now, reason);
+        if (success) {
+            await showAlert(
+                `ส่งคำขออนุมัติการทำ OT เรียบร้อยแล้วครับ (${Math.floor(otMinutes / 60)} ชม. ${otMinutes % 60} นาที) กรุณารอแอดมินพิจารณาครับ ✨`,
+                'ส่งคำขอ OT สำเร็จ!'
+            );
+            if (onRefresh) onRefresh();
+        }
+        return success;
+    };
+
     // --- STATE MACHINE UI ---
 
     return (
@@ -377,6 +390,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                         onRequest={handleCheckOutRequest}
                         availableLocations={availableLocations}
                         checkInTime={todayLog!.checkInTime || new Date()} 
+                        onOvertimeSubmit={handleOvertimeSubmit}
                     />
                 </div>
             ) : (

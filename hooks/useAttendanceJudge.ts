@@ -241,86 +241,8 @@ export const useAttendanceJudge = (
         }
 
         // =========================================================
-        // SECTION E: FORGOTTEN CHECKOUT PENALTY (ลืมตอกบัตรออกข้ามวัน)
+        // SECTION E: FORGOTTEN CHECKOUT PENALTY (Moved to Server-Side pg_cron trigger)
         // =========================================================
-        const forgotCheckoutLogs = attendanceLogs.filter(log => 
-            log.status === 'WORKING' && 
-            !log.checkOutTime && 
-            log.date < todayStr
-        );
-
-        if (forgotCheckoutLogs && forgotCheckoutLogs.length > 0) {
-            for (const log of forgotCheckoutLogs) {
-                const lockKey = `FORGOT-OUT-${log.id}`;
-                if (isProcessingRef.current.has(lockKey)) continue;
-
-                // 1. เช็คว่ามีคำขอแก้เวลา (Correction Request) ที่รออนุมัติของวันนี้หรือไม่
-                const correctionCheck = isUserOnLeave(log.date, userLeaves);
-                if (correctionCheck.onLeave && correctionCheck.status === 'PENDING') {
-                    console.log(`[AutoJudge] Deferring forgot checkout penalty for ${log.date} because correction is PENDING.`);
-                    continue;
-                }
-                
-                // 2. ตรวจสอบจาก game_logs ใน Context (Robust Check)
-                const alreadyPenalized = await hasPenaltyInLogs('ATTENDANCE_FORGOT_CHECKOUT', `FORGOT_OUT:${log.date}`);
-
-                if (alreadyPenalized) {
-                    // Recovery: ถ้าเคยหักแล้วแต่สถานะยังเป็น WORKING ให้แก้เป็น ACTION_REQUIRED เพื่อหยุด Loop
-                    // FETCH FRESH NOTE TO PREVENT OVERWRITE
-                    const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).maybeSingle();
-
-                    await supabase.from('attendance_logs').update({
-                        status: 'ACTION_REQUIRED',
-                        note: mergeAttendanceNotes(freshLog?.note || log.note, `[SYSTEM] Status recovered (Penalized)`)
-                    }).eq('id', log.id);
-                    continue;
-                }
-
-                // 3. เช็คว่าเคยมี Notification ของวันนี้ส่งไปหรือยัง ใน Context
-                const alreadyNotified = hasNotification('SYSTEM_LOCK_PENALTY', log.date);
-
-                if (!alreadyNotified) {
-                    isProcessingRef.current.add(lockKey);
-
-                    try {
-                        // FETCH FRESH NOTE TO PREVENT OVERWRITE
-                        const { data: freshLog } = await supabase.from('attendance_logs').select('note').eq('id', log.id).maybeSingle();
-
-                        // Update status to ACTION_REQUIRED
-                        await supabase.from('attendance_logs').update({
-                            status: 'ACTION_REQUIRED',
-                            note: mergeAttendanceNotes(freshLog?.note || log.note, `[SYSTEM] Penalized for forgotten checkout`)
-                        }).eq('id', log.id);
-                        
-                        // Penalty: Deduct HP
-                        await processAction(currentUser.id, 'ATTENDANCE_FORGOT_CHECKOUT', {
-                            date: log.date,
-                            id: `FORGOT_OUT:${log.date}`, // Use as idempotency key
-                            reason: `FORGOT_OUT_DATE:${log.date}`,
-                            description: `ลืมตอกบัตรออกของวันที่ ${format(new Date(log.date), 'd MMM', { locale: th })} ระบบได้ทำการหักคะแนนอัตโนมัติ`
-                        });
-
-                        const forgotCheckoutPenalty = config?.ATTENDANCE_RULES?.FORGOT_CHECKOUT?.hp ?? -10;
-
-  //                      await supabase.from('notifications').insert({
-  //                          user_id: currentUser.id,
-  //                          type: 'SYSTEM_LOCK_PENALTY',
-  //                          title: '⚠️ หักคะแนน: ลืมตอกบัตรออก',
-  //                          message: `คุณลืมตอกบัตรออกของวันที่ ${log.date} ระบบได้ทำการหักคะแนน กรุณาส่งคำขอแจ้งเวลาออกย้อนหลังเพื่อขอคืนคะแนน`,
-  //                          is_read: false,
-  //                          link_path: 'ATTENDANCE',
-  //                          metadata: { hp: forgotCheckoutPenalty, logId: log.id }
-  //                      });
-
-                        console.log(`[AutoJudge] Penalized forgotten checkout for ${log.date}`);
-                    } catch (err) {
-                        console.error("[AutoJudge] Error in forgot checkout processing:", err);
-                        isProcessingRef.current.delete(lockKey);
-                    }
-                    // We don't delete from isProcessingRef to keep it locked in this session
-                }
-            }
-        }
     };
 
     return { runAttendanceChecks };

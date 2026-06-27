@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, Trash2, Plus, Terminal, Sparkles, HelpCircle, Zap, Smile, Search } from 'lucide-react';
 import { Task, Channel, Platform, Status, Priority } from '../types';
 import { useToast } from '../context/ToastContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatAssistantProps {
   tasks: Task[];
@@ -294,10 +295,17 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
       </div>
 
       {/* Chat Window */}
-      {isOpen && (
-        <div className="fixed bottom-40 lg:bottom-24 right-4 lg:right-6 w-[calc(100vw-32px)] sm:w-[350px] md:w-[400px] h-[480px] sm:h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-[100] flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-200 overflow-hidden">
-          
-          {/* Header */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95, transition: { duration: 0.15 } }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed bottom-40 lg:bottom-24 right-4 lg:right-6 w-[calc(100vw-32px)] sm:w-[350px] md:w-[400px] h-[480px] sm:h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-[100] flex flex-col overflow-hidden"
+          >
+            
+            {/* Header */}
           <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
             <div className="flex items-center space-x-2">
                 <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -317,6 +325,13 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
                     title="คู่มือการใช้"
                 >
                     <HelpCircle className="w-5 h-5 text-white/90" />
+                </button>
+                <button 
+                    onClick={() => setIsOpen(false)} 
+                    className="p-1.5 hover:bg-white/20 rounded-full transition-colors" 
+                    title="ปิดหน้าต่าง"
+                >
+                    <X className="w-5 h-5 text-white" />
                 </button>
             </div>
           </div>
@@ -387,8 +402,9 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
                 <Send className="w-4 h-4" />
             </button>
           </form>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </>
   );
 };

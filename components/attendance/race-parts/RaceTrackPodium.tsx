@@ -60,12 +60,14 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
         );
     }
 
-    const minHeightClass = viewMode === '2d' || viewMode === 'compact'
-        ? 'min-h-[145px] lg:h-[145px]'
-        : 'min-h-[230px]';
+    const heightClass = viewMode === '3d'
+        ? 'h-[310px] lg:h-[380px] min-h-[230px]'
+        : viewMode === '2d'
+        ? 'h-[310px] lg:h-[160px]'
+        : 'h-[310px] lg:h-[145px]';
 
     return (
-        <div className={`w-full flex flex-col border-2 border-slate-900 bg-white p-3.5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] font-sans transition-all duration-300 h-full ${minHeightClass}`}>
+        <div className={`w-full flex flex-col border-2 border-slate-900 bg-white p-3.5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] font-sans transition-all duration-300 ${heightClass}`}>
             {/* Panel Header */}
             <div className="flex items-center justify-between border-b-2 border-slate-100 pb-2.5 mb-3">
                 <div className="flex items-center gap-1.5">
@@ -93,7 +95,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
             </div>
 
                 {/* List Container */}
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5 scrollbar-thin">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent hover:scrollbar-thumb-indigo-300">
                     <AnimatePresence initial={false}>
                         {checkedInRacers.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center py-6">

@@ -9,9 +9,11 @@ import AttendanceProofModal from './subcomponents/AttendanceProofModal';
 
 interface AttendanceHistoryProps {
     userId: string;
+    highlightedDate?: string | null;
+    onClearHighlight?: () => void;
 }
 
-const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
+const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlightedDate, onClearHighlight }) => {
     const {
         page,
         setPage,
@@ -41,7 +43,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
         holidays,
         exceptions,
         PAGE_SIZE
-    } = useAttendanceHistoryEngine(userId);
+    } = useAttendanceHistoryEngine(userId, highlightedDate);
 
     return (
         <div className="space-y-8">
@@ -87,6 +89,8 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId }) => {
                     totalPages={totalPages}
                     onPageChange={setPage}
                     pageSize={PAGE_SIZE}
+                    highlightedDate={highlightedDate}
+                    onClearHighlight={onClearHighlight}
                 />
 
                 {/* Proof Modal */}

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase, User, Info, ChevronDown, Filter, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, Calendar, ExternalLink, Clock, Briefcase, User, Info, ChevronDown, Filter, AlertTriangle, MapPin, Moon } from 'lucide-react';
 import { format } from 'date-fns';
 import { LeaveRequest } from '../../../types/attendance';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
@@ -17,6 +17,106 @@ interface LeaveApprovalListProps {
 }
 
 type HistoryFilter = 'ALL' | 'APPROVED' | 'REJECTED';
+
+interface ParsedReason {
+    cleanReason: string;
+    isLateSubmission: boolean;
+    isLocationMismatch: boolean;
+    forgotCheckoutPenalty: boolean;
+    time: string | null;
+}
+
+const parseReason = (reason: string): ParsedReason => {
+    let text = reason || '';
+    
+    // Check for [LATE_SUBMISSION]
+    const isLateSubmission = text.includes('[LATE_SUBMISSION]');
+    text = text.replace(/\[LATE_SUBMISSION\]/g, '');
+    
+    // Check for (Location Mismatch)
+    const isLocationMismatch = text.includes('(Location Mismatch)');
+    text = text.replace(/\(Location Mismatch\)/g, '');
+    
+    // Check for forgotten checkout
+    const forgotCheckoutPenalty = text.includes('Penalized for forgotten checkout') || text.includes('forgotten checkout') || text.includes('ลืมเช็คเอาท์');
+    text = text.replace(/\[SYSTEM\]\s*Penalized for forgotten checkout/g, '');
+    text = text.replace(/Penalized for forgotten checkout/g, '');
+    text = text.replace(/\|/g, ''); // Clear any pipes
+    
+    // Extract [TIME:XX:XX]
+    const timeMatch = text.match(/\[TIME:(\d{2}:\d{2})\]/);
+    let time: string | null = null;
+    if (timeMatch) {
+        time = timeMatch[1];
+        text = text.replace(/\[TIME:\d{2}:\d{2}\]/g, '');
+    }
+
+    text = text.trim();
+    return {
+        cleanReason: text,
+        isLateSubmission,
+        isLocationMismatch,
+        forgotCheckoutPenalty,
+        time
+    };
+};
+
+const getCardStyle = (type: string) => {
+    const styles: Record<string, { bg: string; border: string; accent: string }> = {
+        OVERTIME: { 
+            bg: 'bg-indigo-50 hover:bg-indigo-100/40', 
+            border: 'border-indigo-100 hover:border-indigo-200/80', 
+            accent: 'bg-indigo-500' 
+        },
+        WFH: { 
+            bg: 'bg-sky-50 hover:bg-sky-100/40', 
+            border: 'border-sky-100 hover:border-sky-200/80', 
+            accent: 'bg-sky-500' 
+        },
+        SICK: { 
+            bg: 'bg-rose-50 hover:bg-rose-100/40', 
+            border: 'border-rose-100 hover:border-rose-200/80', 
+            accent: 'bg-rose-500' 
+        },
+        VACATION: { 
+            bg: 'bg-emerald-50 hover:bg-emerald-100/40', 
+            border: 'border-emerald-100 hover:border-emerald-200/80', 
+            accent: 'bg-emerald-500' 
+        },
+        PERSONAL: { 
+            bg: 'bg-slate-50 hover:bg-slate-100/40', 
+            border: 'border-slate-100 hover:border-slate-200/80', 
+            accent: 'bg-slate-500' 
+        },
+        EMERGENCY: { 
+            bg: 'bg-amber-50 hover:bg-amber-100/40', 
+            border: 'border-amber-100 hover:border-amber-200/80', 
+            accent: 'bg-amber-500' 
+        },
+        LATE_ENTRY: { 
+            bg: 'bg-violet-50 hover:bg-violet-100/40', 
+            border: 'border-violet-100 hover:border-violet-200/80', 
+            accent: 'bg-violet-500' 
+        },
+        FORGOT_CHECKIN: { 
+            bg: 'bg-amber-50 hover:bg-amber-100/40', 
+            border: 'border-amber-100 hover:border-amber-200/80', 
+            accent: 'bg-amber-500' 
+        },
+        FORGOT_CHECKOUT: { 
+            bg: 'bg-amber-50 hover:bg-amber-100/40', 
+            border: 'border-amber-100 hover:border-amber-200/80', 
+            accent: 'bg-amber-500' 
+        },
+        FORGOT_BOTH: { 
+            bg: 'bg-amber-50 hover:bg-amber-100/40', 
+            border: 'border-amber-100 hover:border-amber-200/80', 
+            accent: 'bg-amber-500' 
+        }
+    };
+
+    return styles[type] || { bg: 'bg-white', border: 'border-gray-100', accent: 'bg-orange-400' };
+};
 
 const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({ 
     requests, isLoading, onApprove, onReject 
@@ -70,15 +170,15 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
 
     const getTypeBadge = (type: string) => {
         const styles: Record<string, string> = {
-            SICK: 'bg-rose-50 text-rose-600 border-rose-100',
-            VACATION: 'bg-sky-50 text-sky-600 border-sky-100',
-            PERSONAL: 'bg-slate-50 text-slate-600 border-slate-100',
-            EMERGENCY: 'bg-amber-50 text-amber-600 border-amber-100',
-            LATE_ENTRY: 'bg-violet-50 text-violet-600 border-violet-100',
-            OVERTIME: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-            FORGOT_CHECKIN: 'bg-orange-50 text-orange-600 border-orange-100',
-            FORGOT_CHECKOUT: 'bg-orange-50 text-orange-600 border-orange-100',
-            WFH: 'bg-indigo-50 text-indigo-600 border-indigo-100'
+            SICK: 'bg-rose-100 text-rose-700 border-rose-200/60',
+            VACATION: 'bg-emerald-100 text-emerald-700 border-emerald-200/60',
+            PERSONAL: 'bg-slate-100 text-slate-700 border-slate-200/60',
+            EMERGENCY: 'bg-rose-100 text-rose-700 border-rose-200/60',
+            LATE_ENTRY: 'bg-violet-100 text-violet-700 border-violet-200/60',
+            OVERTIME: 'bg-indigo-100 text-indigo-700 border-indigo-200/60',
+            FORGOT_CHECKIN: 'bg-amber-100 text-amber-700 border-amber-200/60',
+            FORGOT_CHECKOUT: 'bg-amber-100 text-amber-700 border-amber-200/60',
+            WFH: 'bg-sky-100 text-sky-700 border-sky-200/60'
         };
 
         const labels: Record<string, string> = {
@@ -95,7 +195,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         
         let icon = <Info className="w-3 h-3 mr-1"/>;
         if (type === 'LATE_ENTRY') icon = <Clock className="w-3 h-3 mr-1"/>;
-        else if (type === 'OVERTIME') icon = <Briefcase className="w-3 h-3 mr-1"/>;
+        else if (type === 'OVERTIME') icon = <Moon className="w-3 h-3 mr-1"/>;
         else if (type.includes('FORGOT')) icon = <Clock className="w-3 h-3 mr-1"/>;
 
         return (
@@ -105,28 +205,10 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         );
     };
 
-    const renderReason = (reason: string) => {
-        const timeMatch = reason.match(/\[TIME:(\d{2}:\d{2})\]/);
-        if (timeMatch) {
-            const time = timeMatch[1];
-            const cleanReason = reason.replace(/\[TIME:\d{2}:\d{2}\]/, '').trim();
-            return (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[10px] font-black shadow-sm flex items-center gap-1.5 animate-pulse">
-                            <Clock className="w-3 h-3" />
-                            ระบุเวลา: {time} น.
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100 italic leading-relaxed">
-                        "{cleanReason || 'ไม่ได้ระบุเหตุผลเพิ่มเติม'}"
-                    </p>
-                </div>
-            );
-        }
+    const renderReason = (parsed: ParsedReason) => {
         return (
-            <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100 italic leading-relaxed">
-                "{reason || 'ไม่ได้ระบุเหตุผล'}"
+            <p className="text-sm text-gray-700 bg-white p-3.5 rounded-2xl border border-black/5 italic leading-relaxed shadow-inner">
+                "{parsed.cleanReason || 'ไม่ได้ระบุเหตุผลเพิ่มเติม'}"
             </p>
         );
     };
@@ -199,123 +281,153 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                 ) : (
                     <div className="space-y-4">
                         <AnimatePresence mode="popLayout">
-                            {paginatedRequests.map((req) => (
-                                <motion.div 
-                                    key={req.id} 
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group"
-                                >
-                                    {/* Status Indicator Bar */}
-                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                                        req.status === 'APPROVED' ? 'bg-green-500' : 
-                                        req.status === 'REJECTED' ? 'bg-red-500' : 
-                                        'bg-orange-400 animate-pulse'
-                                    }`}></div>
+                            {paginatedRequests.map((req) => {
+                                const cardStyle = getCardStyle(req.type);
+                                const parsed = parseReason(req.reason);
 
-                                    <div className="flex flex-col lg:flex-row gap-6 justify-between">
-                                        <div className="flex gap-5 flex-1">
-                                            <div className="shrink-0 relative">
-                                                {req.user?.avatarUrl ? (
-                                                    <img src={req.user.avatarUrl} className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md" />
-                                                ) : (
-                                                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center font-black text-indigo-400 border-2 border-white shadow-md">
-                                                        {req.user?.name?.charAt(0)}
-                                                    </div>
-                                                )}
-                                                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center shadow-sm ${
-                                                    req.status === 'APPROVED' ? 'bg-green-500' : 
-                                                    req.status === 'REJECTED' ? 'bg-red-500' : 
-                                                    'bg-orange-400'
-                                                }`}>
-                                                    {req.status === 'APPROVED' && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                                    {req.status === 'REJECTED' && <XCircle className="w-3 h-3 text-white" />}
-                                                    {req.status === 'PENDING' && <Clock className="w-3 h-3 text-white" />}
-                                                </div>
-                                            </div>
+                                return (
+                                    <motion.div 
+                                        key={req.id} 
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden group`}
+                                    >
+                                        {/* Status Indicator Bar */}
+                                        <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                                            req.status === 'APPROVED' ? 'bg-green-500' : 
+                                            req.status === 'REJECTED' ? 'bg-red-500' : 
+                                            `${cardStyle.accent} animate-pulse`
+                                        }`}></div>
 
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2 mb-2">
-                                                    <h4 className="font-black text-gray-800 text-lg leading-none">{req.user?.name || 'Unknown'}</h4>
-                                                    {getTypeBadge(req.type)}
-                                                    
-                                                    {/* NEW: Expiration Warning */}
-                                                    {req.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type) && (
-                                                        getWorkingDaysDifference(req.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (
-                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-50 text-red-600 border-red-100 flex items-center gap-1 animate-pulse">
-                                                                <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
-                                                            </span>
-                                                        )
-                                                    )}
-
-                                                    <span className="text-[10px] text-gray-400 font-mono ml-auto">
-                                                        {format(req.createdAt, 'd MMM HH:mm')}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div className="flex flex-wrap items-center gap-3 mb-4">
-                                                    <div className={`flex items-center gap-2 text-xs font-black px-3 py-1.5 rounded-full shadow-sm ${
-                                                        req.type === 'LATE_ENTRY' ? 'bg-violet-50 text-violet-700' : 
-                                                        req.type.includes('FORGOT') ? 'bg-orange-50 text-orange-700' :
-                                                        'bg-gray-50 text-gray-700'
-                                                    }`}>
-                                                        <Calendar className="w-3.5 h-3.5" />
-                                                        {format(req.startDate, 'd MMM')} 
-                                                        {req.startDate.getTime() !== req.endDate.getTime() && ` - ${format(req.endDate, 'd MMM yyyy')}`}
-                                                    </div>
-
-                                                    {req.attachmentUrl && (
-                                                        <a 
-                                                            href={req.attachmentUrl} 
-                                                            target="_blank" 
-                                                            rel="noreferrer" 
-                                                            className="inline-flex items-center gap-1.5 text-[10px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full font-black hover:bg-blue-100 transition-colors"
-                                                        >
-                                                            <ExternalLink className="w-3 h-3" /> ดูหลักฐาน
-                                                        </a>
-                                                    )}
-                                                </div>
-
-                                                {renderReason(req.reason)}
-                                                
-                                                {/* Rejection Reason Display */}
-                                                {req.status === 'REJECTED' && req.rejectionReason && (
-                                                    <motion.div 
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        className="mt-3 text-xs text-red-600 bg-red-50/50 p-3 rounded-2xl border border-red-100/50 flex gap-2"
-                                                    >
-                                                        <XCircle className="w-4 h-4 shrink-0" />
-                                                        <div>
-                                                            <span className="font-black block mb-0.5">เหตุผลที่ปฏิเสธ:</span>
-                                                            <p className="italic">"{req.rejectionReason}"</p>
+                                        <div className="flex flex-col lg:flex-row gap-6 justify-between">
+                                            <div className="flex gap-5 flex-1">
+                                                <div className="shrink-0 relative">
+                                                    {req.user?.avatarUrl ? (
+                                                        <img src={req.user.avatarUrl} className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md" />
+                                                    ) : (
+                                                        <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center font-black text-indigo-400 border-2 border-white shadow-md">
+                                                            {req.user?.name?.charAt(0)}
                                                         </div>
-                                                    </motion.div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                    )}
+                                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center shadow-sm ${
+                                                        req.status === 'APPROVED' ? 'bg-green-500' : 
+                                                        req.status === 'REJECTED' ? 'bg-red-500' : 
+                                                        'bg-orange-400'
+                                                    }`}>
+                                                        {req.status === 'APPROVED' && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                                        {req.status === 'REJECTED' && <XCircle className="w-3 h-3 text-white" />}
+                                                        {req.status === 'PENDING' && <Clock className="w-3 h-3 text-white" />}
+                                                    </div>
+                                                </div>
 
-                                        {req.status === 'PENDING' && (
-                                            <div className="flex flex-row lg:flex-col gap-2 shrink-0 lg:w-32 lg:justify-center border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
-                                                <button 
-                                                    onClick={async () => { if(await showConfirm('อนุมัติคำขอนี้?')) onApprove(req); }}
-                                                    className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                                >
-                                                    <CheckCircle2 className="w-4 h-4" /> อนุมัติ
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleRejectClick(req.id)}
-                                                    className="flex-1 px-4 py-3 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-2"
-                                                >
-                                                    <XCircle className="w-4 h-4" /> ปฏิเสธ
-                                                </button>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                        <h4 className="font-black text-gray-800 text-lg leading-none">{req.user?.name || 'Unknown'}</h4>
+                                                        {getTypeBadge(req.type)}
+                                                        
+                                                        {/* Parsed Badges */}
+                                                        {parsed.isLateSubmission && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-amber-100 text-amber-700 border-amber-200/60 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3 h-3" /> ส่งคำขอช้ากว่ากำหนด
+                                                            </span>
+                                                        )}
+
+                                                        {parsed.isLocationMismatch && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-rose-100 text-rose-700 border-rose-200/60 flex items-center gap-1 animate-pulse">
+                                                                <MapPin className="w-3 h-3" /> พิกัดภายนอกพื้นที่ทำงาน
+                                                            </span>
+                                                        )}
+
+                                                        {parsed.forgotCheckoutPenalty && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-orange-100 text-orange-700 border-orange-200/60 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3 h-3" /> ลืมเช็คเอาท์ (ระบบปรับลดคะแนน)
+                                                            </span>
+                                                        )}
+
+                                                        {parsed.time && (
+                                                            <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-100 text-indigo-700 border-indigo-200/60 flex items-center gap-1">
+                                                                <Clock className="w-3 h-3" /> เวลา: {parsed.time} น.
+                                                            </span>
+                                                        )}
+
+                                                        {/* Expiration Warning */}
+                                                        {req.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type) && (
+                                                            getWorkingDaysDifference(req.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (
+                                                                <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-100 text-red-700 border-red-200/60 flex items-center gap-1 animate-pulse">
+                                                                    <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
+                                                                </span>
+                                                            )
+                                                        )}
+
+                                                        <span className="text-[10px] text-gray-400 font-mono ml-auto">
+                                                            {format(req.createdAt, 'd MMM HH:mm')}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div className="flex flex-wrap items-center gap-3 mb-4">
+                                                        <div className={`flex items-center gap-2 text-xs font-black px-3 py-1.5 rounded-full shadow-sm ${
+                                                            req.type === 'LATE_ENTRY' ? 'bg-violet-100 text-violet-700' : 
+                                                            req.type.includes('FORGOT') ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-white/80 text-gray-700 border border-black/5'
+                                                        }`}>
+                                                            <Calendar className="w-3.5 h-3.5" />
+                                                            {format(req.startDate, 'd MMM')} 
+                                                            {req.startDate.getTime() !== req.endDate.getTime() && ` - ${format(req.endDate, 'd MMM yyyy')}`}
+                                                        </div>
+
+                                                        {req.attachmentUrl && (
+                                                            <a 
+                                                                href={req.attachmentUrl} 
+                                                                target="_blank" 
+                                                                rel="noreferrer" 
+                                                                className="inline-flex items-center gap-1.5 text-[10px] bg-blue-100 text-blue-700 border border-blue-200/50 px-3 py-1.5 rounded-full font-black hover:bg-blue-200 transition-colors"
+                                                            >
+                                                                <ExternalLink className="w-3 h-3" /> ดูหลักฐาน
+                                                            </a>
+                                                        )}
+                                                    </div>
+
+                                                    {renderReason(parsed)}
+                                                    
+                                                    {/* Rejection Reason Display */}
+                                                    {req.status === 'REJECTED' && req.rejectionReason && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            className="mt-3 text-xs text-red-600 bg-red-50/50 p-3 rounded-2xl border border-red-100/50 flex gap-2"
+                                                        >
+                                                            <XCircle className="w-4 h-4 shrink-0" />
+                                                            <div>
+                                                                <span className="font-black block mb-0.5">เหตุผลที่ปฏิเสธ:</span>
+                                                                <p className="italic">"{req.rejectionReason}"</p>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            ))}
+
+                                            {req.status === 'PENDING' && (
+                                                <div className="flex flex-row lg:flex-col gap-2 shrink-0 lg:w-32 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
+                                                    <button 
+                                                        onClick={async () => { if(await showConfirm('อนุมัติคำขอนี้?')) onApprove(req); }}
+                                                        className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" /> อนุมัติ
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleRejectClick(req.id)}
+                                                        className="flex-1 px-4 py-3 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                    >
+                                                        <XCircle className="w-4 h-4" /> ปฏิเสธ
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
                         </AnimatePresence>
 
                         {hasMore && (

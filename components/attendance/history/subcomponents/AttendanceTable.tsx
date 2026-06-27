@@ -21,6 +21,8 @@ interface AttendanceTableProps {
     totalPages: number;
     onPageChange: (page: number | ((p: number) => number)) => void;
     pageSize: number;
+    highlightedDate?: string | null;
+    onClearHighlight?: () => void;
 }
 
 export const AttendanceTable: React.FC<AttendanceTableProps> = ({
@@ -40,7 +42,9 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
     page,
     totalPages,
     onPageChange,
-    pageSize
+    pageSize,
+    highlightedDate,
+    onClearHighlight
 }) => {
     return (
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
@@ -87,6 +91,8 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                                     exceptions={exceptions}
                                     onResubmit={onResubmit}
                                     onViewProof={onViewProof}
+                                    isHighlighted={highlightedDate === log.date}
+                                    onClearHighlight={onClearHighlight}
                                 />
                             ))
                         )}

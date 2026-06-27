@@ -314,7 +314,35 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
                     });
                     showToast('อนุมัติ WFH เรียบร้อย', 'success');
                 } else if (request.type === 'OVERTIME') {
-                    showToast('อนุมัติการทำ OT เรียบร้อย', 'success');
+                    const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
+                    const { data: freshLog } = await supabase
+                        .from('attendance_logs')
+                        .select('id, note')
+                        .eq('user_id', request.userId)
+                        .eq('date', shiftDateStr)
+                        .maybeSingle();
+
+                    if (freshLog) {
+                        const newNote = (freshLog.note || '')
+                            .replace('[OT_PENDING:', '[OT_APPROVED:')
+                            .trim();
+                        await supabase.from('attendance_logs')
+                            .update({ note: newNote })
+                            .eq('id', freshLog.id);
+                    }
+
+                    // Extract OT minutes from the request reason
+                    const otMinutesMatch = request.reason ? request.reason.match(/\[OT_MINUTES:(\d+)\]/) : null;
+                    const otMinutes = otMinutesMatch ? parseInt(otMinutesMatch[1], 10) : 60; // Fallback to 60 mins
+                    const otHours = parseFloat((otMinutes / 60).toFixed(1));
+
+                    // Process gamification reward for OVERTIME
+                    await processAction(request.userId, 'ATTENDANCE_OVERTIME', { 
+                        hours: otHours, 
+                        id: `OT_REWARD:${request.id}` 
+                    });
+
+                    showToast(`อนุมัติการทำ OT เรียบร้อย มอบแต้มสำหรับ ${otHours} ชม.`, 'success');
                 }
                 return; // No log creation for special types here
             }
@@ -527,6 +555,20 @@ export const useLeaveRequests = (currentUser?: any, options: { all?: boolean } =
 
             if (req && req.type === 'FORGOT_CHECKOUT') {
                  await supabase.from('attendance_logs').update({ status: 'ACTION_REQUIRED' }).eq('user_id', req.user_id).eq('date', req.start_date);
+            }
+
+            if (req && req.type === 'OVERTIME') {
+                const dateStr = req.start_date;
+                const { data: freshLog } = await supabase.from('attendance_logs')
+                    .select('id, note')
+                    .eq('user_id', req.user_id)
+                    .eq('date', dateStr)
+                    .maybeSingle();
+
+                if (freshLog) {
+                    const newNote = (freshLog.note || '').replace('[OT_PENDING:', '[OT_REJECTED:').trim();
+                    await supabase.from('attendance_logs').update({ note: newNote }).eq('id', freshLog.id);
+                }
             }
             
             // --- NEW: Handle LATE_ENTRY Rejection Penalty ---

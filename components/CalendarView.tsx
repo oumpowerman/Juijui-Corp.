@@ -13,6 +13,7 @@ import SmartFilterModal from './SmartFilterModal';
 import BoardView from './BoardView';
 import CalendarGrid from './calendar/CalendarGrid';
 import WeeklyView from './calendar/WeeklyView';
+import UnifiedFilterModal from './calendar/UnifiedFilterModal';
 import { useCalendarHighlights } from '../hooks/useCalendarHightlights';
 import DayHighlightModal from './calendar/DayHightlightModal';
 import StockSidePanel from './StockSidePanel';
@@ -133,6 +134,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const { showAlert } = useGlobalDialog();
 
+  // --- Cosmic / Unified Detailed Filter State ---
+  const [selectedCosmicChannelIds, setSelectedCosmicChannelIds] = useState<string[]>([]);
+  const [selectedCosmicFormats, setSelectedCosmicFormats] = useState<string[]>([]);
+  const [selectedCosmicStatuses, setSelectedCosmicStatuses] = useState<string[]>([]);
+  const [isCosmicFilterOpen, setIsCosmicFilterOpen] = useState(false);
+
+  // Wrap filterTasks with cosmic & detailed filter logic
+  const cosmicFilterTasks = React.useCallback((tasksToFilter: Task[]) => {
+      let filtered = filterTasks(tasksToFilter);
+
+      // 1. Channel Filter
+      if (selectedCosmicChannelIds.length > 0) {
+          filtered = filtered.filter(t => t.channelId && selectedCosmicChannelIds.includes(t.channelId));
+      }
+
+      // 2. Format Filter
+      if (selectedCosmicFormats.length > 0) {
+          filtered = filtered.filter(t => {
+              if (!t.contentFormats) return false;
+              return t.contentFormats.some(f => {
+                  const fStr = typeof f === 'string' ? f : (f as any).key || '';
+                  return selectedCosmicFormats.includes(fStr);
+              });
+          });
+      }
+
+      // 3. Status Filter
+      if (selectedCosmicStatuses.length > 0) {
+          filtered = filtered.filter(t => t.status && selectedCosmicStatuses.includes(t.status));
+      }
+
+      return filtered;
+  }, [filterTasks, selectedCosmicChannelIds, selectedCosmicFormats, selectedCosmicStatuses]);
+
   // 🚀 Lazy-load completed tasks for the active calendar date range
   const { fetchCompletedTasks } = useTaskContext();
   const startDateTime = startDate ? startDate.getTime() : 0;
@@ -172,14 +207,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // --- MEMOIZATION: Pre-calculate filtered tasks for the view (Used ONLY for Board View now) ---
   const filteredTasksForView = useMemo(() => {
-      const filteredByView = filterTasks(tasks);
+      const filteredByView = cosmicFilterTasks(tasks);
       // Also filter by date range for Board View to keep it synced with Calendar
       return filteredByView.filter(t => 
         !t.isUnscheduled && 
         t.endDate >= startDate && 
         t.endDate <= endDate
       );
-  }, [tasks, viewMode, activeChipIds, customChips, startDate, endDate]); 
+  }, [tasks, cosmicFilterTasks, startDate, endDate]); 
 
   const handleDayClick = (day: Date, dayTasks: Task[]) => {
       setSelectedDayDate(day);
@@ -206,13 +241,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const containerClasses = isExpanded 
     ? "relative min-h-screen overflow-x-hidden p-2 md:p-6 pb-16 animate-in zoom-in-95 duration-300" 
-    : "relative z-10 space-y-4 md:space-y-8 animate-in fade-in duration-500 pb-20 sm:pb-12 md:pb-24 overflow-hidden flex-1 flex flex-col h-full";
+    : "relative z-10 space-y-3 sm:space-y-4 md:space-y-8 animate-in fade-in duration-500 pb-32 sm:pb-36 md:pb-24 overflow-hidden md:overflow-visible flex-1 flex flex-col h-full md:h-auto";
 
   return (
     <AppBackground 
       theme={bgTheme} 
       pattern="dots" 
-      className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-3 sm:p-4 md:p-8 h-full md:min-h-screen flex flex-col overflow-hidden"}
+      className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-2 sm:p-4 md:p-8 h-full md:min-h-screen flex flex-col overflow-hidden md:overflow-visible"}
     >
       <div className={containerClasses}>
         {isExpanded && (
@@ -305,7 +340,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               toggleChip={toggleChip}
               customChips={customChips || []}
               channels={channels}
-              onManageFilters={() => setIsManageModalOpen(true)}
+              onManageFilters={() => setIsManageModalOpen(true)} onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
+              activeFiltersCount={selectedCosmicChannelIds.length + selectedCosmicFormats.length + selectedCosmicStatuses.length}
               unreadCount={unreadCount}
               onOpenNotifications={onOpenNotifications}
               onOpenSettings={onOpenSettings}
@@ -332,11 +368,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             isActive={isMobileLandscape}
             onClose={() => setIsMobileLandscape(false)}
           >
-        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'flex-1 min-h-[300px] md:min-h-[600px] h-full'}`}>
+        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'flex-1 min-h-[300px] md:min-h-[600px] h-full md:h-auto'}`}>
           
           {/* Main Content Area */}
           <div className={`
-              flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex flex-col h-full
+              flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex flex-col h-full md:h-auto
               ${isStockOpen ? 'mr-4' : 'mr-0'}
           `}>
 
@@ -347,7 +383,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 1.02, y: -10 }}
                   transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
-                  className="h-full flex flex-col flex-1"
+                  className="h-full md:h-auto flex flex-col flex-1"
                 >
                     {displayMode === 'CALENDAR' ? (
                         calendarViewType === 'MONTH' ? (
@@ -365,7 +401,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 masterOptions={masterOptions}
                                 channels={channels}
                                 getTasksForDay={getTasksForDay}
-                                filterTasks={filterTasks}
+                                filterTasks={cosmicFilterTasks}
                                 onDayClick={handleDayClick}
                                 onDayContextMenu={handleDayContextMenu}
                                 onDragOver={handleDragOver}
@@ -380,7 +416,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 viewMode={viewMode}
                                 taskDisplayMode={taskDisplayMode}
                                 getTasksForDay={getTasksForDay}
-                                filterTasks={filterTasks}
+                                filterTasks={cosmicFilterTasks}
                                 channels={channels}
                                 masterOptions={masterOptions}
                                 onTaskClick={onSelectTask}
@@ -495,6 +531,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             users={users}
             onSave={saveChip}
             onDelete={deleteChip}
+        />
+
+        <UnifiedFilterModal 
+            isOpen={isCosmicFilterOpen}
+            onClose={() => setIsCosmicFilterOpen(false)}
+            channels={channels}
+            masterOptions={masterOptions}
+            selectedChannelIds={selectedCosmicChannelIds}
+            selectedFormats={selectedCosmicFormats}
+            selectedStatuses={selectedCosmicStatuses}
+            onApplyFilters={(filters) => {
+                setSelectedCosmicChannelIds(filters.channelIds);
+                setSelectedCosmicFormats(filters.formats);
+                setSelectedCosmicStatuses(filters.statuses);
+            }}
         />
         
         <DayHighlightModal 

@@ -7,7 +7,7 @@ import {
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
     Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock,
     Maximize2, Minimize2, Monitor, DollarSign, Briefcase, Clapperboard, Building2, ShieldCheck, Share2,
-    Plus, Hash, ArrowRight, ArrowLeft, Search, ChevronRight, Inbox, Sparkles, Bot
+    Plus, Hash, ArrowRight, ArrowLeft, Search, ChevronRight, Inbox, Sparkles, Bot, ChevronUp
 } from 'lucide-react';
 import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
@@ -139,6 +139,46 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
     const [isIOS, setIsIOS] = useState(false);
     const [activePanel, setActivePanel] = useState<'MENU' | 'SEARCH'>('MENU');
     const containerRef = React.useRef<HTMLDivElement>(null);
+    
+    // Collapsible Dock States
+    const [isDockVisible, setIsDockVisible] = useState(true);
+    const lastScrollY = React.useRef(0);
+
+    // Auto-show dock on navigation
+    useEffect(() => {
+        setIsDockVisible(true);
+    }, [currentView]);
+
+    useEffect(() => {
+        const handleScroll = (e: Event) => {
+            const target = e.target as HTMLElement;
+            if (!target || typeof target.scrollTop !== 'number') return;
+            
+            const currentScrollTop = target.scrollTop;
+            
+            // Ignore small scrolls (jitter filter)
+            if (Math.abs(currentScrollTop - lastScrollY.current) < 15) {
+                return;
+            }
+            
+            if (currentScrollTop < 50) {
+                setIsDockVisible(true);
+            } else if (currentScrollTop > lastScrollY.current) {
+                // Scrolling down -> hide dock
+                setIsDockVisible(false);
+            } else {
+                // Scrolling up -> show dock
+                setIsDockVisible(true);
+            }
+            lastScrollY.current = currentScrollTop;
+        };
+
+        // Capture scroll events at the document level
+        document.addEventListener('scroll', handleScroll, true);
+        return () => {
+            document.removeEventListener('scroll', handleScroll, true);
+        };
+    }, []);
 
     // Theme Logic
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
@@ -243,8 +283,12 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
     return (
         <>
-            {/* --- BOTTOM DOCK (Floating) --- */}
-            <div className="fixed bottom-0 left-0 right-0 z-30 p-3 pb-safe-area lg:hidden pointer-events-none mobile-nav-dock">
+            {/* --- BOTTOM DOCK (Floating with Collapsible Sliding Animation) --- */}
+            <motion.div 
+                animate={{ y: isDockVisible ? 0 : '120%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+                className="fixed bottom-0 left-0 right-0 z-30 p-3 pb-safe-area lg:hidden pointer-events-none mobile-nav-dock"
+            >
                 <div className={`backdrop-blur-xl border shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ${themeClasses.dock}`}>
                     {[
                         { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
@@ -300,7 +344,28 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                         <span className="text-[9px] font-bold">Menu</span>
                     </motion.button>
                 </div>
-            </div>
+            </motion.div>
+
+            {/* --- SHOW DOCK BUTTON WHEN HIDDEN --- */}
+            <AnimatePresence>
+                {!isDockVisible && !isMenuOpen && (
+                    <motion.button
+                        initial={{ opacity: 0, y: 30, scale: 0.8 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 30, scale: 0.8 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsDockVisible(true)}
+                        className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 p-2.5 px-4 rounded-full shadow-lg border flex items-center gap-2 text-xs font-bold transition-all lg:hidden active:scale-95 ${
+                            isDarkTheme 
+                                ? 'bg-indigo-600/90 border-indigo-500/50 text-white hover:bg-indigo-600' 
+                                : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700 shadow-indigo-200'
+                        }`}
+                    >
+                        <ChevronUp className="w-4 h-4 animate-bounce" />
+                        <span>แสดงเมนู</span>
+                    </motion.button>
+                )}
+            </AnimatePresence>
 
             {/* --- FULL SCREEN MENU DRAWER --- */}
             <AnimatePresence>

@@ -94,18 +94,76 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Theme Logic
   const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
   
+  // Dynamic seasonal theme detection
+  const activeBgId = (currentUser as any).equippedBgId || 'bg-pastel-wave';
+
+  const seasonStyle = useMemo(() => {
+    switch (activeBgId) {
+      case 'bg-season-summer':
+        return {
+          logoArea: 'from-amber-400/5 via-amber-400/2 to-transparent',
+          footer: 'border-t border-amber-500/10 bg-transparent',
+          userCard: 'hover:bg-amber-500/10 hover:border-amber-500/20 hover:shadow-[0_4px_20px_-4px_rgba(245,158,11,0.15)]',
+          text: 'text-amber-900/85',
+          subtext: 'text-amber-800/70',
+          iconBg: 'bg-amber-500/10 border border-amber-500/20 text-amber-600 backdrop-blur-md shadow-sm hover:bg-amber-500/15'
+        };
+      case 'bg-season-snow':
+        return {
+          logoArea: 'from-sky-300/6 via-sky-300/2 to-transparent',
+          footer: 'border-t border-sky-500/10 bg-transparent',
+          userCard: 'hover:bg-sky-500/10 hover:border-sky-500/20 hover:shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)]',
+          text: 'text-sky-900/85',
+          subtext: 'text-sky-800/70',
+          iconBg: 'bg-sky-500/10 border border-sky-500/20 text-sky-600 backdrop-blur-md shadow-sm hover:bg-sky-500/15'
+        };
+      case 'bg-season-rain':
+        return {
+          logoArea: 'from-slate-500/10 via-slate-500/3 to-transparent',
+          footer: 'border-t border-slate-700/20 bg-transparent',
+          userCard: 'hover:bg-slate-700/30 hover:border-slate-600/40 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]',
+          text: 'text-slate-200/90',
+          subtext: 'text-slate-400/80',
+          iconBg: 'bg-slate-500/20 border border-slate-500/30 text-slate-300 backdrop-blur-md shadow-sm hover:bg-slate-500/25'
+        };
+      case 'bg-season-autumn':
+        return {
+          logoArea: 'from-orange-400/5 via-orange-400/2 to-transparent',
+          footer: 'border-t border-orange-500/10 bg-transparent',
+          userCard: 'hover:bg-orange-500/10 hover:border-orange-500/20 hover:shadow-[0_4px_20px_-4px_rgba(249,115,22,0.15)]',
+          text: 'text-orange-900/85',
+          subtext: 'text-orange-800/70',
+          iconBg: 'bg-orange-500/10 border border-orange-500/20 text-orange-600 backdrop-blur-md shadow-sm hover:bg-orange-500/15'
+        };
+      default:
+        return {
+          logoArea: isDarkTheme ? 'from-white/3 via-white/1 to-transparent' : 'from-indigo-500/4 via-indigo-500/1 to-transparent',
+          footer: isDarkTheme ? 'border-t border-white/5 bg-transparent' : 'border-t border-slate-200/50 bg-transparent',
+          userCard: isDarkTheme 
+            ? 'hover:bg-white/5 hover:border-white/10 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.05)]' 
+            : 'hover:bg-indigo-500/5 hover:border-indigo-500/10 hover:shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]',
+          text: isDarkTheme ? 'text-slate-200/90' : 'text-slate-800/90',
+          subtext: isDarkTheme ? 'text-slate-400/80' : 'text-slate-500/80',
+          iconBg: isDarkTheme 
+            ? 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md shadow-sm hover:bg-white/10' 
+            : 'bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 backdrop-blur-md shadow-sm hover:bg-indigo-500/10'
+        };
+    }
+  }, [activeBgId, isDarkTheme]);
+
   const themeClasses = {
       aside: isDarkTheme
         ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
         : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
-      text: isDarkTheme ? 'text-slate-100' : 'text-gray-900',
-      subtext: isDarkTheme ? 'text-slate-400' : 'text-slate-500',
+      text: seasonStyle.text,
+      subtext: seasonStyle.subtext,
       groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
       itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
       itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
-      footer: isDarkTheme ? 'border-white/10 bg-black/10' : 'border-white/40 bg-white/10',
-      userCard: isDarkTheme ? 'hover:bg-white/10 hover:border-white/10' : 'hover:bg-white/40 hover:border-white/40 hover:shadow-sm',
-      logoArea: isDarkTheme ? 'from-slate-950/40 to-transparent' : 'from-white/40 to-transparent'
+      footer: seasonStyle.footer,
+      userCard: seasonStyle.userCard,
+      logoArea: seasonStyle.logoArea,
+      iconBg: seasonStyle.iconBg
   };
 
   // State for Accordion
@@ -148,17 +206,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       `}
     >
       {/* 1. Brand Logo Area */}
-      <div className={`flex items-center bg-gradient-to-r ${themeClasses.logoArea} overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
+      <div className={`flex items-center bg-gradient-to-b ${themeClasses.logoArea} overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
         <motion.div 
           initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
           animate={{ rotate: 0, scale: 1, opacity: 1 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
           className={`
-            bg-gradient-to-br from-indigo-600 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg ${isDarkTheme ? 'shadow-indigo-900/40' : 'shadow-indigo-100'} text-white shrink-0 sidebar-icon relative overflow-hidden group
+            ${themeClasses.iconBg} rounded-2xl flex items-center justify-center shrink-0 sidebar-icon relative overflow-hidden group transition-all duration-300
             ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
           `}
         >
-          <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10" />
+          <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10 transition-transform duration-300 group-hover:scale-110" />
           <motion.div 
             animate={{ 
               x: ['-100%', '200%'],
@@ -340,7 +398,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* 3. User Footer */}
-      <div className={`border-t ${themeClasses.footer} p-4 transition-all`}>
+      <div className={`${themeClasses.footer} p-4 transition-all`}>
         <div 
           className={`flex items-center rounded-[1.25rem] ${themeClasses.userCard} transition-all cursor-pointer group border border-transparent ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2.5'}`} 
           onClick={onEditProfile}

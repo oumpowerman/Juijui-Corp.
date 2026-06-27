@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Table, BarChart3 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface DashboardHeaderProps {
     currentMonth: Date;
@@ -13,6 +14,8 @@ interface DashboardHeaderProps {
     selectedPosition: string;
     setSelectedPosition: (position: string) => void;
     positions: string[];
+    viewMode: 'TABLE' | 'ANALYTICS';
+    setViewMode: (mode: 'TABLE' | 'ANALYTICS') => void;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -24,26 +27,62 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     setSelectedEmploymentType,
     selectedPosition,
     setSelectedPosition,
-    positions
+    positions,
+    viewMode,
+    setViewMode
 }) => {
     return (
         <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between lg:justify-start gap-2 bg-gray-50 p-1 rounded-xl self-start lg:self-auto w-full lg:w-auto">
-                <button 
-                    onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} 
-                    className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
-                >
-                    <ChevronLeft className="w-5 h-5"/>
-                </button>
-                <div className="px-4 font-bold text-gray-700 min-w-[140px] text-center capitalize">
-                    {format(currentMonth, 'MMMM yyyy')}
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center justify-between lg:justify-start gap-2 bg-gray-50 p-1 rounded-xl w-full sm:w-auto">
+                    <button 
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} 
+                        className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
+                    >
+                        <ChevronLeft className="w-5 h-5"/>
+                    </button>
+                    <div className="px-4 font-bold text-gray-700 min-w-[140px] text-center capitalize">
+                        {format(currentMonth, 'MMMM yyyy')}
+                    </div>
+                    <button 
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} 
+                        className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
+                    >
+                        <ChevronRight className="w-5 h-5"/>
+                    </button>
                 </div>
-                <button 
-                    onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} 
-                    className="p-2 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
-                >
-                    <ChevronRight className="w-5 h-5"/>
-                </button>
+
+                {/* View Mode Toggle */}
+                <div className="relative flex items-center bg-gray-100/80 p-1 rounded-xl">
+                    <button
+                        onClick={() => setViewMode('TABLE')}
+                        className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors duration-200 ${viewMode === 'TABLE' ? 'text-indigo-600 font-extrabold' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Table className="w-3.5 h-3.5" />
+                        <span>ตารางสรุป</span>
+                        {viewMode === 'TABLE' && (
+                            <motion.div
+                                layoutId="viewModeBg"
+                                className="absolute inset-0 bg-white rounded-lg shadow-sm -z-10 border border-indigo-50"
+                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setViewMode('ANALYTICS')}
+                        className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors duration-200 ${viewMode === 'ANALYTICS' ? 'text-indigo-600 font-extrabold' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        <span>วิเคราะห์สถิติ</span>
+                        {viewMode === 'ANALYTICS' && (
+                            <motion.div
+                                layoutId="viewModeBg"
+                                className="absolute inset-0 bg-white rounded-lg shadow-sm -z-10 border border-indigo-50"
+                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            />
+                        )}
+                    </button>
+                </div>
             </div>
 
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full lg:w-auto">

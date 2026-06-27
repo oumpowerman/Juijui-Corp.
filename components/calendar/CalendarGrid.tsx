@@ -62,14 +62,14 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     const weekDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
     return (
-        <div 
-            key="calendar-view"
-            className={`
-                bg-white rounded-[1.5rem] shadow-sm border border-gray-200 
-                ${isExpanded ? 'min-h-[85vh] shadow-2xl border-gray-300' : 'ring-4 ring-gray-50/50 flex-1 flex flex-col h-full'} 
-                animate-slide-in-left
-            `}
-        >
+            <div 
+                key="calendar-view"
+                className={`
+                    bg-white rounded-[1.5rem] shadow-sm border border-gray-200 overflow-hidden
+                    ${isExpanded ? 'min-h-[85vh] shadow-2xl border-gray-300' : 'ring-4 ring-gray-50/50 flex-1 flex flex-col h-full md:h-auto'} 
+                    animate-slide-in-left
+                `}
+            >
             {/* Weekday Headers */}
             <div className="grid grid-cols-7 border-b border-gray-200 shrink-0">
                 {weekDays.map((day, index) => (
@@ -82,10 +82,13 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
             {/* Days Grid */}
             <div 
                 className={`
-                    grid grid-cols-7 bg-gray-100 gap-px border-b border-gray-200 flex-1 h-full
-                    ${isExpanded ? 'auto-rows-[minmax(140px,1fr)] md:auto-rows-[minmax(180px,1fr)]' : 'lg:auto-rows-[minmax(120px,1fr)]'}
+                    grid grid-cols-7 bg-gray-100 gap-px border-b border-gray-200 flex-1 h-full md:h-auto
+                    ${isExpanded 
+                        ? 'auto-rows-[minmax(140px,1fr)] md:auto-rows-[minmax(180px,1fr)]' 
+                        : 'lg:!grid-rows-none lg:auto-rows-[minmax(120px,1fr)]'
+                    }
                 `}
-                style={!isExpanded ? { gridTemplateRows: `repeat(${gridDays.length / 7}, 1fr)` } : undefined}
+                style={!isExpanded ? { gridTemplateRows: `repeat(${gridDays.length / 7}, 1fr)`, '--grid-rows': gridDays.length / 7 } as React.CSSProperties : undefined}
             >
                 {gridDays.map((day, idx) => {
                     const dayTasks = getTasksForDay(day);

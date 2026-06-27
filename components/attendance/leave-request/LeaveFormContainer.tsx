@@ -50,9 +50,16 @@ const LeaveFormContainer: React.FC<Props> = ({
         }
     }, [selectedOption]);
 
-    const thaiLabel = selectedOption?.label || selectedType;
+    const fallbackLabels: Record<string, string> = {
+        LATE_ENTRY: 'สาย',
+        FORGOT_CHECKIN: 'ลืมเช็คอิน',
+        FORGOT_CHECKOUT: 'ลืมเช็คเอาท์',
+        FORGOT_BOTH: 'ลืมเช็คอินและเช็คเอาท์',
+    };
+
+    const thaiLabel = selectedOption?.label || fallbackLabels[selectedType] || selectedType;
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
-    const headerLabel = isTimeSpecific ? `แก้ไขเวลา (${thaiLabel})` : thaiLabel;
+    const headerLabel = isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel;
 
     const daysRequested = useMemo(() => {
         if (isTimeSpecific) return 0;

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '../types';
 import { 
     AttendanceWidget, 
@@ -27,6 +28,7 @@ type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVAL
 const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
     const [currentTab, setCurrentTab] = useState<AttendanceTab>('CHECK_IN');
     const [isQuotaOpen, setIsQuotaOpen] = useState(false); 
+    const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
     
     // Hooks
     const { stats } = useAttendanceStats(currentUser.id);
@@ -141,45 +143,93 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
 
                 {/* Content Area */}
                 <div className="min-h-[400px]">
-                    {currentTab === 'CHECK_IN' && (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-                             {/* Left: Action Card */}
-                             <div className="space-y-6">
-                                 <AttendanceWidget 
-                                    user={currentUser} 
-                                    onNavigateToHistory={() => setCurrentTab('HISTORY')}
-                                 />
-                             </div>
+                    <AnimatePresence mode="wait">
+                        {currentTab === 'CHECK_IN' && (
+                            <motion.div
+                                key="CHECK_IN"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start"
+                            >
+                                 {/* Left: Action Card */}
+                                 <div className="space-y-6">
+                                     <AttendanceWidget 
+                                        user={currentUser} 
+                                        onNavigateToHistory={(date) => {
+                                            setCurrentTab('HISTORY');
+                                            if (date) {
+                                                setHighlightedDate(date);
+                                            }
+                                    }}              
+                                    />
+                                 </div>
 
-                             {/* Right: Info */}
-                             <div className="space-y-6 hidden xl:block">
-                                 <AttendanceInfoCard />
-                             </div>
-                        </div>
-                    )}
+                                 {/* Right: Info */}
+                                 <div className="space-y-6 hidden xl:block">
+                                     <AttendanceInfoCard />
+                                 </div>
+                            </motion.div>
+                        )}
 
-                    {currentTab === 'HISTORY' && (
-                        <AttendanceHistory 
-                            userId={currentUser.id}
-                        />
-                    )}
+                        {currentTab === 'HISTORY' && (
+                            <motion.div
+                                key="HISTORY"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                            >
+                                <AttendanceHistory 
+                                    userId={currentUser.id}
+                                    highlightedDate={highlightedDate}
+                                    onClearHighlight={() => setHighlightedDate(null)}
+                                />
+                            </motion.div>
+                        )}
 
-                    {currentTab === 'TIMESHEET' && currentUser.role === 'ADMIN' && (
-                        <AdminWeeklyTimesheet users={users} />
-                    )}
-                    
-                    {currentTab === 'APPROVALS' && currentUser.role === 'ADMIN' && (
-                        <LeaveApprovalList 
-                            requests={requests}
-                            isLoading={isRequestsLoading}
-                            onApprove={approveRequest}
-                            onReject={rejectRequest}
-                        />
-                    )}
+                        {currentTab === 'TIMESHEET' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="TIMESHEET"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                            >
+                                <AdminWeeklyTimesheet users={users} />
+                            </motion.div>
+                        )}
+                        
+                        {currentTab === 'APPROVALS' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="APPROVALS"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                            >
+                                <LeaveApprovalList 
+                                    requests={requests}
+                                    isLoading={isRequestsLoading}
+                                    onApprove={approveRequest}
+                                    onReject={rejectRequest}
+                                />
+                            </motion.div>
+                        )}
 
-                    {currentTab === 'REPORT' && currentUser.role === 'ADMIN' && (
-                        <AdminAttendanceDashboard users={users} />
-                    )}
+                        {currentTab === 'REPORT' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="REPORT"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                            >
+                                <AdminAttendanceDashboard users={users} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Quota Modal */}

@@ -91,9 +91,19 @@ const AuthPage: React.FC<AuthPageProps> = ({
             .eq('is_active', true)
             .order('sort_order', { ascending: true });
         
+        let loadedPositions: { key: string; label: string }[] = [];
         if (data && data.length > 0) {
-            setPositions(data);
+            loadedPositions = data.filter(p => !['CEO', 'HR_MANAGER', 'SENIOR_HR'].includes(p.key));
+        } else {
+            loadedPositions = [
+              { key: 'CREATIVE', label: 'Creative' },
+              { key: 'EDITOR', label: 'Editor' },
+              { key: 'PRODUCTION', label: 'Production' },
+              { key: 'ADMIN', label: 'Admin / Co-ord' },
+            ];
         }
+        loadedPositions.push({ key: 'OTHER', label: 'อื่นๆ (ใส่ตำแหน่งทีหลัง)' });
+        setPositions(loadedPositions);
     };
     fetchPositions();
   }, []);

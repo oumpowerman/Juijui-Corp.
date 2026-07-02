@@ -270,6 +270,7 @@ const MasterDataManager: React.FC = () => {
                 rewardFormData={rewardFormData}
                 setRewardFormData={setRewardFormData}
                 activeTab={activeTab}
+                masterOptions={masterOptions}
             />
 
             {/* Dashboard Config Modal */}

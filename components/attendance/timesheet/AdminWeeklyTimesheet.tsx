@@ -14,6 +14,7 @@ import TimesheetHeader from './TimesheetHeader';
 import TimesheetTable from './TimesheetTable';
 import TimesheetDetailModal from './TimesheetDetailModal';
 import { useMasterDataContext } from '../../../context/MasterDataContext';
+import { AnimatePresence } from 'framer-motion';
 
 // --- Main Dashboard ---
 const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
@@ -209,16 +210,18 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 }}
             />
 
-            {(selectedLog || selectedLeaveRequest) && (
-                <TimesheetDetailModal 
-                    log={selectedLog}
-                    leaveRequest={selectedLeaveRequest}
-                    onClose={() => {
-                        setSelectedLog(null);
-                        setSelectedLeaveRequest(null);
-                    }}
-                />
-            )}
+            <AnimatePresence>
+                {(selectedLog || selectedLeaveRequest) && (
+                    <TimesheetDetailModal 
+                        log={selectedLog}
+                        leaveRequest={selectedLeaveRequest}
+                        onClose={() => {
+                            setSelectedLog(null);
+                            setSelectedLeaveRequest(null);
+                        }}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

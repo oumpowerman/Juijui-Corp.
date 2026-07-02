@@ -28,6 +28,9 @@ export const WeeklyAttendanceRace: React.FC = () => {
     // Persist viewMode state supporting: '3d' (default), '2d' (Dino) and 'compact' (Top 3 Arrivals)
     const [viewMode, setViewMode] = useState<'3d' | '2d' | 'compact'>(() => {
         try {
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                return 'compact'; // ล็อกให้เป็น 'compact' เป็นหลักบน Mobile อัตโนมัติ
+            }
             const saved = localStorage.getItem('race_view_mode');
             if (saved === '3d' || saved === '2d' || saved === 'compact') {
                 return saved as '3d' | '2d' | 'compact';
@@ -40,9 +43,20 @@ export const WeeklyAttendanceRace: React.FC = () => {
         }
     });
 
+    const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false);
+
     const [isTrackCollapsed, setIsTrackCollapsed] = useState<boolean>(() => {
         try {
-            return localStorage.getItem('race_track_collapsed') === 'true';
+            if (typeof window !== 'undefined') {
+                if (window.innerWidth < 1024) {
+                    return true; // บังคับให้หดสนามเมื่อเปิดบนมือถือเสมอ
+                }
+            }
+            const saved = localStorage.getItem('race_track_collapsed');
+            if (saved !== null) {
+                return saved === 'true';
+            }
+            return false;
         } catch (_) {
             return false;
         }
@@ -243,8 +257,8 @@ export const WeeklyAttendanceRace: React.FC = () => {
             {/* Header / Info bar - Clean sub-component header */}
             <RaceTrackHeader checkedInRacers={checkedInRacers} />
 
-            {/* Space-saving Collapsible Trigger Bar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 mt-1 mb-3 bg-slate-50 border-2 border-slate-900 rounded-2xl px-3 py-2 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+            {/* Space-saving Collapsible Trigger Bar - Desktop Mode */}
+            <div className="hidden md:flex flex-row items-center justify-between gap-2.5 mt-1 mb-3 bg-slate-50 border-2 border-slate-900 rounded-2xl px-3 py-2 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
                 <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-600 font-extrabold uppercase tracking-tight">
                     <span>⚡ มุมมองและแผงควบคุม :</span>
                 </div>
@@ -313,31 +327,136 @@ export const WeeklyAttendanceRace: React.FC = () => {
                 </div>
             </div>
 
+            {/* Super Compact Control Panel for Mobile */}
+            <div className="flex md:hidden flex-col gap-1.5 mt-1 mb-3 bg-slate-50 border-2 border-slate-900 rounded-2xl px-2.5 py-1.5 shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)]">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                        <span className="text-xs">🏎️</span>
+                        <span className="font-sans text-[10px] font-black text-slate-700">
+                            มุมมอง: {viewMode === '3d' ? '3D Arena' : viewMode === '2d' ? '2D Dino' : 'เรียบง่าย (Top 3)'}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => setIsMobileSettingsOpen(!isMobileSettingsOpen)}
+                        className="p-1 rounded-lg border border-slate-900 bg-white hover:bg-slate-50 text-[9px] font-black text-slate-800 transition-all cursor-pointer flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]"
+                    >
+                        <span>⚙️ ตั้งค่ามุมมอง</span>
+                    </button>
+                </div>
+
+                <AnimatePresence>
+                    {isMobileSettingsOpen && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="flex flex-col gap-2 pt-2 pb-1 border-t border-slate-200 mt-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold text-slate-500">เลือกประเภทสไตล์การแสดงผล:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                    <button
+                                        onClick={() => handleSetViewMode('3d')}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                            viewMode === '3d' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-800'
+                                        }`}
+                                    >
+                                        <span>3D Arena 🏎️</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleSetViewMode('2d')}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                            viewMode === '2d' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-800'
+                                        }`}
+                                    >
+                                        <span>2D Dino 🦖</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleSetViewMode('compact')}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                            viewMode === 'compact' ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'
+                                        }`}
+                                    >
+                                        <span>เรียบง่าย 🥇</span>
+                                    </button>
+                                </div>
+
+                                <div className="w-full h-[1px] bg-slate-200 my-0.5"></div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold text-slate-500">แสดงผล/ซ่อนส่วนต่างๆ:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <button
+                                        onClick={toggleTrackCollapsed}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                            !isTrackCollapsed ? 'bg-amber-100 text-slate-900' : 'bg-slate-200 text-slate-500 border-slate-300'
+                                        }`}
+                                    >
+                                        <span>{isTrackCollapsed ? '👀 แสดงสนาม' : '🙈 ซ่อนสนาม'}</span>
+                                    </button>
+                                    <button
+                                        onClick={togglePodiumCollapsed}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                            !isPodiumCollapsed ? 'bg-amber-100 text-slate-900' : 'bg-slate-200 text-slate-500 border-slate-300'
+                                        }`}
+                                    >
+                                        <span>{isPodiumCollapsed ? '👀 แสดงบอร์ด' : '🙈 ซ่อนบอร์ด'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
             {/* Grid Layout: Left is Racetrack, Right is Finishers Board */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-1 items-stretch">
                 {isTrackCollapsed ? (
-                    <div className="lg:col-span-3 border-2 border-slate-900 bg-slate-50 rounded-2xl p-4 flex items-center justify-between shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] min-h-[75px] relative z-20 overflow-hidden">
-                        {/* Background subtle retro grid accent */}
-                        <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none" style={{ backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)', backgroundSize: '12px 12px' }}></div>
-                        
-                        <div className="flex items-center gap-2.5 relative z-10">
-                            <span className="text-xl select-none">🏎️</span>
-                            <div className="flex flex-col">
-                                <span className="font-sans text-xs font-black text-slate-800 uppercase tracking-tight">
-                                    มุมมองสนาม {viewMode === '3d' ? '3D Arena' : viewMode === '2d' ? '2D Dino' : 'Top 3 Arrivals'} ถูกพับย่อส่วนอยู่
-                                </span>
-                                <span className="text-[9px] text-slate-400 font-bold font-sans">
-                                    มีสมาชิกพร้อมวิ่ง {idleRacers.length} คน / วิ่งเช็คอินสำเร็จแล้ว {checkedInRacers.length} คน
+                    <>
+                        {/* Desktop version */}
+                        <div className="hidden md:flex lg:col-span-3 border-2 border-slate-900 bg-slate-50 rounded-2xl p-4 items-center justify-between shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] min-h-[75px] relative z-20 overflow-hidden">
+                            {/* Background subtle retro grid accent */}
+                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none" style={{ backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)', backgroundSize: '12px 12px' }}></div>
+                            
+                            <div className="flex items-center gap-2.5 relative z-10">
+                                <span className="text-xl select-none">🏎️</span>
+                                <div className="flex flex-col">
+                                    <span className="font-sans text-xs font-black text-slate-800 uppercase tracking-tight">
+                                        มุมมองสนาม {viewMode === '3d' ? '3D Arena' : viewMode === '2d' ? '2D Dino' : 'Top 3 Arrivals'} ถูกพับย่อส่วนอยู่
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 font-bold font-sans">
+                                        มีสมาชิกพร้อมวิ่ง {idleRacers.length} คน / วิ่งเช็คอินสำเร็จแล้ว {checkedInRacers.length} คน
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={toggleTrackCollapsed}
+                                className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[10px] font-black rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10"
+                            >
+                                แสดงสนามวิ่ง 🗺️
+                            </button>
+                        </div>
+
+                        {/* Mobile Sleek Micro-Bar */}
+                        <div className="flex md:hidden border-2 border-slate-900 bg-slate-50 rounded-xl px-2.5 py-1.5 items-center justify-between shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] relative z-20 overflow-hidden">
+                            <div className="flex items-center gap-1.5 relative z-10">
+                                <span className="text-sm">🏎️</span>
+                                <span className="font-sans text-[10px] font-black text-slate-800 leading-none">
+                                    เช็คอินแล้ว {checkedInRacers.length}/{racers.length} คน
                                 </span>
                             </div>
+                            <button
+                                onClick={toggleTrackCollapsed}
+                                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[9px] font-black rounded-lg border border-slate-900 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10 leading-none"
+                            >
+                                ดูสนาม 🗺️
+                            </button>
                         </div>
-                        <button
-                            onClick={toggleTrackCollapsed}
-                            className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[10px] font-black rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10"
-                        >
-                            แสดงสนามวิ่ง 🗺️
-                        </button>
-                    </div>
+                    </>
                 ) : (
                     <>
                         {viewMode === 'compact' && (

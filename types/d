@@ -1,403 +1,270 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Bot, Trash2, Plus, Terminal, Sparkles, HelpCircle, Zap, Smile, Search } from 'lucide-react';
-import { Task, Channel, Platform, Status, Priority } from '../types';
-import { useToast } from '../context/ToastContext';
 
-interface ChatAssistantProps {
-  tasks: Task[];
-  channels: Channel[];
-  onAddChannel: (channel: Channel, file?: File) => Promise<boolean> | void;
-  onDeleteChannel: (id: string) => Promise<boolean> | void;
-  onAddTask: (task: Task) => Promise<any> | void;
-  isOpen?: boolean;
-  setIsOpen?: (open: boolean) => void;
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User } from '../types';
+import { 
+    AttendanceWidget, 
+    AttendanceHistory, 
+    AdminAttendanceDashboard, 
+    AdminWeeklyTimesheet, 
+    LeaveApprovalList, 
+    LeaveQuotaModal, 
+    AttendanceInfoCard, 
+    WeeklyAttendanceRace 
+} from '../components/attendance';
+import { useAttendanceStats } from '../hooks/attendance/useAttendanceStats'; 
+import { useLeaveRequests } from '../hooks/useLeaveRequests';
+import { useAttendanceAlerts } from '../hooks/attendance/useAttendanceAlerts';
+import { Clock, Calendar, PieChart, FileCheck, TableProperties } from 'lucide-react';
+import AppBackground, { BackgroundTheme } from '../components/common/AppBackground';
+
+interface AttendanceRouterProps {
+    currentUser: User;
+    users: User[]; 
 }
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
-}
+type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVALS';
 
-// Future-proofing: Define a structure for command parsers
-interface CommandParser {
-    id: string;
-    regex: RegExp;
-    handler: (match: RegExpMatchArray) => string;
-    description?: string;
-}
-
-const ChatAssistant: React.FC<ChatAssistantProps> = ({ 
-  tasks, 
-  channels, 
-  onAddChannel, 
-  onDeleteChannel,
-  onAddTask,
-  isOpen: isOpenProp,
-  setIsOpen: setIsOpenProp
-}) => {
-  const isControlled = isOpenProp !== undefined && setIsOpenProp !== undefined;
-  const [localIsOpen, setLocalIsOpen] = useState(false);
-  const isOpen = isControlled ? isOpenProp : localIsOpen;
-  const setIsOpen = isControlled ? setIsOpenProp : setLocalIsOpen;
-
-  const [input, setInput] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
-  
-  // Context state for future multi-turn conversation logic
-  const [context, setContext] = useState<{ lastIntent?: string, lastEntity?: any }>({});
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      text: 'สวัสดีครับ! ผมคือ Juijui Bot 🤖 ผู้ช่วยอัจฉริยะ\nลองสั่งงานได้เลย หรือกดปุ่ม ❓ เพื่อดูคู่มือครับ',
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { showToast } = useToast();
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isOpen]);
-
-  const addMessage = (text: string, sender: 'user' | 'bot') => {
-    setMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      text,
-      sender,
-      timestamp: new Date()
-    }]);
-  };
-
-  // --- Scalable NLP Logic Engine ---
-  const processCommand = (command: string): string => {
+const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
+    const [currentTab, setCurrentTab] = useState<AttendanceTab>('CHECK_IN');
+    const [isQuotaOpen, setIsQuotaOpen] = useState(false); 
+    const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
     
-    // Define all available commands and their logic here
-    const parsers: CommandParser[] = [
-        {
-            id: 'ADD_CHANNEL',
-            regex: /(เพิ่มช่อง|add channel|สร้างช่อง)\s*(.+)?/i,
-            handler: (match) => {
-                const rawArgs = match[2] || '';
-                // Logic to extract platform and name with fuzzy matching
-                const platforms: {key: Platform, keywords: string[]}[] = [
-                    { key: 'YOUTUBE', keywords: ['youtube', 'ยูทูป'] },
-                    { key: 'TIKTOK', keywords: ['tiktok', 'ติ๊กตอก'] },
-                    { key: 'FACEBOOK', keywords: ['facebook', 'เฟส'] },
-                    { key: 'INSTAGRAM', keywords: ['instagram', 'ไอจี'] },
-                ];
-                
-                let platform: Platform = 'OTHER';
-                let name = rawArgs;
+    // Hooks
+    const { stats } = useAttendanceStats(currentUser.id);
+    const { actionRequiredLogs } = useAttendanceAlerts(currentUser.id);
+    // Lift state up: Fetch all requests here so we can pass actions to child
+    // If Admin, fetch all requests for the approval list
+    const { requests, leaveUsage, isLoading: isRequestsLoading, approveRequest, rejectRequest } = useLeaveRequests(
+        currentUser, 
+        { all: currentUser.role === 'ADMIN' }
+    );
+    
+    // Admin pending count (for approval list badge)
+    const adminPendingCount = useMemo(() => requests.filter(r => r.status === 'PENDING').length, [requests]);
+    
+    // My personal pending count (for history badge)
+    const myPendingCount = useMemo(() => 
+        requests.filter(r => r.userId === currentUser.id && r.status === 'PENDING').length, 
+    [requests, currentUser.id]);
 
-                for (const p of platforms) {
-                    if (p.keywords.some(k => rawArgs.toLowerCase().includes(k))) {
-                        platform = p.key;
-                        // Clean up name by removing keywords
-                        const pattern = new RegExp(p.keywords.join('|'), 'gi');
-                        name = name.replace(pattern, '').replace(/ชื่อ|name/gi, '').trim();
-                        break;
-                    }
-                }
+    const actionRequiredCount = useMemo(() => actionRequiredLogs.length, [actionRequiredLogs]);
 
-                if (!name) return 'ขอชื่อช่องด้วยครับ (เช่น "เพิ่มช่อง Youtube ชื่อ MyChannel")';
+    // Scroll to top when tab changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentTab]);
 
-                onAddChannel({
-                    id: crypto.randomUUID(),
-                    name: name,
-                    platforms: [platform],
-                    color: 'bg-indigo-100 text-indigo-700 border-indigo-200'
-                });
-                return `จัดให้ครับ! เพิ่มช่อง "${name}" (${platform}) เรียบร้อย ✅`;
-            }
-        },
-        {
-            id: 'DELETE_CHANNEL',
-            regex: /(ลบช่อง|delete channel|ลบ channel)\s*(.+)/i,
-            handler: (match) => {
-                const name = match[2].trim();
-                const channel = channels.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
-                if (channel) {
-                    onDeleteChannel(channel.id);
-                    return `ลบช่อง "${channel.name}" ออกจากระบบแล้วครับ 🗑️`;
-                }
-                return `หาช่องที่ชื่อคล้ายๆ "${name}" ไม่เจอเลยครับ ลองเช็คชื่ออีกทีนะ`;
-            }
-        },
-        {
-            id: 'ADD_TASK',
-            regex: /(เพิ่มงาน|add task|สั่งงาน|create task|จดงาน)\s*(.+)?/i,
-            handler: (match) => {
-                const title = match[2]?.trim();
-                if (!title) return 'รบกวนบอกชื่องานด้วยครับ (เช่น "สั่งงาน ถ่ายคลิปแมว")';
-                
-                onAddTask({
-                    id: crypto.randomUUID(),
-                    type: 'TASK',
-                    title: title,
-                    description: 'Created via Juijui AI Assistant',
-                    startDate: new Date(),
-                    endDate: new Date(),
-                    status: 'TODO',
-                    priority: 'MEDIUM',
-                    tags: ['AI-Generated'],
-                    assigneeIds: []
-                } as Task);
-                return `สร้างงาน "${title}" ให้แล้วครับ 📝 อย่าลืมไปใส่รายละเอียดเพิ่มเติมนะ`;
-            }
-        },
-        {
-            id: 'SEARCH_TASK',
-            regex: /(ค้นหา|search|หา|find)\s*(.+)/i,
-            handler: (match) => {
-                const keyword = match[2].trim();
-                const found = tasks.filter(t => t.title.toLowerCase().includes(keyword.toLowerCase()));
-                
-                if (found.length === 0) return `ไม่เจอคำว่า "${keyword}" ในรายการงานเลยครับ 😅`;
-                
-                const list = found.slice(0, 3).map(t => `- ${t.title} (${t.status})`).join('\n');
-                return `เจอ ${found.length} งานครับ:\n${list}${found.length > 3 ? '\n...และอื่นๆ' : ''}`;
-            }
-        },
-        {
-            id: 'SUMMARY',
-            regex: /(สรุป|summary|status|สถานะ|ภาพรวม|กี่งาน)/i,
-            handler: () => {
-                 const stats = {
-                     todo: tasks.filter(t => t.status === 'TODO').length,
-                     doing: tasks.filter(t => t.status === 'DOING').length,
-                     done: tasks.filter(t => t.status === 'DONE').length,
-                     blocked: tasks.filter(t => t.status === 'BLOCKED').length
-                 };
-                 return `📊 สรุปงานตอนนี้:\n- ดองไว้ (Todo): ${stats.todo}\n- ทำอยู่ (Doing): ${stats.doing}\n- ติดขัด (Blocked): ${stats.blocked}\n- เสร็จแล้ว (Done): ${stats.done}\n\nสู้ๆ นะครับทีมงาน! ✌️`;
-            }
-        },
-        {
-            id: 'HELP',
-            regex: /(help|ช่วยด้วย|ทำอะไรได้|วิธีใช้|คู่มือ)/i,
-            handler: () => 'ผมช่วยจัดการ Table ได้ตามนี้ครับ:\n\n1. จัดการช่อง: "เพิ่มช่อง [Platform] ชื่อ [Name]", "ลบช่อง [Name]"\n2. จัดการงาน: "เพิ่มงาน [ชื่องาน]", "ค้นหา [คำค้น]"\n3. ดูภาพรวม: "สรุปงาน"'
-        },
-        {
-            id: 'CHIT_CHAT_JOKE',
-            regex: /(ตลก|ขำ|joke|มุก)/i,
-            handler: () => 'ปลาอะไรขี้เกียจ? ... ปลาวาฬ (วานให้ทำนู่นทำนี่ตลอด) 😂'
-        },
-        {
-            id: 'CHIT_CHAT_MOTIVATE',
-            regex: /(ท้อ|เหนื่อย|กำลังใจ|สู้)/i,
-            handler: () => 'พักหน่อยแล้วค่อยลุยต่อนะครับ! งานดีต้องใช้พลังกายพลังใจ 🔋 ผมเป็นกำลังใจให้!'
-        }
-    ];
+    const bgTheme = useMemo(() => {
+        const themes: BackgroundTheme[] = [
+            'pastel-pink', 'pastel-blue', 'pastel-green', 'pastel-purple', 'pastel-orange', 'pastel-yellow', 'pastel-teal'
+        ];
+        return themes[Math.floor(Math.random() * themes.length)];
+    }, []);
 
-    // Execution Logic
-    for (const parser of parsers) {
-        const match = command.match(parser.regex);
-        if (match) {
-            setContext({ lastIntent: parser.id }); // Save context for future expansions
-            return parser.handler(match);
-        }
-    }
-
-    // Fallback
-    return 'ขอโทษครับ ผมยังไม่เข้าใจคำสั่งนี้ ลองพิมพ์ "Help" หรือ "ทำอะไรได้บ้าง" ดูนะครับ 😅';
-  };
-
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || isThinking) return;
-
-    const userCmd = input;
-    setInput('');
-    addMessage(userCmd, 'user');
-    setIsThinking(true);
-
-    try {
-        const res = await fetch('/api/chat/assist', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: userCmd, tasks, channels })
-        });
-        const data = await res.json();
-        
-        // Add the AI response message
-        addMessage(data.text, 'bot');
-
-        // Check if there are function/tool calls to execute client-side
-        if (data.functionCalls && data.functionCalls.length > 0) {
-            for (const call of data.functionCalls) {
-                if (call.name === 'createTask') {
-                    const { title, description, priority, channelId } = call.args;
-                    const newTask: Task = {
-                        id: crypto.randomUUID(),
-                        type: 'TASK',
-                        title: title,
-                        description: description || 'สร้างเสียงสวรรค์จากสคริปต์ผู้ช่วย AI',
-                        status: 'TODO',
-                        priority: priority || 'MEDIUM',
-                        tags: ['AI-Generated'],
-                        startDate: new Date(),
-                        endDate: new Date(),
-                        assigneeIds: [],
-                        channelId: channelId || undefined
-                    };
-                    await onAddTask(newTask);
-                    showToast(`📝 จดงาน "${title}" เข้าระบบเรียบร้อย!`, 'success');
-                } else if (call.name === 'createChannel') {
-                    const { name, platform, description } = call.args;
-                    const newChannel: Channel = {
-                        id: crypto.randomUUID(),
-                        name: name,
-                        platforms: [platform],
-                        color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                        description: description || 'กำลังสร้างแบรนด์รุ่งเรืองด้วย AI'
-                    };
-                    await onAddChannel(newChannel);
-                    showToast(`📺 สร้างช่อง "${name}" บนแพลตฟอร์ม ${platform} สำเร็จ!`, 'success');
-                }
-            }
-        }
-    } catch (err) {
-        console.error("Chat Assist AI call failed:", err);
-        // Clean fallback to local regex command engine
-        const fallbackMsg = processCommand(userCmd);
-        addMessage(fallbackMsg, 'bot');
-    } finally {
-        setIsThinking(false);
-    }
-  };
-
-  const handleQuickAction = (cmd: string) => {
-      setInput(cmd);
-      // Optional: Auto submit or just fill
-  };
-
-  return (
-    <>
-      {/* Floating Button with explicit High Z-Index - Hidden on Mobile, Shown on Tablet/Desktop */}
-      <div className="hidden md:flex fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[100] items-center gap-3">
-          <div className={`hidden md:block bg-white px-3 py-1.5 rounded-xl shadow-lg text-xs font-bold text-gray-600 transition-opacity duration-300 ${isOpen ? 'opacity-0' : 'opacity-100'}`}>
-              AI Assistant
-          </div>
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className={`p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-red-500 rotate-90' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
-          >
-            {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-white" />}
-          </button>
-      </div>
-
-      {/* Chat Window */}
-      {isOpen && (
-        <div className="fixed bottom-40 lg:bottom-24 right-4 lg:right-6 w-[calc(100vw-32px)] sm:w-[350px] md:w-[400px] h-[480px] sm:h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-[100] flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-200 overflow-hidden">
-          
-          {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <Bot className="w-5 h-5 text-white" />
+    return (
+        <AppBackground theme={bgTheme} pattern="grid" className="p-4 md:p-8 min-h-screen">
+            <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-white/60 backdrop-blur-xl p-6 rounded-3xl border border-white/60 shadow-xl shadow-indigo-500/5">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800 flex items-center tracking-tight">
+                            <span className="text-4xl mr-2">⏱️</span>
+                            ระบบลงเวลา (Time Tracking)
+                        </h1>
+                        <p className="text-gray-500 text-sm mt-1 font-medium">บันทึกเวลาเข้า-ออกงาน และตรวจสอบประวัติ</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 className="font-bold text-sm">Juijui Assistant</h3>
-                    <p className="text-[10px] text-indigo-100 flex items-center">
-                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></span> Online (Ready to Help)
-                    </p>
+
+                {/* 8-bit Daily Attendance Racing track */}
+                <WeeklyAttendanceRace />
+
+                {/* Navigation Tabs & Actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex p-1 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 w-fit overflow-x-auto scrollbar-hide">
+                        <button 
+                            onClick={() => setCurrentTab('CHECK_IN')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'CHECK_IN' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                        >
+                            <Clock className="w-4 h-4" /> ลงเวลา
+                        </button>
+                        
+                        <button 
+                            onClick={() => setCurrentTab('HISTORY')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                        >
+                            <Calendar className="w-4 h-4" /> 
+                            <span>ประวัติ</span>
+                            {actionRequiredCount > 0 ? (
+                                <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
+                                    {actionRequiredCount}
+                                </span>
+                            ) : myPendingCount > 0 ? (
+                                <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
+                                    {myPendingCount}
+                                </span>
+                            ) : null}
+                        </button>
+
+                        {/* Only Admin see these tabs */}
+                        {currentUser.role === 'ADMIN' && (
+                            <>
+                                <div className="w-px h-6 bg-gray-300/50 mx-1 self-center"></div>
+                                <button 
+                                    onClick={() => setCurrentTab('TIMESHEET')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                >
+                                    <TableProperties className="w-4 h-4" /> ตรวจสอบทีม
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('APPROVALS')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'APPROVALS' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                >
+                                    <FileCheck className="w-4 h-4" /> คำขออนุมัติ
+                                    {adminPendingCount > 0 && (
+                                        <span className="ml-1 bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                            {adminPendingCount}
+                                        </span>
+                                    )}
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('REPORT')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'REPORT' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                >
+                                    <PieChart className="w-4 h-4" /> สรุปผลรายเดือน
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Quota Button (Trigger) */}
+                    <motion.button
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setIsQuotaOpen(true)}
+                        className="ml-auto md:ml-0 px-4.5 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
+                    >
+                        {/* Animated Icon */}
+                        <PieChart className="w-4 h-4 text-[#5C544A] group-hover:rotate-12 transition-transform duration-300 ease-out" /> 
+                        
+                        <span className="relative z-10 tracking-wide">เช็คโควต้า (My Quota)</span>
+                        
+                        {/* Organic Earth-tone pulse badge */}
+                        <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D48C70]/40 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D48C70]"></span>
+                        </span>
+                    </motion.button>
                 </div>
+
+                {/* Content Area */}
+                <div className="min-h-[400px] relative w-full">
+                    <AnimatePresence mode="popLayout">
+                        {currentTab === 'CHECK_IN' && (
+                            <motion.div
+                                key="CHECK_IN"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start w-full"
+                            >
+                                 {/* Left: Action Card */}
+                                 <div className="space-y-6">
+                                     <AttendanceWidget 
+                                        user={currentUser} 
+                                        onNavigateToHistory={(date) => {
+                                            setCurrentTab('HISTORY');
+                                            if (date) {
+                                                setHighlightedDate(date);
+                                            }
+                                    }}              
+                                    />
+                                 </div>
+
+                                 {/* Right: Info */}
+                                 <div className="space-y-6 hidden xl:block">
+                                     <AttendanceInfoCard />
+                                 </div>
+                            </motion.div>
+                        )}
+
+                        {currentTab === 'HISTORY' && (
+                            <motion.div
+                                key="HISTORY"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
+                            >
+                                <AttendanceHistory 
+                                    userId={currentUser.id}
+                                    highlightedDate={highlightedDate}
+                                    onClearHighlight={() => setHighlightedDate(null)}
+                                />
+                            </motion.div>
+                        )}
+
+                        {currentTab === 'TIMESHEET' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="TIMESHEET"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
+                            >
+                                <AdminWeeklyTimesheet users={users} />
+                            </motion.div>
+                        )}
+                        
+                        {currentTab === 'APPROVALS' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="APPROVALS"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
+                            >
+                                <LeaveApprovalList 
+                                    requests={requests}
+                                    isLoading={isRequestsLoading}
+                                    onApprove={approveRequest}
+                                    onReject={rejectRequest}
+                                />
+                            </motion.div>
+                        )}
+
+                        {currentTab === 'REPORT' && currentUser.role === 'ADMIN' && (
+                            <motion.div
+                                key="REPORT"
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
+                            >
+                                <AdminAttendanceDashboard users={users} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                {/* Quota Modal */}
+                <LeaveQuotaModal 
+                    isOpen={isQuotaOpen}
+                    onClose={() => setIsQuotaOpen(false)}
+                    leaveUsage={leaveUsage}
+                    onHistoryClick={() => {
+                        setCurrentTab('HISTORY');
+                        setIsQuotaOpen(false);
+                    }}
+                />
             </div>
-            <div className="flex items-center space-x-2">
-                <button 
-                    onClick={() => handleQuickAction('Help')} 
-                    className="p-1.5 hover:bg-white/20 rounded-full transition-colors" 
-                    title="คู่มือการใช้"
-                >
-                    <HelpCircle className="w-5 h-5 text-white/90" />
-                </button>
-                <button 
-                    onClick={() => setIsOpen(false)} 
-                    className="p-1.5 hover:bg-white/20 rounded-full transition-colors" 
-                    title="ปิดหน้าต่าง"
-                >
-                    <X className="w-5 h-5 text-white" />
-                </button>
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-            {messages.map((msg) => (
-              <div 
-                key={msg.id} 
-                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div 
-                    className={`
-                        max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm
-                        ${msg.sender === 'user' 
-                            ? 'bg-indigo-600 text-white rounded-br-none' 
-                            : 'bg-white text-gray-700 border border-gray-200 rounded-bl-none'
-                        }
-                    `}
-                >
-                    {msg.text}
-                </div>
-              </div>
-            ))}
-            {isThinking && (
-              <div className="flex justify-start">
-                <div className="bg-white text-gray-400 border border-gray-200 rounded-2xl rounded-bl-none px-4 py-2 flex items-center space-x-1.5 shadow-sm">
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Quick Actions */}
-          <div className="px-4 pb-2 bg-gray-50 flex gap-2 overflow-x-auto scrollbar-hide">
-              <button onClick={() => handleQuickAction('สรุปงาน')} className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:text-indigo-600 hover:border-indigo-200 whitespace-nowrap shadow-sm transition-colors">
-                  <Zap className="w-3 h-3 mr-1 text-yellow-500" /> สรุปงาน
-              </button>
-              <button onClick={() => handleQuickAction('เพิ่มงาน ')} className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:text-indigo-600 hover:border-indigo-200 whitespace-nowrap shadow-sm transition-colors">
-                  <Plus className="w-3 h-3 mr-1 text-green-500" /> เพิ่มงาน
-              </button>
-              <button onClick={() => handleQuickAction('ค้นหา ')} className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:text-indigo-600 hover:border-indigo-200 whitespace-nowrap shadow-sm transition-colors">
-                  <Search className="w-3 h-3 mr-1 text-blue-500" /> ค้นหา
-              </button>
-              <button onClick={() => handleQuickAction('ขอกำลังใจ')} className="flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:text-indigo-600 hover:border-indigo-200 whitespace-nowrap shadow-sm transition-colors">
-                  <Smile className="w-3 h-3 mr-1 text-pink-500" /> กำลังใจ
-              </button>
-          </div>
-
-          {/* Input Area */}
-          <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 flex items-center gap-2">
-            <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="พิมพ์คำสั่ง..."
-                className="flex-1 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
-                autoFocus
-            />
-            <button 
-                type="submit"
-                className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!input.trim()}
-            >
-                <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      )}
-    </>
-  );
+        </AppBackground>
+    );
 };
 
-export default ChatAssistant;
+export default AttendanceRouter;

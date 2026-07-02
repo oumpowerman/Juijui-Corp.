@@ -32,7 +32,7 @@ const UpcomingLeaveList: React.FC<UpcomingLeaveListProps> = ({ requests }) => {
     return (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-5">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2 uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
                     <Calendar className="w-4 h-4 text-indigo-500" />
                     แผนการลาล่วงหน้า
                 </h3>
@@ -56,7 +56,7 @@ const UpcomingLeaveList: React.FC<UpcomingLeaveListProps> = ({ requests }) => {
                                 <h4 className="text-xs font-bold text-slate-700 truncate">
                                     {req.type}
                                 </h4>
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${getStatusColor(req.status)}`}>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${getStatusColor(req.status)}`}>
                                     {req.status}
                                 </span>
                             </div>

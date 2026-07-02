@@ -1,10 +1,11 @@
 
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Check, Loader2, Gift, Tag, Type, Palette, AlignLeft, Hash, Percent } from 'lucide-react';
+import { X, Save, Check, Loader2, Gift, Tag, Type, Palette, AlignLeft, Hash, Percent, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChannels } from '../../../hooks/useChannels';
 import FilterDropdown from '../../common/FilterDropdown';
+import { MasterOption } from '../../../types';
 
 interface MasterFormModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface MasterFormModalProps {
     rewardFormData?: any;
     setRewardFormData?: (data: any) => void;
     activeTab: string;
+    masterOptions?: MasterOption[];
 }
 
 const COLOR_PRESETS = [
@@ -34,7 +36,8 @@ const COLOR_PRESETS = [
 
 const MasterFormModal: React.FC<MasterFormModalProps> = ({ 
     isOpen, onClose, onSubmit, isSubmitting, isEditing, 
-    formData, setFormData, rewardFormData, setRewardFormData, activeTab 
+    formData, setFormData, rewardFormData, setRewardFormData, activeTab,
+    masterOptions = []
 }) => {
     const { channels, fetchChannels } = useChannels();
 
@@ -45,6 +48,11 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
     }, [isOpen, channels.length, fetchChannels]);
 
     const isRewardMode = activeTab === 'REWARDS' && rewardFormData && setRewardFormData;
+
+    // Filter potential target positions for QC routing (type POSITION, active, excluding itself)
+    const positionOptions = masterOptions
+        .filter(o => o.type === 'POSITION' && o.key !== formData.key)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
 
     return createPortal(
         <AnimatePresence>
@@ -169,6 +177,28 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                             autoFocus 
                                         />
                                     </div>
+
+                                    {/* QC Target Position Dropdown for POSITION type only */}
+                                    {activeTab === 'POSITION' && (formData.type === 'POSITION' || !formData.type) && (
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                <ShieldCheck className="w-3 h-3 text-emerald-500" /> ตำแหน่งผู้ตรวจงาน/หัวหน้าสายงาน (QC Target Position)
+                                            </label>
+                                            <select
+                                                value={formData.parentKey || ''}
+                                                onChange={e => setFormData({ ...formData, parentKey: e.target.value })}
+                                                className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-slate-700 text-sm"
+                                            >
+                                                <option value="">-- เลือกตำแหน่งผู้ตรวจ (ไม่มี/ข้ามตรวจอัตโนมัติ) --</option>
+                                                {positionOptions.map(pos => (
+                                                    <option key={pos.key} value={pos.key}>{pos.label} ({pos.key})</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-slate-400 italic">
+                                                * เมื่อคนทำมีตำแหน่งนี้ ระบบจะค้นหาพนักงานในตำแหน่งผู้ตรวจนี้เป็นผู้ตรวจเริ่มต้นโดยอัตโนมัติ
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Channel Selector for PILLAR, CATEGORY & SCRIPT_CATEGORY */}
                                     {(activeTab === 'PILLAR' || activeTab === 'CATEGORY' || activeTab === 'SCRIPT_CATEGORY') && (

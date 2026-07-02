@@ -95,48 +95,153 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
   
   // Dynamic seasonal theme detection
-  const activeBgId = (currentUser as any).equippedBgId || 'bg-pastel-wave';
+  const [activeBgTheme, setActiveBgTheme] = React.useState<string>(() => {
+    return (window as any).__activeBackgroundTheme || (currentUser as any).equippedBgId || 'bg-pastel-wave';
+  });
+
+  React.useEffect(() => {
+    const handleBgChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.theme) {
+        setActiveBgTheme(detail.theme);
+      }
+    };
+    window.addEventListener('app-background-changed', handleBgChange);
+    return () => {
+      window.removeEventListener('app-background-changed', handleBgChange);
+    };
+  }, []);
 
   const seasonStyle = useMemo(() => {
-    switch (activeBgId) {
+    // If not in the main DASHBOARD view, default to the elegant neutral/glassmorphic theme
+    if (currentView !== 'DASHBOARD') {
+      return {
+        aside: isDarkTheme
+          ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
+          : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
+        logoArea: isDarkTheme ? 'from-white/3 via-white/1 to-transparent' : 'from-indigo-500/4 via-indigo-500/1 to-transparent',
+        footer: isDarkTheme ? 'border-t border-white/5 bg-transparent' : 'border-t border-slate-200/50 bg-transparent',
+        userCard: isDarkTheme 
+          ? 'hover:bg-white/5 hover:border-white/10 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.05)]' 
+          : 'hover:bg-indigo-500/5 hover:border-indigo-500/10 hover:shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]',
+        text: isDarkTheme ? 'text-slate-200/90' : 'text-slate-800/90',
+        subtext: isDarkTheme ? 'text-slate-400/80' : 'text-slate-500/80',
+        itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
+        itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
+        itemActiveColor: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
+        activeIcon: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
+        idleIcon: isDarkTheme ? 'text-slate-400 group-hover/btn:text-indigo-300' : 'text-slate-400 group-hover/btn:text-indigo-600',
+        activePill: isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100',
+        activeBar: isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500',
+        hoverBg: isDarkTheme ? 'bg-white/5' : 'bg-slate-100',
+        groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
+        brandAccentBg: 'bg-indigo-500',
+        brandAccentText: 'text-indigo-500',
+        brandAccentGradient: 'from-indigo-500/50',
+        iconBg: isDarkTheme 
+          ? 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md shadow-sm hover:bg-white/10' 
+          : 'bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 backdrop-blur-md shadow-sm hover:bg-indigo-500/10'
+      };
+    }
+
+    switch (activeBgTheme) {
+      case 'season-summer':
       case 'bg-season-summer':
         return {
-          logoArea: 'from-amber-400/5 via-amber-400/2 to-transparent',
-          footer: 'border-t border-amber-500/10 bg-transparent',
-          userCard: 'hover:bg-amber-500/10 hover:border-amber-500/20 hover:shadow-[0_4px_20px_-4px_rgba(245,158,11,0.15)]',
-          text: 'text-amber-900/85',
-          subtext: 'text-amber-800/70',
-          iconBg: 'bg-amber-500/10 border border-amber-500/20 text-amber-600 backdrop-blur-md shadow-sm hover:bg-amber-500/15'
-        };
-      case 'bg-season-snow':
-        return {
-          logoArea: 'from-sky-300/6 via-sky-300/2 to-transparent',
+          aside: 'bg-sky-50/15 backdrop-blur-3xl border-r border-sky-500/20 shadow-[4px_0_24px_rgba(14,165,233,0.05)]',
+          logoArea: 'from-sky-400/5 via-sky-400/2 to-transparent',
           footer: 'border-t border-sky-500/10 bg-transparent',
           userCard: 'hover:bg-sky-500/10 hover:border-sky-500/20 hover:shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)]',
-          text: 'text-sky-900/85',
-          subtext: 'text-sky-800/70',
-          iconBg: 'bg-sky-500/10 border border-sky-500/20 text-sky-600 backdrop-blur-md shadow-sm hover:bg-sky-500/15'
+          text: 'text-sky-950 font-bold',
+          subtext: 'text-sky-900/80 font-medium',
+          iconBg: 'bg-sky-500/10 border border-sky-500/20 text-sky-600 backdrop-blur-md shadow-sm hover:bg-sky-500/15',
+          itemIdle: 'text-sky-800/80 hover:text-sky-950 hover:bg-sky-500/5 font-semibold',
+          itemActive: 'text-sky-950 font-black',
+          itemActiveColor: 'text-sky-600',
+          activeIcon: 'text-sky-600',
+          idleIcon: 'text-sky-700/60 group-hover/btn:text-sky-600',
+          activePill: 'bg-sky-500/10 border border-sky-500/20',
+          activeBar: 'bg-sky-500',
+          hoverBg: 'bg-sky-500/5',
+          groupHeader: 'text-sky-800/70 hover:text-sky-950',
+          brandAccentBg: 'bg-sky-500',
+          brandAccentText: 'text-sky-600',
+          brandAccentGradient: 'from-sky-500/50'
         };
+      case 'season-snow':
+      case 'bg-season-snow':
+        return {
+          aside: 'bg-white/10 backdrop-blur-3xl border-r border-white/20 shadow-[4px_0_24px_rgba(255,255,255,0.05)]',
+          logoArea: 'from-white/15 via-sky-300/5 to-transparent',
+          footer: 'border-t border-white/10 bg-transparent',
+          userCard: 'hover:bg-white/10 hover:border-white/20 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.15)]',
+          text: 'text-white font-bold',
+          subtext: 'text-sky-200/80 font-medium',
+          iconBg: 'bg-white/10 border border-white/20 text-white backdrop-blur-md hover:bg-white/20',
+          itemIdle: 'text-sky-100/80 hover:text-white hover:bg-white/10 font-semibold',
+          itemActive: 'text-white font-extrabold',
+          itemActiveColor: 'text-white',
+          activeIcon: 'text-white',
+          idleIcon: 'text-sky-200/50 group-hover/btn:text-white',
+          activePill: 'bg-white/15 border border-white/25 shadow-[0_0_15px_rgba(255,255,255,0.1)] backdrop-blur-md',
+          activeBar: 'bg-white',
+          hoverBg: 'bg-white/5',
+          groupHeader: 'text-sky-200/50 hover:text-white',
+          brandAccentBg: 'bg-sky-300',
+          brandAccentText: 'text-sky-300',
+          brandAccentGradient: 'from-sky-300/50'
+        };
+      case 'season-rain':
       case 'bg-season-rain':
         return {
-          logoArea: 'from-slate-500/10 via-slate-500/3 to-transparent',
-          footer: 'border-t border-slate-700/20 bg-transparent',
-          userCard: 'hover:bg-slate-700/30 hover:border-slate-600/40 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]',
-          text: 'text-slate-200/90',
-          subtext: 'text-slate-400/80',
-          iconBg: 'bg-slate-500/20 border border-slate-500/30 text-slate-300 backdrop-blur-md shadow-sm hover:bg-slate-500/25'
+          aside: 'bg-slate-950/15 backdrop-blur-3xl border-r border-slate-500/40 shadow-[4px_0_24px_rgba(0,0,0,0.25)]',
+          logoArea: 'from-slate-500/15 via-slate-500/5 to-transparent',
+          footer: 'border-t border-slate-600/40 bg-transparent',
+          userCard: 'hover:bg-slate-800/40 hover:border-slate-700/50 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)]',
+          text: 'text-white font-bold',
+          subtext: 'text-slate-300/80 font-medium',
+          iconBg: 'bg-white/10 border border-white/15 text-white backdrop-blur-md hover:bg-white/15',
+          itemIdle: 'text-slate-300/80 hover:text-white hover:bg-white/5 font-semibold',
+          itemActive: 'text-white font-extrabold',
+          itemActiveColor: 'text-white',
+          activeIcon: 'text-white',
+          idleIcon: 'text-slate-350 group-hover/btn:text-white',
+          activePill: 'bg-white/10 border border-white/10 shadow-md backdrop-blur-md',
+          activeBar: 'bg-white',
+          hoverBg: 'bg-white/5',
+          groupHeader: 'text-slate-100/70 hover:text-white',
+          brandAccentBg: 'bg-slate-300',
+          brandAccentText: 'text-slate-300',
+          brandAccentGradient: 'from-slate-300/30'
         };
+      case 'season-autumn':
       case 'bg-season-autumn':
         return {
+          aside: 'bg-orange-50/15 backdrop-blur-3xl border-r border-orange-500/20 shadow-[4px_0_24px_rgba(249,115,22,0.05)]',
           logoArea: 'from-orange-400/5 via-orange-400/2 to-transparent',
           footer: 'border-t border-orange-500/10 bg-transparent',
           userCard: 'hover:bg-orange-500/10 hover:border-orange-500/20 hover:shadow-[0_4px_20px_-4px_rgba(249,115,22,0.15)]',
-          text: 'text-orange-900/85',
-          subtext: 'text-orange-800/70',
-          iconBg: 'bg-orange-500/10 border border-orange-500/20 text-orange-600 backdrop-blur-md shadow-sm hover:bg-orange-500/15'
+          text: 'text-orange-950 font-bold',
+          subtext: 'text-orange-900/80 font-medium',
+          iconBg: 'bg-orange-500/10 border border-orange-500/20 text-orange-600 backdrop-blur-md shadow-sm hover:bg-orange-500/15',
+          itemIdle: 'text-orange-800/80 hover:text-orange-950 hover:bg-orange-500/5 font-semibold',
+          itemActive: 'text-orange-950 font-black',
+          itemActiveColor: 'text-orange-600',
+          activeIcon: 'text-orange-600',
+          idleIcon: 'text-orange-700/60 group-hover/btn:text-orange-600',
+          activePill: 'bg-orange-500/10 border border-orange-500/20',
+          activeBar: 'bg-orange-500',
+          hoverBg: 'bg-orange-500/5',
+          groupHeader: 'text-orange-800/70 hover:text-orange-950',
+          brandAccentBg: 'bg-orange-500',
+          brandAccentText: 'text-orange-600',
+          brandAccentGradient: 'from-orange-500/50'
         };
       default:
         return {
+          aside: isDarkTheme
+            ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
+            : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
           logoArea: isDarkTheme ? 'from-white/3 via-white/1 to-transparent' : 'from-indigo-500/4 via-indigo-500/1 to-transparent',
           footer: isDarkTheme ? 'border-t border-white/5 bg-transparent' : 'border-t border-slate-200/50 bg-transparent',
           userCard: isDarkTheme 
@@ -144,22 +249,41 @@ const Sidebar: React.FC<SidebarProps> = ({
             : 'hover:bg-indigo-500/5 hover:border-indigo-500/10 hover:shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]',
           text: isDarkTheme ? 'text-slate-200/90' : 'text-slate-800/90',
           subtext: isDarkTheme ? 'text-slate-400/80' : 'text-slate-500/80',
+          itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
+          itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
+          itemActiveColor: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
+          activeIcon: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
+          idleIcon: isDarkTheme ? 'text-slate-400 group-hover/btn:text-indigo-300' : 'text-slate-400 group-hover/btn:text-indigo-600',
+          activePill: isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100',
+          activeBar: isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500',
+          hoverBg: isDarkTheme ? 'bg-white/5' : 'bg-slate-100',
+          groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
+          brandAccentBg: 'bg-indigo-500',
+          brandAccentText: 'text-indigo-500',
+          brandAccentGradient: 'from-indigo-500/50',
           iconBg: isDarkTheme 
             ? 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md shadow-sm hover:bg-white/10' 
             : 'bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 backdrop-blur-md shadow-sm hover:bg-indigo-500/10'
         };
     }
-  }, [activeBgId, isDarkTheme]);
+  }, [activeBgTheme, isDarkTheme, currentView]);
 
   const themeClasses = {
-      aside: isDarkTheme
-        ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
-        : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
+      aside: seasonStyle.aside,
       text: seasonStyle.text,
       subtext: seasonStyle.subtext,
-      groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
-      itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
-      itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
+      groupHeader: seasonStyle.groupHeader,
+      itemIdle: seasonStyle.itemIdle,
+      itemActive: seasonStyle.itemActive,
+      itemActiveColor: seasonStyle.itemActiveColor,
+      activeIcon: seasonStyle.activeIcon,
+      idleIcon: seasonStyle.idleIcon,
+      activePill: seasonStyle.activePill,
+      activeBar: seasonStyle.activeBar,
+      hoverBg: seasonStyle.hoverBg,
+      brandAccentBg: seasonStyle.brandAccentBg,
+      brandAccentText: seasonStyle.brandAccentText,
+      brandAccentGradient: seasonStyle.brandAccentGradient,
       footer: seasonStyle.footer,
       userCard: seasonStyle.userCard,
       logoArea: seasonStyle.logoArea,
@@ -265,9 +389,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               transition={{ delay: 1, duration: 0.5 }}
               className="flex items-center gap-1.5 mt-1"
             >
-              <div className="h-[2px] w-4 bg-indigo-500 rounded-full" />
-              <p className="text-[10px] font-black text-indigo-500 tracking-[0.3em] uppercase font-inter">OS</p>
-              <div className="h-[2px] flex-1 bg-gradient-to-r from-indigo-500/50 to-transparent rounded-full" />
+              <div className={`h-[2px] w-4 ${themeClasses.brandAccentBg} rounded-full`} />
+              <p className={`text-[10px] font-black ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>OS</p>
+              <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
             </motion.div>
           </div>
         )}
@@ -335,7 +459,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           {isActive && (
                             <motion.div 
                                 layoutId="active-pill"
-                                className={`absolute inset-0 z-0 ${isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100'} shadow-sm`}
+                                className={`absolute inset-0 z-0 ${themeClasses.activePill} shadow-sm`}
                                 transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
                             />
                           )}
@@ -344,18 +468,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                           {isActive && (
                             <motion.div 
                                 layoutId="active-bar"
-                                className={`absolute left-0 top-1/4 bottom-1/4 w-1 ${isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500'} rounded-r-full z-10`}
+                                className={`absolute left-0 top-1/4 bottom-1/4 w-1 ${themeClasses.activeBar} rounded-r-full z-10`}
                                 transition={{ type: "spring", bounce: 0, duration: 0.4 }}
                             />
                           )}
 
                           {/* Hover Background (When not active) */}
                           {!isActive && (
-                            <div className={`absolute inset-0 z-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200 ${isDarkTheme ? 'bg-white/5' : 'bg-slate-100'}`} />
+                            <div className={`absolute inset-0 z-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200 ${themeClasses.hoverBg}`} />
                           )}
 
-                          <div className={`relative shrink-0 z-10 transition-colors duration-300 ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : ''}`}>
-                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : 'text-slate-400 group-hover/btn:text-indigo-600'}`} />
+                          <div className={`relative shrink-0 z-10 transition-colors duration-300 ${isActive ? themeClasses.itemActiveColor : ''}`}>
+                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? themeClasses.activeIcon : themeClasses.idleIcon}`} />
                                 
                                 {isCollapsed && (
                                      <div className="absolute -top-1.5 -right-1.5">
@@ -369,7 +493,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                           </div>
                           
-                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5 relative z-10 transition-colors duration-300 ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : ''}`}>
+                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5 relative z-10 transition-colors duration-300 ${isActive ? themeClasses.itemActiveColor : ''}`}>
                              {item.label}
                           </span>
                           

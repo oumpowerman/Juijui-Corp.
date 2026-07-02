@@ -140,45 +140,8 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
     const [activePanel, setActivePanel] = useState<'MENU' | 'SEARCH'>('MENU');
     const containerRef = React.useRef<HTMLDivElement>(null);
     
-    // Collapsible Dock States
-    const [isDockVisible, setIsDockVisible] = useState(true);
-    const lastScrollY = React.useRef(0);
-
-    // Auto-show dock on navigation
-    useEffect(() => {
-        setIsDockVisible(true);
-    }, [currentView]);
-
-    useEffect(() => {
-        const handleScroll = (e: Event) => {
-            const target = e.target as HTMLElement;
-            if (!target || typeof target.scrollTop !== 'number') return;
-            
-            const currentScrollTop = target.scrollTop;
-            
-            // Ignore small scrolls (jitter filter)
-            if (Math.abs(currentScrollTop - lastScrollY.current) < 15) {
-                return;
-            }
-            
-            if (currentScrollTop < 50) {
-                setIsDockVisible(true);
-            } else if (currentScrollTop > lastScrollY.current) {
-                // Scrolling down -> hide dock
-                setIsDockVisible(false);
-            } else {
-                // Scrolling up -> show dock
-                setIsDockVisible(true);
-            }
-            lastScrollY.current = currentScrollTop;
-        };
-
-        // Capture scroll events at the document level
-        document.addEventListener('scroll', handleScroll, true);
-        return () => {
-            document.removeEventListener('scroll', handleScroll, true);
-        };
-    }, []);
+    // Bottom Dock remains always visible
+    const isDockVisible = true;
 
     // Theme Logic
     const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
@@ -345,27 +308,6 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                     </motion.button>
                 </div>
             </motion.div>
-
-            {/* --- SHOW DOCK BUTTON WHEN HIDDEN --- */}
-            <AnimatePresence>
-                {!isDockVisible && !isMenuOpen && (
-                    <motion.button
-                        initial={{ opacity: 0, y: 30, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 30, scale: 0.8 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsDockVisible(true)}
-                        className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 p-2.5 px-4 rounded-full shadow-lg border flex items-center gap-2 text-xs font-bold transition-all lg:hidden active:scale-95 ${
-                            isDarkTheme 
-                                ? 'bg-indigo-600/90 border-indigo-500/50 text-white hover:bg-indigo-600' 
-                                : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700 shadow-indigo-200'
-                        }`}
-                    >
-                        <ChevronUp className="w-4 h-4 animate-bounce" />
-                        <span>แสดงเมนู</span>
-                    </motion.button>
-                )}
-            </AnimatePresence>
 
             {/* --- FULL SCREEN MENU DRAWER --- */}
             <AnimatePresence>

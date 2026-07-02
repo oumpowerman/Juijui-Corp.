@@ -68,253 +68,303 @@ Deno.serve(async (req: any) => {
       return new Response(JSON.stringify({ message: 'Processed by sibling handler thread' }), { status: 200 });
     }
 
-    // Extract claimed notification IDs for updating status later
-    claimedIds = claimedRecords.map((r: any) => r.id);
-    console.log(`Thread ${record.id} successfully claimed ${claimedRecords.length} notifications: [${claimedIds.join(', ')}]`);
+    // Extract claimed notification IDs for updating status    // 1. Get Target LINE ID / Destination
+    let targetDestination: string | null = null;
+    let targetName = '';
 
-    // 1. Get User's LINE ID
-    const { data: userProfile, error: userError } = await supabaseAdmin
-      .from('profiles')
-      .select('line_user_id, full_name')
-      .eq('id', record.user_id)
-      .single();
+    if (record.type === 'DAILY_SUMMARY') {
+      const { data: destOpt, error: destErr } = await supabaseAdmin
+        .from('master_options')
+        .select('label')
+        .eq('type', 'WORK_CONFIG')
+        .eq('key', 'LINE_SUMMARY_DESTINATION')
+        .maybeSingle();
+      
+      if (destOpt && destOpt.label) {
+        targetDestination = destOpt.label;
+        targetName = 'LINE Summary Group';
+      } else {
+        console.log(`DAILY_SUMMARY requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
+      }
+    } else {
+      const { data: userProfile, error: userError } = await supabaseAdmin
+        .from('profiles')
+        .select('line_user_id, full_name')
+        .eq('id', record.user_id)
+        .single();
+      
+      if (userProfile && userProfile.line_user_id) {
+        targetDestination = userProfile.line_user_id;
+        targetName = userProfile.full_name || 'User';
+      }
+    }
 
-    // CASE: No LINE ID Linked
-    if (userError || !userProfile || !userProfile.line_user_id) {
-      console.log(`User ${record.user_id} has no LINE ID linked. Marking as ABANDONED.`);
+    // CASE: No LINE ID or Destination Linked
+    if (!targetDestination) {
+      console.log(`No valid LINE destination found for notification. Marking as ABANDONED.`);
       
       await supabaseAdmin.from('notifications').update({
           line_status: 'ABANDONED',
-          last_error: 'No LINE ID linked in profile'
+          last_error: record.type === 'DAILY_SUMMARY'
+            ? 'LINE_SUMMARY_DESTINATION is empty or not found in master_options'
+            : 'No LINE ID linked in profile'
       }).in('id', claimedIds);
 
-      return new Response(JSON.stringify({ message: 'No LINE ID linked, batch marked as ABANDONED' }), { status: 200 });
+      return new Response(JSON.stringify({ message: 'No destination, batch marked as ABANDONED' }), { status: 200 });
     }
 
-    // 2. Construct LINE Message (Flex Message)
+    // 2. Construct LINE Message
     const lineAccessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
-    const isBatch = claimedRecords.length > 1;
+    let lineMessagePayload: any;
 
-    // Use a distinct Indigo background for batched notifications, or the single config type color if solo
-    const primaryConfig = isBatch 
-      ? { color: '#4f46e5', emoji: '🔔', label: 'การแจ้งเตือนแบบรวม' }
-      : (TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO']);
-
-    // Build Flex Contents dynamically
-    const bodyContents: any[] = [];
-
-    if (isBatch) {
-      bodyContents.push({
-        type: "text",
-        text: `คุณได้รับการแจ้งเตือนใหม่ ${claimedRecords.length} รายการ`,
-        weight: "bold",
-        size: "sm",
-        color: "#1e293b",
-        margin: "none"
-      });
-
-      // Limit display inside the LINE Flex bubbles to max 4 to fit clean height limits comfortably
-      const displayRecords = claimedRecords.slice(0, 4);
-      displayRecords.forEach((rec: any, idx: number) => {
-        const itemConfig = TYPE_CONFIG[rec.type] || TYPE_CONFIG['INFO'];
-        
-        bodyContents.push({
-          type: "box",
-          layout: "vertical",
-          margin: "md",
-          paddingAll: "10px",
-          backgroundColor: "#f8fafc",
-          cornerRadius: "md",
-          borderWidth: "1px",
-          borderColor: "#e2e8f0",
-          contents: [
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                {
-                  type: "text",
-                  text: `${itemConfig.emoji} ${rec.title}`,
-                  weight: "bold",
-                  size: "xs",
-                  wrap: true,
-                  color: "#334155",
-                  flex: 1
-                }
-              ]
-            },
-            rec.message ? {
-              type: "text",
-              text: rec.message,
-              size: "xxs",
-              color: "#64748b",
-              wrap: true,
-              margin: "xs",
-              maxLines: 2
-            } : null,
-            {
-              type: "box",
-              layout: "horizontal",
-              margin: "xs",
-              contents: [
-                {
-                  type: "text",
-                  text: itemConfig.label,
-                  size: "xxs",
-                  color: "#94a3b8",
-                  flex: 1
-                },
-                {
-                  type: "text",
-                  text: new Date(rec.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-                  size: "xxs",
-                  color: "#cbd5e1",
-                  align: "end"
-                }
-              ]
-            }
-          ].filter(Boolean) as any[]
-        });
-      });
-
-      if (claimedRecords.length > 4) {
-        bodyContents.push({
-          type: "text",
-          text: `• มีการแจ้งเตือนเพิ่มเติมอีก ${claimedRecords.length - 4} รายการในระบบ`,
-          size: "xxs",
-          color: "#6366f1",
-          margin: "sm",
-          align: "center",
-          weight: "bold"
-        });
-      }
+    if (record.type === 'DAILY_SUMMARY') {
+      // Send daily summary as a plain text message for maximum copy-ability and clean formatting
+      lineMessagePayload = {
+        to: targetDestination,
+        messages: [
+          {
+            type: "text",
+            text: record.message || record.title
+          }
+        ]
+      };
     } else {
-      // Normal single notification format
-      bodyContents.push(
-        {
-          type: "text",
-          text: record.title,
-          weight: "bold",
-          size: "md",
-          wrap: true,
-          color: "#334155"
-        },
-        {
-          type: "text",
-          text: record.message || "-",
-          size: "xs",
-          color: "#64748b",
-          wrap: true,
-          margin: "md",
-          maxLines: 4
-        },
-        {
-          type: "box",
-          layout: "horizontal",
-          margin: "lg",
-          contents: [
-            {
-              type: "text",
-              text: primaryConfig.label,
-              size: "xxs",
-              color: "#94a3b8",
-              flex: 1
-            },
-            {
-              type: "text",
-              text: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-              size: "xxs",
-              color: "#cbd5e1",
-              align: "end"
-            }
-          ]
-        }
-      );
-    }
+      const isBatch = claimedRecords.length > 1;
+      // Use a distinct Indigo background for batched notifications, or the single config type color if solo
+      const primaryConfig = isBatch 
+        ? { color: '#4f46e5', emoji: '🔔', label: 'การแจ้งเตือนแบบรวม' }
+        : (TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO']);
 
-    const flexMessage = {
-      to: userProfile.line_user_id,
-      messages: [
-        {
-          type: "flex",
-          altText: isBatch 
-            ? `[Juijui] แจ้งเตือนใหม่ ${claimedRecords.length} รายการ`
-            : `[Juijui] ${record.title}`,
-          contents: {
-            type: "bubble",
-            size: "kilo",
-            header: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: primaryConfig.emoji,
-                      size: "xl"
-                    },
-                    {
-                      type: "text",
-                      text: "Juijui Alert Center",
-                      weight: "bold",
-                      color: "#ffffff",
-                      size: "sm",
-                      flex: 1,
-                      gravity: "center",
-                      margin: "sm"
-                    }
-                  ]
-                }
-              ],
-              backgroundColor: primaryConfig.color,
-              paddingAll: "15px"
-            },
-            body: {
-              type: "box",
-              layout: "vertical",
-              contents: bodyContents,
-              paddingAll: "20px"
-            },
-            footer: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "button",
-                  action: {
-                    type: "uri",
-                    label: "เปิดเข้าแอป",
-                    uri: "https://juijui-corp.vercel.app/"
+      // Build Flex Contents dynamically
+      const bodyContents: any[] = [];
+
+      if (isBatch) {
+        bodyContents.push({
+          type: "text",
+          text: `คุณได้รับการแจ้งเตือนใหม่ ${claimedRecords.length} รายการ`,
+          weight: "bold",
+          size: "sm",
+          color: "#1e293b",
+          margin: "none"
+        });
+
+        // Limit display inside the LINE Flex bubbles to max 4 to fit clean height limits comfortably
+        const displayRecords = claimedRecords.slice(0, 4);
+        displayRecords.forEach((rec: any, idx: number) => {
+          const itemConfig = TYPE_CONFIG[rec.type] || TYPE_CONFIG['INFO'];
+          
+          bodyContents.push({
+            type: "box",
+            layout: "vertical",
+            margin: "md",
+            paddingAll: "10px",
+            backgroundColor: "#f8fafc",
+            cornerRadius: "md",
+            borderWidth: "1px",
+            borderColor: "#e2e8f0",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  {
+                    type: "text",
+                    text: `${itemConfig.emoji} ${rec.title}`,
+                    weight: "bold",
+                    size: "xs",
+                    wrap: true,
+                    color: "#334155",
+                    flex: 1
+                  }
+                ]
+              },
+              rec.message ? {
+                type: "text",
+                text: rec.message,
+                size: "xxs",
+                color: "#64748b",
+                wrap: true,
+                margin: "xs",
+                maxLines: 2
+              } : null,
+              {
+                type: "box",
+                layout: "horizontal",
+                margin: "xs",
+                contents: [
+                  {
+                    type: "text",
+                    text: itemConfig.label,
+                    size: "xxs",
+                    color: "#94a3b8",
+                    flex: 1
                   },
-                  style: "secondary",
-                  height: "sm",
-                  color: "#f1f5f9"
-                }
-              ],
-              paddingAll: "15px"
+                  {
+                    type: "text",
+                    text: new Date(rec.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                    size: "xxs",
+                    color: "#cbd5e1",
+                    align: "end"
+                  }
+                ]
+              }
+            ].filter(Boolean) as any[]
+          });
+        });
+
+        if (claimedRecords.length > 4) {
+          bodyContents.push({
+            type: "text",
+            text: `• มีการแจ้งเตือนเพิ่มเติมอีก ${claimedRecords.length - 4} รายการในระบบ`,
+            size: "xxs",
+            color: "#6366f1",
+            margin: "sm",
+            align: "center",
+            weight: "bold"
+          });
+        }
+      } else {
+        // Normal single notification format
+        bodyContents.push(
+          {
+            type: "text",
+            text: record.title,
+            weight: "bold",
+            size: "md",
+            wrap: true,
+            color: "#334155"
+          },
+          {
+            type: "text",
+            text: record.message || "-",
+            size: "xs",
+            color: "#64748b",
+            wrap: true,
+            margin: "md",
+            maxLines: 4
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "lg",
+            contents: [
+              {
+                type: "text",
+                text: primaryConfig.label,
+                size: "xxs",
+                color: "#94a3b8",
+                flex: 1
+              },
+              {
+                type: "text",
+                text: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                size: "xxs",
+                color: "#cbd5e1",
+                align: "end"
+              }
+            ]
+          }
+        );
+      }
+
+      lineMessagePayload = {
+        to: targetDestination,
+        messages: [
+          {
+            type: "flex",
+            altText: isBatch 
+              ? `[Juijui] แจ้งเตือนใหม่ ${claimedRecords.length} รายการ`
+              : `[Juijui] ${record.title}`,
+            contents: {
+              type: "bubble",
+              size: "kilo",
+              header: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      {
+                        type: "text",
+                        text: primaryConfig.emoji,
+                        size: "xl"
+                      },
+                      {
+                        type: "text",
+                        text: "Juijui Alert Center",
+                        weight: "bold",
+                        color: "#ffffff",
+                        size: "sm",
+                        flex: 1,
+                        gravity: "center",
+                        margin: "sm"
+                      }
+                    ]
+                  }
+                ],
+                backgroundColor: primaryConfig.color,
+                paddingAll: "15px"
+              },
+              body: {
+                type: "box",
+                layout: "vertical",
+                contents: bodyContents,
+                paddingAll: "20px"
+              },
+              footer: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "button",
+                    action: {
+                      type: "uri",
+                      label: "เปิดเข้าแอป",
+                      uri: "https://juijui-corp.vercel.app/"
+                    },
+                    style: "secondary",
+                    height: "sm",
+                    color: "#f1f5f9"
+                  }
+                ],
+                paddingAll: "15px"
+              }
             }
           }
-        }
-      ]
-    };
+        ]
+      };
+    }
 
-    // 3. Send to LINE API
-    const lineResponse = await fetch(LINE_MESSAGING_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${lineAccessToken}`
-      },
-      body: JSON.stringify(flexMessage)
+    // 3. Send to LINE API (Support one or multiple comma-separated destinations)
+    const destinations = targetDestination.split(',').map((d: string) => d.trim()).filter(Boolean);
+    if (destinations.length === 0) {
+      throw new Error("No valid LINE destinations after splitting.");
+    }
+
+    const sendPromises = destinations.map(async (destination) => {
+      const payload = {
+        ...lineMessagePayload,
+        to: destination
+      };
+
+      const res = await fetch(LINE_MESSAGING_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${lineAccessToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`LINE API Error for ${destination} (${res.status}): ${errorText}`);
+      }
     });
 
-    if (!lineResponse.ok) {
-      const errorText = await lineResponse.text();
-      throw new Error(`LINE API Error (${lineResponse.status}): ${errorText}`);
-    }
+    await Promise.all(sendPromises);
 
     // Update DB: SUCCESS for all batched records
     await supabaseAdmin.from('notifications').update({

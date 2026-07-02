@@ -115,6 +115,11 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     const [scribbles, setScribbles] = React.useState<any[]>([]);
 
     React.useEffect(() => {
+        window.dispatchEvent(new CustomEvent('app-background-changed', { detail: { theme } }));
+        (window as any).__activeBackgroundTheme = theme;
+    }, [theme]);
+
+    React.useEffect(() => {
         if (theme !== 'script' && theme !== 'inspector' && theme !== 'productivity' && theme !== 'rainbow') {
             setElements([]);
             setScribbles([]);

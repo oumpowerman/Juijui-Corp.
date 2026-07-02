@@ -38,6 +38,7 @@ export const useMasterDataView = () => {
     
     // Extended Form Data to support parentKey and description
     const [formData, setFormData] = useState({ 
+        type: '',
         key: '', 
         label: '', 
         color: 'bg-gray-100 text-gray-700', 
@@ -73,6 +74,7 @@ export const useMasterDataView = () => {
     const handleEdit = (option: MasterOption) => {
         setEditingId(option.id);
         setFormData({ 
+            type: option.type,
             key: option.key, 
             label: option.label, 
             color: option.color || 'bg-gray-100 text-gray-700', 
@@ -91,6 +93,7 @@ export const useMasterDataView = () => {
         const currentCount = masterOptions.filter(o => o.type === (overrideType || activeTab)).length;
         
         setFormData({ 
+            type: overrideType || activeTab,
             key: '', 
             label: '', 
             color: 'bg-gray-100 text-gray-700', 
@@ -112,7 +115,7 @@ export const useMasterDataView = () => {
                 else await addReward(rewardFormData as any);
             } else {
                 // Determine Type: explicitType overrides activeTab (useful for Sub-items like L2 or Responsibilities)
-                let targetType = explicitType || activeTab;
+                let targetType = explicitType || formData.type || activeTab;
                 if (activeTab === 'PAYROLL_RULES') targetType = 'PAYROLL_CONFIG';
                 
                 const payload = { 

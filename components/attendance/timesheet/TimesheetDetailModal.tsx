@@ -1,20 +1,62 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { getDirectDriveUrl } from '../../../lib/imageUtils';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const lightboxBackdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+    exit: { opacity: 0 }
+};
+
+const lightboxImageVariants = {
+    hidden: { scale: 0.9, opacity: 0 },
+    visible: { 
+        scale: 1, 
+        opacity: 1,
+        transition: { 
+            type: "spring" as const, 
+            damping: 25, 
+            stiffness: 240 
+        }
+    },
+    exit: { 
+        scale: 0.95, 
+        opacity: 0,
+        transition: { 
+            duration: 0.2,
+            ease: "easeIn" as const
+        }
+    }
+};
 
 // --- SUB-COMPONENT: Lightbox Modal (Consistent with TeamChat) ---
 const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
-            onClick={onClose}
+        <motion.div 
+            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={lightboxBackdropVariants}
+            transition={{ duration: 0.25 }}
+            onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+            }}
         >
-            <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
+            <motion.div 
+                className="absolute top-6 right-6 flex items-center gap-3 z-10"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+            >
                 <a 
                     href={url} 
                     target="_blank" 
@@ -25,26 +67,39 @@ const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose
                     <ExternalLink className="w-5 h-5" />
                 </a>
                 <button 
-                    onClick={onClose}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                    }}
                     className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
                 >
                     <X className="w-6 h-6" />
                 </button>
-            </div>
+            </motion.div>
 
-            <div className="relative max-w-5xl w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <motion.div 
+                className="relative max-w-5xl w-full h-full flex items-center justify-center" 
+                onClick={(e) => e.stopPropagation()}
+                variants={lightboxImageVariants}
+            >
                 <img 
                     src={getDirectDriveUrl(url)} 
                     alt="Full Preview" 
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                     referrerPolicy="no-referrer"
                 />
-            </div>
+            </motion.div>
             
-            <div className="mt-4 text-white/50 text-xs font-medium">
+            <motion.div 
+                className="mt-4 text-white/50 text-xs font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+            >
                 Click anywhere to close
-            </div>
-        </div>,
+            </motion.div>
+        </motion.div>,
         document.body
     );
 };
@@ -55,23 +110,81 @@ interface TimesheetDetailModalProps {
     onClose: () => void;
 }
 
+const useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+};
+
+const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+    exit: { opacity: 0 }
+};
+
+const modalVariants = {
+    hidden: (isMobile: boolean) => ({
+        y: isMobile ? '100%' : 24,
+        scale: isMobile ? 1 : 0.95,
+        opacity: isMobile ? 1 : 0,
+    }),
+    visible: {
+        y: 0,
+        scale: 1,
+        opacity: 1,
+    },
+    exit: (isMobile: boolean) => ({
+        y: isMobile ? '100%' : 16,
+        scale: isMobile ? 1 : 0.98,
+        opacity: isMobile ? 1 : 0,
+    }),
+};
+
 const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, onClose }) => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxUrl, setLightboxUrl] = useState('');
+    const isMobile = useIsMobile();
 
     const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
     const note = log?.note || leaveRequest?.reason || '';
     
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-300"
+        <motion.div 
+            className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-slate-900/80 backdrop-blur-xl p-0 md:p-4"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={backdropVariants}
+            transition={{ duration: 0.3 }}
             onClick={onClose}
         >
-            <div 
-                className="bg-white w-full max-w-xl rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95 border-4 border-white"
+            <motion.div 
+                className="bg-white w-full h-[100dvh] md:h-auto md:max-h-[90vh] max-w-xl flex flex-col rounded-none md:rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden border-0 md:border-4 border-white"
+                custom={isMobile}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={modalVariants}
+                transition={
+                    isMobile 
+                        ? { type: "spring", damping: 30, stiffness: 300 }
+                        : { ease: "easeOut", duration: 0.25 }
+                }
                 onClick={e => e.stopPropagation()}
             >
-                <div className="relative h-72 bg-slate-900 flex items-center justify-center group/img">
+                <div className="relative h-[45vh] sm:h-64 md:h-72 shrink-0 bg-slate-900 flex items-center justify-center group/img">
+                    {/* Visual drag handle for native mobile sheet feel */}
+                    <div className="absolute top-[calc(env(safe-area-inset-top,16px)+6px)] left-1/2 -translate-x-1/2 w-12 h-1 bg-white/40 rounded-full z-20 md:hidden" />
+                    
                     {(() => {
                         const proofMatch = note.match(/\[PROOF:(.*?)\]/);
                         const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
@@ -116,16 +229,21 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                             </div>
                         );
                     })()}
-                    <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-black/40 hover:bg-red-500 text-white rounded-full transition-all shadow-xl backdrop-blur-md"><X className="w-6 h-6"/></button>
+                    <button 
+                        onClick={onClose} 
+                        className="absolute top-[calc(env(safe-area-inset-top,16px)+12px)] md:top-6 right-6 p-2 bg-black/40 hover:bg-red-500 text-white rounded-full transition-all shadow-xl backdrop-blur-md z-10"
+                    >
+                        <X className="w-6 h-6"/>
+                    </button>
                 </div>
 
-                <div className="p-8">
-                    <div className="flex justify-between items-start mb-8">
+                <div className="p-6 md:p-8 overflow-y-auto flex-1 flex flex-col space-y-7 pb-[calc(env(safe-area-inset-bottom,24px)+24px)] overscroll-behavior-y-contain -webkit-overflow-scrolling-touch min-h-0">
+                    <div className="flex justify-between items-start">
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
                                 {log ? 'Time Analysis Log' : 'Leave Request Detail'}
                             </p>
-                            <h3 className="text-3xl font-black text-slate-800">
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-800">
                                 {format(displayDate, 'EEEE d MMMM', { locale: th })}
                             </h3>
                             {leaveRequest && (
@@ -148,30 +266,30 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                 return null;
                             })()}
                         </div>
-                        <div className="p-4 bg-indigo-50 text-indigo-600 rounded-[1.5rem] shadow-inner">
-                            {leaveRequest ? <Info className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
+                        <div className="p-3 md:p-4 bg-indigo-50 text-indigo-600 rounded-[1.25rem] md:rounded-[1.5rem] shadow-inner shrink-0">
+                            {leaveRequest ? <Info className="w-6 h-6 md:w-8 md:h-8" /> : <Clock className="w-6 h-6 md:w-8 md:h-8" />}
                         </div>
                     </div>
 
                     {log ? (
-                        <div className="grid grid-cols-2 gap-6 mb-8">
-                            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-emerald-200 transition-all">
+                        <div className="grid grid-cols-2 gap-4 md:gap-6">
+                            <div className="bg-slate-50 p-4 md:p-5 rounded-[2rem] border border-slate-100 group hover:border-emerald-200 transition-all">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-emerald-500" /> Start Mission</p>
-                                <p className="text-3xl font-black text-indigo-600 font-mono">
+                                <p className="text-2xl md:text-3xl font-black text-indigo-600 font-mono">
                                     {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
                                 </p>
                                 <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.locationName || 'Unspecified'}</p>
                             </div>
-                            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100 group hover:border-orange-200 transition-all">
+                            <div className="bg-slate-50 p-4 md:p-5 rounded-[2rem] border border-slate-100 group hover:border-orange-200 transition-all">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-orange-500 rotate-180" /> Mission End</p>
-                                <p className="text-3xl font-black text-slate-700 font-mono">
+                                <p className="text-2xl md:text-3xl font-black text-slate-700 font-mono">
                                     {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                                 </p>
                                 <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.checkOutLocationName || 'Unspecified'}</p>
                             </div>
                         </div>
                     ) : leaveRequest && (
-                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
+                        <div className="bg-slate-50 p-5 md:p-6 rounded-[2rem] border border-slate-100">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-indigo-500" />
@@ -202,23 +320,27 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         </div>
                     )}
 
+                    <div className="flex-grow min-h-0" />
+
                     <button 
                         onClick={onClose}
-                        className="w-full mt-8 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm tracking-widest uppercase hover:bg-indigo-600 transition-all active:scale-95 shadow-xl shadow-slate-200"
+                        className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm tracking-widest uppercase hover:bg-indigo-600 transition-all active:scale-95 shadow-xl shadow-slate-200 shrink-0"
                     >
                         Close Command
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Lightbox Modal */}
-            {showLightbox && (
-                <Lightbox 
-                    url={lightboxUrl} 
-                    onClose={() => setShowLightbox(false)} 
-                />
-            )}
-        </div>,
+            <AnimatePresence>
+                {showLightbox && (
+                    <Lightbox 
+                        url={lightboxUrl} 
+                        onClose={() => setShowLightbox(false)} 
+                    />
+                )}
+            </AnimatePresence>
+        </motion.div>,
         document.body
     );
 };

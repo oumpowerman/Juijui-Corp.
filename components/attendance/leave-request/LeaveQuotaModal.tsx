@@ -63,7 +63,7 @@ const LeaveQuotaModal: React.FC<LeaveQuotaModalProps> = ({
                             stiffness: 120,
                             mass: 1.0
                         }}
-                        className="bg-white w-full sm:max-w-xl rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border-4 border-slate-900 relative overflow-hidden z-10"
+                        className="bg-white w-full sm:max-w-xl h-[80vh] sm:h-auto rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border-4 border-slate-900 relative overflow-hidden z-10 flex flex-col min-h-0"
                         id="leave-quota-modal-card"
                     >
                         {/* Close Button with spin hover */}
@@ -76,7 +76,7 @@ const LeaveQuotaModal: React.FC<LeaveQuotaModalProps> = ({
                             <X className="w-4 h-4" />
                         </motion.button>
 
-                        <div className="p-2 bg-gradient-to-b from-indigo-50/10 to-white">
+                        <div className="p-2 bg-gradient-to-b from-indigo-50/10 to-white flex-1 flex flex-col min-h-0">
                             <LeaveQuotaWidget 
                                 leaveUsage={leaveUsage}
                                 onHistoryClick={() => {

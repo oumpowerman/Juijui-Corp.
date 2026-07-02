@@ -80,14 +80,19 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
     const totalIssues = lateLogs.length + absentDates.length + leaveLogs.length;
 
     return createPortal(
-        <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-900/20 backdrop-blur-md p-4 animate-in fade-in duration-300"
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-900/20 backdrop-blur-md p-4"
             onClick={onClose}
         >
             <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="bg-white w-full max-w-2xl rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(99,102,241,0.15)] overflow-hidden border-[8px] border-indigo-50 flex flex-col max-h-[90vh] relative"
                 onClick={e => e.stopPropagation()}
             >
@@ -512,7 +517,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                     </button>
                 </div>
             </motion.div>
-        </div>,
+        </motion.div>,
         document.body
     );
 };

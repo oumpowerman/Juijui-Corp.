@@ -54,12 +54,21 @@ import { useMasterData } from '../../../hooks/useMasterData';
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
     const { masterOptions } = useMasterData();
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
+    const [customStartDate, setCustomStartDate] = useState<Date>(startOfMonth(new Date()));
+    const [customEndDate, setCustomEndDate] = useState<Date>(endOfMonth(new Date()));
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmploymentType, setSelectedEmploymentType] = useState('ALL');
     const [selectedPosition, setSelectedPosition] = useState('ALL');
     const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
+    const [activeStatFilter, setActiveStatFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE'>('ALL');
+    const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
+
+    useEffect(() => {
+        setSortDirection('DESC');
+    }, [activeStatFilter]);
     
     // Modal State
     const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
@@ -83,13 +92,18 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         return { status: 'WORK_DAY' as const, source: 'DEFAULT' };
     };
 
-    // Calculate Working Days in current month
+    // Calculate Working Days in current month or range
     const monthDays = useMemo(() => {
+        const start = dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate;
+        const end = dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate;
+        if (start > end) {
+            return [];
+        }
         return eachDayOfInterval({
-            start: startOfMonth(currentMonth),
-            end: endOfMonth(currentMonth)
+            start,
+            end
         });
-    }, [currentMonth]);
+    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
 
     const workingDaysInMonth = useMemo(() => {
         return monthDays.filter(day => getEffectiveDayStatus(day).status === 'WORK_DAY');
@@ -104,10 +118,10 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         setLateBuffer(buffer);
     }, [masterOptions]);
 
-    // Fetch Logs for the selected month
+    // Fetch Logs for the selected month or range
     useEffect(() => {
-        const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-        const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+        const start = format(dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate, 'yyyy-MM-dd');
+        const end = format(dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate, 'yyyy-MM-dd');
 
         const fetchMonthLogs = async () => {
             setIsLoading(true);
@@ -154,7 +168,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         return () => {
             supabase.removeChannel(logsChannel);
         };
-    }, [currentMonth]);
+    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
 
     // Calculate Stats per User
     const userStats = useMemo(() => {
@@ -203,8 +217,32 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         // Calculate Absents
         Object.values(statsMap).forEach(stat => {
             workingDaysInMonth.forEach(day => {
-                // Only count past days or today if it's already late
-                if (day > today) return;
+                // Check if this day is in the future
+                const isFutureDay = (day.getFullYear() > today.getFullYear()) ||
+                                    (day.getFullYear() === today.getFullYear() && day.getMonth() > today.getMonth()) ||
+                                    (day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() > today.getDate());
+                if (isFutureDay) return;
+
+                const isToday = day.getDate() === today.getDate() &&
+                                day.getMonth() === today.getMonth() &&
+                                day.getFullYear() === today.getFullYear();
+
+                if (isToday) {
+                    let [startHour, startMin] = [10, 0];
+                    if (startTime && startTime.includes(':')) {
+                        const parts = startTime.split(':');
+                        startHour = parseInt(parts[0], 10) || 10;
+                        startMin = parseInt(parts[1], 10) || 0;
+                    }
+                    const currentHour = today.getHours();
+                    const currentMin = today.getMinutes();
+
+                    // If it is today and we haven't reached the official work start time yet, 
+                    // do not mark as absent yet (safeguard for early morning checks e.g. 03:00)
+                    if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
+                        return;
+                    }
+                }
                 
                 const dateStr = format(day, 'yyyy-MM-dd');
                 const hasLog = stat.logs.some(l => l.date === dateStr);
@@ -225,17 +263,68 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         return Array.from(unique).sort();
     }, [users]);
 
-    // Filtering
-    const filteredStats = userStats.filter(stat => {
-        const user = users.find(u => u.id === stat.userId);
-        if (!user) return false;
+    // Filtering (Two-Phase Filtering)
+    const filteredStats = useMemo(() => {
+        const baseFiltered = userStats.filter(stat => {
+            const user = users.find(u => u.id === stat.userId);
+            if (!user) return false;
 
-        const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesEmploymentType = selectedEmploymentType === 'ALL' || user.employmentType === selectedEmploymentType;
-        const matchesPosition = selectedPosition === 'ALL' || user.position === selectedPosition;
+            const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesEmploymentType = selectedEmploymentType === 'ALL' || user.employmentType === selectedEmploymentType;
+            const matchesPosition = selectedPosition === 'ALL' || user.position === selectedPosition;
 
-        return matchesSearch && matchesEmploymentType && matchesPosition;
-    }).sort((a, b) => b.present - a.present); // Sort by most present
+            return matchesSearch && matchesEmploymentType && matchesPosition;
+        });
+
+        // Dynamic Metric Filter
+        let finalStats = baseFiltered;
+
+        if (activeStatFilter !== 'ALL') {
+            const getVal = (s: typeof userStats[0]) => {
+                if (activeStatFilter === 'PRESENT') return s.present;
+                if (activeStatFilter === 'LATE') return s.late;
+                if (activeStatFilter === 'ABSENT') return s.absent;
+                if (activeStatFilter === 'LEAVE') return s.leaves;
+                return s.present;
+            };
+
+            if (sortDirection === 'DESC') {
+                finalStats = baseFiltered.filter(s => getVal(s) > 0);
+            } else {
+                // ASC
+                const hasZero = baseFiltered.some(s => getVal(s) === 0);
+                if (hasZero) {
+                    finalStats = baseFiltered.filter(s => getVal(s) === 0);
+                }
+            }
+        }
+
+        // Sort
+        return [...finalStats].sort((a, b) => {
+            let valA = 0;
+            let valB = 0;
+            if (activeStatFilter === 'LATE') {
+                valA = a.late;
+                valB = b.late;
+            } else if (activeStatFilter === 'ABSENT') {
+                valA = a.absent;
+                valB = b.absent;
+            } else if (activeStatFilter === 'LEAVE') {
+                valA = a.leaves;
+                valB = b.leaves;
+            } else {
+                // PRESENT or ALL
+                valA = a.present;
+                valB = b.present;
+            }
+
+            if (sortDirection === 'ASC') {
+                return valA - valB;
+            } else {
+                return valB - valA;
+            }
+        });
+    }, [userStats, users, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection]);
 
     // Aggregates
     const totalCheckins = logs.filter(l => l.status !== 'LEAVE').length;
@@ -292,7 +381,10 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        const fileName = `Attendance_Report_${format(currentMonth, 'MMMM_yyyy')}.csv`;
+        const dateRangeStr = dateFilterMode === 'MONTH' 
+            ? format(currentMonth, 'MMMM_yyyy') 
+            : `${format(customStartDate, 'yyyy-MM-dd')}_to_${format(customEndDate, 'yyyy-MM-dd')}`;
+        const fileName = `Attendance_Report_${dateRangeStr}.csv`;
         
         link.setAttribute("href", encodedUri);
         link.setAttribute("download", fileName);
@@ -307,6 +399,12 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
             <DashboardHeader 
                 currentMonth={currentMonth}
                 setCurrentMonth={setCurrentMonth}
+                dateFilterMode={dateFilterMode}
+                setDateFilterMode={setDateFilterMode}
+                customStartDate={customStartDate}
+                setCustomStartDate={setCustomStartDate}
+                customEndDate={customEndDate}
+                setCustomEndDate={setCustomEndDate}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 selectedEmploymentType={selectedEmploymentType}
@@ -335,6 +433,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             totalAbsents={totalAbsents}
                             totalLeaves={totalLeaves}
                             activeUsersCount={users.filter(u => u.isActive).length}
+                            activeFilter={activeStatFilter}
+                            onFilterChange={setActiveStatFilter}
                         />
 
                         <DashboardTable 
@@ -343,6 +443,9 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             users={users}
                             getGrade={getGrade}
                             onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                            activeStatFilter={activeStatFilter}
+                            sortDirection={sortDirection}
+                            onSortDirectionChange={setSortDirection}
                         />
 
                         <div className="flex justify-end">
@@ -379,16 +482,18 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 )}
             </AnimatePresence>
             
-            {selectedUser && (
-                <DashboardUserDetailModal 
-                    user={selectedUser.user}
-                    stat={selectedUser.stat}
-                    workingDaysInMonth={workingDaysInMonth}
-                    startTime={startTime}
-                    lateBuffer={lateBuffer}
-                    onClose={() => setSelectedUser(null)}
-                />
-            )}
+            <AnimatePresence>
+                {selectedUser && (
+                    <DashboardUserDetailModal 
+                        user={selectedUser.user}
+                        stat={selectedUser.stat}
+                        workingDaysInMonth={workingDaysInMonth}
+                        startTime={startTime}
+                        lateBuffer={lateBuffer}
+                        onClose={() => setSelectedUser(null)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

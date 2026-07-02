@@ -7,6 +7,8 @@ import { WorkLocation, LocationDef } from '../../../types/attendance';
 import CameraView from './CameraView';
 import { compressImage } from '../../../lib/imageUtils';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { useMasterData } from '../../../hooks/useMasterData';
+import { checkNeedsSelfieVerification } from '../../../lib/selfieUtils';
 
 // Sub-steps components
 import LocationStep from '../steps/LocationStep';
@@ -16,7 +18,7 @@ import PreviewStep from '../steps/PreviewStep';
 interface CheckInModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => void;
+    onConfirm: (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string) => void;
     availableLocations?: LocationDef[]; // Accept list of locations
     startTime?: string;
     lateBuffer?: number;
@@ -24,14 +26,16 @@ interface CheckInModalProps {
     approvedWFH?: boolean; // NEW PROP
     hasLateRequest?: boolean; // NEW PROP
     isDriveConnected?: boolean; // NEW PROP
+    userId?: string; // NEW PROP
 }
 
 type Step = 'LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW';
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
-    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest, isDriveConnected 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest, isDriveConnected, userId 
 }) => {
     const { showAlert } = useGlobalDialog();
+    const { masterOptions } = useMasterData();
     const [step, setStep] = useState<Step>('LOCATION');
     
     const [locationState, setLocationState] = useState<{ 
@@ -51,6 +55,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     const [timeLeft, setTimeLeft] = useState(60);
     const [compressing, setCompressing] = useState(false);
     const [showLateIntervention, setShowLateIntervention] = useState(false);
+    const [bypassSelfie, setBypassSelfie] = useState(false);
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval>;
@@ -74,6 +79,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             setChallenge(getRandomPose());
             setCapturedFile(null);
             setShowLateIntervention(false);
+            setBypassSelfie(false);
             
             // If WFH is approved, we can pre-set type or just handle it in steps
             // We still check location to record it, but UI will change
@@ -141,7 +147,21 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }
 
         setSelectedType(type);
-        setStep('CAMERA');
+
+        const selfieModeOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'SELFIE_VERIFICATION_MODE');
+        const selfieDaysOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'SELFIE_VERIFICATION_DAYS');
+        const selfieMode = selfieModeOpt?.label || 'ALWAYS_ON';
+        const selfieDays = selfieDaysOpt?.label || '3';
+
+        const needsSelfie = checkNeedsSelfieVerification(userId || '', selfieMode, selfieDays);
+
+        if (!needsSelfie) {
+            setBypassSelfie(true);
+            handleSubmit(false, type, true);
+        } else {
+            setBypassSelfie(false);
+            setStep('CAMERA');
+        }
     };
 
     const handleCapture = (file: File) => {
@@ -149,8 +169,12 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         setStep('PREVIEW');
     };
 
-    const handleSubmit = async (forceCheckIn = false) => {
-        if (!selectedType || !capturedFile) return;
+    const handleSubmit = async (forceCheckIn = false, typeToSubmit?: WorkLocation, bypassFile?: boolean) => {
+        const targetType = typeToSubmit || selectedType;
+        if (!targetType) return;
+        
+        const actualBypass = bypassFile !== undefined ? bypassFile : bypassSelfie;
+        if (!actualBypass && !capturedFile) return;
 
         // --- Late Intervention Logic ---
         // Skip check if force checkin OR already shown OR approved WFH OR has pending late request
@@ -161,24 +185,27 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             limit.setHours(h, m + lateBuffer, 0, 0);
 
             if (now > limit) {
+                if (typeToSubmit) setSelectedType(typeToSubmit);
                 setShowLateIntervention(true);
                 return;
             }
         }
 
         setIsSubmitting(true);
-        setCompressing(true);
+        if (!actualBypass) {
+            setCompressing(true);
+        }
         setShowLateIntervention(false);
         
         try {
             // COMPRESSION LOGIC
-            const compressedFile = await compressImage(capturedFile);
+            const compressedFile = (actualBypass || !capturedFile) ? null : await compressImage(capturedFile);
             
             // Pass Location Name
             let locName = locationState.matchedLocation ? locationState.matchedLocation.name : 'On Site';
-            if (selectedType === 'WFH') locName = 'Home (WFH)';
+            if (targetType === 'WFH') locName = 'Home (WFH)';
             
-            await onConfirm(selectedType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
+            await onConfirm(targetType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
             onClose();
         } catch (error) {
             console.error("Submission error:", error);
@@ -249,7 +276,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                     <Clock className="w-5 h-5" /> แจ้งขอเข้าสาย / ลา
                                 </button>
                                 <button 
-                                    onClick={() => handleSubmit(true)}
+                                    onClick={() => handleSubmit(true, undefined, bypassSelfie)}
                                     className="w-full py-3.5 bg-white border-2 border-orange-100 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     เช็คอินเลย (ยอมรับโทษ) <ArrowRight className="w-4 h-4" />

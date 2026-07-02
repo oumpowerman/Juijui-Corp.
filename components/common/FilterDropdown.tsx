@@ -19,6 +19,7 @@ type FilterDropdownProps = {
     clearable?: boolean;
     disabled?: boolean;
     theme?: 'light' | 'dark';
+    align?: 'left' | 'center' | 'right';
 } & (
     | { multiSelect?: false; value: string; onChange: (value: string) => void }
     | { multiSelect: true; value: string[]; onChange: (value: string[]) => void }
@@ -35,7 +36,8 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
         clearable = true,
         multiSelect = false,
         disabled = false,
-        theme = 'light'
+        theme = 'light',
+        align = 'left'
     } = props;
 
     const value = props.value;
@@ -168,7 +170,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = (props) => {
                         initial={{ opacity: 0, y: 10, scale: 0.95, filter: 'blur(10px)' }}
                         animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                         exit={{ opacity: 0, y: 10, scale: 0.95, filter: 'blur(10px)' }}
-                        className={`absolute top-full left-0 right-0 sm:right-auto mt-3 w-auto sm:w-72 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-50 p-3 overflow-hidden origin-top-left border ${
+                        className={`absolute top-full mt-3 w-auto sm:w-72 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-50 p-3 overflow-hidden border ${
+                            align === 'right'
+                                ? 'right-0 origin-top-right'
+                                : align === 'center'
+                                    ? 'left-1/2 -translate-x-1/2 origin-top'
+                                    : 'left-0 right-0 sm:right-auto origin-top-left'
+                        } ${
                             isDark 
                                 ? 'bg-slate-950/95 border-white/10 text-white' 
                                 : 'bg-white/95 border-slate-100 text-slate-600'

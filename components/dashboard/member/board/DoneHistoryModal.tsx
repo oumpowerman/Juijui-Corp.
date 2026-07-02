@@ -6,6 +6,7 @@ import { Task, Channel } from '../../../../types';
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { STATUS_COLORS } from '../../../../constants';
 import DatePickerModal, { formatDisplayDate } from '../../../ui/DatePickerModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface DoneHistoryModalProps {
     isOpen: boolean;
@@ -29,6 +30,12 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
     const [currentPage, setCurrentPage] = useState(1);
     const [isStartOpen, setIsStartOpen] = useState(false);
     const [isEndOpen, setIsEndOpen] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const scrollTop = e.currentTarget.scrollTop;
+        setIsScrolled(scrollTop > 15);
+    };
 
     // Quick Filter Actions
     const setPast7Days = () => {
@@ -102,53 +109,92 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
     const totalPages = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE);
     const paginatedTasks = filteredTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    if (!isOpen) return null;
-
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-4xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border-4 border-emerald-50 animate-in zoom-in-95">
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm p-0 md:p-4"
+                >
+                    <motion.div 
+                        initial={{ y: "100%", opacity: 0.8 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: "100%", opacity: 0.8 }}
+                        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                        className="bg-white w-full max-w-4xl h-[92vh] md:h-[85vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border-t-4 md:border-4 border-emerald-50 self-end md:self-center"
+                    >
                 
                 {/* Header */}
-                <div className="px-8 py-6 bg-emerald-600 text-white shrink-0 flex justify-between items-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 transform rotate-12">
+                <motion.div 
+                    animate={{ 
+                        paddingTop: isScrolled ? '12px' : '24px',
+                        paddingBottom: isScrolled ? '12px' : '24px',
+                        paddingLeft: isScrolled ? '16px' : '32px',
+                        paddingRight: isScrolled ? '16px' : '32px'
+                    }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="bg-emerald-600 text-white shrink-0 flex justify-between items-center relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-10 transform rotate-12 pointer-events-none">
                         <CheckCircle2 className="w-40 h-40" />
                     </div>
-                    <div className="relative z-10">
-                        <h2 className="text-2xl font-bold flex items-center gap-3">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-200" />
+                    <div className="relative z-10 flex flex-col justify-center">
+                        <motion.h2 
+                            animate={{ fontSize: isScrolled ? '1.125rem' : '1.5rem' }}
+                            transition={{ duration: 0.25 }}
+                            className="font-bold flex items-center gap-2 md:gap-3"
+                        >
+                            <CheckCircle2 className="w-6 h-6 md:w-8 h-8 text-emerald-200 shrink-0" />
                             ทำเนียบงานเสร็จ (Done History)
-                        </h2>
-                        <p className="text-emerald-100 text-sm mt-1 font-medium">รวมผลงานความสำเร็จทั้งหมดของคุณไว้ที่นี่</p>
+                        </motion.h2>
+                        <AnimatePresence>
+                            {!isScrolled && (
+                                <motion.p 
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="text-emerald-100 text-xs md:text-sm mt-1 font-medium overflow-hidden whitespace-nowrap"
+                                >
+                                    รวมผลงานความสำเร็จทั้งหมดของคุณไว้ที่นี่
+                                </motion.p>
+                            )}
+                        </AnimatePresence>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors relative z-10">
-                        <X className="w-6 h-6" />
+                        <X className="w-5 h-5 md:w-6 h-6" />
                     </button>
-                </div>
+                </motion.div>
 
                 {/* Filters */}
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex flex-col gap-4 shrink-0">
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="px-4 py-3 md:px-6 md:py-4 bg-gray-50 border-b border-gray-100 flex flex-col gap-3 md:gap-4 shrink-0">
+                    <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-center justify-between">
                         <div className="relative flex-1 w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input 
                                 type="text" 
                                 placeholder="ค้นหาชื่องาน..." 
-                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 outline-none"
+                                className="w-full pl-10 pr-4 py-2 md:py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 outline-none"
                                 value={searchQuery}
                                 onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                             />
                         </div>
                         
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                            <div className="flex items-center bg-white border border-gray-200 rounded-xl px-3 py-2 gap-2 shadow-sm">
-                                <Calendar className="w-4 h-4 text-emerald-500" />
-                                <button
-                                    type="button"
-                                    onClick={() => setIsStartOpen(true)}
-                                    className="text-xs font-bold text-gray-600 outline-none bg-transparent hover:text-emerald-600 transition-colors"
-                                >
-                                    {formatDisplayDate(startDate)}
-                                </button>
+                        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                            <div className="flex items-center justify-between md:justify-start w-full md:w-auto bg-white border border-gray-200 rounded-xl px-3 py-2 gap-2 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-emerald-500" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsStartOpen(true)}
+                                        className="text-xs font-bold text-gray-600 outline-none bg-transparent hover:text-emerald-600 transition-colors"
+                                    >
+                                        {formatDisplayDate(startDate)}
+                                    </button>
+                                </div>
                                 <span className="text-gray-300">-</span>
                                 <button
                                     type="button"
@@ -190,29 +236,31 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mr-2">Quick Filters:</span>
-                        <button 
-                            onClick={setPast7Days}
-                            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm"
-                        >
-                            7 วันล่าสุด
-                        </button>
-                        <button 
-                            onClick={setThisMonth}
-                            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm"
-                        >
-                            เดือนนี้
-                        </button>
-                        <button 
-                            onClick={setLastMonth}
-                            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm"
-                        >
-                            เดือนที่แล้ว
-                        </button>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none scroll-smooth">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mr-1 whitespace-nowrap">Quick Filters:</span>
+                        <div className="flex gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                            <button 
+                                onClick={setPast7Days}
+                                className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm whitespace-nowrap"
+                            >
+                                7 วันล่าสุด
+                            </button>
+                            <button 
+                                onClick={setThisMonth}
+                                className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm whitespace-nowrap"
+                            >
+                                เดือนนี้
+                            </button>
+                            <button 
+                                onClick={setLastMonth}
+                                className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm whitespace-nowrap"
+                            >
+                                เดือนที่แล้ว
+                            </button>
+                        </div>
                         <button 
                             onClick={clearAllFilters}
-                            className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[12px] font-medium hover:bg-rose-600 hover:text-white transition-all ml-auto"
+                            className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold hover:bg-rose-600 hover:text-white transition-all ml-auto whitespace-nowrap"
                         >
                             ล้างทั้งหมด
                         </button>
@@ -220,32 +268,57 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
                 </div>
                 
                 {/* Summary Overview */}
-                <div className="px-6 py-4 bg-white grid grid-cols-3 gap-3 shrink-0 border-b border-gray-50">
-                    <div className="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100 flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] font-bold text-emerald-600/70 uppercase tracking-widest mb-1">Total Accomplished</span>
-                        <div className="flex items-end gap-1">
-                            <span className="text-2xl font-bold text-emerald-700">{summary.total}</span>
-                            <span className="text-[10px] font-bold text-emerald-600/60 mb-1">งาน</span>
+                <div className="px-4 py-2 md:px-6 md:py-4 bg-white shrink-0 border-b border-gray-50">
+                    {/* Mobile Horizontal Micro-Stat Bar */}
+                    <div className="flex md:hidden items-center justify-between bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100 text-xs">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="font-bold text-gray-500">เสร็จสิ้น:</span>
+                            <span className="font-extrabold text-emerald-700">{summary.total} งาน</span>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="flex items-center gap-1">
+                                <span className="font-bold text-gray-400">งาน:</span>
+                                <span className="font-extrabold text-blue-700">{summary.tasks}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="font-bold text-gray-400">คลิป:</span>
+                                <span className="font-extrabold text-purple-700">{summary.content}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-blue-50/50 p-4 rounded-3xl border border-blue-100 flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">General Tasks</span>
-                        <div className="flex items-end gap-1">
-                            <span className="text-2xl font-bold text-blue-700">{summary.tasks}</span>
-                            <span className="text-[10px] font-bold text-blue-600/60 mb-1">ชิ้น</span>
+
+                    {/* Desktop View Summary Cards */}
+                    <div className="hidden md:grid grid-cols-3 gap-3">
+                        <div className="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-emerald-600/70 uppercase tracking-widest mb-1">Total Accomplished</span>
+                            <div className="flex items-end gap-1">
+                                <span className="text-2xl font-bold text-emerald-700">{summary.total}</span>
+                                <span className="text-[10px] font-bold text-emerald-600/60 mb-1">งาน</span>
+                            </div>
                         </div>
-                    </div>
-                    <div className="bg-purple-50/50 p-4 rounded-3xl border border-purple-100 flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] font-bold text-purple-600/70 uppercase tracking-widest mb-1">Content Works</span>
-                        <div className="flex items-end gap-1">
-                            <span className="text-2xl font-bold text-purple-700">{summary.content}</span>
-                            <span className="text-[10px] font-bold text-purple-600/60 mb-1">คลิป</span>
+                        <div className="bg-blue-50/50 p-4 rounded-3xl border border-blue-100 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">General Tasks</span>
+                            <div className="flex items-end gap-1">
+                                <span className="text-2xl font-bold text-blue-700">{summary.tasks}</span>
+                                <span className="text-[10px] font-bold text-blue-600/60 mb-1">ชิ้น</span>
+                            </div>
+                        </div>
+                        <div className="bg-purple-50/50 p-4 rounded-3xl border border-purple-100 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-purple-600/70 uppercase tracking-widest mb-1">Content Works</span>
+                            <div className="flex items-end gap-1">
+                                <span className="text-2xl font-bold text-purple-700">{summary.content}</span>
+                                <span className="text-[10px] font-bold text-purple-600/60 mb-1">คลิป</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Content List */}
-                <div className="flex-1 overflow-y-auto p-6 bg-white space-y-3">
+                <div 
+                    onScroll={handleScroll}
+                    className="flex-1 overflow-y-auto p-4 md:p-6 bg-white space-y-2.5 md:space-y-3"
+                >
                     {paginatedTasks.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
                             <CheckCircle2 className="w-16 h-16 mb-4 text-emerald-200" />
@@ -325,8 +398,10 @@ const DoneHistoryModal: React.FC<DoneHistoryModalProps> = ({ isOpen, onClose, ta
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>,
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>,
         document.body
     );
 };

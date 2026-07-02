@@ -487,7 +487,29 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                 disabled={!rangeStart || !rangeEnd}
                                 onClick={() => {
                                     if (rangeStart && rangeEnd) {
-                                        onConfirm(rangeStart, rangeEnd);
+                                        const startToSelect = new Date(rangeStart);
+                                        startToSelect.toISOString = () => {
+                                            const y = startToSelect.getFullYear();
+                                            const m = String(startToSelect.getMonth() + 1).padStart(2, '0');
+                                            const d = String(startToSelect.getDate()).padStart(2, '0');
+                                            return `${y}-${m}-${d}T00:00:00.000Z`;
+                                        };
+                                        startToSelect.toJSON = () => {
+                                            return startToSelect.toISOString();
+                                        };
+
+                                        const endToSelect = new Date(rangeEnd);
+                                        endToSelect.toISOString = () => {
+                                            const y = endToSelect.getFullYear();
+                                            const m = String(endToSelect.getMonth() + 1).padStart(2, '0');
+                                            const d = String(endToSelect.getDate()).padStart(2, '0');
+                                            return `${y}-${m}-${d}T00:00:00.000Z`;
+                                        };
+                                        endToSelect.toJSON = () => {
+                                            return endToSelect.toISOString();
+                                        };
+
+                                        onConfirm(startToSelect, endToSelect);
                                         onClose();
                                     }
                                 }}

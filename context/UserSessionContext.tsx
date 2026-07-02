@@ -74,6 +74,7 @@ const mapProfileToUser = (data: any): User => ({
     ownedBgIds: data.owned_bg_ids || ['bg-pastel-wave'],
     startDate: data.start_date ? new Date(data.start_date) : undefined,
     createdAt: data.created_at ? new Date(data.created_at) : undefined,
+    employmentType: data.employment_type || 'FULL_TIME',
     waveBgEnabled: data.wave_bg_enabled !== false,
     ultimateWorkroomEnabled: data.ultimate_workroom_enabled !== false,
     emoji: data.emoji || ''
@@ -114,6 +115,7 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('ultimate_workroom_enabled' in u) updates.ultimateWorkroomEnabled = u.ultimate_workroom_enabled;
     if ('emoji' in u) updates.emoji = u.emoji;
     if ('start_date' in u) updates.startDate = u.start_date ? new Date(u.start_date) : undefined;
+    if ('employment_type' in u) updates.employmentType = u.employment_type;
     if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
     if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
     return updates;
@@ -159,7 +161,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             // - Fetch full data for CURRENT user
             
             const [minProfilesRes, activeProfilesRes, currentProfileRes] = await Promise.all([
-                supabase.from('profiles').select('id, full_name, avatar_url, is_active, role, position, start_date, emoji').order('full_name', { ascending: true }),
+                supabase.from('profiles').select('id, full_name, avatar_url, is_active, role, position, start_date, emoji, employment_type').order('full_name', { ascending: true }),
                 supabase.from('profiles').select('*').eq('is_active', true),
                 supabase.from('profiles').select('*').eq('id', sessionUser.id).maybeSingle()
             ]);

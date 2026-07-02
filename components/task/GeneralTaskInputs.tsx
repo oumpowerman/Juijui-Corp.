@@ -26,6 +26,7 @@ import GTScriptLinker from './form-parts/GTScriptLinker';
 import CreateScriptModal from '../script/hub/CreateScriptModal';
 import ContentActionFooter from './content-parts/ContentActionFooter';
 import DeadlineExtensionModal from './form-parts/DeadlineExtensionModal';
+import QCSubmissionModal from './QCSubmissionModal';
 
 interface GeneralTaskInputsProps {
     initialData?: Task | null;
@@ -135,6 +136,26 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
     const [pendingExtension, setPendingExtension] = useState<DeadlineRequest | null>(null);
     const { getPendingRequestForTask, createRequest, resolveRequest, isLoading: isProcessingExtension } = useDeadlineRequests(currentUser);
+    
+    // --- QC Submission Modal State & Handlers ---
+    const [isQCModalOpen, setIsQCModalOpen] = useState(false);
+
+    const handleConfirmQCSubmit = async (notes: string, reviewerId: string) => {
+        try {
+            const submissionAssetUrl = assets.length > 0 ? assets[assets.length - 1].url : undefined;
+            const updatedTask = await sendToQC(initialData!, currentUser!, notes || undefined, submissionAssetUrl, reviewerId);
+            
+            setStatus(updatedTask.status);
+            onSave(updatedTask);
+            
+            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 ผู้ตรวจที่คุณเลือกจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
+            onClose();
+        } catch (err: any) {
+            console.error("Submission error details:", err);
+            showToast(err.message || 'ส่งงานไม่สำเร็จ', 'error');
+            throw err;
+        }
+    };
 
     useEffect(() => {
         const fetchPendingExtension = async () => {
@@ -247,7 +268,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         setIsSendingQC(true);
 
         try {
-            // 0. Fetch latest round from DB to show correct round in Prompt and prevent collisions
+            // 0. Fetch latest round from DB to prevent collisions
             const { data: reviews } = await supabase
                 .from('task_reviews')
                 .select('round, status')
@@ -258,36 +279,15 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             if (reviews?.some(r => r.status === 'PENDING')) {
                 const pendingRound = reviews.find(r => r.status === 'PENDING')?.round;
                 await showAlert(`ตรวจพบรายการ "Draft ${pendingRound}" ที่รอการตรวจสอบอยู่แล้วในระบบ กรุณารอการตรวจสอบรอบนี้ให้เสร็จสิ้นก่อนครับ`, 'ไม่สามารถส่งงานได้');
-                setIsSendingQC(false);
                 return;
             }
 
-            const nextRound = (reviews?.[0]?.round || 0) + 1;
-
-            const submissionNotes = await showPrompt(
-                `งานจะถูกเปลี่ยนสถานะเป็น "รอตรวจ (Waiting)" และส่งแจ้งเตือนให้หัวหน้าทราบ\n\nระบุหมายเหตุถึงผู้ตรวจ (ถ้ามี):`,
-                '',
-                `🚀 ยืนยันส่งตรวจ "Draft ${nextRound}"`
-            );
-
-            if (submissionNotes === null) {
-                setIsSendingQC(false);
-                return;
-            }
-
-            // Updated: Pass submission notes and assets directly to sendToQC to avoid double insertion
-            const submissionAssetUrl = assets.length > 0 ? assets[assets.length - 1].url : undefined;
-            const updatedTask = await sendToQC(initialData, currentUser!, submissionNotes || undefined, submissionAssetUrl);
-            
-            setStatus(updatedTask.status);
-            onSave(updatedTask);
-            
-            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 หัวหน้าจะได้รับแจ้งเตือนทันทีและงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
-            onClose();
-
+            // Open the premium QC submission modal
+            setIsQCModalOpen(true);
         } catch (err: any) {
-            console.error("Submission error details:", err);
-            showToast(err.message || 'ส่งงานไม่สำเร็จ', 'error');
+            console.error("Submission check error:", err);
+            showToast(err.message || 'ตรวจสอบข้อมูลส่งตรวจไม่สำเร็จ', 'error');
+        } finally {
             setIsSendingQC(false); 
         }
     };
@@ -523,6 +523,20 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                 onSubmit={handleRequestExtension}
                 currentEndDate={endDate}
             />
+
+            {/* Premium QC Submission Modal */}
+            {isQCModalOpen && initialData && currentUser && (
+                <QCSubmissionModal
+                    isOpen={isQCModalOpen}
+                    onClose={() => setIsQCModalOpen(false)}
+                    onSubmit={handleConfirmQCSubmit}
+                    task={initialData}
+                    users={users}
+                    masterOptions={masterOptions}
+                    currentUser={currentUser}
+                    assets={assets}
+                />
+            )}
         </>
     );
 };

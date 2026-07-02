@@ -499,7 +499,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         }
     };
 
-    const handleSendToQC = async (task: Task, currentUser: User, submissionNotes?: string, submissionAssetUrl?: string) => {
+    const handleSendToQC = async (task: Task, currentUser: User, submissionNotes?: string, submissionAssetUrl?: string, reviewerId?: string) => {
         // 0. Fetch latest state from DB to ensure round consistency and prevent double submission
         // This is critical for resiliency against stale frontend state
         const { data: dbReviews, error: fetchError } = await supabase
@@ -528,7 +528,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             round: nextRound,
             scheduled_at: new Date().toISOString(),
             status: 'PENDING',
-            reviewer_id: null,
+            reviewer_id: reviewerId || null,
             submission_notes: submissionNotes || null,
             submission_asset_url: submissionAssetUrl || null
         });
@@ -561,17 +561,25 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
 
         if (updateError) throw updateError;
 
-        // 4. Send Notifications to Admins
+        // 4. Send Notifications to designated reviewer or Admins
         try {
-            const { data: admins } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('role', 'ADMIN')
-                .eq('is_active', true);
+            let targetUserIds: string[] = [];
+            if (reviewerId) {
+                targetUserIds = [reviewerId];
+            } else {
+                const { data: admins } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('role', 'ADMIN')
+                    .eq('is_active', true);
+                if (admins && admins.length > 0) {
+                    targetUserIds = admins.map(admin => admin.id);
+                }
+            }
 
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
+            if (targetUserIds.length > 0) {
+                const notifications = targetUserIds.map(userId => ({
+                    user_id: userId,
                     type: 'QC_REQUEST',
                     title: `🚀 งานรอตรวจ: ${task.title}`,
                     message: `${currentUser.name} ส่งงานให้ตรวจสอบ (รอบที่ ${nextRound})`,
@@ -593,7 +601,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             round: nextRound,
             scheduledAt: new Date(),
             status: 'PENDING',
-            reviewerId: null
+            reviewerId: reviewerId || null
         };
 
         const updatedTask: Task = { 

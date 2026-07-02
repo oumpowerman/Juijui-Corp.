@@ -50,6 +50,11 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
 
     const actionRequiredCount = useMemo(() => actionRequiredLogs.length, [actionRequiredLogs]);
 
+    // Scroll to top when tab changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentTab]);
+
     const bgTheme = useMemo(() => {
         const themes: BackgroundTheme[] = [
             'pastel-pink', 'pastel-blue', 'pastel-green', 'pastel-purple', 'pastel-orange', 'pastel-yellow', 'pastel-teal'
@@ -133,17 +138,28 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                     </div>
 
                     {/* Quota Button (Trigger) */}
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setIsQuotaOpen(true)}
-                        className="ml-auto md:ml-0 px-4 py-2.5 bg-white/80 backdrop-blur-xl border border-white/60 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xl shadow-indigo-500/5 transition-all active:scale-95"
+                        className="ml-auto md:ml-0 px-4 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
                     >
-                        <PieChart className="w-4 h-4" /> เช็คโควต้า (My Quota)
-                    </button>
+                        {/* Animated Icon */}
+                        <PieChart className="w-4 h-4 text-[#5C544A] group-hover:rotate-12 transition-transform duration-300 ease-out" /> 
+                        
+                        <span className="relative z-10 tracking-wide">เช็คโควต้า (My Quota)</span>
+                        
+                        {/* Organic Earth-tone pulse badge */}
+                        <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D48C70]/40 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D48C70]"></span>
+                        </span>
+                    </motion.button>
                 </div>
 
                 {/* Content Area */}
-                <div className="min-h-[400px]">
-                    <AnimatePresence mode="wait">
+                <div className="min-h-[400px] relative w-full">
+                    <AnimatePresence mode="popLayout">
                         {currentTab === 'CHECK_IN' && (
                             <motion.div
                                 key="CHECK_IN"
@@ -151,7 +167,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
-                                className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start"
+                                className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start w-full"
                             >
                                  {/* Left: Action Card */}
                                  <div className="space-y-6">
@@ -180,6 +196,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
                             >
                                 <AttendanceHistory 
                                     userId={currentUser.id}
@@ -196,6 +213,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
                             >
                                 <AdminWeeklyTimesheet users={users} />
                             </motion.div>
@@ -208,6 +226,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
                             >
                                 <LeaveApprovalList 
                                     requests={requests}
@@ -225,6 +244,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -15 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="w-full"
                             >
                                 <AdminAttendanceDashboard users={users} />
                             </motion.div>

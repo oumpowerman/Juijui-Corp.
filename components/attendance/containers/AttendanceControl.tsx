@@ -51,11 +51,11 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
-    const handleConfirmCheckIn = async (type: WorkLocation, file: File, location: { lat: number, lng: number }, locationName?: string) => {
+    const handleConfirmCheckIn = async (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string) => {
         let proofUrl: string | null = null;
         let shouldProceed = true;
 
-        if (isDriveReady) {
+        if (isDriveReady && file) {
             try {
                 const currentYear = format(new Date(), 'yyyy');
                 const currentMonth = format(new Date(), 'MM');
@@ -87,7 +87,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
         if (shouldProceed) {
             const isApprovedWFH = todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED';
             const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY';
-            const success = await checkIn(type, file, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH);
+            const success = await checkIn(type, file || undefined, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH);
             if (success) {
                 showAlert("บันทึกข้อมูลการเข้างานเรียบร้อยแล้วครับ", "สำเร็จ");
                 refresh();
@@ -184,6 +184,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
                 hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
                 isDriveConnected={isDriveAuthenticated}
+                userId={user.id}
             />
 
             <AttendanceRulesModal 

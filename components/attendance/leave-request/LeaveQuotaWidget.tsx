@@ -180,7 +180,7 @@ const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHisto
                         </div>
 
                         {/* Quota Bars mapped to interactive Cards */}
-                        <div className="space-y-4 sm:space-y-5 relative z-10 flex-1 flex flex-col justify-center">
+                        <div className="space-y-4 sm:space-y-5 relative z-10 flex-1 overflow-y-auto min-h-0 pr-1 py-2 scrollbar-thin">
                             {displayOptions.map((option, index) => {
                                 const type = option.key;
                                 let limit = 0;

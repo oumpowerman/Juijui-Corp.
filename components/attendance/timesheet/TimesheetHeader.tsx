@@ -122,13 +122,13 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                     </div>
                 </motion.div>
 
-                <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-3 w-full xl:w-auto">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap items-center gap-3 w-full xl:w-auto">
                      <motion.button 
                         variants={itemVariants}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setShowInactive(!showInactive)}
-                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border w-full sm:w-auto cursor-pointer select-none outline-none ${
+                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border w-full sm:w-[185px] shrink-0 cursor-pointer select-none outline-none ${
                             showInactive 
                             ? 'bg-rose-50/80 border-rose-100 text-rose-600 hover:bg-rose-100' 
                             : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -139,7 +139,7 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         {showInactive ? 'SHOWING INACTIVE' : 'HIDE INACTIVE'}
                     </motion.button>
 
-                    <motion.div variants={itemVariants} className="bg-slate-100/80 p-1 rounded-2xl border border-slate-200/50 flex w-full sm:w-auto relative">
+                    <motion.div variants={itemVariants} className="bg-slate-100/80 p-1 rounded-2xl border border-slate-200/50 flex w-full sm:w-auto relative shrink-0">
                         {(['WEEK', 'MONTH'] as const).map((mode) => {
                             const isActive = viewMode === mode;
                             return (
@@ -163,7 +163,7 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         })}
                     </motion.div>
 
-                    <motion.div variants={itemVariants} className="w-full sm:w-60 z-20">
+                    <motion.div variants={itemVariants} className="w-full sm:w-48 z-20 shrink-0">
                         <FilterDropdown
                             label="ทุกแผนก (All Teams)"
                             options={deptOptions}
@@ -176,7 +176,7 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         />
                     </motion.div>
 
-                    <motion.div variants={itemVariants} className="relative w-full sm:w-64">
+                    <motion.div variants={itemVariants} className="relative w-full sm:w-52 shrink-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input 
                             type="text" 

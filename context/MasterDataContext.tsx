@@ -285,7 +285,16 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 setInventoryItems(inventoryData.map(mapInventoryItem));
             }
 
-            if (holidaysRes.data) setAnnualHolidays(holidaysRes.data);
+            if (holidaysRes.data) {
+                setAnnualHolidays(holidaysRes.data.map((h: any) => ({
+                id: h.id,
+                name: h.name,
+                day: h.day,
+                month: h.month,
+                typeKey: h.type_key,
+                isActive: h.is_active
+            })));
+            }
             if (exceptionsRes.data) setCalendarExceptions(exceptionsRes.data);
 
         } catch (err: any) {

@@ -173,7 +173,7 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             groups[dept].push(u);
         });
         return groups;
-    }, [users, searchTerm, filterDepartment, filterStatus, logs]);
+    }, [users, searchTerm, filterDepartment, filterStatus,showInactive, logs]);
 
     const nav = (offset: number) => {
         setCurrentDate(prev => viewMode === 'WEEK' ? addWeeks(prev, offset) : addMonths(prev, offset));

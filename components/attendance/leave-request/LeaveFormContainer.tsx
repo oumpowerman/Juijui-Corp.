@@ -83,7 +83,9 @@ const LeaveFormContainer: React.FC<Props> = ({
         if (metadata.placeholder) return metadata.placeholder;
         if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
         if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') return "เช่น ลืมกดออก/เข้า เนื่องจากรีบไปธุระ...";
+        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
+            return "กรุณาระบุรายละเอียดงานที่ทำในช่วงเวลานั้นและเหตุผลย้อนหลังโดยละเอียด เพื่อให้แอดมินตรวจสอบได้...";
+        }
         if (selectedType === 'WFH') return "เช่น เคลียร์งานตัดต่อที่บ้าน...";
         return "ระบุเหตุผลการลา...";
     };
@@ -271,6 +273,25 @@ const LeaveFormContainer: React.FC<Props> = ({
                                 </motion.div>
                             )}
 
+                            {/* Time Correction Strictness Warning */}
+                            {(selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_BOTH') && (
+                                <motion.div 
+                                    initial={{ y: -10, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    className="bg-amber-50/90 backdrop-blur-xl border-2 border-amber-500/20 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] flex items-start gap-4 shadow-xl shadow-amber-500/5"
+                                >
+                                    <div className="bg-amber-100 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-amber-600 shadow-sm shrink-0">
+                                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                                    </div>
+                                    <div className="space-y-1 sm:space-y-1.5">
+                                        <h4 className="font-bold text-amber-800 text-sm sm:text-base font-kanit">⚠️ กำชับเรื่องการขออนุมัติแก้ไขเวลา</h4>
+                                        <p className="text-[11px] sm:text-xs text-amber-700/90 leading-relaxed font-Sarabun font-medium">
+                                            การขอแก้ไขเวลาเข้า-ออกงานจะต้องเป็นกรณีสุดวิสัยจริงๆ เท่านั้น <span className="text-amber-800 underline">ไม่ใช่เพียงเพราะความประมาทเลินเล่อหรือ "ลืมกดเพราะรีบ"</span> โดยคุณต้องระบุรายละเอียดเหตุผลและชี้แจงงานที่ปฏิบัติในช่วงเวลานั้นให้ชัดเจนที่สุด หากมีเอกสาร/รูปภาพ เช่น พิกัดหน้างาน หรือประวัติแชทกลุ่ม โปรดแนบไฟล์ที่ "แนบเอกสารประกอบ" ด้านล่างเพื่อให้ Admin ใช้ประกอบการพิจารณาอนุมัติ
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            )}
+
                             {/* Dynamic Inputs */}
                             <div className={`relative z-30 bg-white/60 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 transition-all duration-500 shadow-2xl ${isOverQuota ? 'border-rose-200 ring-8 ring-rose-50/50' : 'border-white/80 hover:border-indigo-100 hover:shadow-indigo-100/20'}`}>
                                 {isTimeSpecific ? (
@@ -305,7 +326,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         value={reason} 
                                         onChange={e => setReason(e.target.value)}
                                         placeholder={getPlaceholder()}
-                                        className="w-full p-4 sm:p-6 bg-white/40 border-2 border-transparent rounded-[1.5rem] sm:rounded-[2rem] focus:bg-white focus:border-indigo-100 focus:ring-[8px] sm:focus:ring-[12px] focus:ring-indigo-50/50 outline-none text-sm sm:text-base font-bold text-slate-700 resize-none h-32 sm:h-40 transition-all placeholder:text-slate-300 shadow-inner"
+                                        className="w-full p-4 sm:p-6 bg-white/40 border-2 border-transparent rounded-[1.5rem] sm:rounded-[2rem] focus:bg-white focus:border-indigo-100 focus:ring-[8px] sm:focus:ring-[12px] focus:ring-indigo-50/50 outline-none text-sm sm:text-base font-bold placeholder:font-sarabun placeholder:font-normal text-slate-700 resize-none h-32 sm:h-40 transition-all placeholder:text-slate-300 shadow-inner"
                                     />
                                 </div>
                                 

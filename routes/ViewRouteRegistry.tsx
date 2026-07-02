@@ -370,7 +370,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
             return <LeaderboardView users={activeUsers} currentUser={currentUserProfile} />;
 
           case 'ATTENDANCE':
-            return <AttendanceRouter currentUser={currentUserProfile} users={activeUsers} />;
+            return <AttendanceRouter currentUser={currentUserProfile} users={allUsers} />;
           case 'FINANCE':
             return <FinanceRouter currentUser={currentUserProfile} users={activeUsers} />;
 
@@ -390,3 +390,4 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
     </Suspense>
   );
 };
+ 

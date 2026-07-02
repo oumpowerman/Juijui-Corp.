@@ -152,10 +152,14 @@ const modalVariants = {
 const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, onClose }) => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxUrl, setLightboxUrl] = useState('');
+    const [scrollY, setScrollY] = useState(0);
     const isMobile = useIsMobile();
 
     const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
     const note = log?.note || leaveRequest?.reason || '';
+    const userReason = leaveRequest?.reason || '';
+    const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';
+    const systemLogNote = log?.note?.replace(/\[.*?\]/g, '').trim() || '';
     
     return createPortal(
         <motion.div 
@@ -168,7 +172,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
             onClick={onClose}
         >
             <motion.div 
-                className="bg-white w-full h-[100dvh] md:h-auto md:max-h-[90vh] max-w-xl flex flex-col rounded-none md:rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden border-0 md:border-4 border-white"
+                className="bg-white w-full h-[100dvh] md:h-auto md:max-h-[90vh] max-w-xl flex flex-col rounded-none md:rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden border-0 md:border-4 border-white relative"
                 custom={isMobile}
                 initial="hidden"
                 animate="visible"
@@ -181,73 +185,103 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                 }
                 onClick={e => e.stopPropagation()}
             >
-                <div className="relative h-[45vh] sm:h-64 md:h-72 shrink-0 bg-slate-900 flex items-center justify-center group/img">
-                    {/* Visual drag handle for native mobile sheet feel */}
-                    <div className="absolute top-[calc(env(safe-area-inset-top,16px)+6px)] left-1/2 -translate-x-1/2 w-12 h-1 bg-white/40 rounded-full z-20 md:hidden" />
-                    
-                    {(() => {
-                        const proofMatch = note.match(/\[PROOF:(.*?)\]/);
-                        const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
-                        
-                        return url ? (
-                            <>
-                                <img 
-                                    src={getDirectDriveUrl(url)} 
-                                    className="w-full h-full object-cover opacity-90 group-hover/img:scale-105 transition-transform duration-700 cursor-pointer" 
-                                    alt="Proof"
-                                    referrerPolicy="no-referrer"
-                                    onClick={() => {
-                                        setLightboxUrl(url);
-                                        setShowLightbox(true);
-                                    }}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent pointer-events-none"></div>
-                                
-                                {/* Zoom Indicator */}
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
-                                    <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white">
-                                        <ZoomIn className="w-8 h-8" />
-                                    </div>
-                                </div>
+                {/* Floating Close Button */}
+                <button 
+                    onClick={onClose} 
+                    className="absolute top-[calc(env(safe-area-inset-top,16px)+12px)] md:top-6 right-6 p-2 bg-black/40 hover:bg-red-500 text-white rounded-full transition-all shadow-xl backdrop-blur-md z-50 border border-white/10"
+                >
+                    <X className="w-5 h-5"/>
+                </button>
 
-                                <div className="absolute bottom-4 left-6 flex items-center gap-3">
-                                    <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white flex items-center gap-2">
-                                        <ImageIcon className="w-4 h-4" />
-                                        <span className="text-xs font-black uppercase tracking-widest">Visual Evidence</span>
-                                    </div>
-                                    <a href={url} target="_blank" rel="noreferrer" className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-all">
-                                        <Download className="w-4 h-4" />
-                                    </a>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center text-slate-500 gap-4">
-                                <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center border border-slate-700">
-                                    <ImageIcon className="w-10 h-10 opacity-20" />
-                                </div>
-                                <p className="text-xs font-black uppercase tracking-[0.2em] opacity-50">No Visual Record</p>
-                            </div>
-                        );
-                    })()}
-                    <button 
-                        onClick={onClose} 
-                        className="absolute top-[calc(env(safe-area-inset-top,16px)+12px)] md:top-6 right-6 p-2 bg-black/40 hover:bg-red-500 text-white rounded-full transition-all shadow-xl backdrop-blur-md z-10"
+                {/* Natural Scroll Container (No outer padding to allow full-bleed top image) */}
+                <div 
+                    onScroll={(e) => {
+                        setScrollY(e.currentTarget.scrollTop);
+                    }}
+                    className="overflow-y-auto flex-1 flex flex-col min-h-0 overscroll-behavior-y-contain -webkit-overflow-scrolling-touch"
+                >
+                    {/* Visual Evidence Header (Inside Scrollable list) */}
+                    <div 
+                        style={{ 
+                            height: isMobile 
+                                ? `${Math.max(120, 320 - scrollY)}px` 
+                                : `${Math.max(120, 288 - scrollY)}px`
+                        }}
+                        className="relative w-full shrink-0 bg-slate-900 flex items-center justify-center group/img overflow-hidden transition-[height] duration-75 ease-out"
                     >
-                        <X className="w-6 h-6"/>
-                    </button>
-                </div>
+                        {/* Visual drag handle for native mobile sheet feel */}
+                        <div 
+                            style={{ opacity: Math.max(0, 1 - scrollY / 60) }}
+                            className="absolute top-[calc(env(safe-area-inset-top,16px)+6px)] left-1/2 -translate-x-1/2 w-12 h-1 bg-white/40 rounded-full z-20 md:hidden" 
+                        />
+                        
+                        {(() => {
+                            const proofMatch = note.match(/\[PROOF:(.*?)\]/);
+                            const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
+                            
+                            return url ? (
+                                <>
+                                    <img 
+                                        src={getDirectDriveUrl(url)} 
+                                        className="w-full h-full object-cover opacity-90 group-hover/img:scale-105 transition-transform duration-700 cursor-pointer" 
+                                        alt="Proof"
+                                        referrerPolicy="no-referrer"
+                                        onClick={() => {
+                                            setLightboxUrl(url);
+                                            setShowLightbox(true);
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent pointer-events-none"></div>
+                                    
+                                    {/* Zoom Indicator */}
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
+                                        <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white">
+                                            <ZoomIn className="w-8 h-8" />
+                                        </div>
+                                    </div>
 
-                <div className="p-6 md:p-8 overflow-y-auto flex-1 flex flex-col space-y-7 pb-[calc(env(safe-area-inset-bottom,24px)+24px)] overscroll-behavior-y-contain -webkit-overflow-scrolling-touch min-h-0">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
-                                {log ? 'Time Analysis Log' : 'Leave Request Detail'}
-                            </p>
-                            <h3 className="text-2xl md:text-3xl font-black text-slate-800">
-                                {format(displayDate, 'EEEE d MMMM', { locale: th })}
-                            </h3>
-                            {leaveRequest && (
-                                <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border
+                                    <div 
+                                        style={{ 
+                                            opacity: Math.max(0, 1 - scrollY / 120),
+                                            transform: `translateY(${Math.min(20, scrollY / 6)}px)` 
+                                        }}
+                                        className="absolute bottom-4 left-6 flex items-center gap-3 transition-all duration-100"
+                                    >
+                                        <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white flex items-center gap-2">
+                                            <ImageIcon className="w-4 h-4" />
+                                            <span className="text-xs font-black uppercase tracking-widest">Visual Evidence</span>
+                                        </div>
+                                        <a href={url} target="_blank" rel="noreferrer" className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-all">
+                                            <Download className="w-4 h-4" />
+                                        </a>
+                                    </div>
+                                </>
+                            ) : (
+                                <div 
+                                    style={{ opacity: Math.max(0.2, 1 - scrollY / 120) }}
+                                    className="flex flex-col items-center text-slate-500 gap-4"
+                                >
+                                    <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center border border-slate-700">
+                                        <ImageIcon className="w-10 h-10 opacity-20" />
+                                    </div>
+                                    <p className="text-xs font-black uppercase tracking-[0.2em] opacity-50">No Visual Record</p>
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Details Content Container (With inner Padding) */}
+                    <div className="p-6 md:p-8 flex-1 flex flex-col space-y-7 pb-[calc(env(safe-area-inset-bottom,24px)+24px)] min-h-0">
+                        <div className="flex justify-between items-start shrink-0">
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+                                    {log ? 'Time Analysis Log' : 'Leave Request Detail'}
+                                </p>
+                                <h3 className="text-2xl md:text-3xl font-black text-slate-800">
+                                    {format(displayDate, 'EEEE d MMMM', { locale: th })}
+                                </h3>
+                                {leaveRequest && (
+                                    <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shrink-0
                                     ${leaveRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
                                       leaveRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                                       'bg-red-100 text-red-700 border-red-200'}`}>
@@ -258,7 +292,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                 const leaveMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
                                 if (leaveMatch) {
                                     return (
-                                        <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest border border-sky-200">
+                                        <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest border border-sky-200 shrink-0">
                                             {leaveMatch[1]} LEAVE
                                         </div>
                                     );
@@ -272,7 +306,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                     </div>
 
                     {log ? (
-                        <div className="grid grid-cols-2 gap-4 md:gap-6">
+                        <div className="grid grid-cols-2 gap-4 md:gap-6 shrink-0">
                             <div className="bg-slate-50 p-4 md:p-5 rounded-[2rem] border border-slate-100 group hover:border-emerald-200 transition-all">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><ArrowRight className="w-3 h-3 mr-1 text-emerald-500" /> Start Mission</p>
                                 <p className="text-2xl md:text-3xl font-black text-indigo-600 font-mono">
@@ -289,7 +323,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                             </div>
                         </div>
                     ) : leaveRequest && (
-                        <div className="bg-slate-50 p-5 md:p-6 rounded-[2rem] border border-slate-100">
+                        <div className="bg-slate-50 p-5 md:p-6 rounded-[2rem] border border-slate-100 shrink-0">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-indigo-500" />
@@ -310,12 +344,35 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         </div>
                     )}
 
-                    {note && (
-                        <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden">
+                    {/* Employee Leave/Edit Time Reason */}
+                    {userReason && (
+                        <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden shrink-0">
                             <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-indigo-400">Official Note / Reason</h4>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-indigo-400">เหตุผลคำขอ (Employee Reason)</h4>
                             <p className="text-sm font-medium leading-relaxed italic">
-                                "{note.replace(/\[.*?\]/g, '').trim() || 'ไม่มีหมายเหตุเพิ่มเติม'}"
+                                "{userReason.replace(/\[.*?\]/g, '').trim() || 'ยื่นคำขอโดยไม่มีระบุหมายเหตุเพิ่มเติม'}"
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Admin Rejection Reason */}
+                    {adminRejection && (
+                        <div className="bg-red-900 rounded-[2rem] p-6 text-red-100 shadow-2xl relative overflow-hidden shrink-0">
+                            <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-red-300">เหตุผลที่ปฏิเสธ (Admin Rejection Reason)</h4>
+                            <p className="text-sm font-semibold leading-relaxed">
+                                "{adminRejection}"
+                            </p>
+                        </div>
+                    )}
+
+                    {/* System/Log Additional Note */}
+                    {systemLogNote && systemLogNote !== userReason.replace(/\[.*?\]/g, '').trim() && (
+                        <div className="bg-slate-900 rounded-[2rem] p-6 text-slate-100 shadow-2xl relative overflow-hidden shrink-0">
+                            <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-slate-400">บันทึกเพิ่มเติมระบบ (System/Log Note)</h4>
+                            <p className="text-sm font-medium leading-relaxed">
+                                "{systemLogNote}"
                             </p>
                         </div>
                     )}
@@ -329,7 +386,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         Close Command
                     </button>
                 </div>
-            </motion.div>
+            </div>
+        </motion.div>
 
             {/* Lightbox Modal */}
             <AnimatePresence>

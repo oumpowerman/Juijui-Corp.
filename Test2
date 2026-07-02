@@ -1,563 +1,303 @@
 
-import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Calendar as CalendarIcon, Users, MessageCircle, Target, TrendingUp, Coffee, ScanEye, Film, ClipboardList, BookOpen, Settings2, Database, Briefcase, ShieldCheck, LogOut, Edit, Sparkles, BarChart3, Megaphone, FileText, Presentation, ChevronDown, ChevronRight, Building2, Clapperboard, Terminal, Clock, DollarSign, Crown, Monitor, Share2, Map } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { User, ViewMode, MenuGroup } from '../types';
-import SidebarBadge from './SidebarBadge';
-import NotificationPill from './NotificationPill';
-import AIStatusBadge from './common/AIStatusBadge';
+import React, { useMemo } from 'react';
+import { format } from 'date-fns';
+import { ChevronLeft, ChevronRight, Search, Table, BarChart3, Calendar, Minimize2, SlidersHorizontal } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import FilterDropdown from '../../common/FilterDropdown';
+import CustomDatePicker from '../../common/CustomDatePicker';
 
-interface SidebarProps {
-  currentUser: User;
-  currentView: ViewMode;
-  onNavigate: (view: ViewMode) => void;
-  onLogout: () => void;
-  onEditProfile: () => void;
-  onAddTask: () => void;
-  unreadChatCount: number;
-  systemUnreadCount?: number; 
-  isCollapsed: boolean;
-  onToggleCollapse: (val: boolean) => void;
+interface DashboardHeaderProps {
+    currentMonth: Date;
+    setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
+    dateFilterMode: 'MONTH' | 'CUSTOM';
+    setDateFilterMode: (mode: 'MONTH' | 'CUSTOM') => void;
+    customStartDate: Date;
+    setCustomStartDate: (date: Date) => void;
+    customEndDate: Date;
+    setCustomEndDate: (date: Date) => void;
+    searchTerm: string;
+    setSearchTerm: (term: string) => void;
+    selectedEmploymentType: string;
+    setSelectedEmploymentType: (type: string) => void;
+    selectedPosition: string;
+    setSelectedPosition: (position: string) => void;
+    positions: string[];
+    viewMode: 'TABLE' | 'ANALYTICS';
+    setViewMode: (mode: 'TABLE' | 'ANALYTICS') => void;
+    isToolsExpanded: boolean;
+    setIsToolsExpanded: (expanded: boolean) => void;
 }
 
-
-// Menu Groups Definition
-export const MENU_GROUPS: MenuGroup[] = [
-  {
-    id: 'WORKSPACE',
-    title: 'Workspace',
-    icon: Briefcase,
-    items: [
-      { view: 'DASHBOARD', label: 'ภาพรวม', icon: LayoutGrid },
-      { view: 'ROADMAP', label: 'แผนงาน', icon: Map },
-      { view: 'CALENDAR', label: 'ปฏิทิน & บอร์ด', icon: CalendarIcon }, 
-      { view: 'CHAT', label: 'ห้องแชท', icon: MessageCircle },
-      { view: 'TEAM', label: 'ทีมงาน', icon: Users },
-      { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
-      { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp }, 
-    ]
-  },
-  {
-    id: 'PRODUCTION',
-    title: 'Production',
-    icon: Clapperboard,
-    items: [
-      { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
-      { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation },
-      { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
-      { view: 'ANALYTICS', label: 'วิเคราะห์ข้อมูล', icon: BarChart3 },
-      { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
-    ]
-  },
-  {
-    id: 'OFFICE',
-    title: 'Office',
-    icon: Building2,
-    items: [
-      { view: 'ATTENDANCE', label: 'ลงเวลาทำงาน', icon: Clock },
-      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, 
-      { view: 'DUTY', label: 'ตารางเวร', icon: Coffee },
-      { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
-      { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone },
-      { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
-      { view: 'ASSETS', label: 'ทะเบียนทรัพย์สิน', icon: Monitor },
-      { view: 'FINANCE', label: 'ระบบบัญชี', icon: DollarSign },
-    ]
-  },
-  {
-    id: 'ADMIN',
-    title: 'Admin',
-    icon: ShieldCheck,
-    adminOnly: true,
-    items: [
-      { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye },
-      { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2 },
-      { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
-      { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal }, 
-    ]
-  }
-];
-
-const Sidebar: React.FC<SidebarProps> = ({ 
-  currentUser, 
-  currentView, 
-  onNavigate, 
-  onLogout, 
-  onEditProfile, 
-  unreadChatCount,
-  systemUnreadCount = 0,
-  isCollapsed,
-  onToggleCollapse
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+    currentMonth,
+    setCurrentMonth,
+    dateFilterMode,
+    setDateFilterMode,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
+    searchTerm,
+    setSearchTerm,
+    selectedEmploymentType,
+    setSelectedEmploymentType,
+    selectedPosition,
+    setSelectedPosition,
+    positions,
+    viewMode,
+    setViewMode,
+    isToolsExpanded,
+    setIsToolsExpanded
 }) => {
-  const isAdmin = currentUser.role === 'ADMIN';
+    const [isFullyExpanded, setIsFullyExpanded] = React.useState(false);
 
-  // Theme Logic
-  const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
-  
-  // Dynamic seasonal theme detection
-  const [activeBgTheme, setActiveBgTheme] = React.useState<string>(() => {
-    return (window as any).__activeBackgroundTheme || (currentUser as any).equippedBgId || 'bg-pastel-wave';
-  });
+    React.useEffect(() => {
+        if (!isToolsExpanded) {
+            setIsFullyExpanded(false);
+        }
+    }, [isToolsExpanded]);
 
-  React.useEffect(() => {
-    const handleBgChange = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail && detail.theme) {
-        setActiveBgTheme(detail.theme);
-      }
-    };
-    window.addEventListener('app-background-changed', handleBgChange);
-    return () => {
-      window.removeEventListener('app-background-changed', handleBgChange);
-    };
-  }, []);
+    const positionOptions = useMemo(() => {
+        return positions.map(pos => ({
+            key: pos,
+            label: pos
+        }));
+    }, [positions]);
 
-  const seasonStyle = useMemo(() => {
-    // If not in the main DASHBOARD view, default to the elegant neutral/glassmorphic theme
-    if (currentView !== 'DASHBOARD') {
-      return {
-        aside: isDarkTheme
-          ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
-          : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
-        logoArea: isDarkTheme ? 'from-white/3 via-white/1 to-transparent' : 'from-indigo-500/4 via-indigo-500/1 to-transparent',
-        footer: isDarkTheme ? 'border-t border-white/5 bg-transparent' : 'border-t border-slate-200/50 bg-transparent',
-        userCard: isDarkTheme 
-          ? 'hover:bg-white/5 hover:border-white/10 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.05)]' 
-          : 'hover:bg-indigo-500/5 hover:border-indigo-500/10 hover:shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]',
-        text: isDarkTheme ? 'text-slate-200/90' : 'text-slate-800/90',
-        subtext: isDarkTheme ? 'text-slate-400/80' : 'text-slate-500/80',
-        itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
-        itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
-        itemActiveColor: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
-        activeIcon: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
-        idleIcon: isDarkTheme ? 'text-slate-400 group-hover/btn:text-indigo-300' : 'text-slate-400 group-hover/btn:text-indigo-600',
-        activePill: isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100',
-        activeBar: isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500',
-        hoverBg: isDarkTheme ? 'bg-white/5' : 'bg-slate-100',
-        groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
-        brandAccentBg: 'bg-indigo-500',
-        brandAccentText: 'text-indigo-500',
-        brandAccentGradient: 'from-indigo-500/50',
-        iconBg: isDarkTheme 
-          ? 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md shadow-sm hover:bg-white/10' 
-          : 'bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 backdrop-blur-md shadow-sm hover:bg-indigo-500/10'
-      };
-    }
+    return (
+        <div className={`flex flex-col bg-white p-4 ${isToolsExpanded ? 'pb-6' : 'pb-4'} rounded-2xl border border-gray-100 shadow-sm w-full transition-all duration-200`}>
+            {/* Row 1: Temporal & View Controls */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 w-full justify-start sm:justify-between min-w-0">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 w-full sm:w-auto min-w-0">
+                    {/* Date Filter Mode Switcher (Single Toggle) */}
+                    <button
+                        onClick={() => setDateFilterMode(dateFilterMode === 'MONTH' ? 'CUSTOM' : 'MONTH')}
+                        className="relative flex items-center justify-center gap-1.5 px-3 py-2 h-9 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/80 rounded-xl text-xs font-bold text-gray-700 hover:text-indigo-600 transition-all duration-200 shadow-sm w-full sm:w-[130px] shrink-0 overflow-hidden select-none"
+                    >
+                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="relative w-[90px] h-4 flex items-center justify-center">
+                            <AnimatePresence mode="wait">
+                                <motion.span
+                                    key={dateFilterMode}
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 4 }}
+                                    transition={{ duration: 0.12 }}
+                                    className="absolute font-bold text-center"
+                                >
+                                    {dateFilterMode === 'MONTH' ? 'รายเดือน' : 'กำหนดช่วงวัน'}
+                                </motion.span>
+                            </AnimatePresence>
+                        </span>
+                    </button>
 
-    switch (activeBgTheme) {
-      case 'season-summer':
-      case 'bg-season-summer':
-        return {
-          aside: 'bg-sky-50/15 backdrop-blur-3xl border-r border-sky-500/20 shadow-[4px_0_24px_rgba(14,165,233,0.05)]',
-          logoArea: 'from-sky-400/5 via-sky-400/2 to-transparent',
-          footer: 'border-t border-sky-500/10 bg-transparent',
-          userCard: 'hover:bg-sky-500/10 hover:border-sky-500/20 hover:shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)]',
-          text: 'text-sky-950 font-bold',
-          subtext: 'text-sky-900/80 font-medium',
-          iconBg: 'bg-sky-500/10 border border-sky-500/20 text-sky-600 backdrop-blur-md shadow-sm hover:bg-sky-500/15',
-          itemIdle: 'text-sky-800/80 hover:text-sky-950 hover:bg-sky-500/5 font-semibold',
-          itemActive: 'text-sky-950 font-black',
-          itemActiveColor: 'text-sky-600',
-          activeIcon: 'text-sky-600',
-          idleIcon: 'text-sky-700/60 group-hover/btn:text-sky-600',
-          activePill: 'bg-sky-500/10 border border-sky-500/20',
-          activeBar: 'bg-sky-500',
-          hoverBg: 'bg-sky-500/5',
-          groupHeader: 'text-sky-800/70 hover:text-sky-950',
-          brandAccentBg: 'bg-sky-500',
-          brandAccentText: 'text-sky-600',
-          brandAccentGradient: 'from-sky-500/50'
-        };
-      case 'season-snow':
-      case 'bg-season-snow':
-        return {
-          aside: 'bg-white/10 backdrop-blur-3xl border-r border-white/20 shadow-[4px_0_24px_rgba(255,255,255,0.05)]',
-          logoArea: 'from-white/15 via-sky-300/5 to-transparent',
-          footer: 'border-t border-white/10 bg-transparent',
-          userCard: 'hover:bg-white/10 hover:border-white/20 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.15)]',
-          text: 'text-white font-bold',
-          subtext: 'text-sky-200/80 font-medium',
-          iconBg: 'bg-white/10 border border-white/20 text-white backdrop-blur-md hover:bg-white/20',
-          itemIdle: 'text-sky-100/80 hover:text-white hover:bg-white/10 font-semibold',
-          itemActive: 'text-white font-extrabold',
-          itemActiveColor: 'text-white',
-          activeIcon: 'text-white',
-          idleIcon: 'text-sky-200/50 group-hover/btn:text-white',
-          activePill: 'bg-white/15 border border-white/25 shadow-[0_0_15px_rgba(255,255,255,0.1)] backdrop-blur-md',
-          activeBar: 'bg-white',
-          hoverBg: 'bg-white/5',
-          groupHeader: 'text-sky-200/50 hover:text-white',
-          brandAccentBg: 'bg-sky-300',
-          brandAccentText: 'text-sky-300',
-          brandAccentGradient: 'from-sky-300/50'
-        };
-      case 'season-rain':
-      case 'bg-season-rain':
-        return {
-          aside: 'bg-slate-950/15 backdrop-blur-3xl border-r border-slate-500/40 shadow-[4px_0_24px_rgba(0,0,0,0.25)]',
-          logoArea: 'from-slate-500/15 via-slate-500/5 to-transparent',
-          footer: 'border-t border-slate-600/40 bg-transparent',
-          userCard: 'hover:bg-slate-800/40 hover:border-slate-700/50 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)]',
-          text: 'text-white font-bold',
-          subtext: 'text-slate-300/80 font-medium',
-          iconBg: 'bg-white/10 border border-white/15 text-white backdrop-blur-md hover:bg-white/15',
-          itemIdle: 'text-slate-300/80 hover:text-white hover:bg-white/5 font-semibold',
-          itemActive: 'text-white font-extrabold',
-          itemActiveColor: 'text-white',
-          activeIcon: 'text-white',
-          idleIcon: 'text-slate-350 group-hover/btn:text-white',
-          activePill: 'bg-white/10 border border-white/10 shadow-md backdrop-blur-md',
-          activeBar: 'bg-white',
-          hoverBg: 'bg-white/5',
-          groupHeader: 'text-slate-100/70 hover:text-white',
-          brandAccentBg: 'bg-slate-300',
-          brandAccentText: 'text-slate-300',
-          brandAccentGradient: 'from-slate-300/30'
-        };
-      case 'season-autumn':
-      case 'bg-season-autumn':
-        return {
-          aside: 'bg-orange-50/15 backdrop-blur-3xl border-r border-orange-500/20 shadow-[4px_0_24px_rgba(249,115,22,0.05)]',
-          logoArea: 'from-orange-400/5 via-orange-400/2 to-transparent',
-          footer: 'border-t border-orange-500/10 bg-transparent',
-          userCard: 'hover:bg-orange-500/10 hover:border-orange-500/20 hover:shadow-[0_4px_20px_-4px_rgba(249,115,22,0.15)]',
-          text: 'text-orange-950 font-bold',
-          subtext: 'text-orange-900/80 font-medium',
-          iconBg: 'bg-orange-500/10 border border-orange-500/20 text-orange-600 backdrop-blur-md shadow-sm hover:bg-orange-500/15',
-          itemIdle: 'text-orange-800/80 hover:text-orange-950 hover:bg-orange-500/5 font-semibold',
-          itemActive: 'text-orange-950 font-black',
-          itemActiveColor: 'text-orange-600',
-          activeIcon: 'text-orange-600',
-          idleIcon: 'text-orange-700/60 group-hover/btn:text-orange-600',
-          activePill: 'bg-orange-500/10 border border-orange-500/20',
-          activeBar: 'bg-orange-500',
-          hoverBg: 'bg-orange-500/5',
-          groupHeader: 'text-orange-800/70 hover:text-orange-950',
-          brandAccentBg: 'bg-orange-500',
-          brandAccentText: 'text-orange-600',
-          brandAccentGradient: 'from-orange-500/50'
-        };
-      default:
-        return {
-          aside: isDarkTheme
-            ? 'bg-slate-950/20 backdrop-blur-2xl border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
-            : 'bg-white/20 backdrop-blur-2xl border-r border-white/30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]',
-          logoArea: isDarkTheme ? 'from-white/3 via-white/1 to-transparent' : 'from-indigo-500/4 via-indigo-500/1 to-transparent',
-          footer: isDarkTheme ? 'border-t border-white/5 bg-transparent' : 'border-t border-slate-200/50 bg-transparent',
-          userCard: isDarkTheme 
-            ? 'hover:bg-white/5 hover:border-white/10 hover:shadow-[0_4px_20px_-4px_rgba(255,255,255,0.05)]' 
-            : 'hover:bg-indigo-500/5 hover:border-indigo-500/10 hover:shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)]',
-          text: isDarkTheme ? 'text-slate-200/90' : 'text-slate-800/90',
-          subtext: isDarkTheme ? 'text-slate-400/80' : 'text-slate-500/80',
-          itemIdle: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-600 hover:text-indigo-700',
-          itemActive: isDarkTheme ? 'text-indigo-300' : 'text-indigo-700',
-          itemActiveColor: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
-          activeIcon: isDarkTheme ? 'text-indigo-300' : 'text-indigo-600',
-          idleIcon: isDarkTheme ? 'text-slate-400 group-hover/btn:text-indigo-300' : 'text-slate-400 group-hover/btn:text-indigo-600',
-          activePill: isDarkTheme ? 'bg-indigo-500/20 border border-indigo-400/20' : 'bg-indigo-50 border border-indigo-100',
-          activeBar: isDarkTheme ? 'bg-indigo-400' : 'bg-indigo-500',
-          hoverBg: isDarkTheme ? 'bg-white/5' : 'bg-slate-100',
-          groupHeader: isDarkTheme ? 'text-slate-400 hover:text-indigo-300' : 'text-slate-500 hover:text-indigo-600',
-          brandAccentBg: 'bg-indigo-500',
-          brandAccentText: 'text-indigo-500',
-          brandAccentGradient: 'from-indigo-500/50',
-          iconBg: isDarkTheme 
-            ? 'bg-white/5 border border-white/10 text-slate-200 backdrop-blur-md shadow-sm hover:bg-white/10' 
-            : 'bg-indigo-500/5 border border-indigo-500/10 text-indigo-600 backdrop-blur-md shadow-sm hover:bg-indigo-500/10'
-        };
-    }
-  }, [activeBgTheme, isDarkTheme, currentView]);
-
-  const themeClasses = {
-      aside: seasonStyle.aside,
-      text: seasonStyle.text,
-      subtext: seasonStyle.subtext,
-      groupHeader: seasonStyle.groupHeader,
-      itemIdle: seasonStyle.itemIdle,
-      itemActive: seasonStyle.itemActive,
-      itemActiveColor: seasonStyle.itemActiveColor,
-      activeIcon: seasonStyle.activeIcon,
-      idleIcon: seasonStyle.idleIcon,
-      activePill: seasonStyle.activePill,
-      activeBar: seasonStyle.activeBar,
-      hoverBg: seasonStyle.hoverBg,
-      brandAccentBg: seasonStyle.brandAccentBg,
-      brandAccentText: seasonStyle.brandAccentText,
-      brandAccentGradient: seasonStyle.brandAccentGradient,
-      footer: seasonStyle.footer,
-      userCard: seasonStyle.userCard,
-      logoArea: seasonStyle.logoArea,
-      iconBg: seasonStyle.iconBg
-  };
-
-  // State for Accordion
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-      'WORKSPACE': true,
-      'PRODUCTION': true,
-      'OFFICE': false,
-      'ADMIN': false
-  });
-
-  const toggleGroup = (groupId: string) => {
-      setExpandedGroups(prev => ({
-          ...prev,
-          [groupId]: !prev[groupId]
-      }));
-  };
-
-  const handleMenuItemClick = (view: ViewMode) => {
-      onNavigate(view);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'ONLINE': return 'bg-green-500';
-      case 'BUSY': return 'bg-red-500';
-      case 'SICK': return 'bg-orange-500';
-      case 'VACATION': return 'bg-blue-500';
-      case 'MEETING': return 'bg-purple-500';
-      default: return 'bg-gray-400';
-    }
-  };
-
-  return (
-    <aside 
-      onMouseEnter={() => onToggleCollapse(false)}
-      onMouseLeave={() => onToggleCollapse(true)}
-      className={`
-        hidden lg:flex flex-col h-full ${themeClasses.aside} shrink-0 z-50 sidebar-transition relative
-        ${isCollapsed ? 'w-[88px] sidebar-collapsed' : 'w-[280px] sidebar-expanded'}
-      `}
-    >
-      {/* 1. Brand Logo Area */}
-      <div className={`flex items-center bg-gradient-to-b ${themeClasses.logoArea} overflow-hidden ${isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'}`}>
-        <motion.div 
-          initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
-          animate={{ rotate: 0, scale: 1, opacity: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className={`
-            ${themeClasses.iconBg} rounded-2xl flex items-center justify-center shrink-0 sidebar-icon relative overflow-hidden group transition-all duration-300
-            ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
-          `}
-        >
-          <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10 transition-transform duration-300 group-hover:scale-110" />
-          <motion.div 
-            animate={{ 
-              x: ['-100%', '200%'],
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity, 
-              repeatDelay: 3,
-              ease: "linear" 
-            }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-          />
-        </motion.div>
-        
-        {!isCollapsed && (
-          <div className="sidebar-item-text">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.1, delayChildren: 0.2 }
-                }
-              }}
-              className="flex items-center"
-            >
-              {"Kontent".split('').map((char, i) => (
-                <motion.span
-                  key={i}
-                  variants={{
-                    hidden: { opacity: 0, y: 5 },
-                    visible: { opacity: 1, y: 0 }
-                  }}
-                  className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
-                >
-                  {char}
-                </motion.span>
-              ))}
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1, duration: 0.5 }}
-              className="flex items-center gap-1.5 mt-1"
-            >
-              <div className={`h-[2px] w-4 ${themeClasses.brandAccentBg} rounded-full`} />
-              <p className={`text-[10px] font-black ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>OS</p>
-              <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
-            </motion.div>
-          </div>
-        )}
-      </div>
-
-      {/* 2. Menu Area */}
-      <div className="flex-1 overflow-y-auto sidebar-scroll py-4 scrollbar-hide">
-        {MENU_GROUPS.map((group) => {
-          if (group.adminOnly && !isAdmin) return null;
-          
-          const isExpanded = expandedGroups[group.id];
-          const GroupIcon = group.icon;
-
-          return (
-            <div key={group.id} className="mb-6">
-              {/* Group Header */}
-              {!isCollapsed ? (
-                <button 
-                  onClick={() => toggleGroup(group.id)}
-                  className={`w-full flex items-center justify-between px-6 py-2 ${themeClasses.groupHeader} transition-all group/header`}
-                >
-                    <div className="flex items-center gap-3">
-                        <GroupIcon className="w-4 h-4 opacity-70" />
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.15em] sidebar-item-text">
-                          {group.title}
-                        </h3>
+                    {/* Date Controls Container with Responsive Flexible Width */}
+                    <div className="relative w-full sm:w-[260px] md:w-[280px] lg:w-[350px] h-10 flex items-center min-w-0 flex-1 sm:flex-initial">
+                        <AnimatePresence mode="wait">
+                            {dateFilterMode === 'MONTH' ? (
+                                <motion.div
+                                    key="month-picker"
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 10 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute inset-0 flex items-center justify-between bg-gray-50 p-1 rounded-xl w-full"
+                                >
+                                    <button 
+                                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} 
+                                        className="p-1.5 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
+                                    >
+                                        <ChevronLeft className="w-4 h-4"/>
+                                    </button>
+                                    <div className="px-4 font-bold text-gray-700 text-center capitalize text-xs sm:text-sm flex-1">
+                                        {format(currentMonth, 'MMMM yyyy')}
+                                    </div>
+                                    <button 
+                                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} 
+                                        className="p-1.5 hover:bg-white rounded-lg text-gray-500 shadow-sm transition-all"
+                                    >
+                                        <ChevronRight className="w-4 h-4"/>
+                                    </button>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="custom-picker"
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute inset-0 flex items-center gap-2 w-full"
+                                >
+                                    <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
+                                        <span className="pl-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">เริ่ม</span>
+                                        <div className="flex-1 min-w-0">
+                                            <CustomDatePicker
+                                                selected={customStartDate}
+                                                onChange={(date) => {
+                                                    if (date) {
+                                                        setCustomStartDate(date);
+                                                        if (customEndDate && date > customEndDate) {
+                                                            setCustomEndDate(date);
+                                                        }
+                                                    }
+                                                }}
+                                                placeholderText="วันเริ่มต้น"
+                                                size="sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
+                                        <span className="pl-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">สิ้นสุด</span>
+                                        <div className="flex-1 min-w-0">
+                                            <CustomDatePicker
+                                                selected={customEndDate}
+                                                onChange={(date) => {
+                                                    if (date) {
+                                                        if (customStartDate && date < customStartDate) {
+                                                            setCustomEndDate(customStartDate);
+                                                        } else {
+                                                            setCustomEndDate(date);
+                                                        }
+                                                    }
+                                                }}
+                                                placeholderText="วันสิ้นสุด"
+                                                size="sm"
+                                            />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                    <div className="flex items-center gap-2 sidebar-item-text">
-                        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    </div>
-                </button>
-              ) : (
-                <div className="w-full flex justify-center py-2 text-slate-200 relative group/icon">
-                   {/* Divider or Mini Icon when collapsed */}
-                   <div className="w-10 h-px bg-slate-100"></div>
-                   
-                   {/* Tooltip for Group Name (Optional Enhancement) */}
-                   <div className="absolute left-full ml-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/icon:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                       {group.title}
-                   </div>
                 </div>
-              )}
 
-              {/* Group Items */}
-              <div className={`overflow-hidden transition-all duration-500 ${isCollapsed || isExpanded ? 'max-h-[800px]' : 'max-h-0'}`}>
-                  <div className={`space-y-1.5 mt-2 ${isCollapsed ? 'px-3' : 'px-4'}`}>
-                    {group.items.map((item) => {
-                      const isActive = currentView === item.view;
-                      const Icon = item.icon;
-
-                      return (
-                        <motion.button
-                          key={item.view}
-                          whileHover={{ x: isCollapsed ? 0 : 4 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => handleMenuItemClick(item.view)}
-                          className={`
-                            w-full flex items-center rounded-2xl transition-all duration-300 relative group/btn overflow-hidden
-                            ${isCollapsed ? 'justify-center py-3.5' : 'px-4 py-3'}
-                            ${isActive ? themeClasses.itemActive : themeClasses.itemIdle}
-                          `}
-                          title={isCollapsed ? item.label : ''}
-                        >
-                          {/* Active Background Pill */}
-                          {isActive && (
-                            <motion.div 
-                                layoutId="active-pill"
-                                className={`absolute inset-0 z-0 ${themeClasses.activePill} shadow-sm`}
-                                transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                            />
-                          )}
-
-                          {/* Active Indicator Bar */}
-                          {isActive && (
-                            <motion.div 
-                                layoutId="active-bar"
-                                className={`absolute left-0 top-1/4 bottom-1/4 w-1 ${themeClasses.activeBar} rounded-r-full z-10`}
-                                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-                            />
-                          )}
-
-                          {/* Hover Background (When not active) */}
-                          {!isActive && (
-                            <div className={`absolute inset-0 z-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200 ${themeClasses.hoverBg}`} />
-                          )}
-
-                          <div className={`relative shrink-0 z-10 transition-colors duration-300 ${isActive ? themeClasses.itemActiveColor : ''}`}>
-                                <Icon className={`sidebar-icon ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'} ${isActive ? themeClasses.activeIcon : themeClasses.idleIcon}`} />
-                                
-                                {isCollapsed && (
-                                     <div className="absolute -top-1.5 -right-1.5">
-                                         <SidebarBadge 
-                                            view={item.view as ViewMode} 
-                                            currentUser={currentUser} 
-                                            collapsed={true} 
-                                            count={item.view === 'CHAT' ? unreadChatCount : undefined}
-                                         />
-                                     </div>
+                {/* Right Controls Container */}
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto justify-between sm:justify-end">
+                    {/* Toggle Tools/Filters Button */}
+                    <button
+                        onClick={() => setIsToolsExpanded(!isToolsExpanded)}
+                        className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-200 shadow-sm active:scale-95 shrink-0 select-none ${
+                            isToolsExpanded 
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100/80' 
+                                : 'bg-gray-50 border-gray-200/80 text-gray-500 hover:text-indigo-600 hover:bg-gray-100/80'
+                        }`}
+                        title={isToolsExpanded ? "ซ่อนเครื่องมือและตัวกรอง" : "แสดงเครื่องมือและตัวกรอง"}
+                    >
+                        <AnimatePresence mode="wait" initial={false}>
+                            <motion.div
+                                key={isToolsExpanded ? 'expanded' : 'collapsed'}
+                                initial={{ opacity: 0, scale: 0.8, rotate: isToolsExpanded ? -45 : 45 }}
+                                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, rotate: isToolsExpanded ? 45 : -45 }}
+                                transition={{ duration: 0.15 }}
+                                className="flex items-center justify-center"
+                            >
+                                {isToolsExpanded ? (
+                                    <Minimize2 className="w-4 h-4" />
+                                ) : (
+                                    <SlidersHorizontal className="w-4 h-4" />
                                 )}
-                          </div>
-                          
-                          <span className={`sidebar-item-text flex-1 text-left text-sm font-bold tracking-tight ml-3.5 relative z-10 transition-colors duration-300 ${isActive ? themeClasses.itemActiveColor : ''}`}>
-                             {item.label}
-                          </span>
-                          
-                          {!isCollapsed && (
-                             <div className="sidebar-item-text ml-auto relative z-10">
-                                <SidebarBadge 
-                                    view={item.view as ViewMode} 
-                                    currentUser={currentUser} 
-                                    count={item.view === 'CHAT' ? unreadChatCount : undefined}
+                            </motion.div>
+                        </AnimatePresence>
+                    </button>
+
+                    {/* View Mode Switcher (Single Toggle) */}
+                    <button
+                        onClick={() => setViewMode(viewMode === 'TABLE' ? 'ANALYTICS' : 'TABLE')}
+                        className="relative flex items-center justify-center gap-1.5 px-3 py-2 h-9 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/80 rounded-xl text-xs font-bold text-gray-700 hover:text-indigo-600 transition-all duration-200 shadow-sm w-full sm:w-[130px] overflow-hidden select-none"
+                    >
+                        <AnimatePresence mode="wait" initial={false}>
+                            <motion.div
+                                key={viewMode}
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 4 }}
+                                transition={{ duration: 0.12 }}
+                                className="flex items-center justify-center gap-1.5 whitespace-nowrap"
+                            >
+                                {viewMode === 'TABLE' ? (
+                                    <>
+                                        <Table className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                        <span>ตารางสรุป</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <BarChart3 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                        <span>วิเคราะห์สถิติ</span>
+                                    </>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
+                    </button>
+                </div>
+            </div>
+
+            {/* Row 2: Filters & Search with Framer Motion */}
+            <AnimatePresence initial={false}>
+                {isToolsExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                        animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        onAnimationComplete={() => {
+                            if (isToolsExpanded) {
+                                setIsFullyExpanded(true);
+                            }
+                        }}
+                        className={`${isFullyExpanded ? 'overflow-visible' : 'overflow-hidden'} w-full`}
+                    >
+                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full justify-between">
+                            {/* Search */}
+                            <div className="relative w-full sm:w-48 md:w-56 flex-1 sm:flex-initial">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="ค้นหาพนักงาน..." 
+                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 text-sm h-9"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                 />
-                             </div>
-                          )}
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                            </div>
 
-      {/* 2.5 AI Status Area */}
-      <div className={`px-4 py-2 mb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
-        <AIStatusBadge collapsed={isCollapsed} />
-      </div>
+                            {/* Filters container pushed to the right on desktop */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto sm:ml-auto">
+                                {/* Employment Type Filter */}
+                                <div className="w-full sm:w-44 md:w-48 lg:w-52 h-9">
+                                    <FilterDropdown
+                                        label="ประเภทการจ้างงาน"
+                                        value={selectedEmploymentType}
+                                        onChange={setSelectedEmploymentType}
+                                        options={[
+                                            { key: 'FULL_TIME', label: '💼 พนักงานประจำ' },
+                                            { key: 'PROBATION', label: '📋 พนักงานทดลองงาน' },
+                                            { key: 'INTERN', label: '🎓 นักศึกษาฝึกงาน' }
+                                        ]}
+                                        showAllOption={true}
+                                        clearable={true}
+                                        align="right"
+                                    />
+                                </div>
 
-      {/* 3. User Footer */}
-      <div className={`${themeClasses.footer} p-4 transition-all`}>
-        <div 
-          className={`flex items-center rounded-[1.25rem] ${themeClasses.userCard} transition-all cursor-pointer group border border-transparent ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2.5'}`} 
-          onClick={onEditProfile}
-        >
-          <div className="relative shrink-0 sidebar-icon">
-            <img src={currentUser.avatarUrl} alt="User" className={`${isCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-full object-cover border-2 ${isDarkTheme ? 'border-white/10' : 'border-white'} shadow-sm`} />
-            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 ${getStatusColor(currentUser.workStatus || 'ONLINE')} border-2 ${isDarkTheme ? 'border-slate-900' : 'border-white'} rounded-full`}></div>
-          </div>
-          
-          <div className="sidebar-item-text flex-1 min-w-0">
-            <p className={`text-sm font-black ${isDarkTheme ? 'text-white' : 'text-slate-800'} truncate`}>{currentUser.name}</p>
-            <p className="text-xs font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
-          </div>
-          
-          {!isCollapsed && (
-            <div className="sidebar-item-text">
-                <Edit className={`w-3.5 h-3.5 ${isDarkTheme ? 'text-slate-600' : 'text-slate-300'} group-hover:text-indigo-500`} />
-            </div>
-          )}
+                                {/* Position Filter */}
+                                <div className="w-full sm:w-44 md:w-48 lg:w-52 h-9">
+                                    <FilterDropdown
+                                        label="ตำแหน่ง"
+                                        value={selectedPosition}
+                                        onChange={setSelectedPosition}
+                                        options={positionOptions}
+                                        showAllOption={true}
+                                        clearable={true}
+                                        align="right"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
-        
-        <button 
-          onClick={onLogout}
-          className={`
-            w-full flex items-center justify-center gap-2 font-black transition-all uppercase tracking-[0.2em]
-            ${isCollapsed ? 'mt-4 py-3 text-red-300 hover:text-red-500' : `mt-4 py-3 text-[10px] ${isDarkTheme ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-xl`}
-          `}
-          title={isCollapsed ? 'ลงชื่อออก' : ''}
-        >
-          <LogOut className={`${isCollapsed ? 'w-6 h-6' : 'w-3.5 h-3.5'}`} /> 
-          <span className="sidebar-item-text">ลงชื่อออก</span>
-        </button>
-      </div>
-    </aside>
-  );
+    );
 };
 
-export default Sidebar;
+export default DashboardHeader;

@@ -65,6 +65,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
     const [activeStatFilter, setActiveStatFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE'>('ALL');
     const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
+    const [isToolsExpanded, setIsToolsExpanded] = useState(false);
 
     useEffect(() => {
         setSortDirection('DESC');
@@ -396,26 +397,6 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             
-            <DashboardHeader 
-                currentMonth={currentMonth}
-                setCurrentMonth={setCurrentMonth}
-                dateFilterMode={dateFilterMode}
-                setDateFilterMode={setDateFilterMode}
-                customStartDate={customStartDate}
-                setCustomStartDate={setCustomStartDate}
-                customEndDate={customEndDate}
-                setCustomEndDate={setCustomEndDate}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                selectedEmploymentType={selectedEmploymentType}
-                setSelectedEmploymentType={setSelectedEmploymentType}
-                selectedPosition={selectedPosition}
-                setSelectedPosition={setSelectedPosition}
-                positions={positions}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-            />
-
             <AnimatePresence mode="wait">
                 {viewMode === 'TABLE' ? (
                     <motion.div
@@ -435,6 +416,28 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             activeUsersCount={users.filter(u => u.isActive).length}
                             activeFilter={activeStatFilter}
                             onFilterChange={setActiveStatFilter}
+                        />
+
+                        <DashboardHeader 
+                            currentMonth={currentMonth}
+                            setCurrentMonth={setCurrentMonth}
+                            dateFilterMode={dateFilterMode}
+                            setDateFilterMode={setDateFilterMode}
+                            customStartDate={customStartDate}
+                            setCustomStartDate={setCustomStartDate}
+                            customEndDate={customEndDate}
+                            setCustomEndDate={setCustomEndDate}
+                            searchTerm={searchTerm}
+                            setSearchTerm={setSearchTerm}
+                            selectedEmploymentType={selectedEmploymentType}
+                            setSelectedEmploymentType={setSelectedEmploymentType}
+                            selectedPosition={selectedPosition}
+                            setSelectedPosition={setSelectedPosition}
+                            positions={positions}
+                            viewMode={viewMode}
+                            setViewMode={setViewMode}
+                            isToolsExpanded={isToolsExpanded}
+                            setIsToolsExpanded={setIsToolsExpanded}
                         />
 
                         <DashboardTable 
@@ -464,8 +467,30 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -15 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="w-full"
+                        className="space-y-6 w-full"
                     >
+                        <DashboardHeader 
+                            currentMonth={currentMonth}
+                            setCurrentMonth={setCurrentMonth}
+                            dateFilterMode={dateFilterMode}
+                            setDateFilterMode={setDateFilterMode}
+                            customStartDate={customStartDate}
+                            setCustomStartDate={setCustomStartDate}
+                            customEndDate={customEndDate}
+                            setCustomEndDate={setCustomEndDate}
+                            searchTerm={searchTerm}
+                            setSearchTerm={setSearchTerm}
+                            selectedEmploymentType={selectedEmploymentType}
+                            setSelectedEmploymentType={setSelectedEmploymentType}
+                            selectedPosition={selectedPosition}
+                            setSelectedPosition={setSelectedPosition}
+                            positions={positions}
+                            viewMode={viewMode}
+                            setViewMode={setViewMode}
+                            isToolsExpanded={isToolsExpanded}
+                            setIsToolsExpanded={setIsToolsExpanded}
+                        />
+
                         <Suspense fallback={<AnalyticsSkeleton />}>
                             <AttendanceAnalytics 
                                 users={users}
@@ -482,18 +507,16 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 )}
             </AnimatePresence>
             
-            <AnimatePresence>
-                {selectedUser && (
-                    <DashboardUserDetailModal 
-                        user={selectedUser.user}
-                        stat={selectedUser.stat}
-                        workingDaysInMonth={workingDaysInMonth}
-                        startTime={startTime}
-                        lateBuffer={lateBuffer}
-                        onClose={() => setSelectedUser(null)}
-                    />
-                )}
-            </AnimatePresence>
+            {selectedUser && (
+                <DashboardUserDetailModal 
+                    user={selectedUser.user}
+                    stat={selectedUser.stat}
+                    workingDaysInMonth={workingDaysInMonth}
+                    startTime={startTime}
+                    lateBuffer={lateBuffer}
+                    onClose={() => setSelectedUser(null)}
+                />
+            )}
         </div>
     );
 };

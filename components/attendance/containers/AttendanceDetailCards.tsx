@@ -77,7 +77,21 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
 
     const cleanNote = (note?: string) => {
         if (!note) return '';
-        return note.replace(/\[PROOF:.*?\]/, '').replace(/\[APPEAL_PENDING\]/, '').replace(/\[MANUAL_ENTRY\]/, '').trim();
+        
+        // 1. ดึงเฉพาะข้อความจาก [REASON:...] ออกมาแสดงถ้ามี
+        const reasonMatch = note.match(/\[REASON:(.*?)\]/);
+        if (reasonMatch && reasonMatch[1]) {
+            return reasonMatch[1].trim();
+        }
+        
+        // 2. ดึงข้อความจาก [ADMIN FIXED:...] มาทำให้อ่านง่าย
+        const adminMatch = note.match(/\[ADMIN FIXED:(.*?)\]/);
+        if (adminMatch && adminMatch[1]) {
+            return `แก้ไขโดยแอดมิน: ${adminMatch[1].trim()}`;
+        }
+
+        // 3. ถ้าไม่มีโครงสร้างแท็กเฉพาะทางเลย ให้ล้างวงเล็บ [] ทุกชนิดทิ้งทั้งหมด เพื่อความปลอดภัย
+        return note.replace(/\[.*?\]/g, '').trim();
     };
 
     const formatTime = (time: any) => {

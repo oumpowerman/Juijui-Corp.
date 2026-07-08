@@ -102,8 +102,14 @@ export const ApprovalRequestCard: React.FC<ApprovalRequestCardProps> = ({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+                type: "spring",
+                stiffness: 380,
+                damping: 35,
+                mass: 0.8
+            }}
             onClick={() => onViewDetail(request)}
-            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all relative overflow-hidden group cursor-pointer`}
+            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-shadow relative overflow-hidden group cursor-pointer`}
             id={`request-card-${request.id}`}
         >
             {/* Status Indicator Bar */}

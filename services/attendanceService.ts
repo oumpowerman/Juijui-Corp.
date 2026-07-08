@@ -81,6 +81,7 @@ export const attendanceService = {
                     startDate: new Date(r.date + 'T' + r.start_time),
                     endDate: new Date(r.date + 'T' + r.end_time),
                     reason: `[OT:${r.duration_hours}hr] ${r.reason}`,
+                    attachmentUrl: r.attachment_url,
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
@@ -118,6 +119,7 @@ export const attendanceService = {
                     startDate: new Date(r.date + 'T' + r.start_time),
                     endDate: new Date(r.date + 'T' + r.end_time),
                     reason: `[OT:${r.duration_hours}hr] ${r.reason}`,
+                    attachmentUrl: r.attachment_url,
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
@@ -167,6 +169,7 @@ export const attendanceService = {
         computed_payout: number;
         base_salary_at_time: number;
         status: string;
+        attachment_url?: string | null;
     }) {
         const { data, error } = await supabase
             .from('ot_requests')

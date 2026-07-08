@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, FileText, X } from 'lucide-react';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface AttachmentPreviewProps {
     attachmentUrl: string;
@@ -22,7 +23,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({ attachment
                 id="attachment-preview-box"
             >
                 <img 
-                    src={attachmentUrl} 
+                    src={getDirectDriveUrl(attachmentUrl)} 
                     alt="Attachment" 
                     className="max-h-60 rounded-xl object-contain shadow-sm group-hover:opacity-90 transition-opacity"
                     referrerPolicy="no-referrer"
@@ -74,7 +75,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({ attachment
                             className="relative max-w-[90vw] max-h-[85vh] flex items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-white/5 bg-slate-900"
                         >
                             <img 
-                                src={attachmentUrl} 
+                                src={getDirectDriveUrl(attachmentUrl)} 
                                 alt="Expanded Attachment" 
                                 className="max-w-full max-h-[85vh] object-contain select-none"
                                 referrerPolicy="no-referrer"

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { LeaveRequest } from '../../../../types/attendance';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type HistoryFilter = 'ALL' | 'APPROVED' | 'REJECTED';
 
@@ -121,91 +122,107 @@ export const ApprovalFilterBar: React.FC<ApprovalFilterBarProps> = ({
             </div>
 
             {/* Month/Year and Custom Range Filter for History */}
-            {filterStatus === 'HISTORY' && (
-                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-200">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-gray-500">กรองประวัติ:</span>
-                        
-                        {/* Monthly Filter Button */}
-                        <button
-                            onClick={() => {
-                                setIsMonthFilterEnabled(true);
-                                setIsCustomRangeEnabled(false);
-                                setCurrentPage(1);
-                            }}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer ${
-                                (isMonthFilterEnabled && !isCustomRangeEnabled)
-                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
-                                    : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
-                            }`}
-                            id="filter-monthly-btn"
-                        >
-                            {(isMonthFilterEnabled && !isCustomRangeEnabled) ? '✓ รายเดือน' : 'รายเดือน'}
-                        </button>
+            <AnimatePresence initial={false}>
+                {filterStatus === 'HISTORY' && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                        animate={{ 
+                            height: 'auto', 
+                            opacity: 1, 
+                            marginTop: 16
+                        }}
+                        exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                    >
+                        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-gray-500">กรองประวัติ:</span>
+                                
+                                {/* Monthly Filter Button */}
+                                <button
+                                    onClick={() => {
+                                        setIsMonthFilterEnabled(true);
+                                        setIsCustomRangeEnabled(false);
+                                        setCurrentPage(1);
+                                        setActiveCategory('ALL');
+                                    }}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer ${
+                                        (isMonthFilterEnabled && !isCustomRangeEnabled)
+                                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
+                                            : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
+                                    }`}
+                                    id="filter-monthly-btn"
+                                >
+                                    {(isMonthFilterEnabled && !isCustomRangeEnabled) ? '✓ รายเดือน' : 'รายเดือน'}
+                                </button>
 
-                        {/* Custom Range Button */}
-                        <button
-                            onClick={() => setIsDatePickerOpen(true)}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer flex items-center gap-1.5 ${
-                                isCustomRangeEnabled 
-                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
-                                    : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
-                            }`}
-                            id="filter-custom-range-btn"
-                        >
-                            <span>📅 {isCustomRangeEnabled ? '✓ เลือกช่วงวันที่' : 'เลือกช่วงวันที่'}</span>
-                        </button>
+                                {/* Custom Range Button */}
+                                <button
+                                    onClick={() => setIsDatePickerOpen(true)}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer flex items-center gap-1.5 ${
+                                        isCustomRangeEnabled 
+                                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
+                                            : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
+                                    }`}
+                                    id="filter-custom-range-btn"
+                                >
+                                    <span>📅 {isCustomRangeEnabled ? '✓ เลือกช่วงวันที่' : 'เลือกช่วงวันที่'}</span>
+                                </button>
 
-                        {/* Show All Button */}
-                        <button
-                            onClick={() => {
-                                setIsMonthFilterEnabled(false);
-                                setIsCustomRangeEnabled(false);
-                                setCurrentPage(1);
-                            }}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer ${
-                                (!isMonthFilterEnabled && !isCustomRangeEnabled)
-                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
-                                    : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
-                            }`}
-                            id="filter-show-all-btn"
-                        >
-                            {(!isMonthFilterEnabled && !isCustomRangeEnabled) ? '✓ แสดงทั้งหมด' : 'แสดงทั้งหมด'}
-                        </button>
-                    </div>
+                                {/* Show All Button */}
+                                <button
+                                    onClick={() => {
+                                        setIsMonthFilterEnabled(false);
+                                        setIsCustomRangeEnabled(false);
+                                        setCurrentPage(1);
+                                        setActiveCategory('ALL');
+                                    }}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer ${
+                                        (!isMonthFilterEnabled && !isCustomRangeEnabled)
+                                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200/50 shadow-sm' 
+                                            : 'bg-gray-50 text-gray-400 border-gray-200/60 hover:text-gray-600'
+                                    }`}
+                                    id="filter-show-all-btn"
+                                >
+                                    {(!isMonthFilterEnabled && !isCustomRangeEnabled) ? '✓ แสดงทั้งหมด' : 'แสดงทั้งหมด'}
+                                </button>
+                            </div>
 
-                    {isMonthFilterEnabled && !isCustomRangeEnabled && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handlePrevMonth}
-                                className="p-1.5 rounded-xl hover:bg-gray-100 border border-gray-200 text-gray-500 transition-colors cursor-pointer outline-none"
-                                id="prev-month-btn"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <span className="text-xs font-black text-gray-700 min-w-[120px] text-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-200/50 font-mono">
-                                {getThaiMonthYearLabel(selectedMonth, selectedYear)}
-                            </span>
-                            <button
-                                onClick={handleNextMonth}
-                                className="p-1.5 rounded-xl hover:bg-gray-100 border border-gray-200 text-gray-500 transition-colors cursor-pointer outline-none"
-                                id="next-month-btn"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                            {isMonthFilterEnabled && !isCustomRangeEnabled && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handlePrevMonth}
+                                        className="p-1.5 rounded-xl hover:bg-gray-100 border border-gray-200 text-gray-500 transition-colors cursor-pointer outline-none"
+                                        id="prev-month-btn"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-xs font-black text-gray-700 min-w-[120px] text-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-200/50 font-mono">
+                                        {getThaiMonthYearLabel(selectedMonth, selectedYear)}
+                                    </span>
+                                    <button
+                                        onClick={handleNextMonth}
+                                        className="p-1.5 rounded-xl hover:bg-gray-100 border border-gray-200 text-gray-500 transition-colors cursor-pointer outline-none"
+                                        id="next-month-btn"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {isCustomRangeEnabled && customRange && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100/50 px-3.5 py-2 rounded-xl flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        <span>ช่วงวันที่: <span className="font-bold">{formatThaiRange(customRange.start, customRange.end)}</span></span>
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    )}
-
-                    {isCustomRangeEnabled && customRange && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100/50 px-3.5 py-2 rounded-xl flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>ช่วงวันที่: <span className="font-bold">{formatThaiRange(customRange.start, customRange.end)}</span></span>
-                            </span>
-                        </div>
-                    )}
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

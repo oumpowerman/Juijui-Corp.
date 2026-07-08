@@ -8,6 +8,7 @@ import { LeaveRequest } from '../../../../types/attendance';
 import { 
     ParsedReason, getTypeName, getTypeColorClass 
 } from './utils';
+import { AttachmentPreview } from './AttachmentPreview';
 
 interface RequestInfoSectionProps {
     request: LeaveRequest;
@@ -117,6 +118,13 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
                     "{parsed.cleanReason || 'ไม่มีการระบุเหตุผลความจำเป็นเพิ่มเติม'}"
                 </div>
             </div>
+
+            {/* Attachment Preview (if any) */}
+            {request.attachmentUrl && (
+                <div className="pt-2">
+                    <AttachmentPreview attachmentUrl={request.attachmentUrl} />
+                </div>
+            )}
         </div>
     );
 };

@@ -13,7 +13,6 @@ import { RequestHeader } from './request-detail/RequestHeader';
 import { RequestInfoSection } from './request-detail/RequestInfoSection';
 import { LeaveHistoryTimeline } from './request-detail/LeaveHistoryTimeline';
 import { AdminOtAdjustment } from './request-detail/AdminOtAdjustment';
-import { AttachmentPreview } from './request-detail/AttachmentPreview';
 import { ActionFooter } from './request-detail/ActionFooter';
 import { parseReason } from './request-detail/utils';
 
@@ -249,11 +248,6 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     />
                                 )}
 
-                                {/* Attachment Preview (if any) */}
-                                {request.attachmentUrl && (
-                                    <AttachmentPreview attachmentUrl={request.attachmentUrl} />
-                                )}
-
                                 {/* Show Rejection Reason if already REJECTED */}
                                 {request.status === 'REJECTED' && request.rejectionReason && (
                                     <div className="space-y-2 animate-fade-in">
@@ -289,11 +283,13 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     className="flex flex-col border-l border-slate-100 bg-slate-50/30 min-h-0 overflow-hidden shrink-0"
                                 >
                                     <div className="w-[380px] p-6 flex flex-col h-full min-h-0 shrink-0">
-                                        <div className="flex items-center gap-2 mb-4 shrink-0">
-                                            <History className="w-4 h-4 text-indigo-500" />
-                                            <h4 className="text-sm font-bold text-slate-800">ประวัติคำขอย้อนหลัง (Work History)</h4>
+                                        <div className="flex items-center justify-between w-full mb-4 shrink-0">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <History className="w-4 h-4 text-indigo-500 shrink-0" />
+                                                <h4 className="text-sm font-bold text-slate-800 truncate">ประวัติคำขอย้อนหลัง</h4>
+                                            </div>
                                             {!isLoadingHistory && history.length > 0 && (
-                                                <span className="ml-auto text-xs bg-indigo-50 border border-indigo-100 text-indigo-600 px-2 py-1 rounded-full font-bold shadow-sm">
+                                                <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full font-bold shadow-sm shrink-0 whitespace-nowrap">
                                                     {history.length > 10 ? '10 ครั้งล่าสุด' : `${history.length} ครั้ง`}
                                                 </span>
                                             )}
@@ -384,11 +380,6 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                                 originalEndTime={originalEndTime}
                                                 originalOtHours={originalOtHours}
                                             />
-                                        )}
-
-                                        {/* Attachment Preview (if any) */}
-                                        {request.attachmentUrl && (
-                                            <AttachmentPreview attachmentUrl={request.attachmentUrl} />
                                         )}
 
                                         {/* Show Rejection Reason if already REJECTED */}

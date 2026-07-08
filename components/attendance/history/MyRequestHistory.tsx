@@ -309,9 +309,9 @@ const MyRequestHistory: React.FC<MyRequestHistoryProps> = ({
 
                 <div className="flex items-center gap-3">
                     {!isExpanded && (
-                        <div className="flex gap-1">
-                             {overallStats.pending > 0 && <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">{overallStats.pending} รอ</span>}
-                             {overallStats.rejected > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{overallStats.rejected} ปฏิเสธ</span>}
+                        <div className="flex gap-1 shrink-0">
+                             {overallStats.pending > 0 && <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">{overallStats.pending} รอ</span>}
+                             {overallStats.rejected > 0 && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">{overallStats.rejected} ปฏิเสธ</span>}
                         </div>
                     )}
                     <motion.div 

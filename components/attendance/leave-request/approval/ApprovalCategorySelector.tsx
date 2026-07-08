@@ -9,7 +9,7 @@ interface CounterProps {
 }
 
 const Counter: React.FC<CounterProps> = ({ value }) => {
-    const count = useMotionValue(0);
+    const count = useMotionValue(value);
     const rounded = useTransform(count, (latest) => Math.round(latest));
 
     useEffect(() => {

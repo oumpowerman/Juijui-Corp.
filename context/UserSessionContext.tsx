@@ -162,7 +162,8 @@ const mapOtRequest = (data: any) => ({
     rejectionReason: data.rejection_reason,
     baseSalaryAtTime: data.base_salary_at_time ? Number(data.base_salary_at_time) : undefined,
     computedPayout: Number(data.computed_payout || 0),
-    createdAt: new Date(data.created_at)
+    createdAt: new Date(data.created_at),
+    attachmentUrl: data.attachment_url
 });
 
 export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.ReactNode }> = ({ sessionUser, children }) => {

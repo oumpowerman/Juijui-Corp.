@@ -90,25 +90,33 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     };
 
     // On-Demand Fetching Effect for Monthly Filters
+    const currentCacheKey = `${selectedYear}-${selectedMonth}`;
+    const isCurrentMonthCached = !!historicalCache[currentCacheKey];
+
     useEffect(() => {
         if (!isMonthFilterEnabled || isCustomRangeEnabled || !fetchRequestsForRange) return;
         if (!isOutsideSixtyDays(selectedMonth, selectedYear)) return;
-
-        const key = `${selectedYear}-${selectedMonth}`;
-        if (historicalCache[key]) return; // already cached
+        if (isCurrentMonthCached) return; // already cached
 
         const loadHistorical = async () => {
-            const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1);
-            const endOfSelectedMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
-            const data = await fetchRequestsForRange(startOfSelectedMonth, endOfSelectedMonth);
-            setHistoricalCache(prev => ({
-                ...prev,
-                [key]: data
-            }));
+            setIsLocalLoading(true);
+            try {
+                const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1);
+                const endOfSelectedMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
+                const data = await fetchRequestsForRange(startOfSelectedMonth, endOfSelectedMonth);
+                setHistoricalCache(prev => ({
+                    ...prev,
+                    [currentCacheKey]: data
+                }));
+            } catch (err) {
+                console.error("Failed to fetch historical requests", err);
+            } finally {
+                setIsLocalLoading(false);
+            }
         };
 
         loadHistorical();
-    }, [selectedMonth, selectedYear, isMonthFilterEnabled, isCustomRangeEnabled, fetchRequestsForRange, historicalCache, sixtyDaysAgo]);
+    }, [selectedMonth, selectedYear, isMonthFilterEnabled, isCustomRangeEnabled, fetchRequestsForRange, isCurrentMonthCached, sixtyDaysAgo]);
 
     // On-Demand Fetching Effect for Show All (Full History)
     useEffect(() => {
@@ -137,6 +145,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         setIsCustomRangeEnabled(true);
         setIsMonthFilterEnabled(false);
         setCurrentPage(1);
+        setActiveCategory('ALL');
 
         if (fetchRequestsForRange) {
             setIsLocalLoading(true);
@@ -353,7 +362,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                         <p className="text-xs mt-1">รายการใหม่ๆ จะปรากฏที่นี่เมื่อพนักงานส่งคำขอ</p>
                     </motion.div>
                 ) : (
-                    <div className="space-y-4">
+                    <motion.div layout className="space-y-4">
                         <AnimatePresence mode="popLayout">
                             {paginatedRequests.map((req) => (
                                 <ApprovalRequestCard 
@@ -378,7 +387,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                 itemsPerPage={itemsPerPage}
                             />
                         )}
-                    </div>
+                    </motion.div>
                 )}
             </div>
 
@@ -415,7 +424,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                     type="button"
                                     onClick={() => setRejectingId(null)}
                                     disabled={isSubmitting}
-                                    className="flex-1 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl text-xs font-black transition-colors outline-none cursor-pointer border border-gray-100"
+                                    className="flex-1 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl text-xs font-medium transition-colors outline-none cursor-pointer border border-gray-100"
                                     id="rejection-modal-cancel-btn"
                                 >
                                     ยกเลิก
@@ -424,7 +433,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                     type="button"
                                     onClick={handleConfirmReject}
                                     disabled={isSubmitting}
-                                    className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-red-100 transition-all active:scale-95 disabled:opacity-50 outline-none cursor-pointer"
+                                    className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-lg shadow-red-100 transition-all active:scale-95 disabled:opacity-50 outline-none cursor-pointer"
                                     id="rejection-modal-submit-btn"
                                 >
                                     {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}

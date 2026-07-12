@@ -62,7 +62,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     const maxVisible = isExpanded ? 8 : 3;
     const count = tasks.length;
     
-    const containerSpacing = isExpanded ? 'space-y-1.5' : 'space-y-1';
+    const containerSpacing = isExpanded ? 'gap-1.5' : 'gap-1';
     const containerPadding = isExpanded ? 'px-1.5' : 'px-1';
 
     // Resolve Highlight Color
@@ -156,7 +156,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
             )}
 
             <div className="flex-1 flex flex-col justify-start w-full h-full min-h-0">
-                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-1 w-full ${containerPadding} ${containerSpacing} h-full`}>
+                <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-stretch mt-1 w-full relative ${containerPadding} ${containerSpacing} h-full`}>
                     <AnimatePresence mode="popLayout">
                         {count > 0 && tasks.slice(0, maxVisible).map((task, index) => (
                             <CalendarTaskPill 

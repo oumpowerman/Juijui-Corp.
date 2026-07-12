@@ -1,32 +1,35 @@
-
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Task, ChipConfig, MasterOption, Channel } from '../../types';
 import { COLOR_THEMES } from '../../constants';
 import { getHexFromColorClass } from '../../utils/color';
 import { TaskDisplayMode } from '../CalendarView';
-import { isBefore, startOfToday, differenceInDays, format, isToday } from 'date-fns';
-import { AlertCircle, Ghost, Clock8, Zap, Film } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { isBefore, startOfToday, differenceInDays, isToday } from 'date-fns';
+import { AnimatePresence } from 'framer-motion';
 import { isStockTerminalStatus } from '../../config/status';
+
+// Subcomponents
+import TaskAnimateWrapper from './TaskAnimateWrapper';
+import TaskPillContent from './TaskPillContent';
+import TaskPillTooltip from './TaskPillTooltip';
 
 interface CalendarTaskPillProps {
     task: Task;
     index: number;
     viewMode: 'CONTENT' | 'TASK';
-    displayMode: TaskDisplayMode; // Added
+    displayMode: TaskDisplayMode;
     isExpanded: boolean;
     activeChipIds: string[];
     customChips: ChipConfig[];
     masterOptions?: MasterOption[];
     channels: Channel[];
-    dayOfWeek?: number; // Added to prevent border clipping during scale
-    cellDate?: Date; // Added for context checking of "Today"
-    isFirstWeek?: boolean; // Added for popover collision prevention
+    dayOfWeek?: number;
+    cellDate?: Date;
+    isFirstWeek?: boolean;
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
 }
 
-const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
+const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>(({
     task,
     index,
     viewMode,
@@ -41,7 +44,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
     isFirstWeek = false,
     onDragStart,
     onClick
-}) => {
+}, ref) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -127,30 +130,23 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
 
     // Helper to get styling for the main card container
     const getTaskStyle = (t: Task) => {
-        // Override if a hex chip matches (apply beautiful soft pastel color via inline style)
         if (activeHexColor) {
             return 'border-y border-r border-stone-200/60 text-[#1c1917] hover:shadow-md font-semibold';
         }
 
-        // Default Clean Style: White bg with colored left border indicator
-        // Update: Respect Minimal mode by removing heavy backgrounds
         let styleClass = viewMode === 'CONTENT' 
-            ? 'bg-white border-l-4 border-l-indigo-500 border-y border-r border-gray-100 text-gray-700 hover:shadow-md' 
-            : 'bg-white border-l-4 border-l-emerald-500 border-y border-r border-gray-100 text-gray-700 hover:shadow-md';
+            ? 'bg-white border-l-4 border-l-indigo-500 border-y border-r border-gray-100 text-gray-700' 
+            : 'bg-white border-l-4 border-l-emerald-500 border-y border-r border-gray-100 text-gray-700';
 
-        // Add Overdue visual style
         if (isOverdue) {
             styleClass = isCriticalOverdue 
-                ? 'bg-slate-50 border-l-4 border-l-slate-400 border-y border-r border-slate-200 text-slate-400 opacity-60 grayscale hover:grayscale-0 transition-all'
-                : 'bg-red-50 border-l-4 border-l-red-500 border-y border-r border-red-100 text-red-900 shadow-[0_0_15px_rgba(239,68,68,0.2)]';
+                ? 'bg-slate-50 border-l-4 border-l-slate-400 border-y border-r border-slate-200 text-slate-400 opacity-60 grayscale'
+                : 'bg-red-50 border-l-4 border-l-red-500 border-y border-r border-red-100 text-red-900';
         }
 
-        // Override if a channel color exists (Only if not overdue, or we can mix, but let's keep overdue prominent)
         if (t.channelId && channels && !isOverdue) {
             const channel = channels.find(c => c.id === t.channelId);
             if (channel && channel.color) {
-                // If it's a tailwind class (e.g. "indigo-500"), we need to construct border-l-class
-                // If it's a hex, we'll handle it via inline style later (or assume it's a tailwind color name)
                 if (!channel.color.startsWith('#')) {
                     const borderColorClass = channel.color.startsWith('border-l-') ? channel.color : `border-l-${channel.color}`;
                     styleClass = styleClass.replace(/border-l-[a-z0-9-]+/, borderColorClass);
@@ -158,7 +154,6 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             }
         }
 
-        // Override if a Smart Filter (Chip) matches
         if (activeChipIds.length > 0 && Array.isArray(customChips)) {
             const matchingChipId = activeChipIds.find(chipId => {
                 const chip = customChips.find(c => c.id === chipId);
@@ -177,8 +172,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                 const chip = customChips.find(c => c.id === matchingChipId);
                 if (chip) {
                     const theme = COLOR_THEMES.find(th => th.id === chip.colorTheme) || COLOR_THEMES[0];
-                    // Apply theme background but ensure text is readable
-                    styleClass = `${theme.bg} ${theme.text} ${theme.border} hover:opacity-90 font-medium border-l-4 border-l-current`;
+                    styleClass = `${theme.bg} ${theme.text} ${theme.border} font-medium border-l-4 border-l-current`;
                 }
             }
         }
@@ -192,35 +186,30 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         return 'bg-indigo-500'; 
     };
 
-    // Adaptive origin to prevent layout clip on the first/last column boundaries of the calendar
     const originClass = useMemo(() => {
         if (dayOfWeek === 0) return 'origin-left';
         if (dayOfWeek === 6) return 'origin-right';
         return 'origin-center';
     }, [dayOfWeek]);
 
-    // Calculate layout classes based on expanded state
     const taskBaseClass = isExpanded 
-        ? `w-full text-xs px-2 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition-all shadow-sm leading-snug flex items-center justify-between gap-2 mb-1.5 hover:scale-110 hover:shadow-2xl hover:z-50 relative ${originClass}`
-        : `w-full text-[12px] px-1.5 py-1 rounded-md border truncate cursor-grab active:cursor-grabbing hover:scale-125 hover:z-50 hover:shadow-xl transition-all shadow-sm flex items-center gap-1 mb-0.5 relative ${originClass}`;
+        ? `w-full text-xs px-2 py-1.5 rounded-md cursor-grab active:cursor-grabbing shadow-sm leading-snug flex items-center justify-between gap-2 mb-1.5 relative ${originClass}`
+        : `w-full text-[12px] px-1.5 py-1 rounded-md border truncate cursor-grab active:cursor-grabbing shadow-sm flex items-center gap-1 mb-0.5 relative ${originClass}`;
 
     // Resolve Status Label & Color from Master Data
     let statusLabel = '';
-    let statusColor = 'bg-gray-100 text-gray-600 border-gray-200'; // Default Fallback
+    let statusColor = 'bg-gray-100 text-gray-600 border-gray-200';
     let statusEmoji = '';
 
     if (masterOptions) {
         const statusOpt = masterOptions.find(o => (o.type === 'STATUS' || o.type === 'TASK_STATUS') && o.key === task.status);
         if (statusOpt) {
-            // Remove numbering (e.g. "01 Idea" -> "Idea") for cleaner look
             const cleanLabel = statusOpt.label.replace(/^\d+\s*/, '');
             statusLabel = cleanLabel;
             
-            // Extract Emoji for Emoji Mode
             const emojiMatch = statusOpt.label.match(/[\p{Emoji}\u200d]+/u);
             statusEmoji = emojiMatch ? emojiMatch[0] : '';
 
-            // Truncate if too long
             if (statusLabel.length > 12) statusLabel = statusLabel.substring(0, 10) + '..';
             
             if (statusOpt.color) {
@@ -230,170 +219,6 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             statusLabel = task.status;
         }
     }
-
-    // --- RENDER LOGIC BASED ON DISPLAY MODE ---
-    const renderContent = () => {
-        const analyticsStatus = task.analyticsStatus || (task.hasAnalytics ? 'COMPLETE' : 'NONE');
-
-        const hasAnalyticsIndicator = (analyticsStatus === 'COMPLETE' || analyticsStatus === 'PARTIAL') && (
-            <motion.div 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                whileHover={{ scale: 1.25, rotate: analyticsStatus === 'COMPLETE' ? 15 : -10 }}
-                className={`shrink-0 flex items-center justify-center w-4 h-4 rounded-full border shadow-sm ${
-                    analyticsStatus === 'COMPLETE'
-                        ? 'bg-purple-100 border-purple-200 text-purple-600'
-                        : 'bg-amber-50 border-amber-200 border-dashed text-amber-500 animate-pulse'
-                }`}
-                title={
-                    analyticsStatus === 'COMPLETE'
-                        ? "Performance Data Entry Complete ✨"
-                        : "Performance Data Entry Partially Complete (Some channels missing) ⚡"
-                }
-            >
-                <Zap className={`w-2.5 h-2.5 ${analyticsStatus === 'COMPLETE' ? 'text-purple-600 fill-purple-600' : 'text-amber-500 fill-amber-500 opacity-80'}`} />
-            </motion.div>
-        );
-
-        const overdueIndicator = isOverdue && (
-            <motion.div 
-                animate={isCriticalOverdue ? { 
-                    opacity: [0.4, 1, 0.4],
-                    x: [0, -1.5, 1.5, -1.5, 1.5, 0]
-                } : { 
-                    scale: [1, 1.2, 1], 
-                    opacity: [1, 0.6, 1],
-                    x: [0, -1, 1, -1, 1, 0]
-                }}
-                transition={{
-                    opacity: { repeat: Infinity, duration: isCriticalOverdue ? 3 : 1.5 },
-                    scale: isCriticalOverdue ? undefined : { repeat: Infinity, duration: 1.5 },
-                    x: {
-                        repeat: Infinity,
-                        duration: 1.5,
-                        repeatDelay: isCriticalOverdue ? 3 : 4
-                    }
-                }}
-                className="shrink-0"
-            >
-                {isCriticalOverdue ? (
-                    <Clock8 className="w-3.5 h-3.5 text-slate-400" />
-                ) : (
-                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                )}
-            </motion.div>
-        );
-
-        const unfinishedContentIndicator = isUnfinishedContent && (
-            <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ 
-                    scale: [1, 1.15, 1],
-                    opacity: [0.85, 1, 0.85]
-                }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-50 border border-rose-200/60 rounded-xl text-rose-550 shadow-[0_2px_8px_rgba(244,63,94,0.08)]"
-                title="มีคิวลงคลิปวันนี้! (ยังไม่เสร็จสิ้น)"
-            >
-                <Film className="w-3 h-3 text-rose-500" />
-            </motion.div>
-        );
-
-        switch (displayMode) {
-            case 'MINIMAL':
-                return (
-                    <div className="flex items-center gap-1 overflow-hidden w-full">
-                        {isUnfinishedContent && (
-                            <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
-                                <Film className="w-3 h-3 text-rose-500 animate-pulse" />
-                            </span>
-                        )}
-                        {overdueIndicator}
-                        {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
-                        {hasAnalyticsIndicator}
-                        <span className="truncate flex-1 font-bold">{task.title}</span>
-                    </div>
-                );
-            case 'DOT':
-                return (
-                    <div className="flex items-center gap-2 overflow-hidden w-full">
-                         {isUnfinishedContent ? (
-                             <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
-                                 <Film className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-                             </span>
-                         ) : isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
-                         {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
-                         {hasAnalyticsIndicator}
-                         <span className="truncate flex-1 font-bold">{task.title}</span>
-                    </div>
-                );
-            case 'EMOJI':
-                return (
-                     <div className="flex items-center gap-1.5 overflow-hidden w-full">
-                         {isUnfinishedContent && (
-                             <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
-                                 <Film className="w-3 h-3 text-rose-500 animate-pulse" />
-                             </span>
-                         )}
-                         {isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>)}
-                         {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
-                         {hasAnalyticsIndicator}
-                         <span className="truncate flex-1 font-bold">{task.title}</span>
-                    </div>
-                );
-            case 'FULL':
-            default:
-                // Default Expanded View with Badge
-                return (
-                    <>
-                        {isUnfinishedContent && unfinishedContentIndicator}
-                        {overdueIndicator}
-                        {isInsightOverdue && (
-                            <div className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-100 rounded-full" title="Missing Analytics Insight">
-                                <AlertCircle className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
-                            </div>
-                        )}
-                        <span className="truncate flex-1 font-bold">{task.title}</span>
-                        {hasAnalyticsIndicator}
-                        {statusLabel && (
-                            <span className={`
-                                text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
-                                ${isOverdue ? (isCriticalOverdue ? 'bg-slate-400 text-white border-slate-300' : 'bg-red-500 text-white border-red-400') : statusColor}
-                                ${!isExpanded ? 'hidden lg:inline-block' : ''}
-                                shadow-sm
-                            `}>
-                                {isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusLabel}
-                            </span>
-                        )}
-                    </>
-                );
-        }
-    };
-
-    const tooltipPosition = useMemo(() => {
-        if (dayOfWeek === 0) {
-            return {
-                className: `absolute left-0 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_30px_rgba(0,0,0,0.12)] border border-slate-100 p-4 z-[9999] pointer-events-none text-left flex flex-col gap-2.5 ${
-                    isFirstWeek ? 'top-[calc(100%+8px)] origin-top-left' : 'bottom-[calc(100%+8px)] origin-bottom-left'
-                }`,
-                xValue: '0%',
-            };
-        }
-        if (dayOfWeek === 6) {
-            return {
-                className: `absolute right-0 left-auto w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_30px_rgba(0,0,0,0.12)] border border-slate-100 p-4 z-[9999] pointer-events-none text-left flex flex-col gap-2.5 ${
-                    isFirstWeek ? 'top-[calc(100%+8px)] origin-top-right' : 'bottom-[calc(100%+8px)] origin-bottom-right'
-                }`,
-                xValue: '0%',
-            };
-        }
-        return {
-            className: `absolute left-1/2 -translate-x-1/2 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_30px_rgba(0,0,0,0.12)] border border-slate-100 p-4 z-[9999] pointer-events-none text-left flex flex-col gap-2.5 ${
-                isFirstWeek ? 'top-[calc(100%+8px)] origin-top' : 'bottom-[calc(100%+8px)] origin-bottom'
-            }`,
-            xValue: '-50%',
-        };
-    }, [dayOfWeek, isFirstWeek]);
 
     const isMobileDot = !isExpanded && isMobile;
 
@@ -408,7 +233,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             })();
             return `
                 md:hidden w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ring-1 ring-white/30
-                animate-spring shrink-0 cursor-grab active:cursor-grabbing hover:scale-125 hover:z-50 transition-all mb-0.5
+                animate-spring shrink-0 cursor-grab active:cursor-grabbing mb-0.5
                 ${mobileDotBgClass}
             `;
         }
@@ -434,7 +259,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         }
 
         return activeHexColor ? {
-            backgroundColor: `${activeHexColor}26`, // 15% opacity tint background
+            backgroundColor: `${activeHexColor}26`,
             borderLeftColor: activeHexColor,
             borderLeftWidth: '4px',
         } : { 
@@ -445,160 +270,57 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
     }, [isMobileDot, index, task.channelId, channels, activeHexColor, isOverdue]);
 
     return (
-        <motion.div 
-            layout
-            draggable
-            onDragStart={(e: any) => onDragStart(e, task.id)}
+        <TaskAnimateWrapper
+            ref={ref}
+            index={index}
+            isMobileDot={isMobileDot}
+            isExpanded={isExpanded}
+            onDragStart={(e) => onDragStart(e, task.id)}
             onClick={(e) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 onClick(task);
             }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ 
-                opacity: 0, 
-                scale: 0.8,
-                transition: {
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 35,
-                    mass: 0.8,
-                    delay: 0,
-                }
-            }}
-            transition={{
-                default: {
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 30,
-                    mass: 0.8,
-                    delay: index * 0.03, // Staggered delay for sleek entry effect
-                },
-                layout: {
-                    type: "spring",
-                    stiffness: 400,
-                    damping: 38,
-                    mass: 0.8,
-                    delay: 0, // Instant layout shift without delay
-                },
-                opacity: {
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 30,
-                    mass: 0.8,
-                    delay: index * 0.03,
-                },
-                scale: {
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 30,
-                    mass: 0.8,
-                    delay: index * 0.03,
-                }
-            }}
-            style={rootStyle}
-            className={rootClassName}
+            rootStyle={rootStyle}
+            rootClassName={rootClassName}
         >
-            {!isMobileDot && renderContent()}
+            {!isMobileDot && (
+                <TaskPillContent
+                    task={task}
+                    displayMode={displayMode}
+                    isUnfinishedContent={isUnfinishedContent}
+                    isOverdue={isOverdue}
+                    isCriticalOverdue={isCriticalOverdue}
+                    isInsightOverdue={isInsightOverdue}
+                    statusLabel={statusLabel}
+                    statusColor={statusColor}
+                    statusEmoji={statusEmoji}
+                    isExpanded={isExpanded}
+                />
+            )}
 
             <AnimatePresence>
                 {isHovered && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: isFirstWeek ? -10 : 10, x: tooltipPosition.xValue }}
-                        animate={{ opacity: 1, scale: 1, y: 0, x: tooltipPosition.xValue }}
-                        exit={{ opacity: 0, scale: 0.95, y: isFirstWeek ? -6 : 6, x: tooltipPosition.xValue }}
-                        transition={{ type: 'spring', damping: 15, stiffness: 300 }}
-                        className={tooltipPosition.className}
-                    >
-                        {/* Warning Header */}
-                        {isUnfinishedContent && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-50 border border-orange-100 text-orange-600 font-bold text-[11px] leading-tight shadow-[0_2px_8px_rgba(249,115,22,0.06)] animate-pulse">
-                                <Film className="w-4 h-4 text-orange-500 shrink-0" />
-                                <span>ด่วน! วันนี้มีคิวลงคลิปนี้ (ยังไม่เสร็จสิ้น) 🎥</span>
-                            </div>
-                        )}
-
-                        {isOverdue && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 font-bold text-[11px] leading-tight shadow-[0_2px_8px_rgba(239,68,68,0.06)] animate-pulse">
-                                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                <span>งานตกค้างเกินกำหนด! ({overdueDays} วัน)</span>
-                            </div>
-                        )}
-
-                        {isInsightOverdue && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 font-bold text-[11px] leading-tight shadow-[0_2px_8px_rgba(244,63,94,0.06)] animate-pulse">
-                                <Clock8 className="w-4 h-4 text-rose-500 shrink-0" />
-                                <span>ค้างสรุปรายงานสถิติ!</span>
-                            </div>
-                        )}
-
-                        {/* Task Title */}
-                        <div className="space-y-1">
-                            <span className="text-[10px] font-black tracking-wider text-slate-450 uppercase select-none">
-                                {viewMode === 'CONTENT' ? 'CONTENT PLAN' : 'SUB TASK'}
-                            </span>
-                            <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed">
-                                {task.title}
-                            </h4>
-                        </div>
-
-                        {/* Mid Divider */}
-                        <div className="h-px bg-slate-100" />
-
-                        {/* Status, Channel & Date info */}
-                        <div className="space-y-1.5 text-[11px] text-slate-600">
-                            {/* Target Channel */}
-                            {task.channelId && channels && (
-                                <div className="flex items-center justify-between">
-                                    <span className="text-slate-400">ช่องทาง:</span>
-                                    {(() => {
-                                        const ch = channels.find(c => c.id === task.channelId);
-                                        return ch ? (
-                                            <span 
-                                                className="px-2 py-0.5 rounded-lg text-[10px] font-bold border"
-                                                style={{ 
-                                                    backgroundColor: ch.color?.startsWith('#') ? `${ch.color}15` : undefined,
-                                                    borderColor: ch.color?.startsWith('#') ? `${ch.color}40` : undefined,
-                                                    color: ch.color?.startsWith('#') ? ch.color : undefined
-                                                }}
-                                            >
-                                                {ch.name}
-                                            </span>
-                                        ) : <span className="text-slate-500">-</span>;
-                                    })()}
-                                </div>
-                            )}
-
-                            {/* Status */}
-                            <div className="flex items-center justify-between">
-                                <span className="text-slate-400">สถานะหลัก:</span>
-                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${statusColor}`}>
-                                    {isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusLabel}
-                                </span>
-                            </div>
-
-                            {/* Due Date */}
-                            {endDateObj && (
-                                <div className="flex items-center justify-between">
-                                    <span className="text-slate-400">กำหนดส่ง:</span>
-                                    <span className={`font-mono font-medium ${isOverdue ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
-                                        {format(endDateObj, 'dd/MM/yyyy')}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Aesthetic Footer Decor Tip */}
-                        <div className="text-[9px] text-slate-400 italic text-center border-t border-slate-50 pt-2 shrink-0">
-                            ✨ คลิกเพื่อเปิดดูรายละเอียดงานและสถิติ
-                        </div>
-                    </motion.div>
+                    <TaskPillTooltip
+                        task={task}
+                        viewMode={viewMode}
+                        channels={channels}
+                        dayOfWeek={dayOfWeek}
+                        isFirstWeek={isFirstWeek}
+                        isUnfinishedContent={isUnfinishedContent}
+                        isOverdue={isOverdue}
+                        isCriticalOverdue={isCriticalOverdue}
+                        isInsightOverdue={isInsightOverdue}
+                        overdueDays={overdueDays}
+                        endDateObj={endDateObj}
+                        statusLabel={statusLabel}
+                        statusColor={statusColor}
+                    />
                 )}
             </AnimatePresence>
-        </motion.div>
+        </TaskAnimateWrapper>
     );
-};
+});
 
 export default memo(CalendarTaskPill);

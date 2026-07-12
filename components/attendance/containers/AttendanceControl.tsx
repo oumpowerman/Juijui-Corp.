@@ -152,7 +152,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 </button>
             </div>
 
-            <LiveClock />
+            <LiveClock hp={user?.hp} />
 
             <StatusCard 
                 user={user}

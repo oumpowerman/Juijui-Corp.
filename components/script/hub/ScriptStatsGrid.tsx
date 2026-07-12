@@ -53,7 +53,7 @@ const StatCard: React.FC<StatCardProps> = React.memo(({ label, count, icon: Icon
         </div>
         
         <div className="relative z-10">
-            <span className={`text-4xl font-black ${isActive ? 'text-gray-800' : 'text-gray-600'}`}>
+            <span className={`text-4xl font-bold ${isActive ? 'text-gray-800' : 'text-gray-600'}`}>
                 <Counter value={count} />
             </span>
         </div>

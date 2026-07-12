@@ -8,7 +8,7 @@ export const GradeBadgeCell: React.FC<GradeBadgeCellProps> = ({ grade }) => {
   return (
     <td className="px-6 py-4 text-center">
       <span
-        className={`inline-block w-10 py-1 rounded-lg text-xs font-black ${grade.color}`}
+        className={`inline-block w-10 py-1 rounded-lg text-xs font-bold ${grade.color}`}
       >
         {grade.grade}
       </span>

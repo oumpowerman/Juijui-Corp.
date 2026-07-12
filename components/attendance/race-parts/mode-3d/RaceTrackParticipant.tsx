@@ -144,7 +144,7 @@ export const RaceTrackParticipant: React.FC<RaceTrackParticipantProps> = ({
                         badgeClass = "bg-orange-950/85 border-orange-600/70 text-orange-100 shadow-[0_0_8px_rgba(234,88,12,0.3)]";
                     }
                     return (
-                        <span className={`absolute -top-[28px] px-1.5 py-0.5 rounded-full backdrop-blur-sm font-black text-[12px] border whitespace-nowrap z-30 leading-none tracking-tight transition-all duration-300 ${badgeClass}`}>
+                        <span className={`absolute -top-[28px] px-1.5 py-0.5 rounded-full backdrop-blur-sm font-bold text-[12px] border whitespace-nowrap z-30 leading-none tracking-tight transition-all duration-300 ${badgeClass}`}>
                             {racer.user.name}
                         </span>
                     );

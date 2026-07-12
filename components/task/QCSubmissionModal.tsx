@@ -259,14 +259,17 @@ const QCSubmissionModal: React.FC<QCSubmissionModalProps> = ({
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div id="qc-modal-overlay" className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+                <motion.div
+                    id="qc-modal-overlay"
+                    className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+                >
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
                     />
 
                     {/* Modal Card */}
@@ -275,11 +278,11 @@ const QCSubmissionModal: React.FC<QCSubmissionModalProps> = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 15 }}
                         transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-                        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
+                        className="relative z-10 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
                     >
                         {/* Header Banner */}
                         <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 px-6 py-6 text-white relative">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-3">
                                     <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl shadow-inner text-white">
@@ -293,7 +296,7 @@ const QCSubmissionModal: React.FC<QCSubmissionModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="p-1.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors"
+                                    className="relative z-10 p-1.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -440,7 +443,7 @@ const QCSubmissionModal: React.FC<QCSubmissionModalProps> = ({
                             </div>
                         </form>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
         </AnimatePresence>,
         document.body

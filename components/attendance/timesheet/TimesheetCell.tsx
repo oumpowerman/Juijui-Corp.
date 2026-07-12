@@ -53,7 +53,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         if (!hasStarted) {
             return (
                 <div className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/20 grayscale opacity-40">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">NOT JOINED</span>
+                    <span className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">NOT JOINED</span>
                 </div>
             );
         }
@@ -71,7 +71,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                           isWFHRequest ? 'bg-emerald-50/30 hover:bg-emerald-50/50' : 'bg-sky-50/50 hover:bg-sky-50'}`}
                 >
                     <div className={`
-                        px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase tracking-tighter text-center leading-tight
+                        px-1.5 py-0.5 rounded-md border text-[8px] font-bold uppercase tracking-tighter text-center leading-tight
                         ${isPending ? 'bg-amber-100 border-amber-200 text-amber-700' :
                           isWFHRequest ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-sky-100 border-sky-200 text-sky-700'}
                     `}>
@@ -96,7 +96,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                     className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
                 >
                     <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
-                    <span className="text-[8px] font-black text-red-400 uppercase mt-1">ABSENT</span>
+                    <span className="text-[8px] font-bold text-red-400 uppercase mt-1">ABSENT</span>
                 </div>
             );
         }
@@ -137,7 +137,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                 className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
             >
                 <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
-                <span className="text-[8px] font-black text-red-400 uppercase mt-1">ABSENT</span>
+                <span className="text-[8px] font-bold text-red-400 uppercase mt-1">ABSENT</span>
                 {log.note?.includes('Judge') && (
                     <span className="text-[6px] font-bold text-red-300 uppercase tracking-tighter">JUDGED</span>
                 )}
@@ -163,7 +163,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                 ${dayStatus.status === 'HOLIDAY' ? 'ring-2 ring-orange-200 ring-offset-1' : ''}
             `}>
                 {isLeave && (leaveType || leaveRequest?.type) ? (
-                    <span className="text-[9px] font-black uppercase tracking-tighter text-center px-1 leading-tight">
+                    <span className="text-[9px] font-bold uppercase tracking-tighter text-center px-1 leading-tight">
                         {isPendingVerify && <div className="text-[7px] opacity-70 mb-0.5">VERIFY</div>}
                         {(leaveType || leaveRequest?.type) === 'UNPAID' ? 'UNPAID' : 
                          (leaveType || leaveRequest?.type) === 'SICK' ? 'SICK' :
@@ -172,21 +172,21 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                     </span>
                 ) : isNoCheckIn ? (
                     <div className="flex flex-col items-center">
-                        <div className="text-[7px] font-black opacity-70 tracking-tighter mb-0.5">
+                        <div className="text-[7px] font-bold opacity-70 tracking-tighter mb-0.5">
                             {log.workType === 'WFH' ? 'WFH' : 'LOGGED'}
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-tighter text-center px-1 leading-tight">
+                        <span className="text-[9px] font-bold uppercase tracking-tighter text-center px-1 leading-tight">
                             NO-IN
                         </span>
                     </div>
                 ) : (
                     <>
-                        {isPendingVerify && <div className="text-[7px] font-black opacity-70 tracking-tighter">VERIFY</div>}
-                        <span className="text-[10px] font-black font-mono leading-none">
+                        {isPendingVerify && <div className="text-[7px] font-bold opacity-70 tracking-tighter">VERIFY</div>}
+                        <span className="text-[10px] font-bold font-mono leading-none">
                             {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
                         </span>
                         <div className="w-4 h-[1px] bg-current opacity-20"></div>
-                        <span className="text-[10px] font-black font-mono leading-none opacity-60">
+                        <span className="text-[10px] font-bold font-mono leading-none opacity-60">
                             {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                         </span>
                     </>
@@ -200,7 +200,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
 
                 {dayStatus.status === 'HOLIDAY' && (
                     <div className="absolute -bottom-1 -right-1">
-                        <div className="bg-orange-500 text-white text-[7px] font-black px-1 rounded-sm shadow-sm">OT</div>
+                        <div className="bg-orange-500 text-white text-[7px] font-bold px-1 rounded-sm shadow-sm">OT</div>
                     </div>
                 )}
             </div>

@@ -246,11 +246,11 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
             {/* Header section with cute labels */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-slate-900 pb-3 mb-4" id="holiday-cozy-header">
                 <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-md border-2 border-slate-900 bg-amber-400 flex items-center justify-center text-xl shadow-[2px_2px_0px_#000] font-black">
+                    <div className="w-9 h-9 rounded-md border-2 border-slate-900 bg-amber-400 flex items-center justify-center text-xl shadow-[2px_2px_0px_#000] font-bold">
                         🏡
                     </div>
                     <div>
-                        <h3 className="font-sans font-black text-slate-900 text-sm tracking-wide uppercase">สนามกิจกรรมผ่อนคลายวันหยุดแสนน่ารัก</h3>
+                        <h3 className="font-sans font-bold text-slate-900 text-sm tracking-wide uppercase">สนามกิจกรรมผ่อนคลายวันหยุดแสนน่ารัก</h3>
                         <p className="text-[10px] text-slate-500 font-bold">วันนี้วันหยุดพิเศษ! พนักงานทุกคนมาปักหลักคุยเล่นและพักผ่อนในบาร์/คาเฟ่วิวมินิมอล 2D กันอย่างพร้อมหน้า 🍮🛋️🎨</p>
                     </div>
                 </div>
@@ -258,7 +258,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                 <div className="flex flex-wrap gap-2 items-center">
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border-2 border-slate-900 shadow-[2px_2px_0px_#000] text-[9.5px] font-black uppercase transition-all active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] cursor-pointer ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border-2 border-slate-900 shadow-[2px_2px_0px_#000] text-[9.5px] font-bold uppercase transition-all active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] cursor-pointer ${
                             isCollapsed
                                 ? "bg-emerald-400 hover:bg-emerald-500 text-slate-900 animate-pulse"
                                 : "bg-rose-400 hover:bg-rose-500 text-slate-900"
@@ -275,7 +275,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                 <div className="flex items-center gap-2 mb-4 bg-slate-100 p-1 rounded-xl border-2 border-slate-900 w-full sm:w-auto overflow-x-auto" id="cozy-viewmode-tab-selector">
                     <button
                         onClick={() => setViewMode('visual')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
                             viewMode === 'visual'
                                 ? "bg-amber-400 text-slate-900 border-2 border-slate-900 shadow-[2px_2px_0px_#000] -translate-y-[1.5px]"
                                 : "text-slate-600 hover:text-slate-950 border-2 border-transparent"
@@ -286,7 +286,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                     </button>
                     <button
                         onClick={() => setViewMode('compact')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-black uppercase transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
                             viewMode === 'compact'
                                 ? "bg-amber-400 text-slate-900 border-2 border-slate-900 shadow-[2px_2px_0px_#000] -translate-y-[1.5px]"
                                 : "text-slate-600 hover:text-slate-950 border-2 border-transparent"
@@ -310,7 +310,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                         id="cozy-collapse-wrapper"
                     >
                         {/* Mobile Swipe Hint */}
-                        <div className="lg:hidden flex justify-center mt-1 mb-3 items-center gap-2 text-[10px] font-black text-indigo-700 bg-indigo-50 border-2 border-slate-900 shadow-[2px_2px_0px_#000] rounded-xl py-1.5 px-3.5 w-fit mx-auto animate-bounce">
+                        <div className="lg:hidden flex justify-center mt-1 mb-3 items-center gap-2 text-[10px] font-bold text-indigo-700 bg-indigo-50 border-2 border-slate-900 shadow-[2px_2px_0px_#000] rounded-xl py-1.5 px-3.5 w-fit mx-auto animate-bounce">
                             <ArrowRightLeft className="w-3.5 h-3.5" />
                             ปัดซ้าย-ขวา เพื่อสำรวจพื้นที่ผ่อนคลายวันหยุดได้เลย! ↔️
                         </div>
@@ -388,15 +388,15 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                                 >
                                     <div>
                                         <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2 mb-3">
-                                            <span className="font-black text-slate-950 text-xs tracking-wide uppercase">{zone.title}</span>
-                                            <span className={`px-2 py-0.5 rounded-md border border-slate-900 text-[9.5px] font-black uppercase ${zone.badgeClass}`}>
+                                            <span className="font-bold text-slate-950 text-xs tracking-wide uppercase">{zone.title}</span>
+                                            <span className={`px-2 py-0.5 rounded-md border border-slate-900 text-[9.5px] font-bold uppercase ${zone.badgeClass}`}>
                                                 {zoneResidents.length} คน
                                             </span>
                                         </div>
                                         <p className="text-[10px] text-slate-500 font-bold mb-3 text-left leading-normal">{zone.desc}</p>
                                         
                                         {zoneResidents.length === 0 ? (
-                                            <div className="text-center py-5 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-black">
+                                            <div className="text-center py-5 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400 text-[10px] font-bold">
                                                 💤 โซนนี้เงียบเหงา ยังไม่มีใครเข้ามาพักผ่อน
                                             </div>
                                         ) : (
@@ -413,9 +413,9 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                                                             </span>
                                                             <div className="min-w-0">
                                                                 <div className="flex items-center gap-1">
-                                                                    <span className="font-black text-xs text-slate-950 truncate">{user.name}</span>
+                                                                    <span className="font-bold text-xs text-slate-950 truncate">{user.name}</span>
                                                                     {user.name && (
-                                                                        <span className="text-[9px] font-black text-slate-400 truncate">({user.name})</span>
+                                                                        <span className="text-[9px] font-bold text-slate-400 truncate">({user.name})</span>
                                                                     )}
                                                                 </div>
                                                                 <p className="text-[9.5px] text-slate-500 font-bold leading-tight mt-0.5 truncate">
@@ -453,7 +453,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
                                 {selectedUser.emoji || '👾'}
                             </span>
                             <div>
-                                <h4 className="font-sans font-black text-slate-900 text-xs text-left">
+                                <h4 className="font-sans font-bold text-slate-900 text-xs text-left">
                                     มุมระบายความชาร์จแบตของ {selectedUser.name} <span className="text-amber-500">({selectedUser.name || 'ไม่มีชื่อเล่น'})</span>
                                 </h4>
                                 <p className="text-[10.5px] text-slate-500 font-bold leading-snug mt-0.5 text-left">
@@ -464,7 +464,7 @@ export const HolidayCozyLounge: React.FC<HolidayCozyLoungeProps> = ({ users }) =
 
                         <button 
                             onClick={() => setSelectedUser(null)}
-                            className="bg-slate-100 hover:bg-slate-200 border-2 border-slate-900 text-slate-900 text-[10px] font-black px-3.5 py-1 rounded-md transition-colors cursor-pointer"
+                            className="bg-slate-100 hover:bg-slate-200 border-2 border-slate-900 text-slate-900 text-[10px] font-bold px-3.5 py-1 rounded-md transition-colors cursor-pointer"
                         >
                             ปิดคำอธิบายกิจกรรม
                         </button>

@@ -6,7 +6,7 @@ import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Modular Rules Components
-import WorkTimeCard from './rules/WorkTimeCard';
+import WorkTimeCard, { WorkTimeConfig } from './rules/WorkTimeCard';
 import LocationGeofencingCard from './rules/LocationGeofencingCard';
 import SelfieVerificationCard from './rules/SelfieVerificationCard';
 import TypesManagementCard from './rules/TypesManagementCard';
@@ -34,7 +34,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
     const [activeTab, setActiveTab] = useState<TabType>('time');
 
     // Attendance Rules Local State
-    const [tempTimeConfig, setTempTimeConfig] = useState({ 
+    const [tempTimeConfig, setTempTimeConfig] = useState<WorkTimeConfig>({ 
         start: '10:00', 
         end: '19:00', 
         buffer: '15', 
@@ -43,7 +43,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         checkoutPenaltyTime: '06:00',
         dailySummaryDelayHours: '1',
         lineSummaryDestination: '',
-        enableAttendanceRace: 'true'
+        enableAttendanceRace: 'true',
+        lateAlertMode: 'AFTER_LIMIT',
+        lateAlertOffset: '5'
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -54,10 +56,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
     const [selfieMode, setSelfieMode] = useState<string>('ALWAYS_ON');
     const [selfieDays, setSelfieDays] = useState<string>('3');
     const [isSavingSelfie, setIsSavingSelfie] = useState(false);
-    
-    // Location Config State
-    const [officeConfig, setOfficeConfig] = useState({ lat: '', lng: '', radius: '500' });
-    const [isLocating, setIsLocating] = useState(false);
 
     // Sync Temp Config with Loaded Data
     useEffect(() => {
@@ -71,8 +69,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const dailySummaryDelayHoursOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'DAILY_SUMMARY_DELAY_HOURS');
         const lineSummaryDestinationOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LINE_SUMMARY_DESTINATION');
         const enableRaceOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ENABLE_ATTENDANCE_RACE');
+        const lateAlertModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_ALERT_MODE');
+        const lateAlertOffsetOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_ALERT_OFFSET');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -82,7 +82,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 checkoutPenaltyTime: checkoutPenaltyTimeOpt?.label || '06:00',
                 dailySummaryDelayHours: dailySummaryDelayHoursOpt?.label || '1',
                 lineSummaryDestination: lineSummaryDestinationOpt?.label || '',
-                enableAttendanceRace: enableRaceOpt?.label || 'true'
+                enableAttendanceRace: enableRaceOpt?.label || 'true',
+                lateAlertMode: lateAlertModeOpt?.label || 'AFTER_LIMIT',
+                lateAlertOffset: lateAlertOffsetOpt?.label || '5'
             });
         }
 
@@ -97,19 +99,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
 
         if (config?.GLOBAL_MULTIPLIERS?.OT_JP_RATE_PER_HOUR !== undefined) {
             setOtJpRate(config.GLOBAL_MULTIPLIERS.OT_JP_RATE_PER_HOUR.toString());
-        }
-
-        // Location
-        const latOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_LAT');
-        const lngOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_LNG');
-        const radOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_RADIUS');
-
-        if (latOpt || lngOpt || radOpt) {
-            setOfficeConfig({
-                lat: latOpt?.label || '',
-                lng: lngOpt?.label || '',
-                radius: radOpt?.label || '500'
-            });
         }
     }, [masterOptions, config]);
 
@@ -139,6 +128,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrInsert('DAILY_SUMMARY_DELAY_HOURS', tempTimeConfig.dailySummaryDelayHours);
         await updateOrInsert('LINE_SUMMARY_DESTINATION', tempTimeConfig.lineSummaryDestination);
         await updateOrInsert('ENABLE_ATTENDANCE_RACE', tempTimeConfig.enableAttendanceRace);
+        await updateOrInsert('LATE_ALERT_MODE', tempTimeConfig.lateAlertMode || 'AFTER_LIMIT');
+        await updateOrInsert('LATE_ALERT_OFFSET', tempTimeConfig.lateAlertOffset || '5');
         
         const parsedRate = parseInt(otJpRate, 10);
         if (!isNaN(parsedRate)) {
@@ -150,30 +141,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         }
         
         await showAlert('บันทึกเวลาทำการเรียบร้อย ✅', 'สำเร็จ');
-    };
-
-    const handleSaveLocationConfig = async () => {
-         const updateOrInsert = async (key: string, val: string) => {
-            const existing = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === key);
-            if (existing) {
-                await onUpdate({ ...existing, label: val });
-            } else {
-                await onAdd({
-                    type: 'WORK_CONFIG',
-                    key: key,
-                    label: val,
-                    color: '',
-                    isActive: true,
-                    sortOrder: 0
-                });
-            }
-        };
-
-        await updateOrInsert('OFFICE_LAT', officeConfig.lat);
-        await updateOrInsert('OFFICE_LNG', officeConfig.lng);
-        await updateOrInsert('OFFICE_RADIUS', officeConfig.radius);
-        
-        await showAlert('บันทึกพิกัดเรียบร้อย! 🗺️', 'สำเร็จ');
     };
 
     const handleSaveSelfieConfig = async () => {
@@ -204,30 +171,6 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         } finally {
             setIsSavingSelfie(false);
         }
-    };
-
-    const getCurrentLocation = () => {
-        setIsLocating(true);
-        if (!navigator.geolocation) {
-            showAlert('Browser ไม่รองรับ Geolocation', 'Error');
-            setIsLocating(false);
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setOfficeConfig(prev => ({
-                    ...prev,
-                    lat: pos.coords.latitude.toString(),
-                    lng: pos.coords.longitude.toString()
-                }));
-                setIsLocating(false);
-            },
-            (err) => {
-                showAlert('ไม่สามารถระบุตำแหน่งได้: ' + err.message, 'Error');
-                setIsLocating(false);
-            },
-            { enableHighAccuracy: true }
-        );
     };
 
     const attendanceTypes = masterOptions.filter(o => o.type === 'ATTENDANCE_TYPE');
@@ -306,11 +249,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
 
                         {activeTab === 'location' && (
                             <LocationGeofencingCard
-                                officeConfig={officeConfig}
-                                setOfficeConfig={setOfficeConfig}
-                                getCurrentLocation={getCurrentLocation}
-                                isLocating={isLocating}
-                                handleSaveLocationConfig={handleSaveLocationConfig}
+                                masterOptions={masterOptions}
+                                onAdd={onAdd}
+                                onUpdate={onUpdate}
+                                onDelete={onDelete}
                             />
                         )}
 

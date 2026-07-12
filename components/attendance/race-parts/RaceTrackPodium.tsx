@@ -39,7 +39,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
             <div className="w-full flex items-center justify-between border-2 border-slate-900 bg-slate-100/95 px-3 py-1.5 rounded-2xl shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] font-sans transition-all duration-300">
                 <div className="flex items-center gap-2">
                     <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-300 shrink-0" />
-                    <span className="text-[10px] font-black font-sans tracking-wide text-slate-800">
+                    <span className="text-[10px] font-bold font-sans tracking-wide text-slate-800">
                         🏁 บอร์ด Finish ย่ออยู่
                     </span>
                     {allRacersCount !== undefined && (
@@ -51,7 +51,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
                 {onToggleCollapse && (
                     <button
                         onClick={onToggleCollapse}
-                        className="px-2.5 py-0.5 bg-white text-slate-900 text-[9px] font-black rounded-xl border-2 border-slate-900 shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[0.5px_0.5px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer hover:bg-slate-50 font-sans"
+                        className="px-2.5 py-0.5 bg-white text-slate-900 text-[9px] font-bold rounded-xl border-2 border-slate-900 shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[0.5px_0.5px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer hover:bg-slate-50 font-sans"
                     >
                         แสดงบอร์ด 🏆
                     </button>
@@ -72,7 +72,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
             <div className="flex items-center justify-between border-b-2 border-slate-100 pb-2.5 mb-3">
                 <div className="flex items-center gap-1.5">
                     <Trophy className="w-4 h-4 text-amber-500 fill-amber-300" />
-                    <span className="text-xs font-black font-mono tracking-tight text-slate-900 uppercase">
+                    <span className="text-xs font-bold font-mono tracking-tight text-slate-900 uppercase">
                         🏁 FINISHERS
                     </span>
                 </div>
@@ -116,15 +116,15 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
 
                                     if (isWinner) {
                                         borderClass = "border-amber-300 bg-amber-50/50 shadow-[0_1px_2px_rgba(245,158,11,0.1)]";
-                                        bgRank = "bg-amber-500 text-white font-black";
+                                        bgRank = "bg-amber-500 text-white font-bold";
                                         medalEmoji = "👑";
                                     } else if (isRunnerUp) {
                                         borderClass = "border-slate-300 bg-slate-100/30";
-                                        bgRank = "bg-slate-400 text-white font-black";
+                                        bgRank = "bg-slate-400 text-white font-bold";
                                         medalEmoji = "🥈";
                                     } else if (isThird) {
                                         borderClass = "border-amber-600/10 bg-amber-50/10";
-                                        bgRank = "bg-amber-600/70 text-white font-black";
+                                        bgRank = "bg-amber-600/70 text-white font-bold";
                                         medalEmoji = "🥉";
                                     }
 
@@ -175,7 +175,7 @@ export const RaceTrackPodium: React.FC<RaceTrackPodiumProps> = ({
 
                                             {/* Check-in Time & Finish Marker */}
                                             <div className="flex flex-col items-end shrink-0">
-                                                <div className="flex items-center gap-0.5 text-slate-900 font-mono font-black text-[10.5px]">
+                                                <div className="flex items-center gap-0.5 text-slate-900 font-mono font-bold text-[10.5px]">
                                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
                                                     <span>{racer.checkInTime}</span>
                                                 </div>

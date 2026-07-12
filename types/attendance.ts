@@ -86,6 +86,7 @@ export interface OtRequest {
     baseSalaryAtTime?: number;
     computedPayout: number;
     createdAt: Date;
+    isFixed?: boolean;
     user?: Partial<User>;
 }
 

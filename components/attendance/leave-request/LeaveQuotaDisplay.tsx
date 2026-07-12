@@ -27,7 +27,7 @@ const LeaveQuotaDisplay: React.FC<Props> = ({ type, usage, limit }) => {
                     </div>
                     <div>
                         <p className={`text-xs font-bold uppercase opacity-70 ${theme.text}`}>สิทธิ์คงเหลือ (Remaining)</p>
-                        <p className={`text-2xl font-black leading-none ${theme.text}`}>{remaining} <span className="text-sm font-medium">/ {limit} วัน</span></p>
+                        <p className={`text-2xl font-bold leading-none ${theme.text}`}>{remaining} <span className="text-sm font-medium">/ {limit} วัน</span></p>
                     </div>
                 </div>
                 <div className={`text-xs font-bold bg-white px-2 py-1 rounded-lg ${theme.text}`}>

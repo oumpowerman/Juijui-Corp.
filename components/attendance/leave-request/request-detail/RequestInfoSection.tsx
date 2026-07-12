@@ -55,7 +55,7 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
                         )}
                     </div>
                     {durationText && (
-                        <p className="text-xs text-indigo-600 font-extrabold mt-1">{durationText}</p>
+                        <p className="text-xs text-indigo-600 font-bold mt-1">{durationText}</p>
                     )}
                 </div>
 

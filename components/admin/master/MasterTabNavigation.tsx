@@ -19,16 +19,15 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     PILLAR: { label: 'Pillars', icon: Layers, desc: 'แกนเนื้อหา (เช่น Education, Entertainment, Lifestyle)', group: 'CONTENT' },
     CATEGORY: { label: 'Categories', icon: LayoutTemplate, desc: 'หมวดหมู่ย่อย (เช่น Vlog, Review, Interview)', group: 'CONTENT' },
     SCRIPT_CATEGORY: { label: 'Script Categories', icon: FileText, desc: 'หมวดหมู่สคริปต์ (เช่น Vlog, Storytelling, Review)', group: 'CONTENT' },
-    SHOOT_LOCATION: { label: 'Shoot Locations', icon: MapPin, desc: 'สถานที่ถ่ายทำ (สำหรับแปะใน Script)', group: 'CONTENT' },
+    SHOOT_LOCATION: { label: 'พิกัดสถานที่ถ่ายทำ', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของกองถ่ายหรือสถานที่ถ่ายทำนอกสถานที่ (Onsite)', group: 'CONTENT' },
     MEETING_CATEGORY: { label: 'Meeting Topics', icon: Presentation, desc: 'หัวข้อการประชุม (เช่น General, Crisis, Project Update)', group: 'CONTENT' },
 
     // --- RESOURCES ---
     INVENTORY: { label: 'Equipment Categories', icon: Package, desc: 'หมวดหมู่อุปกรณ์หลักและย่อย (ใช้ในหน้า Checklist)', group: 'INVENTORY' },
     ITEM_CONDITION: { label: 'Item Condition', icon: AlertTriangle, desc: 'สภาพอุปกรณ์ (เช่น Good, Broken, Lost) ใช้แปะป้ายสถานะของ', group: 'INVENTORY' },
     POSITION: { label: 'Positions', icon: Briefcase, desc: 'ตำแหน่งงานและหน้าที่ความรับผิดชอบ (ใช้ในหน้าสมัครและหน้าทีม)', group: 'TEAM' },
-    LEAVE_TYPE: { label: 'Leave Types', icon: HeartPulse, desc: 'ประเภทการลา (เช่น ลาป่วย, ลากิจ, พักร้อน)', group: 'TEAM' },
-    ATTENDANCE_RULES: { label: 'Work Time Config', icon: Clock, desc: 'ตั้งค่าเวลาเข้างาน กะงาน', group: 'TEAM' },
-    LOCATIONS: { label: 'Office Locations', icon: MapPin, desc: 'พิกัดสถานที่ทำงาน/สาขา (สำหรับเช็คอิน GPS)', group: 'TEAM' },
+    ATTENDANCE_RULES: { label: '⚙️ HR System Rules', icon: Clock, desc: 'บริหารกฎกติกาการเข้างาน, การลา, ขาด, สาย, และสิทธิ์พนักงานทั้งหมด', group: 'TEAM' },
+    LOCATIONS: { label: 'พิกัดออฟฟิศหลัก', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของสำนักงานใหญ่หรือออฟฟิศสาขาหลัก', group: 'TEAM' },
     REJECTION_REASON: { label: 'Reject Reasons', icon: ShieldAlert, desc: 'เหตุผลที่ส่งแก้งาน (QC) ใช้เก็บสถิติปัญหาที่พบบ่อย', group: 'TEAM' },
 
     // --- SYSTEM ---
@@ -85,7 +84,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
             {/* GROUP: INVENTORY & HR */}
             <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Resources & HR</div>
-                    {['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'LOCATIONS', 'ATTENDANCE_RULES', 'LEAVE_TYPE', 'REJECTION_REASON'].map(key => renderTabButton(key))}
+                    {['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'REJECTION_REASON'].map(key => renderTabButton(key))}
             </div>
 
             {/* GROUP: SYSTEM */}

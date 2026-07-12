@@ -1,18 +1,26 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, Pin } from 'lucide-react';
 import { Channel } from '../../../types';
+import { ChipConfig } from '../../../types';
+import { getHexFromColorClass } from '../../../utils/color';
 
 interface ChannelFilterGridProps {
     channels: Channel[];
     tempChannelIds: string[];
     toggleChannel: (id: string) => void;
+    customChips?: ChipConfig[];
+    onSaveChip?: (chip: ChipConfig) => void;
+    onDeleteChip?: (id: string) => void;
 }
 
 const ChannelFilterGrid: React.FC<ChannelFilterGridProps> = ({
     channels = [],
     tempChannelIds = [],
-    toggleChannel
+    toggleChannel,
+    customChips = [],
+    onSaveChip,
+    onDeleteChip
 }) => {
     if (channels.length === 0) {
         return (
@@ -32,7 +40,8 @@ const ChannelFilterGrid: React.FC<ChannelFilterGridProps> = ({
         >
             {channels.map(channel => {
                 const isSelected = tempChannelIds.includes(channel.id);
-                const channelColor = channel.color || '#78716c'; // Stone-500 fallback
+                const channelColor = getHexFromColorClass(channel.color);
+                const isPinned = customChips.some(c => c.type === 'CHANNEL' && c.value === channel.id);
 
                 return (
                     <div
@@ -57,7 +66,7 @@ const ChannelFilterGrid: React.FC<ChannelFilterGridProps> = ({
                         />
 
                         {/* Channel Avatar/Logo */}
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-stone-200 bg-stone-50 shadow-inner">
+                        <div className="w-11 h-11 rounded-xl flex items-xl flex-col items-center justify-center overflow-hidden shrink-0 border border-stone-200 bg-stone-50 shadow-inner">
                             {channel.logoUrl ? (
                                 <img
                                     src={channel.logoUrl}
@@ -90,6 +99,37 @@ const ChannelFilterGrid: React.FC<ChannelFilterGridProps> = ({
                             <div className="absolute top-3.5 right-3.5 bg-stone-800 text-stone-50 rounded-full p-0.5 shadow-sm">
                                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                             </div>
+                        )}
+
+                        {/* Pin Button */}
+                        {onSaveChip && onDeleteChip && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const existing = customChips.find(c => c.type === 'CHANNEL' && c.value === channel.id);
+                                    if (existing) {
+                                        onDeleteChip(existing.id);
+                                    } else {
+                                        onSaveChip({
+                                            id: `chip_ch_${channel.id}`,
+                                            label: channel.name,
+                                            type: 'CHANNEL',
+                                            value: channel.id,
+                                            colorTheme: channelColor,
+                                            scope: 'CONTENT',
+                                            mode: 'INCLUDE'
+                                        });
+                                    }
+                                }}
+                                className={`absolute bottom-3.5 right-3.5 p-1.5 rounded-lg border transition-all ${
+                                    isPinned 
+                                        ? 'bg-amber-50 border-amber-200 text-amber-500 shadow-sm' 
+                                        : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600 hover:bg-stone-50 hover:border-stone-300'
+                                }`}
+                                title={isPinned ? 'ถอนการปักหมุดแถบด่วน' : 'ปักหมุดลงแถบด่วน'}
+                            >
+                                <Pin className="w-3 h-3" />
+                            </button>
                         )}
                     </div>
                 );

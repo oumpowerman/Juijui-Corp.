@@ -6,6 +6,7 @@ import { UserStat } from "../types";
 import { EmployeeNameCell } from "./cells/EmployeeNameCell";
 import { StatBadgeCell } from "./cells/StatBadgeCell";
 import { GradeBadgeCell } from "./cells/GradeBadgeCell";
+import { EmployeeHpCell } from "./cells/EmployeeHpCell";
 
 interface EmployeeRowProps {
   stat: UserStat;
@@ -18,7 +19,9 @@ interface EmployeeRowProps {
   currentMonth?: Date;
   workingDaysCount?: number;
   lateViewMode?: "DAYS" | "HOURS";
-  otViewMode?: "HOURS" | "PAYOUT";
+  otViewMode?: "HOURS" | "LUMP_SUM" | "BOTH" | "PAYOUT";
+  hpViewMode?: "MONTHLY" | "YEARLY";
+  snapshots?: any[];
 }
 
 const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
@@ -33,6 +36,8 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
   workingDaysCount,
   lateViewMode = "DAYS",
   otViewMode = "HOURS",
+  hpViewMode = "MONTHLY",
+  snapshots = [],
 }) => {
   const isHighlightedRank =
     !!(activeStatFilter && activeStatFilter !== "ALL" && index < 3);
@@ -210,21 +215,17 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
     };
   };
 
+  // HP calculation is now delegated to EmployeeHpCell
+
   return (
     <motion.tr
       className={`${rowBgClass} ${borderLeftClass}`}
       style={perfectTier?.bgStyle}
       onClick={() => onUserClick(user, stat)}
-      layout="position"
       initial={{ opacity: 0, y: 10 }}
       animate={getAnimateConfig()}
       whileHover={getHoverConfig()}
       transition={{
-        layout: {
-          type: "spring",
-          stiffness: 220,
-          damping: 26,
-        },
         opacity: { duration: 0.35 },
         backgroundColor: { duration: 0.25 },
       }}
@@ -250,28 +251,65 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
       <td className="px-6 py-4 text-center">
         <div className="flex items-center justify-center h-8">
           <AnimatePresence mode="wait">
-            <motion.span
-              key={`${otViewMode}-${stat.totalOtHours || 0}-${stat.totalOtPayout || 0}`}
+            <motion.div
+              key={`${otViewMode}-${stat.totalOtHours || 0}-${stat.totalFixedOtDays || 0}-${stat.totalOtPayout || 0}`}
               initial={{ opacity: 0, scale: 0.9, y: -2 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 2 }}
               transition={{ duration: 0.12 }}
-              className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${
-                (stat.totalOtHours || 0) > 0
-                  ? otViewMode === "HOURS"
-                    ? "bg-purple-50 text-purple-600"
-                    : "bg-emerald-50 text-emerald-600 font-mono"
-                  : "text-gray-400"
-              }`}
+              className="flex items-center justify-center"
             >
-              {otViewMode === "HOURS" 
-                ? `${(stat.totalOtHours || 0).toFixed(1)} hrs`
-                : `฿${(stat.totalOtPayout || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-              }
-            </motion.span>
+              {otViewMode === "HOURS" ? (
+                <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${
+                  (stat.totalOtHours || 0) > 0
+                    ? "bg-purple-50 text-purple-600 border border-purple-100/50"
+                    : "text-gray-400 font-normal"
+                }`}>
+                  {(stat.totalOtHours || 0).toFixed(1)} hrs
+                </span>
+              ) : otViewMode === "LUMP_SUM" ? (
+                <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${
+                  (stat.totalFixedOtDays || 0) > 0
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-100/50"
+                    : "text-gray-400 font-normal"
+                }`}>
+                  {stat.totalFixedOtDays || 0} วัน
+                </span>
+              ) : otViewMode === "BOTH" ? (
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold border ${
+                  (stat.totalOtHours || 0) > 0 || (stat.totalFixedOtDays || 0) > 0
+                    ? "bg-slate-50 border-slate-200/60 text-slate-700"
+                    : "border-transparent text-gray-400 font-normal"
+                }`}>
+                  <span className={(stat.totalOtHours || 0) > 0 ? "text-purple-600 font-bold" : "text-gray-400 font-normal"}>
+                    {(stat.totalOtHours || 0).toFixed(1)} hrs
+                  </span>
+                  <span className="text-gray-300">|</span>
+                  <span className={(stat.totalFixedOtDays || 0) > 0 ? "text-indigo-600 font-bold" : "text-gray-400 font-normal"}>
+                    {stat.totalFixedOtDays || 0} วัน
+                  </span>
+                </div>
+              ) : (
+                <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold font-mono ${
+                  (stat.totalOtPayout || 0) > 0
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-100/50"
+                    : "text-gray-400 font-normal"
+                }`}>
+                  ฿{(stat.totalOtPayout || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
       </td>
+
+      {/* คอลัมน์ HP Cell ใหม่ - ปรับดีไซน์ให้แสดงตัวเลขพร้อมส่วนต่าง (Delta) อย่างมืออาชีพ */}
+      <EmployeeHpCell
+        user={user}
+        currentMonth={currentMonth}
+        hpViewMode={hpViewMode}
+        snapshots={snapshots}
+      />
 
       <StatBadgeCell value={stat.totalHours} variant="hours" />
       <GradeBadgeCell grade={getGrade(stat)} />
@@ -332,7 +370,9 @@ export const EmployeeRow = React.memo(
       prevProps.currentMonth === nextProps.currentMonth &&
       prevProps.workingDaysCount === nextProps.workingDaysCount &&
       prevProps.lateViewMode === nextProps.lateViewMode &&
-      prevProps.otViewMode === nextProps.otViewMode
+      prevProps.otViewMode === nextProps.otViewMode &&
+      prevProps.hpViewMode === nextProps.hpViewMode &&
+      prevProps.snapshots === nextProps.snapshots
     );
   }
 );

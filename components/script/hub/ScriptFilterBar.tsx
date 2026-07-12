@@ -45,6 +45,8 @@ interface ScriptFilterBarProps {
     channels: Channel[];
     masterOptions: MasterOption[];
     mode?: ScriptHubMode; // NEW
+    currentUser?: User;
+    viewTab?: 'QUEUE' | 'LIBRARY' | 'HISTORY';
 }
 
 // Define correct Script Lifecycle Statuses with styling
@@ -68,7 +70,9 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
     sortOrder, setSortOrder,
     isDeepSearch, setIsDeepSearch,
     users, channels, masterOptions,
-    mode = 'HUB'
+    mode = 'HUB',
+    currentUser,
+    viewTab
 }) => {
     const isStudio = mode === 'STUDIO';
     // Local state for debouncing search input
@@ -213,6 +217,9 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                                 filterCategory={filterCategory}
                                 filterStatus={filterStatus}
                                 searchQuery={searchQuery}
+                                mode={mode}
+                                currentUser={currentUser}
+                                viewTab={viewTab}
                             />
                         </motion.div>
                     )}
@@ -326,7 +333,7 @@ const ScriptFilterBar: React.FC<ScriptFilterBarProps> = React.memo(({
                         </button>
 
                         {isStatusOpen && (
-                            <div className="absolute bottom-full mb-2 right-0 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[60] p-1.5 animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+                            <div className="absolute top-full mt-2 right-0 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[60] p-1.5 animate-in fade-in zoom-in-95 slide-in-from-top-2">
                                 <div className="px-3 py-2 mb-1">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">เลือกสถานะสคริปต์</span>
                                 </div>

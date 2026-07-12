@@ -68,19 +68,19 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
         <div className={`flex items-center justify-between p-4 bg-white rounded-[2rem] border ${config.border} group hover:shadow-lg ${config.hoverShadow} transition-all`}>
             <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 ${config.bg} rounded-2xl flex flex-col items-center justify-center border ${config.border}`}>
-                    <span className={`text-[10px] font-black ${config.textSecondary} uppercase`}>
+                    <span className={`text-[10px] font-bold ${config.textSecondary} uppercase`}>
                         {format(date, 'EEE')}
                     </span>
-                    <span className={`text-lg font-black ${config.textPrimary}`}>
+                    <span className={`text-lg font-bold ${config.textPrimary}`}>
                         {format(date, 'd')}
                     </span>
                 </div>
                 <div className="text-left">
-                    <p className="text-xs font-black text-slate-700">
+                    <p className="text-xs font-bold text-slate-700">
                         {format(date, 'MMMM yyyy', { locale: th })}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`px-2 py-0.5 ${config.badgeBg} ${config.badgeText} rounded-lg text-[9px] font-black uppercase`}>
+                        <span className={`px-2 py-0.5 ${config.badgeBg} ${config.badgeText} rounded-lg text-[9px] font-bold uppercase`}>
                             {badgeText || variant.toUpperCase()}
                         </span>
                         {variant === 'absent' ? (

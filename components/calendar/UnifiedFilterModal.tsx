@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, SlidersHorizontal } from 'lucide-react';
-import { Channel } from '../../types';
+import { Channel, ChipConfig } from '../../types';
 import { MasterOption } from '../../types/task';
 
 // Modular component imports
@@ -29,6 +29,11 @@ interface UnifiedFilterModalProps {
         formats: string[];
         statuses: string[];
     }) => void;
+
+    // Pinning Support
+    customChips?: ChipConfig[];
+    onSaveChip?: (chip: ChipConfig) => void;
+    onDeleteChip?: (id: string) => void;
 }
 
 const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
@@ -39,7 +44,10 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
     selectedChannelIds = [],
     selectedFormats = [],
     selectedStatuses = [],
-    onApplyFilters
+    onApplyFilters,
+    customChips = [],
+    onSaveChip,
+    onDeleteChip
 }) => {
     // Current active tab
     const [activeTab, setActiveTab] = useState<TabType>('CHANNELS');
@@ -189,6 +197,9 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         channels={channels}
                                         tempChannelIds={tempChannelIds}
                                         toggleChannel={toggleChannel}
+                                        customChips={customChips}
+                                        onSaveChip={onSaveChip}
+                                        onDeleteChip={onDeleteChip}
                                     />
                                 )}
 
@@ -199,6 +210,9 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         formatOptions={formatOptions}
                                         tempFormats={tempFormats}
                                         toggleFormat={toggleFormat}
+                                        customChips={customChips}
+                                        onSaveChip={onSaveChip}
+                                        onDeleteChip={onDeleteChip}
                                     />
                                 )}
 
@@ -209,6 +223,9 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         statusOptions={statusOptions}
                                         tempStatuses={tempStatuses}
                                         toggleStatus={toggleStatus}
+                                        customChips={customChips}
+                                        onSaveChip={onSaveChip}
+                                        onDeleteChip={onDeleteChip}
                                     />
                                 )}
                             </AnimatePresence>

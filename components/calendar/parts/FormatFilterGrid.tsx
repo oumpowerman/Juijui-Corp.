@@ -1,18 +1,25 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
-import { MasterOption } from '../../../types/task';
+import { Check, Pin } from 'lucide-react';
+import { MasterOption, ChipConfig } from '../../../types';
+import { getHexFromColorClass } from '../../../utils/color';
 
 interface FormatFilterGridProps {
     formatOptions: MasterOption[];
     tempFormats: string[];
     toggleFormat: (key: string) => void;
+    customChips?: ChipConfig[];
+    onSaveChip?: (chip: ChipConfig) => void;
+    onDeleteChip?: (id: string) => void;
 }
 
 const FormatFilterGrid: React.FC<FormatFilterGridProps> = ({
     formatOptions = [],
     tempFormats = [],
-    toggleFormat
+    toggleFormat,
+    customChips = [],
+    onSaveChip,
+    onDeleteChip
 }) => {
     if (formatOptions.length === 0) {
         return (
@@ -32,7 +39,8 @@ const FormatFilterGrid: React.FC<FormatFilterGridProps> = ({
         >
             {formatOptions.map(option => {
                 const isSelected = tempFormats.includes(option.key);
-                const color = option.color || '#a8a29e'; // Default soft Stone color
+                const color = getHexFromColorClass(option.color);
+                const isPinned = customChips.some(c => c.type === 'FORMAT' && c.value === option.key);
 
                 return (
                     <div
@@ -68,13 +76,44 @@ const FormatFilterGrid: React.FC<FormatFilterGridProps> = ({
                             )}
                         </div>
 
-                        <div className="mt-4">
-                            <h4 className="text-sm font-extrabold text-stone-800">
+                        <div className="mt-4 relative pr-7">
+                            <h4 className="text-sm font-extrabold text-stone-800 truncate">
                                 {option.label}
                             </h4>
-                            <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5 leading-relaxed">
+                            <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5 leading-relaxed" title={option.description || `รูปแบบงาน ${option.label}`}>
                                 {option.description || `รูปแบบงาน ${option.label}`}
                             </p>
+
+                            {/* Pin Button */}
+                            {onSaveChip && onDeleteChip && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const existing = customChips.find(c => c.type === 'FORMAT' && c.value === option.key);
+                                        if (existing) {
+                                            onDeleteChip(existing.id);
+                                        } else {
+                                            onSaveChip({
+                                                id: `chip_fmt_${option.key}`,
+                                                label: option.label,
+                                                type: 'FORMAT',
+                                                value: option.key,
+                                                colorTheme: color,
+                                                scope: 'CONTENT',
+                                                mode: 'INCLUDE'
+                                            });
+                                        }
+                                    }}
+                                    className={`absolute bottom-0 right-0 p-1.5 rounded-lg border transition-all ${
+                                        isPinned 
+                                            ? 'bg-amber-50 border-amber-200 text-amber-500 shadow-sm' 
+                                            : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600 hover:bg-stone-50 hover:border-stone-300'
+                                    }`}
+                                    title={isPinned ? 'ถอนการปักหมุดแถบด่วน' : 'ปักหมุดลงแถบด่วน'}
+                                >
+                                    <Pin className="w-3 h-3" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 );

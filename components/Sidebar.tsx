@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           subtext: 'text-sky-900/80 font-medium',
           iconBg: 'bg-sky-500/10 border border-sky-500/20 text-sky-600 backdrop-blur-md shadow-sm hover:bg-sky-500/15',
           itemIdle: 'text-sky-800/80 hover:text-sky-950 hover:bg-sky-500/5 font-semibold',
-          itemActive: 'text-sky-950 font-black',
+          itemActive: 'text-sky-950 font-bold',
           itemActiveColor: 'text-sky-600',
           activeIcon: 'text-sky-600',
           idleIcon: 'text-sky-700/60 group-hover/btn:text-sky-600',
@@ -224,7 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           subtext: 'text-sky-200/80 font-medium',
           iconBg: 'bg-white/10 border border-white/20 text-white backdrop-blur-md hover:bg-white/20',
           itemIdle: 'text-sky-100/80 hover:text-white hover:bg-white/10 font-semibold',
-          itemActive: 'text-white font-extrabold',
+          itemActive: 'text-white font-bold',
           itemActiveColor: 'text-white',
           activeIcon: 'text-white',
           idleIcon: 'text-sky-200/50 group-hover/btn:text-white',
@@ -247,7 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           subtext: 'text-slate-300/80 font-medium',
           iconBg: 'bg-white/10 border border-white/15 text-white backdrop-blur-md hover:bg-white/15',
           itemIdle: 'text-slate-300/80 hover:text-white hover:bg-white/5 font-semibold',
-          itemActive: 'text-white font-extrabold',
+          itemActive: 'text-white font-bold',
           itemActiveColor: 'text-white',
           activeIcon: 'text-white',
           idleIcon: 'text-slate-350 group-hover/btn:text-white',
@@ -270,7 +270,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           subtext: 'text-orange-900/80 font-medium',
           iconBg: 'bg-orange-500/10 border border-orange-500/20 text-orange-600 backdrop-blur-md shadow-sm hover:bg-orange-500/15',
           itemIdle: 'text-orange-800/80 hover:text-orange-950 hover:bg-orange-500/5 font-semibold',
-          itemActive: 'text-orange-950 font-black',
+          itemActive: 'text-orange-950 font-bold',
           itemActiveColor: 'text-orange-600',
           activeIcon: 'text-orange-600',
           idleIcon: 'text-orange-700/60 group-hover/btn:text-orange-600',
@@ -339,7 +339,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
       'WORKSPACE': true,
       'PRODUCTION': true,
-      'OFFICE': false,
+      'OFFICE': true,
       'ADMIN': false
   });
 
@@ -421,7 +421,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     hidden: { opacity: 0, y: 5 },
                     visible: { opacity: 1, y: 0 }
                   }}
-                  className={`text-xl font-black ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
+                  className={`text-xl font-bold ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
                 >
                   {char}
                 </motion.span>
@@ -435,7 +435,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center gap-1.5 mt-1"
             >
               <div className={`h-[2px] w-4 ${themeClasses.brandAccentBg} rounded-full`} />
-              <p className={`text-[10px] font-black ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>OS</p>
+              <p className={`text-[10px] font-bold ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>OS</p>
               <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
             </motion.div>
           </div>
@@ -460,7 +460,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                     <div className="flex items-center gap-3">
                         <GroupIcon className="w-4 h-4 opacity-70" />
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.15em] sidebar-item-text">
+                        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] sidebar-item-text">
                           {group.title}
                         </h3>
                     </div>
@@ -578,7 +578,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           
           <div className="sidebar-item-text flex-1 min-w-0">
-            <p className={`text-sm font-black ${isDarkTheme ? 'text-white' : 'text-slate-800'} truncate`}>{currentUser.name}</p>
+            <p className={`text-sm font-bold ${isDarkTheme ? 'text-white' : 'text-slate-800'} truncate`}>{currentUser.name}</p>
             <p className="text-xs font-bold text-indigo-500 truncate uppercase tracking-tighter opacity-80">{currentUser.position || 'Member'}</p>
           </div>
           
@@ -592,7 +592,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button 
           onClick={onLogout}
           className={`
-            w-full flex items-center justify-center gap-2 font-black transition-all uppercase tracking-[0.2em]
+            w-full flex items-center justify-center gap-2 font-bold transition-all uppercase tracking-[0.2em]
             ${isCollapsed ? 'mt-4 py-3 text-red-300 hover:text-red-500' : `mt-4 py-3 text-[10px] ${isDarkTheme ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-xl`}
           `}
           title={isCollapsed ? 'ลงชื่อออก' : ''}

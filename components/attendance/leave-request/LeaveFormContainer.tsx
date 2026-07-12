@@ -1,6 +1,6 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, CalendarClock, Clock, FileText, Image as ImageIcon, ArrowRight, Edit3, Eye, X } from 'lucide-react';
+import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, CalendarClock, Clock, FileText, Image as ImageIcon, ArrowRight, Edit3, Eye, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
 import { MasterOption } from '../../../types';
@@ -12,6 +12,7 @@ import { th } from 'date-fns/locale';
 import { isWorkingDay } from '../../../utils/judgeUtils';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { useUserSession } from '../../../context/UserSessionContext';
+import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 
 // Input Components
 import StandardLeaveInputs from './form-inputs/StandardLeaveInputs';
@@ -37,6 +38,7 @@ const LeaveFormContainer: React.FC<Props> = ({
 }) => {
     const { annualHolidays, calendarExceptions } = useMasterData();
     const { currentUserProfile } = useUserSession();
+    const { isAuthenticated: isDriveConnected, login: connectDrive } = useGoogleDrive();
 
     const selectedOption = useMemo(() => masterOptions.find(o => o.key === selectedType), [masterOptions, selectedType]);
     const metadata = useMemo(() => {
@@ -84,6 +86,7 @@ const LeaveFormContainer: React.FC<Props> = ({
         startDate, setStartDate, endDate, setEndDate, 
         reason, setReason, file, setFile, 
         targetTime, setTargetTime, endTime, setEndTime, otHours, setOtHours, 
+        otType, setOtType,
         isSubmitting, isReviewing, setIsReviewing, handleReview, handleSubmit 
     } = useLeaveFormLogic({ 
         onSubmit, 
@@ -136,6 +139,7 @@ const LeaveFormContainer: React.FC<Props> = ({
 
     const thaiLabel = selectedOption?.label || fallbackLabels[selectedType] || selectedType;
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
+    const isSingleDayRequest = ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
     const headerLabel = isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel;
 
     const daysRequested = useMemo(() => {
@@ -191,11 +195,8 @@ const LeaveFormContainer: React.FC<Props> = ({
     };
 
     return (
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex flex-col flex-1 min-h-0 bg-white/40 backdrop-blur-2xl"
+        <div 
+            className="flex flex-col flex-1 min-h-0 bg-white/40 backdrop-blur-2xl h-full w-full"
         >
             {/* Header */}
             <div className={`px-4 py-4 sm:px-6 sm:py-6 border-b border-white/40 bg-white/60 backdrop-blur-md flex items-center gap-3 sm:gap-4 shrink-0 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${fixedType ? 'bg-orange-50/40' : ''}`}>
@@ -230,6 +231,26 @@ const LeaveFormContainer: React.FC<Props> = ({
                         <span className="tracking-tight truncate">{isReviewing ? 'ตรวจสอบความถูกต้อง' : headerLabel}</span>
                     </motion.h3>
                 </div>
+                {/* Google Drive Status Badge */}
+                <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end mr-1">
+                        {isDriveConnected ? (
+                            <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">Drive Ready</span>
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={connectDrive}
+                                type="button"
+                                className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-full animate-pulse hover:bg-rose-100 transition-all text-left"
+                            >
+                                <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tighter">[ เชื่อมต่อ Drive ]</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Scrollable Body */}
@@ -261,21 +282,55 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 gap-3 sm:gap-5 relative">
-                                    <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">เริ่มต้น (Start)</p>
-                                        <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
-                                        {isTimeSpecific && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{targetTime} น.</p>}
+                                {isSingleDayRequest ? (
+                                    <div className="bg-white/70 backdrop-blur-md p-5 sm:p-6 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                            <div>
+                                                <p className="text-[10px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 tracking-widest">วันที่ขอปฏิบัติงาน</p>
+                                                <p className="text-sm sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
+                                            </div>
+                                            
+                                            <div className="hidden sm:block h-8 w-px bg-indigo-100" />
+                                            
+                                            <div className="flex-1 sm:text-right">
+                                                <p className="text-[10px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 tracking-widest">ช่วงเวลาปฏิบัติงาน</p>
+                                                {selectedType === 'OVERTIME' ? (
+                                                    otType === 'FIXED' ? (
+                                                        <p className="text-sm sm:text-base font-bold text-indigo-600">เหมาจ่าย (Lump-sum)</p>
+                                                    ) : (
+                                                        <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} - {endTime} น.</p>
+                                                    )
+                                                ) : selectedType === 'FORGOT_BOTH' ? (
+                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} - {endTime} น.</p>
+                                                ) : selectedType === 'LATE_ENTRY' ? (
+                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">เข้าสายย้อนหลัง: {targetTime} น.</p>
+                                                ) : selectedType === 'FORGOT_CHECKIN' ? (
+                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">ลืมสแกนเข้า: {targetTime} น.</p>
+                                                ) : selectedType === 'FORGOT_CHECKOUT' ? (
+                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">ลืมสแกนออก: {targetTime} น.</p>
+                                                ) : (
+                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} น.</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    
-                                    <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                        <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">สิ้นสุด (End)</p>
-                                        <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
-                                        {selectedType === 'FORGOT_BOTH' && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{endTime} น.</p>}
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3 sm:gap-5 relative">
+                                        <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
+                                            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">เริ่มต้น (Start)</p>
+                                            <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
+                                            {isTimeSpecific && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{targetTime} น.</p>}
+                                        </div>
+                                        
+                                        <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
+                                            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">สิ้นสุด (End)</p>
+                                            <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
+                                            {selectedType === 'FORGOT_BOTH' && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{endTime} น.</p>}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {!isTimeSpecific && daysRequested > 0 && (
+                                {!isTimeSpecific && (daysRequested > 0 || selectedType === 'OVERTIME') && (
                                     selectedType === 'OVERTIME' ? (
                                         <div className="bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-600  bg-no-repeat bg-[length:100%_100%] bg-clip-padding text-white p-4 rounded-[1.5rem] shadow-xl shadow-indigo-500/20 border border-white/20 relative flex items-center justify-between overflow-hidden">
                                             {/* Glow overlay */}
@@ -288,7 +343,11 @@ const LeaveFormContainer: React.FC<Props> = ({
                                                 </div>
                                                 <div className="text-left">
                                                     <p className="text-[8px] text-sky-100 font-prompt uppercase tracking-widest font-semibold">ชั่วโมงที่ขอปฏิบัติงาน</p>
-                                                    <p className="text-sm sm:text-lg font-semibold font-prompt text-white">ทำโอที {otHours} ชั่วโมง</p>
+                                                    {otType === 'FIXED' ? (
+                                                        <p className="text-sm sm:text-lg font-semibold font-prompt text-white">แบบเหมาจ่าย (Lump-sum)</p>
+                                                    ) : (
+                                                        <p className="text-sm sm:text-lg font-semibold font-prompt text-white">ทำโอที {Number(otHours).toFixed(2)} ชั่วโมง</p>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -299,7 +358,9 @@ const LeaveFormContainer: React.FC<Props> = ({
                                             <div className="text-right relative z-10 shrink-0">
                                                 <div className="bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-md">
                                                     <p className="text-[10px] text-purple-100 font-prompt font-semibold">รวมระยะเวลา</p>
-                                                    <p className="text-sm font-bold font-pro text-white">{daysRequested} วัน</p>
+                                                    <p className="text-sm font-bold font-pro text-white">
+                                                        {daysRequested > 0 ? `${daysRequested} วัน` : 'วันหยุด'}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -448,6 +509,8 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         startTime={targetTime} setStartTime={setTargetTime}
                                         endTime={endTime} setEndTime={setEndTime}
                                         hours={otHours} setHours={setOtHours} 
+                                        otType={otType}
+                                        setOtType={setOtType}
                                     />
                                 ) : (
                                     <StandardLeaveInputs 
@@ -588,7 +651,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </div>
     );
 };
 

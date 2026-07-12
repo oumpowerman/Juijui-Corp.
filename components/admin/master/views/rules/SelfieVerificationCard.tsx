@@ -61,13 +61,15 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
     );
 
     return (
-        <div 
+        <motion.div 
+            layout
             id="selfie-verification-card" 
-            className={`bg-white rounded-3xl p-6 relative overflow-hidden transition-all duration-500 ${
+            className={`bg-white rounded-3xl p-6 relative overflow-hidden transition-shadow duration-300 border ${
                 isEnabled 
-                    ? 'border-2 border-purple-300 ring-4 ring-purple-100/30 shadow-lg shadow-purple-50/50' 
-                    : 'border border-gray-200 shadow-sm'
+                    ? 'border-purple-300 ring-4 ring-purple-100/30 shadow-lg shadow-purple-50/50' 
+                    : 'border-gray-200 shadow-sm'
             }`}
+            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
         >
             {/* Ambient Background Glow & Pulse */}
             <div className={`absolute top-0 right-0 w-64 h-64 rounded-bl-full transition-all duration-500 pointer-events-none opacity-40 blur-2xl ${
@@ -75,7 +77,10 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
             }`}></div>
 
             {/* Header with Switch */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100 relative z-10">
+            <motion.div 
+                layout="position"
+                className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100 relative z-10"
+            >
                 <div className="flex items-center gap-3.5">
                     <div className={`p-3.5 rounded-2xl transition-all duration-500 ${
                         isEnabled 
@@ -85,7 +90,7 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
                         <Camera className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="font-black text-gray-800 text-base flex items-center gap-2">
+                        <h3 className="font-bold text-gray-800 text-base flex items-center gap-2">
                             ระบบถ่ายรูปยืนยันตัวตน
                             <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-500 ${
                                 isEnabled 
@@ -108,12 +113,9 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
                     <div className="absolute inset-y-1 left-1 right-1 pointer-events-none">
                         <div className="relative w-full h-full">
                             <motion.div
-                                layoutId="active-switch-pill"
                                 className="absolute top-0 bottom-0 rounded-xl bg-white shadow-sm border border-gray-200/40"
-                                style={{
-                                    width: '50%',
-                                    left: isEnabled ? '50%' : '0%'
-                                }}
+                                style={{ width: '50%' }}
+                                animate={{ x: isEnabled ? '100%' : '0%' }}
                                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                             />
                         </div>
@@ -146,17 +148,18 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
                         {isEnabled && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Config & Simulation Section with AnimatePresence */}
             <div className="mt-6 relative z-10">
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="popLayout">
                     {!isEnabled ? (
                         <motion.div
                             key="disabled-state"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: -12 }}
+                            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                             className="p-6 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 text-center flex flex-col items-center justify-center py-10"
                         >
                             <ShieldAlert className="w-12 h-12 text-gray-300 mb-3" />
@@ -168,10 +171,10 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
                     ) : (
                         <motion.div
                             key="enabled-state"
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -15 }}
-                            transition={{ duration: 0.3 }}
+                            initial={{ opacity: 0, scale: 0.98, y: 15 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -15 }}
+                            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                             className="space-y-6"
                         >
                             {/* Verification Mode Radio Cards */}
@@ -374,7 +377,7 @@ const SelfieVerificationCard: React.FC<SelfieVerificationCardProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

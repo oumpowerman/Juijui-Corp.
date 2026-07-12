@@ -42,7 +42,7 @@ export const RequestHeader: React.FC<RequestHeaderProps> = ({ request, onClose }
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                         {getStatusBadge(request.status)}
                         {request.user?.employmentType && (
-                            <span className="text-[10px] bg-slate-200/60 text-slate-600 font-extrabold px-2.5 py-0.5 rounded-md uppercase">
+                            <span className="text-[10px] bg-slate-200/60 text-slate-600 font-bold px-2.5 py-0.5 rounded-md uppercase">
                                 {request.user.employmentType === 'FULL_TIME' ? 'พนักงานประจำ' : request.user.employmentType === 'PROBATION' ? 'ทดลองงาน' : 'เด็กฝึกงาน'}
                             </span>
                         )}

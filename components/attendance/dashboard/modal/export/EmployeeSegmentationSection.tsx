@@ -238,7 +238,7 @@ export const EmployeeSegmentationSection: React.FC<EmployeeSegmentationSectionPr
                                                 onClick={() => setEmploymentTypeFilter(filter)}
                                                 className={`py-1.5 px-3 rounded-lg text-[10px] font-bold border transition-all whitespace-nowrap ${
                                                     active
-                                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-extrabold shadow-sm'
+                                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold shadow-sm'
                                                         : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'
                                                 }`}
                                             >
@@ -349,7 +349,7 @@ export const EmployeeSegmentationSection: React.FC<EmployeeSegmentationSectionPr
                             {/* Footer */}
                             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="text-[11px] text-slate-400 font-medium text-left">
-                                    เลือกอยู่ <span className="text-indigo-600 font-extrabold">{selectedUserIds.size}</span> ท่าน จากพนักงานทั้งหมด {users.length} ท่าน
+                                    เลือกอยู่ <span className="text-indigo-600 font-bold">{selectedUserIds.size}</span> ท่าน จากพนักงานทั้งหมด {users.length} ท่าน
                                 </div>
                                 <div className="flex items-center justify-end gap-2 shrink-0">
                                     <button

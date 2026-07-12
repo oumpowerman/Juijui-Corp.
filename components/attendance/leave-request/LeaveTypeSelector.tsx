@@ -57,7 +57,7 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                             {renderIcon(meta.icon || 'Home', `w-4 h-4 sm:w-5 sm:h-5 ${th.text}`)}
                                         </div>
                                         <div className="text-left">
-                                            <span className={`font-black text-xs sm:text-sm block ${th.text}`}>{opt.label}</span>
+                                            <span className={`font-bold text-xs sm:text-sm block ${th.text}`}>{opt.label}</span>
                                             {meta.subLabel && <span className={`text-[9px] sm:text-[10px] font-medium opacity-80 ${th.text}`}>{meta.subLabel}</span>}
                                         </div>
                                     </div>

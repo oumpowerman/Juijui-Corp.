@@ -111,9 +111,9 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                                         <button
                                             key={mode}
                                             onClick={() => setViewMode(mode)}
-                                            className="relative flex-1 h-full flex items-center justify-center rounded-lg text-[10px] sm:text-xs font-black transition-all cursor-pointer select-none outline-none z-10"
+                                            className="relative flex-1 h-full flex items-center justify-center rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer select-none outline-none z-10"
                                         >
-                                            <span className={`relative z-20 transition-colors duration-200 uppercase tracking-wider ${isActive ? 'text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-700 font-bold'}`}>
+                                            <span className={`relative z-20 transition-colors duration-200 uppercase tracking-wider ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400 hover:text-slate-700 font-bold'}`}>
                                                 {mode}
                                             </span>
                                             {isActive && (

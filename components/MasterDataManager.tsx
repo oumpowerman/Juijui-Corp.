@@ -162,6 +162,15 @@ const MasterDataManager: React.FC = () => {
                                 onAdd={addMasterOption}
                                 onUpdate={updateMasterOption}
                                 onDelete={deleteMasterOption}
+                                type="WORK_LOCATION"
+                            />
+                        ) : activeTab === 'SHOOT_LOCATION' ? (
+                            <LocationMasterView 
+                                masterOptions={masterOptions}
+                                onAdd={addMasterOption}
+                                onUpdate={updateMasterOption}
+                                onDelete={deleteMasterOption}
+                                type="SHOOT_LOCATION"
                             />
                         ) : activeTab === 'ATTENDANCE_RULES' ? (
                             <AttendanceRulesView 

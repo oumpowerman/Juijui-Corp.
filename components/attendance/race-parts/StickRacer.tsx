@@ -130,7 +130,7 @@ export const StickRacer: React.FC<StickRacerProps> = ({
                             duration: 2.5, 
                             ease: 'easeOut' 
                         }}
-                        className="font-mono text-[9px] font-black text-[#58a6ff] tracking-wider"
+                        className="font-mono text-[9px] font-bold text-[#58a6ff] tracking-wider"
                     >
                         {activeLeave ? '💤(Leave)' : 'Zzz'}
                     </motion.span>
@@ -302,7 +302,7 @@ export const StickRacer: React.FC<StickRacerProps> = ({
             {/* Time stamp indicator or Status text */}
             <div className="absolute top-full mt-2.5 z-10 flex flex-col items-center">
                 {checkInTime ? (
-                    <div className="px-2.5 py-1 rounded-xl bg-slate-900/95 border border-slate-700/50 text-[10px] sm:text-xs font-mono font-black text-white leading-none shadow-md whitespace-nowrap flex items-center gap-1">
+                    <div className="px-2.5 py-1 rounded-xl bg-slate-900/95 border border-slate-700/50 text-[10px] sm:text-xs font-mono font-bold text-white leading-none shadow-md whitespace-nowrap flex items-center gap-1">
                         {order && order <= 100 && (
                             <span className="text-yellow-400 font-extrabold mr-0.5">#{order}</span>
                         )}

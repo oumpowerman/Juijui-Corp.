@@ -41,7 +41,11 @@ export const DEFAULT_GAME_CONFIG = {
         HP_PENALTY_DUTY_LATE_SUBMIT: 5, 
         HP_PENALTY_EARLY_LEAVE_RATE: 1, 
         HP_PENALTY_EARLY_LEAVE_INTERVAL: 10, 
-        HP_PENALTY_UNAUTHORIZED_WFH: 5 
+        HP_PENALTY_UNAUTHORIZED_WFH: 5,
+        LATE_MODE_DYNAMIC: 0,
+        EARLY_LEAVE_MODE_DYNAMIC: 1,
+        HP_PENALTY_LATE_INTERVAL: 10,
+        HP_PENALTY_LATE_RATE: 1
     },
 
     // Attendance Rules
@@ -321,20 +325,40 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
                 if (globals.COIN_ATTENDANCE !== undefined) rule.coins = globals.COIN_ATTENDANCE;
             }
             
+            let hpChange = rule.hp;
+            let detailsStr = `${rule.xp > 0 ? `+${rule.xp} XP` : ''} ${rule.hp < 0 ? `${rule.hp} HP` : ''}`.trim();
+            
+            if (status === 'LATE') {
+                const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
+                if (lateModeDynamic === 1) {
+                    const lateMinutes = context.lateMinutes || 0;
+                    const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
+                    const rate = penalties.HP_PENALTY_LATE_RATE || 1;
+                    const penalty = Math.ceil(lateMinutes / interval) * rate;
+                    hpChange = -penalty;
+                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                }
+            }
+            
             const timeStr = context.time ? ` @ ${context.time}` : '';
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
             
             let msg = '';
-            if (status === 'LATE') msg = `เข้างานสาย${timeStr}${dateStr}`;
-            else if (status === 'APPEAL') msg = `เข้างาน (รออนุมัติสาย)${timeStr}`;
-            else msg = `เข้างานตรงเวลา${timeStr}`;
+            if (status === 'LATE') {
+                const lateMinutes = context.lateMinutes || 0;
+                msg = `เข้างานสาย${timeStr}${lateMinutes > 0 ? ` (สาย ${lateMinutes} นาที)` : ''}${dateStr}`;
+            } else if (status === 'APPEAL') {
+                msg = `เข้างาน (รออนุมัติสาย)${timeStr}`;
+            } else {
+                msg = `เข้างานตรงเวลา${timeStr}`;
+            }
             
             return {
                 xp: rule.xp,
-                hp: rule.hp,
+                hp: hpChange,
                 coins: rule.coins,
                 message: msg,
-                details: `${rule.xp > 0 ? `+${rule.xp} XP` : ''} ${rule.hp < 0 ? `${rule.hp} HP` : ''}`
+                details: detailsStr
             };
         }
 
@@ -368,13 +392,26 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         case 'ATTENDANCE_LATE': {
             // Explicit penalty call (e.g. from rejection)
             const rule = attendanceRules.LATE;
+            let hpChange = rule.hp;
+            let detailsStr = `${rule.hp} HP`;
+            
+            const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
+            if (lateModeDynamic === 1) {
+                const lateMinutes = context.lateMinutes || 0;
+                const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
+                const rate = penalties.HP_PENALTY_LATE_RATE || 1;
+                const penalty = Math.ceil(lateMinutes / interval) * rate;
+                hpChange = -penalty;
+                detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที)`;
+            }
+
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
             return {
                 xp: rule.xp,
-                hp: rule.hp,
+                hp: hpChange,
                 coins: rule.coins,
                 message: `มาสาย (คำขอถูกปฏิเสธ)${dateStr}`,
-                details: `${rule.hp} HP`
+                details: detailsStr
             };
         }
 
@@ -425,19 +462,29 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
         }
         
         case 'ATTENDANCE_EARLY_LEAVE': {
-             // Dynamic calc based on missing minutes
-             const interval = penalties.HP_PENALTY_EARLY_LEAVE_INTERVAL || 10;
-             const rate = penalties.HP_PENALTY_EARLY_LEAVE_RATE || 1;
+             const earlyLeaveModeDynamic = penalties.EARLY_LEAVE_MODE_DYNAMIC !== undefined ? penalties.EARLY_LEAVE_MODE_DYNAMIC : 1;
+             let hpChange = 0;
+             let detailsStr = '';
              
-             const penalty = Math.ceil((context.missingMinutes || 0) / interval) * rate;
+             if (earlyLeaveModeDynamic === 1) {
+                 const interval = penalties.HP_PENALTY_EARLY_LEAVE_INTERVAL || 10;
+                 const rate = penalties.HP_PENALTY_EARLY_LEAVE_RATE || 1;
+                 const penalty = Math.ceil((context.missingMinutes || 0) / interval) * rate;
+                 hpChange = -penalty;
+                 detailsStr = `-${penalty} HP`;
+             } else {
+                 hpChange = attendanceRules.EARLY_LEAVE?.hp || 0;
+                 detailsStr = `${hpChange} HP`;
+             }
+             
              const missingStr = context.missingMinutes ? ` (ขาด ${context.missingMinutes} นาที)` : '';
 
              return {
                  xp: 0,
-                 hp: -penalty,
+                 hp: hpChange,
                  coins: 0,
                  message: `กลับก่อนเวลา${missingStr}`,
-                 details: `-${penalty} HP`
+                 details: detailsStr
              };
         }
 

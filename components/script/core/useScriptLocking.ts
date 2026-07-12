@@ -25,16 +25,40 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
         lockStatusRef.current = lockStatus;
     }, [lockerUser, lockStatus]);
 
-    const acquireLock = async () => {
+    const acquireLock = async (force: boolean = false) => {
         try {
-            const { error } = await supabase
+            let query = supabase
                 .from('scripts')
                 .update({ 
                     locked_by: currentUser.id, 
                     locked_at: new Date().toISOString() 
                 })
                 .eq('id', scriptId);
+            
+            if (!force) {
+                // Safely update ONLY if locked_by is null or already locked by the current user
+                query = query.or(`locked_by.is.null,locked_by.eq.${currentUser.id}`);
+            }
+
+            const { data, error } = await query.select('locked_by');
             if (error) throw error;
+
+            // If the query didn't update anything (because someone else locked it in the meantime)
+            if (!force && (!data || data.length === 0)) {
+                const { data: currentScript } = await supabase
+                    .from('scripts')
+                    .select('locked_by')
+                    .eq('id', scriptId)
+                    .single();
+                
+                if (currentScript && currentScript.locked_by && currentScript.locked_by !== currentUser.id) {
+                    setLockStatus('LOCKED_BY_OTHER');
+                    const locker = users.find(u => u.id === currentScript.locked_by);
+                    setLockerUser(locker ? { id: locker.id, name: locker.name, avatarUrl: locker.avatarUrl || '' } : { id: currentScript.locked_by, name: 'Unknown', avatarUrl: '' });
+                    return;
+                }
+            }
+
             setLockStatus('LOCKED_BY_ME');
             setLockerUser({ id: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' });
         } catch (err) { 
@@ -43,13 +67,13 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
     };
 
     const refreshLock = async () => {
-        if (lockStatus !== 'LOCKED_BY_ME') return;
-        await supabase.from('scripts').update({ locked_at: new Date().toISOString() }).eq('id', scriptId);
+        if (lockStatusRef.current !== 'LOCKED_BY_ME') return;
+        await supabase.from('scripts').update({ locked_at: new Date().toISOString() }).eq('id', scriptId).eq('locked_by', currentUser.id);
     };
 
     const releaseLock = async () => {
-        if (lockStatus === 'LOCKED_BY_ME') {
-             await supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId);
+        if (lockStatusRef.current === 'LOCKED_BY_ME') {
+             await supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId).eq('locked_by', currentUser.id);
         }
     };
 
@@ -59,7 +83,7 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
             'แย่งสิทธิ์การแก้ไข'
         );
         if (confirmed) {
-            await acquireLock();
+            await acquireLock(true);
             showToast('แย่งสิทธิ์การแก้ไขเรียบร้อย 😈', 'success');
         }
     };
@@ -88,10 +112,25 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
                 leftPresences.forEach((p: any) => {
                     if (p.user?.id === lockerUserRef.current?.id && lockStatusRef.current === 'LOCKED_BY_OTHER') {
                         console.log("Locker left, clearing ghost lock...");
-                        supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId).then(() => {
-                            setLockStatus('FREE');
-                            setLockerUser(null);
-                        });
+                        
+                        // Select one leader among online viewers to clean up the ghost lock
+                        const state = channel.presenceState();
+                        const onlineUsers = Object.values(state)
+                            .flatMap((presences: any) => presences.map((p: any) => p.user?.id))
+                            .filter((id): id is string => !!id && id !== p.user?.id);
+                        
+                        onlineUsers.sort();
+                        const isLeader = onlineUsers.length === 0 || onlineUsers[0] === currentUser.id;
+                        
+                        if (isLeader) {
+                            console.log("This client is designated as cleanup leader.");
+                            supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId).eq('locked_by', p.user.id).then(() => {
+                                setLockStatus('FREE');
+                                setLockerUser(null);
+                            });
+                        } else {
+                            console.log("Another client is handling ghost lock cleanup.");
+                        }
                     }
                 });
             })
@@ -123,7 +162,12 @@ export const useScriptLocking = ({ scriptId, currentUser, users, showConfirm, sh
                 }
             });
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            if (lockStatusRef.current === 'LOCKED_BY_ME') {
+                supabase.from('scripts').update({ locked_by: null }).eq('id', scriptId).eq('locked_by', currentUser.id).then();
+            }
+            supabase.removeChannel(channel);
+        };
     }, [scriptId, currentUser.id, users]);
 
     useEffect(() => {

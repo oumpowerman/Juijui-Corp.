@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, mergeAttendanceNotes } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 
 export const useAttendanceActions = (userId: string) => {
@@ -90,10 +90,13 @@ export const useAttendanceActions = (userId: string) => {
             showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
+            const lateMinutes = getLateMinutes(now, startTimeStr, buffer);
+
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
                 status: isAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
-                time: format(now, 'HH:mm')
+                time: format(now, 'HH:mm'),
+                lateMinutes: lateMinutes
             });
 
             // Handle Unauthorized WFH Penalty

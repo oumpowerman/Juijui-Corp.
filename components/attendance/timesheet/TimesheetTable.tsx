@@ -53,7 +53,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                 <table className="w-full border-collapse table-fixed min-w-[700px] sm:min-w-[1200px]">
                     <thead className="sticky top-0 z-[100]">
                         <tr className="bg-slate-50/95 backdrop-blur-md border-b border-slate-200">
-                            <th className="w-32 sm:w-64 p-3 sm:p-4 text-left text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.2em] sticky left-0 bg-slate-50 z-[110] border-r border-slate-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-slate-50 after:to-transparent after:pointer-events-none">
+                            <th className="w-32 sm:w-64 p-3 sm:p-4 text-left text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] sm:tracking-[0.2em] sticky left-0 bg-slate-50 z-[110] border-r border-slate-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-slate-50 after:to-transparent after:pointer-events-none">
                                 Member Profile
                             </th>
                             {dateRange.map(day => {
@@ -77,10 +77,10 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                             exit={{ opacity: 0, y: 4 }}
                                             transition={{ duration: 0.15 }}
                                         >
-                                            <p className={`text-[9px] sm:text-[10px] font-black uppercase ${isHoliday ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            <p className={`text-[9px] sm:text-[10px] font-bold uppercase ${isHoliday ? 'text-rose-400' : 'text-slate-400'}`}>
                                                 {format(day, 'EEE', { locale: th })}
                                             </p>
-                                            <p className={`text-xs sm:text-sm font-black leading-tight ${isTodayDay ? 'text-indigo-600' : 'text-slate-700'}`}>
+                                            <p className={`text-xs sm:text-sm font-bold leading-tight ${isTodayDay ? 'text-indigo-600' : 'text-slate-700'}`}>
                                                 {format(day, 'd MMM', { locale: th })}
                                             </p>
                                             {dayStatus.source === 'EXCEPTION' && (
@@ -138,7 +138,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                         <td colSpan={dateRange.length + 1} className="px-4 sm:px-6 py-2">
                                             <div className="flex items-center gap-2">
                                                 <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                                                <span className="text-[9px] sm:text-[10px] font-black text-indigo-900 uppercase tracking-widest">{dept}</span>
+                                                <span className="text-[9px] sm:text-[10px] font-bold text-indigo-900 uppercase tracking-widest">{dept}</span>
                                                 <span className="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-[8px] font-bold text-slate-400">{deptUsers.length} MEMBERS</span>
                                             </div>
                                         </td>
@@ -160,9 +160,9 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                         <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 rounded-full border border-white ${user.workStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-[11px] sm:text-sm font-black text-slate-800 truncate leading-tight">{user.name}</p>
+                                                        <p className="text-[11px] sm:text-sm font-bold text-slate-800 truncate leading-tight">{user.name}</p>
                                                         <p className="hidden sm:block text-[10px] text-indigo-500 font-bold uppercase truncate opacity-70">Lv.{user.level} {user.position}</p>
-                                                        <p className="block sm:hidden text-[9px] text-indigo-500/85 font-black uppercase truncate">Lv.{user.level}</p>
+                                                        <p className="block sm:hidden text-[9px] text-indigo-500/85 font-bold uppercase truncate">Lv.{user.level}</p>
                                                     </div>
                                                 </div>
                                             </td>

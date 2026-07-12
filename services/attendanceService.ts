@@ -31,18 +31,20 @@ export const attendanceService = {
         const { data: leaveData, error: leaveError } = await query;
         if (leaveError) throw leaveError;
 
-        const leaves: LeaveRequest[] = (leaveData || []).map((r: any) => ({
-            id: r.id,
-            userId: r.user_id,
-            type: r.type,
-            startDate: new Date(r.start_date),
-            endDate: new Date(r.end_date),
-            reason: r.reason,
-            attachmentUrl: r.attachment_url,
-            status: r.status as RequestStatus,
-            approverId: r.approver_id,
-            createdAt: new Date(r.created_at),
-            rejectionReason: r.rejection_reason,
+        const leaves: LeaveRequest[] = (leaveData || [])
+            .filter((r: any) => r.type !== 'OVERTIME')
+            .map((r: any) => ({
+                id: r.id,
+                userId: r.user_id,
+                type: r.type,
+                startDate: new Date(r.start_date),
+                endDate: new Date(r.end_date),
+                reason: r.reason,
+                attachmentUrl: r.attachment_url,
+                status: r.status as RequestStatus,
+                approverId: r.approver_id,
+                createdAt: new Date(r.created_at),
+                rejectionReason: r.rejection_reason,
             user: r.profiles ? {
                 id: r.profiles.id,
                 name: r.profiles.full_name,
@@ -170,6 +172,7 @@ export const attendanceService = {
         base_salary_at_time: number;
         status: string;
         attachment_url?: string | null;
+        is_fixed?: boolean;
     }) {
         const { data, error } = await supabase
             .from('ot_requests')

@@ -124,7 +124,7 @@ export const SleeperChamber: React.FC<SleeperChamberProps> = ({
                                                 duration: 3.5, 
                                                 ease: 'easeOut' 
                                             }}
-                                            className="font-mono text-[9px] font-black text-sky-450 block drop-shadow-sm"
+                                            className="font-mono text-[9px] font-bold text-sky-450 block drop-shadow-sm"
                                         >
                                             Zzz
                                         </motion.span>
@@ -139,7 +139,7 @@ export const SleeperChamber: React.FC<SleeperChamberProps> = ({
                                 />
 
                                 {/* Hover tooltip bubble card */}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-5 hidden group-hover:block bg-slate-950 text-white text-[9.5px] font-black px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-800 whitespace-nowrap z-[300]">
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-5 hidden group-hover:block bg-slate-950 text-white text-[9.5px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-800 whitespace-nowrap z-[300]">
                                     <div className="flex items-center gap-1">
                                         <span className="text-amber-400 font-bold">{resident.user.name}</span>
                                         {resident.user.emoji && <span className="text-slate-400 font-normal">{resident.user.emoji}</span>}

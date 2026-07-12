@@ -71,7 +71,7 @@ const SpreadsheetPreview: React.FC<SpreadsheetPreviewProps> = ({
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <Eye className="w-3.5 h-3.5 text-slate-400" /> ตัวอย่างไฟล์ที่จะได้รับ (Excel Simulation Live View)
                 </span>
-                <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     ตอบสนองแบบ Real-Time
                 </span>
@@ -194,7 +194,7 @@ const SpreadsheetPreview: React.FC<SpreadsheetPreviewProps> = ({
 
                 {/* Spreadsheet Bottom Helper (Mock) */}
                 <div className="bg-slate-50 border-t border-slate-200 px-4 py-2 flex items-center gap-4 text-[10px] text-slate-400 shrink-0 font-medium">
-                    <span className="text-emerald-600 font-extrabold flex items-center gap-1">🟢 READY TO DEPLOY</span>
+                    <span className="text-emerald-600 font-bold flex items-center gap-1">🟢 READY TO DEPLOY</span>
                     <span className="h-3 w-[1px] bg-slate-200" />
                     <span>แถวพนักงานทั้งหมดในระบบจะถูกสร้างตามฟอร์แมตจำลองนี้</span>
                 </div>

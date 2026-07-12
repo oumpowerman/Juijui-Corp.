@@ -14,7 +14,13 @@ export const getWeekNumber = (d: Date): { year: number; week: number } => {
  * Deterministic hash function that generates a stable pseudo-random sequence of days of the week (0-6)
  * for a specific user and week of the year.
  */
-export const getDeterministicVerificationDays = (userId: string, year: number, week: number, daysCount: number): number[] => {
+export const getDeterministicVerificationDays = (
+    userId: string, 
+    year: number, 
+    week: number, 
+    daysCount: number,
+    workDays?: number[]
+): number[] => {
     const seedStr = `${userId}-${year}-${week}`;
     // Simple string hash
     let hash = 0;
@@ -23,7 +29,8 @@ export const getDeterministicVerificationDays = (userId: string, year: number, w
         hash |= 0; // Convert to 32bit integer
     }
     
-    const days = [0, 1, 2, 3, 4, 5, 6]; // 0: Sunday, 1: Monday, ... 6: Saturday
+    // Use user's personal work days if provided; default to Monday-Friday [1, 2, 3, 4, 5] if empty
+    const daysPool = (workDays && workDays.length > 0) ? [...workDays] : [1, 2, 3, 4, 5];
     
     // Use a LCG-like pseudo-random generator with our hash as seed
     let seed = Math.abs(hash) || 1;
@@ -32,8 +39,8 @@ export const getDeterministicVerificationDays = (userId: string, year: number, w
         return seed / 233280;
     };
     
-    // Shuffle days array deterministically
-    const shuffled = [...days];
+    // Shuffle days pool deterministically
+    const shuffled = [...daysPool];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(nextRandom() * (i + 1));
         const temp = shuffled[i];
@@ -41,8 +48,9 @@ export const getDeterministicVerificationDays = (userId: string, year: number, w
         shuffled[j] = temp;
     }
     
-    // Return the first `daysCount` elements, sorted
-    return shuffled.slice(0, daysCount).sort((a, b) => a - b);
+    // Return the first `daysCount` elements, up to the size of the pool
+    const countToSlice = Math.min(daysCount, shuffled.length);
+    return shuffled.slice(0, countToSlice).sort((a, b) => a - b);
 };
 
 /**
@@ -52,7 +60,8 @@ export const checkNeedsSelfieVerification = (
     userId: string, 
     mode: string, 
     daysCountStr: string, 
-    todayDate: Date = new Date()
+    todayDate: Date = new Date(),
+    workDays?: number[]
 ): boolean => {
     if (!userId) return true; // Fallback to safe option if user ID is missing
     if (mode === 'ALWAYS_OFF') {
@@ -63,11 +72,10 @@ export const checkNeedsSelfieVerification = (
     }
     if (mode === 'RANDOM') {
         const daysCount = parseInt(daysCountStr, 10) || 3;
-        if (daysCount >= 7) return true;
         if (daysCount <= 0) return false;
         
         const { year, week } = getWeekNumber(todayDate);
-        const activeDays = getDeterministicVerificationDays(userId, year, week, daysCount);
+        const activeDays = getDeterministicVerificationDays(userId, year, week, daysCount, workDays);
         
         // todayDate.getDay() returns 0 (Sunday) to 6 (Saturday)
         const currentDay = todayDate.getDay();

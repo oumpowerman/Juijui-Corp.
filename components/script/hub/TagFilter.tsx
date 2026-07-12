@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Hash, X, Check, TrendingUp, Search, Tag as TagIcon, Loader2, Plus } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { User } from '../../../types';
+import { ScriptHubMode } from './ScriptModeSwitcher';
 
 interface TagFilterProps {
     selectedTags: string[];
@@ -13,11 +15,15 @@ interface TagFilterProps {
     filterCategory?: string;
     filterStatus?: string[];
     searchQuery?: string;
+    mode?: ScriptHubMode;
+    currentUser?: User;
+    viewTab?: 'QUEUE' | 'LIBRARY' | 'HISTORY';
 }
 
 const TagFilter: React.FC<TagFilterProps> = ({ 
     selectedTags, onToggle, onClear,
-    filterOwner, filterChannel, filterCategory, filterStatus, searchQuery
+    filterOwner, filterChannel, filterCategory, filterStatus, searchQuery,
+    mode = 'HUB', currentUser, viewTab
 }) => {
     const [inputValue, setInputValue] = useState('');
     const [trendingTags, setTrendingTags] = useState<{ name: string; count: number }[]>([]);
@@ -33,20 +39,53 @@ const TagFilter: React.FC<TagFilterProps> = ({
                 // Build a smart query that respects current filters
                 let query = supabase.from('scripts').select('tags');
 
-                if (filterOwner && filterOwner.length > 0) {
-                    query = query.in('owner_id', filterOwner);
+                // Personal vs Hub Mode Filter
+                if (mode === 'STUDIO') {
+                    query = query.eq('is_personal', true);
+                    if (currentUser?.id) {
+                        query = query.or(`author_id.eq.${currentUser.id},idea_owner_id.eq.${currentUser.id}`);
+                    }
+                } else {
+                    query = query.eq('is_personal', false);
                 }
+
+                // Tab Filter
+                if (viewTab === 'QUEUE') {
+                    query = query.eq('is_in_shoot_queue', true);
+                } else if (viewTab === 'HISTORY') {
+                    query = query.eq('status', 'DONE');
+                } else if (viewTab === 'LIBRARY') {
+                    query = query.eq('is_in_shoot_queue', false).neq('status', 'DONE');
+                }
+
+                // Owner Filters
+                if (filterOwner && filterOwner.length > 0) {
+                    query = query.or(`author_id.in.(${filterOwner.join(',')}),idea_owner_id.in.(${filterOwner.join(',')})`);
+                }
+
+                // Channel Filter
                 if (filterChannel && filterChannel.length > 0) {
                     query = query.in('channel_id', filterChannel);
                 }
+
+                // Category Filter
                 if (filterCategory && filterCategory !== 'ALL') {
                     query = query.eq('category', filterCategory);
                 }
+
+                // Status Filter
                 if (filterStatus && filterStatus.length > 0 && !filterStatus.includes('ALL')) {
                     query = query.in('status', filterStatus);
                 }
+
+                // Search Query Filter
                 if (searchQuery) {
-                    query = query.ilike('title', `%${searchQuery}%`);
+                    query = query.or(`title.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`);
+                }
+
+                // Intersection count: also filter by selected tags
+                if (selectedTags && selectedTags.length > 0) {
+                    query = query.contains('tags', selectedTags);
                 }
 
                 const { data, error } = await query
@@ -61,7 +100,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
                             row.tags.forEach((t: string) => {
                                 const clean = t.trim();
                                 if (clean) counts[clean] = (counts[clean] || 0) + 1;
-                            });
+                             });
                         }
                     });
                     const sorted = Object.entries(counts)
@@ -77,7 +116,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
             }
         };
         fetchTrendingTags();
-    }, [filterOwner, filterChannel, filterCategory, filterStatus, searchQuery]);
+    }, [filterOwner, filterChannel, filterCategory, filterStatus, searchQuery, mode, currentUser, viewTab, selectedTags]);
 
     // Handle click outside
     useEffect(() => {

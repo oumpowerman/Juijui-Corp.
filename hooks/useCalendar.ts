@@ -42,6 +42,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
             if (error) throw error;
             
             // 2. If NO filters exist, SEED the default ones into DB
+            /*
             if (data && data.length === 0) {
                 const seedData = DEFAULT_CHIPS.map(chip => ({
                     id: `${chip.id}_${userId}`, // Suffix with userId to ensure global uniqueness
@@ -67,6 +68,11 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
                     id: `${chip.id}_${userId}`
                 }));
                 setCustomChips(chipsWithUserIds);
+                return;
+            }
+            */
+            if (data && data.length === 0) {
+                setCustomChips([]);
                 return;
             }
 

@@ -525,7 +525,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
             />
 
             {/* Premium QC Submission Modal */}
-            {isQCModalOpen && initialData && currentUser && (
+            {initialData && currentUser && (
                 <QCSubmissionModal
                     isOpen={isQCModalOpen}
                     onClose={() => setIsQCModalOpen(false)}

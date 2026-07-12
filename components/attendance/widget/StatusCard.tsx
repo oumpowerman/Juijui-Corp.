@@ -15,6 +15,9 @@ import { CheckOutModal } from './CheckOutModal';
 import ForgotCheckInControl from './ForgotCheckInControl';
 import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
+import { useMasterData } from '../../../hooks/useMasterData';
+import { checkNeedsSelfieVerification } from '../../../lib/selfieUtils';
+import { useUserSession } from '../../../context/UserSessionContext';
 
 interface StatusCardProps {
     user: User;
@@ -44,6 +47,16 @@ const StatusCard: React.FC<StatusCardProps> = ({
 }) => {
     const { showAlert } = useGlobalDialog(); 
     const { showToast } = useToast();
+
+    const { masterOptions } = useMasterData();
+
+    const selfieModeOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'SELFIE_VERIFICATION_MODE');
+    const selfieMode = selfieModeOpt?.label || 'ALWAYS_ON';
+    const selfieDaysOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'SELFIE_VERIFICATION_DAYS');
+    const selfieDays = selfieDaysOpt?.label || '3';
+
+    // เช็กว่ามีการเปิดใช้งานระบบถ่ายรูปหรือไม่ โดยพิจารณาตามสุ่มรายวันรายคนด้วย
+    const isSelfieEnabled = checkNeedsSelfieVerification(user?.id || '', selfieMode, selfieDays, new Date(), user?.workDays);
 
     // --- DRIVE LOADING TIMER ---
     const [loadingTime, setLoadingTime] = useState(0);
@@ -119,6 +132,22 @@ const StatusCard: React.FC<StatusCardProps> = ({
 
         return { mode: 'NORMAL', name: '' };
     }, [exceptions, annualHolidays, time]);
+
+    const { otRequests } = useUserSession();
+
+    const hasApprovedOT = useMemo(() => {
+        if (!otRequests) return false;
+        const todayStr = format(time, 'yyyy-MM-dd');
+        return otRequests.some(req => 
+            String(req.userId) === String(user.id) && 
+            req.date === todayStr && 
+            req.status === 'APPROVED'
+        );
+    }, [otRequests, user.id, time]);
+
+    const isBlockedByHoliday = useMemo(() => {
+        return dayStatus.mode === 'HOLIDAY' && !hasApprovedOT;
+    }, [dayStatus.mode, hasApprovedOT]);
 
     // Check if user is checked in AND not on leave
     const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
@@ -211,104 +240,106 @@ const StatusCard: React.FC<StatusCardProps> = ({
     return (
         <div className="space-y-3 relative z-10">
             {/* GOOGLE DRIVE STATUS BANNER (NEW TOP POSITION) */}
-            <div className="mb-2 animate-in fade-in slide-in-from-top-1 duration-500">
-                {!isDriveReady ? (
-                    <div className={`p-3 rounded-2xl border transition-all ${isTimeout ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-                        {isTimeout ? (
-                            <div className="flex items-center justify-between">
+            {isSelfieEnabled && (
+                <div className="mb-2 animate-in fade-in slide-in-from-top-1 duration-500">
+                    {!isDriveReady ? (
+                        <div className={`p-3 rounded-2xl border transition-all ${isTimeout ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                            {isTimeout ? (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-rose-100 p-2 rounded-full text-rose-500">
+                                            <CloudOff className="w-4 h-4" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[11px] font-bold text-rose-800">Drive Connection Timeout</p>
+                                            <p className="text-[9px] text-rose-600">การเชื่อมต่อล้มเหลว กรุณาลองใหม่</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={handleRetry} 
+                                        className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-rose-600 transition-colors shadow-sm"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            ) : (
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-rose-100 p-2 rounded-full text-rose-500">
-                                        <CloudOff className="w-4 h-4" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-[11px] font-bold text-rose-800">Drive Connection Timeout</p>
-                                        <p className="text-[9px] text-rose-600">การเชื่อมต่อล้มเหลว กรุณาลองใหม่</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={handleRetry} 
-                                    className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-rose-600 transition-colors shadow-sm"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3">
-                                <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-                                <div className="flex-1">
-                                    <p className="text-[11px] font-medium text-slate-500">กำลังเตรียมระบบ Google Drive...</p>
-                                    <div className="mt-1.5 w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                                        <div 
-                                            className="h-full bg-indigo-400 transition-all duration-1000 ease-linear" 
-                                            style={{ width: `${(loadingTime / 20) * 100}%` }}
-                                        ></div>
+                                    <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                    <div className="flex-1">
+                                        <p className="text-[11px] font-medium text-slate-500">กำลังเตรียมระบบ Google Drive...</p>
+                                        <div className="mt-1.5 w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-indigo-400 transition-all duration-1000 ease-linear" 
+                                                style={{ width: `${(loadingTime / 20) * 100}%` }}
+                                            ></div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ) : !isAuthenticated ? (
-                    <motion.div 
-                        animate={{ 
-                            backgroundColor: ["rgba(255, 241, 242, 0.5)", "rgba(255, 228, 230, 0.8)", "rgba(255, 241, 242, 0.5)"],
-                            borderColor: ["rgba(251, 113, 133, 0.2)", "rgba(251, 113, 133, 0.5)", "rgba(251, 113, 133, 0.2)"]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        className="border rounded-2xl p-3 flex items-center justify-between shadow-sm relative overflow-hidden"
-                    >
-                        {/* Urgent Background Pulse */}
-                        <motion.div 
-                            animate={{ opacity: [0, 0.1, 0] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="absolute inset-0 bg-red-500 pointer-events-none"
-                        />
-
-                        <div className="flex items-center gap-3 relative z-10">
-                            <motion.div 
-                                animate={{ rotate: [-10, 10, -10] }}
-                                transition={{ duration: 0.5, repeat: Infinity, ease: "linear" }}
-                                className="bg-white p-2 rounded-full text-rose-500 shadow-sm border border-rose-100"
-                            >
-                                <AlertTriangle className="w-5 h-5" />
-                            </motion.div>
-                            <div className="text-left">
-                                <p className="text-[11px] font-black text-rose-900 uppercase tracking-tight flex items-center gap-1">
-                                    Backup System Disabled
-                                </p>
-                                <p className="text-[9px] text-rose-600 font-bold leading-tight">
-                                    เสี่ยงข้อมูลสูญหาย! กรุณาเชื่อมต่อ Drive ทันที
-                                </p>
-                            </div>
+                            )}
                         </div>
-                        <motion.button 
-                            onClick={onConnectDrive}
+                    ) : !isAuthenticated ? (
+                        <motion.div 
                             animate={{ 
-                                scale: [1, 1.1, 1],
-                                boxShadow: [
-                                    "0 0 0px rgba(225, 29, 72, 0)",
-                                    "0 0 20px rgba(225, 29, 72, 0.5)",
-                                    "0 0 0px rgba(225, 29, 72, 0)"
-                                ]
+                                backgroundColor: ["rgba(255, 241, 242, 0.5)", "rgba(255, 228, 230, 0.8)", "rgba(255, 241, 242, 0.5)"],
+                                borderColor: ["rgba(251, 113, 133, 0.2)", "rgba(251, 113, 133, 0.5)", "rgba(251, 113, 133, 0.2)"]
                             }}
-                            transition={{ 
-                                duration: 1, 
-                                repeat: Infinity,
-                                ease: "easeInOut"
-                            }}
-                            whileHover={{ scale: 1.15, boxShadow: "0 0 25px rgba(225, 29, 72, 0.7)" }}
-                            whileTap={{ scale: 0.9 }}
-                            className="bg-rose-600 text-white px-4 py-2 rounded-xl text-[14px] font-kanit font-medium uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all relative z-10"
+                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                            className="border rounded-2xl p-3 flex items-center justify-between shadow-sm relative overflow-hidden"
                         >
-                            เชื่อมต่อตอนนี้!
-                        </motion.button>
-                    </motion.div>
-                ) : (
-                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-2.5 flex items-center justify-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Google Drive Connected</span>
-                    </div>
-                )}
-            </div>
+                            {/* Urgent Background Pulse */}
+                            <motion.div 
+                                animate={{ opacity: [0, 0.1, 0] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="absolute inset-0 bg-red-500 pointer-events-none"
+                            />
+
+                            <div className="flex items-center gap-3 relative z-10">
+                                <motion.div 
+                                    animate={{ rotate: [-10, 10, -10] }}
+                                    transition={{ duration: 0.5, repeat: Infinity, ease: "linear" }}
+                                    className="bg-white p-2 rounded-full text-rose-500 shadow-sm border border-rose-100"
+                                >
+                                    <AlertTriangle className="w-5 h-5" />
+                                </motion.div>
+                                <div className="text-left">
+                                    <p className="text-[11px] font-bold text-rose-900 uppercase tracking-tight flex items-center gap-1">
+                                        Backup System Disabled
+                                    </p>
+                                    <p className="text-[9px] text-rose-600 font-bold leading-tight">
+                                        เสี่ยงข้อมูลสูญหาย! กรุณาเชื่อมต่อ Drive ทันที
+                                    </p>
+                                </div>
+                            </div>
+                            <motion.button 
+                                onClick={onConnectDrive}
+                                animate={{ 
+                                    scale: [1, 1.1, 1],
+                                    boxShadow: [
+                                        "0 0 0px rgba(225, 29, 72, 0)",
+                                        "0 0 20px rgba(225, 29, 72, 0.5)",
+                                        "0 0 0px rgba(225, 29, 72, 0)"
+                                    ]
+                                }}
+                                transition={{ 
+                                    duration: 1, 
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                }}
+                                whileHover={{ scale: 1.15, boxShadow: "0 0 25px rgba(225, 29, 72, 0.7)" }}
+                                whileTap={{ scale: 0.9 }}
+                                className="bg-rose-600 text-white px-4 py-2 rounded-xl text-[14px] font-kanit font-medium uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all relative z-10"
+                            >
+                                เชื่อมต่อตอนนี้!
+                            </motion.button>
+                        </motion.div>
+                    ) : (
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-2.5 flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Google Drive Connected</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* OUTDATED SESSION BANNER (Persistent) */}
             {isSessionOutdated && outdatedLogs.map(log => (
@@ -371,6 +402,15 @@ const StatusCard: React.FC<StatusCardProps> = ({
                             <span className="text-xs text-orange-700 font-bold">รออนุมัติการเข้าสาย (Appeal Pending)</span>
                         </div>
                     )}
+                    {todayLog?.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') && (
+                         <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 rounded-xl border border-amber-200 shadow-sm flex items-start gap-2.5 animate-pulse-slow">
+                            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                            <div className="text-left">
+                                <span className="block text-xs text-amber-800 font-bold">เวลานี้ได้รับการจำลองเข้าระบบชั่วคราว</span>
+                                <span className="block text-[10px] text-amber-600 leading-normal mt-0.5">เวลาเข้างานของคุณยังไม่ถูกอนุมัติ ระบบอาจจะปรับเปลี่ยนเวลาในภายหลังตามการพิจารณาของแอดมิน</span>
+                            </div>
+                        </div>
+                    )}
                     {todayLog?.status === 'PENDING_VERIFY' && (
                          <div className="bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-yellow-600 animate-pulse" />
@@ -405,7 +445,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                                     <Palmtree className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h4 className="text-sm font-black text-pink-700">วันนี้ {dayStatus.name}</h4>
+                                    <h4 className="text-sm font-bold text-pink-700">วันนี้ {dayStatus.name}</h4>
                                     <p className="text-[10px] text-pink-600 font-medium">วันหยุดพักผ่อน ไม่ต้องลงเวลาก็ได้นะ</p>
                                 </div>
                             </div>
@@ -463,37 +503,56 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     {stats.currentStreak > 0 && (
                         <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 py-1.5 rounded-xl border border-orange-200/50 mb-2 animate-pulse-slow">
                             <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-bounce" />
-                            <span className="text-xs font-black uppercase tracking-wide">
+                            <span className="text-xs font-bold uppercase tracking-wide">
                                 {stats.currentStreak} Day Streak!
                             </span>
                         </div>
                     )}
 
                     <div className={`rounded-xl p-4 text-center border-2 border-dashed ${dayStatus.mode === 'HOLIDAY' ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-pink-600' : 'text-gray-500'}`}>
-                            {dayStatus.mode === 'HOLIDAY' ? 'แต่ถ้าจะทำงาน ก็กดได้เลย!' : 'พร้อมเริ่มงานรึยัง?'}
+                        <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-gray-600' : 'text-gray-500'}`}>
+                            {dayStatus.mode === 'HOLIDAY' ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' : 'พร้อมเริ่มงานรึยัง?'}
                         </p>
                         <div className="flex flex-col gap-3">
-                            <button 
-                                onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
-                                className={`w-full py-3.5 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2
-                                    ${dayStatus.mode === 'HOLIDAY' 
-                                        ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-pink-200' 
-                                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200'
-                                    }
-                                `}
-                            >
-                                <LogIn className="w-5 h-5" /> {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
-                            </button>
+                            <div className="relative group w-full">
+                                <button 
+                                    disabled={isBlockedByHoliday}
+                                    onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
+                                    className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2
+                                        ${isBlockedByHoliday 
+                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
+                                            : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
+                                        }
+                                    `}
+                                >
+                                    <LogIn className="w-5 h-5" /> 
+                                    {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
+                                </button>
+                                
+                                {isBlockedByHoliday && (
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 bg-white/95 text-slate-700 border border-pink-100/80 backdrop-blur-md shadow-[0_15px_35px_rgba(244,63,94,0.08)] text-slate-100 text-xs rounded-2xl p-4 border border-slate-800/80 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.3)] opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-50 text-center leading-relaxed">
+                                        <div className="flex items-center justify-center gap-1.5 text-amber-400 font-bold mb-1.5">
+                                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                                            <span>วันนี้เป็นวันหยุดงาน</span>
+                                        </div>
+                                        <p className="text-slate-600 text-[12px] font-medium">
+                                            กรุณายื่นคำขอการทำ OT และรอให้ได้รับการอนุมัติจากแอดมินหรือหัวหน้างานก่อน จึงจะลงเวลาเข้างานได้ครับ
+                                        </p>
+                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white/95" />
+                                    </div>
+                                )}
+                            </div>
                             
                             {/* NEW: Forgot Check-in Component (Auto Logic) */}
-                            <ForgotCheckInControl 
-                                startTime={startTime}
-                                lateBuffer={lateBuffer}
-                                isCheckedIn={!!todayLog}
-                                onSubmit={onCheckOutRequest}
-                                leaveUsage={leaveUsage}
-                            />
+                            {dayStatus.mode !== 'HOLIDAY' && (
+                                <ForgotCheckInControl 
+                                    startTime={startTime}
+                                    lateBuffer={lateBuffer}
+                                    isCheckedIn={!!todayLog}
+                                    onSubmit={onCheckOutRequest}
+                                    leaveUsage={leaveUsage}
+                                />
+                            )}
                         </div>
                     </div>
                 </>

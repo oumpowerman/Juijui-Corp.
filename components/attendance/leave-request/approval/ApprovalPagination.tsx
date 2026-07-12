@@ -59,7 +59,7 @@ export const ApprovalPagination: React.FC<ApprovalPaginationProps> = ({
                             <button
                                 key={pageNum}
                                 onClick={() => setCurrentPage(pageNum)}
-                                className={`w-9 h-9 rounded-xl text-xs font-black transition-all border outline-none cursor-pointer ${
+                                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all border outline-none cursor-pointer ${
                                     currentPage === pageNum
                                         ? 'bg-indigo-600 text-white border-transparent shadow-md shadow-indigo-100'
                                         : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'

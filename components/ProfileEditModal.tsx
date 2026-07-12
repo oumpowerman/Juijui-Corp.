@@ -86,7 +86,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
           title: '🔔 ทดสอบเชื่อมต่อ LINE สำเร็จ!',
           message: 'นี่คือข้อความทดสอบจากระบบ Juijui App เพื่อยืนยันว่า LINE User ID ของคุณใช้งานได้ถูกต้องเป็นปกติ',
           is_read: false,
-          link_path: 'ATTENDANCE'
+          link_path: 'ATTENDANCE',
+          line_status: null
         })
         .select('*')
         .single();

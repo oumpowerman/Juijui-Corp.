@@ -1,25 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
 interface ActionFooterProps {
     isSubmitting: boolean;
     onApprove: () => Promise<void>;
-    onReject: (reason: string) => Promise<void>;
+    onReject: (reason: string, customCheckInTime?: string) => Promise<void>;
+    requestType?: string;
+    defaultCheckInTime?: string;
 }
 
 export const ActionFooter: React.FC<ActionFooterProps> = ({
     isSubmitting,
     onApprove,
-    onReject
+    onReject,
+    requestType,
+    defaultCheckInTime = '10:00'
 }) => {
     const [isRejectMode, setIsRejectMode] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [adjustedTime, setAdjustedTime] = useState(defaultCheckInTime);
+
+    useEffect(() => {
+        if (defaultCheckInTime) {
+            setAdjustedTime(defaultCheckInTime);
+        }
+    }, [defaultCheckInTime]);
 
     const handleRejectSubmit = async () => {
         if (!rejectionReason.trim()) return;
         try {
-            await onReject(rejectionReason);
+            await onReject(rejectionReason, requestType === 'FORGOT_CHECKIN' ? adjustedTime : undefined);
             setIsRejectMode(false);
             setRejectionReason('');
         } catch (e) {
@@ -65,6 +76,25 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4"
                     >
+                        {requestType === 'FORGOT_CHECKIN' && (
+                            <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-100 shadow-sm space-y-2">
+                                <label className="text-xs font-bold text-amber-800 uppercase block">
+                                    🕒 เวลาเข้างานจริงของพนักงาน (ประเมินจากหลักฐาน)
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="time"
+                                        value={adjustedTime}
+                                        onChange={(e) => setAdjustedTime(e.target.value)}
+                                        className="bg-white border-2 border-amber-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-amber-50 focus:border-amber-400 outline-none transition-all shadow-sm shrink-0"
+                                        id="rejection-time-picker"
+                                    />
+                                    <span className="text-[10px] text-amber-700 font-medium leading-tight">
+                                        ระบบจะประเมินการสาย/หักคะแนน HP และ XP (ถ้าสาย) อิงตามเวลาเข้างานจริงที่คุณปรับนี้
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">กรุณาระบุเหตุผลที่ปฏิเสธ</label>
                             <textarea 

@@ -77,7 +77,7 @@ export const RaceTrack3DArena: React.FC<RaceTrack3DArenaProps> = ({
                     {currentUserProfile?.id && (
                         <button
                             onClick={() => scrollToCurrentUser(true)}
-                            className="absolute top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white hover:bg-slate-800 text-[10px] font-black rounded-xl border-2 border-slate-900 active:translate-x-[0.5px] active:translate-y-[0.5px] transition-all cursor-pointer shadow-sm"
+                            className="absolute top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white hover:bg-slate-800 text-[10px] font-bold rounded-xl border-2 border-slate-900 active:translate-x-[0.5px] active:translate-y-[0.5px] transition-all cursor-pointer shadow-sm"
                             title="โฟกัสตำแหน่งของฉัน"
                         >
                             <Target className="w-3.5 h-3.5 text-indigo-400" />

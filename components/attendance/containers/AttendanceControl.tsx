@@ -32,7 +32,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
     const availableLocations = useMemo(() => {
-        const locs = masterOptions.filter(o => o.type === 'WORK_LOCATION');
+        const locs = masterOptions.filter(o => o.type === 'WORK_LOCATION' || o.type === 'SHOOT_LOCATION');
         return locs.map(l => {
             const parts = l.key.split(',');
             if (parts.length >= 2) {
@@ -41,7 +41,8 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                     name: l.label,
                     lat: parseFloat(parts[0]),
                     lng: parseFloat(parts[1]),
-                    radiusMeters: parts[2] ? parseFloat(parts[2]) : 500
+                    radiusMeters: parts[2] ? parseFloat(parts[2]) : 500,
+                    type: l.type
                 };
             }
             return null;

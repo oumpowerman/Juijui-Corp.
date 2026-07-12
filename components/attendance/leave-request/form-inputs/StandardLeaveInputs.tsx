@@ -72,7 +72,7 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                         }
                     }}
                     className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all relative z-10 ${
-                        leaveMode === 'single' ? 'text-indigo-700 font-extrabold' : 'text-gray-500 hover:text-gray-700'
+                        leaveMode === 'single' ? 'text-indigo-700 font-bold' : 'text-gray-500 hover:text-gray-700'
                     }`}
                 >
                     {leaveMode === 'single' && (
@@ -88,7 +88,7 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                     type="button"
                     onClick={() => setLeaveMode('multiple')}
                     className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all relative z-10 ${
-                        leaveMode === 'multiple' ? 'text-indigo-700 font-extrabold' : 'text-gray-500 hover:text-gray-700'
+                        leaveMode === 'multiple' ? 'text-indigo-700 font-bold' : 'text-gray-500 hover:text-gray-700'
                     }`}
                 >
                     {leaveMode === 'multiple' && (

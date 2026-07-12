@@ -6,6 +6,7 @@ import {
 import NotificationBellBtn from '../NotificationBellBtn';
 import { COLOR_THEMES } from '../../constants';
 import { ChipConfig, Channel, User } from '../../types';
+import { getHexFromColorClass } from '../../utils/color';
 
 interface CalendarSecondaryHeaderProps {
     show: boolean;
@@ -75,13 +76,16 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                     <button
                                         onClick={() => toggleChip('ALL')}
                                         className={`
-                                            px-4 py-2 rounded-xl text-[10px] font-black transition-all whitespace-nowrap shadow-sm border shrink-0 active:scale-95
+                                            px-4 py-2 rounded-2xl text-[10px] font-black tracking-wider uppercase transition-all duration-300 whitespace-nowrap shrink-0 active:scale-95 border relative overflow-hidden group
                                             ${activeChipIds.length === 0
-                                                ? 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-100' 
-                                                : 'bg-white text-slate-500 border-gray-200 hover:border-indigo-200'}
+                                                ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-transparent shadow-[0_4px_14px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.35)] hover:-translate-y-0.5' 
+                                                : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-white hover:text-indigo-600 hover:border-indigo-300 hover:shadow-sm hover:-translate-y-0.5'}
                                         `}
                                     >
-                                        ทั้งหมด
+                                        <span className="flex items-center gap-1.5">
+                                            <span className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeChipIds.length === 0 ? 'bg-white animate-pulse' : 'bg-stone-400 group-hover:bg-indigo-500'}`} />
+                                            ทั้งหมด
+                                        </span>
                                     </button>
 
                                     {customChips.map((chip) => {
@@ -110,6 +114,8 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                         }
 
                                         const isLogoChip = !!channelLogo;
+                                        const resolvedColor = chip.colorTheme ? getHexFromColorClass(chip.colorTheme) : undefined;
+                                        const isHexColor = !isLogoChip && !isExclude && !!resolvedColor;
                                         const baseClasses = isLogoChip
                                             ? (isActive 
                                                 ? 'bg-transparent border-transparent shadow-none' 
@@ -118,9 +124,11 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                                 ? (isActive 
                                                     ? 'bg-red-500 text-white border-red-500 shadow-md ring-2 ring-offset-2 ring-red-100' 
                                                     : 'bg-white text-red-500 border-red-100 hover:bg-red-50 hover:border-red-200')
-                                                : (isActive 
-                                                    ? `${theme.activeBg} text-white border-transparent shadow-lg ring-2 ring-offset-2 ring-transparent` 
-                                                    : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:-translate-y-0.5`));
+                                                : (isHexColor
+                                                    ? 'transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md'
+                                                    : (isActive 
+                                                        ? `${theme.activeBg} text-white border-transparent shadow-lg ring-2 ring-offset-2 ring-transparent` 
+                                                        : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:-translate-y-0.5`)));
 
                                         return (
                                             <button
@@ -132,6 +140,14 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                                     ${!isLogoChip ? 'shadow-sm border' : ''}
                                                     relative
                                                 `}
+                                                style={isHexColor ? {
+                                                    backgroundColor: isActive ? resolvedColor : '#fafaf9',
+                                                    color: isActive ? '#ffffff' : resolvedColor,
+                                                    borderColor: isActive ? 'transparent' : `${resolvedColor}40`,
+                                                    boxShadow: isActive 
+                                                        ? `0 4px 14px ${resolvedColor}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)` 
+                                                        : '0 1px 2px rgba(0, 0, 0, 0.02)',
+                                                } : undefined}
                                             >
                                                 {isExclude && <Ban className="w-3 h-3 stroke-[3px]" />}
                                                 {channelLogo ? (
@@ -158,7 +174,18 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span>{chip.label.toUpperCase()}</span>
+                                                    <span className="flex items-center gap-1.5">
+                                                        {isHexColor && (
+                                                            <span 
+                                                                className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                                                                style={{ 
+                                                                    backgroundColor: isActive ? '#ffffff' : resolvedColor,
+                                                                    opacity: isActive ? 1 : 0.7 
+                                                                }} 
+                                                            />
+                                                        )}
+                                                        {chip.label.toUpperCase()}
+                                                    </span>
                                                 )}
                                             </button>
                                         );

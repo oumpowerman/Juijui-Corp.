@@ -45,7 +45,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
 
       <div className="flex flex-wrap items-center gap-4 self-start md:self-auto">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             จัดรูปแบบตาราง:
           </span>
           <div className="inline-flex bg-gray-100 p-1 rounded-xl">
@@ -83,7 +83,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             เรียงลำดับ:
           </span>
           <button

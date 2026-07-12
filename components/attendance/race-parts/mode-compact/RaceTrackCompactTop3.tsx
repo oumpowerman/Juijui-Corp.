@@ -14,7 +14,7 @@ export const RaceTrackCompactTop3: React.FC<RaceTrackCompactTop3Props> = ({ chec
             <div className="flex items-center justify-between gap-2 mb-3 relative z-10 border-b-2 border-slate-900 pb-2">
                 <div className="flex items-center gap-1.5">
                     <span className="text-sm select-none">🏆</span>
-                    <span className="font-sans text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                    <span className="font-sans text-[11px] font-bold text-slate-800 uppercase tracking-wider">
                         ผู้มาถึงออฟฟิศเร็วที่สุด 3 อันดับแรกวันนี้
                     </span>
                 </div>
@@ -44,12 +44,12 @@ export const RaceTrackCompactTop3: React.FC<RaceTrackCompactTop3Props> = ({ chec
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className={`text-[8px] font-black px-1 py-0.2 rounded border ${rankBg} leading-none`}>
+                                        <span className={`text-[8px] font-bold px-1 py-0.2 rounded border ${rankBg} leading-none`}>
                                             {rankEmoji} อันดับที่ {index + 1}
                                         </span>
-                                        <span className="text-[10px] font-mono text-emerald-600 font-black shrink-0">{racer.checkInTime}</span>
+                                        <span className="text-[10px] font-mono text-emerald-600 font-bold shrink-0">{racer.checkInTime}</span>
                                     </div>
-                                    <h4 className="font-sans text-xs font-black text-slate-900 truncate mt-1">
+                                    <h4 className="font-sans text-xs font-bold text-slate-900 truncate mt-1">
                                         {racer.user.name}
                                     </h4>
                                 </div>

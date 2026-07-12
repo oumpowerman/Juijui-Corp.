@@ -15,6 +15,7 @@ import ScriptCategoryFilter from './hub/ScriptCategoryFilter';
 import ScriptStatsGrid from './hub/ScriptStatsGrid';
 import ScriptModeSwitcher, { ScriptHubMode } from './hub/ScriptModeSwitcher';
 import AppBackground from '../common/AppBackground';
+import { supabase } from '../../lib/supabase';
 import scenicSunsetBg from '../../src/assets/images/scenic_lake_sunset_background_1781330433260.jpg';
 import ScriptLabView from './lab/ScriptLabView';
 import { Clapperboard, FileText, Edit3, CheckCircle2, Layers, ChevronRight, Loader2, ChevronLeft, X } from 'lucide-react';
@@ -27,6 +28,9 @@ import { useScriptHubFilters } from './hub/useScriptHubFilters'; // NEW IMPORT
 import { useScriptHubActions } from './hub/useScriptHubActions'; // NEW IMPORT
 
 // --- Main Component ---
+
+let cachedBgTheme: string | null = null;
+let isBgThemeFetched = false;
 
 interface ScriptHubViewProps {
     currentUser: User;
@@ -57,6 +61,7 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
             fetchChannels();
         }
     }, [fetchChannels, channels.length]);
+
     const { masterOptions } = useMasterData();
     const { showConfirm, showAlert } = useGlobalDialog(); // USE DIALOG
 
@@ -65,12 +70,67 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
 
     // Background Preference State
     const [selectedBg, setSelectedBg] = useState<string>(() => {
+        if (cachedBgTheme) return cachedBgTheme;
         return localStorage.getItem('scripthub_background_theme') || 'default';
     });
 
-    const handleBgChange = (bg: string) => {
+    // Load background theme from Supabase user_background_settings table on mount
+    useEffect(() => {
+        if (!currentUser?.id) return;
+
+        // If background theme is already fetched in this session, use cached value directly
+        if (isBgThemeFetched) {
+            if (cachedBgTheme) {
+                setSelectedBg(cachedBgTheme);
+            }
+            return;
+        }
+
+        const loadBgFromDB = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('user_background_settings')
+                    .select('background_theme')
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                if (data && data.background_theme) {
+                    setSelectedBg(data.background_theme);
+                    localStorage.setItem('scripthub_background_theme', data.background_theme);
+                    cachedBgTheme = data.background_theme;
+                }
+                isBgThemeFetched = true;
+            } catch (err) {
+                console.error('Error loading background from database:', err);
+            }
+        };
+
+        loadBgFromDB();
+    }, [currentUser?.id]);
+
+    const handleBgChange = async (bg: string) => {
         setSelectedBg(bg);
         localStorage.setItem('scripthub_background_theme', bg);
+        cachedBgTheme = bg;
+        isBgThemeFetched = true;
+
+        if (!currentUser?.id) return;
+
+        try {
+            const { error } = await supabase
+                .from('user_background_settings')
+                .upsert({
+                    user_id: currentUser.id,
+                    background_theme: bg,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (error) throw error;
+        } catch (err) {
+            console.error('Error saving background to database:', err);
+        }
     };
 
     const bgProps = useMemo(() => {
@@ -435,6 +495,8 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                                             setIsDeepSearch={handleSetDeepSearch}
                                             users={users} channels={channels} masterOptions={masterOptions}
                                             mode={mode}
+                                            currentUser={currentUser}
+                                            viewTab={viewTab}
                                         />
 
                                         <ScriptList 

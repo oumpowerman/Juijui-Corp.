@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MasterOption, Reward, DashboardConfig } from '../types';
 import { useMasterData } from './useMasterData';
 import { useRewards } from './useRewards';
@@ -28,9 +29,29 @@ export const useMasterDataView = () => {
     const { rewards, isLoading: rewardsLoading, addReward, updateReward, deleteReward } = useRewards(null);
     const { configs: dashboardConfigs, isLoading: dashboardLoading, updateConfig: updateDashboardConfig } = useDashboardConfig();
     const maintenance = useMaintenance();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // --- Local State ---
-    const [activeTab, setActiveTab] = useState<MasterTab>('STATUS');
+    const [activeTab, setActiveTabState] = useState<MasterTab>(() => {
+        const queryTab = searchParams.get('tab') as MasterTab;
+        return queryTab || 'STATUS';
+    });
+
+    useEffect(() => {
+        const queryTab = searchParams.get('tab') as MasterTab;
+        if (queryTab && queryTab !== activeTab) {
+            setActiveTabState(queryTab);
+        }
+    }, [searchParams]);
+
+    const setActiveTab = (tab: MasterTab) => {
+        setActiveTabState(tab);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tab);
+            return next;
+        }, { replace: true });
+    };
     
     // Form States
     const [isEditing, setIsEditing] = useState(false);

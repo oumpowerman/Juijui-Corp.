@@ -298,7 +298,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               activeChipIds={activeChipIds} 
               toggleChip={toggleChip}
               customChips={customChips || []} 
-              setIsManageModalOpen={setIsManageModalOpen}
+              setIsManageModalOpen={setIsCosmicFilterOpen}
               onOpenSettings={onOpenSettings}
               onOpenNotifications={onOpenNotifications}
               unreadCount={unreadCount}
@@ -340,7 +340,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               toggleChip={toggleChip}
               customChips={customChips || []}
               channels={channels}
-              onManageFilters={() => setIsManageModalOpen(true)} onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
+              onManageFilters={() => setIsCosmicFilterOpen(true)} onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
               activeFiltersCount={selectedCosmicChannelIds.length + selectedCosmicFormats.length + selectedCosmicStatuses.length}
               unreadCount={unreadCount}
               onOpenNotifications={onOpenNotifications}
@@ -522,6 +522,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               colorTheme={viewMode === 'CONTENT' ? 'blue' : 'green'}
         />
 
+        {/* Commented out SmartFilterModal as requested, replacing it with the fully-featured UnifiedFilterModal */}
+        {/*
         <SmartFilterModal 
             isOpen={isManageModalOpen}
             onClose={() => setIsManageModalOpen(false)}
@@ -532,6 +534,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onSave={saveChip}
             onDelete={deleteChip}
         />
+        */}
 
         <UnifiedFilterModal 
             isOpen={isCosmicFilterOpen}
@@ -546,6 +549,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 setSelectedCosmicFormats(filters.formats);
                 setSelectedCosmicStatuses(filters.statuses);
             }}
+            customChips={customChips || []}
+            onSaveChip={saveChip}
+            onDeleteChip={deleteChip}
         />
         
         <DayHighlightModal 

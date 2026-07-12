@@ -80,7 +80,7 @@ const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
                             gradientBorderClass = 'bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 bg-[length:200%_auto] animate-gradient-border';
                             innerBgClass = 'bg-gradient-to-br from-orange-50/10 via-amber-50/10 to-red-50/10';
                             glowClass = 'shadow-[0_0_30px_rgba(239,68,68,0.35)]';
-                            textColorClass = 'text-orange-700 font-extrabold drop-shadow-[0_2px_4px_rgba(239,68,68,0.4)]';
+                            textColorClass = 'text-orange-700 font-bold drop-shadow-[0_2px_4px_rgba(239,68,68,0.4)]';
                             iconBgClass = 'bg-orange-500/10';
                             iconColorClass = 'text-orange-600 animate-double-flicker scale-110 animate-flame-shake';
                         } else if (streakLevel === 4) {
@@ -88,7 +88,7 @@ const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
                             gradientBorderClass = 'bg-gradient-to-r from-indigo-500 via-purple-500 to-orange-500 bg-[length:200%_auto] animate-gradient-border';
                             innerBgClass = 'bg-gradient-to-br from-indigo-50/40 via-purple-50/30 to-orange-50/40 bg-[length:200%_200%] animate-aurora';
                             glowClass = 'animate-glow-heartbeat';
-                            textColorClass = 'text-transparent bg-clip-text bg-gradient-to-r from-indigo-700 via-purple-700 to-orange-600 font-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]';
+                            textColorClass = 'text-transparent bg-clip-text bg-gradient-to-r from-indigo-700 via-purple-700 to-orange-600 font-bold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]';
                             iconBgClass = 'bg-purple-500/10';
                             iconColorClass = 'text-purple-600 animate-double-flicker scale-120 animate-flame-shake';
                         }
@@ -300,9 +300,9 @@ const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
                                         </div>
 
                                         <div className="flex-1 min-w-0 z-10">
-                                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{item.label}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">{item.label}</p>
                                             <div className="flex items-center gap-1.5 flex-wrap">
-                                                <p className={`text-xl font-black tracking-tight ${textColorClass}`}>{item.value}</p>
+                                                <p className={`text-xl font-bold tracking-tight ${textColorClass}`}>{item.value}</p>
                                                 {stats.hasPendingStreakRequest && (
                                                     <div 
                                                         className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-200/60 px-1.5 py-0.5 rounded-full text-[9px] font-bold animate-pulse"
@@ -342,9 +342,9 @@ const AttendanceStats: React.FC<AttendanceStatsProps> = ({ userId }) => {
                                 <item.icon className={`w-5 h-5 ${item.color}`} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{item.label}</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">{item.label}</p>
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                    <p className="text-xl font-black text-slate-800 tracking-tight">{item.value}</p>
+                                    <p className="text-xl font-bold text-slate-800 tracking-tight">{item.value}</p>
                                     {item.key === 'STREAK' && stats.hasPendingStreakRequest && (
                                         <div 
                                             className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-200/60 px-1.5 py-0.5 rounded-full text-[9px] font-bold animate-pulse"

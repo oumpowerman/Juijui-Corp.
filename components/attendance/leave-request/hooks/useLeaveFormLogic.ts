@@ -29,6 +29,7 @@ export const useLeaveFormLogic = ({
     const [targetTime, setTargetTime] = useState('09:00');
     const [endTime, setEndTime] = useState('18:00'); // New state for FORGOT_BOTH
     const [otHours, setOtHours] = useState(2);
+    const [otType, setOtType] = useState<'HOURLY' | 'FIXED'>('HOURLY');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
 
@@ -41,6 +42,7 @@ export const useLeaveFormLogic = ({
         setReason(initialReason || '');
         setFile(null);
         setIsReviewing(false);
+        setOtType('HOURLY');
         
         // Set sensible defaults based on type
         if (selectedType === 'FORGOT_CHECKOUT') {
@@ -59,6 +61,13 @@ export const useLeaveFormLogic = ({
         
         setOtHours(2);
     }, [initialDateStr, initialReason, selectedType]);
+
+    // Automatically sync endDate with startDate for single-day/time-specific requests
+    useEffect(() => {
+        if (selectedType && ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType)) {
+            setEndDate(startDate);
+        }
+    }, [startDate, selectedType]);
 
     const handleReview = () => {
         if (!startDate || !endDate) {
@@ -147,7 +156,11 @@ export const useLeaveFormLogic = ({
                 finalEndDate = finalStartDate; 
             }
         } else if (selectedType === 'OVERTIME') {
-            finalReason = `[OT:${targetTime}-${endTime}] (${otHours}hr) ${reason}`;
+            if (otType === 'FIXED') {
+                finalReason = `[OT:FIXED] [OT:00:00-00:00] (0hr) ${reason}`;
+            } else {
+                finalReason = `[OT:${targetTime}-${endTime}] (${otHours}hr) ${reason}`;
+            }
             finalEndDate = finalStartDate;
         }
 
@@ -171,6 +184,7 @@ export const useLeaveFormLogic = ({
         targetTime, setTargetTime,
         endTime, setEndTime,
         otHours, setOtHours,
+        otType, setOtType,
         isSubmitting,
         isReviewing,
         setIsReviewing,

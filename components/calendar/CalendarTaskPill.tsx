@@ -1,7 +1,8 @@
 
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Task, ChipConfig, MasterOption, Channel } from '../../types';
 import { COLOR_THEMES } from '../../constants';
+import { getHexFromColorClass } from '../../utils/color';
 import { TaskDisplayMode } from '../CalendarView';
 import { isBefore, startOfToday, differenceInDays, format, isToday } from 'date-fns';
 import { AlertCircle, Ghost, Clock8, Zap, Film } from 'lucide-react';
@@ -42,6 +43,15 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
     onClick
 }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const media = window.matchMedia('(max-width: 768px)');
+        setIsMobile(media.matches);
+        const listener = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        media.addEventListener('change', listener);
+        return () => media.removeEventListener('change', listener);
+    }, []);
 
     // Get end date object safely
     const endDateObj = useMemo(() => {
@@ -96,8 +106,32 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         return !finishedKeywords.some(keyword => currentStatus.includes(keyword));
     }, [task.type, task.status, cellDate]);
 
+    // Resolve dynamic active hex color from custom chips (pin filters)
+    const activeHexColor = useMemo(() => {
+        if (!isOverdue && activeChipIds.length > 0 && Array.isArray(customChips)) {
+            const matchingChip = customChips.find(chip => {
+                if (!activeChipIds.includes(chip.id)) return false;
+                
+                switch (chip.type) {
+                    case 'CHANNEL': return task.channelId === chip.value;
+                    case 'FORMAT': return task.contentFormats && task.contentFormats.includes(chip.value);
+                    case 'STATUS': return task.status === chip.value;
+                    case 'PILLAR': return task.pillar === chip.value;
+                    default: return false;
+                }
+            });
+            return matchingChip && matchingChip.colorTheme ? getHexFromColorClass(matchingChip.colorTheme) : null;
+        }
+        return null;
+    }, [activeChipIds, customChips, task, isOverdue]);
+
     // Helper to get styling for the main card container
     const getTaskStyle = (t: Task) => {
+        // Override if a hex chip matches (apply beautiful soft pastel color via inline style)
+        if (activeHexColor) {
+            return 'border-y border-r border-stone-200/60 text-[#1c1917] hover:shadow-md font-semibold';
+        }
+
         // Default Clean Style: White bg with colored left border indicator
         // Update: Respect Minimal mode by removing heavy backgrounds
         let styleClass = viewMode === 'CONTENT' 
@@ -225,11 +259,21 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
             <motion.div 
                 animate={isCriticalOverdue ? { 
                     opacity: [0.4, 1, 0.4],
+                    x: [0, -1.5, 1.5, -1.5, 1.5, 0]
                 } : { 
                     scale: [1, 1.2, 1], 
-                    opacity: [1, 0.6, 1] 
+                    opacity: [1, 0.6, 1],
+                    x: [0, -1, 1, -1, 1, 0]
                 }}
-                transition={{ repeat: Infinity, duration: isCriticalOverdue ? 3 : 1.5 }}
+                transition={{
+                    opacity: { repeat: Infinity, duration: isCriticalOverdue ? 3 : 1.5 },
+                    scale: isCriticalOverdue ? undefined : { repeat: Infinity, duration: 1.5 },
+                    x: {
+                        repeat: Infinity,
+                        duration: 1.5,
+                        repeatDelay: isCriticalOverdue ? 3 : 4
+                    }
+                }}
                 className="shrink-0"
             >
                 {isCriticalOverdue ? (
@@ -351,42 +395,113 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
         };
     }, [dayOfWeek, isFirstWeek]);
 
+    const isMobileDot = !isExpanded && isMobile;
+
+    const rootClassName = useMemo(() => {
+        if (isMobileDot) {
+            const color = task.channelId && channels?.find(c => c.id === task.channelId)?.color;
+            const mobileDotBgClass = (() => {
+                if (!color) return getTaskDotClass(task);
+                if (color.startsWith('#')) return '';
+                const base = color.replace('bg-', '').replace('text-', '').replace('border-', '').replace('border-l-', '');
+                return `bg-${base}`;
+            })();
+            return `
+                md:hidden w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ring-1 ring-white/30
+                animate-spring shrink-0 cursor-grab active:cursor-grabbing hover:scale-125 hover:z-50 transition-all mb-0.5
+                ${mobileDotBgClass}
+            `;
+        }
+
+        return `
+            group
+            ${isExpanded ? 'block' : 'hidden md:flex'}
+            ${taskBaseClass}
+            ${getTaskStyle(task)}
+            ${isOverdue ? 'ring-1 ring-red-400/50' : ''}
+        `;
+    }, [isMobileDot, isExpanded, taskBaseClass, task, channels, isOverdue]);
+
+    const rootStyle = useMemo(() => {
+        if (isMobileDot) {
+            return {
+                animationDelay: `${index * 30}ms`, 
+                animationFillMode: 'both',
+                backgroundColor: (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
+                    ? channels.find(c => c.id === task.channelId)?.color 
+                    : undefined
+            };
+        }
+
+        return activeHexColor ? {
+            backgroundColor: `${activeHexColor}26`, // 15% opacity tint background
+            borderLeftColor: activeHexColor,
+            borderLeftWidth: '4px',
+        } : { 
+            borderLeftColor: !isOverdue && (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
+                ? channels.find(c => c.id === task.channelId)?.color 
+                : undefined
+        };
+    }, [isMobileDot, index, task.channelId, channels, activeHexColor, isOverdue]);
+
     return (
-        <>
-            <motion.div 
-                draggable
-                onDragStart={(e: any) => onDragStart(e, task.id)}
-                onClick={(e) => {
-                    e.stopPropagation(); 
-                    onClick(task);
-                }}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                animate={isOverdue ? { 
-                    x: [0, -1, 1, -1, 1, 0],
-                } : {}}
-                transition={isOverdue ? {
-                    repeat: Infinity,
-                    duration: 4,
-                    repeatDelay: 5
-                } : {}}
-                style={{ 
-                    animationDelay: `${index * 50}ms`, 
-                    animationFillMode: 'both',
-                    borderLeftColor: !isOverdue && (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
-                        ? channels.find(c => c.id === task.channelId)?.color 
-                        : undefined
-                }}
-                className={`
-                    animate-spring group
-                    ${isExpanded ? 'block' : 'hidden md:flex'}
-                    ${taskBaseClass}
-                    ${getTaskStyle(task)}
-                    ${isOverdue ? 'ring-1 ring-red-400/50' : ''}
-                `}
-            >
-                {renderContent()}
-            </motion.div>
+        <motion.div 
+            layout
+            draggable
+            onDragStart={(e: any) => onDragStart(e, task.id)}
+            onClick={(e) => {
+                e.stopPropagation(); 
+                onClick(task);
+            }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ 
+                opacity: 0, 
+                scale: 0.8,
+                transition: {
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 35,
+                    mass: 0.8,
+                    delay: 0,
+                }
+            }}
+            transition={{
+                default: {
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30,
+                    mass: 0.8,
+                    delay: index * 0.03, // Staggered delay for sleek entry effect
+                },
+                layout: {
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 38,
+                    mass: 0.8,
+                    delay: 0, // Instant layout shift without delay
+                },
+                opacity: {
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30,
+                    mass: 0.8,
+                    delay: index * 0.03,
+                },
+                scale: {
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30,
+                    mass: 0.8,
+                    delay: index * 0.03,
+                }
+            }}
+            style={rootStyle}
+            className={rootClassName}
+        >
+            {!isMobileDot && renderContent()}
 
             <AnimatePresence>
                 {isHovered && (
@@ -482,32 +597,7 @@ const CalendarTaskPill: React.FC<CalendarTaskPillProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Mobile / Collapsed Dot View (Always Dots on Mobile for space) */}
-            {!isExpanded && (
-                <div 
-                    className={`
-                        md:hidden w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ring-1 ring-white/30
-                        animate-spring
-                        ${(() => {
-                            const color = task.channelId && channels?.find(c => c.id === task.channelId)?.color;
-                            if (!color) return getTaskDotClass(task);
-                            if (color.startsWith('#')) return '';
-                            // Convert text-indigo-500 or border-indigo-500 to bg-indigo-500
-                            const base = color.replace('bg-', '').replace('text-', '').replace('border-', '').replace('border-l-', '');
-                            return `bg-${base}`;
-                        })()}
-                    `}
-                    style={{ 
-                        animationDelay: `${index * 30}ms`, 
-                        animationFillMode: 'both',
-                        backgroundColor: (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
-                            ? channels.find(c => c.id === task.channelId)?.color 
-                            : undefined
-                    }}
-                />
-            )}
-        </>
+        </motion.div>
     );
 };
 

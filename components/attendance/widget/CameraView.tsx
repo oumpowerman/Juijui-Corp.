@@ -225,7 +225,7 @@ const CameraView: React.FC<CameraViewProps> = ({ challengeText, onCapture, onClo
                             <div className="absolute top-24 left-0 w-full flex justify-center z-10 px-4 pointer-events-none">
                                 <div className="bg-indigo-600/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 shadow-2xl text-center">
                                     <p className="text-[10px] text-indigo-200 font-bold uppercase tracking-widest mb-1">Challenge Pose</p>
-                                    <h2 className="text-xl font-black text-white drop-shadow-md">
+                                    <h2 className="text-xl font-bold text-white drop-shadow-md">
                                         "{challengeText}"
                                     </h2>
                                 </div>

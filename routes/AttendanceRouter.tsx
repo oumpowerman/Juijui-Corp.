@@ -105,11 +105,11 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                             <Calendar className="w-4 h-4" /> 
                             <span>ประวัติ</span>
                             {actionRequiredCount > 0 ? (
-                                <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
+                                <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
                                     {actionRequiredCount}
                                 </span>
                             ) : myPendingCount > 0 ? (
-                                <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-black h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
+                                <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
                                     {myPendingCount}
                                 </span>
                             ) : null}
@@ -131,7 +131,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 >
                                     <FileCheck className="w-4 h-4" /> คำขออนุมัติ
                                     {adminPendingCount > 0 && (
-                                        <span className="ml-1 bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                        <span className="ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
                                             {adminPendingCount}
                                         </span>
                                     )}
@@ -151,7 +151,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                         whileHover={{ scale: 1.02, y: -1 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setIsQuotaOpen(true)}
-                        className="ml-auto md:ml-0 px-4 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
+                        className="ml-auto md:ml-0 px-4 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
                     >
                         {/* Animated Icon */}
                         <PieChart className="w-4 h-4 text-[#5C544A] group-hover:rotate-12 transition-transform duration-300 ease-out" /> 

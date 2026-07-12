@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Script, ScriptStatus, ScriptType, ScriptSheet } from '../../../types';
+import { Script, ScriptStatus, ScriptType, ScriptSheet, User } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import * as Y from 'yjs';
 
@@ -24,12 +24,13 @@ interface UseScriptPersistenceProps {
     estimatedSeconds: number;
     onSave: (id: string, updates: Partial<Script>) => Promise<any>;
     ydoc?: Y.Doc | null;
+    currentUser: User;
 }
 
 export const useScriptPersistence = ({
     script, title, content, mainContent, status, scriptType, characters,
     ideaOwnerId, authorId, channelId, category, tags, objective,
-    sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc
+    sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc, currentUser
 }: UseScriptPersistenceProps) => {
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date>(new Date());
@@ -125,14 +126,39 @@ export const useScriptPersistence = ({
         };
     }, [isReadOnly]);
 
+    const latestStateRef = useRef({
+        title,
+        content,
+        mainContent,
+        status,
+        sheets,
+        activeSheetId,
+        lockStatus,
+        scriptId: script.id
+    });
+
+    useEffect(() => {
+        latestStateRef.current = {
+            title,
+            content,
+            mainContent,
+            status,
+            sheets,
+            activeSheetId,
+            lockStatus,
+            scriptId: script.id
+        };
+    }, [title, content, mainContent, status, sheets, activeSheetId, lockStatus, script.id]);
+
     useEffect(() => {
         return () => {
-            if (isDirtyRef.current && lockStatus === 'LOCKED_BY_ME') {
+            const state = latestStateRef.current;
+            if (isDirtyRef.current && state.lockStatus === 'LOCKED_BY_ME') {
                 // Final save on unmount
-                const finalContent = activeSheetId === 'main' ? content : mainContent;
-                const finalSheets = activeSheetId === 'main' 
-                    ? sheets 
-                    : sheets.map(s => s.id === activeSheetId ? { ...s, content } : s);
+                const finalContent = state.activeSheetId === 'main' ? state.content : state.mainContent;
+                const finalSheets = state.activeSheetId === 'main' 
+                    ? state.sheets 
+                    : state.sheets.map(s => s.id === state.activeSheetId ? { ...s, content: state.content } : s);
 
                 let document_state: string | undefined = undefined;
                 if (ydoc) {
@@ -145,19 +171,19 @@ export const useScriptPersistence = ({
                     document_state = btoa(binary);
                 }
 
-                onSave(script.id, { 
-                    title, 
+                onSave(state.scriptId, { 
+                    title: state.title, 
                     content: finalContent, 
-                    status,
+                    status: state.status,
                     sheets: finalSheets,
                     ...(document_state ? { document_state } : {})
                 }).catch(console.error);
             }
-            if (lockStatus === 'LOCKED_BY_ME') {
-                supabase.from('scripts').update({ locked_by: null }).eq('id', script.id).then();
+            if (state.lockStatus === 'LOCKED_BY_ME') {
+                supabase.from('scripts').update({ locked_by: null }).eq('id', state.scriptId).eq('locked_by', currentUser.id).then();
             }
         };
-    }, [lockStatus, ydoc]);
+    }, [ydoc, currentUser.id]);
 
     return {
         isSaving,

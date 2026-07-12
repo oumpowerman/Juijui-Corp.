@@ -44,13 +44,13 @@ export const RaceTrack2DDino: React.FC<RaceTrack2DDinoProps> = ({
             {/* 2D Start Post */}
             <div className="absolute left-[11%] bottom-[44px] flex flex-col items-center">
                 <span className="text-xs select-none">🚩</span>
-                <span className="text-[6.5px] font-mono font-black text-slate-400 uppercase leading-none mt-0.5">START</span>
+                <span className="text-[6.5px] font-mono font-bold text-slate-400 uppercase leading-none mt-0.5">START</span>
             </div>
 
             {/* 2D Finish checker Post */}
             <div className="absolute right-[11%] bottom-[44px] flex flex-col items-center">
                 <span className="text-xs select-none">🏁</span>
-                <span className="text-[6.5px] font-mono font-black text-slate-800 uppercase leading-none mt-0.5">GOAL</span>
+                <span className="text-[6.5px] font-mono font-bold text-slate-800 uppercase leading-none mt-0.5">GOAL</span>
             </div>
 
             {/* 1) SLEEPING / IDLE RACERS IN 2D */}
@@ -140,7 +140,7 @@ export const RaceTrack2DDino: React.FC<RaceTrack2DDinoProps> = ({
                                 {/* Hover Detail Badge */}
                                 <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 z-50 bg-slate-950/95 backdrop-blur-sm border border-slate-700/50 text-white rounded-xl p-2 sm:p-2.5 shadow-xl whitespace-nowrap flex flex-col items-center gap-1 scale-90 sm:scale-100 min-w-[120px]">
                                     {/* Line 1: Medal + Name */}
-                                    <div className="font-black text-xs sm:text-sm flex items-center gap-1.5">
+                                    <div className="font-bold text-xs sm:text-sm flex items-center gap-1.5">
                                         {racer.checkInOrder === 1 ? (
                                             <span className="text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.6)]">🏆 🥇</span>
                                         ) : racer.checkInOrder === 2 ? (

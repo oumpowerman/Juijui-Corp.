@@ -78,7 +78,7 @@ const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ userS
                     การกระจายตัวของเวลาเข้างาน (Check-In)
                 </h3>
                 <p className="text-[11px] font-bold text-slate-400 mt-1">
-                    อ้างอิงจากเวลาทำงานหลัก <span className="text-indigo-600 font-extrabold">{startTime} น.</span>
+                    อ้างอิงจากเวลาทำงานหลัก <span className="text-indigo-600 font-bold">{startTime} น.</span>
                 </p>
             </div>
 

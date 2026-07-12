@@ -27,7 +27,7 @@ interface RequestDetailModalProps {
         customEndTime?: string,
         adminNote?: string
     ) => Promise<void>;
-    onReject: (id: string, reason: string) => Promise<void>;
+    onReject: (id: string, reason: string, customCheckInTime?: string) => Promise<void>;
 }
 
 export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
@@ -154,10 +154,10 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
         }
     };
 
-    const handleRejectSubmit = async (reason: string) => {
+    const handleRejectSubmit = async (reason: string, customCheckInTime?: string) => {
         setIsSubmitting(true);
         try {
-            await onReject(request.id, reason);
+            await onReject(request!.id, reason, customCheckInTime);
             onClose();
         } catch (e) {
             console.error(e);
@@ -165,6 +165,12 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
             setIsSubmitting(false);
         }
     };
+
+    let defaultCheckInTime = '10:00';
+    if (request && request.type === 'FORGOT_CHECKIN') {
+        const timeMatch = request.reason ? request.reason.match(/\[TIME:(\d{2}:\d{2})\]/) : null;
+        defaultCheckInTime = timeMatch ? timeMatch[1] : '10:00';
+    }
 
     return createPortal(
         <motion.div 
@@ -263,11 +269,13 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                             </div>
 
                             {/* Admin Action Footer (Only for PENDING status) */}
-                            {request.status === 'PENDING' && (
+                            {request && request.status === 'PENDING' && (
                                 <ActionFooter 
                                     isSubmitting={isSubmitting} 
                                     onApprove={handleApprove} 
                                     onReject={handleRejectSubmit} 
+                                    requestType={request.type}
+                                    defaultCheckInTime={defaultCheckInTime}
                                 />
                             )}
                         </div>
@@ -397,11 +405,13 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     </div>
 
                                     {/* Admin Action Footer (Only for PENDING status) */}
-                                    {request.status === 'PENDING' && (
+                                    {request && request.status === 'PENDING' && (
                                         <ActionFooter 
                                             isSubmitting={isSubmitting} 
                                             onApprove={handleApprove} 
                                             onReject={handleRejectSubmit} 
+                                            requestType={request.type}
+                                            defaultCheckInTime={defaultCheckInTime}
                                         />
                                     )}
                                 </div>

@@ -163,7 +163,8 @@ const mapOtRequest = (data: any) => ({
     baseSalaryAtTime: data.base_salary_at_time ? Number(data.base_salary_at_time) : undefined,
     computedPayout: Number(data.computed_payout || 0),
     createdAt: new Date(data.created_at),
-    attachmentUrl: data.attachment_url
+    attachmentUrl: data.attachment_url,
+    isFixed: !!data.is_fixed
 });
 
 export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.ReactNode }> = ({ sessionUser, children }) => {
@@ -246,7 +247,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                     ]);
 
                     if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
-                    if (leavesRes.data) setLeaveRequests(leavesRes.data.map(mapLeaveRequest));
+                    if (leavesRes.data) setLeaveRequests(leavesRes.data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest));
                     if (otRes.data) setOtRequests(otRes.data.map(mapOtRequest));
                 }
             }
@@ -465,7 +466,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
 
             const { data, error } = await query;
             if (error) throw error;
-            if (data) setLeaveRequests(data.map(mapLeaveRequest));
+            if (data) setLeaveRequests(data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest));
         } catch (error) {
             console.error("Error refreshing leaves:", error);
         }

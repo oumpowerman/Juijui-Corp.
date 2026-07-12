@@ -51,7 +51,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
             <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] text-gray-400 font-black uppercase tracking-wider">
+                        <tr className="bg-gray-50/80 border-b border-gray-100 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                             <th className="px-6 py-4">Date</th>
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4">Time In</th>

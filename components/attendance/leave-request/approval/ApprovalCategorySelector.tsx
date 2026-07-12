@@ -57,7 +57,7 @@ export const ApprovalCategorySelector: React.FC<ApprovalCategorySelectorProps> =
             >
                 <div className="space-y-1">
                     <p className="text-xs md:text-sm font-semibold text-rose-600 uppercase tracking-wider">การลาและขอ WFH ทั้งหมด</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-rose-950 mt-1">
+                    <h3 className="text-2xl md:text-3xl font-bold text-rose-950 mt-1">
                         <Counter value={counts.LEAVE} />
                     </h3>
                 </div>
@@ -80,7 +80,7 @@ export const ApprovalCategorySelector: React.FC<ApprovalCategorySelectorProps> =
             >
                 <div className="space-y-1">
                     <p className="text-xs md:text-sm font-semibold text-amber-600 uppercase tracking-wider">เข้าสาย / ลืมบันทึกเวลา</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-amber-950 mt-1">
+                    <h3 className="text-2xl md:text-3xl font-bold text-amber-950 mt-1">
                         <Counter value={counts.LATE_FORGOT} />
                     </h3>
                 </div>
@@ -103,7 +103,7 @@ export const ApprovalCategorySelector: React.FC<ApprovalCategorySelectorProps> =
             >
                 <div className="space-y-1">
                     <p className="text-xs md:text-sm font-semibold text-indigo-600 uppercase tracking-wider">เวลาทำงานล่วงเวลา (OT)</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-indigo-950 mt-1">
+                    <h3 className="text-2xl md:text-3xl font-bold text-indigo-950 mt-1">
                         <Counter value={counts.OT} />
                     </h3>
                 </div>

@@ -259,7 +259,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
 
             {/* Space-saving Collapsible Trigger Bar - Desktop Mode */}
             <div className="hidden md:flex flex-row items-center justify-between gap-2.5 mt-1 mb-3 bg-slate-50 border-2 border-slate-900 rounded-2xl px-3 py-2 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
-                <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-600 font-extrabold uppercase tracking-tight">
+                <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-600 font-bold uppercase tracking-tight">
                     <span>⚡ มุมมองและแผงควบคุม :</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 items-center">
@@ -268,7 +268,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                         <>
                             <button
                                 onClick={() => handleSetViewMode('3d')}
-                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-black transition-all cursor-pointer ${
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-bold transition-all cursor-pointer ${
                                     viewMode === '3d'
                                         ? 'bg-indigo-600 text-white shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
                                         : 'bg-white text-slate-800 hover:bg-slate-50 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
@@ -278,7 +278,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => handleSetViewMode('2d')}
-                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-black transition-all cursor-pointer ${
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-bold transition-all cursor-pointer ${
                                     viewMode === '2d'
                                         ? 'bg-emerald-600 text-white shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
                                         : 'bg-white text-slate-800 hover:bg-slate-50 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
@@ -288,7 +288,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => handleSetViewMode('compact')}
-                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-black transition-all cursor-pointer ${
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-bold transition-all cursor-pointer ${
                                     viewMode === 'compact'
                                         ? 'bg-slate-800 text-white shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
                                         : 'bg-white text-slate-800 hover:bg-slate-50 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
@@ -303,7 +303,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                     {/* Section Expand/Collapse switches */}
                     <button
                         onClick={toggleTrackCollapsed}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-black transition-all cursor-pointer ${
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-bold transition-all cursor-pointer ${
                             !isTrackCollapsed
                                 ? 'bg-amber-100 text-slate-900 hover:bg-amber-200 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
                                 : 'bg-slate-200 text-slate-600 hover:bg-slate-300 border-slate-300'
@@ -315,7 +315,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
 
                     <button
                         onClick={togglePodiumCollapsed}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-black transition-all cursor-pointer ${
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border-2 border-slate-900 font-sans text-[10px] font-bold transition-all cursor-pointer ${
                             !isPodiumCollapsed
                                 ? 'bg-amber-100 text-slate-900 hover:bg-amber-200 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]'
                                 : 'bg-slate-200 text-slate-600 hover:bg-slate-300 border-slate-300'
@@ -332,13 +332,13 @@ export const WeeklyAttendanceRace: React.FC = () => {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                         <span className="text-xs">🏎️</span>
-                        <span className="font-sans text-[10px] font-black text-slate-700">
+                        <span className="font-sans text-[10px] font-bold text-slate-700">
                             มุมมอง: {viewMode === '3d' ? '3D Arena' : viewMode === '2d' ? '2D Dino' : 'เรียบง่าย (Top 3)'}
                         </span>
                     </div>
                     <button
                         onClick={() => setIsMobileSettingsOpen(!isMobileSettingsOpen)}
-                        className="p-1 rounded-lg border border-slate-900 bg-white hover:bg-slate-50 text-[9px] font-black text-slate-800 transition-all cursor-pointer flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]"
+                        className="p-1 rounded-lg border border-slate-900 bg-white hover:bg-slate-50 text-[9px] font-bold text-slate-800 transition-all cursor-pointer flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)]"
                     >
                         <span>⚙️ ตั้งค่ามุมมอง</span>
                     </button>
@@ -360,7 +360,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                                 <div className="flex flex-wrap gap-1">
                                     <button
                                         onClick={() => handleSetViewMode('3d')}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-bold transition-all cursor-pointer ${
                                             viewMode === '3d' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-800'
                                         }`}
                                     >
@@ -368,7 +368,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                                     </button>
                                     <button
                                         onClick={() => handleSetViewMode('2d')}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-bold transition-all cursor-pointer ${
                                             viewMode === '2d' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-800'
                                         }`}
                                     >
@@ -376,7 +376,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                                     </button>
                                     <button
                                         onClick={() => handleSetViewMode('compact')}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-bold transition-all cursor-pointer ${
                                             viewMode === 'compact' ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'
                                         }`}
                                     >
@@ -392,7 +392,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                                 <div className="flex flex-wrap gap-1.5">
                                     <button
                                         onClick={toggleTrackCollapsed}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-bold transition-all cursor-pointer ${
                                             !isTrackCollapsed ? 'bg-amber-100 text-slate-900' : 'bg-slate-200 text-slate-500 border-slate-300'
                                         }`}
                                     >
@@ -400,7 +400,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                                     </button>
                                     <button
                                         onClick={togglePodiumCollapsed}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-black transition-all cursor-pointer ${
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-900 font-sans text-[9px] font-bold transition-all cursor-pointer ${
                                             !isPodiumCollapsed ? 'bg-amber-100 text-slate-900' : 'bg-slate-200 text-slate-500 border-slate-300'
                                         }`}
                                     >
@@ -425,7 +425,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                             <div className="flex items-center gap-2.5 relative z-10">
                                 <span className="text-xl select-none">🏎️</span>
                                 <div className="flex flex-col">
-                                    <span className="font-sans text-xs font-black text-slate-800 uppercase tracking-tight">
+                                    <span className="font-sans text-xs font-bold text-slate-800 uppercase tracking-tight">
                                         มุมมองสนาม {viewMode === '3d' ? '3D Arena' : viewMode === '2d' ? '2D Dino' : 'Top 3 Arrivals'} ถูกพับย่อส่วนอยู่
                                     </span>
                                     <span className="text-[9px] text-slate-400 font-bold font-sans">
@@ -435,7 +435,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
                             </div>
                             <button
                                 onClick={toggleTrackCollapsed}
-                                className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[10px] font-black rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10"
+                                className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[10px] font-bold rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10"
                             >
                                 แสดงสนามวิ่ง 🗺️
                             </button>
@@ -445,13 +445,13 @@ export const WeeklyAttendanceRace: React.FC = () => {
                         <div className="flex md:hidden border-2 border-slate-900 bg-slate-50 rounded-xl px-2.5 py-1.5 items-center justify-between shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] relative z-20 overflow-hidden">
                             <div className="flex items-center gap-1.5 relative z-10">
                                 <span className="text-sm">🏎️</span>
-                                <span className="font-sans text-[10px] font-black text-slate-800 leading-none">
+                                <span className="font-sans text-[10px] font-bold text-slate-800 leading-none">
                                     เช็คอินแล้ว {checkedInRacers.length}/{racers.length} คน
                                 </span>
                             </div>
                             <button
                                 onClick={toggleTrackCollapsed}
-                                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[9px] font-black rounded-lg border border-slate-900 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10 leading-none"
+                                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-800 text-[9px] font-bold rounded-lg border border-slate-900 shadow-[1px_1px_0px_0px_rgba(15,23,42,1)] transition-all cursor-pointer relative z-10 leading-none"
                             >
                                 ดูสนาม 🗺️
                             </button>

@@ -23,9 +23,10 @@ interface LeaveApprovalListProps {
         req: LeaveRequest, 
         customOtHours?: number, 
         customStartTime?: string, 
-        customEndTime?: string
+        customEndTime?: string,
+        adminNote?: string
     ) => Promise<void>;
-    onReject: (id: string, reason: string) => Promise<void>;
+    onReject: (id: string, reason: string, customCheckInTime?: string) => Promise<void>;
 }
 
 type HistoryFilter = 'ALL' | 'APPROVED' | 'REJECTED';
@@ -47,6 +48,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     // State for Rejection Modal
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [adjustedCheckInTime, setAdjustedCheckInTime] = useState('10:00');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // State for Request Detail Modal
@@ -297,6 +299,13 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     const handleRejectClick = (id: string) => {
         setRejectingId(id);
         setRejectionReason('');
+        const req = requests.find(r => r.id === id);
+        if (req && req.type === 'FORGOT_CHECKIN') {
+            const timeMatch = req.reason ? req.reason.match(/\[TIME:(\d{2}:\d{2})\]/) : null;
+            setAdjustedCheckInTime(timeMatch ? timeMatch[1] : '10:00');
+        } else {
+            setAdjustedCheckInTime('10:00');
+        }
     };
 
     const handleConfirmReject = async () => {
@@ -306,10 +315,22 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             return;
         }
         setIsSubmitting(true);
-        await onReject(rejectingId, rejectionReason);
+        const req = requests.find(r => r.id === rejectingId);
+        await onReject(rejectingId, rejectionReason, req?.type === 'FORGOT_CHECKIN' ? adjustedCheckInTime : undefined);
         setIsSubmitting(false);
         setRejectingId(null);
     };
+
+    const handleApproveClick = async (req: LeaveRequest) => {
+        if (req.type === 'OVERTIME') {
+            setSelectedRequest(req);
+        } else {
+            if (await showConfirm('คุณต้องการอนุมัติคำขอนี้ใช่หรือไม่?')) {
+                await onApprove(req);
+            }
+        }
+    };
+
 
     return (
         <div className="space-y-4">
@@ -368,7 +389,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                 <ApprovalRequestCard 
                                     key={req.id}
                                     request={req}
-                                    onApprove={onApprove}
+                                    onApprove={handleApproveClick}
                                     onRejectClick={handleRejectClick}
                                     onViewDetail={setSelectedRequest}
                                     annualHolidays={annualHolidays}
@@ -406,9 +427,35 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                 <XCircle className="w-8 h-8 text-red-500" />
                             </div>
                             
-                            <h3 className="text-xl font-black text-gray-800 mb-2">ระบุเหตุผลการปฏิเสธ</h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">ระบุเหตุผลการปฏิเสธ</h3>
                             <p className="text-sm text-gray-500 mb-6 font-medium">เพื่อให้พนักงานทราบเหตุผลและปรับปรุงแก้ไขในครั้งถัดไป</p>
                             
+                            {(() => {
+                                const req = requests.find(r => r.id === rejectingId);
+                                if (req && req.type === 'FORGOT_CHECKIN') {
+                                    return (
+                                        <div className="bg-amber-50/75 p-4 rounded-3xl border border-amber-100 mb-5 space-y-2 text-left">
+                                            <label className="text-xs font-bold text-amber-800 uppercase block">
+                                                🕒 เวลาเข้างานจริง (จากหลักฐาน)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="time"
+                                                    value={adjustedCheckInTime}
+                                                    onChange={(e) => setAdjustedCheckInTime(e.target.value)}
+                                                    className="bg-white border-2 border-amber-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-amber-50 focus:border-amber-400 outline-none transition-all shadow-sm shrink-0"
+                                                    id="rejection-portal-time-picker"
+                                                />
+                                                <span className="text-[10px] text-amber-700 font-medium leading-tight block">
+                                                    ระบบจะประเมินผลการสาย/หักคะแนนตามเวลาที่คุณปรับนี้
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
                             <textarea 
                                 className="w-full p-4 border-2 border-gray-100 rounded-3xl text-sm focus:ring-4 focus:ring-red-50 focus:border-red-200 outline-none resize-none mb-6 transition-all"
                                 rows={4}

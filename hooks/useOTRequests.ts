@@ -162,12 +162,17 @@ export const useOTRequests = () => {
                 log => log.userId === request.userId && log.date === request.date
             );
 
+            const isFixedOt = request.isFixed || (request.reason && request.reason.includes('[OT:FIXED]'));
+
             let finalHours = request.durationHours;
             let checkOutMsg = '';
 
             if (customDurationOverride !== undefined) {
                 finalHours = customDurationOverride;
                 checkOutMsg = ' (ปรับแต่งจำนวนชั่วโมงโดย Admin)';
+            } else if (isFixedOt) {
+                finalHours = 0;
+                checkOutMsg = '';
             } else if (employeeLog && employeeLog.checkOutTime) {
                 // Perform double-check calculation
                 const checkOutDate = new Date(employeeLog.checkOutTime);
@@ -200,7 +205,7 @@ export const useOTRequests = () => {
             const baseSalary = request.baseSalaryAtTime || (request.user?.baseSalary) || 0;
             const hourlyRate = calculateHourlyRate(baseSalary);
             const multiplier = getMultiplier(request.type);
-            const finalPayout = Number((hourlyRate * multiplier * finalHours).toFixed(2));
+            const finalPayout = isFixedOt ? 0 : Number((hourlyRate * multiplier * finalHours).toFixed(2));
 
             // 4. Update Database
             const { error } = await supabase

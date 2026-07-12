@@ -305,7 +305,7 @@ export const generateOvertimeCSV = (
             const reqEnd = new Date(`${formattedDate}T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`);
             
             if (checkOutDate < reqEnd) {
-                verificationStatus = `กลับก่อนกำหนด (ทำจริง ${actualScannedHours.toFixed(1)} ชม.)`;
+                verificationStatus = `กลับก่อนกำหนด (ทำจริง ${actualScannedHours.toFixed(2)} ชม.)`;
             } else {
                 verificationStatus = 'สแกนเช็คเอาท์ถูกต้อง ครบตามสิทธิ์';
             }

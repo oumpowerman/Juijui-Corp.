@@ -13,6 +13,7 @@ export interface UserStat {
   totalLateMinutes?: number;
   totalOtHours?: number;
   totalOtPayout?: number;
+  totalFixedOtDays?: number;
 }
 
 export type GroupMode = "POSITION" | "EMPLOYMENT_TYPE" | "NONE";
@@ -36,6 +37,9 @@ export interface DashboardTableProps {
   workingDaysCount?: number;
   lateViewMode?: "DAYS" | "HOURS";
   onLateViewModeChange?: (mode: "DAYS" | "HOURS") => void;
-  otViewMode?: "HOURS" | "PAYOUT";
-  onOtViewModeChange?: (mode: "HOURS" | "PAYOUT") => void;
+  otViewMode?: "HOURS" | "LUMP_SUM" | "BOTH" | "PAYOUT";
+  onOtViewModeChange?: (mode: "HOURS" | "LUMP_SUM" | "BOTH" | "PAYOUT") => void;
+  hpViewMode?: "MONTHLY" | "YEARLY";
+  onHpViewModeChange?: (mode: "MONTHLY" | "YEARLY") => void;
+  snapshots?: any[];
 }

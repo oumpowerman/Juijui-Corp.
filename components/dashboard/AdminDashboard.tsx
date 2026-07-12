@@ -1,11 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../types';
 import TaskCategoryModal from '../TaskCategoryModal';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
 import WorkloadModal from '../workload/WorkloadModal';
 import AppBackground from '../common/AppBackground';
+import { supabase } from '../../lib/supabase';
+
+let cachedAdminSeason: 'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn' | null = null;
+let isAdminSeasonFetched = false;
 
 // Import Sub-components
 import DashboardHeader from './admin/DashboardHeader';
@@ -55,7 +59,65 @@ const AdminDashboard: React.FC<DashboardProps> = ({
       return 'season-snow';
   };
 
-  const [currentSeason, setCurrentSeason] = useState<'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn'>(getCurrentSeason());
+  const [currentSeason, setCurrentSeason] = useState<'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn'>(() => {
+    if (cachedAdminSeason) return cachedAdminSeason;
+    const local = localStorage.getItem('admin_dashboard_season');
+    if (local) return local as any;
+    return getCurrentSeason();
+  });
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    if (isAdminSeasonFetched) {
+      if (cachedAdminSeason) setCurrentSeason(cachedAdminSeason);
+      return;
+    }
+
+    const loadSeasonFromDB = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_background_settings')
+          .select('admin_dashboard_season')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data && data.admin_dashboard_season) {
+          const season = data.admin_dashboard_season as any;
+          setCurrentSeason(season);
+          localStorage.setItem('admin_dashboard_season', season);
+          cachedAdminSeason = season;
+        }
+        isAdminSeasonFetched = true;
+      } catch (err) {
+        console.error('Error loading season background from database:', err);
+      }
+    };
+
+    loadSeasonFromDB();
+  }, [currentUser?.id]);
+
+  const handleSeasonChange = async (season: 'season-summer' | 'season-rain' | 'season-snow' | 'season-autumn') => {
+    setCurrentSeason(season);
+    localStorage.setItem('admin_dashboard_season', season);
+    cachedAdminSeason = season;
+    isAdminSeasonFetched = true;
+
+    if (!currentUser?.id) return;
+
+    try {
+      await supabase
+        .from('user_background_settings')
+        .upsert({
+          user_id: currentUser.id,
+          admin_dashboard_season: season,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+    } catch (err) {
+      console.error('Error saving season background to database:', err);
+    }
+  };
 
   const {
       timeRange, setTimeRange,
@@ -138,7 +200,7 @@ const AdminDashboard: React.FC<DashboardProps> = ({
               getTimeRangeLabel={getTimeRangeLabel}
               onOpenWorkload={() => setIsWorkloadOpen(true)}
               currentSeason={currentSeason}
-              onSeasonChange={setCurrentSeason}
+              onSeasonChange={handleSeasonChange}
           />
         </motion.div>
 

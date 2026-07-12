@@ -4,6 +4,7 @@ import { format, isSameMonth, isToday, isSameDay, isSameWeek } from 'date-fns';
 import { Task, ChipConfig, CalendarHighlight, MasterOption, Channel } from '../../types';
 import CalendarTaskPill from './CalendarTaskPill';
 import { TaskDisplayMode } from '../CalendarView';
+import { AnimatePresence } from 'framer-motion';
 
 interface CalendarDayCellProps {
     day: Date;
@@ -156,25 +157,27 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
 
             <div className="flex-1 flex flex-col justify-start w-full h-full min-h-0">
                 <div className={`${isExpanded ? 'flex' : 'hidden md:flex'} flex-col items-center mt-1 w-full ${containerPadding} ${containerSpacing} h-full`}>
-                    {count > 0 && tasks.slice(0, maxVisible).map((task, index) => (
-                        <CalendarTaskPill 
-                            key={`${task.id}-${viewMode}`}
-                            task={task}
-                            index={index}
-                            viewMode={viewMode}
-                            displayMode={taskDisplayMode}
-                            isExpanded={isExpanded}
-                            activeChipIds={activeChipIds}
-                            customChips={customChips}
-                            masterOptions={masterOptions}
-                            channels={channels}
-                            dayOfWeek={day.getDay()}
-                            cellDate={day}
-                            isFirstWeek={isFirstWeek}
-                            onDragStart={onTaskDragStart}
-                            onClick={onTaskClick}
-                        />
-                    ))}
+                    <AnimatePresence mode="popLayout">
+                        {count > 0 && tasks.slice(0, maxVisible).map((task, index) => (
+                            <CalendarTaskPill 
+                                key={`${task.id}-${viewMode}`}
+                                task={task}
+                                index={index}
+                                viewMode={viewMode}
+                                displayMode={taskDisplayMode}
+                                isExpanded={isExpanded}
+                                activeChipIds={activeChipIds}
+                                customChips={customChips}
+                                masterOptions={masterOptions}
+                                channels={channels}
+                                dayOfWeek={day.getDay()}
+                                cellDate={day}
+                                isFirstWeek={isFirstWeek}
+                                onDragStart={onTaskDragStart}
+                                onClick={onTaskClick}
+                            />
+                        ))}
+                    </AnimatePresence>
                     
                     {tasks.length > maxVisible && (
                         <span 

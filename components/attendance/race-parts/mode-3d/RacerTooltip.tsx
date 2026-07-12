@@ -54,22 +54,22 @@ export const RacerTooltip: React.FC<RacerTooltipProps> = ({ racer, safeIndex, pc
                         referrerPolicy="no-referrer"
                     />
                 ) : (
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 border-2 border-slate-900 flex items-center justify-center font-sans text-xs font-black text-slate-500 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 border-2 border-slate-900 flex items-center justify-center font-sans text-xs font-bold text-slate-500 shadow-sm">
                         {racer.user.name.charAt(0).toUpperCase()}
                     </div>
                 )}
                 <div className="flex flex-col text-left">
                     <div className="flex items-center gap-1.5 leading-none">
-                        <span className="text-xs font-black text-slate-900 tracking-tight">{racer.user.name}</span>
+                        <span className="text-xs font-bold text-slate-900 tracking-tight">{racer.user.name}</span>
                         {racer.isCheckedIn && (
-                            <span className="px-1.5 py-0.5 rounded-lg bg-indigo-600 text-white font-mono text-[7.5px] font-black border border-indigo-700 shadow-sm">
+                            <span className="px-1.5 py-0.5 rounded-lg bg-indigo-600 text-white font-mono text-[7.5px] font-bold border border-indigo-700 shadow-sm">
                                 #{racer.checkInOrder}
                             </span>
                         )}
                     </div>
                     {/* Position / Section Tag */}
                     <div className="flex items-center gap-1 mt-1">
-                        <span className={`px-1.5 py-0.2 rounded font-sans text-[7.5px] font-black border leading-none ${group.textStyles}`}>
+                        <span className={`px-1.5 py-0.2 rounded font-sans text-[7.5px] font-bold border leading-none ${group.textStyles}`}>
                             {group.emoji} {group.name}
                         </span>
                         {racer.user.position && (
@@ -83,14 +83,14 @@ export const RacerTooltip: React.FC<RacerTooltipProps> = ({ racer, safeIndex, pc
 
             {/* Custom Interactive Banners inside Tooltip for status highlights */}
             <div className="flex flex-col gap-1 border-t border-dashed border-slate-200 pt-2 text-left">
-                <span className="text-[8.5px] text-slate-500 font-extrabold flex items-center justify-between">
+                <span className="text-[8.5px] text-slate-500 font-bold flex items-center justify-between">
                     <span>ลู่วิ่งแผนกที่: {safeIndex + 1}</span>
-                    <span className="font-mono text-slate-450 font-black">LANE #{safeIndex + 1}</span>
+                    <span className="font-mono text-slate-450 font-bold">LANE #{safeIndex + 1}</span>
                 </span>
                 
                 <span className="text-[8.5px] text-slate-700 font-bold mt-0.5">
                     ⏱️ บันทึกวันนี้: {' '}
-                    <span className="font-black text-slate-900">
+                    <span className="font-bold text-slate-900">
                         {racer.isCheckedIn 
                             ? `เช็คอินเมื่อ ${racer.checkInTime} น.`
                             : `ยังไม่ได้เช็คอิน`
@@ -100,7 +100,7 @@ export const RacerTooltip: React.FC<RacerTooltipProps> = ({ racer, safeIndex, pc
 
                 {/* Leaves Highlights */}
                 {racer.activeLeave && (
-                    <div className={`mt-1 text-[8px] font-extrabold px-2 py-1 rounded-xl flex flex-col gap-0.5 border ${
+                    <div className={`mt-1 text-[8px] font-bold px-2 py-1 rounded-xl flex flex-col gap-0.5 border ${
                         racer.activeLeave.status === 'APPROVED' 
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-250' 
                             : 'bg-amber-50 text-amber-700 border-amber-250'
@@ -123,7 +123,7 @@ export const RacerTooltip: React.FC<RacerTooltipProps> = ({ racer, safeIndex, pc
 
                 {/* Late Check-in Highlight */}
                 {racer.isCheckedIn && racer.status === 'LATE' && (
-                    <div className="mt-1 text-[8px] font-black px-2 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5 animate-pulse">
+                    <div className="mt-1 text-[8px] font-bold px-2 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5 animate-pulse">
                         <span className="text-xs">⏱️</span>
                         <div className="flex flex-col">
                             <span>มาสายเกินกำหนดเวลา</span>
@@ -134,7 +134,7 @@ export const RacerTooltip: React.FC<RacerTooltipProps> = ({ racer, safeIndex, pc
 
                 {/* Action Required Highlight */}
                 {racer.isCheckedIn && racer.status === 'ACTION_REQUIRED' && (
-                    <div className="mt-1 text-[8px] font-black px-2 py-1.5 rounded-xl bg-orange-50 text-orange-700 border border-orange-255 flex items-center gap-1.5">
+                    <div className="mt-1 text-[8px] font-bold px-2 py-1.5 rounded-xl bg-orange-50 text-orange-700 border border-orange-255 flex items-center gap-1.5">
                         <span className="text-xs">⚠️</span>
                         <div className="flex flex-col">
                             <span>ข้อมูลเวลาผิดปกติ!</span>

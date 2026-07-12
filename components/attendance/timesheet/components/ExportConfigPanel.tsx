@@ -45,7 +45,7 @@ const ExportConfigPanel: React.FC<ExportConfigPanelProps> = ({
                     <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                         <FileText className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">รูปแบบข้อมูลในเซลล์ (Cell Format)</h4>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">รูปแบบข้อมูลในเซลล์ (Cell Format)</h4>
                 </div>
                 
                 {/* Segmented Controller Slider */}
@@ -86,7 +86,7 @@ const ExportConfigPanel: React.FC<ExportConfigPanelProps> = ({
                     <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
                         <Layout className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">คอลัมน์รายงานเสริม (Columns Settings)</h4>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">คอลัมน์รายงานเสริม (Columns Settings)</h4>
                 </div>
 
                 <div className="space-y-3">
@@ -174,7 +174,7 @@ const ExportConfigPanel: React.FC<ExportConfigPanelProps> = ({
                     <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
                         <Calendar className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">วันหยุดสัปดาห์ / วันหยุดพิเศษ (Holiday Treatment)</h4>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">วันหยุดสัปดาห์ / วันหยุดพิเศษ (Holiday Treatment)</h4>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">

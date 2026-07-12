@@ -33,7 +33,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
         tier: "RAINBOW",
         badgeText: "ว่าที่เบี้ยขยันสุดยอด!",
         emoji: "👑",
-        colorClass: "from-pink-500 via-purple-500 to-teal-500 text-transparent bg-clip-text font-extrabold animate-pulse",
+        colorClass: "from-pink-500 via-purple-500 to-teal-500 text-transparent bg-clip-text font-bold animate-pulse",
         bgClass: "bg-gradient-to-r from-pink-100 via-purple-100 to-teal-100 text-pink-700 border border-pink-200/50",
       };
     }
@@ -42,7 +42,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
         tier: "GOLD",
         badgeText: "นิ่งดั่งทองแท้",
         emoji: "🥇",
-        colorClass: "text-amber-600 font-extrabold",
+        colorClass: "text-amber-600 font-bold",
         bgClass: "bg-amber-100 text-amber-800 border border-amber-200",
       };
     }
@@ -69,14 +69,14 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
       if (rank === 1) {
         avatarBorderClass =
           "border-2 border-red-500 ring-2 ring-red-400/30 shadow-md";
-        nameTextClass = "text-red-950 font-black";
+        nameTextClass = "text-red-950 font-bold";
         badgeElement = (
-          <span className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-red-700 to-red-800 text-white shadow-md border border-white text-[10px] font-black">
+          <span className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-red-700 to-red-800 text-white shadow-md border border-white text-[10px] font-bold">
             1
           </span>
         );
         nameBadgeElement = (
-          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-full uppercase tracking-wider shadow-sm animate-pulse whitespace-nowrap shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-gradient-to-r from-red-700 to-red-800 text-white rounded-full uppercase tracking-wider shadow-sm animate-pulse whitespace-nowrap shrink-0">
             🚨 Rank 1
           </span>
         );
@@ -112,14 +112,14 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
       if (rank === 1) {
         avatarBorderClass =
           "border-2 border-amber-400 ring-2 ring-amber-300/30 shadow-md";
-        nameTextClass = "text-amber-950 font-black";
+        nameTextClass = "text-amber-950 font-bold";
         badgeElement = (
           <span className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md border border-white">
             <Award className="w-3 h-3 text-amber-100 fill-amber-100" />
           </span>
         );
         nameBadgeElement = (
-          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-full uppercase tracking-wider shadow-sm whitespace-nowrap shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-full uppercase tracking-wider shadow-sm whitespace-nowrap shrink-0">
             <Sparkles className="w-2.5 h-2.5 text-amber-100 fill-amber-100" />
             Top 1
           </span>
@@ -189,7 +189,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
             <p className={`text-sm font-bold ${nameTextClass}`}>{user.name}</p>
             {nameBadgeElement}
             {isPerfect && perfectTierInfo && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 bg-emerald-500 text-white rounded-md whitespace-nowrap shadow-xs animate-bounce">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-emerald-500 text-white rounded-md whitespace-nowrap shadow-xs animate-bounce">
                 ✨ Perfect
               </span>
             )}
@@ -205,7 +205,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
                 <span className={`inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md font-bold ${perfectTierInfo.bgClass} shadow-xs shrink-0`}>
                   {perfectTierInfo.emoji} {perfectTierInfo.badgeText}
                 </span>
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100 shrink-0">
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100 shrink-0">
                   <Flame className="w-2.5 h-2.5 text-emerald-500 fill-emerald-500" />
                   {stat.present} วันรวด
                 </span>
@@ -216,7 +216,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
                   อีก {perfectDaysRemaining} วันรับเบี้ยขยันสิ้นเดือน!
                 </p>
               ) : (
-                <p className="text-[9px] text-emerald-600 font-black flex items-center gap-0.5">
+                <p className="text-[9px] text-emerald-600 font-bold flex items-center gap-0.5">
                   <CheckCircle className="w-2.5 h-2.5 fill-emerald-100 shrink-0" />
                   สำเร็จ! พิชิตเบี้ยขยันสิ้นเดือนสำเร็จ 🎉
                 </p>

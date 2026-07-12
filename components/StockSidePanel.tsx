@@ -107,7 +107,19 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
 }) => {
     // --- Local States ---
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [dragCounter, setDragCounter] = useState(0);
+
+    // Debounce searchQuery to debouncedSearchQuery
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 400);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQuery]);
     const isDragOver = dragCounter > 0;
     
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -135,8 +147,8 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
         if (t.type !== 'CONTENT') return false;
         if (!t.isUnscheduled) return false;
 
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase().trim();
+        if (debouncedSearchQuery) {
+            const query = debouncedSearchQuery.toLowerCase().trim();
             const matchTitle = t.title.toLowerCase().includes(query);
             const matchDesc = (t.description || '').toLowerCase().includes(query);
             if (!matchTitle && !matchDesc) return false;
@@ -165,7 +177,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
         }
 
         return true;
-    }, [searchQuery, filters]);
+    }, [debouncedSearchQuery, filters]);
 
     // --- Dynamic fetching ---
     const fetchStockTasks = useCallback(async (isFirstPage: boolean) => {
@@ -189,8 +201,8 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                 `)
                 .eq('is_unscheduled', true);
 
-            if (searchQuery) {
-                const queryStr = searchQuery.trim();
+            if (debouncedSearchQuery) {
+                const queryStr = debouncedSearchQuery.trim();
                 query = query.or(`title.ilike.%${queryStr}%,description.ilike.%${queryStr}%`);
             }
 
@@ -233,7 +245,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
         } finally {
             setFetchingTasks(false);
         }
-    }, [isOpen, page, searchQuery, filters]);
+    }, [isOpen, page, debouncedSearchQuery, filters]);
 
     // Initial load & Filter trigger
     useEffect(() => {
@@ -245,7 +257,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
             setHasMore(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, searchQuery, filters]);
+    }, [isOpen, debouncedSearchQuery, filters]);
 
     // Sync localStockTasks with parent tasks to add or remove items immediately on user action
     useEffect(() => {

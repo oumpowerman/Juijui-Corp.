@@ -269,7 +269,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                                     transition={{ duration: 0.2 }}
                                     className="flex items-center gap-1.5"
                                 >
-                                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md">
+                                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md">
                                         ปี {selectedYear + 543}
                                     </span>
                                     <span className="text-xs font-bold text-slate-800">
@@ -404,7 +404,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                                 >
                                     <Icon className="w-3 h-3 shrink-0" />
                                     <span>{theme.label}</span>
-                                    <span className="font-extrabold ml-1">{value} วัน</span>
+                                    <span className="font-bold ml-1">{value} วัน</span>
                                 </motion.button>
                             );
                         })}

@@ -124,7 +124,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
     const { isSaving, setIsSaving, lastSaved, setLastSaved, isDirtyRef, handleSave } = useScriptPersistence({
         script, title, content, mainContent, status, scriptType, characters,
         ideaOwnerId, authorId, channelId, category, tags, objective,
-        sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc
+        sheets, activeSheetId, isReadOnly, lockStatus, estimatedSeconds, onSave, ydoc, currentUser
     });
     
     const addComment = async (text: string, highlightId?: string, selectedText?: string) => {

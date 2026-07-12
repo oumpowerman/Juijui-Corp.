@@ -71,7 +71,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             >
                 <div>
                     <p className="text-[10px] font-bold text-indigo-400 uppercase">Total Check-ins</p>
-                    <h3 className="text-3xl font-black text-indigo-900"><Counter value={totalCheckins} /></h3>
+                    <h3 className="text-3xl font-bold text-indigo-900"><Counter value={totalCheckins} /></h3>
                 </div>
                 <div className={`p-3 rounded-xl transition-all ${isActive('PRESENT') ? 'bg-indigo-500 text-white shadow-inner' : 'bg-white text-indigo-500 shadow-sm'}`}><Users className="w-6 h-6"/></div>
             </div>
@@ -89,7 +89,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             >
                 <div>
                     <p className="text-[10px] font-bold text-orange-400 uppercase">Late Arrivals</p>
-                    <h3 className="text-3xl font-black text-orange-900">
+                    <h3 className="text-3xl font-bold text-orange-900">
                         <Counter value={totalLates} /> <span className="text-xs text-orange-400 font-bold">(<Counter value={lateRate} decimals={lateRate % 1 === 0 ? 0 : 1} />%)</span>
                     </h3>
                 </div>
@@ -109,7 +109,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             >
                 <div>
                     <p className="text-[10px] font-bold text-red-400 uppercase">Total Absents</p>
-                    <h3 className="text-3xl font-black text-red-900"><Counter value={totalAbsents} /></h3>
+                    <h3 className="text-3xl font-bold text-red-900"><Counter value={totalAbsents} /></h3>
                 </div>
                 <div className={`p-3 rounded-xl transition-all ${isActive('ABSENT') ? 'bg-red-500 text-white shadow-inner' : 'bg-white text-red-500 shadow-sm'}`}><UserX className="w-6 h-6"/></div>
             </div>
@@ -127,7 +127,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             >
                 <div>
                     <p className="text-[10px] font-bold text-pink-400 uppercase">Total Leaves</p>
-                    <h3 className="text-3xl font-black text-pink-900"><Counter value={totalLeaves} /></h3>
+                    <h3 className="text-3xl font-bold text-pink-900"><Counter value={totalLeaves} /></h3>
                 </div>
                 <div className={`p-3 rounded-xl transition-all ${isActive('LEAVE') ? 'bg-pink-500 text-white shadow-inner' : 'bg-white text-pink-500 shadow-sm'}`}><HeartPulse className="w-6 h-6"/></div>
             </div>

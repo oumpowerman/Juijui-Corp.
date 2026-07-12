@@ -38,7 +38,7 @@ export const CafeChamber: React.FC<CafeChamberProps> = ({
             <span className="absolute left-3 top-12 font-mono text-[8px] font-bold text-amber-500/50 uppercase tracking-widest leading-none">CAFE BAR</span>
             
             {/* Open Neon Sign */}
-            <div className="absolute left-[8%] bottom-[125px] border-2 border-slate-900 bg-amber-400 text-slate-950 font-black text-[7px] px-1.5 py-0.5 rounded shadow-[1.5px_1.5px_0px_#000] rotate-[-5deg] z-10 pointer-events-none select-none">
+            <div className="absolute left-[8%] bottom-[125px] border-2 border-slate-900 bg-amber-400 text-slate-950 font-bold text-[7px] px-1.5 py-0.5 rounded shadow-[1.5px_1.5px_0px_#000] rotate-[-5deg] z-10 pointer-events-none select-none">
                 OPEN ☕
             </div>
 
@@ -113,7 +113,7 @@ export const CafeChamber: React.FC<CafeChamberProps> = ({
                                 />
 
                                 {/* Hover tooltip bubble card */}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-5 hidden group-hover:block bg-slate-950 text-white text-[9.5px] font-black px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-800 whitespace-nowrap z-[300]">
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-5 hidden group-hover:block bg-slate-950 text-white text-[9.5px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-800 whitespace-nowrap z-[300]">
                                     <div className="flex items-center gap-1">
                                         <span className="text-amber-400 font-bold">{resident.user.name}</span>
                                         {resident.user.emoji && <span className="text-slate-400 font-normal">{resident.user.emoji}</span>}

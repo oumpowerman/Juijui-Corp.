@@ -194,7 +194,7 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
                             </div>
                             
                             <div className="space-y-2">
-                                <h3 className="text-base font-extrabold text-slate-800">⚠️ ยืนยันการปรับปรุงเวลาปฏิบัติงาน</h3>
+                                <h3 className="text-base font-bold text-slate-800">⚠️ ยืนยันการปรับปรุงเวลาปฏิบัติงาน</h3>
                                 <p className="text-xs text-slate-500 font-medium leading-relaxed">
                                     การปรับปรุงเวลาและชั่วโมงปฏิบัติงานในขั้นตอนนี้ จะมีผลโดยตรงต่อการคำนวณเงินหรือสถิติ และระบบจะทำการส่งข้อความแจ้งเตือนที่ปรับปรุงใหม่นี้ไปยังผู้ขอ OT ทันทีเมื่อได้รับการอนุมัติ
                                 </p>
@@ -341,7 +341,7 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
                                             <ArrowRight className="w-3 h-3 text-slate-400" />
                                             <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md text-[11px]">{editOtHours || '0'} ชม.</span>
                                             {hoursDiffText && (
-                                                <span className={`${hoursDiffStyle} text-[10px] font-extrabold`}>{hoursDiffText}</span>
+                                                <span className={`${hoursDiffStyle} text-[10px] font-bold`}>{hoursDiffText}</span>
                                             )}
                                         </div>
                                     </div>

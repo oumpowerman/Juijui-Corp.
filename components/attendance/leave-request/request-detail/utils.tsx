@@ -11,6 +11,7 @@ export interface ParsedReason {
     forgotCheckoutPenalty: boolean;
     time: string | null;
     otHours: string | null;
+    isFixedOt: boolean;
 }
 
 export const parseReason = (reason: string): ParsedReason => {
@@ -26,6 +27,9 @@ export const parseReason = (reason: string): ParsedReason => {
     text = text.replace(/\[SYSTEM\]\s*Penalized for forgotten checkout/g, '');
     text = text.replace(/Penalized for forgotten checkout/g, '');
     text = text.replace(/\|/g, '');
+
+    const isFixedOt = text.includes('[OT:FIXED]');
+    text = text.replace(/\[OT:FIXED\]/g, '');
     
     const timeMatch = text.match(/\[TIME:(\d{2}:\d{2})\]/);
     let time: string | null = null;
@@ -37,7 +41,7 @@ export const parseReason = (reason: string): ParsedReason => {
     // Extract [OT:HH:MM-HH:MM]
     const otRangeMatch = text.match(/\[OT:(\d{2}:\d{2}-\d{2}:\d{2})\]/);
     if (otRangeMatch) {
-        time = otRangeMatch[1];
+        time = isFixedOt ? null : otRangeMatch[1];
     }
 
     // Extract OT hours: from either (Xhr) or [OT:Xhr]
@@ -45,9 +49,9 @@ export const parseReason = (reason: string): ParsedReason => {
     const otHoursMatch2 = text.match(/\[OT:([\d\.]+)hr\]/);
     let otHours: string | null = null;
     if (otHoursMatch1) {
-        otHours = otHoursMatch1[1];
+        otHours = isFixedOt ? null : otHoursMatch1[1];
     } else if (otHoursMatch2) {
-        otHours = otHoursMatch2[1];
+        otHours = isFixedOt ? null : otHoursMatch2[1];
     }
 
     // Cleanup all OT markup tags completely
@@ -63,7 +67,8 @@ export const parseReason = (reason: string): ParsedReason => {
         isLocationMismatch,
         forgotCheckoutPenalty,
         time,
-        otHours
+        otHours,
+        isFixedOt
     };
 };
 

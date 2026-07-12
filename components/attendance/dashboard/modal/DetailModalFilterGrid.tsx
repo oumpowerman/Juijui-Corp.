@@ -48,15 +48,15 @@ export const DetailModalFilterGrid: React.FC<DetailModalFilterGridProps> = ({
                 <div className="flex items-center gap-1">
                     <Filter className={`w-3.5 h-3.5 ${activeFilter === 'ALL' ? 'text-indigo-500' : 'text-slate-400'}`} />
                     {isScrolled && (
-                        <span className={`text-xs font-black ${activeFilter === 'ALL' ? 'text-slate-800' : 'text-slate-400'}`}>
+                        <span className={`text-xs font-bold ${activeFilter === 'ALL' ? 'text-slate-800' : 'text-slate-400'}`}>
                             {stats.present}
                         </span>
                     )}
                 </div>
                 {!isScrolled && (
                     <>
-                        <span className={`text-base font-black ${activeFilter === 'ALL' ? 'text-slate-800' : 'text-slate-400'}`}>{stats.present}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">All Days</span>
+                        <span className={`text-base font-bold ${activeFilter === 'ALL' ? 'text-slate-800' : 'text-slate-400'}`}>{stats.present}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">All Days</span>
                     </>
                 )}
             </motion.button>
@@ -78,15 +78,15 @@ export const DetailModalFilterGrid: React.FC<DetailModalFilterGridProps> = ({
                 <div className="flex items-center gap-1">
                     <Clock className={`w-3.5 h-3.5 ${activeFilter === 'LATE' ? 'text-amber-500' : 'text-amber-300'}`} />
                     {isScrolled && (
-                        <span className={`text-xs font-black ${activeFilter === 'LATE' ? 'text-amber-600' : 'text-amber-300'}`}>
+                        <span className={`text-xs font-bold ${activeFilter === 'LATE' ? 'text-amber-600' : 'text-amber-300'}`}>
                             {stats.late}
                         </span>
                     )}
                 </div>
                 {!isScrolled && (
                     <>
-                        <span className={`text-base font-black ${activeFilter === 'LATE' ? 'text-amber-600' : 'text-amber-300'}`}>{stats.late}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Late</span>
+                        <span className={`text-base font-bold ${activeFilter === 'LATE' ? 'text-amber-600' : 'text-amber-300'}`}>{stats.late}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Late</span>
                     </>
                 )}
             </motion.button>
@@ -108,15 +108,15 @@ export const DetailModalFilterGrid: React.FC<DetailModalFilterGridProps> = ({
                 <div className="flex items-center gap-1">
                     <UserX className={`w-3.5 h-3.5 ${activeFilter === 'ABSENT' ? 'text-rose-500' : 'text-rose-300'}`} />
                     {isScrolled && (
-                        <span className={`text-xs font-black ${activeFilter === 'ABSENT' ? 'text-rose-600' : 'text-rose-300'}`}>
+                        <span className={`text-xs font-bold ${activeFilter === 'ABSENT' ? 'text-rose-600' : 'text-rose-300'}`}>
                             {stats.absent}
                         </span>
                     )}
                 </div>
                 {!isScrolled && (
                     <>
-                        <span className={`text-base font-black ${activeFilter === 'ABSENT' ? 'text-rose-600' : 'text-rose-300'}`}>{stats.absent}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Absent</span>
+                        <span className={`text-base font-bold ${activeFilter === 'ABSENT' ? 'text-rose-600' : 'text-rose-300'}`}>{stats.absent}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Absent</span>
                     </>
                 )}
             </motion.button>
@@ -138,15 +138,15 @@ export const DetailModalFilterGrid: React.FC<DetailModalFilterGridProps> = ({
                 <div className="flex items-center gap-1">
                     <HeartPulse className={`w-3.5 h-3.5 ${activeFilter === 'LEAVE' ? 'text-sky-500' : 'text-sky-300'}`} />
                     {isScrolled && (
-                        <span className={`text-xs font-black ${activeFilter === 'LEAVE' ? 'text-sky-600' : 'text-sky-300'}`}>
+                        <span className={`text-xs font-bold ${activeFilter === 'LEAVE' ? 'text-sky-600' : 'text-sky-300'}`}>
                             {stats.leaves}
                         </span>
                     )}
                 </div>
                 {!isScrolled && (
                     <>
-                        <span className={`text-base font-black ${activeFilter === 'LEAVE' ? 'text-sky-600' : 'text-sky-300'}`}>{stats.leaves}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Leave</span>
+                        <span className={`text-base font-bold ${activeFilter === 'LEAVE' ? 'text-sky-600' : 'text-sky-300'}`}>{stats.leaves}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Leave</span>
                     </>
                 )}
             </motion.button>
@@ -168,17 +168,17 @@ export const DetailModalFilterGrid: React.FC<DetailModalFilterGridProps> = ({
                 <div className="flex items-center gap-1">
                     <Zap className={`w-3.5 h-3.5 ${activeFilter === 'OT' ? 'text-purple-500' : 'text-purple-300'}`} />
                     {isScrolled && (
-                        <span className={`text-xs font-black ${activeFilter === 'OT' ? 'text-purple-600' : 'text-purple-300'}`}>
+                        <span className={`text-xs font-bold ${activeFilter === 'OT' ? 'text-purple-600' : 'text-purple-300'}`}>
                             {stats.otHours.toFixed(1)}
                         </span>
                     )}
                 </div>
                 {!isScrolled && (
                     <>
-                        <span className={`text-base font-black ${activeFilter === 'OT' ? 'text-purple-600' : 'text-purple-300'}`}>
+                        <span className={`text-base font-bold ${activeFilter === 'OT' ? 'text-purple-600' : 'text-purple-300'}`}>
                             {stats.otHours > 0 ? `${stats.otHours.toFixed(1)}` : '0'}
                         </span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">OT (Hrs)</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">OT (Hrs)</span>
                     </>
                 )}
             </motion.button>

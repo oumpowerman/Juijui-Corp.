@@ -83,8 +83,8 @@ export const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
                         transition={{ duration: 0.2 }}
                         className="flex items-center gap-2 overflow-hidden"
                     >
-                        <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-[10px] font-black text-indigo-500 uppercase tracking-widest">Profile Card</span>
-                        {totalIssues === 0 && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1"><Star className="w-2 h-2" /> Perfect</span>}
+                        <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Profile Card</span>
+                        {totalIssues === 0 && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><Star className="w-2 h-2" /> Perfect</span>}
                     </motion.div>
                     <motion.h3 
                         animate={{ 
@@ -107,7 +107,7 @@ export const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
                         <span className="px-3 py-1 rounded-xl bg-white border border-indigo-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest shadow-sm">
                             {user.position}
                         </span>
-                        <span className="px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-400 to-sky-400 text-[10px] font-black text-white uppercase tracking-widest shadow-md">
+                        <span className="px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-400 to-sky-400 text-[10px] font-bold text-white uppercase tracking-widest shadow-md">
                             Level {user.level}
                         </span>
                     </motion.div>

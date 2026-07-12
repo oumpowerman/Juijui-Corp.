@@ -140,7 +140,7 @@ const ExportSettingsModal: React.FC<ExportSettingsModalProps> = ({
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
                                 {isExported ? 'ส่งออกรายงาน Timesheet สำเร็จ 🎉' : 'ตั้งค่าส่งออกรายงาน Timesheet'}
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 font-extrabold uppercase tracking-wider">{viewMode}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold uppercase tracking-wider">{viewMode}</span>
                             </h3>
                             <p className="text-xs text-slate-500 font-semibold mt-0.5">
                                 {isExported ? 'ไฟล์รายงานถูกเตรียมและเริ่มดาวน์โหลดโดยระบบเรียบร้อยแล้ว' : 'จัดระเบียบตารางและรูปแบบข้อมูลให้พร้อมสำหรับการอัปโหลดเข้าโปรแกรม Payroll'}

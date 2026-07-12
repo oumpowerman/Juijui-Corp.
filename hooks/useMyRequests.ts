@@ -17,7 +17,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         otRequests: contextOtRequests, 
         allUsers, 
         isReady: isContextReady, 
-        refreshOTRequests 
+        refreshOTRequests,
+        refreshAttendance,
+        refreshLeaves
     } = useUserSession();
     
     const { annualHolidays, calendarExceptions } = useMasterData();
@@ -66,7 +68,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         }
 
         // Merge and filter personal requests from context
-        const personalLeaves = contextLeaveRequests.filter(r => r.userId === currentUser.id);
+        const personalLeaves = contextLeaveRequests.filter(r => r.userId === currentUser.id && r.type !== 'OVERTIME');
         const personalOts: LeaveRequest[] = (contextOtRequests || [])
             .filter(r => r.userId === currentUser.id)
             .map(r => ({
@@ -187,6 +189,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
 
             // --- OT Request Handling ---
             if (type === 'OVERTIME') {
+                const isFixedOt = reason.includes('[OT:FIXED]');
+
                 // Try matching new format: [OT:18:30-20:30] (2hr) Reason
                 const otTimeMatch = reason.match(/\[OT:(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
                 const startTime = otTimeMatch ? otTimeMatch[1] : '18:30';
@@ -197,10 +201,14 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 const otHours = otHoursMatch ? parseFloat(otHoursMatch[1]) : 2.0;
 
                 // Clean the reason prefix
-                const cleanReason = reason
+                let cleanReason = reason
                     .replace(/\[OT:\d{2}:\d{2}-\d{2}:\d{2}\]\s*\([\d\.]+hr\)\s*/, '')
                     .replace(/\[OT:[\d\.]+hr\]\s*/, '')
                     .trim();
+
+                if (isFixedOt) {
+                    cleanReason = `[OT:FIXED] ${cleanReason.replace(/\[OT:FIXED\]/g, '').trim()}`;
+                }
 
                 const { data: existing } = await supabase
                     .from('ot_requests')
@@ -258,7 +266,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
 
                 const baseSalary = currentUser.baseSalary || 0;
                 const { type: otType, multiplier } = calculateOtMultiplier(startDate, annualHolidays, calendarExceptions);
-                const estimatedPayout = calculateEstimatedPayout(baseSalary, otHours, multiplier);
+                const estimatedPayout = isFixedOt ? 0 : calculateEstimatedPayout(baseSalary, otHours, multiplier);
 
                 await attendanceService.insertOtRequest({
                     user_id: currentUser.id,
@@ -271,10 +279,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'PENDING',
                     base_salary_at_time: baseSalary,
                     computed_payout: estimatedPayout,
-                    attachment_url: otAttachmentUrl
+                    attachment_url: otAttachmentUrl,
+                    is_fixed: isFixedOt
                 });
 
-                const msg = `📢 **${currentUser.name}** ส่งคำขอ OT (${otHours} ชม.) \n📅 ${format(startDate, 'd MMM')} \n📝: ${cleanReason}`;
+                const displayReason = isFixedOt ? cleanReason.replace(/\[OT:FIXED\]/g, '').trim() : cleanReason;
+                const otDisplayStr = isFixedOt ? 'เหมาจ่าย' : `${otHours} ชม.`;
+                const msg = `📢 **${currentUser.name}** ส่งคำขอ OT (${otDisplayStr}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${displayReason}`;
                 await supabase.from('team_messages').insert({
                     content: msg,
                     is_bot: true,
@@ -283,6 +294,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 });
 
                 showToast('ส่งคำขอ OT เรียบร้อย รออนุมัติครับ 📨', 'success');
+                if (refreshLeaves) await refreshLeaves();
+                if (refreshAttendance) await refreshAttendance();
                 if (refreshOTRequests) {
                     await refreshOTRequests();
                 }
@@ -362,6 +375,39 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 status: 'PENDING'
             });
 
+            if (type === 'FORGOT_CHECKIN') {
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr)
+                    .maybeSingle();
+
+                let finalNote = '[PROVISIONAL_FORGOT_CHECKIN]';
+                if (existingLog?.note) {
+                    if (!existingLog.note.includes('[PROVISIONAL_FORGOT_CHECKIN]')) {
+                        finalNote = `${existingLog.note} [PROVISIONAL_FORGOT_CHECKIN]`.trim();
+                    } else {
+                        finalNote = existingLog.note;
+                    }
+                }
+
+                const payload: any = {
+                    user_id: currentUser.id,
+                    date: startDateStr,
+                    check_in_time: startDate.toISOString(),
+                    status: 'WORKING',
+                    note: finalNote,
+                    work_type: existingLog?.work_type || 'OFFICE'
+                };
+
+                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                
+                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
+                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
+                }
+            }
+
             if (type === 'FORGOT_CHECKOUT') {
                 await supabase.from('attendance_logs').update({ status: 'PENDING_VERIFY' }).eq('user_id', currentUser.id).eq('date', startDateStr);
             }
@@ -375,6 +421,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             });
 
             showToast('ส่งคำขอเรียบร้อย รออนุมัติครับ 📨', 'success');
+            if (refreshLeaves) await refreshLeaves();
+            if (refreshAttendance) await refreshAttendance();
+            if (refreshOTRequests) await refreshOTRequests();
             fetchMyRequests();
             return true;
         } catch (err: any) {

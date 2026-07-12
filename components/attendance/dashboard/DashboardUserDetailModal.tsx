@@ -47,7 +47,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
 }) => {
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
     const [isScrolled, setIsScrolled] = useState(false);
-    const { leaveRequests } = useUserSession();
+    const { leaveRequests, otRequests } = useUserSession();
 
     // Categorize dates
     const onTimeLogs = useMemo(() => {
@@ -88,27 +88,23 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         }).sort((a, b) => b.getTime() - a.getTime());
     }, [workingDaysInMonth, stat.logs]);
 
-    // Calculate OT stats
+    // Calculate OT stats using ot_requests only
     const approvedOtRequests = useMemo(() => {
         if (workingDaysInMonth.length === 0) return [];
         const currentMonth = workingDaysInMonth[0].getMonth();
         const currentYear = workingDaysInMonth[0].getFullYear();
 
-        return (leaveRequests || []).filter(req => {
+        return (otRequests || []).filter(req => {
             if (req.userId !== user.id) return false;
             if (req.status !== 'APPROVED') return false;
-            if (req.type !== 'OVERTIME') return false;
-            const reqDate = new Date(req.startDate);
+            const reqDate = new Date(req.date);
             return reqDate.getMonth() === currentMonth && reqDate.getFullYear() === currentYear;
         });
-    }, [leaveRequests, user.id, workingDaysInMonth]);
+    }, [otRequests, user.id, workingDaysInMonth]);
 
     const totalOtHours = useMemo(() => {
         return approvedOtRequests.reduce((sum, req) => {
-            const reasonStr = req.reason || '';
-            const match = reasonStr.match(/\[OT:([\d\.]+)hr\]/);
-            const durationHours = match ? parseFloat(match[1]) : 0;
-            return sum + durationHours;
+            return sum + (req.durationHours || 0);
         }, 0);
     }, [approvedOtRequests]);
 
@@ -128,16 +124,15 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-950/40 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-950/40 backdrop-blur-md p-0 sm:p-4"
             onClick={onClose}
         >
             <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 80, rotateX: -15, rotateZ: -1.5 }}
-                animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0, rotateZ: 0 }}
-                exit={{ opacity: 0, scale: 0.85, y: 160, rotateX: 20, rotateZ: 3.5 }}
-                transition={{ type: "spring", damping: 28, stiffness: 200 }}
-                style={{ transformPerspective: 1200 }}
-                className="bg-white w-full max-w-2xl h-[80vh] sm:h-[1000px] sm:max-h-[85vh] rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(99,102,241,0.2)] overflow-hidden border-[8px] border-indigo-50 flex flex-col relative"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 360, damping: 34 }}
+                className="bg-white w-full max-w-full sm:max-w-2xl h-full sm:h-[1000px] sm:max-h-[85vh] rounded-none sm:rounded-[3rem] shadow-none sm:shadow-[0_32px_64px_-12px_rgba(99,102,241,0.2)] overflow-hidden border-0 sm:border-[8px] border-indigo-50 flex flex-col relative"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Decorative Elements */}
@@ -158,7 +153,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                     />
                     
                     {/* Filter grid attached right under header */}
-                    <div className="bg-gradient-to-br from-indigo-50/20 via-white to-pink-50/20 px-6 pb-4 border-b border-indigo-50 shrink-0">
+                    <div className="bg-gradient-to-br from-indigo-50/20 via-white to-pink-50/20 px-4 sm:px-6 pb-4 border-b border-indigo-50 shrink-0">
                         <DetailModalFilterGrid 
                             activeFilter={activeFilter}
                             setActiveFilter={setActiveFilter}
@@ -170,7 +165,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
 
                 {/* Content Section - Scrollable */}
                 <div 
-                    className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-thin scrollbar-thumb-indigo-100"
+                    className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 scrollbar-thin scrollbar-thumb-indigo-100"
                     onScroll={(e) => {
                         const target = e.currentTarget;
                         setIsScrolled(target.scrollTop > 20);
@@ -190,7 +185,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     <div className="p-2 bg-emerald-50 rounded-2xl text-emerald-500">
                                         <CheckCircle2 className="w-5 h-5"/>
                                     </div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-left">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
                                         On-Time Arrival Records
                                     </h4>
                                 </div>
@@ -221,7 +216,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     <div className="p-2 bg-amber-50 rounded-2xl text-amber-500">
                                         <CheckCircle2 className="w-5 h-5"/>
                                     </div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-left">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
                                         Late Arrival Records
                                     </h4>
                                 </div>
@@ -252,7 +247,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     <div className="p-2 bg-rose-50 rounded-2xl text-rose-500">
                                         <CheckCircle2 className="w-5 h-5"/>
                                     </div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-left">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
                                         Missing Attendance
                                     </h4>
                                 </div>
@@ -282,7 +277,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     <div className="p-2 bg-sky-50 rounded-2xl text-sky-500">
                                         <CheckCircle2 className="w-5 h-5"/>
                                     </div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-left">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
                                         Official Leave History
                                     </h4>
                                 </div>
@@ -325,7 +320,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     <div className="absolute inset-0 bg-indigo-100 rounded-[2.5rem] animate-ping opacity-20"></div>
                                     <CheckCircle2 className="w-12 h-12 text-indigo-400 relative z-10" />
                                 </div>
-                                <p className="text-sm font-black uppercase tracking-[0.3em] text-slate-800">Everything is Good!</p>
+                                <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-800">Everything is Good!</p>
                                 <p className="text-[10px] font-bold text-slate-400 mt-1">No records found for this category</p>
                             </motion.div>
                         )}
@@ -333,10 +328,10 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                 </div>
 
                 {/* Footer Section - Cute Style */}
-                <div className="p-8 bg-white border-t border-indigo-50 shrink-0">
+                <div className="p-5 sm:p-8 bg-white border-t border-indigo-50 shrink-0">
                     <button 
                         onClick={onClose}
-                        className="w-full py-4 bg-gradient-to-r from-indigo-500 to-sky-500 text-white rounded-[2rem] font-black text-xs tracking-[0.3em] uppercase hover:shadow-xl hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-4 bg-gradient-to-r from-indigo-500 to-sky-500 text-white rounded-[2rem] font-bold text-xs tracking-[0.3em] uppercase hover:shadow-xl hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         Close Details <ArrowRight className="w-4 h-4" />
                     </button>

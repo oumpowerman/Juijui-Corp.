@@ -52,6 +52,7 @@ interface UserStat {
     totalLateMinutes?: number;
     totalOtHours?: number;
     totalOtPayout?: number;
+    totalFixedOtDays?: number;
 }
 
 import { useMasterData } from '../../../hooks/useMasterData';
@@ -70,10 +71,44 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const [selectedPosition, setSelectedPosition] = useState('ALL');
     const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
     const [lateViewMode, setLateViewMode] = useState<'DAYS' | 'HOURS'>('DAYS');
-    const [otViewMode, setOtViewMode] = useState<'HOURS' | 'PAYOUT'>('HOURS');
+    const [otViewMode, setOtViewMode] = useState<'HOURS' | 'LUMP_SUM' | 'BOTH' | 'PAYOUT'>('HOURS');
     const [activeStatFilter, setActiveStatFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE'>('ALL');
     const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
     const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+    const [hpViewMode, setHpViewMode] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+    const [snapshots, setSnapshots] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchSnapshots = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('hp_snapshots')
+                    .select('*');
+                if (error) {
+                    console.warn("hp_snapshots might not exist yet:", error);
+                } else if (data) {
+                    setSnapshots(data);
+                }
+            } catch (e) {
+                console.warn("Error loading hp_snapshots:", e);
+            }
+        };
+        fetchSnapshots();
+
+        const hpChannel = supabase.channel('hp-snapshots-dashboard')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'hp_snapshots'
+            }, () => {
+                fetchSnapshots();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(hpChannel);
+        };
+    }, []);
 
     useEffect(() => {
         setSortDirection('DESC');
@@ -278,7 +313,11 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
         Object.values(statsMap).forEach(stat => {
             const userOt = activeOtRequests.filter(req => req.userId === stat.userId);
-            stat.totalOtHours = userOt.reduce((sum, req) => sum + req.durationHours, 0);
+            const hourlyOt = userOt.filter(req => !req.isFixed && (!req.reason || !req.reason.includes('[OT:FIXED]')));
+            const fixedOt = userOt.filter(req => req.isFixed || (req.reason && req.reason.includes('[OT:FIXED]')));
+
+            stat.totalOtHours = hourlyOt.reduce((sum, req) => sum + req.durationHours, 0);
+            stat.totalFixedOtDays = fixedOt.length;
             stat.totalOtPayout = userOt.reduce((sum, req) => sum + req.computedPayout, 0);
         });
 
@@ -499,6 +538,10 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             onLateViewModeChange={setLateViewMode}
                             otViewMode={otViewMode}
                             onOtViewModeChange={setOtViewMode}
+                            hpViewMode={hpViewMode}
+                            onHpViewModeChange={setHpViewMode}
+                            snapshots={snapshots}
+                            currentMonth={currentMonth}
                         />
 
                         <div className="flex justify-end">

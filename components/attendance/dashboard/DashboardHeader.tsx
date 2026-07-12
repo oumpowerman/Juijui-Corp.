@@ -129,7 +129,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                     className="absolute inset-0 flex items-center gap-2 w-full"
                                 >
                                     <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
-                                        <span className="pl-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">เริ่ม</span>
+                                        <span className="pl-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">เริ่ม</span>
                                         <div className="flex-1 min-w-0">
                                             <CustomDatePicker
                                                 selected={customStartDate}
@@ -147,7 +147,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
-                                        <span className="pl-2 text-[9px] font-extrabold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">สิ้นสุด</span>
+                                        <span className="pl-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">สิ้นสุด</span>
                                         <div className="flex-1 min-w-0">
                                             <CustomDatePicker
                                                 selected={customEndDate}

@@ -61,7 +61,7 @@ const LiveClock: React.FC<LiveClockProps> = ({ hp }) => {
                 </p>
             </div>
             <div className="text-right">
-                <p className="text-3xl font-black text-gray-800 tracking-tight font-mono">
+                <p className="text-3xl font-bold text-gray-800 tracking-tight font-mono">
                     {format(time, 'HH:mm')}
                     <span className="text-sm text-gray-400 ml-1">{format(time, 'ss')}</span>
                 </p>

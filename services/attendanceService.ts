@@ -87,6 +87,8 @@ export const attendanceService = {
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
+                    isFixed: r.is_fixed,
+                    is_fixed: r.is_fixed,
                     user: r.profiles ? {
                         id: r.profiles.id,
                         name: r.profiles.full_name,
@@ -125,6 +127,8 @@ export const attendanceService = {
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
+                    isFixed: r.is_fixed,
+                    is_fixed: r.is_fixed,
                     user: undefined // Will be matched with current user at hooks layer if needed
                 }));
             }

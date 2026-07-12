@@ -251,6 +251,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                         originalStartTime={originalStartTime}
                                         originalEndTime={originalEndTime}
                                         originalOtHours={originalOtHours}
+                                        isFixed={request.isFixed || request.is_fixed || parsed.isFixedOt}
                                     />
                                 )}
 
@@ -387,6 +388,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                                 originalStartTime={originalStartTime}
                                                 originalEndTime={originalEndTime}
                                                 originalOtHours={originalOtHours}
+                                                isFixed={request.isFixed || request.is_fixed || parsed.isFixedOt}
                                             />
                                         )}
 

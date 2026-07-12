@@ -61,6 +61,8 @@ export interface LeaveRequest {
     createdAt: Date;
     rejectionReason?: string; // NEW: Added rejection reason
     user?: Partial<User>;
+    isFixed?: boolean;
+    is_fixed?: boolean;
 }
 
 // NEW: Helper type for Quota

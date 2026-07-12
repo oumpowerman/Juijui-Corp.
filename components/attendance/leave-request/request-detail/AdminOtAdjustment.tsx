@@ -15,6 +15,7 @@ interface AdminOtAdjustmentProps {
     originalStartTime?: string;
     originalEndTime?: string;
     originalOtHours?: string;
+    isFixed?: boolean;
 }
 
 export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
@@ -28,7 +29,8 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
     setAdminNote,
     originalStartTime = '',
     originalEndTime = '',
-    originalOtHours = ''
+    originalOtHours = '',
+    isFixed = false
 }) => {
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -56,6 +58,13 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
             });
         }
     }, [editStartTime, editEndTime, editOtHours, isUnlocked]);
+
+    // Force locked status if isFixed is true
+    useEffect(() => {
+        if (isFixed) {
+            setIsUnlocked(false);
+        }
+    }, [isFixed]);
 
     const calculateHoursFromTimes = (start: string, end: string): string => {
         if (!start || !end) return '';
@@ -133,38 +142,54 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
     }
 
     return (
-        <div className="bg-indigo-50/50 p-5 rounded-2xl border-2 border-dashed border-indigo-200 space-y-4 shadow-sm animate-fade-in relative">
+        <div className="bg-indigo-50/50 p-5 rounded-2xl border-2 border-dashed border-indigo-200 space-y-4 shadow-sm animate-fade-in relative overflow-hidden">
+            {isFixed && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
+                    <div className="transform -rotate-[15deg] border-[6px] md:border-[10px] border-dashed border-rose-500/[0.07] px-8 md:px-14 py-4 md:py-7 rounded-[32px] flex flex-col items-center justify-center shadow-[inset_0_0_24px_rgba(244,63,94,0.02)]">
+                        <div className="text-4xl sm:text-5xl md:text-[64px] font-black text-rose-500/[0.08] tracking-wider select-none leading-none whitespace-nowrap">
+                            OT เหมาจ่าย
+                        </div>
+                        <div className="text-xs md:text-sm tracking-[0.25em] font-black text-rose-500/[0.06] mt-2.5 select-none whitespace-nowrap">
+                            FIXED OVERTIME
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* 1. Header showing states with Compact/Minimal Toggle buttons */}
             <div className="flex items-center justify-between gap-2">
                 <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
                     <Settings className="w-4 h-4 text-indigo-500" />
-                    {isUnlocked ? (
+                    {isFixed ? (
+                        <span>🔒 OT เหมาจ่าย (ไม่สามารถปรับปรุงเวลาได้)</span>
+                    ) : isUnlocked ? (
                         <span>📂 กำลังปรับปรุงข้อมูล (โหมดแอดมิน)</span>
                     ) : (
                         <span>🔒 เวลา OT ยื่นโดยพนักงาน</span>
                     )}
                 </h4>
                 
-                {!isUnlocked ? (
-                    <button
-                        type="button"
-                        onClick={() => setShowConfirm(true)}
-                        className="py-1 px-2.5 bg-indigo-100 hover:bg-indigo-200 active:scale-95 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                        id="ot-unlock-trigger-btn"
-                    >
-                        <Unlock className="w-3 h-3" />
-                        <span>ปรับปรุงเวลา</span>
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={handleLockBack}
-                        className="py-1 px-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                        id="ot-lock-back-btn"
-                    >
-                        <span>🔒 ล็อกข้อมูลตามเดิม</span>
-                    </button>
+                {!isFixed && (
+                    !isUnlocked ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirm(true)}
+                            className="py-1 px-2.5 bg-indigo-100 hover:bg-indigo-200 active:scale-95 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            id="ot-unlock-trigger-btn"
+                        >
+                            <Unlock className="w-3 h-3" />
+                            <span>ปรับปรุงเวลา</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleLockBack}
+                            className="py-1 px-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            id="ot-lock-back-btn"
+                        >
+                            <span>🔒 ล็อกข้อมูลตามเดิม</span>
+                        </button>
+                    )
                 )}
             </div>
 
@@ -304,7 +329,7 @@ export const AdminOtAdjustment: React.FC<AdminOtAdjustmentProps> = ({
                     />
                 ) : (
                     <div className="w-full px-4 py-3 border-2 border-slate-100 bg-slate-50/75 text-slate-400 rounded-xl text-xs font-medium min-h-[50px] shadow-inner select-none cursor-not-allowed italic">
-                        {adminNote || 'ไม่มีบันทึกเพิ่มเติม (คลิก "ปรับปรุงเวลา" ด้านบนเพื่อเพิ่มข้อความ)'}
+                        {adminNote || (isFixed ? 'ไม่มีบันทึกเพิ่มเติมสำหรับรายการเหมาจ่ายนี้' : 'ไม่มีบันทึกเพิ่มเติม (คลิก "ปรับปรุงเวลา" ด้านบนเพื่อเพิ่มข้อความ)')}
                     </div>
                 )}
             </div>

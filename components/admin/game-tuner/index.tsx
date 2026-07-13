@@ -16,7 +16,7 @@ import ShopTuner from './ShopTuner';
 import { DBSyncCenter } from './components/DBSyncCenter';
 
 const GameConfigTuner = () => {
-    const { config, updateConfigValue, refreshConfig, isLoading } = useGameConfig();
+    const { config, updateConfigValue, updateConfigsBulk, refreshConfig, isLoading } = useGameConfig();
     const { masterOptions } = useMasterData();
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
@@ -62,7 +62,7 @@ const GameConfigTuner = () => {
         if (isSaving) return;
         setIsSaving(true);
         try {
-            const promises = [];
+            const configsList = [];
             
             // Only update sections that exist in localConfig
             const sections = [
@@ -73,14 +73,13 @@ const GameConfigTuner = () => {
 
             for (const section of sections) {
                 if (localConfig[section]) {
-                    promises.push(updateConfigValue(section, localConfig[section]));
+                    configsList.push({ key: section, value: localConfig[section] });
                 }
             }
 
-            const results = await Promise.all(promises);
-            const allSuccess = results.every(r => r === true);
+            const success = await updateConfigsBulk(configsList);
 
-            if (allSuccess) {
+            if (success) {
                 showToast('บันทึกการตั้งค่าทั้งหมดเรียบร้อย 🎮', 'success');
                 setIsDirty(false);
                 setSyncVersion(prev => prev + 1);

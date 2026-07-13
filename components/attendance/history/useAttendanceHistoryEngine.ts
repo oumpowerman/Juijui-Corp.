@@ -46,11 +46,11 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
 
     const targetUser = useMemo(() => allUsers.find(u => u.id === userId), [allUsers, userId]);
 
+    const { annualHolidays: holidays, calendarExceptions: exceptions } = useMasterDataContext();
+
     // Data State
     const [historyLogs, setHistoryLogs] = useState<AttendanceLog[]>([]);
     const [totalCount, setTotalCount] = useState(0);
-    const [holidays, setHolidays] = useState<AnnualHoliday[]>([]);
-    const [exceptions, setExceptions] = useState<any[]>([]);
 
     const fetchData = useCallback(async () => {
         // 1. Generate all days in the filter range first to calculate dates interval
@@ -185,18 +185,7 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
 
     }, [getAttendanceLogs, page, filters, holidays, exceptions, targetUser, requests, userId, highlightedDate]);
 
-    // Initial Fetch & Filter Change
-    useEffect(() => {
-        const fetchPrerequisites = async () => {
-            const [hRes, eRes] = await Promise.all([
-                supabase.from('annual_holidays').select('*'),
-                supabase.from('calendar_exceptions').select('*')
-            ]);
-            if (hRes.data) setHolidays(hRes.data);
-            if (eRes.data) setExceptions(eRes.data);
-        };
-        fetchPrerequisites();
-    }, []);
+
 
     useEffect(() => {
         fetchData();

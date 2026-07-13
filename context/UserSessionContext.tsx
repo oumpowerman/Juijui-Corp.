@@ -270,6 +270,18 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         const isAdmin = currentUserProfile.role === 'ADMIN';
         let isInitialSubscription = true;
 
+        const attendanceFilter = isAdmin 
+            ? { event: '*', schema: 'public', table: 'attendance_logs' } as const
+            : { event: '*', schema: 'public', table: 'attendance_logs', filter: `user_id=eq.${sessionUser.id}` } as const;
+
+        const leaveFilter = isAdmin
+            ? { event: '*', schema: 'public', table: 'leave_requests' } as const
+            : { event: '*', schema: 'public', table: 'leave_requests', filter: `user_id=eq.${sessionUser.id}` } as const;
+
+        const otFilter = isAdmin
+            ? { event: '*', schema: 'public', table: 'ot_requests' } as const
+            : { event: '*', schema: 'public', table: 'ot_requests', filter: `user_id=eq.${sessionUser.id}` } as const;
+
         // Single Channel for all user session updates
         const channel = supabase.channel(`user-session-hub-${sessionUser.id}`)
             // 1. Profiles (Handles both currentUser and allUsers)
@@ -295,12 +307,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 }
             })
             // 2. Attendance Logs (Scope based on Role)
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'attendance_logs', 
-                filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
-            }, (payload) => {
+            .on('postgres_changes', attendanceFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     setAttendanceLogs(prev => {
                         if (prev.some(log => log.id === payload.new.id)) return prev;
@@ -313,12 +320,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 }
             })
             // 3. Leave Requests (Scope based on Role)
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'leave_requests', 
-                filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
-            }, (payload) => {
+            .on('postgres_changes', leaveFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     setLeaveRequests(prev => {
                         if (prev.some(req => req.id === payload.new.id)) return prev;
@@ -331,12 +333,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 }
             })
             // 4. Overtime Requests (Scope based on Role)
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'ot_requests', 
-                filter: isAdmin ? undefined : `user_id=eq.${sessionUser.id}` 
-            }, (payload) => {
+            .on('postgres_changes', otFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     setOtRequests(prev => {
                         if (prev.some(req => req.id === payload.new.id)) return prev;

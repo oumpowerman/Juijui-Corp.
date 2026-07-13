@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileText, XCircle } from 'lucide-react';
+import { FileText, XCircle, Clock } from 'lucide-react';
 import { LeaveRequest } from '../../../types/attendance';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { RequestDetailModal } from './RequestDetailModal';
 import MultiDatePickerModal from '../../ui/MultiDatePickerModal';
+import TimePickerModal from '../../ui/TimePickerModal';
 
 // Modularized Components
 import { ApprovalFilterBar } from './approval/ApprovalFilterBar';
@@ -24,9 +25,10 @@ interface LeaveApprovalListProps {
         customOtHours?: number, 
         customStartTime?: string, 
         customEndTime?: string,
-        adminNote?: string
+        adminNote?: string,
+        hpPenalty?: number
     ) => Promise<void>;
-    onReject: (id: string, reason: string, customCheckInTime?: string) => Promise<void>;
+    onReject: (id: string, reason: string, customCheckInTime?: string, hpPenalty?: number, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => Promise<void>;
 }
 
 type HistoryFilter = 'ALL' | 'APPROVED' | 'REJECTED';
@@ -49,6 +51,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
     const [adjustedCheckInTime, setAdjustedCheckInTime] = useState('10:00');
+    const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // State for Request Detail Modal
@@ -413,82 +416,103 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             </div>
 
             {/* Rejection Reason Modal */}
-            {rejectingId && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 border-2 border-red-100 relative overflow-hidden"
-                    >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                        
-                        <div className="relative">
-                            <div className="w-16 h-16 bg-red-100 rounded-3xl flex items-center justify-center mb-6">
-                                <XCircle className="w-8 h-8 text-red-500" />
-                            </div>
-                            
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">ระบุเหตุผลการปฏิเสธ</h3>
-                            <p className="text-sm text-gray-500 mb-6 font-medium">เพื่อให้พนักงานทราบเหตุผลและปรับปรุงแก้ไขในครั้งถัดไป</p>
-                            
-                            {(() => {
-                                const req = requests.find(r => r.id === rejectingId);
-                                if (req && req.type === 'FORGOT_CHECKIN') {
-                                    return (
-                                        <div className="bg-amber-50/75 p-4 rounded-3xl border border-amber-100 mb-5 space-y-2 text-left">
-                                            <label className="text-xs font-bold text-amber-800 uppercase block">
-                                                🕒 เวลาเข้างานจริง (จากหลักฐาน)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="time"
-                                                    value={adjustedCheckInTime}
-                                                    onChange={(e) => setAdjustedCheckInTime(e.target.value)}
-                                                    className="bg-white border-2 border-amber-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-amber-50 focus:border-amber-400 outline-none transition-all shadow-sm shrink-0"
-                                                    id="rejection-portal-time-picker"
-                                                />
-                                                <span className="text-[10px] text-amber-700 font-medium leading-tight block">
-                                                    ระบบจะประเมินผลการสาย/หักคะแนนตามเวลาที่คุณปรับนี้
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
+            {typeof window !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {rejectingId && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                            onClick={() => setRejectingId(null)}
+                        >
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                                className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 border-2 border-red-100 relative overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                                
+                                <div className="relative">
+                                    <div className="w-16 h-16 bg-red-100 rounded-3xl flex items-center justify-center mb-6">
+                                        <XCircle className="w-8 h-8 text-red-500" />
+                                    </div>
+                                    
+                                    <h3 className="text-xl font-bold text-gray-800 mb-2">ระบุเหตุผลการปฏิเสธ</h3>
+                                    <p className="text-sm text-gray-500 mb-6 font-medium">เพื่อให้พนักงานทราบเหตุผลและปรับปรุงแก้ไขในครั้งถัดไป</p>
+                                    
+                                    {(() => {
+                                        const req = requests.find(r => r.id === rejectingId);
+                                        if (req && req.type === 'FORGOT_CHECKIN') {
+                                            return (
+                                                <div className="bg-amber-50/75 p-4 rounded-3xl border border-amber-100 mb-5 space-y-2 text-left">
+                                                    <label className="text-xs font-bold text-amber-800 uppercase block">
+                                                        🕒 เวลาเข้างานจริง (จากหลักฐาน)
+                                                    </label>
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsTimePickerOpen(true)}
+                                                            className="flex items-center gap-2 bg-white border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50/30 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 transition-all shadow-sm shrink-0 cursor-pointer"
+                                                            id="rejection-portal-time-picker-trigger"
+                                                        >
+                                                            <Clock className="w-4 h-4 text-amber-500" />
+                                                            <span>{adjustedCheckInTime} น.</span>
+                                                        </button>
+                                                        <TimePickerModal
+                                                            isOpen={isTimePickerOpen}
+                                                            onClose={() => setIsTimePickerOpen(false)}
+                                                            onSelect={(time) => setAdjustedCheckInTime(time)}
+                                                            initialTime={adjustedCheckInTime}
+                                                        />
+                                                        <span className="text-[10px] text-amber-700 font-medium leading-tight block">
+                                                            ระบบจะประเมินผลการสาย/หักคะแนนตามเวลาที่คุณปรับนี้
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
 
-                            <textarea 
-                                className="w-full p-4 border-2 border-gray-100 rounded-3xl text-sm focus:ring-4 focus:ring-red-50 focus:border-red-200 outline-none resize-none mb-6 transition-all"
-                                rows={4}
-                                placeholder="เช่น เอกสารไม่ครบ, วันลาหมด, หรือเหตุผลอื่นๆ..."
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                autoFocus
-                                id="rejection-modal-reason-textarea"
-                            />
-                            
-                            <div className="flex gap-3">
-                                <button 
-                                    type="button"
-                                    onClick={() => setRejectingId(null)}
-                                    disabled={isSubmitting}
-                                    className="flex-1 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl text-xs font-medium transition-colors outline-none cursor-pointer border border-gray-100"
-                                    id="rejection-modal-cancel-btn"
-                                >
-                                    ยกเลิก
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={handleConfirmReject}
-                                    disabled={isSubmitting}
-                                    className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-lg shadow-red-100 transition-all active:scale-95 disabled:opacity-50 outline-none cursor-pointer"
-                                    id="rejection-modal-submit-btn"
-                                >
-                                    {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>,
+                                    <textarea 
+                                        className="w-full p-4 border-2 border-gray-100 rounded-3xl text-sm focus:ring-4 focus:ring-red-50 focus:border-red-200 outline-none resize-none mb-6 transition-all"
+                                        rows={4}
+                                        placeholder="เช่น เอกสารไม่ครบ, วันลาหมด, หรือเหตุผลอื่นๆ..."
+                                        value={rejectionReason}
+                                        onChange={(e) => setRejectionReason(e.target.value)}
+                                        autoFocus
+                                        id="rejection-modal-reason-textarea"
+                                    />
+                                    
+                                    <div className="flex gap-3">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setRejectingId(null)}
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-2xl text-xs font-medium transition-colors outline-none cursor-pointer border border-gray-100"
+                                            id="rejection-modal-cancel-btn"
+                                        >
+                                            ยกเลิก
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={handleConfirmReject}
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-lg shadow-red-100 transition-all active:scale-95 disabled:opacity-50 outline-none cursor-pointer"
+                                            id="rejection-modal-submit-btn"
+                                        >
+                                            {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันปฏิเสธ'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
                 document.body
             )}
 

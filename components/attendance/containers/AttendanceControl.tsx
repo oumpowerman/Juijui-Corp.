@@ -52,7 +52,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
     const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
-    const handleConfirmCheckIn = async (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string) => {
+    const handleConfirmCheckIn = async (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string, isProvisionalOnsite?: boolean, provisionalReason?: string) => {
         let proofUrl: string | null = null;
         let shouldProceed = true;
 
@@ -88,7 +88,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
         if (shouldProceed) {
             const isApprovedWFH = todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED';
             const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY';
-            const success = await checkIn(type, file || undefined, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH);
+            const success = await checkIn(type, file || undefined, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH, isProvisionalOnsite, provisionalReason);
             if (success) {
                 showAlert("บันทึกข้อมูลการเข้างานเรียบร้อยแล้วครับ", "สำเร็จ");
                 refresh();
@@ -192,6 +192,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({ user, todayActive
                 lateBuffer={lateBuffer}
                 onSwitchToLeave={() => { onOpenLeave(); }} // Keep CheckIn open so they can return to it if they change their mind
                 approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
+                approvedOnsite={todayActiveLeave?.type === 'ONSITE' && todayActiveLeave.status === 'APPROVED'}
                 hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
                 isDriveConnected={isDriveAuthenticated}
                 userId={user.id}

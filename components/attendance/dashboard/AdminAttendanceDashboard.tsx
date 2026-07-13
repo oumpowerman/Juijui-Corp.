@@ -53,6 +53,8 @@ interface UserStat {
     totalOtHours?: number;
     totalOtPayout?: number;
     totalFixedOtDays?: number;
+    hasProvisionalForgot?: boolean;
+    provisionalForgotCount?: number;
 }
 
 import { useMasterData } from '../../../hooks/useMasterData';
@@ -231,7 +233,9 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 totalHours: 0,
                 avgCheckIn: '-',
                 logs: [],
-                totalLateMinutes: 0
+                totalLateMinutes: 0,
+                hasProvisionalForgot: false,
+                provisionalForgotCount: 0
             };
         });
 
@@ -241,10 +245,20 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 const stat = statsMap[log.userId];
                 stat.logs.push(log);
 
+                const isProvisional = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+                                      !!log.note?.includes('[PROVISIONAL_WFH]') || 
+                                      !!log.note?.includes('[PROVISIONAL_ONSITE]');
+                if (isProvisional) {
+                    stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;
+                    stat.hasProvisionalForgot = true;
+                }
+
                 if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
                     stat.leaves++;
                 } else {
-                    stat.present++;
+                    if (!isProvisional) {
+                        stat.present++;
+                    }
 
                     const summary = getAttendanceSummary(
                         log.checkInTime,
@@ -403,6 +417,9 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;
 
     const getGrade = (stat: UserStat) => {
+        if (stat.hasProvisionalForgot) {
+            return { grade: '⏳ WAIT', color: 'bg-amber-50 text-amber-700 border border-amber-200/40 animate-pulse' };
+        }
         if (stat.present === 0 && stat.leaves === 0) return { grade: 'N/A', color: 'bg-gray-100 text-gray-400' };
 
         // Use Dynamic Rules from Config if available

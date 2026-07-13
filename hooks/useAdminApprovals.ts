@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, RequestStatus } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
@@ -25,13 +25,13 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
 
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const { showConfirm } = useGlobalDialog();
-    const { processAction } = useGamification();
+    const { processAction, adminAdjustStats } = useGamification();
     const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
     const [isLoading, setIsLoading] = useState(enabled);
     const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
     const { showToast } = useToast();
 
-    const fetchAllRequests = async () => {
+    const fetchAllRequests = useCallback(async () => {
         if (!enabled) return;
         setIsLoading(true);
         try {
@@ -42,9 +42,9 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [enabled]);
 
-    const fetchRequestsForRange = async (start?: Date, end?: Date): Promise<LeaveRequest[]> => {
+    const fetchRequestsForRange = useCallback(async (start?: Date, end?: Date): Promise<LeaveRequest[]> => {
         if (!enabled) return [];
         setIsLoadingHistorical(true);
         try {
@@ -74,7 +74,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         } finally {
             setIsLoadingHistorical(false);
         }
-    };
+    }, [enabled, allUsers]);
 
     useEffect(() => {
         if (!enabled) {
@@ -133,7 +133,8 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         customOtHours?: number, 
         customStartTime?: string, 
         customEndTime?: string,
-        adminNote?: string
+        adminNote?: string,
+        hpPenalty?: number
     ) => {
         if (!currentUser || currentUser.role !== 'ADMIN') {
             showToast('คุณไม่มีสิทธิ์ในการอนุมัติคำขอ', 'error');
@@ -249,6 +250,15 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
                 showToast('ปรับปรุงข้อมูลเวลาให้เรียบร้อยแล้ว ✅', 'success');
             }
 
+            // Deduct HP penalty if specified
+            if (hpPenalty && hpPenalty > 0) {
+                try {
+                    await adminAdjustStats(request.userId, { hp: -hpPenalty }, `หัก HP โดยแอดมินจากการอนุมัติรายการแบบมีเงื่อนไข ${request.type} วันที่ ${format(new Date(request.startDate), 'yyyy-MM-dd')}`);
+                } catch (adjErr) {
+                    console.error('Failed to deduct HP via adminAdjustStats:', adjErr);
+                }
+            }
+
             if (refreshLeaves) await refreshLeaves();
             if (refreshAttendance) await refreshAttendance();
             if (refreshOTRequests) await refreshOTRequests();
@@ -260,7 +270,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         }
     };
 
-    const rejectRequest = async (id: string, reason: string, customCheckInTime?: string) => {
+    const rejectRequest = async (id: string, reason: string, customCheckInTime?: string, hpPenalty?: number, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => {
         if (!currentUser || currentUser.role !== 'ADMIN') {
             showToast('คุณไม่มีสิทธิ์ในการปฏิเสธคำขอ', 'error');
             return;
@@ -287,10 +297,21 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
                 targetReq,
                 customCheckInTime,
                 masterOptions,
-                processAction
+                processAction,
+                rejectionMode
             });
 
             showToast('ปฏิเสธคำขอเรียบร้อย', 'info');
+
+            // Deduct HP penalty if specified
+            if (hpPenalty && hpPenalty > 0 && targetReq) {
+                try {
+                    await adminAdjustStats(targetReq.userId, { hp: -hpPenalty }, `หัก HP โดยแอดมินจากการปฏิเสธคำขอ ${targetReq.type} วันที่ ${format(new Date(targetReq.startDate), 'yyyy-MM-dd')} ด้วยเหตุผล: ${reason}`);
+                } catch (adjErr) {
+                    console.error('Failed to deduct HP via adminAdjustStats:', adjErr);
+                }
+            }
+
             if (refreshLeaves) await refreshLeaves();
             if (refreshAttendance) await refreshAttendance();
             if (refreshOTRequests) await refreshOTRequests();

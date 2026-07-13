@@ -14,6 +14,8 @@ export interface UserStat {
   totalOtHours?: number;
   totalOtPayout?: number;
   totalFixedOtDays?: number;
+  hasProvisionalForgot?: boolean;
+  provisionalForgotCount?: number;
 }
 
 export type GroupMode = "POSITION" | "EMPLOYMENT_TYPE" | "NONE";

@@ -12,6 +12,9 @@ export interface ParsedReason {
     time: string | null;
     otHours: string | null;
     isFixedOt: boolean;
+    isProvisionalWfh: boolean;
+    isProvisionalOnsite: boolean;
+    isProvisionalForgotCheckin: boolean;
 }
 
 export const parseReason = (reason: string): ParsedReason => {
@@ -30,6 +33,15 @@ export const parseReason = (reason: string): ParsedReason => {
 
     const isFixedOt = text.includes('[OT:FIXED]');
     text = text.replace(/\[OT:FIXED\]/g, '');
+
+    const isProvisionalWfh = text.includes('[PROVISIONAL_WFH]');
+    text = text.replace(/\[PROVISIONAL_WFH\]/g, '');
+
+    const isProvisionalOnsite = text.includes('[PROVISIONAL_ONSITE]');
+    text = text.replace(/\[PROVISIONAL_ONSITE\]/g, '');
+
+    const isProvisionalForgotCheckin = text.includes('[PROVISIONAL_FORGOT_CHECKIN]');
+    text = text.replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '');
     
     const timeMatch = text.match(/\[TIME:(\d{2}:\d{2})\]/);
     let time: string | null = null;
@@ -61,6 +73,24 @@ export const parseReason = (reason: string): ParsedReason => {
     text = text.replace(/\[OT:[\d\.]+hr\]/g, '');
 
     text = text.trim();
+
+    // Check if the message is a system-generated generic provisional text
+    const cleanLower = text.toLowerCase();
+    const isGenericProvisional = 
+        cleanLower === '' ||
+        cleanLower === 'ลงเวลาแบบจำลอง (provisional wfh)' ||
+        cleanLower === 'ลงเวลาแบบจำลอง (provisional on-site)' ||
+        cleanLower === 'ลงเวลาแบบจำลอง (provisional onsite)' ||
+        cleanLower === 'ลงเวลาแบบจำลอง' ||
+        cleanLower === 'provisional wfh' ||
+        cleanLower === 'provisional on-site' ||
+        cleanLower === 'provisional onsite' ||
+        cleanLower === 'provisional';
+
+    if (isGenericProvisional && (isProvisionalWfh || isProvisionalOnsite || isProvisionalForgotCheckin)) {
+        text = 'ลงเวลางานโดยไม่มีใบคำขออนุมัติล่วงหน้า (ระบบสร้างใบคำขอให้อัตโนมัติ)';
+    }
+
     return {
         cleanReason: text,
         isLateSubmission,
@@ -68,7 +98,10 @@ export const parseReason = (reason: string): ParsedReason => {
         forgotCheckoutPenalty,
         time,
         otHours,
-        isFixedOt
+        isFixedOt,
+        isProvisionalWfh,
+        isProvisionalOnsite,
+        isProvisionalForgotCheckin
     };
 };
 

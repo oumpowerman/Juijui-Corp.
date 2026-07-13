@@ -43,8 +43,16 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
 
     // Lift state up: Fetch all requests here so we can pass actions to child
     // If Admin, fetch all requests for the approval list
-    const { requests, leaveUsage, isLoading: isRequestsLoading, isLoadingHistorical,approveRequest, rejectRequest,fetchRequestsForRange} = useLeaveRequests(
-        
+    const { 
+        requests, 
+        leaveUsage, 
+        isLoading: isRequestsLoading, 
+        isLoadingHistorical,
+        approveRequest, 
+        rejectRequest,
+        fetchRequestsForRange,
+        fetchRequests
+    } = useLeaveRequests(
         currentUser, 
         { all: currentUser.role === 'ADMIN' }
     );
@@ -63,6 +71,13 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [currentTab]);
+
+    // Force fetch latest requests when admin clicks into APPROVALS tab
+    useEffect(() => {
+        if (currentTab === 'APPROVALS' && currentUser.role === 'ADMIN' && typeof fetchRequests === 'function') {
+            fetchRequests();
+        }
+    }, [currentTab, currentUser.role, fetchRequests]);
 
     const bgTheme = useMemo(() => {
         const themes: BackgroundTheme[] = [

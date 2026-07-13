@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, LeaveUsage, RequestStatus } from '../types/attendance';
 import { useToast } from '../context/ToastContext';
@@ -42,7 +42,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         return requestDay < submittedDay;
     };
 
-    const fetchMyRequests = async () => {
+    const fetchMyRequests = useCallback(async () => {
         if (!enabled || !currentUser?.id) return;
         setIsLoading(true);
         try {
@@ -53,7 +53,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [enabled, currentUser?.id]);
 
     useEffect(() => {
         if (!enabled) {
@@ -115,7 +115,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
             SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0
         };
 
         if (!enabled || !currentUser?.id) return usage;
@@ -147,7 +147,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const pendingUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
             SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0
         };
 
         if (!enabled || !currentUser?.id) return usage;
@@ -432,7 +432,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         }
     };
 
-    const fetchRequestsForRange = async (start?: Date, end?: Date): Promise<LeaveRequest[]> => {
+    const fetchRequestsForRange = useCallback(async (start?: Date, end?: Date): Promise<LeaveRequest[]> => {
         if (!currentUser?.id) return [];
         setIsLoadingHistorical(true);
         try {
@@ -448,7 +448,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         } finally {
             setIsLoadingHistorical(false);
         }
-    };
+    }, [currentUser?.id]);
 
     return {
         requests,

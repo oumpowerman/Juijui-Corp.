@@ -197,6 +197,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             variant="on-time"
                                             timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
                                             badgeText="ON-TIME"
+                                            note={log.note}
                                         />
                                     ))}
                                 </div>
@@ -228,6 +229,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             variant="late"
                                             timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
                                             badgeText="LATE"
+                                            note={log.note}
                                         />
                                     ))}
                                 </div>

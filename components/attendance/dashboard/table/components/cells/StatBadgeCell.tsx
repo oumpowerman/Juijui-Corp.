@@ -5,18 +5,25 @@ interface StatBadgeCellProps {
   value: number;
   variant: "present" | "late" | "absent" | "leave" | "hours";
   lateViewMode?: "DAYS" | "HOURS";
+  provisionalCount?: number;
 }
 
 export const StatBadgeCell: React.FC<StatBadgeCellProps> = ({
   value,
   variant,
   lateViewMode = "DAYS",
+  provisionalCount = 0,
 }) => {
   let cellClass = "";
 
   if (variant === "present") {
-    cellClass =
-      "inline-block px-3 py-1 bg-gray-100 rounded-lg text-sm font-bold text-gray-700";
+    if (provisionalCount > 0) {
+      cellClass =
+        "inline-flex items-center gap-1 px-2 py-1 bg-amber-50/70 text-amber-800 border border-amber-200/50 rounded-lg text-sm font-bold animate-pulse";
+    } else {
+      cellClass =
+        "inline-block px-3 py-1 bg-gray-100 rounded-lg text-sm font-bold text-gray-700";
+    }
   } else if (variant === "late") {
     cellClass = `inline-block px-3 py-1 rounded-lg text-sm font-bold ${
       value > 0 ? "bg-red-50 text-red-600" : "text-gray-400"
@@ -60,7 +67,14 @@ export const StatBadgeCell: React.FC<StatBadgeCellProps> = ({
           </AnimatePresence>
         </div>
       ) : (
-        <span className={cellClass}>{value}</span>
+        <span className={cellClass}>
+          {value}
+          {variant === "present" && provisionalCount > 0 ? (
+            <span className="text-[10px] text-amber-700 font-bold ml-1">
+              (+{provisionalCount} รอตรวจ)
+            </span>
+          ) : null}
+        </span>
       )}
     </td>
   );

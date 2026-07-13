@@ -1,5 +1,5 @@
 
-import { FileText, HeartPulse, Palmtree, Briefcase, Clock, Moon, Siren, Home } from 'lucide-react';
+import { FileText, HeartPulse, Palmtree, Briefcase, Clock, Moon, Siren, Home, MapPin } from 'lucide-react';
 
 export const LEAVE_THEMES: Record<string, any> = {
     'SICK': { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100', bar: 'bg-red-500', btn: 'bg-red-500 hover:bg-red-600', icon: HeartPulse },
@@ -9,6 +9,7 @@ export const LEAVE_THEMES: Record<string, any> = {
     'OVERTIME': { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100', bar: 'bg-indigo-500', btn: 'bg-indigo-600 hover:bg-indigo-700', icon: Moon },
     'EMERGENCY': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', bar: 'bg-orange-500', btn: 'bg-orange-500 hover:bg-orange-600', icon: Siren },
     'WFH': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', bar: 'bg-blue-500', btn: 'bg-blue-600 hover:bg-blue-700', icon: Home },
+    'ONSITE': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', bar: 'bg-orange-500', btn: 'bg-orange-600 hover:bg-orange-700', icon: MapPin },
     'UNPAID': { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-100', bar: 'bg-slate-500', btn: 'bg-slate-800 hover:bg-slate-900', icon: FileText },
     'FORGOT_BOTH': { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100', bar: 'bg-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', icon: Clock },
     'DEFAULT': { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-100', bar: 'bg-slate-500', btn: 'bg-slate-800 hover:bg-slate-900', icon: FileText }

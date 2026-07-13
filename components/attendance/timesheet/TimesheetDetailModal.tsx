@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink } from 'lucide-react';
+import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink, AlertTriangle } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { getDirectDriveUrl } from '../../../lib/imageUtils';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { parseReason } from '../leave-request/request-detail/utils';
 
 const lightboxBackdropVariants = {
     hidden: { opacity: 0 },
@@ -156,9 +157,17 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
     const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
     const note = log?.note || leaveRequest?.reason || '';
-    const userReason = leaveRequest?.reason || '';
+    
+    const logParsed = parseReason(log?.note || '');
+    const requestParsed = parseReason(leaveRequest?.reason || '');
+
+    const isProvisionalWfh = logParsed.isProvisionalWfh || requestParsed.isProvisionalWfh;
+    const isProvisionalOnsite = logParsed.isProvisionalOnsite || requestParsed.isProvisionalOnsite;
+    const isProvisionalForgotCheckin = logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin;
+
+    const userReason = requestParsed.cleanReason;
     const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';
-    const systemLogNote = log?.note?.replace(/\[.*?\]/g, '').trim() || '';
+    const systemLogNote = logParsed.cleanReason;
 
     const proofMatch = note.match(/\[PROOF:(.*?)\]/);
     const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
@@ -256,6 +265,47 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                     {/* Details Content Container (With inner Padding) */}
                     <div className={`p-6 md:p-8 flex-1 flex flex-col space-y-7 ${hasImage ? 'pb-[calc(env(safe-area-inset-bottom,24px)+24px)]' : 'pb-2'} min-h-0`}>
+                        {/* Provisional Alert Banner */}
+                        {isProvisionalWfh && (
+                            <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl text-sky-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-sky-900 tracking-wide">
+                                        ⚠️ WFH แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-sky-800/80 font-semibold font-sans">
+                                        ระบบสร้างใบคำขอให้อัตโนมัติเนื่องจากเป็นการลงเวลางานประเภท WFH ที่ไม่ได้ยื่นล่วงหน้า
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {isProvisionalOnsite && (
+                            <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl text-orange-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-orange-900 tracking-wide">
+                                        ⚠️ On-site แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-orange-800/80 font-semibold font-sans">
+                                        ระบบสร้างใบคำขอให้อัตโนมัติเนื่องจากเป็นการลงเวลางานประเภท On-site ที่ไม่ได้ยื่นล่วงหน้า
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {isProvisionalForgotCheckin && (
+                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-amber-900 tracking-wide">
+                                        ⚠️ ลืมลงเวลาแบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-amber-800/80 font-semibold font-sans">
+                                        ระบบสร้างใบคำขอให้อัตโนมัติสำหรับพนักงานที่ลืมลงเวลาเข้างานเพื่อขอลงย้อนหลัง
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Cozy Pastel Info Alert Card when no image exists */}
                         {!hasImage && (
                             <div className="bg-amber-50/70 border border-amber-100/80 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0">
@@ -349,7 +399,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                             <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
                             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-indigo-400">เหตุผลคำขอ (Employee Reason)</h4>
                             <p className="text-sm font-medium leading-relaxed italic">
-                                "{userReason.replace(/\[.*?\]/g, '').trim() || 'ยื่นคำขอโดยไม่มีระบุหมายเหตุเพิ่มเติม'}"
+                                "{userReason}"
                             </p>
                         </div>
                     )}
@@ -366,7 +416,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                     )}
 
                     {/* System/Log Additional Note */}
-                    {systemLogNote && systemLogNote !== userReason.replace(/\[.*?\]/g, '').trim() && (
+                    {systemLogNote && systemLogNote !== userReason && (
                         <div className="bg-slate-900 rounded-[2rem] p-6 text-slate-100 shadow-2xl relative overflow-hidden shrink-0">
                             <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
                             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-slate-400">บันทึกเพิ่มเติมระบบ (System/Log Note)</h4>

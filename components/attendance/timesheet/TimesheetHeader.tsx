@@ -20,6 +20,9 @@ interface TimesheetHeaderProps {
     onExportCSV?: () => void;
     isToolsExpanded: boolean;
     setIsToolsExpanded: (expanded: boolean) => void;
+    provisionalCount?: number;
+    filterProvisionalOnly?: boolean;
+    setFilterProvisionalOnly?: (val: boolean) => void;
 }
 
 const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
@@ -36,7 +39,10 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
     setShowInactive,
     onExportCSV,
     isToolsExpanded,
-    setIsToolsExpanded
+    setIsToolsExpanded,
+    provisionalCount = 0,
+    filterProvisionalOnly = false,
+    setFilterProvisionalOnly
 }) => {
     const [isFullyExpanded, setIsFullyExpanded] = React.useState(false);
 
@@ -190,6 +196,41 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         </motion.button>
                     </div>
                 </div>
+
+                {/* Provisional Alert Banner */}
+                {provisionalCount > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0, y: -10 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -10 }}
+                        className="w-full bg-amber-50/80 border border-amber-200/60 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <span className="text-lg animate-bounce select-none">⚠️</span>
+                            <div className="text-left">
+                                <p className="text-xs sm:text-sm font-bold text-amber-900">
+                                    ตรวจพบรายงานลืมลงเวลาชั่วคราวที่ยังค้างอยู่ <span className="text-base text-amber-600 font-extrabold">{provisionalCount}</span> รายการในรอบเวลานี้
+                                </p>
+                                <p className="text-[10px] sm:text-xs text-amber-700/80 font-medium">
+                                    กรุณาตรวจสอบอนุมัติหรือปฏิเสธข้อมูลก่อนทำการคำนวณและปิดรอบงาน!
+                                </p>
+                            </div>
+                        </div>
+                        {setFilterProvisionalOnly && (
+                            <button
+                                onClick={() => setFilterProvisionalOnly(!filterProvisionalOnly)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs flex items-center gap-1.5 border select-none ${
+                                    filterProvisionalOnly 
+                                        ? 'bg-amber-600 text-white border-amber-600 hover:bg-amber-700 shadow-[0_2px_10px_rgba(217,119,6,0.3)]' 
+                                        : 'bg-white text-amber-800 border-amber-300/80 hover:bg-amber-100/50'
+                                }`}
+                            >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                {filterProvisionalOnly ? 'แสดงผลทั้งหมด' : 'กรองเฉพาะรายการรอตรวจ'}
+                            </button>
+                        )}
+                    </motion.div>
+                )}
 
                 {/* Row 2: Collapsible Control Drawer (Date Selection + Export/Hide Inactive) */}
                 <AnimatePresence initial={false}>

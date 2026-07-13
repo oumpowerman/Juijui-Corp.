@@ -39,6 +39,7 @@ export interface RejectRequestParams {
     customCheckInTime?: string;
     masterOptions: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+    rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING';
 }
 
 export const adminApprovalService = {
@@ -180,7 +181,7 @@ export const adminApprovalService = {
     }: ApproveLeaveRequestParams): Promise<{ success: boolean; type: string; infoMsg?: string }> {
         const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
         const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
-        const SPECIAL_TYPES = ['WFH', 'OVERTIME'];
+        const SPECIAL_TYPES = ['WFH', 'OVERTIME', 'ONSITE'];
 
         let finalDbNote = adminNote || '';
         let isTimeModified = false;
@@ -264,15 +265,51 @@ export const adminApprovalService = {
             link_path: 'ATTENDANCE'
         });
 
-        // Special work handling (WFH / OVERTIME)
+        // Special work handling (WFH / OVERTIME / ONSITE)
         if (SPECIAL_TYPES.includes(request.type)) {
-            if (request.type === 'WFH') {
-                await supabase.from('team_messages').insert({
-                    content: `🏠 **${request.user?.name}** ได้รับอนุมัติ WFH (อย่าลืม Check-in เมื่อเริ่มงานนะ!)`,
-                    is_bot: true,
-                    message_type: 'TEXT',
-                    user_id: null
-                });
+            if (request.type === 'WFH' || request.type === 'ONSITE') {
+                const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
+                const { data: freshLog } = await supabase
+                    .from('attendance_logs')
+                    .select('id, note')
+                    .eq('user_id', request.userId)
+                    .eq('date', shiftDateStr)
+                    .maybeSingle();
+
+                if (freshLog) {
+                    let newNote = freshLog.note || '';
+                    if (request.type === 'WFH') {
+                        newNote = newNote
+                            .replace(/\[PROVISIONAL_WFH\]/g, '')
+                            .replace(/\[UNAUTHORIZED_WFH\]/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    } else if (request.type === 'ONSITE') {
+                        newNote = newNote
+                            .replace(/\[PROVISIONAL_ONSITE\]/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
+                    await supabase.from('attendance_logs')
+                        .update({ note: newNote })
+                        .eq('id', freshLog.id);
+                }
+
+                if (request.type === 'WFH') {
+                    await supabase.from('team_messages').insert({
+                        content: `🏠 **${request.user?.name}** ได้รับอนุมัติ WFH (อย่าลืม Check-in เมื่อเริ่มงานนะ!)`,
+                        is_bot: true,
+                        message_type: 'TEXT',
+                        user_id: null
+                    });
+                } else if (request.type === 'ONSITE') {
+                    await supabase.from('team_messages').insert({
+                        content: `📍 **${request.user?.name}** ได้รับอนุมัติปฏิบัติงาน Onsite นอกสถานที่แล้ว`,
+                        is_bot: true,
+                        message_type: 'TEXT',
+                        user_id: null
+                    });
+                }
             } else if (request.type === 'OVERTIME') {
                 const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
                 const { data: freshLog } = await supabase
@@ -512,7 +549,8 @@ export const adminApprovalService = {
         targetReq,
         customCheckInTime,
         masterOptions,
-        processAction
+        processAction,
+        rejectionMode
     }: RejectRequestParams): Promise<{ success: boolean }> {
         if (isDedicatedOtRequest) {
             if (!otReq) throw new Error('ไม่พบข้อมูลคำขอ OT');
@@ -549,6 +587,62 @@ export const adminApprovalService = {
 
         if (req && req.type === 'FORGOT_CHECKOUT') {
             await supabase.from('attendance_logs').update({ status: 'ACTION_REQUIRED' }).eq('user_id', req.user_id).eq('date', req.start_date);
+        }
+
+        if (req && (req.type === 'WFH' || req.type === 'ONSITE')) {
+            const { data: freshLog } = await supabase.from('attendance_logs')
+                .select('*')
+                .eq('user_id', req.user_id)
+                .eq('date', req.start_date)
+                .maybeSingle();
+
+            if (freshLog) {
+                let cleanedNote = freshLog.note || '';
+                cleanedNote = cleanedNote
+                    .replace(/\[PROVISIONAL_WFH\]/g, '')
+                    .replace(/\[PROVISIONAL_ONSITE\]/g, '')
+                    .replace(/\[UNAUTHORIZED_WFH\]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const mode = rejectionMode || 'ABSENT'; // Default is ABSENT
+
+                if (mode === 'ABSENT') {
+                    cleanedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED_PROVISIONAL_ABSENT] ปฏิเสธสิทธิ์ย้อนหลังและปรับเป็นขาดงาน: ${reason}`);
+                    
+                    await supabase.from('attendance_logs').update({
+                        status: 'ABSENT',
+                        check_in_time: null,
+                        check_out_time: null,
+                        note: cleanedNote
+                    }).eq('id', freshLog.id);
+
+                    // Update profiles status
+                    await supabase.from('profiles').update({ work_status: 'OFFLINE' }).eq('id', req.user_id);
+
+                    // Gamification engine penalty
+                    try {
+                        await processAction(req.user_id, 'ATTENDANCE_ABSENT');
+                    } catch (gameErr) {
+                        console.error('Failed to process ATTENDANCE_ABSENT gamification action:', gameErr);
+                    }
+                } else if (mode === 'ACTION_REQUIRED') {
+                    cleanedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED_PROVISIONAL_CORRECTION] ปฏิเสธคำร้องเพื่อให้พนักงานยื่นส่งประวัติใหม่: ${reason}`);
+
+                    await supabase.from('attendance_logs').update({
+                        status: 'ACTION_REQUIRED',
+                        note: cleanedNote
+                    }).eq('id', freshLog.id);
+                } else {
+                    // KEEP_WORKING / existing fallback behavior
+                    const tag = req.type === 'WFH' ? '[REJECTED_WFH]' : '[REJECTED_ONSITE]';
+                    cleanedNote = mergeAttendanceNotes(cleanedNote, `${tag} ปฏิเสธการอนุมัติย้อนหลัง: ${reason}`);
+
+                    await supabase.from('attendance_logs').update({
+                        note: cleanedNote
+                    }).eq('id', freshLog.id);
+                }
+            }
         }
 
         if (req && req.type === 'FORGOT_CHECKIN') {

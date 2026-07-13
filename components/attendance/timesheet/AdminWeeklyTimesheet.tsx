@@ -52,9 +52,19 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     const [filterDepartment, setFilterDepartment] = useState('ALL');
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'LATE' | 'ABSENT'>('ALL');
     const [showInactive, setShowInactive] = useState(false);
+    const [filterProvisionalOnly, setFilterProvisionalOnly] = useState(false);
     
     // Data States
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
+
+    // Compute Provisional Count
+    const provisionalCount = useMemo(() => {
+        return logs.filter(l => 
+            l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+            l.note?.includes('[PROVISIONAL_WFH]') || 
+            l.note?.includes('[PROVISIONAL_ONSITE]')
+        ).length;
+    }, [logs]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
@@ -173,6 +183,16 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             const matchesActive = showInactive || u.isActive;
             
             if (!matchesActive) return false;
+
+            if (filterProvisionalOnly) {
+                const userLogs = logs.filter(l => l.userId === u.id);
+                const hasProv = userLogs.some(l => 
+                    l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+                    l.note?.includes('[PROVISIONAL_WFH]') || 
+                    l.note?.includes('[PROVISIONAL_ONSITE]')
+                );
+                if (!hasProv) return false;
+            }
             
             if (filterStatus === 'ALL') return matchesSearch && matchesDept;
             
@@ -192,7 +212,7 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             groups[dept].push(u);
         });
         return groups;
-    }, [users, searchTerm, filterDepartment, filterStatus,showInactive, logs]);
+    }, [users, searchTerm, filterDepartment, filterStatus, showInactive, logs, filterProvisionalOnly]);
 
     const nav = (offset: number) => {
         setCurrentDate(prev => viewMode === 'WEEK' ? addWeeks(prev, offset) : addMonths(prev, offset));
@@ -220,6 +240,9 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 onExportCSV={handleExportCSV}
                 isToolsExpanded={isToolsExpanded}
                 setIsToolsExpanded={setIsToolsExpanded}
+                provisionalCount={provisionalCount}
+                filterProvisionalOnly={filterProvisionalOnly}
+                setFilterProvisionalOnly={setFilterProvisionalOnly}
             />
 
             <TimesheetTable 

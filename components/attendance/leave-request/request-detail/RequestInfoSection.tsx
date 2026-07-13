@@ -79,13 +79,31 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
             </div>
 
             {/* Smart Alert flags if any */}
-            {(parsed.isLateSubmission || parsed.isLocationMismatch || parsed.forgotCheckoutPenalty) && (
+            {(parsed.isLateSubmission || parsed.isLocationMismatch || parsed.forgotCheckoutPenalty || parsed.isProvisionalWfh || parsed.isProvisionalOnsite || parsed.isProvisionalForgotCheckin) && (
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                         <ShieldAlert className="w-4 h-4 text-slate-500" />
                         <span>สัญญาณแจ้งเตือนระบบ (Smart Flags)</span>
                     </div>
                     <div className="grid gap-2">
+                        {parsed.isProvisionalWfh && (
+                            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-sky-50 text-sky-800 border border-sky-100 text-xs font-bold shadow-sm animate-pulse">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-sky-500" />
+                                <span>WFH แบบจำลอง (ระบบสร้างใบคำขอให้อัตโนมัติ รออนุมัติสิทธิ์ย้อนหลัง)</span>
+                            </div>
+                        )}
+                        {parsed.isProvisionalOnsite && (
+                            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-orange-50 text-orange-800 border border-orange-100 text-xs font-bold shadow-sm animate-pulse">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-orange-500" />
+                                <span>On-site แบบจำลอง (ระบบสร้างใบคำขอให้อัตโนมัติ รออนุมัติสิทธิ์ย้อนหลัง)</span>
+                            </div>
+                        )}
+                        {parsed.isProvisionalForgotCheckin && (
+                            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 text-amber-800 border border-amber-100 text-xs font-bold shadow-sm animate-pulse">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+                                <span>ลืมลงเวลาแบบจำลอง (ระบบสร้างใบคำขอให้อัตโนมัติ รออนุมัติสิทธิ์ย้อนหลัง)</span>
+                            </div>
+                        )}
                         {parsed.isLateSubmission && (
                             <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 text-amber-800 border border-amber-100 text-xs font-bold shadow-sm">
                                 <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />

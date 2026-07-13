@@ -411,6 +411,24 @@ const StatusCard: React.FC<StatusCardProps> = ({
                             </div>
                         </div>
                     )}
+                    {todayLog?.note?.includes('[PROVISIONAL_WFH]') && (
+                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 rounded-xl border border-blue-200 shadow-sm flex items-start gap-2.5 animate-pulse-slow">
+                            <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                            <div className="text-left">
+                                <span className="block text-xs text-blue-800 font-bold">ลงเวลาแบบจำลอง (Provisional WFH)</span>
+                                <span className="block text-[10px] text-blue-600 leading-normal mt-0.5">ไม่พบใบอนุมัติทำงานที่บ้าน (WFH) ล่วงหน้า ระบบตอกบัตรให้ชั่วคราวและลงสิทธิ์แบบยังไม่ได้รับอนุมัติ จนกว่าแอดมินจะพิจารณาอนุมัติย้อนหลัง</span>
+                            </div>
+                        </div>
+                    )}
+                    {todayLog?.note?.includes('[PROVISIONAL_ONSITE]') && (
+                         <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-3 rounded-xl border border-orange-200 shadow-sm flex items-start gap-2.5 animate-pulse-slow">
+                            <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                            <div className="text-left">
+                                <span className="block text-xs text-orange-800 font-bold">ลงเวลาแบบจำลอง (Provisional On-site)</span>
+                                <span className="block text-[10px] text-orange-600 leading-normal mt-0.5">ไม่พบใบอนุมัติปฏิบัติงานนอกสถานที่ล่วงหน้า ระบบลงเวลาจำลองชั่วคราว กรุณารอแอดมินพิจารณาอนุมัติย้อนหลัง</span>
+                            </div>
+                        </div>
+                    )}
                     {todayLog?.status === 'PENDING_VERIFY' && (
                          <div className="bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-yellow-600 animate-pulse" />

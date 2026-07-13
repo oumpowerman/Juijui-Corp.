@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { X, AlertTriangle, Clock, ArrowRight, CheckCircle2, CloudOff, Settings, ShieldCheck, ShieldAlert, MapPin, Check, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { calculateDistance, OFFICE_COORDS, getRandomPose } from '../../../lib/locationUtils';
 import { WorkLocation, LocationDef } from '../../../types/attendance';
 import CameraView from './CameraView';
@@ -10,21 +11,24 @@ import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { useUserSession } from '../../../context/UserSessionContext';
 import { checkNeedsSelfieVerification } from '../../../lib/selfieUtils';
+import { useCheckInLocation } from '../../../hooks/attendance/useCheckInLocation';
 
 // Sub-steps components
 import LocationStep from '../steps/LocationStep';
 import WorkTypeStep from '../steps/WorkTypeStep';
 import PreviewStep from '../steps/PreviewStep';
+import LateInterventionOverlay from '../steps/LateInterventionOverlay';
 
 interface CheckInModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string) => void;
+    onConfirm: (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string, isProvisionalOnsite?: boolean, provisionalReason?: string) => void;
     availableLocations?: LocationDef[]; // Accept list of locations
     startTime?: string;
     lateBuffer?: number;
     onSwitchToLeave?: () => void;
     approvedWFH?: boolean; 
+    approvedOnsite?: boolean;
     hasLateRequest?: boolean; 
     isDriveConnected?: boolean; 
     userId?: string; 
@@ -32,26 +36,55 @@ interface CheckInModalProps {
 
 type Step = 'LOCATION' | 'CONFIRM_LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW' | 'NO_CONFIG';
 
+const STEP_FLOW_ORDER: Step[] = ['LOCATION', 'CONFIRM_LOCATION', 'TYPE', 'CAMERA', 'PREVIEW', 'NO_CONFIG'];
+
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
-    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, hasLateRequest, isDriveConnected, userId 
+    isOpen, onClose, onConfirm, availableLocations = [], startTime, lateBuffer = 0, onSwitchToLeave, approvedWFH, approvedOnsite, hasLateRequest, isDriveConnected, userId 
 }) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions, isLoading } = useMasterData();
     const { currentUserProfile } = useUserSession();
     const [searchParams, setSearchParams] = useSearchParams();
     const [step, setStep] = useState<Step>('LOCATION');
-    
-    const [locationState, setLocationState] = useState<{ 
-        status: 'LOADING' | 'SUCCESS' | 'ERROR', 
-        lat: number, 
-        lng: number, 
-        matchedLocation?: LocationDef,
-        distance?: number 
-    }>({
-        status: 'LOADING', lat: 0, lng: 0
-    });
+    const [prevStep, setPrevStep] = useState<Step | null>(null);
+    const [direction, setDirection] = useState(1);
 
+    const getStepIndex = (s: Step): number => STEP_FLOW_ORDER.indexOf(s);
+
+    const handleSetStep = (newStep: Step) => {
+        setDirection(getStepIndex(newStep) >= getStepIndex(step) ? 1 : -1);
+        setPrevStep(step);
+        setStep(newStep);
+    };
+
+    const isFadeOnly = step === 'LOCATION' || prevStep === 'LOCATION';
+
+    const stepVariants: Variants = {
+        enter: (direction: number) => ({
+            x: isFadeOnly ? 0 : (direction > 0 ? '100%' : '-100%'),
+            opacity: 0,
+        }),
+        center: {
+            x: 0,
+            opacity: 1,
+            transition: {
+                x: { type: 'spring', stiffness: 350, damping: 30 },
+                opacity: { duration: 0.25, ease: 'easeOut' }
+            }
+        },
+        exit: (direction: number) => ({
+            x: isFadeOnly ? 0 : (direction > 0 ? '-100%' : '100%'),
+            opacity: 0,
+            transition: {
+                x: { type: 'spring', stiffness: 350, damping: 30 },
+                opacity: { duration: 0.15, ease: 'easeIn' }
+            }
+        })
+    };
+    
     const [selectedType, setSelectedType] = useState<WorkLocation | null>(null);
+    const [provisionalOnsite, setProvisionalOnsite] = useState(false);
+    const [provisionalReason, setProvisionalReason] = useState('');
     const [challenge, setChallenge] = useState('');
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,11 +92,6 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     const [compressing, setCompressing] = useState(false);
     const [showLateIntervention, setShowLateIntervention] = useState(false);
     const [bypassSelfie, setBypassSelfie] = useState(false);
-
-    // Dynamic Multi-Match location states
-    const [detectedMatches, setDetectedMatches] = useState<any[]>([]);
-    const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
-    const [isGpsSecure, setIsGpsSecure] = useState(true);
 
     const needsSelfieDynamic = useMemo(() => {
         const selfieModeOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'SELFIE_VERIFICATION_MODE');
@@ -104,6 +132,31 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }];
     }, [availableLocations, masterOptions]);
 
+    // Geolocation and safety validations hook
+    const {
+        locationState,
+        setLocationState,
+        detectedMatches,
+        setDetectedMatches,
+        selectedMatch,
+        setSelectedMatch,
+        isGpsSecure,
+        gpsThreatReason,
+        checkLocation: runCheckLocation,
+    } = useCheckInLocation(targets);
+
+    const checkLocation = () => {
+        runCheckLocation(
+            (matches, primaryMatch) => {
+                setSelectedType(primaryMatch.type === 'WORK_LOCATION' ? 'OFFICE' : 'SITE');
+                setTimeout(() => handleSetStep('CONFIRM_LOCATION'), 1200);
+            },
+            () => {
+                setTimeout(() => handleSetStep('TYPE'), 1500);
+            }
+        );
+    };
+
     useEffect(() => {
         if (isOpen) {
             if (isLoading) return;
@@ -115,17 +168,18 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
 
             if (!hasLocations && !hasOfficeConfig) {
                 setStep('NO_CONFIG');
+                setPrevStep(null);
                 return;
             }
 
             setStep('LOCATION');
+            setPrevStep(null);
             setChallenge(getRandomPose());
             setCapturedFile(null);
             setShowLateIntervention(false);
             setBypassSelfie(false);
             setDetectedMatches([]);
             setSelectedMatch(null);
-            setIsGpsSecure(true);
             
             checkLocation();
         }
@@ -137,84 +191,12 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }
     }, [hasLateRequest, showLateIntervention]);
 
-    const checkLocation = () => {
-        setLocationState({ status: 'LOADING', lat: 0, lng: 0 });
-        if (!navigator.geolocation) {
-            setLocationState({ status: 'ERROR', lat: 0, lng: 0 });
+    const handleTypeSelect = (type: WorkLocation, customName?: string, isProvisionalOnsite?: boolean, provReason?: string) => {
+        if (!isGpsSecure) {
+            showAlert(`ระบบตรวจพบการพยายามใช้แอปสวมสิทธิ์พิกัดปลอมหรือจำลอง GPS: ${gpsThreatReason || 'กรุณาปิดเครื่องมือจำลองพิกัดก่อน'}`, 'ไม่สามารถลงเวลาได้');
             return;
         }
-        
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const { latitude, longitude, accuracy } = pos.coords;
-                
-                // Heuristic anti-fake location / simulated GPS verification
-                // Extremely low accuracy values (e.g. exactly 0) are highly suspicious on standard browsers.
-                const suspicious = accuracy === 0;
-                setIsGpsSecure(!suspicious);
 
-                const matches: any[] = [];
-                let minDistance = Infinity;
-                let closestTarget: any = null;
-                
-                for (const loc of targets) {
-                    const dist = calculateDistance(latitude, longitude, loc.lat, loc.lng);
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        closestTarget = loc;
-                    }
-                    if (dist <= loc.radiusMeters) {
-                        matches.push({
-                            ...loc,
-                            distance: dist
-                        });
-                    }
-                }
-
-                // Sort matches with closest first
-                matches.sort((a, b) => a.distance - b.distance);
-
-                if (matches.length > 0) {
-                    const primaryMatch = matches[0];
-                    setDetectedMatches(matches);
-                    setSelectedMatch(primaryMatch);
-                    setSelectedType(primaryMatch.type === 'WORK_LOCATION' ? 'OFFICE' : 'SITE');
-
-                    setLocationState({
-                        status: 'SUCCESS',
-                        lat: latitude,
-                        lng: longitude,
-                        matchedLocation: primaryMatch,
-                        distance: primaryMatch.distance
-                    });
-                    
-                    // Route to confirmation screen immediately after short check transition
-                    setTimeout(() => setStep('CONFIRM_LOCATION'), 1200);
-                } else {
-                    // No locations matched, go straight to manual selector step (WorkTypeStep)
-                    setDetectedMatches([]);
-                    setSelectedMatch(null);
-
-                    setLocationState({
-                        status: 'SUCCESS',
-                        lat: latitude,
-                        lng: longitude,
-                        matchedLocation: undefined,
-                        distance: minDistance
-                    });
-
-                    setTimeout(() => setStep('TYPE'), 1500);
-                }
-            },
-            (err) => {
-                console.error(err);
-                setLocationState({ status: 'ERROR', lat: 0, lng: 0 });
-            },
-            { enableHighAccuracy: true }
-        );
-    };
-
-    const handleTypeSelect = (type: WorkLocation, customName?: string) => {
         if (type === 'WFH' && approvedWFH) {
              // Allowed by approval
         } else {
@@ -226,6 +208,12 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }
 
         setSelectedType(type);
+        setProvisionalOnsite(!!isProvisionalOnsite);
+        if (provReason) {
+            setProvisionalReason(provReason);
+        } else {
+            setProvisionalReason('');
+        }
         
         if (customName) {
             setLocationState(prev => ({
@@ -249,11 +237,11 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
 
         if (!needsSelfie) {
             setBypassSelfie(true);
-            handleSubmit(false, type, true);
+            handleSubmit(false, type, true, !!isProvisionalOnsite);
             return;
         } else {
             setBypassSelfie(false);
-            setStep('CAMERA');
+            handleSetStep('CAMERA');
         }
     };
 
@@ -271,16 +259,16 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             return;
         } else {
             setBypassSelfie(false);
-            setStep('CAMERA');
+            handleSetStep('CAMERA');
         }
     };
 
     const handleCapture = (file: File) => {
         setCapturedFile(file);
-        setStep('PREVIEW');
+        handleSetStep('PREVIEW');
     };
 
-    const handleSubmit = async (forceCheckIn = false, typeToSubmit?: WorkLocation, bypassFile?: boolean) => {
+    const handleSubmit = async (forceCheckIn = false, typeToSubmit?: WorkLocation, bypassFile?: boolean, passProvisionalOnsite?: boolean) => {
         const targetType = typeToSubmit || selectedType;
         if (!targetType) return;
         
@@ -313,7 +301,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
             let locName = locationState.matchedLocation ? locationState.matchedLocation.name : 'On Site';
             if (targetType === 'WFH') locName = 'Home (WFH)';
             
-            await onConfirm(targetType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName);
+            const isProv = passProvisionalOnsite !== undefined ? passProvisionalOnsite : provisionalOnsite;
+            await onConfirm(targetType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName, isProv, provisionalReason);
             onClose();
         } catch (error) {
             console.error("Submission error:", error);
@@ -324,16 +313,28 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
-
-    if (step === 'CAMERA') {
-        return <CameraView challengeText={challenge} onCapture={handleCapture} onClose={() => setStep(selectedMatch ? 'CONFIRM_LOCATION' : 'TYPE')} />;
+    if (step === 'CAMERA' && isOpen) {
+        return <CameraView challengeText={challenge} onCapture={handleCapture} onClose={() => handleSetStep(selectedMatch ? 'CONFIRM_LOCATION' : 'TYPE')} />;
     }
 
     return createPortal(
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200 font-sans">
-            <div className="bg-white w-full max-w-sm h-auto max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 font-sans"
+                >
+                    <motion.div 
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+                        className="bg-white w-full max-w-md h-[540px] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative"
+                    >
+                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
                         <h3 className="font-bold text-gray-800 text-base sm:text-lg">ลงเวลาเข้างาน</h3>
                         <p className="text-xs text-gray-400">
@@ -363,207 +364,241 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-6 flex-1 overflow-y-auto relative">
+                <div className="p-6 flex-1 overflow-hidden relative flex flex-col">
                     {/* Late Intervention Overlay */}
-                    {showLateIntervention && (
-                        <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in zoom-in-95">
-                            <div className="bg-red-50 p-4 rounded-full mb-4 animate-bounce">
-                                <AlertTriangle className="w-12 h-12 text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">เข้างานสายเกินกำหนด! 😱</h3>
-                            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-                                ตอนนี้เลยกำหนดเวลาเริ่มเข้างานแล้ว ({startTime} น.) <br/>
-                                ระบบจะบันทึกสถานะว่า <b>"มาสาย"</b> และอาจมีการหักแต้ม HP อัตโนมัติ
-                            </p>
-                            
-                            <div className="w-full space-y-3">
-                                <button 
-                                    onClick={() => {
-                                        if (onSwitchToLeave) onSwitchToLeave();
-                                        else onClose();
-                                    }}
-                                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Clock className="w-5 h-5" /> แจ้งขออนุญาตลา / เข้าสายพิเศษ
-                                </button>
-                                <button 
-                                    onClick={() => handleSubmit(true, undefined, bypassSelfie)}
-                                    className="w-full py-3.5 bg-white border-2 border-orange-100 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    เช็คอินทันที (ยอมรับเงื่อนไขการสาย) <ArrowRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step: LOCATION (Scanning GPS) */}
-                    {step === 'LOCATION' && (
-                        <div className="h-full flex flex-col justify-center">
-                            <LocationStep 
-                                status={locationState.status} 
-                                distance={locationState.distance || 0} 
-                                lat={locationState.lat} 
-                                lng={locationState.lng} 
-                                matchedLocation={locationState.matchedLocation}
-                                onRetry={checkLocation}
-                                approvedWFH={approvedWFH} 
+                    <AnimatePresence>
+                        {showLateIntervention && (
+                            <LateInterventionOverlay
+                                startTime={startTime || '10:00'}
+                                onSwitchToLeave={onSwitchToLeave}
+                                onClose={onClose}
+                                onConfirm={() => handleSubmit(true, undefined, bypassSelfie)}
+                                onGoBack={() => setShowLateIntervention(false)}
                             />
-                        </div>
-                    )}
+                        )}
+                    </AnimatePresence>
 
-                    {/* Step: CONFIRM_LOCATION (Instant verification match & overlap picker) */}
-                    {step === 'CONFIRM_LOCATION' && selectedMatch && (
-                        <div className="text-center space-y-5 animate-in slide-in-from-right-8 duration-300">
-                            {/* Shield Verification Badging */}
-                            <div className="flex flex-col items-center">
-                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-3 relative animate-pulse">
-                                    <span className="absolute inset-0 rounded-full bg-emerald-200/40 animate-ping" />
-                                    <ShieldCheck className="w-10 h-10 relative z-10" />
-                                </div>
-                                <div className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold shadow-sm">
-                                    <Check className="w-3.5 h-3.5" />
-                                    GPS Secure Verified
-                                </div>
-                                <p className="text-[10px] text-gray-400 mt-1">ตรวจสอบระบบยืนยันตัวตนพิกัด & ป้องกันสวมสิทธิ์พิกัดปลอมสำเร็จ</p>
-                            </div>
-
-                            <div className="bg-gray-50 border border-gray-100 p-4 rounded-3xl space-y-2">
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">ระบบตรวจพิกัดปัจจุบันของคุณพบว่า:</p>
-                                <h4 className="font-bold text-gray-800 text-xl flex items-center justify-center gap-1.5">
-                                    <MapPin className={`w-5 h-5 ${selectedMatch.type === 'WORK_LOCATION' ? 'text-indigo-600' : 'text-orange-500'}`} />
-                                    {selectedMatch.name}
-                                </h4>
-                                <div className="flex justify-center gap-3 text-xs">
-                                    <span className="text-gray-500">
-                                        ระยะห่างพิกัด: <span className="font-bold text-gray-700">{selectedMatch.distance.toFixed(0)} เมตร</span>
-                                    </span>
-                                    <span className="text-gray-300">|</span>
-                                    <span className={`font-bold ${selectedMatch.type === 'WORK_LOCATION' ? 'text-indigo-600' : 'text-orange-600'}`}>
-                                        {selectedMatch.type === 'WORK_LOCATION' ? 'พิกัดออฟฟิศหลัก' : 'พิกัดสถานที่ถ่ายทำ'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Dropdown in case of overlapping / multiple matching locations */}
-                            {detectedMatches.length > 1 && (
-                                <div className="bg-orange-50/50 border border-orange-100 p-3 rounded-2xl text-left animate-in slide-in-from-bottom-2 duration-200">
-                                    <label className="block text-[11px] font-bold text-orange-600 mb-1 uppercase tracking-tight">
-                                        พบสถานที่ซ้อนกันในบริเวณนี้ ({detectedMatches.length} แห่ง) โปรดเลือก:
-                                    </label>
-                                    <select 
-                                        value={selectedMatch.id}
-                                        onChange={(e) => {
-                                            const found = detectedMatches.find(m => m.id === e.target.value);
-                                            if (found) {
-                                                setSelectedMatch(found);
-                                                setSelectedType(found.type === 'WORK_LOCATION' ? 'OFFICE' : 'SITE');
-                                                setLocationState(prev => ({
-                                                    ...prev,
-                                                    matchedLocation: found,
-                                                    distance: found.distance
-                                                }));
-                                            }
-                                        }}
-                                        className="w-full px-3 py-2 border border-orange-200 rounded-xl text-sm font-bold text-gray-700 outline-none bg-white focus:border-orange-400"
-                                    >
-                                        {detectedMatches.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.name} ({m.type === 'WORK_LOCATION' ? 'ออฟฟิศหลัก' : 'สถานที่ถ่ายทำ'})
-                                            </option>
-                                        ))}
-                                    </select>
+                    <AnimatePresence initial={false} custom={direction} mode="wait">
+                        <motion.div
+                            key={step}
+                            custom={direction}
+                            variants={stepVariants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            className="w-full flex-1 flex flex-col justify-between"
+                        >
+                            {/* Step: LOCATION (Scanning GPS) */}
+                            {step === 'LOCATION' && (
+                                <div className="flex-1 flex flex-col justify-center w-full">
+                                    <LocationStep 
+                                        status={locationState.status} 
+                                        distance={locationState.distance || 0} 
+                                        lat={locationState.lat} 
+                                        lng={locationState.lng} 
+                                        matchedLocation={locationState.matchedLocation}
+                                        onRetry={checkLocation}
+                                        approvedWFH={approvedWFH} 
+                                    />
                                 </div>
                             )}
 
-                            <div className="space-y-2 pt-2">
-                                <button 
-                                    onClick={handleInstantConfirm}
-                                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2 text-base"
-                                >
-                                    <CheckCircle2 className="w-5 h-5" /> ใช่, ฉันต้องการเข้างานที่นี่
-                                </button>
-                                <button 
-                                    onClick={() => setStep('TYPE')}
-                                    className="w-full py-3 bg-white hover:bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl font-bold transition-all text-xs"
-                                >
-                                    ไม่ใช่ตำแหน่งนี้ / ต้องการเลือกประเภทงานเอง
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                            {/* Step: CONFIRM_LOCATION (Instant verification match & overlap picker) */}
+                            {step === 'CONFIRM_LOCATION' && selectedMatch && (
+                                <div className="flex-1 flex flex-col justify-between w-full">
+                                    <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin w-full">
+                                        {/* Shield Verification Badging */}
+                                        <div className="flex flex-col items-center pt-1 w-full">
+                                            {isGpsSecure ? (
+                                                <>
+                                                    <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-2 relative animate-pulse">
+                                                        <span className="absolute inset-0 rounded-full bg-emerald-200/40 animate-ping" />
+                                                        <ShieldCheck className="w-8 h-8 relative z-10" />
+                                                    </div>
+                                                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-bold shadow-sm">
+                                                        <Check className="w-3 h-3" />
+                                                        GPS Secure Verified
+                                                    </div>
+                                                    <p className="text-[9px] text-gray-400 mt-0.5 text-center px-4">ตรวจสอบระบบยืนยันตัวตนพิกัด & ป้องกันสวมสิทธิ์พิกัดปลอมสำเร็จ</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center text-rose-600 mb-2 relative animate-bounce">
+                                                        <span className="absolute inset-0 rounded-full bg-rose-200/40 animate-ping" />
+                                                        <ShieldAlert className="w-8 h-8 relative z-10" />
+                                                    </div>
+                                                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-full text-[10px] font-bold shadow-sm">
+                                                        <AlertTriangle className="w-3 h-3" />
+                                                        Fake GPS / Emulator Detected!
+                                                    </div>
+                                                    <p className="text-[10px] text-rose-500 font-bold mt-1 text-center px-4 leading-normal">
+                                                        {gpsThreatReason || 'ตรวจพบการพยายามใช้แอปสวมสิทธิ์จำลองพิกัดเพื่อโกงเวลาทำงาน'}
+                                                    </p>
+                                                    <p className="text-[9px] text-gray-400 mt-1 text-center px-4">
+                                                        ไม่อนุญาตให้เช็คอิน! กรุณาปิดแอป Fake GPS หรือแอปจำลองพิกัดบนเครื่องของท่านก่อน
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
 
-                    {/* Step: TYPE (Fallback Mode Selector) */}
-                    {step === 'TYPE' && (
-                        <WorkTypeStep 
-                            matchedLocation={locationState.matchedLocation} 
-                            onSelect={handleTypeSelect} 
-                            approvedWFH={approvedWFH} 
-                            allLocations={targets}
-                        />
-                    )}
+                                        <div className="w-full bg-gray-50 border border-gray-100 p-4 rounded-3xl space-y-8">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">ระบบตรวจพิกัดปัจจุบันของคุณพบว่า:</p>
+                                            <h4 className="font-bold text-gray-800 text-lg flex items-center justify-center gap-1.5">
+                                                <MapPin className={`w-4 h-4 ${selectedMatch.type === 'WORK_LOCATION' ? 'text-indigo-600' : 'text-orange-500'}`} />
+                                                {selectedMatch.name}
+                                            </h4>
+                                            <div className="flex justify-center gap-3 text-[11px]">
+                                                <span className="text-gray-500">
+                                                    ระยะห่างพิกัด: <span className="font-bold text-gray-700">{selectedMatch.distance.toFixed(0)} เมตร</span>
+                                                </span>
+                                                <span className="text-gray-300">|</span>
+                                                <span className={`font-bold ${selectedMatch.type === 'WORK_LOCATION' ? 'text-indigo-600' : 'text-orange-600'}`}>
+                                                    {selectedMatch.type === 'WORK_LOCATION' ? 'พิกัดออฟฟิศหลัก' : 'พิกัดสถานที่ถ่ายทำ'}
+                                                </span>
+                                            </div>
+                                        </div>
 
-                    {/* Step: PREVIEW (Check-in review) */}
-                    {step === 'PREVIEW' && (
-                        <PreviewStep 
-                            capturedFile={capturedFile}
-                            challenge={challenge}
-                            locationState={locationState}
-                            selectedType={selectedType}
-                            isSubmitting={isSubmitting || compressing}
-                            timeLeft={timeLeft}
-                            onRetake={() => setStep('CAMERA')}
-                            onSubmit={() => handleSubmit(false)}
-                        />
-                    )}
+                                        {/* Dropdown in case of overlapping / multiple matching locations */}
+                                        {detectedMatches.length > 1 && (
+                                            <div className="w-full bg-orange-50/50 border border-orange-100 p-3 rounded-2xl text-left">
+                                                <label className="block text-[10px] font-bold text-orange-600 mb-1 uppercase tracking-tight">
+                                                    พบสถานที่ซ้อนกันในบริเวณนี้ ({detectedMatches.length} แห่ง) โปรดเลือก:
+                                                </label>
+                                                <select 
+                                                    value={selectedMatch.id}
+                                                    onChange={(e) => {
+                                                        const found = detectedMatches.find(m => m.id === e.target.value);
+                                                        if (found) {
+                                                            setSelectedMatch(found);
+                                                            setSelectedType(found.type === 'WORK_LOCATION' ? 'OFFICE' : 'SITE');
+                                                            setLocationState(prev => ({
+                                                                ...prev,
+                                                                matchedLocation: found,
+                                                                distance: found.distance
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-orange-200 rounded-xl text-xs font-bold text-gray-700 outline-none bg-white focus:border-orange-400"
+                                                >
+                                                    {detectedMatches.map(m => (
+                                                        <option key={m.id} value={m.id}>
+                                                            {m.name} ({m.type === 'WORK_LOCATION' ? 'ออฟฟิศหลัก' : 'สถานที่ถ่ายทำ'})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
 
-                    {/* Step: NO_CONFIG (Error Fallback) */}
-                    {step === 'NO_CONFIG' && (
-                        <div className="h-full flex flex-col items-center justify-center text-center py-6 animate-in fade-in duration-300">
-                            <div className="bg-amber-50 p-4 rounded-full mb-4 border border-amber-100">
-                                <AlertTriangle className="w-12 h-12 text-amber-500 animate-pulse" />
-                            </div>
-                            <h4 className="text-lg font-bold text-gray-800 mb-2">
-                                ไม่พบข้อมูลพิกัดสถานที่ทำงาน
-                            </h4>
-                            <p className="text-sm text-gray-500 leading-relaxed mb-6 px-2">
-                                ขณะนี้ระบบยังไม่มีการตั้งค่าพิกัดสำนักงานหลักหรือสถานที่ปฏิบัติงาน กรุณาติดต่อฝ่ายบุคคล (HR) หรือผู้ดูแลระบบให้ดำเนินการปักหมุดพิกัดในเมนูตั้งค่าก่อนครับ
-                            </p>
-                            {currentUserProfile?.role === 'ADMIN' ? (
-                                <div className="w-full space-y-2">
-                                    <button 
-                                        onClick={() => {
-                                            onClose();
-                                            setSearchParams(prev => {
-                                                const next = new URLSearchParams(prev);
-                                                next.set('view', 'MASTER_DATA');
-                                                next.set('tab', 'ATTENDANCE_RULES');
-                                                return next;
-                                            });
-                                        }}
-                                        className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                        <Settings className="w-4 h-4" /> ไปหน้าตั้งค่าพิกัดทันที
-                                    </button>
-                                    <button 
-                                        onClick={onClose}
-                                        className="w-full py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl font-semibold transition-all border border-gray-150"
-                                    >
-                                        ปิดหน้าต่าง
-                                    </button>
+                                    <div className="shrink-0 pt-3 border-t border-gray-100 bg-white space-y-2 w-full">
+                                        <button 
+                                            onClick={handleInstantConfirm}
+                                            disabled={!isGpsSecure}
+                                            className={`w-full py-3 text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 text-sm ${
+                                                isGpsSecure 
+                                                    ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100' 
+                                                    : 'bg-gray-300 text-gray-400 cursor-not-allowed shadow-none'
+                                            }`}
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" /> ใช่, ฉันต้องการเข้างานที่นี่
+                                        </button>
+                                        <button 
+                                            onClick={() => handleSetStep('TYPE')}
+                                            disabled={!isGpsSecure}
+                                            className={`w-full py-2 border rounded-2xl font-bold transition-all text-xs ${
+                                                isGpsSecure 
+                                                    ? 'bg-white hover:bg-gray-50 border-gray-200 text-gray-500' 
+                                                    : 'bg-gray-50 border-gray-150 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            ไม่ใช่ตำแหน่งนี้ / ต้องการเลือกประเภทงานเอง
+                                        </button>
+                                    </div>
                                 </div>
-                            ) : (
-                                <button 
-                                    onClick={onClose}
-                                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
-                                >
-                                    ตกลง / ปิดหน้าต่าง
-                                </button>
                             )}
-                        </div>
-                    )}
+
+                            {/* Step: TYPE (Fallback Mode Selector) */}
+                            {step === 'TYPE' && (
+                                <WorkTypeStep 
+                                    matchedLocation={locationState.matchedLocation} 
+                                    onSelect={handleTypeSelect} 
+                                    approvedWFH={approvedWFH} 
+                                    approvedOnsite={approvedOnsite}
+                                    allLocations={targets}
+                                    onBack={() => handleSetStep(selectedMatch ? 'CONFIRM_LOCATION' : 'LOCATION')}
+                                />
+                            )}
+
+                            {/* Step: PREVIEW (Check-in review) */}
+                            {step === 'PREVIEW' && (
+                                <PreviewStep 
+                                    capturedFile={capturedFile}
+                                    challenge={challenge}
+                                    locationState={locationState}
+                                    selectedType={selectedType}
+                                    isSubmitting={isSubmitting || compressing}
+                                    timeLeft={timeLeft}
+                                    onRetake={() => handleSetStep('CAMERA')}
+                                    onSubmit={() => handleSubmit(false)}
+                                />
+                            )}
+
+                            {/* Step: NO_CONFIG (Error Fallback) */}
+                            {step === 'NO_CONFIG' && (
+                                <div className="flex-1 flex flex-col justify-between text-center">
+                                    <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center py-4">
+                                        <div className="bg-amber-50 p-3 rounded-full mb-3 border border-amber-100">
+                                            <AlertTriangle className="w-10 h-10 text-amber-500 animate-pulse" />
+                                        </div>
+                                        <h4 className="text-base font-bold text-gray-800 mb-1.5">
+                                            ไม่พบข้อมูลพิกัดสถานที่ทำงาน
+                                        </h4>
+                                        <p className="text-xs text-gray-500 leading-relaxed px-4">
+                                            ขณะนี้ระบบยังไม่มีการตั้งค่าพิกัดสำนักงานหลักหรือสถานที่ปฏิบัติงาน กรุณาติดต่อฝ่ายบุคคล (HR) หรือผู้ดูแลระบบให้ดำเนินการปักหมุดพิกัดในเมนูตั้งค่าก่อนครับ
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0 pt-3 border-t border-gray-100 bg-white w-full">
+                                        {currentUserProfile?.role === 'ADMIN' ? (
+                                            <div className="space-y-2">
+                                                <button 
+                                                    onClick={() => {
+                                                        onClose();
+                                                        setSearchParams(prev => {
+                                                            const next = new URLSearchParams(prev);
+                                                            next.set('view', 'MASTER_DATA');
+                                                            next.set('tab', 'ATTENDANCE_RULES');
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                                                >
+                                                    <Settings className="w-4 h-4" /> ไปหน้าตั้งค่าพิกัดทันที
+                                                </button>
+                                                <button 
+                                                    onClick={onClose}
+                                                    className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl font-semibold transition-all border border-gray-150 text-xs"
+                                                >
+                                                    ปิดหน้าต่าง
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button 
+                                                onClick={onClose}
+                                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 text-sm"
+                                            >
+                                                ตกลง / ปิดหน้าต่าง
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
-            </div>
-        </div>,
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>,
         document.body
     );
 };

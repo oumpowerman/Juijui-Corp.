@@ -7,12 +7,15 @@ import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
 import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
+import { attendanceService } from '../../services/attendanceService';
+import { useUserSession } from '../../context/UserSessionContext';
 
 export const useAttendanceActions = (userId: string) => {
     const { masterOptions } = useMasterData();
     const [isActionLoading, setIsActionLoading] = useState(false);
     const { showToast } = useToast();
     const { processAction } = useGamification();
+    const { refreshAttendance, refreshLeaves } = useUserSession();
     const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
     const checkIn = async (
@@ -24,7 +27,9 @@ export const useAttendanceActions = (userId: string) => {
         externalUploadFn?: (file: File) => Promise<string | null>,
         isAppeal: boolean = false,
         proofUrlParam?: string | null,
-        isApprovedWFH: boolean = false
+        isApprovedWFH: boolean = false,
+        isProvisionalOnsite: boolean = false,
+        provisionalReason?: string
     ) => {
         setIsActionLoading(true);
         try {
@@ -59,7 +64,13 @@ export const useAttendanceActions = (userId: string) => {
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
             if (isAppeal) meta.push(`[APPEAL_PENDING]`);
-            if (workType === 'WFH' && !isApprovedWFH) meta.push(`[UNAUTHORIZED_WFH]`);
+            if (workType === 'WFH' && !isApprovedWFH) {
+                meta.push(`[PROVISIONAL_WFH]`);
+                meta.push(`[UNAUTHORIZED_WFH]`);
+            }
+            if (workType === 'SITE' && isProvisionalOnsite) {
+                meta.push(`[PROVISIONAL_ONSITE]`);
+            }
             if (meta.length > 0) incomingNote = `${incomingNote} ${meta.join(' ')}`.trim();
 
             // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
@@ -87,6 +98,75 @@ export const useAttendanceActions = (userId: string) => {
             const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
             if (error) throw error;
 
+            // --- Auto Leave Request Generation for Provisional WFH / Onsite ---
+            let isProvisional = false;
+            let provisionalType = '';
+            
+            if (workType === 'WFH' && !isApprovedWFH) {
+                isProvisional = true;
+                provisionalType = 'WFH';
+            } else if (workType === 'SITE' && isProvisionalOnsite) {
+                isProvisional = true;
+                provisionalType = 'ONSITE';
+            }
+
+            if (isProvisional) {
+                const finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                const reasonWithTag = `[PROVISIONAL_${provisionalType}] ${finalReason}`;
+                
+                try {
+                    // 1. Insert auto leave request
+                    await attendanceService.insertLeaveRequest({
+                        user_id: userId,
+                        type: provisionalType,
+                        start_date: todayDateStr,
+                        end_date: todayDateStr,
+                        reason: reasonWithTag,
+                        attachment_url: proofUrl || null,
+                        status: 'PENDING'
+                    });
+
+                    // Fetch user's profile name for notification
+                    const { data: userProfile } = await supabase
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', userId)
+                        .maybeSingle();
+                    const userName = userProfile?.full_name || 'พนักงาน';
+
+                    const typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
+                    
+                    // 2. Send bot message alert to team_messages
+                    const botMsg = `📢 **ระบบสร้างใบคำขออัตโนมัติ (Provisional)**\n👤 **พนักงาน:** ${userName} (ลงเวลาแบบจำลอง)\nประเภทสิทธิ์: ${typeLabel}\n📅 วันที่: ${format(now, 'd MMM yyyy')}\n📝 เหตุผล: ${finalReason}`;
+                    await supabase.from('team_messages').insert({
+                        content: botMsg,
+                        is_bot: true,
+                        message_type: 'TEXT',
+                        user_id: null
+                    });
+
+                    // 3. Send Notification to all Admins
+                    const { data: admins } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('role', 'ADMIN');
+
+                    if (admins && admins.length > 0) {
+                        const notifications = admins.map(adm => ({
+                            user_id: adm.id,
+                            type: 'INFO',
+                            title: `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
+                            message: `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
+                            is_read: false,
+                            link_path: 'ADMIN_APPROVALS'
+                        }));
+                        await supabase.from('notifications').insert(notifications);
+                    }
+                } catch (requestErr: any) {
+                    console.error("Failed to generate auto provisional leave request", requestErr);
+                }
+            }
+
             showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
@@ -104,6 +184,13 @@ export const useAttendanceActions = (userId: string) => {
                 await processAction(userId, 'ATTENDANCE_UNAUTHORIZED_WFH', {
                     date: now
                 });
+            }
+
+            // Force refresh both attendance and leaves to sync provisional requests instantly
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions checkIn:", refErr);
             }
 
             return true;
@@ -167,6 +254,14 @@ export const useAttendanceActions = (userId: string) => {
 
             showToast('บันทึกเวลาเข้างานแบบ Manual แล้ว (รอตรวจสอบ) ✅', 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            // Force refresh both attendance and leaves
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions manualCheckIn:", refErr);
+            }
+
             return true;
         } catch(err: any) {
             showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
@@ -256,6 +351,14 @@ export const useAttendanceActions = (userId: string) => {
                     date: now 
                 });
             }
+
+            // Force refresh both attendance and leaves
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions checkOut:", refErr);
+            }
+
             return true;
         } catch (err: any) {
             showToast('Check-out ไม่สำเร็จ: ' + err.message, 'error');

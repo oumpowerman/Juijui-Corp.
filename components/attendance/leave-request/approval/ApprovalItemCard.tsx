@@ -140,6 +140,24 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                 </div>
                 
                 {/* Parsed Badges */}
+                {parsed.isProvisionalWfh && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-sky-50 text-sky-700 border-sky-200/60 flex items-center gap-1 animate-pulse shadow-sm">
+                        <AlertTriangle className="w-3 h-3 text-sky-500" /> WFH แบบจำลอง (รออนุมัติสิทธิ์)
+                    </span>
+                )}
+
+                {parsed.isProvisionalOnsite && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-orange-50 text-orange-700 border-orange-200/60 flex items-center gap-1 animate-pulse shadow-sm">
+                        <AlertTriangle className="w-3 h-3 text-orange-500" /> On-site แบบจำลอง (รออนุมัติสิทธิ์)
+                    </span>
+                )}
+
+                {parsed.isProvisionalForgotCheckin && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-amber-50 text-amber-700 border-amber-200/60 flex items-center gap-1 animate-pulse shadow-sm">
+                        <AlertTriangle className="w-3 h-3 text-amber-500" /> ลืมลงเวลาแบบจำลอง (รออนุมัติสิทธิ์)
+                    </span>
+                )}
+
                 {parsed.isLateSubmission && (
                     <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-amber-100 text-amber-700 border-amber-200/60 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> ส่งคำขอช้ากว่ากำหนด

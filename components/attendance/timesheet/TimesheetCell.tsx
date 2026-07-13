@@ -129,6 +129,10 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     const isNoCheckIn = !log.checkInTime && !isLeave && !isHardAbsent;
     const leaveTypeMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
     const leaveType = leaveTypeMatch ? leaveTypeMatch[1] : null;
+    const isProvisionalForgot = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]');
+    const isProvisionalWfh = !!log.note?.includes('[PROVISIONAL_WFH]');
+    const isProvisionalOnsite = !!log.note?.includes('[PROVISIONAL_ONSITE]');
+    const isAnyProvisional = isProvisionalForgot || isProvisionalWfh || isProvisionalOnsite;
 
     if (isHardAbsent) {
         return (
@@ -155,7 +159,8 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         >
             <div className={`
                 w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all duration-200 group-hover/cell:scale-105 group-hover/cell:shadow-md
-                ${isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
+                ${isAnyProvisional ? 'bg-amber-50/45 border-amber-400 border-dashed text-amber-700 ring-1 ring-amber-300/30' :
+                  isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
                   isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   isPendingVerify ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   late ? 'bg-orange-50 border-orange-200 text-orange-600' :
@@ -189,6 +194,11 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
                         <span className="text-[10px] font-bold font-mono leading-none opacity-60">
                             {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                         </span>
+                        {isAnyProvisional && (
+                            <span className="text-[7px] font-bold bg-amber-200/80 text-amber-950 px-1 py-0.5 rounded scale-90 uppercase tracking-tighter mt-0.5 select-none animate-pulse whitespace-nowrap">
+                                ⏳ รอตรวจ
+                            </span>
+                        )}
                     </>
                 )}
                 

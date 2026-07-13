@@ -50,7 +50,7 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
   const shouldShowNegativeTheme = isNegativeFilter ? isSortDESC : !isSortDESC;
 
   // Perfect Attendance Condition
-  const isPerfect = stat.late === 0 && stat.absent === 0 && stat.leaves === 0 && stat.present > 0;
+  const isPerfect = stat.late === 0 && stat.absent === 0 && stat.leaves === 0 && stat.present > 0 && !stat.hasProvisionalForgot;
 
   const getPerfectAttendanceTier = (presentCount: number) => {
     if (presentCount >= 22) {
@@ -238,7 +238,7 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
         stat={stat}
         workingDaysCount={workingDaysCount}
       />
-      <StatBadgeCell value={stat.present} variant="present" />
+      <StatBadgeCell value={stat.present} variant="present" provisionalCount={stat.provisionalForgotCount} />
       <StatBadgeCell 
         value={lateViewMode === "HOURS" ? (stat.totalLateMinutes || 0) : stat.late} 
         variant="late" 

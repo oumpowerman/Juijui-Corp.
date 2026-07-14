@@ -412,6 +412,22 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 await supabase.from('attendance_logs').update({ status: 'PENDING_VERIFY' }).eq('user_id', currentUser.id).eq('date', startDateStr);
             }
 
+            if (type === 'WFH' || type === 'ONSITE') {
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr)
+                    .maybeSingle();
+
+                if (existingLog) {
+                    await supabase
+                        .from('attendance_logs')
+                        .update({ status: 'PENDING_VERIFY' })
+                        .eq('id', existingLog.id);
+                }
+            }
+
             const msg = `📢 **${currentUser.name}** ส่งคำขอ (${type}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
             await supabase.from('team_messages').insert({
                 content: msg,

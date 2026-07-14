@@ -364,6 +364,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 isOpen={!!recoveryLogDate}
                 onClose={() => setRecoveryLogDate(null)}
                 onSubmit={handleRecoverySubmit}
+                masterOptions={masterOptions}
                 leaveUsage={leaveUsage}
                 pendingUsage={pendingUsage}
                 fixedType="FORGOT_CHECKOUT"

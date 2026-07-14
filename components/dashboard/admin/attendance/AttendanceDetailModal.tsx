@@ -7,6 +7,7 @@ import { supabase } from '../../../../lib/supabase';
 import { parseAttendanceMetadata, checkIsLate } from '../../../../lib/attendanceUtils';
 import { format } from 'date-fns';
 import AttendanceUserRow from './AttendanceUserRow';
+import { useMasterData } from '../../../../hooks/useMasterData';
 
 interface AttendanceDetailModalProps {
     isOpen: boolean;
@@ -21,10 +22,18 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({
     users = [],
     initialTab = 'ALL'
 }) => {
+    const { masterOptions } = useMasterData();
+
+    const startTime = useMemo(() => {
+        return masterOptions?.find((c: any) => c.type === 'WORK_CONFIG' && c.key === 'START_TIME')?.label || '10:00';
+    }, [masterOptions]);
+
+    const lateBuffer = useMemo(() => {
+        return parseInt(masterOptions?.find((c: any) => c.type === 'WORK_CONFIG' && c.key === 'LATE_BUFFER')?.label || '0');
+    }, [masterOptions]);
+
     const [todayLogs, setTodayLogs] = useState<any[]>([]);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-    const [startTime, setStartTime] = useState('10:00');
-    const [lateBuffer, setLateBuffer] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTabDetail, setActiveTabDetail] = useState<'ALL' | 'ON_TIME' | 'LATE' | 'LEAVE' | 'ABSENT'>(initialTab);
 
@@ -52,21 +61,8 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({
                 if (logsData) {
                     setTodayLogs(logsData);
                 }
-
-                // 2. Fetch work patterns configurations
-                const { data: configData } = await supabase
-                    .from('master_options')
-                    .select('*')
-                    .eq('type', 'WORK_CONFIG');
-
-                if (configData) {
-                    const start = configData.find((c: any) => c.key === 'START_TIME')?.label || '10:00';
-                    const buffer = parseInt(configData.find((c: any) => c.key === 'LATE_BUFFER')?.label || '0');
-                    setStartTime(start);
-                    setLateBuffer(buffer);
-                }
             } catch (e) {
-                console.error("Failed to fetch detailed attendance logs and configs:", e);
+                console.error("Failed to fetch detailed attendance logs:", e);
             } finally {
                 setIsLoadingDetail(false);
             }

@@ -4,6 +4,7 @@ import { History } from 'lucide-react';
 import LeaveRequestModal from '../leave-request/LeaveRequestModal';
 import { LeaveType, LeaveUsage } from '../../../types/attendance';
 import { setHours, setMinutes, addMinutes, addHours, isWithinInterval } from 'date-fns';
+import { useMasterData } from '../../../hooks/useMasterData';
 
 interface ForgotCheckInControlProps {
     startTime: string; // "HH:mm" from MasterData
@@ -22,6 +23,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
 }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { masterOptions } = useMasterData();
 
     useEffect(() => {
         const checkVisibility = () => {
@@ -86,6 +88,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleSubmit}
+                masterOptions={masterOptions}
                 leaveUsage={leaveUsage}
                 fixedType="FORGOT_CHECKIN"
             />

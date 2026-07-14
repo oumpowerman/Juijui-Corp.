@@ -597,15 +597,17 @@ export const adminApprovalService = {
                 .maybeSingle();
 
             if (freshLog) {
-                let cleanedNote = freshLog.note || '';
-                cleanedNote = cleanedNote
-                    .replace(/\[PROVISIONAL_WFH\]/g, '')
-                    .replace(/\[PROVISIONAL_ONSITE\]/g, '')
-                    .replace(/\[UNAUTHORIZED_WFH\]/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
                 const mode = rejectionMode || 'ABSENT'; // Default is ABSENT
+                let cleanedNote = freshLog.note || '';
+
+                if (mode !== 'ACTION_REQUIRED') {
+                    cleanedNote = cleanedNote
+                        .replace(/\[PROVISIONAL_WFH\]/g, '')
+                        .replace(/\[PROVISIONAL_ONSITE\]/g, '')
+                        .replace(/\[UNAUTHORIZED_WFH\]/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                }
 
                 if (mode === 'ABSENT') {
                     cleanedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED_PROVISIONAL_ABSENT] ปฏิเสธสิทธิ์ย้อนหลังและปรับเป็นขาดงาน: ${reason}`);
@@ -631,6 +633,54 @@ export const adminApprovalService = {
 
                     await supabase.from('attendance_logs').update({
                         status: 'ACTION_REQUIRED',
+                        note: cleanedNote
+                    }).eq('id', freshLog.id);
+                } else if (mode === 'KEEP_WORKING') {
+                    const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+                    const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+                    const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+
+                    let timeStr = '10:00';
+                    if (customCheckInTime) {
+                        timeStr = customCheckInTime;
+                    } else if (freshLog.check_in_time) {
+                        try {
+                            const d = new Date(freshLog.check_in_time);
+                            const hours = String(d.getHours()).padStart(2, '0');
+                            const minutes = String(d.getMinutes()).padStart(2, '0');
+                            timeStr = `${hours}:${minutes}`;
+                        } catch (e) {
+                            timeStr = '10:00';
+                        }
+                    }
+
+                    const checkInDateTime = new Date(`${req.start_date}T${timeStr}:00`);
+                    const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
+
+                    let lateMinutes = 0;
+                    let calculatedStatus: 'LATE' | 'ON_TIME' = 'ON_TIME';
+
+                    if (isLate) {
+                        calculatedStatus = 'LATE';
+                        lateMinutes = getLateMinutes(checkInDateTime, startTimeStr, buffer);
+                    }
+
+                    try {
+                        await processAction(req.user_id, 'ATTENDANCE_CHECK_IN', { 
+                            status: calculatedStatus, 
+                            time: timeStr,
+                            lateMinutes: lateMinutes
+                        });
+                    } catch (gameErr) {
+                        console.error('Failed to process ATTENDANCE_CHECK_IN gamification action:', gameErr);
+                    }
+
+                    const tag = req.type === 'WFH' ? '[REJECTED_WFH]' : '[REJECTED_ONSITE]';
+                    cleanedNote = mergeAttendanceNotes(cleanedNote, `${tag} (ปรับเวลาเป็น: ${timeStr}) ปฏิเสธการอนุมัติย้อนหลังและให้ทำงานต่อ: ${reason}`);
+
+                    await supabase.from('attendance_logs').update({
+                        status: calculatedStatus === 'LATE' ? 'LATE' : 'WORKING',
+                        check_in_time: checkInDateTime.toISOString(),
                         note: cleanedNote
                     }).eq('id', freshLog.id);
                 } else {

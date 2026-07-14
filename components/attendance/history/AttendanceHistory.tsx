@@ -6,6 +6,7 @@ import { useAttendanceHistoryEngine } from './useAttendanceHistoryEngine';
 import AttendanceFilters from './subcomponents/AttendanceFilters';
 import AttendanceTable from './subcomponents/AttendanceTable';
 import AttendanceProofModal from './subcomponents/AttendanceProofModal';
+import { useMasterData } from '../../../hooks/useMasterData';
 
 interface AttendanceHistoryProps {
     userId: string;
@@ -46,6 +47,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlight
         exceptions,
         PAGE_SIZE
     } = useAttendanceHistoryEngine(userId, highlightedDate);
+    const { masterOptions } = useMasterData();
 
     return (
         <div className="space-y-8">
@@ -110,10 +112,14 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlight
                     isOpen={isResubmitOpen}
                     onClose={() => { setIsResubmitOpen(false); setResubmitLog(null); }}
                     onSubmit={handleResubmitSubmit}
+                    masterOptions={masterOptions}
                     initialDate={resubmitLog ? new Date(resubmitLog.date) : undefined}
                     initialReason={resubmitLog?.note ? resubmitLog.note.replace(/\[.*?\]/g, '').trim() : ''}
                     fixedType={(() => {
                         if (!resubmitLog) return undefined;
+                        // Check provisional tags first
+                        if (resubmitLog.note?.includes('[PROVISIONAL_WFH]')) return 'WFH';
+                        if (resubmitLog.note?.includes('[PROVISIONAL_ONSITE]')) return 'ONSITE';
                         // Determine the correct correction type based on missing times
                         if (!resubmitLog.checkInTime && !resubmitLog.checkOutTime) return 'FORGOT_BOTH';
                         if (!resubmitLog.checkInTime) return 'FORGOT_CHECKIN';

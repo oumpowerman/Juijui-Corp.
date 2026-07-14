@@ -11,6 +11,7 @@ interface ActionFooterProps {
     requestType?: string;
     defaultCheckInTime?: string;
     isProvisional?: boolean;
+    initialRejectMode?: boolean;
 }
 
 export const ActionFooter: React.FC<ActionFooterProps> = ({
@@ -19,9 +20,10 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     onReject,
     requestType,
     defaultCheckInTime = '10:00',
-    isProvisional = false
+    isProvisional = false,
+    initialRejectMode = false
 }) => {
-    const [isRejectMode, setIsRejectMode] = useState(false);
+    const [isRejectMode, setIsRejectMode] = useState(initialRejectMode);
     const [rejectionReason, setRejectionReason] = useState('');
     const [adjustedTime, setAdjustedTime] = useState(defaultCheckInTime);
     const [rejectionMode, setRejectionMode] = useState<'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING'>('ABSENT');
@@ -33,10 +35,17 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
         }
     }, [defaultCheckInTime]);
 
+    useEffect(() => {
+        if (initialRejectMode) {
+            setIsRejectMode(true);
+        }
+    }, [initialRejectMode]);
+
     const handleRejectSubmit = async () => {
         if (!rejectionReason.trim()) return;
         try {
-            await onReject(rejectionReason, requestType === 'FORGOT_CHECKIN' ? adjustedTime : undefined, rejectionMode);
+            const hasAdjustedTime = requestType === 'FORGOT_CHECKIN' || rejectionMode === 'KEEP_WORKING';
+            await onReject(rejectionReason, hasAdjustedTime ? adjustedTime : undefined, rejectionMode);
             setIsRejectMode(false);
             setRejectionReason('');
         } catch (e) {
@@ -97,8 +106,8 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Forgot Check-In Time Adjustment */}
-                                {requestType === 'FORGOT_CHECKIN' && (
+                                {/* Forgot Check-In or Keep Working Time Adjustment */}
+                                {(requestType === 'FORGOT_CHECKIN' || rejectionMode === 'KEEP_WORKING') && (
                                     <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-100/80 shadow-sm space-y-2">
                                         <label className="text-[11px] font-bold text-amber-800 uppercase block tracking-wider">
                                             🕒 เวลาเข้างานจริงของพนักงาน (ประเมินจากหลักฐาน)
@@ -162,6 +171,13 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                                     desc: 'เปลี่ยนสถานะเป็น ต้องการดำเนินการ เพื่อแจ้งเตือนใบแดงให้พนักงานยื่นประวัติใหม่',
                                                     color: 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/20 bg-white text-slate-700',
                                                     activeColor: 'ring-2 ring-amber-500 border-amber-500 bg-amber-50/40 text-amber-950',
+                                                },
+                                                {
+                                                    id: 'KEEP_WORKING',
+                                                    title: 'ปรับเวลาและปฏิบัติงานต่อ (Adjust Time & Keep Working)',
+                                                    desc: 'รักษาสถานะเข้าทำงานตามเดิม แต่แอดมินขอปรับเปลี่ยนเวลาเช็คอินจริงตามเอกสารประกอบ',
+                                                    color: 'border-slate-200 hover:border-sky-300 hover:bg-sky-50/20 bg-white text-slate-700',
+                                                    activeColor: 'ring-2 ring-sky-500 border-sky-500 bg-sky-50/40 text-sky-950',
                                                 }
                                             ].map(option => (
                                                 <button

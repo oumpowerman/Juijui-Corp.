@@ -29,10 +29,11 @@ interface RequestDetailModalProps {
         hpPenalty?: number
     ) => Promise<void>;
     onReject: (id: string, reason: string, customCheckInTime?: string, hpPenalty?: number, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => Promise<void>;
+    initialRejectMode?: boolean;
 }
 
 export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
-    request, isOpen, onClose, onApprove, onReject
+    request, isOpen, onClose, onApprove, onReject, initialRejectMode = false
 }) => {
     const { annualHolidays, calendarExceptions } = useMasterData();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +50,18 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
     const [isMobileFlipped, setIsMobileFlipped] = useState(false);
     const [hpPenalty, setHpPenalty] = useState<number>(0);
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const checkViewport = () => {
+                setIsMobile(window.innerWidth < 1024);
+            };
+            checkViewport();
+            window.addEventListener('resize', checkViewport);
+            return () => window.removeEventListener('resize', checkViewport);
+        }
+    }, []);
 
     const isProvisional = !!(request && (
         request.type === 'FORGOT_CHECKIN' || 
@@ -332,7 +345,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                             </div>
 
                             {/* Admin Action Footer (Only for PENDING status) */}
-                            {request && request.status === 'PENDING' && (
+                            {!isMobile && request && request.status === 'PENDING' && (
                                 <ActionFooter 
                                     isSubmitting={isSubmitting} 
                                     onApprove={handleApprove} 
@@ -340,6 +353,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     requestType={request.type}
                                     defaultCheckInTime={defaultCheckInTime}
                                     isProvisional={isProvisional}
+                                    initialRejectMode={initialRejectMode}
                                 />
                             )}
                         </div>
@@ -518,7 +532,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     </div>
 
                                     {/* Admin Action Footer (Only for PENDING status) */}
-                                    {request && request.status === 'PENDING' && (
+                                    {isMobile && request && request.status === 'PENDING' && (
                                         <ActionFooter 
                                             isSubmitting={isSubmitting} 
                                             onApprove={handleApprove} 
@@ -526,6 +540,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                             requestType={request.type}
                                             defaultCheckInTime={defaultCheckInTime}
                                             isProvisional={isProvisional}
+                                            initialRejectMode={initialRejectMode}
                                         />
                                     )}
                                 </div>

@@ -112,7 +112,12 @@ export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
     const checkDate = new Date(dateStr); 
     checkDate.setHours(12, 0, 0, 0); // เที่ยงวันป้องกันเรื่อง timezone
 
+    const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
+
     const leave = userLeaves.find(leave => {
+        const type = leave.type || leave.leave_type;
+        if (!type || !LEAVE_TYPES.includes(type)) return false;
+
         const start = new Date(leave.startDate || leave.start_date);
         start.setHours(0, 0, 0, 0);
         const end = new Date(leave.endDate || leave.end_date);

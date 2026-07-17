@@ -107,12 +107,26 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
                 if (leaveCheck.onLeave) {
                     status = 'LEAVE';
                     workType = 'LEAVE';
-                } else if (!isWorkDay) {
-                    status = 'HOLIDAY';
-                    workType = 'OFFICE'; // Default
-                } else if (!isPast) {
-                    status = 'NOT_STARTED'; // Skip future/unstarted
-                    workType = 'OFFICE';
+                } else {
+                    const activeWorkRequest = requests.find((req: any) => {
+                        if (req.userId !== userId || (req.status !== 'APPROVED' && req.status !== 'PENDING')) return false;
+                        if (req.type !== 'WFH' && req.type !== 'ONSITE') return false;
+                        const startStr = format(new Date(req.startDate), 'yyyy-MM-dd');
+                        const endStr = format(new Date(req.endDate), 'yyyy-MM-dd');
+                        return dateStr >= startStr && dateStr <= endStr;
+                    });
+
+                    if (activeWorkRequest) {
+                        workType = activeWorkRequest.type;
+                    }
+
+                    if (!isWorkDay) {
+                        status = 'HOLIDAY';
+                        workType = 'OFFICE'; // Default
+                    } else if (!isPast) {
+                        status = 'NOT_STARTED'; // Skip future/unstarted
+                        workType = 'OFFICE';
+                    }
                 }
 
                 // Filter out holidays/weekends/unstarted from the active log list to match previous logic
@@ -273,7 +287,35 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
         if (log.status === 'ABSENT' && userStartDate && isBefore(startOfDay(new Date(log.date)), startOfDay(userStartDate))) {
             return { label: 'ยังไม่เริ่มงาน', color: 'bg-gray-100 text-gray-500 border-gray-200', icon: HelpCircle };
         }
+
+        const noteText = log.note || '';
+        const isProvisionalForgot = noteText.includes('[PROVISIONAL_FORGOT_CHECKIN]');
+        const isProvisionalWfh = noteText.includes('[PROVISIONAL_WFH]');
+        const isProvisionalOnsite = noteText.includes('[PROVISIONAL_ONSITE]');
+        const isProvisionalLate = noteText.includes('[APPEAL_PENDING]') || noteText.includes('[PROVISIONAL_LATE_ENTRY]');
+
+        if (log.status === 'WORKING') {
+            if (isProvisionalForgot) {
+                return { label: 'กำลังทำงาน (จำลองลืมลงเวลา)', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Loader2 };
+            }
+            if (isProvisionalWfh) {
+                return { label: 'กำลังทำงาน (WFH จำลอง)', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Loader2 };
+            }
+            if (isProvisionalOnsite) {
+                return { label: 'กำลังทำงาน (On-site จำลอง)', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Loader2 };
+            }
+            if (isProvisionalLate) {
+                return { label: 'กำลังทำงาน (แจ้งเข้าสายจำลอง)', color: 'bg-violet-100 text-violet-700 border-violet-200', icon: Loader2 };
+            }
+        }
+
+        if ((log.status === 'COMPLETED' || log.status === 'LATE') && isProvisionalForgot) {
+            return { label: 'รออนุมัติเข้างาน (ลืมลงเวลา)', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock };
+        }
+
         switch (log.status) {
+            case 'APPEAL':
+                return { label: 'อยู่ระหว่างการอุทธรณ์', color: 'bg-violet-100 text-violet-700 border-violet-200', icon: Clock };
             case 'COMPLETED':
             case 'ON_TIME': // In case we use specific status
                 return { label: 'ปกติ', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 };

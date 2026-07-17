@@ -12,7 +12,7 @@ import { parseReason, ParsedReason } from '../request-detail/utils';
 
 export interface ApprovalItemCardProps {
     request: LeaveRequest;
-    onApprove: (req: LeaveRequest) => Promise<void> | void;
+    onApprove: (req: LeaveRequest, customStartTime?: string) => Promise<void> | void;
     onRejectClick: (id: string) => void;
     onViewDetail: (req: LeaveRequest) => void;
     annualHolidays: any;
@@ -65,6 +65,11 @@ export const getCardStyle = (type: string) => {
             bg: 'bg-amber-50 hover:bg-amber-100/40', 
             border: 'border-amber-100 hover:border-amber-200/80', 
             accent: 'bg-amber-500' 
+        },
+        OUT_OF_RANGE_CHECKOUT: { 
+            bg: 'bg-orange-50 hover:bg-orange-100/40', 
+            border: 'border-orange-100 hover:border-orange-200/80', 
+            accent: 'bg-orange-500' 
         },
         FORGOT_BOTH: { 
             bg: 'bg-amber-50 hover:bg-amber-100/40', 
@@ -195,7 +200,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                 )}
 
                 {/* Expiration Warning */}
-                {request.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(request.type) && (
+                {request.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(request.type) && (
                     getWorkingDaysDifference(request.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (
                         <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-100 text-red-700 border-red-200/60 flex items-center gap-1 animate-pulse">
                             <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
@@ -211,6 +216,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
             <div className="flex flex-wrap items-center gap-3 mb-4">
                 <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${
                     request.type === 'LATE_ENTRY' ? 'bg-violet-100 text-violet-700' : 
+                    request.type === 'OUT_OF_RANGE_CHECKOUT' ? 'bg-orange-100 text-orange-700' :
                     request.type.includes('FORGOT') ? 'bg-amber-100 text-amber-700' :
                     'bg-white/80 text-gray-700 border border-black/5'
                 }`}>
@@ -219,9 +225,9 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     {new Date(request.startDate).getTime() !== new Date(request.endDate).getTime() && ` - ${format(new Date(request.endDate), 'd MMM yyyy')}`}
                 </div>
 
-                {request.attachmentUrl && (
+                {(request.attachmentUrl || parsed.proofUrl) && (
                     <a 
-                        href={request.attachmentUrl} 
+                        href={request.attachmentUrl || parsed.proofUrl || '#'} 
                         target="_blank" 
                         rel="noreferrer" 
                         onClick={(e) => e.stopPropagation()}
@@ -252,7 +258,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
 // 3. ApprovalCardActions
 interface ApprovalCardActionsProps {
     request: LeaveRequest;
-    onApprove: (req: LeaveRequest) => Promise<void> | void;
+    onApprove: (req: LeaveRequest, customStartTime?: string) => Promise<void> | void;
     onRejectClick: (id: string) => void;
 }
 
@@ -260,6 +266,45 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
     request, onApprove, onRejectClick
 }) => {
     if (request.status !== 'PENDING') return null;
+
+    if (request.type === 'FORGOT_CHECKIN') {
+        const parsed = parseReason(request.reason);
+        const requestTime = parsed.time || '10:00';
+        return (
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-44 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onApprove(request, 'DIRECT_APPROVE'); 
+                    }}
+                    className="flex-1 px-3 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-[10px] font-bold shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    id={`approve-direct-btn-${request.id}`}
+                >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> อนุมัติตามขอ ({requestTime})
+                </button>
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onApprove(request, 'ADJUST_TIME'); 
+                    }}
+                    className="flex-1 px-3 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-bold shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    id={`adjust-btn-${request.id}`}
+                >
+                    <Clock className="w-3.5 h-3.5" /> แก้ไขเวลา
+                </button>
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onRejectClick(request.id); 
+                    }}
+                    className="flex-1 px-3 py-2.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-[10px] font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    id={`reject-btn-${request.id}`}
+                >
+                    <XCircle className="w-3.5 h-3.5" /> ปฏิเสธ
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-row lg:flex-col gap-2 shrink-0 lg:w-32 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">

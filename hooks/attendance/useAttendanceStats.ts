@@ -86,7 +86,7 @@ export const useAttendanceStats = (userId: string) => {
             // Exclude OVERTIME and corrections from being treated as actual leaves
             const approvedLeave = leaveRequests?.find(req => {
                 if (req.userId !== userId || req.status !== 'APPROVED') return false;
-                if (['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(req.type)) return false;
+                if (['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(req.type)) return false;
                 const s = format(new Date(req.startDate), 'yyyy-MM-dd');
                 const e = format(new Date(req.endDate), 'yyyy-MM-dd');
                 return dateStr >= s && dateStr <= e;

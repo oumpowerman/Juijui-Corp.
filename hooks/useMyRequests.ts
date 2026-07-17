@@ -115,7 +115,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const leaveUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
             SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0, OUT_OF_RANGE_CHECKOUT: 0
         };
 
         if (!enabled || !currentUser?.id) return usage;
@@ -147,7 +147,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const pendingUsage: LeaveUsage = useMemo(() => {
         const usage: LeaveUsage = {
             SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0
+            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0, OUT_OF_RANGE_CHECKOUT: 0
         };
 
         if (!enabled || !currentUser?.id) return usage;
@@ -181,11 +181,15 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         startDate: Date, 
         endDate: Date, 
         reason: string, 
-        file?: File
+        file?: File,
+        linkedRemoteType?: 'WFH' | 'ONSITE'
     ): Promise<boolean> => {
         if (!currentUser?.id) return false;
         try {
             const startDateStr = format(startDate, 'yyyy-MM-dd');
+            const timestamp = Date.now();
+            const linkId = linkedRemoteType ? `LINK_FORGOT_${currentUser.id}_${startDateStr}_${timestamp}` : null;
+            const finalReasonWithLink = linkId ? `[LINKID:${linkId}] ${reason}` : reason;
 
             // --- OT Request Handling ---
             if (type === 'OVERTIME') {
@@ -210,7 +214,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     cleanReason = `[OT:FIXED] ${cleanReason.replace(/\[OT:FIXED\]/g, '').trim()}`;
                 }
 
-                const { data: existing } = await supabase
+                const { data: existing = null } = await supabase
                     .from('ot_requests')
                     .select('id, status')
                     .eq('user_id', currentUser.id)
@@ -304,7 +308,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             }
 
             // --- Late Submission Rule check ---
-            const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
+            const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
             let isLateSubmission = false;
             if (CORRECTION_TYPES.includes(type)) {
                 isLateSubmission = checkLateSubmissionRule(startDate, new Date(), annualHolidays, calendarExceptions, currentUser);
@@ -365,15 +369,30 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
+            // Insert primary request (e.g. FORGOT_CHECKIN)
             await attendanceService.insertLeaveRequest({
                 user_id: currentUser.id,
                 type,
                 start_date: startDateStr,
                 end_date: format(endDate, 'yyyy-MM-dd'),
-                reason: isLateSubmission ? `[LATE_SUBMISSION] ${reason}` : reason,
+                reason: isLateSubmission ? `[LATE_SUBMISSION] ${finalReasonWithLink}` : finalReasonWithLink,
                 attachment_url: attachmentUrl,
                 status: 'PENDING'
             });
+
+            // Insert secondary request (e.g. WFH or ONSITE) linked with same LINKID
+            if (linkedRemoteType && linkId) {
+                const dualReason = `[LINKID:${linkId}] ขออนุมัติปฏิบัติงานรีโมทโดยไม่ได้ขออนุญาตล่วงหน้า (เนื่องจากอยู่นอกพิกัดหลัก)`;
+                await attendanceService.insertLeaveRequest({
+                    user_id: currentUser.id,
+                    type: linkedRemoteType,
+                    start_date: startDateStr,
+                    end_date: startDateStr,
+                    reason: dualReason,
+                    attachment_url: null,
+                    status: 'PENDING'
+                });
+            }
 
             if (type === 'FORGOT_CHECKIN') {
                 const { data: existingLog } = await supabase
@@ -384,9 +403,12 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     .maybeSingle();
 
                 let finalNote = '[PROVISIONAL_FORGOT_CHECKIN]';
+                if (linkedRemoteType) {
+                    finalNote = `[PROVISIONAL_FORGOT_CHECKIN] [PROVISIONAL_${linkedRemoteType}]`;
+                }
                 if (existingLog?.note) {
                     if (!existingLog.note.includes('[PROVISIONAL_FORGOT_CHECKIN]')) {
-                        finalNote = `${existingLog.note} [PROVISIONAL_FORGOT_CHECKIN]`.trim();
+                        finalNote = `${existingLog.note} ${finalNote}`.trim();
                     } else {
                         finalNote = existingLog.note;
                     }
@@ -398,7 +420,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     check_in_time: startDate.toISOString(),
                     status: 'WORKING',
                     note: finalNote,
-                    work_type: existingLog?.work_type || 'OFFICE'
+                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -408,7 +430,43 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
-            if (type === 'FORGOT_CHECKOUT') {
+            if (type === 'LATE_ENTRY') {
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr)
+                    .maybeSingle();
+
+                let finalNote = '[PROVISIONAL_LATE_ENTRY]';
+                if (linkedRemoteType) {
+                    finalNote = `[PROVISIONAL_LATE_ENTRY] [PROVISIONAL_${linkedRemoteType}]`;
+                }
+                if (existingLog?.note) {
+                    if (!existingLog.note.includes('[PROVISIONAL_LATE_ENTRY]')) {
+                        finalNote = `${existingLog.note} ${finalNote}`.trim();
+                    } else {
+                        finalNote = existingLog.note;
+                    }
+                }
+
+                const payload: any = {
+                    user_id: currentUser.id,
+                    date: startDateStr,
+                    check_in_time: startDate.toISOString(),
+                    status: 'WORKING',
+                    note: finalNote,
+                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
+                };
+
+                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+                
+                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
+                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
+                }
+            }
+
+            if (type === 'FORGOT_CHECKOUT' || type === 'OUT_OF_RANGE_CHECKOUT') {
                 await supabase.from('attendance_logs').update({ status: 'PENDING_VERIFY' }).eq('user_id', currentUser.id).eq('date', startDateStr);
             }
 
@@ -428,7 +486,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
-            const msg = `📢 **${currentUser.name}** ส่งคำขอ (${type}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
+            const displayType = linkedRemoteType ? `${type} + ${linkedRemoteType}` : type;
+            const msg = `📢 **${currentUser.name}** ส่งคำขอ (${displayType}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
             await supabase.from('team_messages').insert({
                 content: msg,
                 is_bot: true,

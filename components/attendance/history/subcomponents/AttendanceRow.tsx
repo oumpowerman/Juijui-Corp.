@@ -73,6 +73,8 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     }, [isHighlighted, onClearHighlight]);
 
     const late = isLate(log);
+    const isProvisionalLate = !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]');
+    const isAppeal = log.status === 'APPEAL' || isProvisionalLate;
     const proof = getProofUrl(log);
     const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
     const StatusIcon = statusConfig.icon;
@@ -140,9 +142,10 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             </td>
             <td className="px-6 py-4">
                 {log.checkInTime ? (
-                    <span className={`font-mono font-bold text-sm ${late ? 'text-red-500' : 'text-green-600'}`}>
+                    <span className={`font-mono font-bold text-sm ${isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-green-600'}`}>
                         {format(log.checkInTime, 'HH:mm')}
-                        {late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
+                        {isAppeal && <span className="ml-2 text-[9px] bg-violet-100 px-1.5 py-0.5 rounded text-violet-600 uppercase">APPEAL</span>}
+                        {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
                     </span>
                 ) : (isLeave || isNotStarted) ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}
             </td>
@@ -171,6 +174,7 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                         log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                         log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                         log.workType === 'LEAVE' ? 'bg-sky-50 text-sky-600 border-sky-100' :
+                        log.workType === 'SITE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                         'bg-orange-50 text-orange-600 border-orange-100'
                     }`}>
                         {log.workType}

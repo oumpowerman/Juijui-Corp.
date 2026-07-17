@@ -41,8 +41,10 @@ const getLeaveLabel = (type: string) => {
         'PERSONAL': '💼 ลากิจ (Business)',
         'EMERGENCY': '🚨 ฉุกเฉิน (Emergency)',
         'WFH': '🏠 WFH (Work From Home)',
+        'ONSITE': '📍 On-site (นอกสถานที่)',
         'FORGOT_CHECKIN': '🕒 ลืม Check-in',
         'FORGOT_CHECKOUT': '🏃 ลืม Check-out (แก้เวลาออก)',
+        'OUT_OF_RANGE_CHECKOUT': '📍 ลงเวลานอกพื้นที่ (Out of Range)',
         'OVERTIME': '🌙 ขอ OT'
     };
     return labels[type] || type;
@@ -62,7 +64,7 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req }) => {
             displayReason = "ลืมบันทึกเวลาออกงาน (ระบบบันทึกเวลาและปรับลดคะแนนอัตโนมัติ)";
         } else if (req.type === 'FORGOT_CHECKIN' || req.type === 'LATE_ENTRY') {
             displayReason = "แจ้งขอปรับปรุงข้อมูลเวลาเข้างาน";
-        } else if (req.type === 'FORGOT_CHECKOUT') {
+        } else if (req.type === 'FORGOT_CHECKOUT' || req.type === 'OUT_OF_RANGE_CHECKOUT') {
             displayReason = "แจ้งขอปรับปรุงข้อมูลเวลาออกงาน";
         } else {
             displayReason = "แจ้งขอปรับปรุงข้อมูลเวลาปฏิบัติงาน";
@@ -100,7 +102,7 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req }) => {
                     <div className="flex items-center gap-2 text-sm font-bold text-gray-800 flex-wrap">
                         <span>{format(new Date(req.startDate), 'd MMM yyyy')}</span>
                         {/* Show date range only if different */}
-                        {daysCount > 1 && req.type !== 'LATE_ENTRY' && req.type !== 'FORGOT_CHECKIN' && req.type !== 'FORGOT_CHECKOUT' && (
+                        {daysCount > 1 && req.type !== 'LATE_ENTRY' && req.type !== 'FORGOT_CHECKIN' && req.type !== 'FORGOT_CHECKOUT' && req.type !== 'OUT_OF_RANGE_CHECKOUT' && (
                             <>
                                 <span className="text-gray-400">-</span>
                                 <span>{format(new Date(req.endDate), 'd MMM yyyy')}</span>

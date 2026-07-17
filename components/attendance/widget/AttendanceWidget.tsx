@@ -24,6 +24,8 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
 
     // UI State
     const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+    const [leaveModalType, setLeaveModalType] = useState<LeaveType | undefined>(undefined);
+    const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 
     // --- TIME-SCOPED LOGIC V12 (The Fix) ---
     const today = new Date();
@@ -71,6 +73,9 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     // --- Handlers ---
     const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File): Promise<boolean> => {
         const result = await submitRequest(type, start, end, reason, file);
+        if (result) {
+            setIsCheckInModalOpen(false);
+        }
         return !!result;
     };
 
@@ -87,7 +92,12 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
                 user={user}
                 todayActiveLeave={todayActiveLeave}
                 onLeaveSubmit={handleLeaveSubmit}
-                onOpenLeave={() => setIsLeaveModalOpen(true)}
+                onOpenLeave={(type?: LeaveType) => {
+                    setLeaveModalType(type);
+                    setIsLeaveModalOpen(true);
+                }}
+                isCheckInModalOpen={isCheckInModalOpen}
+                setIsCheckInModalOpen={setIsCheckInModalOpen}
             />
 
             {/* 3. Stats Board */}
@@ -99,12 +109,16 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
             {/* Modals */}
             <LeaveRequestModal 
                 isOpen={isLeaveModalOpen}
-                onClose={() => setIsLeaveModalOpen(false)}
+                onClose={() => {
+                    setIsLeaveModalOpen(false);
+                    setLeaveModalType(undefined);
+                }}
                 onSubmit={handleLeaveSubmit}
                 masterOptions={masterOptions}
                 leaveUsage={leaveUsage}
                 pendingUsage={pendingUsage}
                 requests={requests} 
+                fixedType={leaveModalType}
             />
         </div>
     );

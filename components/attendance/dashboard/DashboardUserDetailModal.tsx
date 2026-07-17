@@ -222,16 +222,19 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     </h4>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {lateLogs.map(log => (
-                                        <AttendanceRecordCard 
-                                            key={log.id}
-                                            date={new Date(log.date)}
-                                            variant="late"
-                                            timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
-                                            badgeText="LATE"
-                                            note={log.note}
-                                        />
-                                    ))}
+                                    {lateLogs.map(log => {
+                                        const isProvisionalLate = log.status === 'APPEAL' || !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]');
+                                        return (
+                                            <AttendanceRecordCard 
+                                                key={log.id}
+                                                date={new Date(log.date)}
+                                                variant={isProvisionalLate ? 'appeal' : 'late'}
+                                                timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
+                                                badgeText={isProvisionalLate ? 'APPEAL' : 'LATE'}
+                                                note={log.note}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </motion.section>
                         )}

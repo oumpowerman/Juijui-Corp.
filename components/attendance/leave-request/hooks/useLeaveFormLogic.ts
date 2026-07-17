@@ -5,7 +5,7 @@ import { LeaveType } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface UseLeaveFormLogicProps {
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
+    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
     onClose: () => void;
     initialDate?: Date;
     initialReason?: string;
@@ -13,13 +13,14 @@ interface UseLeaveFormLogicProps {
     advanceDays?: number;
     maxFutureDays?: number;
     maxPastDays?: number;
+    linkedRemoteType?: 'WFH' | 'ONSITE';
 }
 
 import { compressImage } from '../../../../lib/imageUtils';
 
 export const useLeaveFormLogic = ({ 
     onSubmit, onClose, initialDate, initialReason, selectedType, 
-    advanceDays, maxFutureDays, maxPastDays 
+    advanceDays, maxFutureDays, maxPastDays, linkedRemoteType
 }: UseLeaveFormLogicProps) => {
     const { showAlert } = useGlobalDialog();
     const [startDate, setStartDate] = useState('');
@@ -36,7 +37,10 @@ export const useLeaveFormLogic = ({
     const initialDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : '';
 
     useEffect(() => {
-        const d = initialDateStr || format(new Date(), 'yyyy-MM-dd');
+        let d = initialDateStr || format(new Date(), 'yyyy-MM-dd');
+        if (selectedType === 'LATE_ENTRY') {
+            d = format(new Date(), 'yyyy-MM-dd');
+        }
         setStartDate(d);
         setEndDate(d);
         setReason(initialReason || '');
@@ -45,7 +49,7 @@ export const useLeaveFormLogic = ({
         setOtType('HOURLY');
         
         // Set sensible defaults based on type
-        if (selectedType === 'FORGOT_CHECKOUT') {
+        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT') {
             setTargetTime('18:00');
         } else if (selectedType === 'FORGOT_CHECKIN' || selectedType === 'LATE_ENTRY') {
             setTargetTime('09:00');
@@ -64,7 +68,7 @@ export const useLeaveFormLogic = ({
 
     // Automatically sync endDate with startDate for single-day/time-specific requests
     useEffect(() => {
-        if (selectedType && ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType)) {
+        if (selectedType && ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
             setEndDate(startDate);
         }
     }, [startDate, selectedType]);
@@ -116,6 +120,14 @@ export const useLeaveFormLogic = ({
             }
         }
 
+        if (selectedType && ['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
+            const today = startOfDay(new Date());
+            if (isBefore(today, startOfDay(start))) {
+                showAlert('ไม่สามารถทำรายการลืมลงเวลารูปแบบล่วงหน้าได้ครับ', 'วันที่ไม่ถูกต้อง');
+                return;
+            }
+        }
+
         if (!reason.trim()) {
             showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
@@ -141,7 +153,7 @@ export const useLeaveFormLogic = ({
         let finalEndDate = new Date(endDate);
         let finalReason = reason;
 
-        if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType)) {
+        if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
             // Combine date and time correctly to avoid midnight issue
             const [year, month, day] = startDate.split('-').map(Number);
             const [hours, minutes] = targetTime.split(':').map(Number);
@@ -169,7 +181,8 @@ export const useLeaveFormLogic = ({
             finalStartDate,
             finalEndDate,
             finalReason,
-            finalFile || undefined
+            finalFile || undefined,
+            linkedRemoteType
         );
 
         setIsSubmitting(false);

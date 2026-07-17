@@ -4,7 +4,7 @@ import th from 'date-fns/locale/th';
 import { Clock, ArrowRight } from 'lucide-react';
 import { parseReason } from '../../leave-request/request-detail/utils';
 
-export type RecordVariant = 'on-time' | 'late' | 'absent' | 'leave';
+export type RecordVariant = 'on-time' | 'late' | 'absent' | 'leave' | 'appeal';
 
 interface AttendanceRecordCardProps {
     date: Date;
@@ -25,7 +25,9 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
     const isProvisionalWfh = parsed.isProvisionalWfh;
     const isProvisionalOnsite = parsed.isProvisionalOnsite;
     const isProvisionalForgotCheckin = parsed.isProvisionalForgotCheckin;
-    const isProvisional = isProvisionalWfh || isProvisionalOnsite || isProvisionalForgotCheckin;
+    const isProvisionalCheckout = parsed.isProvisionalCheckout;
+    const isProvisionalLate = parsed.cleanReason.includes('[APPEAL_PENDING]') || note?.includes('[APPEAL_PENDING]') || note?.includes('[PROVISIONAL_LATE_ENTRY]');
+    const isProvisional = isProvisionalWfh || isProvisionalOnsite || isProvisionalForgotCheckin || isProvisionalCheckout || isProvisionalLate;
 
     // Style configuration based on variant
     const config = {
@@ -48,6 +50,16 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
             badgeBg: 'bg-amber-100',
             badgeText: 'text-amber-600',
             iconColor: 'text-amber-400'
+        },
+        'appeal': {
+            bg: 'bg-violet-50',
+            border: 'border-violet-100',
+            textPrimary: 'text-violet-600',
+            textSecondary: 'text-violet-400',
+            hoverShadow: 'hover:shadow-violet-100/50',
+            badgeBg: 'bg-violet-100',
+            badgeText: 'text-violet-600',
+            iconColor: 'text-violet-400'
         },
         'absent': {
             bg: 'bg-rose-50',
@@ -104,6 +116,16 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
                             {isProvisionalForgotCheckin && (
                                 <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[9px] font-bold uppercase flex items-center gap-1 animate-pulse shrink-0">
                                     ⚠️ ลืมลงเวลาแบบจำลอง
+                                </span>
+                            )}
+                            {isProvisionalCheckout && (
+                                <span className="px-2 py-0.5 bg-pink-100 text-pink-700 border border-pink-200 rounded-lg text-[9px] font-bold uppercase flex items-center gap-1 animate-pulse shrink-0">
+                                    ⚠️ เช็คเอาท์แบบจำลอง
+                                </span>
+                            )}
+                            {isProvisionalLate && (
+                                <span className="px-2 py-0.5 bg-violet-100 text-violet-700 border border-violet-200 rounded-lg text-[9px] font-bold uppercase flex items-center gap-1 animate-pulse shrink-0">
+                                    ⚠️ อยู่ระหว่างการอุทธรณ์
                                 </span>
                             )}
                             {variant === 'absent' ? (

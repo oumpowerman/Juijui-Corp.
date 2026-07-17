@@ -110,6 +110,7 @@ export interface AttendanceCorrectionPayloadOptions {
     originalStatusNote?: string;
     existingNote?: string | null;
     leaveType?: string;
+    isLate?: boolean;
 }
 
 /**
@@ -124,7 +125,8 @@ export function buildAttendanceCorrectionPayload({
     reason = '',
     originalStatusNote = '',
     existingNote = '',
-    leaveType = ''
+    leaveType = '',
+    isLate = false
 }: AttendanceCorrectionPayloadOptions) {
     if (type === 'FORGOT_BOTH') {
         return {
@@ -137,14 +139,22 @@ export function buildAttendanceCorrectionPayload({
             note: mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${reason}`)
         };
     } else if (type === 'FORGOT_CHECKIN' || type === 'LATE_ENTRY') {
-        return {
+        const payload: any = {
             user_id: userId,
             date: date,
             check_in_time: checkInTime,
             work_type: 'OFFICE',
-            status: 'WORKING',
             note: mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED ${type}] ${reason}`)
         };
+
+        if (checkOutTime) {
+            payload.check_out_time = checkOutTime;
+            payload.status = (type === 'LATE_ENTRY' || isLate) ? 'LATE' : 'COMPLETED';
+        } else {
+            payload.status = 'WORKING';
+        }
+
+        return payload;
     } else { // LEAVE
         return {
             user_id: userId,

@@ -29,7 +29,10 @@ export const useAttendanceActions = (userId: string) => {
         proofUrlParam?: string | null,
         isApprovedWFH: boolean = false,
         isProvisionalOnsite: boolean = false,
-        provisionalReason?: string
+        provisionalReason?: string,
+        approvedLateTime?: string,
+        pendingLateTime?: string,
+        pendingLateReason?: string
     ) => {
         setIsActionLoading(true);
         try {
@@ -37,7 +40,9 @@ export const useAttendanceActions = (userId: string) => {
             const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
-            const isLate = checkIsLate(now, startTimeStr, buffer);
+            
+            const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : startTimeStr);
+            const isLate = checkIsLate(now, effectiveStartTime, buffer);
 
             let proofUrl = proofUrlParam !== undefined ? proofUrlParam : null;
             if (proofUrlParam === undefined && file) {
@@ -63,7 +68,35 @@ export const useAttendanceActions = (userId: string) => {
             let incomingNote = note || '';
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
-            if (isAppeal) meta.push(`[APPEAL_PENDING]`);
+            
+            let finalIsAppeal = isAppeal;
+            if (approvedLateTime) {
+                const isLatePastApproved = checkIsLate(now, approvedLateTime, buffer);
+                if (isLatePastApproved) {
+                    finalIsAppeal = false;
+                    meta.push(`[LATE_PAST_APPROVED]`);
+                    incomingNote = `${incomingNote} [สายเกินคำขอเข้าสาย: ได้รับอนุมัติให้สายได้ถึง ${approvedLateTime} น. แต่เช็คอินจริง ${format(now, 'HH:mm')} น.]`.trim();
+                } else {
+                    finalIsAppeal = false;
+                }
+            } else if (pendingLateTime) {
+                const isLatePastPending = checkIsLate(now, pendingLateTime, buffer);
+                if (isLatePastPending) {
+                    finalIsAppeal = false;
+                    meta.push(`[LATE_PAST_PENDING]`);
+                    incomingNote = `${incomingNote} [สายเกินกว่าที่ยื่นคำขอ: ขอสายได้ถึง ${pendingLateTime} น. แต่เช็คอินจริง ${format(now, 'HH:mm')} น.]`.trim();
+                } else {
+                    finalIsAppeal = true;
+                    meta.push(`[APPEAL_PENDING]`);
+                    meta.push(`[PROVISIONAL_LATE_ENTRY: Pending approval for ${pendingLateTime}]`);
+                    if (pendingLateReason) {
+                        meta.push(`[REASON: ${pendingLateReason}]`);
+                    }
+                }
+            } else if (isAppeal) {
+                meta.push(`[APPEAL_PENDING]`);
+            }
+
             if (workType === 'WFH' && !isApprovedWFH) {
                 meta.push(`[PROVISIONAL_WFH]`);
                 meta.push(`[UNAUTHORIZED_WFH]`);
@@ -167,13 +200,13 @@ export const useAttendanceActions = (userId: string) => {
                 }
             }
 
-            showToast(isLate && !isAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !isAppeal) ? 'warning' : 'success');
+            showToast(isLate && !finalIsAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !finalIsAppeal) ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
-            const lateMinutes = getLateMinutes(now, startTimeStr, buffer);
+            const lateMinutes = getLateMinutes(now, effectiveStartTime, buffer);
 
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
-                status: isAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
+                status: finalIsAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
                 time: format(now, 'HH:mm'),
                 lateMinutes: lateMinutes
@@ -323,7 +356,8 @@ export const useAttendanceActions = (userId: string) => {
                  if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             }
 
-            const newStatus = todayLog.status === 'PENDING_VERIFY' ? 'PENDING_VERIFY' : 'COMPLETED';
+            const isProvisionalCheckout = reason && reason.includes('[PROVISIONAL_CHECKOUT]');
+            const newStatus = (todayLog.status === 'PENDING_VERIFY' || isProvisionalCheckout) ? 'PENDING_VERIFY' : 'COMPLETED';
             const updatePayload: any = {
                 check_out_time: now.toISOString(),
                 status: newStatus,

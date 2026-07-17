@@ -185,7 +185,7 @@ export const WeeklyAttendanceRace: React.FC = () => {
 
         return sortedProfiles.map((user) => {
             const userLog = todayLogs.find(l => l.user_id === user.id);
-            const isCheckedIn = !!userLog;
+            const isCheckedIn = !!userLog && !!userLog.check_in_time && userLog.status !== 'LEAVE' && userLog.work_type !== 'LEAVE';
 
             let checkInTime = null;
             let checkInOrder = 999;

@@ -220,7 +220,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
 
     const counts = useMemo(() => {
         const leaves = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'WFH'];
-        const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
+        const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
         const ot = ['OVERTIME'];
 
         return {
@@ -237,7 +237,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             const leaves = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'WFH'];
             base = base.filter(r => leaves.includes(r.type));
         } else if (activeCategory === 'LATE_FORGOT') {
-            const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'];
+            const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
             base = base.filter(r => lateForgot.includes(r.type));
         } else if (activeCategory === 'OT') {
             const ot = ['OVERTIME'];
@@ -301,8 +301,14 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         }
     };
 
-    const handleApproveClick = async (req: LeaveRequest) => {
-        if (req.type === 'OVERTIME') {
+    const handleApproveClick = async (req: LeaveRequest, customStartTime?: string) => {
+        if (customStartTime === 'DIRECT_APPROVE') {
+            if (await showConfirm('คุณต้องการอนุมัติคำขอลงเวลานี้ตามที่ขอมาใช่หรือไม่?')) {
+                await onApprove(req);
+            }
+        } else if (customStartTime === 'ADJUST_TIME') {
+            setSelectedRequest(req);
+        } else if (req.type === 'OVERTIME' || req.type === 'FORGOT_CHECKIN') {
             setSelectedRequest(req);
         } else {
             if (await showConfirm('คุณต้องการอนุมัติคำขอนี้ใช่หรือไม่?')) {

@@ -9,6 +9,8 @@ interface DialogState {
     title?: string;
     message: string;
     defaultValue?: string;
+    isDanger?: boolean;
+    isCelebrate?: boolean;
     onConfirm?: (value?: string) => void;
     onCancel?: () => void;
 }
@@ -18,7 +20,8 @@ interface GlobalDialogContextType {
     isLoading: boolean;
     loadingMessage?: string;
     showAlert: (message: string, title?: string) => Promise<void>;
-    showConfirm: (message: string, title?: string) => Promise<boolean>;
+    showSuccess: (message: string, title?: string, isCelebrate?: boolean) => Promise<void>;
+    showConfirm: (message: string, title?: string, isDanger?: boolean) => Promise<boolean>;
     showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
     showLoading: (message?: string) => void;
     hideLoading: () => void;
@@ -65,13 +68,30 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
-    const showConfirm = useCallback((message: string, title?: string) => {
+    const showSuccess = useCallback((message: string, title?: string, isCelebrate?: boolean) => {
+        return new Promise<void>((resolve) => {
+            setDialogState({
+                isOpen: true,
+                type: 'success',
+                title: title || 'สำเร็จ',
+                message,
+                isCelebrate: isCelebrate ?? false,
+                onConfirm: () => {
+                    resolve();
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                },
+            });
+        });
+    }, []);
+
+    const showConfirm = useCallback((message: string, title?: string, isDanger?: boolean) => {
         return new Promise<boolean>((resolve) => {
             setDialogState({
                 isOpen: true,
                 type: 'confirm',
                 title: title || 'ยืนยันการทำรายการ?',
                 message,
+                isDanger,
                 onConfirm: () => {
                     resolve(true);
                     setDialogState(prev => ({ ...prev, isOpen: false }));
@@ -110,6 +130,7 @@ export const GlobalDialogProvider: React.FC<{ children: React.ReactNode }> = ({ 
             isLoading, 
             loadingMessage,
             showAlert, 
+            showSuccess,
             showConfirm, 
             showPrompt, 
             showLoading,

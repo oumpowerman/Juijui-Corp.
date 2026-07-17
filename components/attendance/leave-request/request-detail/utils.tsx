@@ -15,10 +15,21 @@ export interface ParsedReason {
     isProvisionalWfh: boolean;
     isProvisionalOnsite: boolean;
     isProvisionalForgotCheckin: boolean;
+    isProvisionalCheckout: boolean;
+    isProvisionalLate: boolean;
+    proofUrl: string | null;
 }
 
 export const parseReason = (reason: string): ParsedReason => {
     let text = reason || '';
+
+    // Extract [PROOF:url]
+    const proofMatch = text.match(/\[PROOF:([^\]]+)\]/);
+    let proofUrl: string | null = null;
+    if (proofMatch) {
+        proofUrl = proofMatch[1];
+        text = text.replace(/\[PROOF:[^\]]+\]/g, '');
+    }
     
     const isLateSubmission = text.includes('[LATE_SUBMISSION]');
     text = text.replace(/\[LATE_SUBMISSION\]/g, '');
@@ -42,6 +53,12 @@ export const parseReason = (reason: string): ParsedReason => {
 
     const isProvisionalForgotCheckin = text.includes('[PROVISIONAL_FORGOT_CHECKIN]');
     text = text.replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '');
+
+    const isProvisionalLate = text.includes('[PROVISIONAL_LATE_ENTRY]');
+    text = text.replace(/\[PROVISIONAL_LATE_ENTRY\]/g, '');
+
+    const isProvisionalCheckout = text.includes('[PROVISIONAL_CHECKOUT]');
+    text = text.replace(/\[PROVISIONAL_CHECKOUT\]/g, '');
     
     const timeMatch = text.match(/\[TIME:(\d{2}:\d{2})\]/);
     let time: string | null = null;
@@ -81,13 +98,15 @@ export const parseReason = (reason: string): ParsedReason => {
         cleanLower === 'ลงเวลาแบบจำลอง (provisional wfh)' ||
         cleanLower === 'ลงเวลาแบบจำลอง (provisional on-site)' ||
         cleanLower === 'ลงเวลาแบบจำลอง (provisional onsite)' ||
+        cleanLower === 'ลงเวลาแบบจำลอง (provisional checkout)' ||
         cleanLower === 'ลงเวลาแบบจำลอง' ||
         cleanLower === 'provisional wfh' ||
         cleanLower === 'provisional on-site' ||
         cleanLower === 'provisional onsite' ||
+        cleanLower === 'provisional checkout' ||
         cleanLower === 'provisional';
 
-    if (isGenericProvisional && (isProvisionalWfh || isProvisionalOnsite || isProvisionalForgotCheckin)) {
+    if (isGenericProvisional && (isProvisionalWfh || isProvisionalOnsite || isProvisionalForgotCheckin || isProvisionalCheckout || isProvisionalLate)) {
         text = 'ลงเวลางานโดยไม่มีใบคำขออนุมัติล่วงหน้า (ระบบสร้างใบคำขอให้อัตโนมัติ)';
     }
 
@@ -101,7 +120,10 @@ export const parseReason = (reason: string): ParsedReason => {
         isFixedOt,
         isProvisionalWfh,
         isProvisionalOnsite,
-        isProvisionalForgotCheckin
+        isProvisionalForgotCheckin,
+        isProvisionalCheckout,
+        isProvisionalLate,
+        proofUrl
     };
 };
 
@@ -117,7 +139,8 @@ export const getTypeName = (type: string) => {
         FORGOT_CHECKOUT: 'ลืมเช็คเอาท์ (ลืมลงเวลาออกงาน)',
         FORGOT_BOTH: 'ลืมบันทึกเวลาทั้งเข้าและออก',
         WFH: 'ขอทำงานที่บ้าน (WFH)',
-        UNPAID: 'ลากิจไม่รับค่าจ้าง (Unpaid Leave)'
+        UNPAID: 'ลากิจไม่รับค่าจ้าง (Unpaid Leave)',
+        OUT_OF_RANGE_CHECKOUT: 'ลงเวลานอกพื้นที่ (Out of Range)'
     };
     return labels[type] || type;
 };
@@ -133,7 +156,8 @@ export const getTypeColorClass = (type: string) => {
         FORGOT_CHECKIN: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
         FORGOT_CHECKOUT: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
         FORGOT_BOTH: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
-        WFH: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-100', accent: 'bg-sky-500' }
+        WFH: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-100', accent: 'bg-sky-500' },
+        OUT_OF_RANGE_CHECKOUT: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100', accent: 'bg-orange-500' }
     };
     return colors[type] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-100', accent: 'bg-gray-500' };
 };

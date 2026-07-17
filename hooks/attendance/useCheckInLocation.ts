@@ -23,6 +23,8 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
 
     // To check static coordinates (No Jitter)
     const lastCoordinatesRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+    const motionSamplesRef = useRef<{ x: number; y: number; z: number }[]>([]);
+    const orientationSamplesRef = useRef<{ alpha: number; beta: number; gamma: number }[]>([]);
 
     const checkLocation = useCallback((
         onMatch: (matches: any[], primaryMatch: any) => void,
@@ -34,8 +36,68 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
             return;
         }
 
+        // Reset motion sample collections
+        motionSamplesRef.current = [];
+        orientationSamplesRef.current = [];
+
+        const handleMotion = (event: DeviceMotionEvent) => {
+            const acc = event.acceleration || event.accelerationIncludingGravity;
+            if (acc) {
+                motionSamplesRef.current.push({
+                    x: acc.x ?? 0,
+                    y: acc.y ?? 0,
+                    z: acc.z ?? 0,
+                });
+            }
+        };
+
+        const handleOrientation = (event: DeviceOrientationEvent) => {
+            if (event.alpha !== null && event.beta !== null && event.gamma !== null) {
+                orientationSamplesRef.current.push({
+                    alpha: event.alpha,
+                    beta: event.beta,
+                    gamma: event.gamma,
+                });
+            }
+        };
+
+        // Standard iOS & general permissions checking for device motion/orientation
+        const attachListeners = () => {
+            if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+                (DeviceOrientationEvent as any).requestPermission()
+                    .then((state: string) => {
+                        if (state === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+
+            if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+                (DeviceMotionEvent as any).requestPermission()
+                    .then((state: string) => {
+                        if (state === 'granted') {
+                            window.addEventListener('devicemotion', handleMotion);
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        };
+
+        const detachListeners = () => {
+            window.removeEventListener('devicemotion', handleMotion);
+            window.removeEventListener('deviceorientation', handleOrientation);
+        };
+
+        attachListeners();
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
+                detachListeners();
                 const { latitude, longitude, accuracy } = pos.coords;
                 const now = Date.now();
 
@@ -104,6 +166,67 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
                         }
                     }
                 }
+
+                // 6. Device Orientation / Motion Sensor check
+                try {
+                    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    if (isMobileDevice) {
+                        const mSamples = motionSamplesRef.current;
+                        
+                        // We only perform statistical analysis if we have gathered some samples
+                        if (mSamples.length >= 3) {
+                            const calculateVariance = (values: number[]) => {
+                                if (values.length === 0) return 0;
+                                const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+                                return values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+                            };
+
+                            const varX = calculateVariance(mSamples.map(s => s.x));
+                            const varY = calculateVariance(mSamples.map(s => s.y));
+                            const varZ = calculateVariance(mSamples.map(s => s.z));
+                            const totalVariance = varX + varY + varZ;
+
+                            // GPS changed check: Compare current coordinates with previous
+                            let gpsChangedDist = 0;
+                            if (lastCoordinatesRef.current) {
+                                gpsChangedDist = calculateDistance(latitude, longitude, lastCoordinatesRef.current.lat, lastCoordinatesRef.current.lng);
+                            }
+
+                            // If total variance is absolute zero (exactly 0.0), it suggests simulated device or static emulator sensor readings
+                            if (totalVariance === 0) {
+                                secure = false;
+                                threat = 'ตรวจพบการจำลองเซ็นเซอร์ความเคลื่อนไหว (Static Motion Sensor Detected): อุปกรณ์ไม่มีการสั่นไหวระดับไมโครตามธรรมชาติ';
+                            } else if (gpsChangedDist > 5 && totalVariance < 0.00001) {
+                                // GPS moved, but the accelerometer/gyroscope is completely static
+                                secure = false;
+                                threat = `ตรวจพบการปลอมแปลงเส้นทางวิ่ง (Route Simulation Detected): พิกัด GPS เคลื่อนที่ ${gpsChangedDist.toFixed(1)} ม. แต่โทรศัพท์นิ่งสนิทและไม่มีความเคลื่อนไหวทางกายภาพ`;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error analyzing motion sensors', e);
+                }
+
+                // 7. Capacitor / Native Wrapper deep mock checks (PWA to Native transition)
+                try {
+                    const cap = (window as any).Capacitor;
+                    if (cap) {
+                        // Support native mock location injection
+                        if ((window as any).isMockLocation === true || (window as any).isMockGps === true) {
+                            secure = false;
+                            threat = 'ตรวจพบการจำลองพิกัดผ่านระบบปฏิบัติการระดับลึก (Native Mock Provider Detected)';
+                        }
+                        
+                        // Support custom native bridge or Capacitor plugin check
+                        if ((window as any).nativeMockDetected === true) {
+                            secure = false;
+                            threat = 'ระบบตรวจพบแอปพลิเคชันสวมสิทธิ์การระบุตำแหน่งจำลองระดับเครื่อง (Native Emulator Mocking)';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error verifying native wrapper mock signals', e);
+                }
+
                 lastCoordinatesRef.current = { lat: latitude, lng: longitude, time: now };
 
                 setIsGpsSecure(secure);

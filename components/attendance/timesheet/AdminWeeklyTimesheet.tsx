@@ -61,8 +61,11 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     const provisionalCount = useMemo(() => {
         return logs.filter(l => 
             l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+            l.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
             l.note?.includes('[PROVISIONAL_WFH]') || 
-            l.note?.includes('[PROVISIONAL_ONSITE]')
+            l.note?.includes('[PROVISIONAL_ONSITE]') ||
+            l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+            l.note?.includes('[APPEAL_PENDING]')
         ).length;
     }, [logs]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -188,8 +191,11 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 const userLogs = logs.filter(l => l.userId === u.id);
                 const hasProv = userLogs.some(l => 
                     l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+                    l.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
                     l.note?.includes('[PROVISIONAL_WFH]') || 
-                    l.note?.includes('[PROVISIONAL_ONSITE]')
+                    l.note?.includes('[PROVISIONAL_ONSITE]') ||
+                    l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+                    l.note?.includes('[APPEAL_PENDING]')
                 );
                 if (!hasProv) return false;
             }

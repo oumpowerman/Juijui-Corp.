@@ -15,6 +15,7 @@ import { LeaveHistoryTimeline } from './request-detail/LeaveHistoryTimeline';
 import { AdminOtAdjustment } from './request-detail/AdminOtAdjustment';
 import { ActionFooter } from './request-detail/ActionFooter';
 import { parseReason } from './request-detail/utils';
+import { HpPenaltySection } from './request-detail/HpPenaltySection';
 
 interface RequestDetailModalProps {
     request: LeaveRequest | null;
@@ -65,13 +66,23 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 
     const isProvisional = !!(request && (
         request.type === 'FORGOT_CHECKIN' || 
+        request.type === 'LATE_ENTRY' ||
         request.type === 'WFH' || 
         request.type === 'ONSITE' ||
         (request.reason && (
             request.reason.includes('[PROVISIONAL_WFH]') || 
             request.reason.includes('[PROVISIONAL_ONSITE]') ||
-            request.reason.includes('[PROVISIONAL_FORGOT_CHECKIN]')
+            request.reason.includes('[PROVISIONAL_FORGOT_CHECKIN]') ||
+            request.reason.includes('[PROVISIONAL_LATE_ENTRY]')
         ))
+    ));
+
+    const shouldShowHpPenalty = !!(request && (
+        isProvisional ||
+        request.type === 'LATE_ENTRY' ||
+        request.type === 'FORGOT_CHECKIN' ||
+        request.type === 'FORGOT_CHECKOUT' ||
+        request.type === 'FORGOT_BOTH'
     ));
 
     const parsed = parseReason(request?.reason || '');
@@ -161,14 +172,18 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
         originalOtHours = parsedReason.otHours || '';
     }
 
-    const handleApprove = async () => {
+    const handleApprove = async (customStartTimeArg?: string) => {
         setIsSubmitting(true);
         try {
             const hasCustom = request.type === 'OVERTIME' && editOtHours !== '';
+            const finalStartTime = request.type === 'FORGOT_CHECKIN'
+                ? (customStartTimeArg || editStartTime || undefined)
+                : (editStartTime || undefined);
+
             await onApprove(
                 request,
                 hasCustom ? parseFloat(editOtHours) : undefined,
-                editStartTime || undefined,
+                finalStartTime,
                 editEndTime || undefined,
                 adminNote || undefined,
                 hpPenalty || undefined
@@ -295,52 +310,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     </div>
                                 )}
 
-                                {/* HP Penalty Adjustment Panel (Only for Provisional Entries) */}
-                                {request.status === 'PENDING' && isProvisional && (
-                                    <div className="p-5 bg-red-50/45 rounded-3xl border border-red-100/70 space-y-3.5 mt-4">
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-lg">💔</span>
-                                                <div>
-                                                    <h4 className="text-xs font-bold text-red-900 tracking-wide uppercase">บทลงโทษปรับลด HP (Suspicious HP Penalty)</h4>
-                                                    <p className="text-[10px] text-red-600 font-medium">ในกรณีที่เหตุผลการเข้างานแปลกๆ หรือน่าสงสัย</p>
-                                                </div>
-                                            </div>
-                                            <div className="bg-red-500 text-white font-mono font-bold text-sm px-3.5 py-1.5 rounded-2xl shadow-sm">
-                                                -{hpPenalty} HP
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <input 
-                                                type="range"
-                                                min="0"
-                                                max="100"
-                                                step="5"
-                                                value={hpPenalty}
-                                                onChange={(e) => setHpPenalty(parseInt(e.target.value, 10))}
-                                                className="w-full h-2 bg-red-100 rounded-lg appearance-none cursor-pointer accent-red-500"
-                                                id="hp-penalty-slider"
-                                            />
-
-                                            <div className="flex gap-2.5">
-                                                {[0, 10, 20, 50, 100].map((val) => (
-                                                    <button
-                                                        key={val}
-                                                        type="button"
-                                                        onClick={() => setHpPenalty(val)}
-                                                        className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                                                            hpPenalty === val
-                                                                ? 'bg-red-500 text-white border-red-500 shadow-md shadow-red-100 scale-105'
-                                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                                        }`}
-                                                    >
-                                                        {val === 0 ? 'ไม่มีโทษ' : `-${val}`}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
+                                {/* HP Penalty Adjustment Panel */}
+                                {request.status === 'PENDING' && shouldShowHpPenalty && (
+                                    <HpPenaltySection hpPenalty={hpPenalty} setHpPenalty={setHpPenalty} />
                                 )}
                             </div>
 
@@ -482,52 +454,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                             </div>
                                         )}
 
-                                        {/* HP Penalty Adjustment Panel (Only for Provisional Entries) */}
-                                        {request.status === 'PENDING' && isProvisional && (
-                                            <div className="p-4 bg-red-50/45 rounded-3xl border border-red-100/70 space-y-3 mt-3">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-base">💔</span>
-                                                        <div>
-                                                            <h4 className="text-[10px] font-bold text-red-900 tracking-wide uppercase">บทลงโทษปรับลด HP (Suspicious HP Penalty)</h4>
-                                                            <p className="text-[9px] text-red-600 font-medium">กรณีเหตุผลไม่น่าเชื่อถือ</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="bg-red-500 text-white font-mono font-bold text-xs px-2.5 py-1 rounded-xl shadow-sm">
-                                                        -{hpPenalty} HP
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-2.5">
-                                                    <input 
-                                                        type="range"
-                                                        min="0"
-                                                        max="100"
-                                                        step="5"
-                                                        value={hpPenalty}
-                                                        onChange={(e) => setHpPenalty(parseInt(e.target.value, 10))}
-                                                        className="w-full h-1.5 bg-red-100 rounded-lg appearance-none cursor-pointer accent-red-500"
-                                                        id="hp-penalty-slider-mobile"
-                                                    />
-
-                                                    <div className="flex gap-1.5">
-                                                        {[0, 10, 20, 50, 100].map((val) => (
-                                                            <button
-                                                                key={val}
-                                                                type="button"
-                                                                onClick={() => setHpPenalty(val)}
-                                                                className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                                                                    hpPenalty === val
-                                                                        ? 'bg-red-500 text-white border-red-500 shadow-sm shadow-red-100 scale-105'
-                                                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                                                }`}
-                                                            >
-                                                                {val === 0 ? 'ไม่มี' : `-${val}`}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        {/* HP Penalty Adjustment Panel */}
+                                        {request.status === 'PENDING' && shouldShowHpPenalty && (
+                                            <HpPenaltySection hpPenalty={hpPenalty} setHpPenalty={setHpPenalty} />
                                         )}
                                     </div>
 

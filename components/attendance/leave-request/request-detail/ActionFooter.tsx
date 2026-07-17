@@ -6,7 +6,7 @@ import TimePickerModal from '../../../ui/TimePickerModal';
 
 interface ActionFooterProps {
     isSubmitting: boolean;
-    onApprove: () => Promise<void>;
+    onApprove: (customStartTime?: string) => Promise<void>;
     onReject: (reason: string, customCheckInTime?: string, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => Promise<void>;
     requestType?: string;
     defaultCheckInTime?: string;
@@ -28,6 +28,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     const [adjustedTime, setAdjustedTime] = useState(defaultCheckInTime);
     const [rejectionMode, setRejectionMode] = useState<'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING'>('ABSENT');
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+    const [isAdjustPickerOpen, setIsAdjustPickerOpen] = useState(false);
 
     useEffect(() => {
         if (defaultCheckInTime) {
@@ -55,26 +56,68 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
 
     return (
         <div className="p-3 sm:p-6 bg-slate-50 border-t border-slate-100 shrink-0">
-            <div className="flex gap-3">
-                <button
-                    type="button"
-                    onClick={() => setIsRejectMode(true)}
-                    disabled={isSubmitting}
-                    className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                    id="reject-trigger-btn"
-                >
-                    <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
-                </button>
-                <button
-                    type="button"
-                    onClick={onApprove}
-                    disabled={isSubmitting}
-                    className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-green-100 cursor-pointer"
-                    id="approve-trigger-btn"
-                >
-                    <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'กำลังอนุมัติ...' : 'อนุมัติคำขอ'}
-                </button>
-            </div>
+            {requestType === 'FORGOT_CHECKIN' ? (
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                    <button
+                        type="button"
+                        onClick={() => setIsRejectMode(true)}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm cursor-pointer"
+                        id="reject-trigger-btn-forgot"
+                    >
+                        <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsAdjustPickerOpen(true)}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-100 cursor-pointer"
+                        id="adjust-approve-trigger-btn"
+                    >
+                        <Clock className="w-4 h-4" /> แก้ไขเวลา
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onApprove()}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-green-100 cursor-pointer"
+                        id="approve-requested-trigger-btn"
+                    >
+                        <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'กำลังอนุมัติ...' : `อนุมัติตามที่ขอ (${defaultCheckInTime})`}
+                    </button>
+
+                    <TimePickerModal
+                        isOpen={isAdjustPickerOpen}
+                        onClose={() => setIsAdjustPickerOpen(false)}
+                        onSelect={(time) => {
+                            setIsAdjustPickerOpen(false);
+                            onApprove(time);
+                        }}
+                        initialTime={defaultCheckInTime}
+                    />
+                </div>
+            ) : (
+                <div className="flex gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setIsRejectMode(true)}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                        id="reject-trigger-btn"
+                    >
+                        <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onApprove()}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-green-100 cursor-pointer"
+                        id="approve-trigger-btn"
+                    >
+                        <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'กำลังอนุมัติ...' : 'อนุมัติคำขอ'}
+                    </button>
+                </div>
+            )}
 
             {/* Rejection Modal Portal */}
             {typeof window !== 'undefined' && createPortal(
@@ -106,8 +149,8 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Forgot Check-In or Keep Working Time Adjustment */}
-                                {(requestType === 'FORGOT_CHECKIN' || rejectionMode === 'KEEP_WORKING') && (
+                                {/* Keep Working Time Adjustment */}
+                                {(rejectionMode === 'KEEP_WORKING') && (
                                     <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-100/80 shadow-sm space-y-2">
                                         <label className="text-[11px] font-bold text-amber-800 uppercase block tracking-wider">
                                             🕒 เวลาเข้างานจริงของพนักงาน (ประเมินจากหลักฐาน)

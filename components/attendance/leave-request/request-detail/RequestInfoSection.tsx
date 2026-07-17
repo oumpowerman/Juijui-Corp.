@@ -129,7 +129,8 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
             {/* Reason Text Area */}
             <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    <FileText className="w-4 h-4 text-slate-500" />
+                    <FileText className="w-4 h-4 text-slate-500"
+                     />
                     <span>เหตุผลความจำเป็น</span>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap italic shadow-inner">
@@ -138,9 +139,9 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
             </div>
 
             {/* Attachment Preview (if any) */}
-            {request.attachmentUrl && (
+            {(request.attachmentUrl || parsed.proofUrl) && (
                 <div className="pt-2">
-                    <AttachmentPreview attachmentUrl={request.attachmentUrl} />
+                    <AttachmentPreview attachmentUrl={request.attachmentUrl || parsed.proofUrl || ''} />
                 </div>
             )}
         </div>

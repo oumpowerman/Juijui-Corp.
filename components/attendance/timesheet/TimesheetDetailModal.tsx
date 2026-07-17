@@ -164,6 +164,9 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const isProvisionalWfh = logParsed.isProvisionalWfh || requestParsed.isProvisionalWfh;
     const isProvisionalOnsite = logParsed.isProvisionalOnsite || requestParsed.isProvisionalOnsite;
     const isProvisionalForgotCheckin = logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin;
+    const isProvisionalCheckout = logParsed.isProvisionalCheckout || requestParsed.isProvisionalCheckout;
+    const isProvisionalLate = log?.status === 'APPEAL' || note.includes('[APPEAL_PENDING]') || note.includes('[PROVISIONAL_LATE_ENTRY');
+    const isLocationMismatch = logParsed.isLocationMismatch || requestParsed.isLocationMismatch || leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT';
 
     const userReason = requestParsed.cleanReason;
     const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';
@@ -301,6 +304,34 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                     </h5>
                                     <p className="text-[11px] leading-relaxed text-amber-800/80 font-semibold font-sans">
                                         ระบบสร้างใบคำขอให้อัตโนมัติสำหรับพนักงานที่ลืมลงเวลาเข้างานเพื่อขอลงย้อนหลัง
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {isProvisionalCheckout && (
+                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-amber-900 tracking-wide">
+                                        {isLocationMismatch ? '⚠️ ลงเวลานอกพื้นที่แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)' : '⚠️ เช็คเอาท์แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)'}
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-amber-800/80 font-semibold font-sans">
+                                        {isLocationMismatch 
+                                            ? 'ระบบบันทึกเวลาเลิกงานนอกพื้นที่แบบจำลองชั่วคราวให้ โดยอยู่ระหว่างรอตรวจสอบภาพหลักฐานสถานที่จริงจากแอดมิน'
+                                            : 'ระบบบันทึกเวลาเลิกงานจำลองชั่วคราวให้เรียบร้อยเพื่อความสะดวกในการปฏิบัติงานในวันถัดไป โดยอยู่ระหว่างการรออนุมัติจากผู้ดูแลระบบ'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {isProvisionalLate && (
+                            <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-violet-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-violet-900 tracking-wide">
+                                        ⚠️ อยู่ระหว่างการอุทธรณ์ (รออนุมัติเข้าสายย้อนหลัง)
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-violet-800/80 font-semibold font-sans">
+                                        พนักงานลงเวลานอกเหนือเกณฑ์เข้างานปกติ โดยอยู่ระหว่างยื่นอุทธรณ์พิจารณาสิทธิ์เข้างานสาย รอผู้ดูแลระบบอนุมัติคำขอ
                                     </p>
                                 </div>
                             </div>

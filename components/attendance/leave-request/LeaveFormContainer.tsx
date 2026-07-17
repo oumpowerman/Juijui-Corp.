@@ -1,28 +1,29 @@
 
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, CalendarClock, Clock, FileText, Image as ImageIcon, ArrowRight, Edit3, Eye, X, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, CalendarClock, Clock, FileText, Image as ImageIcon, ArrowRight, Edit3, Eye, X, AlertTriangle, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
 import { MasterOption } from '../../../types';
 import { LEAVE_THEMES } from './constants';
 import { useLeaveFormLogic } from './hooks/useLeaveFormLogic';
 import LeaveQuotaDisplay from './LeaveQuotaDisplay';
-import { differenceInDays, format, eachDayOfInterval } from 'date-fns';
-import { th } from 'date-fns/locale';
-import { isWorkingDay } from '../../../utils/judgeUtils';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { useUserSession } from '../../../context/UserSessionContext';
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
+import { calculateWorkingDays } from './utils/leave-request.utils';
+import { LeaveFormReview } from './LeaveFormReview';
 
 // Input Components
 import StandardLeaveInputs from './form-inputs/StandardLeaveInputs';
 import TimeCorrectionInputs from './form-inputs/TimeCorrectionInputs';
 import OvertimeInputs from './form-inputs/OvertimeInputs';
+import { FileAttachmentZone } from './form-inputs/FileAttachmentZone';
+import { TimeCorrectionWarning } from './TimeCorrectionWarning';
 
 interface Props {
     selectedType: string;
     onBack: () => void;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
+    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
     onClose: () => void;
     masterOptions: MasterOption[];
     leaveUsage?: LeaveUsage;
@@ -30,11 +31,13 @@ interface Props {
     initialDate?: Date;
     initialReason?: string;
     fixedType?: boolean;
+    linkedRemoteType?: 'WFH' | 'ONSITE';
+    isInOffice?: boolean;
 }
 
 
 const LeaveFormContainer: React.FC<Props> = ({ 
-    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, pendingUsage, initialDate, initialReason, fixedType
+    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, pendingUsage, initialDate, initialReason, fixedType, linkedRemoteType, isInOffice
 }) => {
     const { annualHolidays, calendarExceptions } = useMasterData();
     const { currentUserProfile } = useUserSession();
@@ -53,6 +56,12 @@ const LeaveFormContainer: React.FC<Props> = ({
         const today = new Date();
         today.setHours(0,0,0,0);
         
+        if (['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+            const allowedPast = new Date(today);
+            allowedPast.setDate(today.getDate() - 7);
+            return allowedPast;
+        }
+
         const candidateDates: Date[] = [];
 
         if (metadata.advanceDays && metadata.advanceDays > 0) {
@@ -69,18 +78,23 @@ const LeaveFormContainer: React.FC<Props> = ({
 
         if (candidateDates.length === 0) return undefined;
         return candidateDates.reduce((max, current) => current > max ? current : max, candidateDates[0]);
-    }, [metadata.advanceDays, metadata.maxPastDays]);
+    }, [metadata.advanceDays, metadata.maxPastDays, selectedType]);
 
     const maxDate = useMemo(() => {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        if (['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+            return today;
+        }
+
         if (metadata.maxFutureDays && metadata.maxFutureDays > 0) {
-            const today = new Date();
-            today.setHours(0,0,0,0);
             const allowed = new Date(today);
             allowed.setDate(today.getDate() + metadata.maxFutureDays);
             return allowed;
         }
         return undefined;
-    }, [metadata.maxFutureDays]);
+    }, [metadata.maxFutureDays, selectedType]);
     
     const { 
         startDate, setStartDate, endDate, setEndDate, 
@@ -96,11 +110,11 @@ const LeaveFormContainer: React.FC<Props> = ({
         selectedType, 
         advanceDays: metadata.advanceDays,
         maxFutureDays: metadata.maxFutureDays,
-        maxPastDays: metadata.maxPastDays
+        maxPastDays: ['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType) ? 7 : metadata.maxPastDays,
+        linkedRemoteType
     });
 
     const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     useEffect(() => {
         if (!file) {
@@ -118,14 +132,31 @@ const LeaveFormContainer: React.FC<Props> = ({
         }
     }, [file]);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [isAtBottom, setIsAtBottom] = useState(true);
 
-    useEffect(() => {
-        if (isReviewing && bodyRef.current) {
-            bodyRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget;
+        const scrollTop = target.scrollTop;
+        const scrollHeight = target.scrollHeight;
+        const clientHeight = target.clientHeight;
+        
+        setIsScrolled(scrollTop > 20);
+        setIsAtBottom(scrollHeight - scrollTop <= clientHeight + 30);
+    };
+
+    const updateScrollState = () => {
+        if (bodyRef.current) {
+            const target = bodyRef.current;
+            const scrollTop = target.scrollTop;
+            const scrollHeight = target.scrollHeight;
+            const clientHeight = target.clientHeight;
+            
+            setIsScrolled(scrollTop > 20);
+            setIsAtBottom(scrollHeight - scrollTop <= clientHeight + 30);
         }
-    }, [isReviewing]);
+    };
 
     const theme = LEAVE_THEMES[selectedType] || LEAVE_THEMES['DEFAULT'];
     
@@ -135,26 +166,23 @@ const LeaveFormContainer: React.FC<Props> = ({
         FORGOT_CHECKIN: 'ลืมเช็คอิน',
         FORGOT_CHECKOUT: 'ลืมเช็คเอาท์',
         FORGOT_BOTH: 'ลืมเช็คอินและเช็คเอาท์',
+        OUT_OF_RANGE_CHECKOUT: 'ลงเวลานอกพื้นที่'
     };
 
     const thaiLabel = selectedOption?.label || fallbackLabels[selectedType] || selectedType;
-    const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
-    const isSingleDayRequest = ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH'].includes(selectedType);
+    const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
+    const isSingleDayRequest = ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
     const headerLabel = isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel;
 
     const daysRequested = useMemo(() => {
-        if (isTimeSpecific) return 0;
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return 0;
-
-            const days = eachDayOfInterval({ start, end });
-            return days.filter(d => 
-                isWorkingDay(d, annualHolidays || [], calendarExceptions || [], currentUserProfile)
-            ).length;
-        }
-        return 0;
+        return calculateWorkingDays(
+            startDate,
+            endDate,
+            isTimeSpecific,
+            annualHolidays || [],
+            calendarExceptions || [],
+            currentUserProfile
+        );
     }, [startDate, endDate, isTimeSpecific, annualHolidays, calendarExceptions, currentUserProfile]);
 
     const quotaInfo = useMemo(() => {
@@ -169,11 +197,33 @@ const LeaveFormContainer: React.FC<Props> = ({
 
     const isOverQuota = !!(quotaInfo && daysRequested > quotaInfo.remainingIncludingPending);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            updateScrollState();
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [isReviewing, selectedType, isOverQuota, startDate, endDate, reason, file]);
+
+    useEffect(() => {
+        updateScrollState();
+        window.addEventListener('resize', updateScrollState);
+        return () => {
+            window.removeEventListener('resize', updateScrollState);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isReviewing && bodyRef.current) {
+            bodyRef.current.scrollTo({ top: 0, behavior: 'auto' });
+        }
+        updateScrollState();
+    }, [isReviewing]);
+
     const getPlaceholder = () => {
         if (metadata.placeholder) return metadata.placeholder;
         if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
         if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
+        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
             return "กรุณาระบุรายละเอียดงานที่ทำในช่วงเวลานั้นและเหตุผลย้อนหลังโดยละเอียด เพื่อให้แอดมินตรวจสอบได้...";
         }
         if (selectedType === 'WFH') return "เช่น เคลียร์งานตัดต่อที่บ้าน...";
@@ -186,33 +236,25 @@ const LeaveFormContainer: React.FC<Props> = ({
         return "เหตุผล / รายละเอียด";
     };
 
-    const formatDateThai = (dateStr: string) => {
-        try {
-            return format(new Date(dateStr), 'd MMM yyyy', { locale: th });
-        } catch (e) {
-            return dateStr;
-        }
-    };
-
     return (
         <div 
             className="flex flex-col flex-1 min-h-0 bg-white/40 backdrop-blur-2xl h-full w-full"
         >
             {/* Header */}
-            <div className={`px-4 py-4 sm:px-6 sm:py-6 border-b border-white/40 bg-white/60 backdrop-blur-md flex items-center gap-3 sm:gap-4 shrink-0 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${fixedType ? 'bg-orange-50/40' : ''}`}>
+            <div className={`border-b border-white/40 bg-white/60 backdrop-blur-md flex items-center gap-3 sm:gap-4 shrink-0 z-20 shadow-[0_4px_20px_rgba(0,0,0,0.03)] ${fixedType ? 'bg-orange-50/40' : ''} transition-all duration-300 ease-in-out ${isScrolled ? 'px-4 py-2 sm:px-6 sm:py-3' : 'px-4 py-4 sm:px-6 sm:py-6'}`}>
                 <motion.button 
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={isReviewing ? () => setIsReviewing(false) : onBack} 
-                    className="p-2.5 sm:p-3 bg-white/80 hover:bg-white rounded-xl sm:rounded-2xl text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-white/50"
+                    className={`bg-white/80 hover:bg-white text-gray-400 hover:text-indigo-600 transition-all shadow-sm border border-white/50 flex items-center justify-center ${isScrolled ? 'p-1.5 sm:p-2 rounded-lg sm:rounded-xl' : 'p-2.5 sm:p-3 rounded-xl sm:rounded-2xl'}`}
                 >
-                    <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <ChevronLeft className={`transition-all duration-300 ${isScrolled ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'}`} />
                 </motion.button>
                 <div className="flex-1 min-w-0">
                     <motion.h3 
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="text-lg sm:text-2xl font-bold text-slate-800 flex items-center gap-2.5 sm:gap-3"
+                        className={`font-bold text-slate-800 flex items-center transition-all duration-300 ease-in-out ${isScrolled ? 'text-base sm:text-xl gap-1.5 sm:gap-2' : 'text-lg sm:text-2xl gap-2.5 sm:gap-3'}`}
                     >
                         <motion.span 
                             animate={{ 
@@ -224,29 +266,139 @@ const LeaveFormContainer: React.FC<Props> = ({
                                 repeat: Infinity,
                                 ease: "easeInOut"
                             }}
-                            className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.08)] ${theme.bg} ${theme.text} border border-white/50 shrink-0`}
+                            className={`shadow-[0_8px_16px_rgba(0,0,0,0.08)] ${theme.bg} ${theme.text} border border-white/50 shrink-0 transition-all duration-300 ${isScrolled ? 'p-1.5 sm:p-2 rounded-lg sm:rounded-xl' : 'p-2 sm:p-2.5 rounded-xl sm:rounded-2xl'}`}
                         >
-                            {fixedType ? <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> : (theme.icon && React.createElement(theme.icon, { className: "w-5 h-5 sm:w-6 sm:h-6" }))}
+                            {fixedType ? (
+                                <AlertCircle className={`transition-all duration-300 ${isScrolled ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'}`} />
+                            ) : (
+                                theme.icon && React.createElement(theme.icon, { 
+                                    className: `transition-all duration-300 ${isScrolled ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-5 h-5 sm:w-6 sm:h-6'}` 
+                                })
+                            )}
                         </motion.span>
-                        <span className="tracking-tight truncate">{isReviewing ? 'ตรวจสอบความถูกต้อง' : headerLabel}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
+                            <span className="tracking-tight truncate">{isReviewing ? 'ตรวจสอบความถูกต้อง' : headerLabel}</span>
+                            <AnimatePresence>
+                                {(() => {
+                                    const badges: React.ReactNode[] = [];
+                                    const badgeClass = (bg: string, border: string, text: string) => 
+                                        `inline-flex items-center gap-1 ${bg} ${border} ${text} font-bold w-fit shrink-0 shadow-sm transition-all duration-300 ${isScrolled ? 'px-1.5 py-0.5 text-[10px] rounded-md' : 'px-2.5 py-1 text-xs rounded-full'}`;
+
+                                    // 1. Time Correction Badges
+                                    if (selectedType === 'FORGOT_CHECKIN') {
+                                        badges.push(
+                                            <motion.div
+                                                key="forgot-checkin"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-amber-50/80', 'border-amber-200', 'text-amber-700')}
+                                            >
+                                                <span>📝 ลืมเช็คอิน</span>
+                                            </motion.div>
+                                        );
+                                    } else if (selectedType === 'FORGOT_CHECKOUT') {
+                                        badges.push(
+                                            <motion.div
+                                                key="forgot-checkout"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-blue-50/80', 'border-blue-200', 'text-blue-700')}
+                                            >
+                                                <span>📝 ลืมเช็คเอาท์</span>
+                                            </motion.div>
+                                        );
+                                    } else if (selectedType === 'OUT_OF_RANGE_CHECKOUT') {
+                                        badges.push(
+                                            <motion.div
+                                                key="out-of-range"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-rose-50/80', 'border-rose-200', 'text-rose-700')}
+                                            >
+                                                <span>📍 ลงเวลานอกพื้นที่</span>
+                                            </motion.div>
+                                        );
+                                    } else if (selectedType === 'FORGOT_BOTH') {
+                                        badges.push(
+                                            <motion.div
+                                                key="forgot-both"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-slate-100/80', 'border-slate-300', 'text-slate-700')}
+                                            >
+                                                <span>📝 ลืมเช็คอินและเช็คเอาท์</span>
+                                            </motion.div>
+                                        );
+                                    }
+
+                                    // 2. Remote Back-link Badges
+                                    if (linkedRemoteType === 'WFH') {
+                                        badges.push(
+                                            <motion.div
+                                                key="backlink-wfh"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-indigo-50/80', 'border-indigo-200', 'text-indigo-700')}
+                                            >
+                                                <span>🏠 อนุมัติย้อนหลัง</span>
+                                            </motion.div>
+                                        );
+                                    } else if (linkedRemoteType === 'ONSITE') {
+                                        badges.push(
+                                            <motion.div
+                                                key="backlink-onsite"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-orange-50/80', 'border-orange-200', 'text-orange-700')}
+                                            >
+                                                <span>🚗 อนุมัติย้อนหลัง</span>
+                                            </motion.div>
+                                        );
+                                    }
+
+                                    // 3. Office badge
+                                    if (isInOffice) {
+                                        badges.push(
+                                            <motion.div
+                                                key="office-secure"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                className={badgeClass('bg-emerald-50/80', 'border-emerald-200', 'text-emerald-700')}
+                                            >
+                                                <span>🏢 ยืนยันพิกัด Office</span>
+                                            </motion.div>
+                                        );
+                                    }
+
+                                    return badges;
+                                })()}
+                            </AnimatePresence>
+                        </div>
                     </motion.h3>
                 </div>
                 {/* Google Drive Status Badge */}
                 <div className="flex items-center gap-2">
                     <div className="flex flex-col items-end mr-1">
                         {isDriveConnected ? (
-                            <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                            <div className={`flex items-center gap-1 bg-emerald-50 border border-emerald-100 rounded-full transition-all duration-300 ${isScrolled ? 'px-1.5 py-0.5' : 'px-2.5 py-1'}`}>
                                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">Drive Ready</span>
+                                {!isScrolled && <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">Drive Ready</span>}
                             </div>
                         ) : (
                             <button 
                                 onClick={connectDrive}
                                 type="button"
-                                className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-100 rounded-full animate-pulse hover:bg-rose-100 transition-all text-left"
+                                className={`flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-full animate-pulse hover:bg-rose-100 text-left transition-all duration-300 ${isScrolled ? 'px-1.5 py-0.5' : 'px-2.5 py-1'}`}
                             >
                                 <AlertTriangle className="w-3 h-3 text-rose-500" />
-                                <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tighter">[ เชื่อมต่อ Drive ]</span>
+                                {!isScrolled && <span className="text-[9px] font-bold text-rose-600 uppercase tracking-tighter">[ เชื่อมต่อ Drive ]</span>}
                             </button>
                         )}
                     </div>
@@ -256,6 +408,7 @@ const LeaveFormContainer: React.FC<Props> = ({
             {/* Scrollable Body */}
             <div 
                 ref={bodyRef}
+                onScroll={handleScroll}
                 className="flex-1 overflow-y-auto p-4 sm:p-6 pb-6 sm:pb-8 space-y-5 sm:space-y-8 
                     scroll-smooth 
                     scrollbar-thin scrollbar-thumb-slate-300/60 scrollbar-track-transparent
@@ -264,176 +417,26 @@ const LeaveFormContainer: React.FC<Props> = ({
 
                 <AnimatePresence mode="wait">
                     {isReviewing ? (
-                        /* --- REVIEW STEP --- */
-                        <motion.div 
-                            key="review"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="space-y-4 sm:space-y-6"
-                        >
-                            <div className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-indigo-100/20 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-300/30 transition-colors" />
-                                
-                                <div className="flex items-center gap-2.5 sm:gap-3 text-indigo-600 mb-2 relative">
-                                    <div className="p-2 bg-white rounded-xl shadow-sm">
-                                        <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    </div>
-                                    <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">รายละเอียดเวลา</span>
-                                </div>
-                                
-                                {isSingleDayRequest ? (
-                                    <div className="bg-white/70 backdrop-blur-md p-5 sm:p-6 rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                            <div>
-                                                <p className="text-[10px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 tracking-widest">วันที่ขอปฏิบัติงาน</p>
-                                                <p className="text-sm sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
-                                            </div>
-                                            
-                                            <div className="hidden sm:block h-8 w-px bg-indigo-100" />
-                                            
-                                            <div className="flex-1 sm:text-right">
-                                                <p className="text-[10px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 tracking-widest">ช่วงเวลาปฏิบัติงาน</p>
-                                                {selectedType === 'OVERTIME' ? (
-                                                    otType === 'FIXED' ? (
-                                                        <p className="text-sm sm:text-base font-bold text-indigo-600">เหมาจ่าย (Lump-sum)</p>
-                                                    ) : (
-                                                        <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} - {endTime} น.</p>
-                                                    )
-                                                ) : selectedType === 'FORGOT_BOTH' ? (
-                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} - {endTime} น.</p>
-                                                ) : selectedType === 'LATE_ENTRY' ? (
-                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">เข้าสายย้อนหลัง: {targetTime} น.</p>
-                                                ) : selectedType === 'FORGOT_CHECKIN' ? (
-                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">ลืมสแกนเข้า: {targetTime} น.</p>
-                                                ) : selectedType === 'FORGOT_CHECKOUT' ? (
-                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">ลืมสแกนออก: {targetTime} น.</p>
-                                                ) : (
-                                                    <p className="text-sm sm:text-base font-bold text-indigo-600">{targetTime} น.</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 sm:gap-5 relative">
-                                        <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">เริ่มต้น (Start)</p>
-                                            <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(startDate)}</p>
-                                            {isTimeSpecific && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{targetTime} น.</p>}
-                                        </div>
-                                        
-                                        <div className="bg-white/70 backdrop-blur-md p-3 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm hover:shadow-md transition-shadow">
-                                            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-300 uppercase mb-1 sm:mb-2 tracking-widest">สิ้นสุด (End)</p>
-                                            <p className="text-xs sm:text-base font-bold text-indigo-950">{formatDateThai(endDate)}</p>
-                                            {selectedType === 'FORGOT_BOTH' && <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 sm:mt-2">{endTime} น.</p>}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {!isTimeSpecific && (daysRequested > 0 || selectedType === 'OVERTIME') && (
-                                    selectedType === 'OVERTIME' ? (
-                                        <div className="bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-600  bg-no-repeat bg-[length:100%_100%] bg-clip-padding text-white p-4 rounded-[1.5rem] shadow-xl shadow-indigo-500/20 border border-white/20 relative flex items-center justify-between overflow-hidden">
-                                            {/* Glow overlay */}
-                                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_50%)]" />
-                                            
-                                            {/* Left side: OT Hours */}
-                                            <div className="flex items-center gap-3 relative z-10 flex-1">
-                                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md shadow-inner text-sky-100 animate-pulse">
-                                                    <Clock className="w-5 h-5" />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="text-[8px] text-sky-100 font-prompt uppercase tracking-widest font-semibold">ชั่วโมงที่ขอปฏิบัติงาน</p>
-                                                    {otType === 'FIXED' ? (
-                                                        <p className="text-sm sm:text-lg font-semibold font-prompt text-white">แบบเหมาจ่าย (Lump-sum)</p>
-                                                    ) : (
-                                                        <p className="text-sm sm:text-lg font-semibold font-prompt text-white">ทำโอที {Number(otHours).toFixed(2)} ชั่วโมง</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Vertical Glass Divider */}
-                                            <div className="h-10 w-px bg-white/20 mx-4 relative z-10" />
-
-                                            {/* Right side: Days count */}
-                                            <div className="text-right relative z-10 shrink-0">
-                                                <div className="bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-md">
-                                                    <p className="text-[10px] text-purple-100 font-prompt font-semibold">รวมระยะเวลา</p>
-                                                    <p className="text-sm font-bold font-pro text-white">
-                                                        {daysRequested > 0 ? `${daysRequested} วัน` : 'วันหยุด'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-indigo-600 text-white p-3 sm:p-4 rounded-[1.25rem] sm:rounded-[1.5rem] text-center shadow-xl shadow-indigo-200 relative">
-                                            <p className="text-xs sm:text-sm font-bold tracking-wide">รวมระยะเวลา: {daysRequested} วัน</p>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-
-                            <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-emerald-100/20 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-300/30 transition-colors" />
-                                
-                                <div className="flex items-center gap-2.5 sm:gap-3 text-emerald-600 mb-2 relative">
-                                    <div className="p-2 bg-white rounded-xl shadow-sm">
-                                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                                    </div>
-                                    <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">เหตุผลที่ระบุ</span>
-                                </div>
-                                <div className="bg-white/70 backdrop-blur-md p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-white shadow-sm">
-                                    <p className="text-sm sm:text-base font-bold text-emerald-950 leading-relaxed italic">"{reason}"</p>
-                                </div>
-                            </div>
-
-                             {file && (
-                                <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/80 backdrop-blur-xl border border-white/60 p-5 sm:p-8 rounded-[2rem] sm:rounded-[3rem] space-y-4 sm:space-y-5 shadow-xl shadow-amber-100/20">
-                                    <div className="flex items-center gap-2.5 sm:gap-3 text-amber-600 mb-2">
-                                        <div className="p-2 bg-white rounded-xl shadow-sm">
-                                            <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-medium font-kanit uppercase tracking-[0.2em]">เอกสารแนบ</span>
-                                    </div>
-                                    <div className="space-y-3 sm:space-y-4">
-                                        <div className="bg-white/70 backdrop-blur-md p-3 sm:p-4 rounded-[1.25rem] sm:rounded-[1.5rem] border border-white shadow-sm flex items-center gap-3 sm:gap-4">
-                                            <div className="bg-amber-100 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-amber-600">
-                                                <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
-                                            </div>
-                                            <p className="text-xs sm:text-sm font-bold text-amber-900 truncate flex-1">{file.name}</p>
-                                        </div>
-
-                                        {filePreviewUrl && (
-                                            <div className="flex justify-center pt-2">
-                                                <div 
-                                                    onClick={() => setIsPreviewOpen(true)}
-                                                    className="w-full max-w-md h-48 sm:h-56 rounded-2xl border-2 border-white shadow-lg overflow-hidden relative group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl"
-                                                >
-                                                    <img 
-                                                        src={filePreviewUrl} 
-                                                        alt="Attachment preview" 
-                                                        className="w-full h-full object-cover"
-                                                        referrerPolicy="no-referrer"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 text-white">
-                                                        <div className="bg-white/20 p-2 rounded-full backdrop-blur-md">
-                                                            <Eye className="w-5 h-5 text-white" />
-                                                        </div>
-                                                        <span className="text-xs font-bold font-kanit tracking-wide">คลิกเพื่อดูรูปภาพขนาดเต็ม</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5 bg-blue-50/40 backdrop-blur-md rounded-[1.5rem] sm:rounded-[2rem] border border-white/60 shadow-sm">
-                                <div className="p-2 bg-blue-100 rounded-xl text-blue-500 shrink-0">
-                                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </div>
-                                <p className="text-[11px] sm:text-xs font-bold text-blue-700 leading-relaxed">เมื่อกดยืนยัน ระบบจะส่งคำขอไปยัง Admin เพื่อพิจารณาและแจ้งเตือนผ่านกลุ่มทันที</p>
-                            </div>
-                        </motion.div>
+                        <LeaveFormReview
+                            selectedType={selectedType}
+                            reason={reason}
+                            startDate={startDate}
+                            endDate={endDate}
+                            targetTime={targetTime}
+                            endTime={endTime}
+                            otHours={otHours}
+                            otType={otType}
+                            daysRequested={daysRequested}
+                            isSingleDayRequest={isSingleDayRequest}
+                            isTimeSpecific={isTimeSpecific}
+                            linkedRemoteType={linkedRemoteType}
+                            isInOffice={isInOffice}
+                            file={file}
+                            filePreviewUrl={filePreviewUrl}
+                            isSubmitting={isSubmitting}
+                            onBack={() => setIsReviewing(false)}
+                            onSubmit={handleSubmit}
+                        />
                     ) : (
                         /* --- FORM STEP --- */
                         <motion.div 
@@ -475,21 +478,48 @@ const LeaveFormContainer: React.FC<Props> = ({
                              )}
 
                             {/* Time Correction Strictness Warning */}
-                            {(selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_BOTH') && (
+                            {(selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT' || selectedType === 'FORGOT_BOTH') && !isInOffice && !linkedRemoteType && (
+                                <TimeCorrectionWarning />
+                            )}
+
+                            {selectedType === 'FORGOT_CHECKIN' && (linkedRemoteType || isInOffice) && (
                                 <motion.div 
                                     initial={{ y: -10, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
-                                    className="bg-amber-50/90 backdrop-blur-xl border-2 border-amber-500/20 p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] flex items-start gap-4 shadow-xl shadow-amber-500/5"
+                                    className={`p-4 sm:p-5 rounded-[2rem] flex flex-col gap-3 shadow-xl relative overflow-hidden ${
+                                        isInOffice 
+                                            ? 'bg-gradient-to-r from-slate-50/90 to-emerald-50/30 border-emerald-100/50 shadow-emerald-100/5' 
+                                            : 'bg-gradient-to-r from-slate-50/90 to-indigo-50/30 border-indigo-100/50 shadow-indigo-100/5'
+                                    } backdrop-blur-md border`}
                                 >
-                                    <div className="bg-amber-100 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-amber-600 shadow-sm shrink-0">
-                                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                                    <div className={`absolute top-0 right-0 w-24 h-24 rounded-full -mr-8 -mt-8 blur-2xl ${isInOffice ? 'bg-emerald-200/10' : 'bg-indigo-200/10'}`} />
+                                    
+                                    {/* Visual Flow Diagram */}
+                                    <div className="flex items-center justify-center gap-3 sm:gap-4 py-2 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/80 p-3">
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-xl text-amber-700 text-xs font-bold shadow-sm">
+                                            <span>📝 ลืมลงเวลาเข้า</span>
+                                        </div>
+                                        <motion.div
+                                            animate={{ x: [0, 4, 0] }}
+                                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                                            className={isInOffice ? "text-emerald-400" : "text-indigo-400"}
+                                        >
+                                            <ArrowRight className="w-4 h-4" />
+                                        </motion.div>
+                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold shadow-sm ${
+                                            isInOffice 
+                                                ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                                                : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                                        }`}>
+                                            <span>{isInOffice ? '🏢 ยืนยันพิกัด Office Secure' : linkedRemoteType === 'WFH' ? '🏡 ผูกคำขอ WFH' : '📍 ผูกคำขอ On-site'}</span>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1 sm:space-y-1.5">
-                                        <h4 className="font-bold text-amber-800 text-sm sm:text-base font-kanit">⚠️ กำชับเรื่องการขออนุมัติแก้ไขเวลา</h4>
-                                        <p className="text-[11px] sm:text-xs text-amber-700/90 leading-relaxed font-sarabun font-medium">
-                                            การขอแก้ไขเวลาเข้า-ออกงานจะต้องเป็นกรณีสุดวิสัยจริงๆ เท่านั้น <span className="text-amber-800 underline">ไม่ใช่เพียงเพราะความประมาทเลินเล่อหรือ "ลืมกดเพราะรีบ"</span> โดยคุณต้องระบุรายละเอียดเหตุผลและชี้แจงงานที่ปฏิบัติในช่วงเวลานั้นให้ชัดเจนที่สุด หากมีเอกสาร/รูปภาพ เช่น พิกัดหน้างาน หรือประวัติแชทกลุ่ม โปรดแนบไฟล์ที่ "แนบเอกสารประกอบ" ด้านล่างเพื่อให้ Admin ใช้ประกอบการพิจารณาอนุมัติ
-                                        </p>
-                                    </div>
+                                    <p className={`text-[11px] sm:text-xs leading-relaxed font-bold font-sarabun text-center px-2 ${isInOffice ? 'text-emerald-600' : 'text-indigo-600/90'}`}>
+                                        {isInOffice 
+                                            ? '✨ ยืนยันพิกัดเข้างานสำเร็จ! ระบบตรวจพบว่าคุณยืนยันตัวตนอยู่ในพื้นที่ [สำนักงานใหญ่] เรียบร้อยแล้ว แอดมินสามารถอนุมัติคำขอนี้ได้ทันทีโดยไม่ต้องตรวจสอบเอกสารพิกัดเพิ่มเติม'
+                                            : `✨ ผูกโยงข้อมูลเรียลไทม์สำเร็จ! แอดมินจะพิจารณาอนุมัติเวลาตอกบัตรนี้ควบคู่ไปกับพิกัดนอกสำนักงานและใบคำขอ ${linkedRemoteType === 'WFH' ? 'WFH' : 'On-site'} ที่ส่งมาโดยอัตโนมัติ`
+                                        }
+                                    </p>
                                 </motion.div>
                             )}
 
@@ -501,7 +531,11 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         time={targetTime} setTime={setTargetTime} 
                                         endTime={endTime} setEndTime={setEndTime}
                                         showEndTime={selectedType === 'FORGOT_BOTH'}
-                                        isFixedDate={!!fixedType}
+                                        isFixedDate={!!fixedType || selectedType === 'LATE_ENTRY'}
+                                        lockReason={selectedType === 'LATE_ENTRY' ? "สามารถแจ้งขอเข้าสายได้เฉพาะวันปัจจุบันเท่านั้น" : undefined}
+                                        minDate={minDate}
+                                        maxDate={maxDate}
+                                        selectedType={selectedType}
                                     />
                                 ) : selectedType === 'OVERTIME' ? (
                                     <OvertimeInputs 
@@ -538,26 +572,11 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     />
                                 </div>
                                 
-                                <motion.div 
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={`
-                                        p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed transition-all cursor-pointer flex items-center justify-center gap-4 sm:gap-5 group relative overflow-hidden shadow-xl
-                                        ${file ? 'border-emerald-200 bg-emerald-50/60 backdrop-blur-md' : 'border-slate-200 bg-white/40 backdrop-blur-md hover:bg-white hover:border-indigo-200 hover:shadow-indigo-100/30'}
-                                    `}
-                                >
-                                    <div className={`p-3 sm:p-4 rounded-xl sm:rounded-[1.5rem] shadow-lg transition-all group-hover:rotate-12 ${file ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400'}`}>
-                                        {file ? <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8"/> : <Upload className="w-6 h-6 sm:w-8 sm:h-8"/>}
-                                    </div>
-                                    <div className="text-left flex-1 min-w-0">
-                                        <p className={`text-sm sm:text-base font-bold truncate ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
-                                            {file ? file.name : (selectedType === 'SICK' ? 'แนบใบรับรองแพทย์' : 'แนบเอกสารประกอบ')}
-                                        </p>
-                                        <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
-                                    </div>
-                                    <input type="file" ref={fileInputRef} className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} accept="image/*,.pdf" />
-                                </motion.div>
+                                <FileAttachmentZone 
+                                    file={file} 
+                                    setFile={setFile} 
+                                    selectedType={selectedType} 
+                                />
                             </div>
                         </motion.div>
                     )}
@@ -565,14 +584,14 @@ const LeaveFormContainer: React.FC<Props> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 sm:p-8 border-t border-white/40 bg-white/60 backdrop-blur-xl shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+            <div className={`border-t border-white/40 bg-white/60 backdrop-blur-xl shrink-0 z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${isAtBottom ? 'p-4 sm:p-8' : 'p-3 sm:p-4'}`}>
                 {isReviewing ? (
                     <div className="flex gap-3 sm:gap-4">
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setIsReviewing(false)}
-                            className="flex-1 py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-bold text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
+                            className={`flex-1 font-bold text-slate-500 bg-white/80 border border-white shadow-lg hover:bg-white transition-all duration-300 flex items-center justify-center gap-2 ${isAtBottom ? 'py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] text-sm sm:text-base' : 'py-2 sm:py-3.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm'}`}
                         >
                             <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" /> แก้ไข
                         </motion.button>
@@ -582,9 +601,13 @@ const LeaveFormContainer: React.FC<Props> = ({
                             onClick={() => handleSubmit(selectedType)}
                             disabled={isSubmitting}
                             className={`
-                                flex-[2.5] py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-bold text-white text-base sm:text-xl shadow-2xl transition-all flex items-center justify-center gap-2 sm:gap-3
-                                bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200/50
+                                flex-[2.5] font-bold text-white transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3
+                                bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 bg-[size:200%_auto] hover:bg-right shadow-emerald-200/50
                                 disabled:opacity-50 disabled:cursor-not-allowed
+                                ${isAtBottom 
+                                    ? 'py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] text-base sm:text-xl shadow-2xl ring-4 ring-emerald-400/20' 
+                                    : 'py-2 sm:py-3.5 rounded-xl sm:rounded-2xl text-sm sm:text-lg shadow-md'
+                                }
                             `}
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 sm:w-7 sm:h-7 animate-spin"/> : <Send className="w-5 h-5 sm:w-6 sm:h-6" />}
@@ -598,59 +621,19 @@ const LeaveFormContainer: React.FC<Props> = ({
                         onClick={handleReview}
                         disabled={isOverQuota}
                         className={`
-                            w-full py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-bold font-kanit text-white text-base sm:text-xl shadow-2xl transition-all flex items-center justify-center gap-2 sm:gap-3
+                            w-full font-bold font-kanit text-white transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3
                             ${theme.btn} hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed
                             ${isOverQuota ? 'bg-slate-300 pointer-events-none opacity-50 shadow-none' : 'shadow-indigo-200/50'}
+                            ${isAtBottom 
+                                ? 'py-3.5 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] text-base sm:text-xl shadow-2xl ring-4 ring-indigo-400/20' 
+                                : 'py-2.5 sm:py-3.5 rounded-xl sm:rounded-[1.5rem] text-sm sm:text-lg shadow-md'
+                            }
                         `}
                     >
                         ตรวจสอบข้อมูล <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
                 )}
             </div>
-
-            {/* Fullscreen Image Preview Modal */}
-            <AnimatePresence>
-                {isPreviewOpen && filePreviewUrl && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setIsPreviewOpen(false)}
-                        className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
-                    >
-                        {/* Close Button */}
-                        <motion.button
-                            initial={{ y: -10, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -10, opacity: 0 }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsPreviewOpen(false);
-                            }}
-                            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-all backdrop-blur-md shadow-lg z-50 border border-white/10 cursor-pointer"
-                        >
-                            <X className="w-6 h-6" />
-                        </motion.button>
-
-                        {/* Image Container */}
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="relative max-w-full max-h-[85vh] flex items-center justify-center cursor-default"
-                        >
-                            <img
-                                src={filePreviewUrl}
-                                alt="Fullscreen Preview"
-                                className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl border border-white/10 select-none"
-                                referrerPolicy="no-referrer"
-                            />
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };

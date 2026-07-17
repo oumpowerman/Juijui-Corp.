@@ -13,6 +13,8 @@ interface Props {
     portalId?: string;
     disabled?: boolean;
     size?: 'sm' | 'md';
+    minDate?: Date;
+    maxDate?: Date;
 }
 
 const CustomDatePicker: React.FC<Props> = ({ 
@@ -24,7 +26,9 @@ const CustomDatePicker: React.FC<Props> = ({
     dateFormat = showTimeSelectOnly ? "HH:mm" : "dd/MM/yyyy",
     portalId,
     disabled = false,
-    size = 'md'
+    size = 'md',
+    minDate,
+    maxDate
 }) => {
     const isSm = size === 'sm';
 
@@ -40,7 +44,9 @@ const CustomDatePicker: React.FC<Props> = ({
         className: isSm
             ? `w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-700 transition-all text-xs focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 pl-8 placeholder:text-gray-400 ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''}`
             : `w-full px-5 py-4 bg-white/80 border-2 border-indigo-50 rounded-3xl outline-none font-bold text-indigo-900 transition-all text-sm shadow-[0_4px_12px_rgba(99,102,241,0.1),inset_0_2px_4px_rgba(255,255,255,0.5)] focus:bg-white focus:border-indigo-200 focus:ring-4 focus:ring-indigo-50/50 pl-12 placeholder:text-indigo-200 ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''}`,
-        wrapperClassName: "w-full"
+        wrapperClassName: "w-full",
+        minDate,
+        maxDate
     };
 
     const iconClass = isSm

@@ -3,7 +3,7 @@ import { Clock, RefreshCw, Send, MessageSquare, Sparkles, Hourglass, Loader2 } f
 import { format } from 'date-fns';
 
 interface OvertimeFlowProps {
-    step: 'PROMPT' | 'REASON';
+    step: 'PROMPT' | 'REASON' | 'FORGET_TIME';
     checkInTime: Date;
     requiredEndTime: Date;
     otStartTime: string;
@@ -11,11 +11,13 @@ interface OvertimeFlowProps {
     otReason: string;
     isSubmitting: boolean;
     otDetails: { minutes: number; hours: string; calculatedJP: number };
-    onSetStep: (step: 'NONE' | 'PROMPT' | 'REASON') => void;
+    onSetStep: (step: 'NONE' | 'PROMPT' | 'REASON' | 'FORGET_TIME') => void;
     onSetOtReason: (reason: string) => void;
-    onSetTimePicker: (type: 'START' | 'END' | null) => void;
-    onForgetfulSubmit: () => Promise<void>;
+    onSetTimePicker: (type: 'START' | 'END' | 'FORGET' | null) => void;
+    onForgetfulSubmit: (customTime?: string) => Promise<void>;
     onOvertimeSubmit: () => Promise<void>;
+    forgetCheckOutTime: string;
+    onSetForgetCheckOutTime: (time: string) => void;
 }
 
 export const OvertimeFlow: React.FC<OvertimeFlowProps> = ({
@@ -31,8 +33,69 @@ export const OvertimeFlow: React.FC<OvertimeFlowProps> = ({
     onSetOtReason,
     onSetTimePicker,
     onForgetfulSubmit,
-    onOvertimeSubmit
+    onOvertimeSubmit,
+    forgetCheckOutTime,
+    onSetForgetCheckOutTime
 }) => {
+    if (step === 'FORGET_TIME') {
+        return (
+            <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4">
+                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-2 shadow-md border border-amber-100">
+                    <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-slate-800 font-kanit">ระบุเวลาออกงานจริง</h3>
+                    <p className="text-xs text-gray-500 font-sarabun">กรุณากรอกเวลาที่คุณเลิกงานและต้องการลงบันทึกจริงๆ</p>
+                </div>
+
+                {/* Giant Digital Time Clock Box */}
+                <div className="flex flex-col items-center justify-center p-6 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-sm max-w-sm mx-auto space-y-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">ระบุเวลากลับจริง (ลืมลงเวลา)</span>
+                    <button
+                        type="button"
+                        onClick={() => onSetTimePicker('FORGET')}
+                        className="flex items-center gap-2 px-6 py-4 bg-white hover:bg-slate-100 border-2 border-indigo-100 hover:border-indigo-300 rounded-2xl font-black text-2xl text-indigo-600 transition-all shadow-sm shadow-indigo-50"
+                    >
+                        <Clock className="w-6 h-6 text-indigo-500" />
+                        <span>{forgetCheckOutTime || '--:--'} น.</span>
+                    </button>
+                    <span className="text-[10px] text-gray-400">คลิกที่กล่องเพื่อเปลี่ยนเวลา</span>
+                </div>
+
+                {/* Info / Warning Box */}
+                <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 text-left space-y-1 mx-2">
+                    <p className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                        ⚠️ ข้อควรทราบก่อนบันทึก:
+                    </p>
+                    <p className="text-[11px] text-slate-600 font-sarabun leading-relaxed">
+                        การลงบันทึกนี้เป็นกรณี <span className="font-bold text-amber-700">ลืมลงเวลาปกติ</span> เท่านั้น โดยเวลาส่วนเกินจากเวลาเลิกงานปกติจะไม่นำมาคำนวณแต้มโบนัสหรือคะแนนชั่วโมงล่วงเวลา (OT) ใดๆ
+                    </p>
+                </div>
+
+                {/* Submit and Back Actions */}
+                <div className="space-y-3">
+                    <button
+                        type="button"
+                        onClick={() => onForgetfulSubmit(forgetCheckOutTime)}
+                        disabled={isSubmitting}
+                        className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl font-bold text-base shadow-lg shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                        <span>ยืนยันบันทึกเวลาออกจริง</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onSetStep('PROMPT')}
+                        className="w-full py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                        ย้อนกลับ
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (step === 'PROMPT') {
         return (
             <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4">
@@ -43,19 +106,12 @@ export const OvertimeFlow: React.FC<OvertimeFlowProps> = ({
                     <h3 className="text-xl font-bold text-violet-800">ยืนยันการบันทึก OT</h3>
                     <p className="text-xs text-gray-500">คุณเลิกงานเกินเวลาเลิกงานมาตรฐานมามากกว่า 2 ชั่วโมง</p>
                 </div>
-                
-                <div className="bg-violet-50/50 p-4 rounded-2xl border border-violet-100 text-left space-y-1">
-                    <p className="text-xs font-bold text-violet-700">สรุปเวลาทำงานของวันนี้:</p>
-                    <p className="text-xs text-gray-600">เวลาเข้างานจริง: <span className="font-bold text-gray-800">{format(checkInTime, 'HH:mm')} น.</span></p>
-                    <p className="text-xs text-gray-600">เวลาเลิกงานเกณฑ์ปกติ: <span className="font-bold text-gray-800">{format(requiredEndTime, 'HH:mm')} น.</span></p>
-                    <p className="text-xs text-gray-600">เวลาปัจจุบัน: <span className="font-bold text-violet-700">{format(new Date(), 'HH:mm')} น.</span></p>
-                </div>
 
                 <p className="text-sm font-bold text-gray-700">คุณทำงานล่วงเวลา (OT) ใช่หรือไม่?</p>
 
                 <div className="space-y-3">
                     <button 
-                        onClick={onForgetfulSubmit}
+                        onClick={() => onSetStep('FORGET_TIME')}
                         disabled={isSubmitting}
                         className="w-full p-4 border border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/20 rounded-2xl text-left transition-all active:scale-98 flex items-start gap-3 group"
                     >

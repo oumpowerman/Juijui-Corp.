@@ -246,8 +246,11 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 stat.logs.push(log);
 
                 const isProvisional = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
+                                      !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
                                       !!log.note?.includes('[PROVISIONAL_WFH]') || 
-                                      !!log.note?.includes('[PROVISIONAL_ONSITE]');
+                                      !!log.note?.includes('[PROVISIONAL_ONSITE]') ||
+                                      !!log.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+                                      !!log.note?.includes('[APPEAL_PENDING]');
                 if (isProvisional) {
                     stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;
                     stat.hasProvisionalForgot = true;

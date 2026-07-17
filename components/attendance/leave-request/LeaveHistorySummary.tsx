@@ -296,7 +296,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-left pl-1 block">
                         เลือกปีการทำงาน:
                     </span>
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x" id="history-year-tabs-full">
+                    <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] snap-x" id="history-year-tabs-full">
                         {availableYears.map(year => {
                             const isSelected = selectedYear === year;
                             return (
@@ -382,7 +382,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                     className="overflow-hidden"
                     id="history-compact-stats-wrapper"
                 >
-                    <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none snap-x animate-in fade-in slide-in-from-top-2 duration-300" id="history-compact-stats">
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] snap-x animate-in fade-in slide-in-from-top-2 duration-300" id="history-compact-stats">
                         {Object.entries(selectedYearStats).map(([type, value]) => {
                             const theme = PASTEL_THEMES[type] || PASTEL_THEMES.DEFAULT;
                             const Icon = theme.icon;
@@ -418,7 +418,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                 onScroll={(e) => {
                     setIsScrolled(e.currentTarget.scrollTop > 45);
                 }}
-                className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-100/60 pr-1 py-4 pb-20 flex flex-col space-y-3" 
+                className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0.5 py-4 pb-20 flex flex-col space-y-3" 
                 id="history-list-scroll-view"
             >
                 <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">

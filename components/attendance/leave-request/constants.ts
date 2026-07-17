@@ -12,5 +12,6 @@ export const LEAVE_THEMES: Record<string, any> = {
     'ONSITE': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', bar: 'bg-orange-500', btn: 'bg-orange-600 hover:bg-orange-700', icon: MapPin },
     'UNPAID': { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-100', bar: 'bg-slate-500', btn: 'bg-slate-800 hover:bg-slate-900', icon: FileText },
     'FORGOT_BOTH': { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100', bar: 'bg-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', icon: Clock },
+    'FORGOT_CHECKIN': { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', bar: 'bg-amber-500', btn: 'bg-amber-500 hover:bg-amber-600', icon: Clock },
     'DEFAULT': { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-100', bar: 'bg-slate-500', btn: 'bg-slate-800 hover:bg-slate-900', icon: FileText }
 };

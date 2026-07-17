@@ -2,7 +2,7 @@
 import { User } from './core';
 
 export type WorkLocation = 'OFFICE' | 'WFH' | 'SITE' | 'LEAVE' | 'ABSENT';
-export type AttendanceStatus = 'WORKING' | 'COMPLETED' | 'ABSENT' | 'LATE' | 'LEAVE' | 'EARLY_LEAVE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED' | 'ON_TIME' | 'NO_SHOW';
+export type AttendanceStatus = 'WORKING' | 'COMPLETED' | 'ABSENT' | 'LATE' | 'LEAVE' | 'EARLY_LEAVE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED' | 'ON_TIME' | 'NO_SHOW' | 'APPEAL';
 
 export interface LocationDef {
     id: string;
@@ -45,7 +45,7 @@ export interface AttendanceStats {
 
 // --- NEW: Leave Request Types (Updated) ---
 // Added 'WFH' to the union type
-export type LeaveType = 'SICK' | 'VACATION' | 'PERSONAL' | 'EMERGENCY' | 'LATE_ENTRY' | 'OVERTIME' | 'FORGOT_CHECKIN' | 'FORGOT_CHECKOUT' | 'FORGOT_BOTH' | 'WFH' | 'UNPAID' | 'ONSITE';
+export type LeaveType = 'SICK' | 'VACATION' | 'PERSONAL' | 'EMERGENCY' | 'LATE_ENTRY' | 'OVERTIME' | 'FORGOT_CHECKIN' | 'FORGOT_CHECKOUT' | 'FORGOT_BOTH' | 'WFH' | 'UNPAID' | 'ONSITE' | 'OUT_OF_RANGE_CHECKOUT';
 export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface LeaveRequest {

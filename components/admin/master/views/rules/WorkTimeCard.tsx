@@ -2,6 +2,7 @@ import React from 'react';
 import { Clock, Sparkles, Save } from 'lucide-react';
 import TimePickerModal from '../../../../ui/TimePickerModal';
 import ServerAddonsSection from './ServerAddonsSection';
+import MultipleShiftsCard from './MultipleShiftsCard';
 
 export interface WorkTimeConfig {
     start: string;
@@ -15,6 +16,8 @@ export interface WorkTimeConfig {
     enableAttendanceRace: string;
     lateAlertMode?: string;
     lateAlertOffset?: string;
+    multipleShiftsEnabled?: string;
+    multipleShiftsList?: string;
 }
 
 interface WorkTimeCardProps {
@@ -147,6 +150,9 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Multiple Shifts Configuration Section */}
+            <MultipleShiftsCard tempTimeConfig={tempTimeConfig} setTempTimeConfig={setTempTimeConfig} />
 
             {/* Server-Side Automated Checks Section */}
             <div className="mt-8 pt-6 border-t border-dashed border-gray-100">

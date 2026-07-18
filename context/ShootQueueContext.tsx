@@ -69,6 +69,7 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 channelId: c.channel_id,
                 isInShootQueue: true,
                 isSoftFinished: !!c.is_soft_finished,
+                _isPartial: true,
             } as any
         }));
 
@@ -108,6 +109,7 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                             contentId: s.content_id,
                             isInShootQueue: true,
                             isSoftFinished: !!s.is_soft_finished,
+                            _isPartial: true,
                         } as any
                     });
                 }
@@ -232,6 +234,7 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         channelId: data.channel_id,
                         isInShootQueue: true,
                         isSoftFinished: !!data.is_soft_finished,
+                        _isPartial: true,
                     } as any
                 };
 
@@ -275,6 +278,7 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         contentId: data.content_id,
                         isInShootQueue: true,
                         isSoftFinished: !!data.is_soft_finished,
+                        _isPartial: true,
                     } as any
                 };
 

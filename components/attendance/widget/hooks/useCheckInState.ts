@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { WorkLocation, LocationDef } from '../../../../types/attendance';
+import { WorkLocation, LocationDef, ShiftSlotResult } from '../../../../types/attendance';
 import { getRandomPose, OFFICE_COORDS } from '../../../../lib/locationUtils';
 import { compressImage } from '../../../../lib/imageUtils';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
@@ -8,6 +8,7 @@ import { useMasterData } from '../../../../hooks/useMasterData';
 import { useUserSession } from '../../../../context/UserSessionContext';
 import { checkNeedsSelfieVerification } from '../../../../lib/selfieUtils';
 import { useCheckInLocation } from '../../../../hooks/attendance/useCheckInLocation';
+import { getMatchedShiftSlot } from '../../../../lib/attendanceUtils';
 
 export type CheckInStep = 'LOCATION' | 'CONFIRM_LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW' | 'NO_CONFIG';
 
@@ -140,8 +141,31 @@ export function useCheckInState({
         checkLocation: runCheckLocation,
     } = useCheckInLocation(targets);
 
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+    const shiftsList = useMemo(() => {
+        if (shiftsListOpt?.label) {
+            return shiftsListOpt.label.split(',').map(s => s.trim());
+        }
+        return ['08:00', '08:30', '09:00'];
+    }, [shiftsListOpt]);
+
+    const shiftResult = useMemo(() => {
+        if (!isShiftsEnabled) return null;
+        const now = new Date();
+        return getMatchedShiftSlot(now, shiftsList, lateBuffer);
+    }, [isShiftsEnabled, shiftsList, lateBuffer, isOpen]);
+
     const isUserLate = useMemo(() => {
-        if (!startTime || approvedWFH || hasAcceptedLateness) return false;
+        if (approvedWFH || hasAcceptedLateness) return false;
+        if (hasLateRequest && !approvedLateTime) return false;
+
+        if (isShiftsEnabled && shiftResult) {
+            return shiftResult.isLate || shiftResult.isBlocked;
+        }
+
+        if (!startTime) return false;
         
         const now = new Date();
         if (pendingLateTime) {
@@ -157,16 +181,18 @@ export function useCheckInState({
             }
         }
         
-        if (hasLateRequest && !approvedLateTime) return false;
-
         const effectiveStartTime = approvedLateTime || startTime;
         const [h, m] = effectiveStartTime.split(':').map(Number);
         const limit = new Date();
         limit.setHours(h, m + lateBuffer, 0, 0);
         return now > limit;
-    }, [startTime, lateBuffer, approvedWFH, hasLateRequest, approvedLateTime, pendingLateTime, hasAcceptedLateness]);
+    }, [isShiftsEnabled, shiftResult, startTime, lateBuffer, approvedWFH, hasLateRequest, approvedLateTime, pendingLateTime, hasAcceptedLateness]);
 
     const lateMinutes = useMemo(() => {
+        if (isShiftsEnabled && shiftResult) {
+            return shiftResult.lateMinutes;
+        }
+
         if (!startTime) return 0;
         
         const now = new Date();
@@ -187,7 +213,7 @@ export function useCheckInState({
         limit.setHours(h, m, 0, 0);
         const diff = Math.floor((now.getTime() - limit.getTime()) / 60000);
         return Math.max(0, diff);
-    }, [startTime, approvedLateTime, pendingLateTime, lateBuffer]);
+    }, [isShiftsEnabled, shiftResult, startTime, approvedLateTime, pendingLateTime, lateBuffer]);
 
     useEffect(() => {
         if (step === 'CONFIRM_LOCATION' && isGpsSecure && isUserLate && isOpen && !showLateIntervention && !showLatePenaltyBreakdown) {
@@ -442,6 +468,9 @@ export function useCheckInState({
         gpsThreatReason,
         isUserLate,
         lateMinutes,
+        isShiftsEnabled,
+        shiftsList,
+        shiftResult,
         targets,
         isLoadingMasterData: isLoading,
         currentUserProfile,

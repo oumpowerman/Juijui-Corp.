@@ -142,11 +142,21 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             </td>
             <td className="px-6 py-4">
                 {log.checkInTime ? (
-                    <span className={`font-mono font-bold text-sm ${isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-green-600'}`}>
-                        {format(log.checkInTime, 'HH:mm')}
-                        {isAppeal && <span className="ml-2 text-[9px] bg-violet-100 px-1.5 py-0.5 rounded text-violet-600 uppercase">APPEAL</span>}
-                        {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
-                    </span>
+                    <div>
+                        <span className={`font-mono font-bold text-sm ${isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-green-600'}`}>
+                            {format(log.checkInTime, 'HH:mm')}
+                            {isAppeal && <span className="ml-2 text-[9px] bg-violet-100 px-1.5 py-0.5 rounded text-violet-600 uppercase">APPEAL</span>}
+                            {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
+                        </span>
+                        {(() => {
+                            const match = log.note?.match(/\[TARGET_SHIFT:([^\]]+)\]/);
+                            return match ? (
+                                <span className="block text-[9px] text-teal-600 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 w-fit mt-1">
+                                    กะ {match[1]} น.
+                                </span>
+                            ) : null;
+                        })()}
+                    </div>
                 ) : (isLeave || isNotStarted) ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}
             </td>
             <td className="px-6 py-4">

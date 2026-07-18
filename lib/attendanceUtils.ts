@@ -1,7 +1,7 @@
 
 import { differenceInMinutes, addMinutes, isBefore, setHours, setMinutes, parse } from 'date-fns';
 import { isWorkingDay } from '../utils/judgeUtils';
-import { AnnualHoliday, User } from '../types';
+import { AnnualHoliday, User, ShiftSlotResult } from '../types';
 
 /**
  * Calculates the number of working days between two dates.
@@ -251,5 +251,65 @@ export const getAttendanceSummary = (
         isEarlyLeave,
         workHours,
         requiredEndTime
+    };
+};
+
+/**
+ * Calculates matched shift slot for multi-shift environments.
+ */
+export const getMatchedShiftSlot = (
+    now: Date,
+    shiftsList: string[],
+    bufferMinutes: number = 15
+): ShiftSlotResult => {
+    if (!shiftsList || shiftsList.length === 0) {
+        return {
+            targetStartTime: '08:00',
+            isLate: false,
+            isBlocked: false,
+            lateMinutes: 0
+        };
+    }
+
+    // Sort ascending, e.g. ["08:00", "08:30", "09:00"]
+    const sortedShifts = [...shiftsList].sort((a, b) => {
+        const [ah, am] = a.split(':').map(Number);
+        const [bh, bm] = b.split(':').map(Number);
+        return (ah * 60 + am) - (bh * 60 + bm);
+    });
+
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+    // Find the first shift slot we are early or exactly on-time for
+    for (const shift of sortedShifts) {
+        const [sh, sm] = shift.split(':').map(Number);
+        const shiftTotalMinutes = sh * 60 + sm;
+
+        if (currentTotalMinutes <= shiftTotalMinutes) {
+            return {
+                targetStartTime: shift,
+                isLate: false,
+                isBlocked: false,
+                lateMinutes: 0
+            };
+        }
+    }
+
+    // If we passed all shift slots, we belong to the last shift slot as late
+    const lastShift = sortedShifts[sortedShifts.length - 1];
+    const [lastH, lastM] = lastShift.split(':').map(Number);
+    const lastShiftTotalMinutes = lastH * 60 + lastM;
+
+    const diff = currentTotalMinutes - lastShiftTotalMinutes;
+    const isLate = diff > 0;
+    const isBlocked = diff > bufferMinutes;
+
+    return {
+        targetStartTime: lastShift,
+        isLate,
+        isBlocked,
+        lateMinutes: isLate ? diff : 0
     };
 };

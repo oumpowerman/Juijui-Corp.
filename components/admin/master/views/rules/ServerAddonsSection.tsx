@@ -18,6 +18,8 @@ interface WorkTimeConfig {
     enableAttendanceRace: string;
     lateAlertMode?: string;
     lateAlertOffset?: string;
+    multipleShiftsEnabled?: string;
+    multipleShiftsList?: string;
 }
 
 interface ServerAddonsSectionProps {

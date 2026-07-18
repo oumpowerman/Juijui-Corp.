@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -41,8 +41,18 @@ export const useAttendanceActions = (userId: string) => {
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
             
-            const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : startTimeStr);
-            const isLate = checkIsLate(now, effectiveStartTime, buffer);
+            const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+
+            let matchedShift = null;
+            if (isShiftsEnabled) {
+                const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
+                matchedShift = getMatchedShiftSlot(now, shiftsList, buffer);
+            }
+
+            const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr));
+            const isLate = matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer);
 
             let proofUrl = proofUrlParam !== undefined ? proofUrlParam : null;
             if (proofUrlParam === undefined && file) {
@@ -68,6 +78,9 @@ export const useAttendanceActions = (userId: string) => {
             let incomingNote = note || '';
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
+            if (isShiftsEnabled && matchedShift) {
+                meta.push(`[TARGET_SHIFT:${matchedShift.targetStartTime}]`);
+            }
             
             let finalIsAppeal = isAppeal;
             if (approvedLateTime) {
@@ -203,7 +216,7 @@ export const useAttendanceActions = (userId: string) => {
             showToast(isLate && !finalIsAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !finalIsAppeal) ? 'warning' : 'success');
             await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
             
-            const lateMinutes = getLateMinutes(now, effectiveStartTime, buffer);
+            const lateMinutes = matchedShift ? matchedShift.lateMinutes : getLateMinutes(now, effectiveStartTime, buffer);
 
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
                 status: finalIsAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),

@@ -45,7 +45,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         lineSummaryDestination: '',
         enableAttendanceRace: 'true',
         lateAlertMode: 'AFTER_LIMIT',
-        lateAlertOffset: '5'
+        lateAlertOffset: '5',
+        multipleShiftsEnabled: 'false',
+        multipleShiftsList: '08:00, 08:30, 09:00'
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -71,8 +73,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const enableRaceOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ENABLE_ATTENDANCE_RACE');
         const lateAlertModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_ALERT_MODE');
         const lateAlertOffsetOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_ALERT_OFFSET');
+        const shiftsEnabledOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+        const shiftsListOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -84,7 +88,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 lineSummaryDestination: lineSummaryDestinationOpt?.label || '',
                 enableAttendanceRace: enableRaceOpt?.label || 'true',
                 lateAlertMode: lateAlertModeOpt?.label || 'AFTER_LIMIT',
-                lateAlertOffset: lateAlertOffsetOpt?.label || '5'
+                lateAlertOffset: lateAlertOffsetOpt?.label || '5',
+                multipleShiftsEnabled: shiftsEnabledOpt?.label || 'false',
+                multipleShiftsList: shiftsListOpt?.label || '08:00, 08:30, 09:00'
             });
         }
 
@@ -106,7 +112,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const updateOrInsert = async (key: string, val: string) => {
             const existing = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === key);
             if (existing) {
-                await onUpdate({ ...existing, label: val });
+                // อัปเดตเฉพาะกรณีที่ค่ามีการเปลี่ยนแปลงจริง (Dirty Checking)
+                if (existing.label !== val) {
+                    await onUpdate({ ...existing, label: val });
+                }
             } else {
                  await onAdd({
                     type: 'WORK_CONFIG',
@@ -130,6 +139,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrInsert('ENABLE_ATTENDANCE_RACE', tempTimeConfig.enableAttendanceRace);
         await updateOrInsert('LATE_ALERT_MODE', tempTimeConfig.lateAlertMode || 'AFTER_LIMIT');
         await updateOrInsert('LATE_ALERT_OFFSET', tempTimeConfig.lateAlertOffset || '5');
+        await updateOrInsert('MULTIPLE_SHIFTS_ENABLED', tempTimeConfig.multipleShiftsEnabled || 'false');
+        await updateOrInsert('MULTIPLE_SHIFTS_LIST', tempTimeConfig.multipleShiftsList || '08:00, 08:30, 09:00');
         
         const parsedRate = parseInt(otJpRate, 10);
         if (!isNaN(parsedRate)) {
@@ -149,7 +160,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
             const updateOrInsert = async (key: string, val: string) => {
                 const existing = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === key);
                 if (existing) {
-                    await onUpdate({ ...existing, label: val });
+                    if (existing.label !== val) {
+                        await onUpdate({ ...existing, label: val });
+                    }
                 } else {
                     await onAdd({
                         type: 'WORK_CONFIG',

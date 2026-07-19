@@ -5,6 +5,7 @@ import { X, Save, Loader2, Send, CheckCircle, Trash2, AlertTriangle } from 'luci
 import { User as UserType } from '../types';
 import ImageCropper from './ImageCropper';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useToast } from '../context/ToastContext';
 import { useProfileForm } from '../hooks/useProfileForm';
 import { EMOJI_POOL } from '../constants/emojis';
 import ProfileAvatarUploader from './profile/ProfileAvatarUploader';
@@ -24,12 +25,21 @@ interface ProfileEditModalProps {
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, user, onSave }) => {
   const { showAlert } = useGlobalDialog();
+  const { showToast } = useToast();
   const [showFullImage, setShowFullImage] = useState(false);
 
   // LINE Connection Test States
   const [testState, setTestState] = useState<'IDLE' | 'TESTING' | 'SENT' | 'ERROR'>('IDLE');
   const [testError, setTestError] = useState<string | null>(null);
   const [createdNotifId, setCreatedNotifId] = useState<string | null>(null);
+
+  const handleSaveWrapped = async (updates: Partial<UserType>, file?: File) => {
+    const success = await onSave(updates, file);
+    if (success) {
+      showToast('บันทึกการแก้ไขโปรไฟล์เรียบร้อยแล้ว ✨', 'success');
+    }
+    return success;
+  };
 
   const {
     formState,
@@ -38,7 +48,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
     handleCropComplete,
     handleStatusChange,
     handleSubmit
-  } = useProfileForm({ user, onSave, onClose });
+  } = useProfileForm({ user, onSave: handleSaveWrapped, onClose });
 
   const {
     name, setName,

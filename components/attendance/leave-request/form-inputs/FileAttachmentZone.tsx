@@ -42,7 +42,13 @@ export const FileAttachmentZone: React.FC<FileAttachmentZoneProps> = ({
             </div>
             <div className="text-left flex-1 min-w-0">
                 <p className={`text-sm sm:text-base font-bold truncate ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
-                    {file ? file.name : (selectedType === 'SICK' ? 'แนบใบรับรองแพทย์' : 'แนบเอกสารประกอบ')}
+                    {file ? file.name : (
+                        selectedType === 'SICK' 
+                            ? 'แนบใบรับรองแพทย์' 
+                            : selectedType === 'OUT_OF_RANGE_CHECKOUT'
+                            ? 'แนบรูปภาพพยานหลักฐานพิกัด GPS/สถานที่จริง (สำคัญ)'
+                            : 'แนบเอกสารประกอบ'
+                    )}
                 </p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
             </div>

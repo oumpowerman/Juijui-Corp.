@@ -117,7 +117,8 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlight
                     initialReason={resubmitLog?.note ? resubmitLog.note.replace(/\[.*?\]/g, '').trim() : ''}
                     fixedType={(() => {
                         if (!resubmitLog) return undefined;
-                        // Check provisional tags first
+                        // Check rejection/provisional tags first
+                        if (resubmitLog.note?.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]')) return 'OUT_OF_RANGE_CHECKOUT';
                         if (resubmitLog.note?.includes('[PROVISIONAL_WFH]')) return 'WFH';
                         if (resubmitLog.note?.includes('[PROVISIONAL_ONSITE]')) return 'ONSITE';
                         // Determine the correct correction type based on missing times

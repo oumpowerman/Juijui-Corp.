@@ -118,6 +118,9 @@ export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
         const type = leave.type || leave.leave_type;
         if (!type || !LEAVE_TYPES.includes(type)) return false;
 
+        // Skip leave requests that are rejected
+        if (leave.status === 'REJECTED') return false;
+
         const start = new Date(leave.startDate || leave.start_date);
         start.setHours(0, 0, 0, 0);
         const end = new Date(leave.endDate || leave.end_date);

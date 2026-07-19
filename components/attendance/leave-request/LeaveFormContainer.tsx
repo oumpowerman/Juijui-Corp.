@@ -172,7 +172,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const thaiLabel = selectedOption?.label || fallbackLabels[selectedType] || selectedType;
     const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
     const isSingleDayRequest = ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
-    const headerLabel = isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel;
+    const headerLabel = selectedType === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : (isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel);
 
     const daysRequested = useMemo(() => {
         return calculateWorkingDays(
@@ -223,7 +223,10 @@ const LeaveFormContainer: React.FC<Props> = ({
         if (metadata.placeholder) return metadata.placeholder;
         if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
         if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
+        if (selectedType === 'OUT_OF_RANGE_CHECKOUT') {
+            return "กรุณาระบุพิกัดจีพีเอสที่ถูกต้อง และเหตุผลโดยละเอียดว่าทำไมถึงไม่สามารถลงเวลาในพื้นที่ที่กำหนดได้ในเวลานั้น เพื่อความรวดเร็วในการพิจารณาอนุมัติ...";
+        }
+        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
             return "กรุณาระบุรายละเอียดงานที่ทำในช่วงเวลานั้นและเหตุผลย้อนหลังโดยละเอียด เพื่อให้แอดมินตรวจสอบได้...";
         }
         if (selectedType === 'WFH') return "เช่น เคลียร์งานตัดต่อที่บ้าน...";
@@ -479,7 +482,7 @@ const LeaveFormContainer: React.FC<Props> = ({
 
                             {/* Time Correction Strictness Warning */}
                             {(selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT' || selectedType === 'FORGOT_BOTH') && !isInOffice && !linkedRemoteType && (
-                                <TimeCorrectionWarning />
+                                <TimeCorrectionWarning selectedType={selectedType} />
                             )}
 
                             {selectedType === 'FORGOT_CHECKIN' && (linkedRemoteType || isInOffice) && (

@@ -164,7 +164,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                     </div>
 
                     {/* Animated Carousel Slide Frame with Side-Peeking */}
-                    <div className="overflow-hidden py-4 -mx-6 px-6 relative min-h-[570px] flex items-center w-[calc(100%+3rem)]">
+                    <div className="overflow-hidden py-4 -mx-6 px-6 relative min-h-[680px] flex items-center w-[calc(100%+3rem)]">
                         <motion.div
                             className="flex items-stretch relative left-1/2"
                             style={{
@@ -185,7 +185,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                                                 setActiveSlide(idx);
                                             }
                                         }}
-                                        className={`shrink-0 select-none border border-gray-100 bg-white p-5 rounded-2xl shadow-sm flex flex-col justify-between h-[540px] ${
+                                        className={`shrink-0 select-none border border-gray-100 bg-white p-5 rounded-2xl shadow-sm flex flex-col justify-between h-[650px] overflow-y-auto scrollbar-thin ${
                                             isActive 
                                                 ? `${slideMeta[idx].glow} ring-2 ring-indigo-100/50 cursor-default` 
                                                 : "cursor-pointer hover:border-gray-200"

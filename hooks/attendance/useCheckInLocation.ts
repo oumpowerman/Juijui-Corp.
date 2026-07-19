@@ -173,7 +173,7 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
                     if (isMobileDevice) {
                         const mSamples = motionSamplesRef.current;
                         
-                        // We only perform statistical analysis if we have gathered some samples
+                        // We only perform statistical analysis if we have gathered some samples and they actually contain dynamic data
                         if (mSamples.length >= 3) {
                             const calculateVariance = (values: number[]) => {
                                 if (values.length === 0) return 0;
@@ -192,14 +192,12 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
                                 gpsChangedDist = calculateDistance(latitude, longitude, lastCoordinatesRef.current.lat, lastCoordinatesRef.current.lng);
                             }
 
-                            // If total variance is absolute zero (exactly 0.0), it suggests simulated device or static emulator sensor readings
-                            if (totalVariance === 0) {
+                            // Improve robustness: Do not label device as spoofing just because it's perfectly flat on a table (totalVariance === 0)
+                            // browser privacy features or denied permissions may return zeros, so we only flag if GPS is actively moving (simulating routes) while the device has zero physical motion.
+                            if (gpsChangedDist > 15 && totalVariance < 0.000001) {
+                                // GPS moved significantly, but the accelerometer/gyroscope is completely static (Route Simulation)
                                 secure = false;
-                                threat = 'ตรวจพบการจำลองเซ็นเซอร์ความเคลื่อนไหว (Static Motion Sensor Detected): อุปกรณ์ไม่มีการสั่นไหวระดับไมโครตามธรรมชาติ';
-                            } else if (gpsChangedDist > 5 && totalVariance < 0.00001) {
-                                // GPS moved, but the accelerometer/gyroscope is completely static
-                                secure = false;
-                                threat = `ตรวจพบการปลอมแปลงเส้นทางวิ่ง (Route Simulation Detected): พิกัด GPS เคลื่อนที่ ${gpsChangedDist.toFixed(1)} ม. แต่โทรศัพท์นิ่งสนิทและไม่มีความเคลื่อนไหวทางกายภาพ`;
+                                threat = `ตรวจพบการปลอมแปลงเส้นทางเดินรถ (Route Simulation Detected): พิกัด GPS เคลื่อนที่ไป ${gpsChangedDist.toFixed(1)} ม. แต่ตัวเครื่องนิ่งสนิทโดยไม่มีความเคลื่อนไหวทางกายภาพ`;
                             }
                         }
                     }

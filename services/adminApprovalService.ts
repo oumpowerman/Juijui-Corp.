@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { LeaveRequest } from '../types/attendance';
+import { ATTENDANCE_REGISTRY } from '../constants/attendanceRegistry';
 import { format } from 'date-fns';
 import { alignOtHoursWithClockOut, calculateEstimatedPayout } from '../utils/otCalculator';
 import { attendanceService } from './attendanceService';
@@ -8,14 +9,16 @@ import {
     approveSpecialWorkRequest,
     approveAttendanceCorrection,
     approveStandardLeave,
-    approveOutOfRangeCheckoutRequest
+    approveOutOfRangeCheckoutRequest,
+    approveGpsSpoofAppealRequest
 } from './admin-approval/approvalFlows';
 import {
     rejectWfhOnsiteRequest,
     rejectForgotCheckInRequest,
     rejectLateEntryRequest,
     rejectForgotCheckOutRequest,
-    rejectOutOfRangeCheckoutRequest
+    rejectOutOfRangeCheckoutRequest,
+    rejectGpsSpoofAppealRequest
 } from './admin-approval/rejectionFlows';
 import {
     sendApprovalNotification,
@@ -184,9 +187,15 @@ export const adminApprovalService = {
         calendarExceptions,
         processAction
     }: ApproveLeaveRequestParams): Promise<{ success: boolean; type: string; infoMsg?: string }> {
-        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
-        const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
-        const SPECIAL_TYPES = ['WFH', 'OVERTIME', 'ONSITE'];
+        const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
+            .filter(item => item.category === 'LEAVE')
+            .map(item => item.id);
+        const CORRECTION_TYPES = Object.values(ATTENDANCE_REGISTRY)
+            .filter(item => item.category === 'CORRECTION' || item.id === 'GPS_SPOOF_APPEAL')
+            .map(item => item.id);
+        const SPECIAL_TYPES = Object.values(ATTENDANCE_REGISTRY)
+            .filter(item => item.category === 'SPECIAL' && item.id !== 'GPS_SPOOF_APPEAL')
+            .map(item => item.id);
 
         let finalDbNote = adminNote || '';
         let isTimeModified = false;
@@ -208,6 +217,11 @@ export const adminApprovalService = {
         } else if (CORRECTION_TYPES.includes(request.type)) {
             if (request.type === 'OUT_OF_RANGE_CHECKOUT') {
                 await approveOutOfRangeCheckoutRequest({
+                    request,
+                    processAction
+                });
+            } else if (request.type === 'GPS_SPOOF_APPEAL') {
+                await approveGpsSpoofAppealRequest({
                     request,
                     processAction
                 });
@@ -345,6 +359,13 @@ export const adminApprovalService = {
                 reason,
                 masterOptions,
                 processAction
+            });
+        }
+
+        if (req && req.type === 'GPS_SPOOF_APPEAL') {
+            await rejectGpsSpoofAppealRequest({
+                req,
+                reason
             });
         }
 

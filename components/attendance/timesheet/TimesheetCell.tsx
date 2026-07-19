@@ -3,6 +3,7 @@ import React from 'react';
 import { format, isPast } from 'date-fns';
 import { Coffee, UserX } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
+import { getRegistryItem, findPendingRegistryItemByNote } from '../../../constants/attendanceRegistry';
 import { checkIsLate } from '../../../lib/attendanceUtils';
 
 interface TimesheetCellProps {
@@ -11,23 +12,30 @@ interface TimesheetCellProps {
     leaveRequest?: any;
     dayStatus: { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
     isToday: boolean;
-    onClick: () => void;
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any) => void;
     workConfig: { startTime: string; buffer: number };
     userStartDate?: Date | string | null;
 }
 
-const TimesheetCell: React.FC<TimesheetCellProps> = ({ 
+const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({ 
     date,
     log, 
     leaveRequest,
     dayStatus,
     isToday, 
-    onClick,
+    onCellClick,
     workConfig,
     userStartDate
 }) => {
     const isHoliday = dayStatus.status === 'HOLIDAY';
     const isPastDay = isPast(date) && !isToday;
+
+    const handleClick = () => {
+        if (log || leaveRequest) {
+            onCellClick(log || null, leaveRequest);
+        }
+    };
+
 
     // Check if user has started working on this date
     let hasStarted = true;
@@ -62,25 +70,25 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         if (leaveRequest && (hasPendingRequest || hasApprovedRequest)) {
             const isPending = hasPendingRequest;
             const type = leaveRequest.type;
+            const registryItem = getRegistryItem(type);
+            const regColors = registryItem ? registryItem.colors : { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200', accent: 'bg-sky-100' };
+            const displayLabel = registryItem ? (registryItem.id === 'VACATION' ? 'VAC' : registryItem.id === 'PERSONAL' ? 'PERS' : registryItem.id) : type;
             
             return (
                 <div 
-                    onClick={onClick}
+                    onClick={handleClick}
                     className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell transition-all
                         ${isPending ? 'bg-amber-50/50 hover:bg-amber-50' : 
-                          isWFHRequest ? 'bg-emerald-50/30 hover:bg-emerald-50/50' : 'bg-sky-50/50 hover:bg-sky-50'}`}
+                          isWFHRequest ? 'bg-emerald-50/30 hover:bg-emerald-50/50' : `${regColors.bg}/30 hover:${regColors.bg}/50`}`}
                 >
                     <div className={`
                         px-1.5 py-0.5 rounded-md border text-[8px] font-bold uppercase tracking-tighter text-center leading-tight
                         ${isPending ? 'bg-amber-100 border-amber-200 text-amber-700' :
-                          isWFHRequest ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-sky-100 border-sky-200 text-sky-700'}
+                          isWFHRequest ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : `${regColors.accent} ${regColors.border} ${regColors.text}`}
                     `}>
                         {isPending ? 'PENDING' : ''}
                         <div className="mt-0.5">
-                            {type === 'WFH' ? 'WFH' : 
-                             type === 'VACATION' ? 'VAC' :
-                             type === 'SICK' ? 'SICK' :
-                             type === 'PERSONAL' ? 'PERS' : type}
+                            {displayLabel}
                         </div>
                     </div>
                 </div>
@@ -92,7 +100,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         if (isAbsent) {
             return (
                 <div 
-                    onClick={onClick}
+                    onClick={handleClick}
                     className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
                 >
                     <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
@@ -129,18 +137,17 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
     const isNoCheckIn = !log.checkInTime && !isLeave && !isHardAbsent;
     const leaveTypeMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
     const leaveType = leaveTypeMatch ? leaveTypeMatch[1] : null;
-    const isProvisionalForgot = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]');
-    const isProvisionalWfh = !!log.note?.includes('[PROVISIONAL_WFH]');
-    const isProvisionalOnsite = !!log.note?.includes('[PROVISIONAL_ONSITE]');
-    const isProvisionalLate = !!log.note?.includes('[APPEAL_PENDING]') || !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]') || log.status === 'APPEAL';
-    const isProvisionalCheckout = !!log.note?.includes('[PROVISIONAL_CHECKOUT]');
-    const isAnyProvisional = isProvisionalForgot || isProvisionalWfh || isProvisionalOnsite || isProvisionalLate || isProvisionalCheckout;
-    const isAppealState = log.status === 'APPEAL' || isProvisionalLate;
+    
+    const pendingItem = findPendingRegistryItemByNote(log.note || '');
+    const isAnyProvisional = !!pendingItem;
+    const isProvisionalLate = pendingItem?.id === 'LATE_ENTRY' || log.status === 'APPEAL';
+    const isProvisionalGps = pendingItem?.id === 'GPS_SPOOF_APPEAL';
+    const isAppealState = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGps;
 
     if (isHardAbsent) {
         return (
             <div 
-                onClick={onClick}
+                onClick={handleClick}
                 className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
             >
                 <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
@@ -154,7 +161,7 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
 
     return (
         <div 
-            onClick={onClick}
+            onClick={handleClick}
             className={`
                 h-16 w-full border-r border-slate-100/50 p-1 transition-all duration-200 cursor-pointer group/cell relative
                 ${isToday ? 'bg-indigo-50/30' : ''}
@@ -225,5 +232,40 @@ const TimesheetCell: React.FC<TimesheetCellProps> = ({
         </div>
     );
 };
+
+const areEqual = (prevProps: TimesheetCellProps, nextProps: TimesheetCellProps) => {
+    const getTimeVal = (d: any) => {
+        if (!d) return null;
+        if (d instanceof Date) return d.getTime();
+        return new Date(d).getTime();
+    };
+
+    return (
+        prevProps.isToday === nextProps.isToday &&
+        prevProps.userStartDate === nextProps.userStartDate &&
+        prevProps.date.getTime() === nextProps.date.getTime() &&
+        // Shallow compare dayStatus
+        prevProps.dayStatus.status === nextProps.dayStatus.status &&
+        prevProps.dayStatus.source === nextProps.dayStatus.source &&
+        prevProps.dayStatus.desc === nextProps.dayStatus.desc &&
+        // Compare log properties that actually affect rendering
+        prevProps.log?.id === nextProps.log?.id &&
+        prevProps.log?.status === nextProps.log?.status &&
+        prevProps.log?.workType === nextProps.log?.workType &&
+        getTimeVal(prevProps.log?.checkInTime) === getTimeVal(nextProps.log?.checkInTime) &&
+        getTimeVal(prevProps.log?.checkOutTime) === getTimeVal(nextProps.log?.checkOutTime) &&
+        prevProps.log?.note === nextProps.log?.note &&
+        // Compare leaveRequest properties
+        prevProps.leaveRequest?.id === nextProps.leaveRequest?.id &&
+        prevProps.leaveRequest?.status === nextProps.leaveRequest?.status &&
+        prevProps.leaveRequest?.type === nextProps.leaveRequest?.type &&
+        prevProps.leaveRequest?.reason === nextProps.leaveRequest?.reason &&
+        // Compare workConfig
+        prevProps.workConfig.startTime === nextProps.workConfig.startTime &&
+        prevProps.workConfig.buffer === nextProps.workConfig.buffer
+    );
+};
+
+const TimesheetCell = React.memo(TimesheetCellComponent, areEqual);
 
 export default TimesheetCell;

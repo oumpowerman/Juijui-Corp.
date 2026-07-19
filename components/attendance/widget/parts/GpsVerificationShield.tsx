@@ -6,6 +6,7 @@ interface GpsVerificationShieldProps {
     isUserLate: boolean;
     startTime?: string;
     gpsThreatReason?: string;
+    onAppealClick?: () => void;
 }
 
 const GpsVerificationShield: React.FC<GpsVerificationShieldProps> = ({
@@ -13,6 +14,7 @@ const GpsVerificationShield: React.FC<GpsVerificationShieldProps> = ({
     isUserLate,
     startTime,
     gpsThreatReason,
+    onAppealClick,
 }) => {
     return (
         <div className="flex flex-col items-center pt-1 w-full">
@@ -53,6 +55,16 @@ const GpsVerificationShield: React.FC<GpsVerificationShieldProps> = ({
                     <p className="text-[9px] text-gray-400 mt-1 text-center px-4">
                         ไม่อนุญาตให้เช็คอิน! กรุณาปิดแอป Fake GPS หรือแอปจำลองพิกัดบนเครื่องของท่านก่อน
                     </p>
+                    {onAppealClick && (
+                        <button
+                            id="gps-appeal-button"
+                            type="button"
+                            onClick={onAppealClick}
+                            className="mt-3.5 px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-100/50 hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1.5 cursor-pointer"
+                        >
+                            📷 ยื่นเรื่องอุทธรณ์พิกัด (พร้อมถ่ายภาพหน้างานจริง)
+                        </button>
+                    )}
                 </>
             )}
         </div>

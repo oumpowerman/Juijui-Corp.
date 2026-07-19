@@ -286,7 +286,7 @@ export const useCheckInLocation = (targets: LocationDef[]) => {
                 setIsGpsSecure(false);
                 setGpsThreatReason('ไม่สามารถเข้าถึงเซ็นเซอร์พิกัดของอุปกรณ์ หรือผู้ใช้ไม่อนุญาตสิทธิ์การระบุตำแหน่ง');
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
         );
     }, [targets]);
 

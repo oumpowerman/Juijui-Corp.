@@ -3,6 +3,7 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { ChevronLeft, Upload, CheckCircle2, Send, Loader2, AlertCircle, CalendarClock, Clock, FileText, Image as ImageIcon, ArrowRight, Edit3, Eye, X, AlertTriangle, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeaveUsage, LeaveType } from '../../../types/attendance';
+import { getRegistryItem } from '../../../constants/attendanceRegistry';
 import { MasterOption } from '../../../types';
 import { LEAVE_THEMES } from './constants';
 import { useLeaveFormLogic } from './hooks/useLeaveFormLogic';
@@ -56,7 +57,8 @@ const LeaveFormContainer: React.FC<Props> = ({
         const today = new Date();
         today.setHours(0,0,0,0);
         
-        if (['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+        const item = getRegistryItem(selectedType);
+        if (item && item.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') {
             const allowedPast = new Date(today);
             allowedPast.setDate(today.getDate() - 7);
             return allowedPast;
@@ -84,7 +86,8 @@ const LeaveFormContainer: React.FC<Props> = ({
         const today = new Date();
         today.setHours(0,0,0,0);
 
-        if (['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType)) {
+        const item = getRegistryItem(selectedType);
+        if (item && item.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') {
             return today;
         }
 
@@ -110,7 +113,7 @@ const LeaveFormContainer: React.FC<Props> = ({
         selectedType, 
         advanceDays: metadata.advanceDays,
         maxFutureDays: metadata.maxFutureDays,
-        maxPastDays: ['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT'].includes(selectedType) ? 7 : metadata.maxPastDays,
+        maxPastDays: (getRegistryItem(selectedType)?.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') ? 7 : metadata.maxPastDays,
         linkedRemoteType
     });
 
@@ -161,17 +164,11 @@ const LeaveFormContainer: React.FC<Props> = ({
     const theme = LEAVE_THEMES[selectedType] || LEAVE_THEMES['DEFAULT'];
     
 
-    const fallbackLabels: Record<string, string> = {
-        LATE_ENTRY: 'สาย',
-        FORGOT_CHECKIN: 'ลืมเช็คอิน',
-        FORGOT_CHECKOUT: 'ลืมเช็คเอาท์',
-        FORGOT_BOTH: 'ลืมเช็คอินและเช็คเอาท์',
-        OUT_OF_RANGE_CHECKOUT: 'ลงเวลานอกพื้นที่'
-    };
+    const registryItem = getRegistryItem(selectedType);
 
-    const thaiLabel = selectedOption?.label || fallbackLabels[selectedType] || selectedType;
-    const isTimeSpecific = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
-    const isSingleDayRequest = ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType);
+    const thaiLabel = selectedOption?.label || (registryItem ? registryItem.label : selectedType);
+    const isTimeSpecific = registryItem ? registryItem.rules.isTimeSpecific : false;
+    const isSingleDayRequest = registryItem ? (registryItem.rules.isSingleDay || registryItem.rules.isTimeSpecific) : false;
     const headerLabel = selectedType === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : (isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel);
 
     const daysRequested = useMemo(() => {
@@ -221,21 +218,13 @@ const LeaveFormContainer: React.FC<Props> = ({
 
     const getPlaceholder = () => {
         if (metadata.placeholder) return metadata.placeholder;
-        if (selectedType === 'LATE_ENTRY') return "เช่น รถติดหนักมากที่แยก...";
-        if (selectedType === 'OVERTIME') return "เช่น เร่งปิดงานลูกค้า Project A...";
-        if (selectedType === 'OUT_OF_RANGE_CHECKOUT') {
-            return "กรุณาระบุพิกัดจีพีเอสที่ถูกต้อง และเหตุผลโดยละเอียดว่าทำไมถึงไม่สามารถลงเวลาในพื้นที่ที่กำหนดได้ในเวลานั้น เพื่อความรวดเร็วในการพิจารณาอนุมัติ...";
-        }
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'FORGOT_CHECKIN' || selectedType === 'FORGOT_BOTH') {
-            return "กรุณาระบุรายละเอียดงานที่ทำในช่วงเวลานั้นและเหตุผลย้อนหลังโดยละเอียด เพื่อให้แอดมินตรวจสอบได้...";
-        }
-        if (selectedType === 'WFH') return "เช่น เคลียร์งานตัดต่อที่บ้าน...";
+        if (registryItem?.placeholder) return registryItem.placeholder;
         return "ระบุเหตุผลการลา...";
     };
 
     const getReasonLabel = () => {
         if (metadata.reasonLabel) return metadata.reasonLabel;
-        if (selectedType === 'WFH') return "รายละเอียดงานที่จะทำ (Task)";
+        if (registryItem?.reasonLabel) return registryItem.reasonLabel;
         return "เหตุผล / รายละเอียด";
     };
 
@@ -287,82 +276,40 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     const badgeClass = (bg: string, border: string, text: string) => 
                                         `inline-flex items-center gap-1 ${bg} ${border} ${text} font-bold w-fit shrink-0 shadow-sm transition-all duration-300 ${isScrolled ? 'px-1.5 py-0.5 text-[10px] rounded-md' : 'px-2.5 py-1 text-xs rounded-full'}`;
 
-                                    // 1. Time Correction Badges
-                                    if (selectedType === 'FORGOT_CHECKIN') {
+                                    // 1. Request Type / Correction Badges
+                                    if (registryItem && registryItem.category === 'CORRECTION') {
+                                        const emoji = registryItem.id === 'OUT_OF_RANGE_CHECKOUT' ? '📍' : '📝';
                                         badges.push(
                                             <motion.div
-                                                key="forgot-checkin"
+                                                key={`badge-correction-${registryItem.id}`}
                                                 initial={{ opacity: 0, scale: 0.8 }}
                                                 animate={{ opacity: 1, scale: 1 }}
                                                 exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-amber-50/80', 'border-amber-200', 'text-amber-700')}
+                                                className={badgeClass(`${registryItem.colors.bg}/80`, registryItem.colors.border, registryItem.colors.text)}
                                             >
-                                                <span>📝 ลืมเช็คอิน</span>
-                                            </motion.div>
-                                        );
-                                    } else if (selectedType === 'FORGOT_CHECKOUT') {
-                                        badges.push(
-                                            <motion.div
-                                                key="forgot-checkout"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-blue-50/80', 'border-blue-200', 'text-blue-700')}
-                                            >
-                                                <span>📝 ลืมเช็คเอาท์</span>
-                                            </motion.div>
-                                        );
-                                    } else if (selectedType === 'OUT_OF_RANGE_CHECKOUT') {
-                                        badges.push(
-                                            <motion.div
-                                                key="out-of-range"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-rose-50/80', 'border-rose-200', 'text-rose-700')}
-                                            >
-                                                <span>📍 ลงเวลานอกพื้นที่</span>
-                                            </motion.div>
-                                        );
-                                    } else if (selectedType === 'FORGOT_BOTH') {
-                                        badges.push(
-                                            <motion.div
-                                                key="forgot-both"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-slate-100/80', 'border-slate-300', 'text-slate-700')}
-                                            >
-                                                <span>📝 ลืมเช็คอินและเช็คเอาท์</span>
+                                                <span>{emoji} {registryItem.id === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : (registryItem.id === 'FORGOT_CHECKIN' ? 'ลืมเช็คอิน' : registryItem.id === 'FORGOT_CHECKOUT' ? 'ลืมเช็คเอาท์' : registryItem.label)}</span>
                                             </motion.div>
                                         );
                                     }
 
                                     // 2. Remote Back-link Badges
-                                    if (linkedRemoteType === 'WFH') {
-                                        badges.push(
-                                            <motion.div
-                                                key="backlink-wfh"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-indigo-50/80', 'border-indigo-200', 'text-indigo-700')}
-                                            >
-                                                <span>🏠 อนุมัติย้อนหลัง</span>
-                                            </motion.div>
-                                        );
-                                    } else if (linkedRemoteType === 'ONSITE') {
-                                        badges.push(
-                                            <motion.div
-                                                key="backlink-onsite"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0, scale: 0.8 }}
-                                                className={badgeClass('bg-orange-50/80', 'border-orange-200', 'text-orange-700')}
-                                            >
-                                                <span>🚗 อนุมัติย้อนหลัง</span>
-                                            </motion.div>
-                                        );
+                                    if (linkedRemoteType) {
+                                        const remoteItem = getRegistryItem(linkedRemoteType);
+                                        if (remoteItem) {
+                                            const emoji = linkedRemoteType === 'WFH' ? '🏠' : '🚗';
+                                            const shortLabel = linkedRemoteType === 'WFH' ? 'WFH' : 'On-site';
+                                            badges.push(
+                                                <motion.div
+                                                    key={`badge-link-${linkedRemoteType}`}
+                                                    initial={{ opacity: 0, scale: 0.8 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.8 }}
+                                                    className={badgeClass(`${remoteItem.colors.bg}/80`, remoteItem.colors.border, remoteItem.colors.text)}
+                                                >
+                                                    <span>{emoji} {shortLabel} อนุมัติย้อนหลัง</span>
+                                                </motion.div>
+                                            );
+                                        }
                                     }
 
                                     // 3. Office badge

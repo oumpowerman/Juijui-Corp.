@@ -166,6 +166,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const isProvisionalForgotCheckin = logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin;
     const isProvisionalCheckout = logParsed.isProvisionalCheckout || requestParsed.isProvisionalCheckout;
     const isProvisionalLate = log?.status === 'APPEAL' || note.includes('[APPEAL_PENDING]') || note.includes('[PROVISIONAL_LATE_ENTRY');
+    const isProvisionalGps = note.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || note.includes('[GPS_SPOOF_APPEAL_PENDING]') || leaveRequest?.type === 'GPS_SPOOF_APPEAL';
     const isLocationMismatch = logParsed.isLocationMismatch || requestParsed.isLocationMismatch || leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT';
 
     const userReason = requestParsed.cleanReason;
@@ -332,6 +333,19 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                     </h5>
                                     <p className="text-[11px] leading-relaxed text-violet-800/80 font-semibold font-sans">
                                         พนักงานลงเวลานอกเหนือเกณฑ์เข้างานปกติ โดยอยู่ระหว่างยื่นอุทธรณ์พิจารณาสิทธิ์เข้างานสาย รอผู้ดูแลระบบอนุมัติคำขอ
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {isProvisionalGps && (
+                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
+                                <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                <div className="flex-1 space-y-1">
+                                    <h5 className="font-bold text-xs text-rose-900 tracking-wide">
+                                        ⚠️ อยู่ระหว่างการอุทธรณ์พิกัด GPS (รออนุมัติภาพถ่ายหน้างานจริง)
+                                    </h5>
+                                    <p className="text-[11px] leading-relaxed text-rose-800/80 font-semibold font-sans">
+                                        พนักงานเช็คอิน/เช็คเอาท์บนอุปกรณ์หรือเครือข่ายที่ผิดปกติ โดยได้ส่งอุทธรณ์พร้อมภาพถ่ายและเหตุผลเพื่อรอให้ผู้ดูแลระบบตรวจสอบล้างสิทธิ์โทษ
                                     </p>
                                 </div>
                             </div>

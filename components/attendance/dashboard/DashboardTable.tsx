@@ -58,6 +58,10 @@ const DashboardTable: React.FC<DashboardTableProps> = ({
     lateViewMode,
   });
 
+  const userMap = React.useMemo(() => {
+    return new Map(users.map((u) => [u.id, u]));
+  }, [users]);
+
   return (
     <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
       {/* Table Control Header Component */}
@@ -354,7 +358,7 @@ const DashboardTable: React.FC<DashboardTableProps> = ({
                     {/* Highly performant list of single rows */}
                     {(groupMode === "NONE" || !isCollapsed) &&
                       groupStats.map((stat, idx) => {
-                        const user = users.find((u) => u.id === stat.userId);
+                        const user = userMap.get(stat.userId);
                         if (!user) return null;
 
                         return (

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { LeaveType } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
@@ -37,8 +38,9 @@ export const useLeaveFormLogic = ({
     const initialDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : '';
 
     useEffect(() => {
+        const item = selectedType ? getRegistryItem(selectedType) : undefined;
         let d = initialDateStr || format(new Date(), 'yyyy-MM-dd');
-        if (selectedType === 'LATE_ENTRY') {
+        if (item?.rules.forceTodayDate) {
             d = format(new Date(), 'yyyy-MM-dd');
         }
         setStartDate(d);
@@ -48,27 +50,17 @@ export const useLeaveFormLogic = ({
         setIsReviewing(false);
         setOtType('HOURLY');
         
-        // Set sensible defaults based on type
-        if (selectedType === 'FORGOT_CHECKOUT' || selectedType === 'OUT_OF_RANGE_CHECKOUT') {
-            setTargetTime('18:00');
-        } else if (selectedType === 'FORGOT_CHECKIN' || selectedType === 'LATE_ENTRY') {
-            setTargetTime('09:00');
-        } else if (selectedType === 'FORGOT_BOTH') {
-            setTargetTime('09:00');
-            setEndTime('18:00');
-        } else if (selectedType === 'OVERTIME') {
-            setTargetTime('18:30');
-            setEndTime('20:30');
-        } else {
-            setTargetTime('09:00');
-        }
+        // Set sensible defaults based on the central registry configuration
+        setTargetTime(item?.rules.defaultTargetTime || '09:00');
+        setEndTime(item?.rules.defaultEndTime || '18:00');
         
         setOtHours(2);
     }, [initialDateStr, initialReason, selectedType]);
 
     // Automatically sync endDate with startDate for single-day/time-specific requests
     useEffect(() => {
-        if (selectedType && ['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
+        const item = selectedType ? getRegistryItem(selectedType) : undefined;
+        if (item && (item.rules.isSingleDay || item.rules.isTimeSpecific)) {
             setEndDate(startDate);
         }
     }, [startDate, selectedType]);
@@ -120,7 +112,8 @@ export const useLeaveFormLogic = ({
             }
         }
 
-        if (selectedType && ['FORGOT_BOTH', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
+        const item = selectedType ? getRegistryItem(selectedType) : undefined;
+        if (item && item.category === 'CORRECTION') {
             const today = startOfDay(new Date());
             if (isBefore(today, startOfDay(start))) {
                 showAlert('ไม่สามารถทำรายการลืมลงเวลารูปแบบล่วงหน้าได้ครับ', 'วันที่ไม่ถูกต้อง');
@@ -153,7 +146,8 @@ export const useLeaveFormLogic = ({
         let finalEndDate = new Date(endDate);
         let finalReason = reason;
 
-        if (['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(selectedType)) {
+        const item = getRegistryItem(selectedType);
+        if (item && item.rules.isTimeSpecific && selectedType !== 'OVERTIME') {
             // Combine date and time correctly to avoid midnight issue
             const [year, month, day] = startDate.split('-').map(Number);
             const [hours, minutes] = targetTime.split(':').map(Number);

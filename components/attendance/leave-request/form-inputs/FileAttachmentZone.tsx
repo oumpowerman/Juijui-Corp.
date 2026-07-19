@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, CheckCircle2 } from 'lucide-react';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 interface FileAttachmentZoneProps {
     file: File | null;
@@ -27,6 +28,14 @@ export const FileAttachmentZone: React.FC<FileAttachmentZoneProps> = ({
         }
     };
 
+    const registryItem = getRegistryItem(selectedType);
+    const getAttachmentLabel = () => {
+        if (selectedType === 'SICK') return 'แนบใบรับรองแพทย์';
+        if (selectedType === 'OUT_OF_RANGE_CHECKOUT') return 'แนบรูปภาพพยานหลักฐานพิกัด GPS/สถานที่จริง (สำคัญ)';
+        if (registryItem?.rules.requireAttachment) return 'แนบรูปภาพหรือเอกสารประกอบการพิจารณา (สำคัญ)';
+        return 'แนบเอกสารประกอบ (ถ้ามี)';
+    };
+
     return (
         <motion.div
             whileHover={{ scale: 1.01 }}
@@ -42,13 +51,7 @@ export const FileAttachmentZone: React.FC<FileAttachmentZoneProps> = ({
             </div>
             <div className="text-left flex-1 min-w-0">
                 <p className={`text-sm sm:text-base font-bold truncate ${file ? 'text-emerald-800' : 'text-slate-500 group-hover:text-indigo-600'}`}>
-                    {file ? file.name : (
-                        selectedType === 'SICK' 
-                            ? 'แนบใบรับรองแพทย์' 
-                            : selectedType === 'OUT_OF_RANGE_CHECKOUT'
-                            ? 'แนบรูปภาพพยานหลักฐานพิกัด GPS/สถานที่จริง (สำคัญ)'
-                            : 'แนบเอกสารประกอบ'
-                    )}
+                    {file ? file.name : getAttachmentLabel()}
                 </p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1 font-bold tracking-wider uppercase">รองรับรูปภาพ และ PDF (สูงสุด 5MB)</p>
             </div>

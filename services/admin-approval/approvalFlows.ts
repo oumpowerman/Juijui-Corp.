@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { LeaveRequest } from '../../types/attendance';
 import { format, eachDayOfInterval } from 'date-fns';
+import { getRegistryItem } from '../../constants/attendanceRegistry';
 import { buildOtAuditLog, buildAttendanceCorrectionPayload } from '../../utils/adminApprovalHelpers';
 import { checkIsLate, getLateMinutes, mergeAttendanceNotes } from '../../lib/attendanceUtils';
 import { publishToTeamChannel } from './communicationHelpers';
@@ -81,17 +82,15 @@ export async function approveSpecialWorkRequest({
 
         if (freshLog) {
             let newNote = freshLog.note || '';
-            if (request.type === 'WFH') {
-                newNote = newNote
-                    .replace(/\[PROVISIONAL_WFH\]/g, '')
-                    .replace(/\[UNAUTHORIZED_WFH\]/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-            } else if (request.type === 'ONSITE') {
-                newNote = newNote
-                    .replace(/\[PROVISIONAL_ONSITE\]/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+            const registryItem = getRegistryItem(request.type);
+            if (registryItem) {
+                const tagsToClean = [registryItem.tags.pending, registryItem.tags.provisional, '[APPEAL_PENDING]'].filter(Boolean) as string[];
+                tagsToClean.forEach(tag => {
+                    const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const regex = new RegExp(escaped, 'g');
+                    newNote = newNote.replace(regex, '');
+                });
+                newNote = newNote.replace(/\s+/g, ' ').trim();
             }
             
             const targetStatus = freshLog.check_out_time ? 'COMPLETED' : 'WORKING';
@@ -151,12 +150,12 @@ export async function approveSpecialWorkRequest({
 export async function approveAttendanceCorrection({
     request,
     customStartTime,
-    masterOptions,
+    masterOptions = [],
     processAction
 }: {
     request: LeaveRequest;
     customStartTime?: string;
-    masterOptions: any[];
+    masterOptions?: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
     const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})(-\d{2}:\d{2})?\]/);
@@ -171,10 +170,14 @@ export async function approveAttendanceCorrection({
         .eq('date', shiftDateStr)
         .maybeSingle();
 
-    if (request.type === 'FORGOT_CHECKIN' && customStartTime) {
-        const updatedReason = request.reason.replace(/\[TIME:\d{2}:\d{2}\]/g, `[TIME:${customStartTime}]`);
+    const registryItem = getRegistryItem(request.type);
+    const behavior = registryItem?.approvalBehavior;
+
+    let finalReason = request.reason;
+    if (behavior?.correctionTarget === 'CHECKIN_ONLY' && customStartTime) {
+        finalReason = request.reason.replace(/\[TIME:\d{2}:\d{2}\]/g, `[TIME:${customStartTime}]`);
         await supabase.from('leave_requests')
-            .update({ reason: updatedReason })
+            .update({ reason: finalReason })
             .eq('id', request.id);
     }
 
@@ -187,11 +190,16 @@ export async function approveAttendanceCorrection({
             isActuallyLate = true;
         }
 
-        const newNote = `${freshLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`
-            .replace('[APPEAL_PENDING]', '')
-            .replace(/\[PROVISIONAL_LATE_ENTRY(:.*?)?\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        let newNote = `${freshLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`;
+        newNote = newNote.replace('[APPEAL_PENDING]', '');
+        if (registryItem?.tags?.provisional) {
+            const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
+            const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
+            newNote = newNote.replace(regex, '');
+        }
+        newNote = newNote.replace(/\s+/g, ' ').trim();
+
         const targetStatus = freshLog.check_out_time 
             ? (isActuallyLate ? 'LATE' : 'COMPLETED') 
             : 'WORKING';
@@ -199,7 +207,7 @@ export async function approveAttendanceCorrection({
         await supabase.from('attendance_logs')
             .update({ status: targetStatus, note: newNote })
             .eq('id', freshLog.id);
-    } else if (request.type === 'FORGOT_BOTH') {
+    } else if (behavior?.correctionTarget === 'BOTH') {
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
         const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
@@ -215,26 +223,23 @@ export async function approveAttendanceCorrection({
             existingNote: freshLog?.note
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-    } else if (request.type === 'FORGOT_CHECKIN' || request.type === 'LATE_ENTRY') {
+    } else if (behavior?.correctionTarget === 'CHECKIN_ONLY') {
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
         
         let cleanedNote = freshLog?.note || '';
-        if (request.type === 'FORGOT_CHECKIN') {
-            cleanedNote = cleanedNote.replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '').replace(/\s+/g, ' ').trim();
-        } else if (request.type === 'LATE_ENTRY') {
-            cleanedNote = cleanedNote.replace(/\[PROVISIONAL_LATE_ENTRY\]/g, '').replace(/\s+/g, ' ').trim();
+        if (registryItem?.tags?.provisional) {
+            const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
+            const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
+            cleanedNote = cleanedNote.replace(regex, '');
         }
+        cleanedNote = cleanedNote.replace(/\s+/g, ' ').trim();
 
         const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
         const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
         const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
         const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
-
-        let finalReason = request.reason;
-        if (request.type === 'FORGOT_CHECKIN' && customStartTime) {
-            finalReason = request.reason.replace(/\[TIME:\d{2}:\d{2}\]/g, `[TIME:${customStartTime}]`);
-        }
 
         const payload = buildAttendanceCorrectionPayload({
             userId: request.userId,
@@ -248,27 +253,103 @@ export async function approveAttendanceCorrection({
             existingNote: cleanedNote
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-    }
+    } else if (behavior?.correctionTarget === 'CHECKOUT_ONLY') {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const checkOutDateTime = new Date(request.startDate);
+        checkOutDateTime.setHours(hours, minutes, 0, 0);
+        if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
 
-    if (request.type !== 'FORGOT_BOTH') {
-        await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
-    }
+        const { data: freshLogCheckout } = await supabase
+            .from('attendance_logs')
+            .select('id, note, status')
+            .eq('user_id', request.userId)
+            .eq('date', shiftDateStr)
+            .maybeSingle();
 
-    // Refund HP
-    const isLateSubmission = request.reason.includes('[LATE_SUBMISSION]');
-    if (!isLateSubmission) {
-        if (freshLog?.status === 'ABSENT') {
-            await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                originalDescription: `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`
+        if (freshLogCheckout) {
+            let cleanedNoteStr = freshLogCheckout.note || '';
+            if (registryItem?.tags?.provisional) {
+                const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
+                const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
+                cleanedNoteStr = cleanedNoteStr.replace(regex, '');
+            }
+            cleanedNoteStr = cleanedNoteStr.replace(/\s+/g, ' ').trim();
+
+            const approvedTag = registryItem?.tags.approved || '[APPROVED CORRECTION]';
+            await supabase.from('attendance_logs').update({
+                check_out_time: checkOutDateTime.toISOString(),
+                status: 'COMPLETED',
+                note: mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`)
+            }).eq('id', freshLogCheckout.id);
+
+            await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
+                time: timeStr,
+                date: shiftDateStr
             });
-        } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
-            await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
+
+            const isCheckoutLateSub = request.reason.includes('[LATE_SUBMISSION]');
+            if (!isCheckoutLateSub) {
+                const absentDesc = behavior?.refundDescriptionAbsent 
+                    ? `คืนค่า HP ${behavior.refundDescriptionAbsent} ${shiftDateStr}` 
+                    : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
+                const penalizedDesc = behavior?.refundDescriptionPenalized 
+                    ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${shiftDateStr}` 
+                    : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
+
+                if (freshLogCheckout.status === 'ABSENT') {
+                    await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                        originalDescription: absentDesc
+                    });
+                } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
+                    await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                        originalDescription: penalizedDesc
+                    });
+                }
+            }
+        } else {
+            const defaultStart = new Date(request.startDate);
+            defaultStart.setHours(10, 0, 0, 0);
+            await supabase.from('attendance_logs').insert({
+                user_id: request.userId,
+                date: shiftDateStr,
+                check_in_time: defaultStart.toISOString(),
+                check_out_time: checkOutDateTime.toISOString(),
+                work_type: 'OFFICE',
+                status: 'COMPLETED',
+                note: `[AUTO-CREATED FOR ${request.type}] ${request.reason}`
             });
         }
     }
 
-    if (request.type !== 'FORGOT_CHECKOUT' && request.type !== 'OUT_OF_RANGE_CHECKOUT') {
+    if (behavior?.updateProfileOnline !== false) {
+        await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
+    }
+
+    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
+        // Refund HP
+        const isLateSubmission = request.reason.includes('[LATE_SUBMISSION]');
+        if (!isLateSubmission) {
+            const absentDesc = behavior?.refundDescriptionAbsent 
+                ? `คืนค่า HP ${behavior.refundDescriptionAbsent} ${shiftDateStr}` 
+                : `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`;
+            const penalizedDesc = behavior?.refundDescriptionPenalized 
+                ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${shiftDateStr}` 
+                : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
+
+            if (freshLog?.status === 'ABSENT') {
+                await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
+                    originalDescription: absentDesc
+                });
+            } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
+                await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                    originalDescription: penalizedDesc
+                });
+            }
+        }
+    }
+
+    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
         const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
         const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
         const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
@@ -304,7 +385,7 @@ export async function approveAttendanceCorrection({
                 calculatedStatus = 'ON_TIME';
                 lateMinutes = 0;
             }
-        } else if (isLate) {
+        } else if (behavior?.verifyLateness && isLate) {
             calculatedStatus = 'LATE';
             lateMinutes = getLateMinutes(checkInDateTime, startTimeStr, buffer);
         }
@@ -315,63 +396,10 @@ export async function approveAttendanceCorrection({
             lateMinutes: lateMinutes
         });
 
-        if (request.type === 'FORGOT_BOTH') {
+        if (behavior?.correctionTarget === 'BOTH') {
             await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
                 time: endTimeStr || '18:00',
                 date: shiftDateStr
-            });
-        }
-    } else if (request.type === 'FORGOT_CHECKOUT') {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const checkOutDateTime = new Date(request.startDate);
-        checkOutDateTime.setHours(hours, minutes, 0, 0);
-        if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
-
-        const { data: freshLogCheckout } = await supabase
-            .from('attendance_logs')
-            .select('id, note, status')
-            .eq('user_id', request.userId)
-            .eq('date', shiftDateStr)
-            .maybeSingle();
-
-        if (freshLogCheckout) {
-            let cleanedNoteStr = freshLogCheckout.note || '';
-            cleanedNoteStr = cleanedNoteStr.replace(/\[PROVISIONAL_CHECKOUT\]/g, '').replace(/\s+/g, ' ').trim();
-
-            await supabase.from('attendance_logs').update({
-                check_out_time: checkOutDateTime.toISOString(),
-                status: 'COMPLETED',
-                note: mergeAttendanceNotes(cleanedNoteStr, `[APPROVED CORRECTION] ${request.reason}`)
-            }).eq('id', freshLogCheckout.id);
-
-            await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
-                time: timeStr,
-                date: shiftDateStr
-            });
-
-            const isCheckoutLateSub = request.reason.includes('[LATE_SUBMISSION]');
-            if (!isCheckoutLateSub) {
-                if (freshLogCheckout.status === 'ABSENT') {
-                    await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                        originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                    });
-                } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
-                    await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                        originalDescription: `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`
-                    });
-                }
-            }
-        } else {
-            const defaultStart = new Date(request.startDate);
-            defaultStart.setHours(10, 0, 0, 0);
-            await supabase.from('attendance_logs').insert({
-                user_id: request.userId,
-                date: shiftDateStr,
-                check_in_time: defaultStart.toISOString(),
-                check_out_time: checkOutDateTime.toISOString(),
-                work_type: 'OFFICE',
-                status: 'COMPLETED',
-                note: `[AUTO-CREATED FOR CHECKOUT] ${request.reason}`
             });
         }
     }
@@ -379,6 +407,7 @@ export async function approveAttendanceCorrection({
 
 /**
  * Handles approval logic for Out of Range Checkout requests.
+ * Delegates checkout and status correction to the unified correction flow.
  */
 export async function approveOutOfRangeCheckoutRequest({
     request,
@@ -387,62 +416,10 @@ export async function approveOutOfRangeCheckoutRequest({
     request: LeaveRequest;
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
-    const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})(-\d{2}:\d{2})?\]/);
-    const timeStr = timeMatch ? timeMatch[1] : '00:00';
-    const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
-
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const checkOutDateTime = new Date(request.startDate);
-    checkOutDateTime.setHours(hours, minutes, 0, 0);
-    if (hours < 5) checkOutDateTime.setDate(checkOutDateTime.getDate() + 1);
-
-    const { data: freshLogCheckout } = await supabase
-        .from('attendance_logs')
-        .select('id, note, status')
-        .eq('user_id', request.userId)
-        .eq('date', shiftDateStr)
-        .maybeSingle();
-
-    if (freshLogCheckout) {
-        let cleanedNoteStr = freshLogCheckout.note || '';
-        cleanedNoteStr = cleanedNoteStr.replace(/\[PROVISIONAL_CHECKOUT\]/g, '').replace(/\s+/g, ' ').trim();
-
-        await supabase.from('attendance_logs').update({
-            check_out_time: checkOutDateTime.toISOString(),
-            status: 'COMPLETED',
-            note: mergeAttendanceNotes(cleanedNoteStr, `[APPROVED OUT_OF_RANGE_CHECKOUT] ${request.reason}`)
-        }).eq('id', freshLogCheckout.id);
-
-        await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
-            time: timeStr,
-            date: shiftDateStr
-        });
-
-        const isCheckoutLateSub = request.reason.includes('[LATE_SUBMISSION]');
-        if (!isCheckoutLateSub) {
-            if (freshLogCheckout.status === 'ABSENT') {
-                await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                    originalDescription: `คืนค่า HP จากการแก้เวลาออกนอกพื้นที่วันที่ ${shiftDateStr}`
-                });
-            } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
-                await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                    originalDescription: `คืนค่า HP จากการแก้เวลาออกนอกพื้นที่วันที่ ${shiftDateStr}`
-                });
-            }
-        }
-    } else {
-        const defaultStart = new Date(request.startDate);
-        defaultStart.setHours(10, 0, 0, 0);
-        await supabase.from('attendance_logs').insert({
-            user_id: request.userId,
-            date: shiftDateStr,
-            check_in_time: defaultStart.toISOString(),
-            check_out_time: checkOutDateTime.toISOString(),
-            work_type: 'OFFICE',
-            status: 'COMPLETED',
-            note: `[AUTO-CREATED FOR OUT_OF_RANGE_CHECKOUT] ${request.reason}`
-        });
-    }
+    await approveAttendanceCorrection({
+        request,
+        processAction
+    });
 }
 
 /**
@@ -480,3 +457,45 @@ export async function approveStandardLeave({
     await supabase.from('attendance_logs').upsert(logs, { onConflict: 'user_id, date' });
     await processAction(request.userId, 'ATTENDANCE_LEAVE', { type: request.type });
 }
+
+/**
+ * Handles approval logic for GPS Spoof Appeal requests.
+ */
+export async function approveGpsSpoofAppealRequest({
+    request,
+    processAction
+}: {
+    request: LeaveRequest;
+    processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+}) {
+    const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
+
+    const { data: freshLog } = await supabase
+        .from('attendance_logs')
+        .select('*')
+        .eq('user_id', request.userId)
+        .eq('date', shiftDateStr)
+        .maybeSingle();
+
+    if (freshLog) {
+        let cleanedNoteStr = freshLog.note || '';
+        const registryItem = getRegistryItem(request.type);
+        if (registryItem) {
+            const tagsToClean = [registryItem.tags.pending, registryItem.tags.provisional].filter(Boolean) as string[];
+            tagsToClean.forEach(tag => {
+                const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp(escaped, 'g');
+                cleanedNoteStr = cleanedNoteStr.replace(regex, '');
+            });
+            cleanedNoteStr = cleanedNoteStr.replace(/\s+/g, ' ').trim();
+        }
+
+        const finalStatus = freshLog.check_out_time ? 'COMPLETED' : 'WORKING';
+
+        await supabase.from('attendance_logs').update({
+            status: finalStatus,
+            note: mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_APPEAL] อนุมัติการยื่นอุทธรณ์พิกัด GPS: ${request.reason}`)
+        }).eq('id', freshLog.id);
+    }
+}
+

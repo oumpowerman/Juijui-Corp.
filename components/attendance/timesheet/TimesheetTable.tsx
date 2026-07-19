@@ -47,6 +47,31 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
     onCellClick,
     workConfig
 }) => {
+    // 1. Client-Side Indexing for Logs: Map<`${userId}_${dateStr}`, AttendanceLog>
+    const logsMap = React.useMemo(() => {
+        const map = new Map<string, AttendanceLog>();
+        logs.forEach(l => {
+            map.set(`${l.userId}_${l.date}`, l);
+        });
+        return map;
+    }, [logs]);
+
+    // 2. Client-Side Indexing for Leave Requests: Map<`${userId}_${dateStr}`, LeaveRequest>
+    const leaveRequestsMap = React.useMemo(() => {
+        const map = new Map<string, any>();
+        leaveRequests.forEach(req => {
+            if (!req.user_id) return;
+            // Pre-expand to save comparisons in loop
+            dateRange.forEach(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                if (dateStr >= req.start_date && dateStr <= req.end_date) {
+                    map.set(`${req.user_id}_${dateStr}`, req);
+                }
+            });
+        });
+        return map;
+    }, [leaveRequests, dateRange]);
+
     return (
         <div className="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px] relative z-10">
             <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 rounded-b-3xl sm:rounded-b-[2.5rem]">
@@ -168,15 +193,11 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                             </td>
                                             {dateRange.map(day => {
                                                 const dateStr = format(day, 'yyyy-MM-dd');
-                                                const log = logs.find(l => l.userId === user.id && l.date === dateStr);
+                                                const log = logsMap.get(`${user.id}_${dateStr}`);
                                                 const dayStatus = getEffectiveDayStatus(day);
                                                 
-                                                // Find relevant leave request for this user and day
-                                                const relevantRequest = leaveRequests.find(r => 
-                                                    r.user_id === user.id && 
-                                                    dateStr >= r.start_date && 
-                                                    dateStr <= r.end_date
-                                                );
+                                                // Find relevant leave request in O(1) time
+                                                const relevantRequest = leaveRequestsMap.get(`${user.id}_${dateStr}`);
 
                                                 return (
                                                     <td key={day.toString()} className="p-0">
@@ -188,11 +209,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                             isToday={isToday(day)}
                                                             workConfig={workConfig}
                                                             userStartDate={user.startDate}
-                                                            onClick={() => {
-                                                                if (log || relevantRequest) {
-                                                                     onCellClick(log || null, relevantRequest);
-                                                                }
-                                                            }}
+                                                            onCellClick={onCellClick}
                                                         />
                                                     </td>
                                                 );

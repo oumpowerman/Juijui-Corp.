@@ -86,7 +86,16 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         return undefined;
     }, [todayActiveLeave]);
 
-    const handleConfirmCheckIn = async (type: WorkLocation, file: File | null, location: { lat: number, lng: number }, locationName?: string, isProvisionalOnsite?: boolean, provisionalReason?: string) => {
+    const handleConfirmCheckIn = async (
+        type: WorkLocation, 
+        file: File | null, 
+        location: { lat: number, lng: number }, 
+        locationName?: string, 
+        isProvisionalOnsite?: boolean, 
+        provisionalReason?: string,
+        isGpsAppeal: boolean = false,
+        gpsAppealReason?: string
+    ) => {
         if (isCheckingIn) return;
         setIsCheckingIn(true);
 
@@ -131,7 +140,24 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, lateBuffer) ? pendingLateTime : startTime);
                 const isLate = checkIsLate(now, effectiveStartTime, lateBuffer);
 
-                const success = await checkIn(type, file || undefined, location, locationName, undefined, undefined, isAppeal, proofUrl, isApprovedWFH, isProvisionalOnsite, provisionalReason, approvedLateTime, pendingLateTime, todayActiveLeave?.reason);
+                const success = await checkIn(
+                    type, 
+                    file || undefined, 
+                    location, 
+                    locationName, 
+                    undefined, 
+                    undefined, 
+                    isAppeal, 
+                    proofUrl, 
+                    isApprovedWFH, 
+                    isProvisionalOnsite, 
+                    provisionalReason, 
+                    approvedLateTime, 
+                    pendingLateTime, 
+                    todayActiveLeave?.reason,
+                    isGpsAppeal,
+                    gpsAppealReason
+                );
                 if (success) {
                     if (!isLate && !isAppeal) {
                         await showSuccess(

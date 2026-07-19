@@ -27,7 +27,9 @@ interface CheckInModalProps {
         location: { lat: number, lng: number },
         locationName?: string,
         isProvisionalOnsite?: boolean,
-        provisionalReason?: string
+        provisionalReason?: string,
+        isGpsAppeal?: boolean,
+        gpsAppealReason?: string
     ) => void;
     availableLocations?: LocationDef[];
     startTime?: string;
@@ -79,6 +81,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         setSelectedMatch,
         isGpsSecure,
         gpsThreatReason,
+        isGpsAppealActive,
+        setIsGpsAppealActive,
         isUserLate,
         lateMinutes,
         isShiftsEnabled,
@@ -271,6 +275,19 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                 </button>
                                             </div>
                                         </div>
+                                    ) : !isGpsSecure && !isGpsAppealActive ? (
+                                        <div className="flex-1 flex flex-col justify-center items-center w-full p-4">
+                                            <GpsVerificationShield
+                                                isGpsSecure={isGpsSecure}
+                                                isUserLate={isUserLate}
+                                                startTime={startTime}
+                                                gpsThreatReason={gpsThreatReason}
+                                                onAppealClick={() => {
+                                                    setIsGpsAppealActive(true);
+                                                    handleSetStep('TYPE');
+                                                }}
+                                            />
+                                        </div>
                                     ) : (
                                         <>
                                             {/* Step: LOCATION (Scanning GPS) */}
@@ -297,6 +314,10 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                             isUserLate={isUserLate}
                                                             startTime={startTime}
                                                             gpsThreatReason={gpsThreatReason}
+                                                            onAppealClick={() => {
+                                                                setIsGpsAppealActive(true);
+                                                                handleSetStep('TYPE');
+                                                            }}
                                                         />
 
                                                         {isShiftsEnabled && shiftResult && (
@@ -386,6 +407,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                     onBack={() => handleSetStep(selectedMatch ? 'CONFIRM_LOCATION' : 'LOCATION')}
                                                     isSubmitting={isSubmitting}
                                                     onSwitchToLeave={onSwitchToLeave}
+                                                    isGpsAppealActive={isGpsAppealActive}
                                                 />
                                             )}
 

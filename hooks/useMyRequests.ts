@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, LeaveUsage, RequestStatus } from '../types/attendance';
+import { ATTENDANCE_REGISTRY } from '../constants/attendanceRegistry';
 import { useToast } from '../context/ToastContext';
 import { eachDayOfInterval, format, isValid } from 'date-fns';
 import { useGoogleDrive } from './useGoogleDrive';
@@ -113,14 +114,16 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     }, [rawRequests, allUsers, enabled]);
 
     const leaveUsage: LeaveUsage = useMemo(() => {
-        const usage: LeaveUsage = {
-            SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0, OUT_OF_RANGE_CHECKOUT: 0
-        };
+        const usage = {} as LeaveUsage;
+        Object.keys(ATTENDANCE_REGISTRY).forEach(k => {
+            usage[k as LeaveType] = 0;
+        });
 
         if (!enabled || !currentUser?.id) return usage;
 
-        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
+        const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
+            .filter(item => item.category === 'LEAVE')
+            .map(item => item.id);
 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
@@ -145,14 +148,16 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     }, [requests, currentUser?.id, annualHolidays, calendarExceptions, enabled]);
 
     const pendingUsage: LeaveUsage = useMemo(() => {
-        const usage: LeaveUsage = {
-            SICK: 0, VACATION: 0, PERSONAL: 0, EMERGENCY: 0,
-            LATE_ENTRY: 0, OVERTIME: 0, FORGOT_CHECKIN: 0, FORGOT_CHECKOUT: 0, FORGOT_BOTH: 0, WFH: 0, UNPAID: 0, ONSITE: 0, OUT_OF_RANGE_CHECKOUT: 0
-        };
+        const usage = {} as LeaveUsage;
+        Object.keys(ATTENDANCE_REGISTRY).forEach(k => {
+            usage[k as LeaveType] = 0;
+        });
 
         if (!enabled || !currentUser?.id) return usage;
 
-        const LEAVE_TYPES = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
+        const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
+            .filter(item => item.category === 'LEAVE')
+            .map(item => item.id);
 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'PENDING') {

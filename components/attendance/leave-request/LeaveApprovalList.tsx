@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, XCircle, Clock } from 'lucide-react';
 import { LeaveRequest } from '../../../types/attendance';
+import { ATTENDANCE_REGISTRY } from '../../../constants/attendanceRegistry';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '../../../hooks/useMasterData';
@@ -218,29 +219,40 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         return base;
     }, [combinedRequests, filterStatus, historySubFilter, isCustomRangeEnabled, customRange, isMonthFilterEnabled, selectedMonth, selectedYear]);
 
-    const counts = useMemo(() => {
-        const leaves = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'WFH'];
-        const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
-        const ot = ['OVERTIME'];
+    const { leaves, lateForgot, ot } = useMemo(() => {
+        const leavesList: string[] = [];
+        const lateForgotList: string[] = [];
+        const otList: string[] = [];
 
+        Object.values(ATTENDANCE_REGISTRY).forEach(item => {
+            if (item.id === 'OVERTIME') {
+                otList.push(item.id);
+            } else if (item.category === 'CORRECTION' || item.id === 'GPS_SPOOF_APPEAL') {
+                lateForgotList.push(item.id);
+            } else {
+                leavesList.push(item.id);
+            }
+        });
+
+        return { leaves: leavesList, lateForgot: lateForgotList, ot: otList };
+    }, []);
+
+    const counts = useMemo(() => {
         return {
             LEAVE: tabRequests.filter(r => leaves.includes(r.type)).length,
             LATE_FORGOT: tabRequests.filter(r => lateForgot.includes(r.type)).length,
             OT: tabRequests.filter(r => ot.includes(r.type)).length
         };
-    }, [tabRequests]);
+    }, [tabRequests, leaves, lateForgot, ot]);
 
     const filteredRequests = useMemo(() => {
         let base = [...tabRequests];
 
         if (activeCategory === 'LEAVE') {
-            const leaves = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'WFH'];
             base = base.filter(r => leaves.includes(r.type));
         } else if (activeCategory === 'LATE_FORGOT') {
-            const lateForgot = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
             base = base.filter(r => lateForgot.includes(r.type));
         } else if (activeCategory === 'OT') {
-            const ot = ['OVERTIME'];
             base = base.filter(r => ot.includes(r.type));
         }
 
@@ -251,7 +263,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         });
 
         return base;
-    }, [tabRequests, activeCategory]);
+    }, [tabRequests, activeCategory, leaves, lateForgot, ot]);
 
     const paginatedRequests = useMemo(() => {
         if (filterStatus === 'PENDING') {

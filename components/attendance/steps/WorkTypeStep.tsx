@@ -13,10 +13,11 @@ interface WorkTypeStepProps {
     onBack?: () => void; // Support going back
     isSubmitting?: boolean;
     onSwitchToLeave?: (type?: string) => void;
+    isGpsAppealActive?: boolean;
 }
 
 const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ 
-    matchedLocation, onSelect, approvedWFH, approvedOnsite, allLocations = [], onBack, isSubmitting = false, onSwitchToLeave
+    matchedLocation, onSelect, approvedWFH, approvedOnsite, allLocations = [], onBack, isSubmitting = false, onSwitchToLeave, isGpsAppealActive = false
 }) => {
     const { showAlert } = useGlobalDialog();
     const [showOnsiteSelector, setShowOnsiteSelector] = useState(false);
@@ -29,7 +30,7 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
 
     const handleSelectOffice = () => {
         if (isSubmitting) return;
-        if (!matchedLocation) {
+        if (!matchedLocation && !isGpsAppealActive) {
             showAlert(
                 'คุณไม่ได้อยู่ในพิกัดของออฟฟิศหลักที่ลงทะเบียนไว้ในระบบครับ\n\nหากคุณกำลังออกปฏิบัติงานนอกสถานที่ (เช่น ถ่ายทำภาพยนตร์, นัดประชุม) กรุณาเลือก "ทำงานนอกสถานที่ (On Site)" หรือหากอนุมัติการทำงานระยะไกลให้เลือก "Work From Home"',
                 'อยู่นอกพื้นที่พิกัดออฟฟิศ'

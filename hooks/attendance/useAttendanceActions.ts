@@ -32,7 +32,9 @@ export const useAttendanceActions = (userId: string) => {
         provisionalReason?: string,
         approvedLateTime?: string,
         pendingLateTime?: string,
-        pendingLateReason?: string
+        pendingLateReason?: string,
+        isGpsAppeal: boolean = false,
+        gpsAppealReason?: string
     ) => {
         setIsActionLoading(true);
         try {
@@ -117,6 +119,10 @@ export const useAttendanceActions = (userId: string) => {
             if (workType === 'SITE' && isProvisionalOnsite) {
                 meta.push(`[PROVISIONAL_ONSITE]`);
             }
+            if (isGpsAppeal) {
+                meta.push(`[PROVISIONAL_GPS_SPOOF_APPEAL]`);
+                meta.push(`[GPS_SPOOF_APPEAL_PENDING]`);
+            }
             if (meta.length > 0) incomingNote = `${incomingNote} ${meta.join(' ')}`.trim();
 
             // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
@@ -144,7 +150,7 @@ export const useAttendanceActions = (userId: string) => {
             const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
             if (error) throw error;
 
-            // --- Auto Leave Request Generation for Provisional WFH / Onsite ---
+            // --- Auto Leave Request Generation for Provisional WFH / Onsite / GPS Appeal ---
             let isProvisional = false;
             let provisionalType = '';
             
@@ -154,10 +160,16 @@ export const useAttendanceActions = (userId: string) => {
             } else if (workType === 'SITE' && isProvisionalOnsite) {
                 isProvisional = true;
                 provisionalType = 'ONSITE';
+            } else if (isGpsAppeal) {
+                isProvisional = true;
+                provisionalType = 'GPS_SPOOF_APPEAL';
             }
 
             if (isProvisional) {
-                const finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                let finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                    finalReason = gpsAppealReason || 'อุทธรณ์ความปลอดภัยพิกัด GPS ผิดปกติ';
+                }
                 const reasonWithTag = `[PROVISIONAL_${provisionalType}] ${finalReason}`;
                 
                 try {
@@ -180,7 +192,10 @@ export const useAttendanceActions = (userId: string) => {
                         .maybeSingle();
                     const userName = userProfile?.full_name || 'พนักงาน';
 
-                    const typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
+                    let typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
+                    if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                        typeLabel = 'อุทธรณ์พิกัด GPS ผิดปกติ';
+                    }
                     
                     // 2. Send bot message alert to team_messages
                     const botMsg = `📢 **ระบบสร้างใบคำขออัตโนมัติ (Provisional)**\n👤 **พนักงาน:** ${userName} (ลงเวลาแบบจำลอง)\nประเภทสิทธิ์: ${typeLabel}\n📅 วันที่: ${format(now, 'd MMM yyyy')}\n📝 เหตุผล: ${finalReason}`;
@@ -201,8 +216,10 @@ export const useAttendanceActions = (userId: string) => {
                         const notifications = admins.map(adm => ({
                             user_id: adm.id,
                             type: 'INFO',
-                            title: `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
-                            message: `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
+                            title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
+                            message: provisionalType === 'GPS_SPOOF_APPEAL' 
+                                ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
+                                : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
                             is_read: false,
                             link_path: 'ADMIN_APPROVALS'
                         }));

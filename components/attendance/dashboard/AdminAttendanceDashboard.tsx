@@ -281,6 +281,14 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
         // Calculate Absents
         Object.values(statsMap).forEach(stat => {
+            // Set of logged dates and leave dates for O(1) lookups
+            const loggedDates = new Set(stat.logs.map(l => l.date));
+            const leaveDates = new Set(
+                stat.logs
+                    .filter(l => l.status === 'LEAVE' || l.workType === 'LEAVE')
+                    .map(l => l.date)
+            );
+
             workingDaysInMonth.forEach(day => {
                 // Check if this day is in the future
                 const isFutureDay = (day.getFullYear() > today.getFullYear()) ||
@@ -310,8 +318,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 }
                 
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const hasLog = stat.logs.some(l => l.date === dateStr);
-                const isLeave = stat.logs.some(l => l.date === dateStr && (l.status === 'LEAVE' || l.workType === 'LEAVE'));
+                const hasLog = loggedDates.has(dateStr);
+                const isLeave = leaveDates.has(dateStr);
                 
                 if (!hasLog && !isLeave) {
                     stat.absent++;
@@ -341,6 +349,11 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         return Object.values(statsMap);
     }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, currentMonth, dateFilterMode, customStartDate, customEndDate]);
 
+    // Index users by ID for O(1) lookups
+    const userMap = useMemo(() => {
+        return new Map(users.map(u => [u.id, u]));
+    }, [users]);
+
     // Compute unique positions from active users
     const positions = useMemo(() => {
         const unique = new Set(users.filter(u => u.isActive && u.position).map(u => u.position));
@@ -350,7 +363,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     // Filtering (Two-Phase Filtering)
     const filteredStats = useMemo(() => {
         const baseFiltered = userStats.filter(stat => {
-            const user = users.find(u => u.id === stat.userId);
+            const user = userMap.get(stat.userId);
             if (!user) return false;
 
             const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -410,7 +423,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 return valB - valA;
             }
         });
-    }, [userStats, users, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection, lateViewMode]);
+    }, [userStats, userMap, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection, lateViewMode]);
 
     // Aggregates
     const totalCheckins = logs.filter(l => l.status !== 'LEAVE').length;
@@ -461,7 +474,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         
         // 2. Rows
         const rows = filteredStats.map(stat => {
-            const user = users.find(u => u.id === stat.userId);
+            const user = userMap.get(stat.userId);
             const gradeInfo = getGrade(stat);
             
             let lateValue: string | number = stat.late;

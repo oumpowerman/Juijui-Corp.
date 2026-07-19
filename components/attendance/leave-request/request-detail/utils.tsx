@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { 
     Clock, Moon, Briefcase
 } from 'lucide-react';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 export interface ParsedReason {
     cleanReason: string;
@@ -128,38 +129,13 @@ export const parseReason = (reason: string): ParsedReason => {
 };
 
 export const getTypeName = (type: string) => {
-    const labels: Record<string, string> = {
-        SICK: 'ลาป่วย',
-        VACATION: 'ลาพักร้อน',
-        PERSONAL: 'ลากิจ',
-        EMERGENCY: 'ลาฉุกเฉิน',
-        LATE_ENTRY: 'ขอเข้าสาย',
-        OVERTIME: 'แจ้งทำงานล่วงเวลา (OT)',
-        FORGOT_CHECKIN: 'ลืมเช็คอิน (ลืมลงเวลาเข้างาน)',
-        FORGOT_CHECKOUT: 'ลืมเช็คเอาท์ (ลืมลงเวลาออกงาน)',
-        FORGOT_BOTH: 'ลืมบันทึกเวลาทั้งเข้าและออก',
-        WFH: 'ขอทำงานที่บ้าน (WFH)',
-        UNPAID: 'ลากิจไม่รับค่าจ้าง (Unpaid Leave)',
-        OUT_OF_RANGE_CHECKOUT: 'ลงเวลานอกพื้นที่ (Out of Range)'
-    };
-    return labels[type] || type;
+    const registryItem = getRegistryItem(type);
+    return registryItem ? registryItem.label : type;
 };
 
 export const getTypeColorClass = (type: string) => {
-    const colors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
-        SICK: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', accent: 'bg-rose-500' },
-        VACATION: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', accent: 'bg-emerald-500' },
-        PERSONAL: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-100', accent: 'bg-slate-500' },
-        EMERGENCY: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', accent: 'bg-rose-500' },
-        LATE_ENTRY: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100', accent: 'bg-violet-500' },
-        OVERTIME: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100', accent: 'bg-indigo-500' },
-        FORGOT_CHECKIN: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
-        FORGOT_CHECKOUT: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
-        FORGOT_BOTH: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', accent: 'bg-amber-500' },
-        WFH: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-100', accent: 'bg-sky-500' },
-        OUT_OF_RANGE_CHECKOUT: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100', accent: 'bg-orange-500' }
-    };
-    return colors[type] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-100', accent: 'bg-gray-500' };
+    const registryItem = getRegistryItem(type);
+    return registryItem ? registryItem.colors : { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-100', accent: 'bg-gray-500' };
 };
 
 export const getStatusBadge = (status: string) => {

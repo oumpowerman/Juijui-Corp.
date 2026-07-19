@@ -9,6 +9,7 @@ import { LeaveRequest } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getWorkingDaysDifference } from '../../../../lib/attendanceUtils';
 import { parseReason, ParsedReason } from '../request-detail/utils';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 export interface ApprovalItemCardProps {
     request: LeaveRequest;
@@ -20,65 +21,15 @@ export interface ApprovalItemCardProps {
 }
 
 export const getCardStyle = (type: string) => {
-    const styles: Record<string, { bg: string; border: string; accent: string }> = {
-        OVERTIME: { 
-            bg: 'bg-indigo-50 hover:bg-indigo-100/40', 
-            border: 'border-indigo-100 hover:border-indigo-200/80', 
-            accent: 'bg-indigo-500' 
-        },
-        WFH: { 
-            bg: 'bg-sky-50 hover:bg-sky-100/40', 
-            border: 'border-sky-100 hover:border-sky-200/80', 
-            accent: 'bg-sky-500' 
-        },
-        SICK: { 
-            bg: 'bg-rose-50 hover:bg-rose-100/40', 
-            border: 'border-rose-100 hover:border-rose-200/80', 
-            accent: 'bg-rose-500' 
-        },
-        VACATION: { 
-            bg: 'bg-emerald-50 hover:bg-emerald-100/40', 
-            border: 'border-emerald-100 hover:border-emerald-200/80', 
-            accent: 'bg-emerald-500' 
-        },
-        PERSONAL: { 
-            bg: 'bg-slate-50 hover:bg-slate-100/40', 
-            border: 'border-slate-100 hover:border-slate-200/80', 
-            accent: 'bg-slate-500' 
-        },
-        EMERGENCY: { 
-            bg: 'bg-amber-50 hover:bg-amber-100/40', 
-            border: 'border-amber-100 hover:border-amber-200/80', 
-            accent: 'bg-amber-500' 
-        },
-        LATE_ENTRY: { 
-            bg: 'bg-violet-50 hover:bg-violet-100/40', 
-            border: 'border-violet-100 hover:border-violet-200/80', 
-            accent: 'bg-violet-500' 
-        },
-        FORGOT_CHECKIN: { 
-            bg: 'bg-amber-50 hover:bg-amber-100/40', 
-            border: 'border-amber-100 hover:border-amber-200/80', 
-            accent: 'bg-amber-500' 
-        },
-        FORGOT_CHECKOUT: { 
-            bg: 'bg-amber-50 hover:bg-amber-100/40', 
-            border: 'border-amber-100 hover:border-amber-200/80', 
-            accent: 'bg-amber-500' 
-        },
-        OUT_OF_RANGE_CHECKOUT: { 
-            bg: 'bg-orange-50 hover:bg-orange-100/40', 
-            border: 'border-orange-100 hover:border-orange-200/80', 
-            accent: 'bg-orange-500' 
-        },
-        FORGOT_BOTH: { 
-            bg: 'bg-amber-50 hover:bg-amber-100/40', 
-            border: 'border-amber-100 hover:border-amber-200/80', 
-            accent: 'bg-amber-500' 
-        }
-    };
-
-    return styles[type] || { bg: 'bg-white', border: 'border-gray-100', accent: 'bg-orange-400' };
+    const item = getRegistryItem(type);
+    if (item) {
+        return {
+            bg: `${item.colors.bg} hover:${item.colors.bg}/40`,
+            border: `${item.colors.border} hover:${item.colors.border}/80`,
+            accent: item.colors.accent
+        };
+    }
+    return { bg: 'bg-white', border: 'border-gray-100', accent: 'bg-orange-400' };
 };
 
 // 1. ApprovalCardHeader
@@ -200,7 +151,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                 )}
 
                 {/* Expiration Warning */}
-                {request.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(request.type) && (
+                {request.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(request.type) && (
                     getWorkingDaysDifference(request.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (
                         <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-red-100 text-red-700 border-red-200/60 flex items-center gap-1 animate-pulse">
                             <AlertTriangle className="w-3 h-3" /> ใกล้หมดอายุ
@@ -217,6 +168,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                 <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${
                     request.type === 'LATE_ENTRY' ? 'bg-violet-100 text-violet-700' : 
                     request.type === 'OUT_OF_RANGE_CHECKOUT' ? 'bg-orange-100 text-orange-700' :
+                    request.type === 'GPS_SPOOF_APPEAL' ? 'bg-rose-100 text-rose-700 font-semibold ring-1 ring-rose-200/60' :
                     request.type.includes('FORGOT') ? 'bg-amber-100 text-amber-700' :
                     'bg-white/80 text-gray-700 border border-black/5'
                 }`}>

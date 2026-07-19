@@ -355,3 +355,41 @@ export async function rejectOutOfRangeCheckoutRequest({
         }).eq('id', freshLog.id);
     }
 }
+
+/**
+ * Handles rejection of a GPS Spoof Appeal request.
+ */
+export async function rejectGpsSpoofAppealRequest({
+    req,
+    reason
+}: {
+    req: any;
+    reason: string;
+}) {
+    const { data: freshLog } = await supabase.from('attendance_logs')
+        .select('*')
+        .eq('user_id', req.user_id)
+        .eq('date', req.start_date)
+        .maybeSingle();
+
+    if (freshLog) {
+        const noteText = freshLog.note || '';
+        let cleanedNote = noteText
+            .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
+            .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const tag = '[REJECTED GPS_SPOOF_APPEAL]';
+        const label = 'ปฏิเสธการยื่นอุทธรณ์พิกัด GPS';
+        const updatedNote = mergeAttendanceNotes(
+            cleanedNote, 
+            `${tag} ${label}: ${reason}`
+        );
+
+        await supabase.from('attendance_logs').update({
+            status: 'ACTION_REQUIRED',
+            note: updatedNote
+        }).eq('id', freshLog.id);
+    }
+}
+

@@ -1,5 +1,6 @@
 import React from 'react';
 import { AttendanceLog } from '../../../../types/attendance';
+import { findPendingRegistryItemByNote, getWorkTypeStyles } from '../../../../constants/attendanceRegistry';
 import { format, isSameDay } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { 
@@ -73,14 +74,17 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     }, [isHighlighted, onClearHighlight]);
 
     const late = isLate(log);
-    const isProvisionalLate = !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]');
-    const isAppeal = log.status === 'APPEAL' || isProvisionalLate;
+    const pendingItem = findPendingRegistryItemByNote(log.note || '');
+    const isProvisionalLate = pendingItem?.id === 'LATE_ENTRY';
+    const isProvisionalGpsAppeal = pendingItem?.id === 'GPS_SPOOF_APPEAL';
+    const isAppeal = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGpsAppeal;
     const proof = getProofUrl(log);
     const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
     const StatusIcon = statusConfig.icon;
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPending = log.status === 'PENDING_VERIFY';
     const isNotStarted = statusConfig.label === 'ยังไม่เริ่มงาน';
+    const workTypeStyles = getWorkTypeStyles(log.workType);
     
     // Check if it's a late correction (over 3 days)
     const isLateCorrection = log.status === 'ACTION_REQUIRED' && getWorkingDaysDifference(new Date(log.date), new Date(), holidays, exceptions, targetUser) > 3;
@@ -180,13 +184,7 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             </td>
             <td className="px-6 py-4">
                 <div className="flex flex-col gap-1">
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide w-fit ${
-                        log.workType === 'OFFICE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                        log.workType === 'WFH' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                        log.workType === 'LEAVE' ? 'bg-sky-50 text-sky-600 border-sky-100' :
-                        log.workType === 'SITE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                        'bg-orange-50 text-orange-600 border-orange-100'
-                    }`}>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border uppercase tracking-wide w-fit ${workTypeStyles.bg} ${workTypeStyles.text} ${workTypeStyles.border}`}>
                         {log.workType}
                     </span>
                     {!isLeave && (

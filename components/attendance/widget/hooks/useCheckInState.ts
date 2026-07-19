@@ -28,7 +28,9 @@ interface UseCheckInStateProps {
         location: { lat: number, lng: number },
         locationName?: string,
         isProvisionalOnsite?: boolean,
-        provisionalReason?: string
+        provisionalReason?: string,
+        isGpsAppeal?: boolean,
+        gpsAppealReason?: string
     ) => void;
     availableLocations?: LocationDef[];
     startTime?: string;
@@ -80,6 +82,7 @@ export function useCheckInState({
     const [selectedType, setSelectedType] = useState<WorkLocation | null>(null);
     const [provisionalOnsite, setProvisionalOnsite] = useState(false);
     const [provisionalReason, setProvisionalReason] = useState('');
+    const [isGpsAppealActive, setIsGpsAppealActive] = useState(false);
     const [challenge, setChallenge] = useState('');
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -261,6 +264,7 @@ export function useCheckInState({
             setBypassSelfie(false);
             setDetectedMatches([]);
             setSelectedMatch(null);
+            setIsGpsAppealActive(false);
 
             checkLocation();
         }
@@ -331,7 +335,16 @@ export function useCheckInState({
             if (targetType === 'WFH') locName = 'Home (WFH)';
 
             const isProv = passProvisionalOnsite !== undefined ? passProvisionalOnsite : provisionalOnsite;
-            await onConfirm(targetType, compressedFile, { lat: locationState.lat, lng: locationState.lng }, locName, isProv, provisionalReason);
+            await onConfirm(
+                targetType, 
+                compressedFile, 
+                { lat: locationState.lat, lng: locationState.lng }, 
+                locName, 
+                isProv, 
+                provisionalReason,
+                isGpsAppealActive,
+                isGpsAppealActive ? `อุทธรณ์พิกัด GPS ผิดปกติ: ตรวจพบ ${gpsThreatReason || 'ไม่ระบุ'}` : undefined
+            );
             onClose();
         } catch (error) {
             console.error("Submission error:", error);
@@ -345,7 +358,7 @@ export function useCheckInState({
     const handleTypeSelect = (type: WorkLocation, customName?: string, isProvisionalOnsite?: boolean, provReason?: string) => {
         if (isSubmitting) return;
         
-        if (!isGpsSecure) {
+        if (!isGpsSecure && !isGpsAppealActive) {
             showAlert(`ระบบตรวจพบการพยายามใช้แอปสวมสิทธิ์พิกัดปลอมหรือจำลอง GPS: ${gpsThreatReason || 'กรุณาปิดเครื่องมือจำลองพิกัดก่อน'}`, 'ไม่สามารถลงเวลาได้');
             return;
         }
@@ -354,7 +367,7 @@ export function useCheckInState({
              // Allowed by approval
         } else {
              const isNearAnyOffice = !!locationState.matchedLocation;
-             if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS') {
+             if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS' && !isGpsAppealActive) {
                 showAlert(`คุณไม่ได้อยู่ในพิกัดพื้นที่ออฟฟิศหลักที่กำหนดในระบบครับ (ห่างประมาณ ${locationState.distance?.toFixed(0)} ม.)`, 'อยู่นอกพิกัด');
                 return;
             }
@@ -381,7 +394,7 @@ export function useCheckInState({
             }));
         }
 
-        const needsSelfie = needsSelfieDynamic;
+        const needsSelfie = needsSelfieDynamic || isGpsAppealActive;
 
         if (!needsSelfie) {
             setBypassSelfie(true);
@@ -446,6 +459,8 @@ export function useCheckInState({
         setSelectedType,
         provisionalOnsite,
         provisionalReason,
+        isGpsAppealActive,
+        setIsGpsAppealActive,
         challenge,
         capturedFile,
         isSubmitting,

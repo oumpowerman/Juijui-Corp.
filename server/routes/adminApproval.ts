@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../../lib/supabase.js';
-import { adminApprovalService } from '../adminApprovalService.js';
+import { adminApprovalService } from '../../services/adminApprovalService.js';
 import { DEFAULT_GAME_CONFIG } from '../../lib/gameLogic.js';
 import { updateGameStats } from '../../lib/gamification/gameStats.js';
 import { logGameAction } from '../../lib/gamification/gameLogs.js';

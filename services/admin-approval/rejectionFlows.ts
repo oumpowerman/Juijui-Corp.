@@ -141,11 +141,72 @@ export async function rejectForgotCheckInRequest({
     masterOptions: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
-    // ลบแถวบันทึก (Row) ของวันที่เป็นปัญหานั้นออกจากตาราง attendance_logs โดยตรง
-    await supabase.from('attendance_logs')
-        .delete()
+    const { data: freshLog } = await supabase.from('attendance_logs')
+        .select('*')
         .eq('user_id', req.user_id)
-        .eq('date', req.start_date);
+        .eq('date', req.start_date)
+        .maybeSingle();
+
+    if (freshLog) {
+        if (freshLog.check_out_time) {
+            // There is already a checkout! We must not delete the whole row.
+            // Instead, we set check_in_time to null and set status to ACTION_REQUIRED,
+            // allowing them to submit a new check-in request/correction.
+            let cleanedNote = freshLog.note || '';
+            cleanedNote = cleanedNote
+                .replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            
+            const updatedNote = mergeAttendanceNotes(
+                cleanedNote,
+                `[REJECTED FORGOT_CHECKIN] ปฏิเสธคำร้องขอลงเวลาเข้างาน: ${reason}`
+            );
+            
+            await supabase.from('attendance_logs')
+                .update({
+                    check_in_time: null,
+                    status: 'ACTION_REQUIRED',
+                    note: updatedNote
+                })
+                .eq('id', freshLog.id);
+        } else {
+            // No checkout yet, try to delete so they can check in normally or request again.
+            // If delete fails (e.g. due to missing DELETE RLS policy for ADMINs), we fall back 
+            // to updating the row to clear check_in_time and setting status to ACTION_REQUIRED,
+            // allowing them to check in or submit a request again.
+            const { error: deleteError } = await supabase.from('attendance_logs')
+                .delete()
+                .eq('id', freshLog.id);
+
+            if (deleteError) {
+                console.warn("Delete failed, falling back to clearing check-in details via update:", deleteError);
+                let cleanedNote = freshLog.note || '';
+                cleanedNote = cleanedNote
+                    .replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                const updatedNote = mergeAttendanceNotes(
+                    cleanedNote,
+                    `[REJECTED FORGOT_CHECKIN] ปฏิเสธคำร้องขอลงเวลาเข้างาน: ${reason}`
+                );
+                
+                await supabase.from('attendance_logs')
+                    .update({
+                        check_in_time: null,
+                        status: 'ACTION_REQUIRED',
+                        note: updatedNote
+                    })
+                    .eq('id', freshLog.id);
+            }
+        }
+        
+        // Update profile status to OFFLINE immediately
+        await supabase.from('profiles')
+            .update({ work_status: 'OFFLINE' })
+            .eq('id', req.user_id);
+    }
 }
 
 /**
@@ -317,6 +378,11 @@ export async function rejectForgotCheckOutRequest({
                 note: updatedNote
             }).eq('id', freshLog.id);
         }
+
+        // Update profile status to OFFLINE immediately
+        await supabase.from('profiles')
+            .update({ work_status: 'OFFLINE' })
+            .eq('id', req.user_id);
     }
 }
 
@@ -353,6 +419,11 @@ export async function rejectOutOfRangeCheckoutRequest({
             status: 'ACTION_REQUIRED',
             note: updatedNote
         }).eq('id', freshLog.id);
+
+        // Update profile status to OFFLINE immediately
+        await supabase.from('profiles')
+            .update({ work_status: 'OFFLINE' })
+            .eq('id', req.user_id);
     }
 }
 

@@ -10,6 +10,7 @@ import driveRouter from './server/routes/drive.js';
 import tagsRouter from './server/routes/tags.js';
 import dashboardRouter from './server/routes/dashboard.js';
 import chatRouter from './server/routes/chat.js';
+import adminApprovalRouter from './server/routes/adminApproval.js';
 
 const PORT = 3000;
 const app = express();
@@ -35,6 +36,7 @@ app.use(driveRouter);
 app.use(tagsRouter);
 app.use(dashboardRouter);
 app.use(chatRouter);
+app.use(adminApprovalRouter);
 
 async function startServer() {
     // Vite middleware for development

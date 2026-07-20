@@ -69,6 +69,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({
     const lateBuffer = parseInt(masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
     const isForgotCheckInAllowed = useMemo(() => {
+        if (initialDate) return true;
         if (!!todayLog) return false;
         if (!startTime) return false;
 
@@ -83,7 +84,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({
         } catch (e) {
             return false;
         }
-    }, [startTime, lateBuffer, todayLog]);
+    }, [startTime, lateBuffer, todayLog, initialDate]);
 
     const forgotCheckInWindow = useMemo(() => {
         if (!startTime) return { showStr: '', hideStr: '' };

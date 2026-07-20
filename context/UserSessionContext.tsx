@@ -270,17 +270,11 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         const isAdmin = currentUserProfile.role === 'ADMIN';
         let isInitialSubscription = true;
 
-        const attendanceFilter = isAdmin 
-            ? { event: '*', schema: 'public', table: 'attendance_logs' } as const
-            : { event: '*', schema: 'public', table: 'attendance_logs', filter: `user_id=eq.${sessionUser.id}` } as const;
+        const attendanceFilter = { event: '*', schema: 'public', table: 'attendance_logs' } as const;
 
-        const leaveFilter = isAdmin
-            ? { event: '*', schema: 'public', table: 'leave_requests' } as const
-            : { event: '*', schema: 'public', table: 'leave_requests', filter: `user_id=eq.${sessionUser.id}` } as const;
+        const leaveFilter = { event: '*', schema: 'public', table: 'leave_requests' } as const;
 
-        const otFilter = isAdmin
-            ? { event: '*', schema: 'public', table: 'ot_requests' } as const
-            : { event: '*', schema: 'public', table: 'ot_requests', filter: `user_id=eq.${sessionUser.id}` } as const;
+        const otFilter = { event: '*', schema: 'public', table: 'ot_requests' } as const;
 
         // Single Channel for all user session updates
         const channel = supabase.channel(`user-session-hub-${sessionUser.id}`)
@@ -309,12 +303,18 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             // 2. Attendance Logs (Scope based on Role)
             .on('postgres_changes', attendanceFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
+                    if (!isAdmin && payload.new.user_id !== sessionUser.id) return;
                     setAttendanceLogs(prev => {
                         if (prev.some(log => log.id === payload.new.id)) return prev;
                         return [...prev, mapAttendanceLog(payload.new)];
                     });
                 } else if (payload.eventType === 'UPDATE') {
-                    setAttendanceLogs(prev => prev.map(log => log.id === payload.new.id ? mapAttendanceLog(payload.new) : log));
+                    setAttendanceLogs(prev => {
+                        if (!isAdmin && payload.new.user_id !== sessionUser.id) {
+                            return prev.filter(log => log.id !== payload.new.id);
+                        }
+                        return prev.map(log => log.id === payload.new.id ? mapAttendanceLog(payload.new) : log);
+                    });
                 } else if (payload.eventType === 'DELETE') {
                     setAttendanceLogs(prev => prev.filter(log => log.id !== payload.old.id));
                 }
@@ -322,12 +322,18 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             // 3. Leave Requests (Scope based on Role)
             .on('postgres_changes', leaveFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
+                    if (!isAdmin && payload.new.user_id !== sessionUser.id) return;
                     setLeaveRequests(prev => {
                         if (prev.some(req => req.id === payload.new.id)) return prev;
                         return [mapLeaveRequest(payload.new), ...prev];
                     });
                 } else if (payload.eventType === 'UPDATE') {
-                    setLeaveRequests(prev => prev.map(req => req.id === payload.new.id ? mapLeaveRequest(payload.new) : req));
+                    setLeaveRequests(prev => {
+                        if (!isAdmin && payload.new.user_id !== sessionUser.id) {
+                            return prev.filter(req => req.id !== payload.new.id);
+                        }
+                        return prev.map(req => req.id === payload.new.id ? mapLeaveRequest(payload.new) : req);
+                    });
                 } else if (payload.eventType === 'DELETE') {
                     setLeaveRequests(prev => prev.filter(req => req.id !== payload.old.id));
                 }
@@ -335,12 +341,18 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             // 4. Overtime Requests (Scope based on Role)
             .on('postgres_changes', otFilter, (payload) => {
                 if (payload.eventType === 'INSERT') {
+                    if (!isAdmin && payload.new.user_id !== sessionUser.id) return;
                     setOtRequests(prev => {
                         if (prev.some(req => req.id === payload.new.id)) return prev;
                         return [mapOtRequest(payload.new), ...prev];
                     });
                 } else if (payload.eventType === 'UPDATE') {
-                    setOtRequests(prev => prev.map(req => req.id === payload.new.id ? mapOtRequest(payload.new) : req));
+                    setOtRequests(prev => {
+                        if (!isAdmin && payload.new.user_id !== sessionUser.id) {
+                            return prev.filter(req => req.id !== payload.new.id);
+                        }
+                        return prev.map(req => req.id === payload.new.id ? mapOtRequest(payload.new) : req);
+                    });
                 } else if (payload.eventType === 'DELETE') {
                     setOtRequests(prev => prev.filter(req => req.id !== payload.old.id));
                 }

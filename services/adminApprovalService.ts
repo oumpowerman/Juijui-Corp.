@@ -209,6 +209,7 @@ export const adminApprovalService = {
                 customStartTime,
                 customEndTime,
                 adminNote,
+                masterOptions,
                 processAction
             });
             finalDbNote = res.finalDbNote;
@@ -223,6 +224,7 @@ export const adminApprovalService = {
             } else if (request.type === 'GPS_SPOOF_APPEAL') {
                 await approveGpsSpoofAppealRequest({
                     request,
+                    masterOptions,
                     processAction
                 });
             } else {

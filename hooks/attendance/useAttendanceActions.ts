@@ -174,7 +174,7 @@ export const useAttendanceActions = (userId: string) => {
                 
                 try {
                     // 1. Insert auto leave request
-                    await attendanceService.insertLeaveRequest({
+                    const leaveReq = await attendanceService.insertLeaveRequest({
                         user_id: userId,
                         type: provisionalType,
                         start_date: todayDateStr,
@@ -215,13 +215,19 @@ export const useAttendanceActions = (userId: string) => {
                     if (admins && admins.length > 0) {
                         const notifications = admins.map(adm => ({
                             user_id: adm.id,
-                            type: 'INFO',
+                            type: 'APPROVAL_REQ',
                             title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
                             message: provisionalType === 'GPS_SPOOF_APPEAL' 
                                 ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
                                 : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
                             is_read: false,
-                            link_path: 'ADMIN_APPROVALS'
+                            link_path: 'ADMIN_APPROVALS',
+                            related_id: leaveReq?.id || null,
+                            metadata: {
+                                request_id: leaveReq?.id || null,
+                                request_type: provisionalType,
+                                applicant_name: userName
+                            }
                         }));
                         await supabase.from('notifications').insert(notifications);
                     }
@@ -236,7 +242,7 @@ export const useAttendanceActions = (userId: string) => {
             const lateMinutes = matchedShift ? matchedShift.lateMinutes : getLateMinutes(now, effectiveStartTime, buffer);
 
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
-                status: finalIsAppeal ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
+                status: (finalIsAppeal || isProvisional) ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
                 time: format(now, 'HH:mm'),
                 lateMinutes: lateMinutes
@@ -402,7 +408,7 @@ export const useAttendanceActions = (userId: string) => {
             
             await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
 
-            if (calcResult.status === 'COMPLETED' || newStatus === 'PENDING_VERIFY') {
+            if (calcResult.status === 'COMPLETED' || (newStatus === 'PENDING_VERIFY' && !isProvisionalCheckout)) {
                 showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
                 await processAction(userId, 'ATTENDANCE_CHECK_OUT', {
                     time: format(now, 'HH:mm'),

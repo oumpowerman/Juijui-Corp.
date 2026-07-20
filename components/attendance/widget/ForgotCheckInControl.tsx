@@ -172,7 +172,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
             (matches, primaryMatch) => {
                 // Inside Office!
                 setIsInOffice(true);
-                setSelectedRemoteType('ONSITE');
+                setSelectedRemoteType(undefined);
                 setGpsCheckStatus('SUCCESS_TRANSITION');
             },
             (minDistance) => {

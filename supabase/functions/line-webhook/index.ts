@@ -47,6 +47,144 @@ Deno.serve(async (req: any) => {
       const userId = source.userId;
       const type = event.type;
 
+      // Handle interactive postback action buttons
+      if (type === 'postback') {
+        const data = event.postback?.data || '';
+        console.log(`Processing postback event from LINE User ID: ${userId} with data: ${data}`);
+        
+        const params: Record<string, string> = {};
+        const parts = data.split('&');
+        for (const part of parts) {
+          const [key, val] = part.split('=');
+          if (key) {
+            params[decodeURIComponent(key)] = decodeURIComponent(val || '');
+          }
+        }
+
+        const { action, req_id, req_type, notif_id } = params;
+
+        if (action && req_id && req_type) {
+          // Verify admin role in profiles
+          const { data: profile, error: profError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, role, full_name')
+            .eq('line_user_id', userId)
+            .maybeSingle();
+
+          if (profError || !profile || profile.role !== 'ADMIN') {
+            if (replyToken) {
+              const replyMsg = {
+                replyToken: replyToken,
+                messages: [
+                  {
+                    type: 'text',
+                    text: '⚠️ ขออภัยค่ะ บัญชี LINE ของคุณไม่มีสิทธิ์อนุมัติ หรือยังไม่ได้เชื่อมโยงกับโปรไฟล์ที่เป็น ADMIN ในระบบค่ะ'
+                  }
+                ]
+              };
+              await fetch(LINE_REPLY_API, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${lineAccessToken}`
+                },
+                body: JSON.stringify(replyMsg)
+              });
+            }
+            continue;
+          }
+
+          // API Handshake with Express Backend
+          const lineAdminSecret = Deno.env.get('LINE_ADMIN_SECRET') || 'JUIJUI_SECRET_12345';
+          try {
+            const apiRes = await fetch(`${appUrl.replace(/\/$/, '')}/api/admin-approval/line-action`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${lineAdminSecret}`
+              },
+              body: JSON.stringify({
+                action,
+                requestId: req_id,
+                requestType: req_type,
+                notificationId: notif_id,
+                adminProfile: {
+                  id: profile.id,
+                  full_name: profile.full_name
+                }
+              })
+            });
+
+            const apiData = await apiRes.json();
+
+            if (apiRes.ok && apiData.success) {
+              const actionLabel = action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
+              if (replyToken) {
+                const replyMsg = {
+                  replyToken: replyToken,
+                  messages: [
+                    {
+                      type: 'text',
+                      text: `✅ ดำเนินการ${actionLabel}คำขอโดยผู้ดูแล (${profile.full_name}) สำเร็จแล้วค่ะ!`
+                    }
+                  ]
+                };
+                await fetch(LINE_REPLY_API, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${lineAccessToken}`
+                  },
+                  body: JSON.stringify(replyMsg)
+                });
+              }
+            } else {
+              if (replyToken) {
+                const replyMsg = {
+                  replyToken: replyToken,
+                  messages: [
+                    {
+                      type: 'text',
+                      text: `❌ การทำรายการล้มเหลว: ${apiData.error || 'กรุณาทำรายการผ่านระบบหน้าบ้านหลักแทนค่ะ'}`
+                    }
+                  ]
+                };
+                await fetch(LINE_REPLY_API, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${lineAccessToken}`
+                  },
+                  body: JSON.stringify(replyMsg)
+                });
+              }
+            }
+          } catch (apiErr: any) {
+            console.error("API Handshake Error:", apiErr);
+            if (replyToken) {
+              const replyMsg = {
+                replyToken: replyToken,
+                messages: [
+                  {
+                    type: 'text',
+                    text: `❌ เกิดข้อผิดพลาดทางเทคนิคในการเชื่อมต่อหลังบ้าน: ${apiErr.message}`
+                  }
+                ]
+              };
+              await fetch(LINE_REPLY_API, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${lineAccessToken}`
+                },
+                body: JSON.stringify(replyMsg)
+              });
+            }
+          }
+          continue;
+        }
+      }
+
       let shouldTrigger = false;
 
       // 1. ถ้าเป็นการเพิ่มเพื่อนใหม่ -> ส่งทักทายพร้อมปุ่มผูกบัญชีทันที

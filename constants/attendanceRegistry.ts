@@ -256,7 +256,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         approvalBehavior: {
             correctionTarget: 'CHECKOUT_ONLY',
             verifyLateness: false,
-            updateProfileOnline: true,
+            updateProfileOnline: false,
             refundHpOnAbsent: true,
             refundHpOnCorrection: true,
             refundDescriptionAbsent: 'จากการแก้เวลาออกนอกพื้นที่วันที่',

@@ -120,6 +120,16 @@ Deno.serve(async (req: any) => {
           return;
         }
 
+        // 1.5 Fetch LINE_APPROVAL_MODE Configuration
+        const { data: modeOpt } = await supabaseAdmin
+          .from('master_options')
+          .select('label, is_active')
+          .eq('type', 'WORK_CONFIG')
+          .eq('key', 'LINE_APPROVAL_MODE')
+          .maybeSingle();
+
+        const isInteractive = modeOpt?.is_active !== false && (!modeOpt || modeOpt.label === 'INTERACTIVE');
+
         // 2. Construct LINE Message
         const lineAccessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
         let lineMessagePayload: any;
@@ -323,19 +333,85 @@ Deno.serve(async (req: any) => {
                   footer: {
                     type: "box",
                     layout: "vertical",
-                    contents: [
-                      {
-                        type: "button",
-                        action: {
-                          type: "uri",
-                          label: "เปิดเข้าแอป",
-                          uri: "https://juijui-corp.vercel.app/"
-                        },
-                        style: "secondary",
-                        height: "sm",
-                        color: "#f1f5f9"
+                    contents: (() => {
+                      const appUrl = Deno.env.get('APP_URL') || "https://juijui-corp.vercel.app/";
+                      const cleanAppUrl = appUrl.endsWith('/') ? appUrl : `${appUrl}/`;
+
+                      // If interactive mode is enabled and this is a single approval request notification
+                      if (isInteractive && record.type === 'APPROVAL_REQ' && record.related_id) {
+                        let metadataObj: any = {};
+                        if (record.metadata) {
+                          try {
+                            metadataObj = typeof record.metadata === 'string' 
+                              ? JSON.parse(record.metadata) 
+                              : record.metadata;
+                          } catch (e) {
+                            console.error("Failed to parse notification metadata:", e);
+                          }
+                        }
+                        const reqType = metadataObj.request_type || 'WFH';
+                        
+                        return [
+                          {
+                            type: "box",
+                            layout: "horizontal",
+                            spacing: "md",
+                            margin: "none",
+                            contents: [
+                              {
+                                type: "button",
+                                action: {
+                                  type: "postback",
+                                  label: "อนุมัติ ✅",
+                                  data: `action=approve&req_id=${record.related_id}&req_type=${reqType}&notif_id=${record.id}`
+                                },
+                                style: "primary",
+                                height: "sm",
+                                color: "#10b981"
+                              },
+                              {
+                                type: "button",
+                                action: {
+                                  type: "postback",
+                                  label: "ปฏิเสธ ❌",
+                                  data: `action=reject&req_id=${record.related_id}&req_type=${reqType}&notif_id=${record.id}`
+                                },
+                                style: "primary",
+                                height: "sm",
+                                color: "#ef4444"
+                              }
+                            ]
+                          },
+                          {
+                            type: "button",
+                            action: {
+                              type: "uri",
+                              label: "เปิดเข้าแอป",
+                              uri: cleanAppUrl
+                            },
+                            style: "secondary",
+                            height: "sm",
+                            color: "#f1f5f9",
+                            margin: "sm"
+                          }
+                        ];
                       }
-                    ],
+
+                      // Default non-interactive button
+                      return [
+                        {
+                          type: "button",
+                          action: {
+                            type: "uri",
+                            label: "เปิดเข้าแอป",
+                            uri: cleanAppUrl
+                          },
+                          style: "secondary",
+                          height: "sm",
+                          color: "#f1f5f9"
+                        }
+                      ];
+                    })(),
                     paddingAll: "15px"
                   }
                 }

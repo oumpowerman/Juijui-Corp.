@@ -15,6 +15,7 @@ export async function approveSpecialWorkRequest({
     customStartTime,
     customEndTime,
     adminNote,
+    masterOptions = [],
     processAction
 }: {
     request: LeaveRequest;
@@ -22,6 +23,7 @@ export async function approveSpecialWorkRequest({
     customStartTime?: string;
     customEndTime?: string;
     adminNote?: string;
+    masterOptions?: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
     let finalDbNote = adminNote || '';
@@ -75,7 +77,7 @@ export async function approveSpecialWorkRequest({
         const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
         const { data: freshLog } = await supabase
             .from('attendance_logs')
-            .select('id, note, check_out_time')
+            .select('id, note, check_out_time, check_in_time')
             .eq('user_id', request.userId)
             .eq('date', shiftDateStr)
             .maybeSingle();
@@ -101,6 +103,23 @@ export async function approveSpecialWorkRequest({
                     status: targetStatus
                 })
                 .eq('id', freshLog.id);
+
+            // Award check-in points on approval!
+            if (freshLog.check_in_time) {
+                const checkInDate = new Date(freshLog.check_in_time);
+                const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+                const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+                const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+                const isLate = checkIsLate(checkInDate, startTimeStr, buffer);
+                const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer) : 0;
+                
+                await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
+                    status: isLate ? 'LATE' : 'ON_TIME',
+                    time: format(checkInDate, 'HH:mm'),
+                    lateMinutes: lateMinutes,
+                    date: checkInDate
+                });
+            }
         }
 
         if (request.type === 'WFH') {
@@ -322,7 +341,7 @@ export async function approveAttendanceCorrection({
         }
     }
 
-    if (behavior?.updateProfileOnline !== false) {
+    if (behavior?.updateProfileOnline !== false && !freshLog?.check_out_time) {
         await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', request.userId);
     }
 
@@ -463,9 +482,11 @@ export async function approveStandardLeave({
  */
 export async function approveGpsSpoofAppealRequest({
     request,
+    masterOptions = [],
     processAction
 }: {
     request: LeaveRequest;
+    masterOptions?: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
     const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
@@ -496,6 +517,23 @@ export async function approveGpsSpoofAppealRequest({
             status: finalStatus,
             note: mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_APPEAL] อนุมัติการยื่นอุทธรณ์พิกัด GPS: ${request.reason}`)
         }).eq('id', freshLog.id);
+
+        // Award check-in points on GPS spoof appeal approval!
+        if (freshLog.check_in_time) {
+            const checkInDate = new Date(freshLog.check_in_time);
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+            const isLate = checkIsLate(checkInDate, startTimeStr, buffer);
+            const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer) : 0;
+
+            await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
+                status: isLate ? 'LATE' : 'ON_TIME',
+                time: format(checkInDate, 'HH:mm'),
+                lateMinutes: lateMinutes,
+                date: checkInDate
+            });
+        }
     }
 }
 

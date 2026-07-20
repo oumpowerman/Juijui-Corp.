@@ -235,7 +235,7 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         <ForgotCheckInControl 
                             startTime={startTime}
                             lateBuffer={lateBuffer}
-                            isCheckedIn={!!todayLog}
+                            isCheckedIn={!!todayLog?.checkInTime}
                             onSubmit={onCheckOutRequest}
                             leaveUsage={leaveUsage}
                             todayActiveLeave={todayActiveLeave}

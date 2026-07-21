@@ -57,7 +57,7 @@ export function useCheckInState({
     pendingLateTime,
     userId,
 }: UseCheckInStateProps) {
-    const { showAlert } = useGlobalDialog();
+    const { showAlert, showConfirm } = useGlobalDialog();
     const { masterOptions, isLoading } = useMasterData();
     const { currentUserProfile } = useUserSession();
     const [, setSearchParams] = useSearchParams();
@@ -355,7 +355,7 @@ export function useCheckInState({
         }
     };
 
-    const handleTypeSelect = (type: WorkLocation, customName?: string, isProvisionalOnsite?: boolean, provReason?: string) => {
+    const handleTypeSelect = async (type: WorkLocation, customName?: string, isProvisionalOnsite?: boolean, provReason?: string) => {
         if (isSubmitting) return;
         
         if (!isGpsSecure && !isGpsAppealActive) {
@@ -369,6 +369,18 @@ export function useCheckInState({
              const isNearAnyOffice = !!locationState.matchedLocation;
              if (type === 'OFFICE' && !isNearAnyOffice && locationState.status === 'SUCCESS' && !isGpsAppealActive) {
                 showAlert(`คุณไม่ได้อยู่ในพิกัดพื้นที่ออฟฟิศหลักที่กำหนดในระบบครับ (ห่างประมาณ ${locationState.distance?.toFixed(0)} ม.)`, 'อยู่นอกพิกัด');
+                return;
+            }
+        }
+
+        if (type === 'OFFICE' && (approvedWFH || approvedOnsite)) {
+            const approvedTypeStr = approvedWFH ? 'Work From Home' : 'นอกสถานที่ (On-site)';
+            const confirm = await showConfirm(
+                `วันนี้คุณได้รับการอนุมัติให้ปฏิบัติงานแบบ [${approvedTypeStr}] เรียบร้อยแล้ว หากคุณยืนยันที่จะลงเวลาทำงานในรูปแบบ [ปฏิบัติงานในออฟฟิศ (OFFICE)] ระบบจะถือว่าคุณสละสิทธิ์และยกเลิกคำขอเดิมนั้นทันที (ไม่สามารถกู้คืนสิทธิ์วันนั้นได้)\n\nคุณต้องการยืนยันการลงเวลาในออฟฟิศใช่หรือไม่?`,
+                '⚠️ คำเตือนสิทธิ์การทำงานซ้ำซ้อน',
+                true
+            );
+            if (!confirm) {
                 return;
             }
         }
@@ -406,10 +418,23 @@ export function useCheckInState({
         }
     };
 
-    const handleInstantConfirm = () => {
+    const handleInstantConfirm = async () => {
         if (!selectedMatch || isSubmitting) return;
 
         const finalType = (selectedMatch as CheckInLocationMatch).type === 'WORK_LOCATION' ? 'OFFICE' : 'SITE';
+
+        if (finalType === 'OFFICE' && (approvedWFH || approvedOnsite)) {
+            const approvedTypeStr = approvedWFH ? 'Work From Home' : 'นอกสถานที่ (On-site)';
+            const confirm = await showConfirm(
+                `วันนี้คุณได้รับการอนุมัติให้ปฏิบัติงานแบบ [${approvedTypeStr}] เรียบร้อยแล้ว หากคุณยืนยันที่จะลงเวลาทำงานในรูปแบบ [ปฏิบัติงานในออฟฟิศ (OFFICE)] ระบบจะถือว่าคุณสละสิทธิ์และยกเลิกคำขอเดิมนั้นทันที (ไม่สามารถกู้คืนสิทธิ์วันนั้นได้)\n\nคุณต้องการยืนยันการลงเวลาในออฟฟิศใช่หรือไม่?`,
+                '⚠️ คำเตือนสิทธิ์การทำงานซ้ำซ้อน',
+                true
+            );
+            if (!confirm) {
+                return;
+            }
+        }
+
         setSelectedType(finalType);
 
         const needsSelfie = needsSelfieDynamic;

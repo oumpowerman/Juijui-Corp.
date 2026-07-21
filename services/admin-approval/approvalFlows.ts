@@ -3,7 +3,7 @@ import { LeaveRequest } from '../../types/attendance';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getRegistryItem } from '../../constants/attendanceRegistry';
 import { buildOtAuditLog, buildAttendanceCorrectionPayload } from '../../utils/adminApprovalHelpers';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes } from '../../lib/attendanceUtils';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
 import { publishToTeamChannel } from './communicationHelpers';
 
 /**
@@ -280,7 +280,7 @@ export async function approveAttendanceCorrection({
 
         const { data: freshLogCheckout } = await supabase
             .from('attendance_logs')
-            .select('id, note, status')
+            .select('id, note, status, check_in_time')
             .eq('user_id', request.userId)
             .eq('date', shiftDateStr)
             .maybeSingle();
@@ -296,10 +296,16 @@ export async function approveAttendanceCorrection({
             cleanedNoteStr = cleanedNoteStr.replace(/\s+/g, ' ').trim();
 
             const approvedTag = registryItem?.tags.approved || '[APPROVED CORRECTION]';
+            const finalNote = mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`);
+            const resolvedStatus = resolveAttendanceLogStatus(
+                freshLogCheckout.check_in_time,
+                checkOutDateTime.toISOString(),
+                finalNote
+            );
             await supabase.from('attendance_logs').update({
                 check_out_time: checkOutDateTime.toISOString(),
-                status: 'COMPLETED',
-                note: mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`)
+                status: resolvedStatus,
+                note: finalNote
             }).eq('id', freshLogCheckout.id);
 
             await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 

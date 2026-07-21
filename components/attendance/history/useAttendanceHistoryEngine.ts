@@ -314,8 +314,20 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
             }
         }
 
-        if ((log.status === 'COMPLETED' || log.status === 'LATE') && isProvisionalForgot) {
+        if ((log.status === 'COMPLETED' || log.status === 'LATE' || log.status === 'PENDING_VERIFY') && isProvisionalForgot) {
             return { label: 'รออนุมัติเข้างาน (ลืมลงเวลา)', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock };
+        }
+
+        if ((log.status === 'COMPLETED' || log.status === 'LATE' || log.status === 'PENDING_VERIFY') && isProvisionalLate) {
+            return { label: 'รออนุมัติเข้างาน (ขอเข้าสาย)', color: 'bg-violet-100 text-violet-700 border-violet-200', icon: Clock };
+        }
+
+        if ((log.status === 'COMPLETED' || log.status === 'LATE' || log.status === 'PENDING_VERIFY') && isProvisionalWfh) {
+            return { label: 'รออนุมัติเข้างาน (WFH จำลอง)', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Clock };
+        }
+
+        if ((log.status === 'COMPLETED' || log.status === 'LATE' || log.status === 'PENDING_VERIFY') && isProvisionalOnsite) {
+            return { label: 'รออนุมัติเข้างาน (On-site จำลอง)', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Clock };
         }
 
         switch (log.status) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { MapPin, LogOut, AlertCircle, AlertTriangle, ArrowRight } from 'lucide-react';
-import { AttendanceLog, LocationDef } from '../../../../../types/attendance';
+import { AttendanceLog, LocationDef, LeaveRequest } from '../../../../../types/attendance';
 import { CheckOutModal } from '../../CheckOutModal';
 
 interface WorkingNowDisplayProps {
@@ -12,6 +12,8 @@ interface WorkingNowDisplayProps {
     handleOvertimeSubmit: (otMinutes: number, reason: string) => Promise<boolean>;
     onNavigateToHistory?: () => void;
     onOpenLeave?: (type?: any) => void;
+    todayActiveLeave?: LeaveRequest | null;
+    isApprovedLeaveToday?: boolean;
 }
 
 export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
@@ -21,7 +23,9 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
     handleCheckOutRequest,
     handleOvertimeSubmit,
     onNavigateToHistory,
-    onOpenLeave
+    onOpenLeave,
+    todayActiveLeave,
+    isApprovedLeaveToday
 }) => {
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
@@ -51,6 +55,36 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                     เข้าเมื่อ: <span className="font-mono font-bold text-indigo-600">{formatTimeSafe(todayLog?.checkInTime)}</span>
                 </span>
             </div>
+
+            {/* APPROVED WFH BANNER */}
+            {isApprovedLeaveToday && todayActiveLeave?.type === 'WFH' && todayLog?.workType === 'WFH' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2.5">
+                        <div className="bg-emerald-100 p-1.5 rounded-full text-emerald-600">
+                            <span className="text-sm">🏠</span>
+                        </div>
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-emerald-800">กำลังปฏิบัติงานที่บ้าน (WFH อนุมัติแล้ว) ✅</p>
+                            <p className="text-[10px] text-emerald-600 font-medium">คุณได้รับการอนุมัติให้ปฏิบัติงานที่บ้านในวันนี้อย่างเป็นทางการ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* APPROVED ONSITE BANNER */}
+            {isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' && todayLog?.workType === 'SITE' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2.5">
+                        <div className="bg-emerald-100 p-1.5 rounded-full text-emerald-600">
+                            <span className="text-sm">🚗</span>
+                        </div>
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-emerald-800">กำลังปฏิบัติงานนอกสถานที่ (On-site อนุมัติแล้ว) ✅</p>
+                            <p className="text-[10px] text-emerald-600 font-medium">คุณได้รับการอนุมัติให้ปฏิบัติงานนอกสถานที่ในวันนี้อย่างเป็นทางการ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {todayLog?.status === 'ACTION_REQUIRED' && (
                  <div className="bg-gradient-to-r from-red-50 to-rose-50 px-4 py-3 rounded-xl border border-red-200 shadow-sm flex flex-col gap-2 text-left animate-pulse-slow">

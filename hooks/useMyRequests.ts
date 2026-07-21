@@ -3,11 +3,12 @@ import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, LeaveUsage, RequestStatus } from '../types/attendance';
 import { ATTENDANCE_REGISTRY } from '../constants/attendanceRegistry';
 import { useToast } from '../context/ToastContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { eachDayOfInterval, format, isValid } from 'date-fns';
 import { useGoogleDrive } from './useGoogleDrive';
 import { useUserSession } from '../context/UserSessionContext';
 import { useMasterData } from './useMasterData';
-import { isWorkingDay } from '../utils/judgeUtils';
+import { isWorkingDay, countWorkingDaysBetween } from '../utils/judgeUtils';
 import { calculateOtMultiplier, calculateEstimatedPayout } from '../utils/otCalculator';
 import { attendanceService } from '../services/attendanceService';
 
@@ -28,6 +29,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const [isLoading, setIsLoading] = useState(enabled);
     const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
     const { showToast } = useToast();
+    const { showConfirm } = useGlobalDialog();
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
     const checkLateSubmissionRule = (
@@ -40,7 +42,18 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         if (!isValid(requestDate) || !isValid(submittedDate)) return false;
         const requestDay = new Date(requestDate.getFullYear(), requestDate.getMonth(), requestDate.getDate());
         const submittedDay = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
-        return requestDay < submittedDay;
+        
+        if (requestDay >= submittedDay) return false;
+
+        const workingDaysCount = countWorkingDaysBetween(
+            requestDay,
+            submittedDay,
+            annualHolidays || [],
+            calendarExceptions || [],
+            user
+        );
+
+        return workingDaysCount > 2;
     };
 
     const fetchMyRequests = useCallback(async () => {
@@ -320,22 +333,68 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             }
 
             // Check duplicate leave request
-            const { data: existingRequest } = await supabase
-                .from('leave_requests')
-                .select('id, status')
-                .eq('user_id', currentUser.id)
-                .eq('type', type)
-                .eq('start_date', startDateStr)
-                .in('status', ['PENDING', 'APPROVED']) 
-                .maybeSingle();
+            const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
+                .filter(item => item.category === 'LEAVE')
+                .map(item => item.id);
 
-            if (existingRequest) {
-                if (existingRequest.status === 'PENDING') {
-                    showToast('คำขอนี้ส่งไปแล้ว รออนุมัติครับ ⏳', 'warning');
-                } else {
-                    showToast('คำขอนี้อนุมัติแล้วครับ ✅', 'info');
+            const isNewLeave = LEAVE_TYPES.includes(type);
+
+            if (isNewLeave) {
+                const { data: existingLeaves } = await supabase
+                    .from('leave_requests')
+                    .select('id, type, status')
+                    .eq('user_id', currentUser.id)
+                    .in('type', LEAVE_TYPES)
+                    .eq('start_date', startDateStr)
+                    .in('status', ['PENDING', 'APPROVED']);
+
+                if (existingLeaves && existingLeaves.length > 0) {
+                    const approvedLeave = existingLeaves.find(l => l.status === 'APPROVED');
+                    if (approvedLeave) {
+                        showToast('คุณมีวันลาที่ได้รับการอนุมัติแล้วในวันนี้ครับ ✅', 'warning');
+                        return false;
+                    }
+
+                    const pendingLeave = existingLeaves.find(l => l.status === 'PENDING');
+                    if (pendingLeave) {
+                        const originalTypeName = ATTENDANCE_REGISTRY[pendingLeave.type as LeaveType]?.label || pendingLeave.type;
+                        const newTypeName = ATTENDANCE_REGISTRY[type]?.label || type;
+                        const confirmReplace = await showConfirm(
+                            `ในระบบมีคำขอลา [${originalTypeName}] ที่อยู่ระหว่างรออนุมัติอยู่แล้วในวันนี้\nคุณต้องการ ยกเลิกคำขอเดิม แล้วยื่นคำขอ [${newTypeName}] นี้เข้าไปแทนที่หรือไม่?`,
+                            'ตรวจพบคำขอลาซ้ำซ้อน'
+                        );
+
+                        if (confirmReplace) {
+                            await supabase
+                                .from('leave_requests')
+                                .update({ 
+                                    status: 'REJECTED',
+                                    reason: `[REJECTED_FOR_REPLACEMENT] ${newTypeName}`
+                                })
+                                .eq('id', pendingLeave.id);
+                        } else {
+                            return false;
+                        }
+                    }
                 }
-                return false; 
+            } else {
+                const { data: existingRequest } = await supabase
+                    .from('leave_requests')
+                    .select('id, status')
+                    .eq('user_id', currentUser.id)
+                    .eq('type', type)
+                    .eq('start_date', startDateStr)
+                    .in('status', ['PENDING', 'APPROVED']) 
+                    .maybeSingle();
+
+                if (existingRequest) {
+                    if (existingRequest.status === 'PENDING') {
+                        showToast('คำขอนี้ส่งไปแล้ว รออนุมัติครับ ⏳', 'warning');
+                    } else {
+                        showToast('คำขอนี้อนุมัติแล้วครับ ✅', 'info');
+                    }
+                    return false; 
+                }
             }
 
             let attachmentUrl: string | null = null;

@@ -1,7 +1,7 @@
 import { eachDayOfInterval, isValid } from 'date-fns';
 import { isWorkingDay } from './judgeUtils';
 import { LeaveRequest } from '../types/attendance';
-import { mergeAttendanceNotes } from '../lib/attendanceUtils';
+import { mergeAttendanceNotes, resolveAttendanceLogStatus } from '../lib/attendanceUtils';
 
 export interface QuotaCheckResult {
     limit: number;
@@ -129,27 +129,31 @@ export function buildAttendanceCorrectionPayload({
     isLate = false
 }: AttendanceCorrectionPayloadOptions) {
     if (type === 'FORGOT_BOTH') {
+        const finalNote = mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${reason}`);
+        const resolvedStatus = resolveAttendanceLogStatus(checkInTime, checkOutTime, finalNote);
         return {
             user_id: userId,
             date: date,
             check_in_time: checkInTime,
             check_out_time: checkOutTime,
             work_type: 'OFFICE',
-            status: 'COMPLETED',
-            note: mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${reason}`)
+            status: resolvedStatus,
+            note: finalNote
         };
     } else if (type === 'FORGOT_CHECKIN' || type === 'LATE_ENTRY') {
+        const finalNote = mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED ${type}] ${reason}`);
         const payload: any = {
             user_id: userId,
             date: date,
             check_in_time: checkInTime,
             work_type: 'OFFICE',
-            note: mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED ${type}] ${reason}`)
+            note: finalNote
         };
 
         if (checkOutTime) {
             payload.check_out_time = checkOutTime;
-            payload.status = (type === 'LATE_ENTRY' || isLate) ? 'LATE' : 'COMPLETED';
+            const resolvedStatus = resolveAttendanceLogStatus(checkInTime, checkOutTime, finalNote);
+            payload.status = resolvedStatus === 'COMPLETED' && (type === 'LATE_ENTRY' || isLate) ? 'LATE' : resolvedStatus;
         } else {
             payload.status = 'WORKING';
         }

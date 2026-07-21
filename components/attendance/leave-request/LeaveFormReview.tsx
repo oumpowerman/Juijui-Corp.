@@ -122,7 +122,7 @@ export const LeaveFormReview: React.FC<LeaveFormReviewProps> = ({
                     </div>
                 )}
 
-                {!isTimeSpecific && (daysRequested > 0 || selectedType === 'OVERTIME') && (
+                {(!isTimeSpecific || selectedType === 'OVERTIME') && (daysRequested > 0 || selectedType === 'OVERTIME') && (
                     selectedType === 'OVERTIME' ? (
                         <div className="bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-600 bg-no-repeat bg-[length:100%_100%] bg-clip-padding text-white p-4 rounded-[1.5rem] shadow-xl shadow-indigo-500/20 border border-white/20 relative flex items-center justify-between overflow-hidden">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_50%)]" />
@@ -147,7 +147,7 @@ export const LeaveFormReview: React.FC<LeaveFormReviewProps> = ({
                                 <div className="bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-md">
                                     <p className="text-[10px] text-purple-100 font-prompt font-semibold">รวมระยะเวลา</p>
                                     <p className="text-sm font-bold font-prompt text-white">
-                                        {daysRequested > 0 ? `${daysRequested} วัน` : 'วันหยุด'}
+                                        {selectedType === 'OVERTIME' ? '1 วัน' : (daysRequested > 0 ? `${daysRequested} วัน` : 'วันหยุด')}
                                     </p>
                                 </div>
                             </div>

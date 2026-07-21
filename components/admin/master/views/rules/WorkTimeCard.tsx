@@ -18,6 +18,7 @@ export interface WorkTimeConfig {
     lateAlertOffset?: string;
     multipleShiftsEnabled?: string;
     multipleShiftsList?: string;
+    lineApprovalMode?: string;
 }
 
 interface WorkTimeCardProps {

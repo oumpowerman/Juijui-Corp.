@@ -26,6 +26,26 @@ import {
     publishToTeamChannel
 } from './admin-approval/communicationHelpers';
 
+export function translateRequestType(type: string): string {
+    const mapping: Record<string, string> = {
+        'SICK': 'ลาป่วย',
+        'VACATION': 'พักร้อน',
+        'PERSONAL': 'ลากิจ',
+        'EMERGENCY': 'ลาฉุกเฉิน',
+        'WFH': 'Work From Home (WFH)',
+        'OVERTIME': 'ขอปฏิบัติงานล่วงเวลา (OT)',
+        'ONSITE': 'ปฏิบัติงานนอกสถานที่',
+        'LATE_ENTRY': 'แจ้งเข้าสาย / แก้ไขเวลาเข้างาน',
+        'FORGOT_CHECKIN': 'ลืมลงเวลาเข้า (Forgot Check-in)',
+        'FORGOT_CHECKOUT': 'ลืมลงเวลาออก (Forgot Check-out)',
+        'FORGOT_BOTH': 'ลืมทั้งเข้า-ออก (Forgot Both)',
+        'UNPAID': 'ลาไม่รับค่าจ้าง (Unpaid Leave)',
+        'OUT_OF_RANGE_CHECKOUT': 'สแกนออกนอกพื้นที่ (Out of Range Checkout)',
+        'GPS_SPOOF_APPEAL': 'อุทธรณ์พิกัด GPS คลาดเคลื่อน'
+    };
+    return mapping[type] || type;
+}
+
 export interface ApproveOtRequestParams {
     otReq: any;
     currentUser: any;
@@ -258,7 +278,7 @@ export const adminApprovalService = {
             ? dateDisplay 
             : `${dateDisplay} - ${format(request.endDate, 'd MMM yyyy')}`;
 
-        let notifMsg = `รายการ: ${request.type === 'OVERTIME' ? 'ขอ OT' : request.type}\nวันที่: ${fullDateDisplay}`;
+        let notifMsg = `รายการ: ${translateRequestType(request.type)}\nวันที่: ${fullDateDisplay}`;
         
         if (request.type === 'OVERTIME' && isTimeModified) {
             notifMsg += `\n\n⚙️ [แอดมินแก้ไขสิทธิ์และเวลาปฏิบัติงาน]\n• รายละเอียดเดิม: ${request.reason}\n• รายละเอียดใหม่: ${updatedReason}`;
@@ -272,7 +292,7 @@ export const adminApprovalService = {
 
         await sendApprovalNotification(request.userId, notifTitle, notifMsg);
 
-        await publishToTeamChannel(`✅ คำขอของ **${request.user?.name}** (${request.type}) ได้รับการอนุมัติแล้ว`);
+        await publishToTeamChannel(`✅ คำขอของ **${request.user?.name}** (${translateRequestType(request.type)}) ได้รับการอนุมัติแล้ว`);
 
         return { success: true, type: request.type };
     },
@@ -387,9 +407,9 @@ export const adminApprovalService = {
 
         if (targetReq) {
             const dateDisplay = format(targetReq.startDate, 'd MMM yyyy');
-            await sendRejectionNotification(targetReq.userId, '❌ ปฏิเสธคำขอ', `คำขอประเภท: ${targetReq.type} วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`);
+            await sendRejectionNotification(targetReq.userId, '❌ ปฏิเสธคำขอ', `คำขอประเภท: ${translateRequestType(targetReq.type)} วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`);
 
-            await publishToTeamChannel(`❌ คำขอของ **${targetReq.user?.name || 'พนักงาน'}** (${targetReq.type}) ถูกปฏิเสธ`);
+            await publishToTeamChannel(`❌ คำขอของ **${targetReq.user?.name || 'พนักงาน'}** (${translateRequestType(targetReq.type)}) ถูกปฏิเสธ`);
         }
 
         return { success: true };

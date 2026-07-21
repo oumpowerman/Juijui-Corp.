@@ -47,6 +47,7 @@ export const DEFAULT_OPTIONS = [
     { type: 'WORK_CONFIG', key: 'EARLY_LEAVE_MODE_DYNAMIC', label: '1', color: '', sort_order: 13, description: '0 (Flat Rate): หักคะแนนคงที่ตามกฎ EARLY_LEAVE, 1 (Dynamic Rate): หักคะแนนสะสมตามจำนวนนาทีที่ขาดจริง' },
     { type: 'WORK_CONFIG', key: 'HP_PENALTY_LATE_INTERVAL', label: '10', color: '', sort_order: 14, description: 'ความถี่นาทีในการหักคะแนนสาย (เช่น ทุกๆ 10 นาที)' },
     { type: 'WORK_CONFIG', key: 'HP_PENALTY_LATE_RATE', label: '1', color: '', sort_order: 15, description: 'จำนวน HP ที่จะหักต่อรอบนาทีสาย (เช่น หักรอบละ 1 HP)' },
+    { type: 'WORK_CONFIG', key: 'LINE_APPROVAL_MODE', label: 'INTERACTIVE', color: '', sort_order: 16, description: 'รูปแบบการอนุมัติผ่าน LINE Chat (INTERACTIVE หรือ SIMPLE_NOTIF)' },
     { type: 'ATTENDANCE_TYPE', key: 'OFFICE', label: 'เข้าออฟฟิศ', color: 'bg-indigo-600', sort_order: 10 },
     { type: 'ATTENDANCE_TYPE', key: 'ON_TIME', label: 'มาตรงเวลา (On Time)', color: 'bg-emerald-600', sort_order: 15, description: '{"icon": "CheckCircle", "category": "STANDARD"}' },
     { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10, description: '{"icon": "Home", "category": "STANDARD"}' },

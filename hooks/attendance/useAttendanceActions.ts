@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -393,11 +393,18 @@ export const useAttendanceActions = (userId: string) => {
             }
 
             const isProvisionalCheckout = reason && reason.includes('[PROVISIONAL_CHECKOUT]');
-            const newStatus = (todayLog.status === 'PENDING_VERIFY' || isProvisionalCheckout) ? 'PENDING_VERIFY' : 'COMPLETED';
+            const finalNote = mergeAttendanceNotes(currentNote, noteAppend);
+            const resolvedStatus = resolveAttendanceLogStatus(
+                todayLog.checkInTime.toISOString(),
+                now.toISOString(),
+                finalNote,
+                todayLog.status
+            );
+            const newStatus = (todayLog.status === 'PENDING_VERIFY' || isProvisionalCheckout || resolvedStatus === 'PENDING_VERIFY') ? 'PENDING_VERIFY' : resolvedStatus;
             const updatePayload: any = {
                 check_out_time: now.toISOString(),
                 status: newStatus,
-                note: mergeAttendanceNotes(currentNote, noteAppend),
+                note: finalNote,
                 check_out_lat: location?.lat,
                 check_out_lng: location?.lng,
                 check_out_location_name: locationName
@@ -408,8 +415,8 @@ export const useAttendanceActions = (userId: string) => {
             
             await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
 
-            if (calcResult.status === 'COMPLETED' || (newStatus === 'PENDING_VERIFY' && !isProvisionalCheckout)) {
-                showToast('เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+            if (calcResult.status === 'COMPLETED' || isProvisionalCheckout) {
+                showToast(isProvisionalCheckout ? 'ส่งคำขอตอกบัตรออกงานแล้ว รอแอดมินตรวจสอบนะครับ ⏳' : 'เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
                 await processAction(userId, 'ATTENDANCE_CHECK_OUT', {
                     time: format(now, 'HH:mm'),
                     date: now 

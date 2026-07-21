@@ -47,7 +47,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         lateAlertMode: 'AFTER_LIMIT',
         lateAlertOffset: '5',
         multipleShiftsEnabled: 'false',
-        multipleShiftsList: '08:00, 08:30, 09:00'
+        multipleShiftsList: '08:00, 08:30, 09:00',
+        lineApprovalMode: 'INTERACTIVE'
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -75,8 +76,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const lateAlertOffsetOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_ALERT_OFFSET');
         const shiftsEnabledOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
         const shiftsListOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+        const lineApprovalModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LINE_APPROVAL_MODE');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -90,7 +92,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 lateAlertMode: lateAlertModeOpt?.label || 'AFTER_LIMIT',
                 lateAlertOffset: lateAlertOffsetOpt?.label || '5',
                 multipleShiftsEnabled: shiftsEnabledOpt?.label || 'false',
-                multipleShiftsList: shiftsListOpt?.label || '08:00, 08:30, 09:00'
+                multipleShiftsList: shiftsListOpt?.label || '08:00, 08:30, 09:00',
+                lineApprovalMode: lineApprovalModeOpt?.label || 'INTERACTIVE'
             });
         }
 
@@ -141,6 +144,7 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         await updateOrInsert('LATE_ALERT_OFFSET', tempTimeConfig.lateAlertOffset || '5');
         await updateOrInsert('MULTIPLE_SHIFTS_ENABLED', tempTimeConfig.multipleShiftsEnabled || 'false');
         await updateOrInsert('MULTIPLE_SHIFTS_LIST', tempTimeConfig.multipleShiftsList || '08:00, 08:30, 09:00');
+        await updateOrInsert('LINE_APPROVAL_MODE', tempTimeConfig.lineApprovalMode || 'INTERACTIVE');
         
         const parsedRate = parseInt(otJpRate, 10);
         if (!isNaN(parsedRate)) {

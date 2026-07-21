@@ -168,7 +168,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}
                         transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-                        className="bg-white w-full max-w-md h-[540px] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative"
+                        className="bg-white w-full max-w-md min-h-[540px] max-h-[95vh] md:max-h-[640px] h-auto rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative"
                     >
                         <CheckInHeader
                             selectedType={selectedType}
@@ -182,7 +182,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                             onClose={onClose}
                         />
 
-                        <div className="p-6 flex-1 overflow-hidden relative flex flex-col">
+                        <div className="p-6 flex-1 overflow-hidden relative flex flex-col min-h-0">
                             {/* Late Intervention & Penalty Breakdown Overlays */}
                             <AnimatePresence mode="wait">
                                 {showLateIntervention && (
@@ -221,7 +221,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                     initial="enter"
                                     animate="center"
                                     exit="exit"
-                                    className="w-full flex-1 flex flex-col justify-between"
+                                    className="w-full flex-1 flex flex-col justify-between min-h-0"
                                 >
                                     {isShiftsEnabled && shiftResult?.isBlocked ? (
                                         <div className="flex-1 flex flex-col justify-between h-full">
@@ -307,7 +307,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
 
                                             {/* Step: CONFIRM_LOCATION (Instant verification match & overlap picker) */}
                                             {step === 'CONFIRM_LOCATION' && selectedMatch && (
-                                                <div className="flex-1 flex flex-col justify-between w-full">
+                                                <div className="flex-1 flex flex-col justify-between w-full min-h-0">
                                                     <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin w-full">
                                                         <GpsVerificationShield
                                                             isGpsSecure={isGpsSecure}

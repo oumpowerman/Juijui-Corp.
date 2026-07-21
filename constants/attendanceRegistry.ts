@@ -85,7 +85,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         label: 'ลาฉุกเฉิน',
         category: 'LEAVE',
         colors: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', accent: 'bg-rose-500' },
-        rules: { isTimeSpecific: false, isSingleDay: false },
+        rules: { isTimeSpecific: false, isSingleDay: true, forceTodayDate: true },
         tags: {
             pending: '[EMERGENCY_LEAVE_PENDING]',
             approved: '[APPROVED EMERGENCY_LEAVE]',

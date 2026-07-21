@@ -313,3 +313,61 @@ export const getMatchedShiftSlot = (
         lateMinutes: isLate ? diff : 0
     };
 };
+
+/**
+ * Resolves the overall status of an attendance log based on the times and tags inside the note.
+ */
+export const resolveAttendanceLogStatus = (
+    checkInTime: string | null | undefined,
+    checkOutTime: string | null | undefined,
+    note: string | null | undefined,
+    currentStatus?: string
+): 'WORKING' | 'COMPLETED' | 'LATE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED' | 'ABSENT' | 'LEAVE' => {
+    const noteText = note || '';
+
+    // If status is LEAVE or ABSENT, preserve it unless times are explicitly provided
+    if (currentStatus === 'LEAVE') return 'LEAVE';
+    if (currentStatus === 'ABSENT' && !checkInTime && !checkOutTime) return 'ABSENT';
+
+    // 1. Check for Active Rejections (ACTION_REQUIRED has highest priority)
+    const hasRejectedCheckIn = noteText.includes('[REJECTED FORGOT_CHECKIN]');
+    const hasRejectedCheckOut = noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') || noteText.includes('[REJECTED FORGOT_CHECKOUT]');
+    
+    const isCheckInApproved = noteText.includes('[APPROVED FORGOT_CHECKIN]') || noteText.includes('[APPROVED LATE_ENTRY]') || noteText.includes('[APPROVED FORGOT_BOTH]');
+    const isCheckOutApproved = noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') || noteText.includes('[APPROVED FORGOT_CHECKOUT]') || noteText.includes('[APPROVED FORGOT_BOTH]');
+
+    const isCheckInResolved = !!checkInTime && (!hasRejectedCheckIn || isCheckInApproved);
+    const isCheckOutResolved = !!checkOutTime && (!hasRejectedCheckOut || isCheckOutApproved);
+
+    if ((hasRejectedCheckIn && !isCheckInResolved) || (hasRejectedCheckOut && !isCheckOutResolved)) {
+        return 'ACTION_REQUIRED';
+    }
+
+    // 2. Check for Provisional / Pending Verification
+    const hasProvisionalCheckIn = 
+        (noteText.includes('[PROVISIONAL_FORGOT_CHECKIN]') && !noteText.includes('[APPROVED FORGOT_CHECKIN]') && !noteText.includes('[REJECTED FORGOT_CHECKIN]')) || 
+        (noteText.includes('[PROVISIONAL_LATE_ENTRY]') && !noteText.includes('[APPROVED LATE_ENTRY]') && !noteText.includes('[REJECTED LATE_ENTRY]')) ||
+        (noteText.includes('[PROVISIONAL_WFH]') && !noteText.includes('[APPROVED WFH]') && !noteText.includes('[REJECTED_WFH]')) ||
+        (noteText.includes('[PROVISIONAL_ONSITE]') && !noteText.includes('[APPROVED ONSITE]') && !noteText.includes('[REJECTED_ONSITE]'));
+    const hasProvisionalCheckOut = noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[APPROVED FORGOT_CHECKOUT]') && !noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') && !noteText.includes('[REJECTED FORGOT_CHECKOUT]') && !noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]');
+    const isPendingVerify = currentStatus === 'PENDING_VERIFY' || hasProvisionalCheckIn || hasProvisionalCheckOut;
+
+    if (isPendingVerify) {
+        return 'PENDING_VERIFY';
+    }
+
+    // 3. Normal states
+    if (checkInTime && checkOutTime) {
+        if (noteText.includes('[APPROVED LATE_ENTRY]') || noteText.includes('[LATE]')) {
+            return 'LATE';
+        }
+        return 'COMPLETED';
+    }
+
+    if (checkInTime) {
+        return 'WORKING';
+    }
+
+    return (currentStatus as any) || 'ACTION_REQUIRED';
+};
+

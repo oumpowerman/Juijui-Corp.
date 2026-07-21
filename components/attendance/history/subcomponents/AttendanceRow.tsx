@@ -100,6 +100,23 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
         log.status !== 'NO_SHOW' && 
         !isSameDay(new Date(log.date), new Date());
 
+    const noteText = log.note || '';
+    
+    // 1. กลุ่มคำขอ กลับก่อนเวลา (EARLY_LEAVE)
+    const isEarlyLeavePending = noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('[EARLY:');
+    const isEarlyLeaveAccept = noteText.includes('[ACCEPT_PENALTY]');
+    const isEarlyLeaveRejected = noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]');
+    
+    // 2. กลุ่มคำขอ ลงเวลานอกพื้นที่ (OUT_OF_RANGE_CHECKOUT)
+    const isOutOfRangePending = noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('(Location Mismatch)');
+    const isOutOfRangeApproved = noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]');
+    const isOutOfRangeRejected = noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]');
+    
+    // 3. กลุ่มคำขอ ลืมเช็คเอาท์ (FORGOT_CHECKOUT)
+    const isForgotCheckOutPending = noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[EARLY:') && !noteText.includes('(Location Mismatch)');
+    const isForgotCheckOutApproved = noteText.includes('[APPROVED FORGOT_CHECKOUT]');
+    const isForgotCheckOutRejected = noteText.includes('[REJECTED FORGOT_CHECKOUT]');
+
     return (
         <tr 
             ref={rowRef}
@@ -165,7 +182,62 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             </td>
             <td className="px-6 py-4">
                 {log.checkOutTime ? (
-                    <span className="font-mono font-bold text-sm text-gray-600">{format(log.checkOutTime, 'HH:mm')}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-gray-600">
+                            {format(log.checkOutTime, 'HH:mm')}
+                        </span>
+                        
+                        {/* 1. กลับก่อนเวลาอุทธรณ์ */}
+                        {isEarlyLeavePending && (
+                            <span className="text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🟠 APPEAL
+                            </span>
+                        )}
+                        {/* 2. นอกพื้นที่อุทธรณ์ */}
+                        {isOutOfRangePending && (
+                            <span className="text-[9px] font-bold bg-violet-50 text-violet-600 border border-violet-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🟣 OUT OF RANGE
+                            </span>
+                        )}
+                        {/* 3. ลืมออกอุทธรณ์ */}
+                        {isForgotCheckOutPending && (
+                            <span className="text-[9px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🟡 FORGOT
+                            </span>
+                        )}
+                        
+                        {/* 4. นอกพื้นที่อนุมัติผ่าน */}
+                        {isOutOfRangeApproved && (
+                            <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🟢 GPS APPROVED
+                            </span>
+                        )}
+                        {/* 5. แก้เวลาลืมออกอนุมัติผ่าน */}
+                        {isForgotCheckOutApproved && (
+                            <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🟢 APPROVED
+                            </span>
+                        )}
+                        
+                        {/* 6. กลับก่อนเวลา (ตัดแต้ม/ปฏิเสธ) */}
+                        {(isEarlyLeaveAccept || isEarlyLeaveRejected) && (
+                            <span className="text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🔴 EARLY
+                            </span>
+                        )}
+                        {/* 7. นอกพื้นที่โดนปฏิเสธ */}
+                        {isOutOfRangeRejected && (
+                            <span className="text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🔴 REJECTED GPS
+                            </span>
+                        )}
+                        {/* 8. ลืมออกโดนปฏิเสธ */}
+                        {isForgotCheckOutRejected && (
+                            <span className="text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🔴 REJECTED
+                            </span>
+                        )}
+                    </div>
                 ) : isPending ? (
                     <span className="text-orange-500 italic text-xs font-bold flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> รออนุมัติ</span>
                 ) : (isLeave || isNotStarted) ? (

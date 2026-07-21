@@ -5,6 +5,7 @@ import LateAlertCard from './addons/LateAlertCard';
 import MidnightCheckCard from './addons/MidnightCheckCard';
 import DailyReportCard from './addons/DailyReportCard';
 import AttendanceRaceCard from './addons/AttendanceRaceCard';
+import LineApprovalModeCard from './addons/LineApprovalModeCard';
 
 interface WorkTimeConfig {
     start: string;
@@ -20,6 +21,7 @@ interface WorkTimeConfig {
     lateAlertOffset?: string;
     multipleShiftsEnabled?: string;
     multipleShiftsList?: string;
+    lineApprovalMode?: string;
 }
 
 interface ServerAddonsSectionProps {
@@ -44,7 +46,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         return () => media.removeEventListener('change', listener);
     }, []);
 
-    const totalSlides = 4;
+    const totalSlides = 5;
 
     const handleNext = () => {
         setActiveSlide((prev) => (prev + 1) % totalSlides);
@@ -85,6 +87,13 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
+            case 4:
+                return (
+                    <LineApprovalModeCard
+                        tempTimeConfig={tempTimeConfig}
+                        setTempTimeConfig={setTempTimeConfig}
+                    />
+                );
             default:
                 return null;
         }
@@ -96,6 +105,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         { title: 'Midnight Auto Check-out', color: 'bg-amber-500', glow: 'shadow-amber-500/30' },
         { title: 'Daily Summary Report', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
         { title: 'Weekly Attendance Race', color: 'bg-purple-500', glow: 'shadow-purple-500/30' },
+        { title: 'LINE Approval Mode', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
     ];
 
     return (
@@ -175,7 +185,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                             }}
                             transition={{ type: "spring", stiffness: 220, damping: 26 }}
                         >
-                            {[0, 1, 2, 3].map((idx) => {
+                            {[0, 1, 2, 3, 4].map((idx) => {
                                 const isActive = idx === activeSlide;
                                 return (
                                     <motion.div
@@ -228,7 +238,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
             ) : (
                 /* GRID VIEW MODE */
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[0, 1, 2, 3].map((idx) => (
+                    {[0, 1, 2, 3, 4].map((idx) => (
                         <div
                             key={idx}
                             className={`border border-gray-100 bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[440px]`}

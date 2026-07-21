@@ -282,6 +282,8 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     handleOvertimeSubmit={handleOvertimeSubmit}
                     onNavigateToHistory={onNavigateToHistory}
                     onOpenLeave={onOpenLeave}
+                    todayActiveLeave={todayActiveLeave}
+                    isApprovedLeaveToday={isApprovedLeaveToday}
                 />
             ) : (
                 <NotCheckedInDisplay

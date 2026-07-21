@@ -96,13 +96,28 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
             )}
 
             {/* ON LEAVE BANNER (Non-Blocking) */}
-            {(isLeaveLog || (isApprovedLeaveToday && todayActiveLeave?.type !== 'WFH' && todayActiveLeave?.type !== 'ONSITE' && todayActiveLeave?.type !== 'LATE_ENTRY')) && (
+            {(isLeaveLog || (isApprovedLeaveToday && todayActiveLeave?.type !== 'WFH' && todayActiveLeave?.type !== 'ONSITE' && todayActiveLeave?.type !== 'LATE_ENTRY' && todayActiveLeave?.type !== 'OVERTIME')) && (
                 <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2 mb-2">
                     <div className="flex items-center gap-2">
                         <Palmtree className="w-4 h-4 text-blue-600" />
                         <div className="text-left">
                             <p className="text-xs font-bold text-blue-800">วันนี้คุณลางาน: {todayActiveLeave?.type || 'Leave'}</p>
                             <p className="text-[10px] text-blue-600">หากต้องการทำงาน สามารถ Check-in ได้ปกติ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* APPROVED OVERTIME BANNER */}
+            {isApprovedLeaveToday && todayActiveLeave?.type === 'OVERTIME' && (
+                <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3 flex items-center justify-between mb-2 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2.5">
+                        <div className="bg-indigo-100 p-1.5 rounded-full text-indigo-600">
+                            <Flame className="w-4 h-4 animate-pulse" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-indigo-800">อนุมัติทำงานล่วงเวลา (OT) แล้ว ✅</p>
+                            <p className="text-[10px] text-indigo-600 font-medium">คุณได้รับการอนุมัติให้ปฏิบัติงานล่วงเวลา (OT) ในวันนี้ คุณสามารถ Check-in เพื่อเข้าทำงานได้ตามปกติครับ</p>
                         </div>
                     </div>
                 </div>
@@ -172,8 +187,21 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                 </div>
             )}
 
+            {/* PENDING OVERTIME BANNER */}
+            {todayActiveLeave && todayActiveLeave.status === 'PENDING' && todayActiveLeave.type === 'OVERTIME' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between gap-2 mb-2 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2.5">
+                        <Hourglass className="w-4 h-4 text-yellow-600 animate-pulse" />
+                        <div className="text-left">
+                            <p className="text-xs font-bold text-yellow-800">รออนุมัติ: แจ้งทำงานล่วงเวลา (OT) ⏳</p>
+                            <p className="text-[10px] text-yellow-600">คำขอปฏิบัติงานล่วงเวลาของคุณอยู่ระหว่างรออนุมัติ คุณสามารถ Check-in ได้ปกติ ระบบจะบันทึกชั่วโมงเมื่ออนุมัติครับ</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* General Pending Leave Banner (Non-Blocking) */}
-            {todayActiveLeave && todayActiveLeave.status === 'PENDING' && todayActiveLeave.type !== 'LATE_ENTRY' && todayActiveLeave.type !== 'FORGOT_CHECKIN' && todayActiveLeave.type !== 'WFH' && todayActiveLeave.type !== 'ONSITE' && (
+            {todayActiveLeave && todayActiveLeave.status === 'PENDING' && todayActiveLeave.type !== 'LATE_ENTRY' && todayActiveLeave.type !== 'FORGOT_CHECKIN' && todayActiveLeave.type !== 'WFH' && todayActiveLeave.type !== 'ONSITE' && todayActiveLeave.type !== 'OVERTIME' && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center justify-between gap-2 mb-2 animate-in slide-in-from-top-2">
                      <div className="flex items-center gap-2">
                         <Hourglass className="w-4 h-4 text-yellow-600 animate-pulse" />
@@ -211,8 +239,16 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                 }
                             `}
                         >
-                            <LogIn className="w-5 h-5" /> 
-                            {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
+                            {isApprovedLeaveToday && todayActiveLeave?.type === 'WFH' ? (
+                                <>🏠 กดลงเวลาทำงานจากบ้าน (WFH)</>
+                            ) : isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' ? (
+                                <>🚗 กดลงเวลาทำงานนอกสถานที่ (On-site)</>
+                            ) : (
+                                <>
+                                    <LogIn className="w-5 h-5" /> 
+                                    {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
+                                </>
+                            )}
                         </button>
                         
                         {isBlockedByHoliday && (

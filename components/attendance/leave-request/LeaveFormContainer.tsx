@@ -169,18 +169,18 @@ const LeaveFormContainer: React.FC<Props> = ({
     const thaiLabel = selectedOption?.label || (registryItem ? registryItem.label : selectedType);
     const isTimeSpecific = registryItem ? registryItem.rules.isTimeSpecific : false;
     const isSingleDayRequest = registryItem ? (registryItem.rules.isSingleDay || registryItem.rules.isTimeSpecific) : false;
-    const headerLabel = selectedType === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : (isTimeSpecific ? 'แก้ไขเวลา' : thaiLabel);
+    const headerLabel = selectedType === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : ((isTimeSpecific && selectedType !== 'OVERTIME') ? 'แก้ไขเวลา' : thaiLabel);
 
     const daysRequested = useMemo(() => {
         return calculateWorkingDays(
             startDate,
             endDate,
-            isTimeSpecific,
+            isTimeSpecific && selectedType !== 'OVERTIME',
             annualHolidays || [],
             calendarExceptions || [],
             currentUserProfile
         );
-    }, [startDate, endDate, isTimeSpecific, annualHolidays, calendarExceptions, currentUserProfile]);
+    }, [startDate, endDate, isTimeSpecific, selectedType, annualHolidays, calendarExceptions, currentUserProfile]);
 
     const quotaInfo = useMemo(() => {
         const limit = metadata.defaultQuota || 999;
@@ -475,7 +475,16 @@ const LeaveFormContainer: React.FC<Props> = ({
 
                             {/* Dynamic Inputs */}
                             <div className={`relative z-30 bg-white/60 backdrop-blur-xl p-5 sm:p-8 rounded-[2rem] sm:rounded-[3.5rem] border-2 transition-all duration-500 shadow-2xl ${isOverQuota ? 'border-rose-200 ring-8 ring-rose-50/50' : 'border-white/80 hover:border-indigo-100 hover:shadow-indigo-100/20'}`}>
-                                {isTimeSpecific ? (
+                                {selectedType === 'OVERTIME' ? (
+                                    <OvertimeInputs 
+                                        date={startDate} setDate={setStartDate} 
+                                        startTime={targetTime} setStartTime={setTargetTime}
+                                        endTime={endTime} setEndTime={setEndTime}
+                                        hours={otHours} setHours={setOtHours} 
+                                        otType={otType}
+                                        setOtType={setOtType}
+                                    />
+                                ) : isTimeSpecific ? (
                                     <TimeCorrectionInputs 
                                         date={startDate} setDate={setStartDate} 
                                         time={targetTime} setTime={setTargetTime} 
@@ -487,15 +496,6 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         maxDate={maxDate}
                                         selectedType={selectedType}
                                     />
-                                ) : selectedType === 'OVERTIME' ? (
-                                    <OvertimeInputs 
-                                        date={startDate} setDate={setStartDate} 
-                                        startTime={targetTime} setStartTime={setTargetTime}
-                                        endTime={endTime} setEndTime={setEndTime}
-                                        hours={otHours} setHours={setOtHours} 
-                                        otType={otType}
-                                        setOtType={setOtType}
-                                    />
                                 ) : (
                                     <StandardLeaveInputs 
                                         startDate={startDate} setStartDate={setStartDate} 
@@ -503,6 +503,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         minDate={minDate}
                                         maxDate={maxDate}
                                         workingDaysCount={daysRequested}
+                                        selectedType={selectedType}
                                     />
                                 )}
                             </div>

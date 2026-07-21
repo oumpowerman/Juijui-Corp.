@@ -16,6 +16,7 @@ import { DetailModalHeader } from './modal/DetailModalHeader';
 import { DetailModalFilterGrid, FilterType } from './modal/DetailModalFilterGrid';
 import { AttendanceRecordCard } from './modal/AttendanceRecordCard';
 import { OvertimeBreakdownSection } from './modal/OvertimeBreakdownSection';
+import { RecordDetailModal, DetailRecordPayload } from './modal/RecordDetailModal';
 
 interface UserStat {
     userId: string;
@@ -47,6 +48,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
 }) => {
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
     const [isScrolled, setIsScrolled] = useState(false);
+    const [selectedRecord, setSelectedRecord] = useState<DetailRecordPayload | null>(null);
     const { leaveRequests, otRequests } = useUserSession();
 
     // Categorize dates
@@ -198,6 +200,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
                                             badgeText="ON-TIME"
                                             note={log.note}
+                                            onClick={() => setSelectedRecord({ type: 'ATTENDANCE', data: log })}
                                         />
                                     ))}
                                 </div>
@@ -232,6 +235,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                                 timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
                                                 badgeText={isProvisionalLate ? 'APPEAL' : 'LATE'}
                                                 note={log.note}
+                                                onClick={() => setSelectedRecord({ type: 'ATTENDANCE', data: log })}
                                             />
                                         );
                                     })}
@@ -263,6 +267,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             date={date}
                                             variant="absent"
                                             badgeText="ABSENT"
+                                            onClick={() => setSelectedRecord({ type: 'ABSENT', data: { date } })}
                                         />
                                     ))}
                                 </div>
@@ -294,6 +299,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             variant="leave"
                                             badgeText={log.workType || 'LEAVE'}
                                             note={log.note}
+                                            onClick={() => setSelectedRecord({ type: 'LEAVE', data: log })}
                                         />
                                     ))}
                                 </div>
@@ -306,6 +312,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                 leaveRequests={leaveRequests || []}
                                 userId={user.id}
                                 workingDaysInMonth={workingDaysInMonth}
+                                onSelectRecord={(otData) => setSelectedRecord({ type: 'OT', data: otData })}
                             />
                         )}
 
@@ -342,6 +349,12 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                     </button>
                 </div>
             </motion.div>
+
+            {/* Drilldown Detail Sub-Modal */}
+            <RecordDetailModal 
+                record={selectedRecord}
+                onClose={() => setSelectedRecord(null)}
+            />
         </motion.div>,
         document.body
     );

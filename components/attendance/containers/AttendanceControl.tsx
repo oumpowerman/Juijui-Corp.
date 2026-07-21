@@ -108,6 +108,14 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         return undefined;
     }, [todayRequests]);
 
+    const pendingWFHRequest = useMemo(() => {
+        return todayRequests.find(r => r.type === 'WFH' && r.status === 'PENDING');
+    }, [todayRequests]);
+
+    const pendingOnsiteRequest = useMemo(() => {
+        return todayRequests.find(r => (r.type === 'ONSITE' || r.type === 'OFFSITE') && r.status === 'PENDING');
+    }, [todayRequests]);
+
     const handleConfirmCheckIn = async (
         type: WorkLocation, 
         file: File | null, 
@@ -312,7 +320,9 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 lateBuffer={lateBuffer}
                 onSwitchToLeave={(type, workType) => { onOpenLeave(type, workType); }} // Keep CheckIn open so they can return to it if they change their mind
                 approvedWFH={todayRequests.some(r => r.type === 'WFH' && r.status === 'APPROVED')}
-                approvedOnsite={todayRequests.some(r => r.type === 'ONSITE' && r.status === 'APPROVED')}
+                approvedOnsite={todayRequests.some(r => (r.type === 'ONSITE' || r.type === 'OFFSITE') && r.status === 'APPROVED')}
+                pendingWFHRequest={pendingWFHRequest}
+                pendingOnsiteRequest={pendingOnsiteRequest}
                 hasLateRequest={todayRequests.some(r => r.type === 'LATE_ENTRY')}
                 approvedLateTime={approvedLateTime}
                 pendingLateTime={pendingLateTime}

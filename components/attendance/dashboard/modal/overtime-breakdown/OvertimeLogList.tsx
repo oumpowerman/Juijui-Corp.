@@ -9,12 +9,14 @@ interface OvertimeLogListProps {
     matchedRequests: MatchedOtRequest[];
     activeFilter?: 'ALL' | 'NORMAL_DAY' | 'HOLIDAY' | 'HOLIDAY_OVERTIME';
     onClearFilter?: () => void;
+    onSelectRecord?: (req: MatchedOtRequest) => void;
 }
 
 export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({ 
     matchedRequests,
     activeFilter = 'ALL',
-    onClearFilter
+    onClearFilter,
+    onSelectRecord
 }) => {
     return (
         <div className="space-y-3">
@@ -140,7 +142,8 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                         mass: 1,
                                         delay: Math.min(index * 0.03, 0.15) // Micro-stagger for organic flow
                                     }}
-                                    className={`flex flex-col p-4 sm:p-5 bg-white rounded-2xl sm:rounded-[2rem] border border-slate-100/80 group shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-lg hover:-translate-y-1 ${typeConfig.cardHoverBorder} ${typeConfig.cardHoverShadow} transition-all duration-300 gap-3 sm:gap-4`}
+                                    className={`flex flex-col p-4 sm:p-5 bg-white rounded-2xl sm:rounded-[2rem] border border-slate-100/80 group shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-lg hover:-translate-y-1 ${typeConfig.cardHoverBorder} ${typeConfig.cardHoverShadow} transition-all duration-300 gap-3 sm:gap-4 ${onSelectRecord ? 'cursor-pointer' : ''}`}
+                                     onClick={() => onSelectRecord?.(req)}
                                 >
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                                         <div className="flex items-center gap-3 sm:gap-4 text-left">

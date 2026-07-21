@@ -37,6 +37,8 @@ interface CheckInModalProps {
     onSwitchToLeave?: (type?: any, workType?: 'WFH' | 'ONSITE') => void;
     approvedWFH?: boolean; 
     approvedOnsite?: boolean;
+    pendingWFHRequest?: any;
+    pendingOnsiteRequest?: any;
     hasLateRequest?: boolean; 
     approvedLateTime?: string;
     pendingLateTime?: string;
@@ -54,6 +56,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     onSwitchToLeave,
     approvedWFH,
     approvedOnsite,
+    pendingWFHRequest,
+    pendingOnsiteRequest,
     hasLateRequest,
     approvedLateTime,
     pendingLateTime,
@@ -110,6 +114,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         lateBuffer,
         approvedWFH,
         approvedOnsite,
+        pendingWFHRequest,
+        pendingOnsiteRequest,
         hasLateRequest,
         approvedLateTime,
         pendingLateTime,
@@ -414,6 +420,8 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                     onSelect={handleTypeSelect} 
                                                     approvedWFH={approvedWFH} 
                                                     approvedOnsite={approvedOnsite}
+                                                    pendingWFHRequest={pendingWFHRequest}
+                                                    pendingOnsiteRequest={pendingOnsiteRequest}
                                                     allLocations={targets}
                                                     onBack={() => handleSetStep(selectedMatch ? 'CONFIRM_LOCATION' : 'LOCATION')}
                                                     isSubmitting={isSubmitting}

@@ -12,6 +12,7 @@ interface AttendanceRecordCardProps {
     timeLabel?: string;
     badgeText?: string;
     note?: string;
+    onClick?: () => void;
 }
 
 export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
@@ -19,7 +20,8 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
     variant,
     timeLabel,
     badgeText,
-    note
+    note,
+    onClick
 }) => {
     const parsed = parseReason(note || '');
     const isProvisionalWfh = parsed.isProvisionalWfh;
@@ -84,7 +86,10 @@ export const AttendanceRecordCard: React.FC<AttendanceRecordCardProps> = ({
     }[variant];
 
     return (
-        <div className={`flex flex-col gap-2.5 p-4 bg-white rounded-[2rem] border ${config.border} group hover:shadow-lg ${config.hoverShadow} transition-all`}>
+        <div 
+            onClick={onClick}
+            className={`flex flex-col gap-2.5 p-4 bg-white rounded-[2rem] border ${config.border} group hover:shadow-lg ${config.hoverShadow} ${onClick ? 'cursor-pointer hover:-translate-y-0.5 hover:border-indigo-200' : ''} transition-all`}
+        >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div className={`w-14 h-14 ${config.bg} rounded-2xl flex flex-col items-center justify-center border ${config.border} shrink-0`}>

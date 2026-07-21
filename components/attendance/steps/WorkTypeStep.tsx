@@ -9,6 +9,8 @@ interface WorkTypeStepProps {
     onSelect: (type: WorkLocation, customName?: string, isProvisionalOnsite?: boolean, provisionalReason?: string) => void;
     approvedWFH?: boolean;
     approvedOnsite?: boolean;
+    pendingWFHRequest?: any;
+    pendingOnsiteRequest?: any;
     allLocations?: any[]; // All configured locations in the system
     onBack?: () => void; // Support going back
     isSubmitting?: boolean;
@@ -17,7 +19,7 @@ interface WorkTypeStepProps {
 }
 
 const WorkTypeStep: React.FC<WorkTypeStepProps> = ({ 
-    matchedLocation, onSelect, approvedWFH, approvedOnsite, allLocations = [], onBack, isSubmitting = false, onSwitchToLeave, isGpsAppealActive = false
+    matchedLocation, onSelect, approvedWFH, approvedOnsite, pendingWFHRequest, pendingOnsiteRequest, allLocations = [], onBack, isSubmitting = false, onSwitchToLeave, isGpsAppealActive = false
 }) => {
     const { showAlert } = useGlobalDialog();
     const [showOnsiteSelector, setShowOnsiteSelector] = useState(false);
@@ -78,20 +80,44 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                         initial={{ y: 15, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.1, duration: 0.3 }}
-                        className="p-5 border-2 border-yellow-200 bg-yellow-50/50 rounded-3xl space-y-4 text-center"
+                        className={`p-5 border-2 rounded-3xl space-y-4 text-center ${
+                            pendingWFHRequest 
+                                ? 'border-amber-200 bg-amber-50/70' 
+                                : 'border-yellow-200 bg-yellow-50/50'
+                        }`}
                     >
                         <div className="flex flex-col items-center gap-3">
-                            <div className="p-3 bg-yellow-100 rounded-full text-yellow-600 shrink-0">
+                            <div className={`p-3 rounded-full shrink-0 ${
+                                pendingWFHRequest ? 'bg-amber-100 text-amber-600' : 'bg-yellow-100 text-yellow-600'
+                            }`}>
                                 <AlertTriangle className="w-8 h-8" />
                             </div>
                             <div className="space-y-1">
-                                <h4 className="font-bold text-yellow-800 text-sm">ไม่พบใบอนุมัติ WFH สำหรับวันนี้</h4>
-                                <p className="text-[11px] text-yellow-700 leading-relaxed font-medium">
-                                    ⚠️ ไม่พบใบอนุมัติปฏิบัติงาน WFH สำหรับวันนี้ คุณสามารถดำเนินการลงเวลาแบบจำลอง (Provisional WFH) เพื่อเข้าทำงานก่อนได้ แต่จะไม่ถูกนับเป็นชั่วโมงงานสมบูรณ์จนกว่าแอดมินจะกดยืนยัน
+                                <h4 className={`font-bold text-sm ${
+                                    pendingWFHRequest ? 'text-amber-900' : 'text-yellow-800'
+                                }`}>
+                                    {pendingWFHRequest 
+                                        ? 'พบคำขอ WFH ที่รออนุมัติอยู่แล้ว' 
+                                        : 'ไม่พบใบอนุมัติ WFH สำหรับวันนี้'
+                                    }
+                                </h4>
+                                <p className={`text-[11px] leading-relaxed font-medium ${
+                                    pendingWFHRequest ? 'text-amber-800' : 'text-yellow-700'
+                                }`}>
+                                    {pendingWFHRequest ? (
+                                        <>
+                                            ℹ️ คุณมีคำขอ WFH สำหรับวันนี้ที่ยื่นไว้แล้ว <b>(รอการอนุมัติ)</b><br/>
+                                            ระบบจะใช้คำขอเดิมนี้ในการลงเวลาแบบจำลอง (Provisional WFH) ให้อัตโนมัติ โดยจะไม่สร้างคำขอใหม่ซ้ำซ้อนครับ
+                                        </>
+                                    ) : (
+                                        <>
+                                            ⚠️ ไม่พบใบอนุมัติปฏิบัติงาน WFH สำหรับวันนี้ คุณสามารถดำเนินการลงเวลาแบบจำลอง (Provisional WFH) เพื่อเข้าทำงานก่อนได้ แต่จะไม่ถูกนับเป็นชั่วโมงงานสมบูรณ์จนกว่าแอดมินจะกดยืนยัน
+                                        </>
+                                    )}
                                 </p>
                             </div>
 
-                            {onSwitchToLeave && (
+                            {!pendingWFHRequest && onSwitchToLeave && (
                                 <button
                                     type="button"
                                     onClick={() => onSwitchToLeave('WFH')}
@@ -101,16 +127,20 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                 </button>
                             )}
                             
-                            <div className="w-full text-left mt-1 space-y-1.5">
-                                <label className="text-xs font-semibold text-yellow-800">ระบุเหตุผลในการขอ WFH (สั้นๆ):</label>
-                                <textarea
-                                    value={provisionalReason}
-                                    onChange={(e) => setProvisionalReason(e.target.value)}
-                                    placeholder="ระบุเหตุผลสั้นๆ เช่น ปิดงานเอกสารที่บ้าน, มีนัดตรวจสุขภาพ..."
-                                    className="w-full p-2.5 text-xs bg-white border border-yellow-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 font-medium text-gray-700 placeholder:text-gray-400 resize-none h-16"
-                                    maxLength={200}
-                                />
-                            </div>
+                            {!pendingWFHRequest && (
+                                <div className="w-full text-left mt-1 space-y-1.5">
+                                    <label className="text-xs font-semibold text-yellow-800">
+                                        ระบุเหตุผลในการขอ WFH (สั้นๆ):
+                                    </label>
+                                    <textarea
+                                        value={provisionalReason}
+                                        onChange={(e) => setProvisionalReason(e.target.value)}
+                                        placeholder="ระบุเหตุผลสั้นๆ เช่น ปิดงานเอกสารที่บ้าน, มีนัดตรวจสุขภาพ..."
+                                        className="w-full p-2.5 text-xs bg-white border border-yellow-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 font-medium text-gray-700 placeholder:text-gray-400 resize-none h-16"
+                                        maxLength={200}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </div>
@@ -131,9 +161,10 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                         whileHover={isSubmitting ? {} : { scale: 1.02 }}
                         whileTap={isSubmitting ? {} : { scale: 0.98 }}
                         onClick={() => {
-                            onSelect('WFH', undefined, false, provisionalReason.trim() || 'ลงเวลาแบบจำลอง (Provisional WFH)');
+                            const reasonToUse = pendingWFHRequest ? (pendingWFHRequest.reason || 'ใช้คำขอเดิมรออนุมัติ') : (provisionalReason.trim() || 'ลงเวลาแบบจำลอง (Provisional WFH)');
+                            onSelect('WFH', undefined, false, reasonToUse);
                         }}
-                        className={`flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl font-bold text-xs shadow-md shadow-yellow-100 transition-all duration-250 flex items-center justify-center gap-1.5 ${
+                        className={`flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-md shadow-amber-100 transition-all duration-250 flex items-center justify-center gap-1.5 ${
                             isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
@@ -143,7 +174,7 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                 <span>กำลังดำเนินการ...</span>
                             </>
                         ) : (
-                            <span>ตกลง, ลงเวลาแบบจำลอง</span>
+                            <span>{pendingWFHRequest ? 'ตกลง, ใช้คำขอเดิมลงเวลาแบบจำลอง' : 'ตกลง, ลงเวลาแบบจำลอง'}</span>
                         )}
                     </motion.button>
                 </div>
@@ -165,20 +196,44 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                         initial={{ y: 15, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.1, duration: 0.3 }}
-                        className="p-5 border-2 border-orange-200 bg-orange-50/50 rounded-3xl space-y-4 text-center"
+                        className={`p-5 border-2 rounded-3xl space-y-4 text-center ${
+                            pendingOnsiteRequest 
+                                ? 'border-amber-200 bg-amber-50/70' 
+                                : 'border-orange-200 bg-orange-50/50'
+                        }`}
                     >
                         <div className="flex flex-col items-center gap-3">
-                            <div className="p-3 bg-orange-100 rounded-full text-orange-600 shrink-0">
+                            <div className={`p-3 rounded-full shrink-0 ${
+                                pendingOnsiteRequest ? 'bg-amber-100 text-amber-600' : 'bg-orange-100 text-orange-600'
+                            }`}>
                                 <AlertTriangle className="w-8 h-8 animate-bounce" />
                             </div>
                             <div className="space-y-1">
-                                <h4 className="font-bold text-orange-800 text-sm">ไม่พบใบอนุมัติปฏิบัติงานนอกสถานที่ (On-site) สำหรับวันนี้</h4>
-                                <p className="text-[11px] text-orange-700 leading-relaxed font-medium">
-                                    ⚠️ ไม่พบใบอนุมัติปฏิบัติงานนอกสถานที่ (On-site) สำหรับวันนี้ คุณสามารถดำเนินการลงเวลาแบบจำลอง (Provisional On-site) เพื่อเริ่มงานก่อนได้ แต่ระบบจะส่งรายงานให้แอดมินพิจารณาตรวจสอบสิทธิ์และอนุมัติย้อนหลัง
+                                <h4 className={`font-bold text-sm ${
+                                    pendingOnsiteRequest ? 'text-amber-900' : 'text-orange-800'
+                                }`}>
+                                    {pendingOnsiteRequest 
+                                        ? 'พบคำขอ On-site ที่รออนุมัติอยู่แล้ว' 
+                                        : 'ไม่พบใบอนุมัติปฏิบัติงานนอกสถานที่ (On-site) สำหรับวันนี้'
+                                    }
+                                </h4>
+                                <p className={`text-[11px] leading-relaxed font-medium ${
+                                    pendingOnsiteRequest ? 'text-amber-800' : 'text-orange-700'
+                                }`}>
+                                    {pendingOnsiteRequest ? (
+                                        <>
+                                            ℹ️ คุณมีคำขอปฏิบัติงานนอกสถานที่ (On-site) สำหรับวันนี้ที่ยื่นไว้แล้ว <b>(รอการอนุมัติ)</b><br/>
+                                            ระบบจะใช้คำขอเดิมนี้ในการลงเวลาแบบจำลอง (Provisional On-site) ให้อัตโนมัติ โดยจะไม่สร้างคำขอใหม่ซ้ำซ้อนครับ
+                                        </>
+                                    ) : (
+                                        <>
+                                            ⚠️ ไม่พบใบอนุมัติปฏิบัติงานนอกสถานที่ (On-site) สำหรับวันนี้ คุณสามารถดำเนินการลงเวลาแบบจำลอง (Provisional On-site) เพื่อเริ่มงานก่อนได้ แต่ระบบจะส่งรายงานให้แอดมินพิจารณาตรวจสอบสิทธิ์และอนุมัติย้อนหลัง
+                                        </>
+                                    )}
                                 </p>
                             </div>
 
-                            {onSwitchToLeave && (
+                            {!pendingOnsiteRequest && onSwitchToLeave && (
                                 <button
                                     type="button"
                                     onClick={() => onSwitchToLeave('ONSITE')}
@@ -188,16 +243,20 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                 </button>
                             )}
 
-                            <div className="w-full text-left mt-1 space-y-1.5">
-                                <label className="text-xs font-semibold text-orange-800">ระบุเหตุผลปฏิบัติงานนอกสถานที่ (สั้นๆ):</label>
-                                <textarea
-                                    value={provisionalReason}
-                                    onChange={(e) => setProvisionalReason(e.target.value)}
-                                    placeholder="ระบุเหตุผลสั้นๆ เช่น ประชุมนอกสถานที่กับลูกค้า, ดูสถานที่ถ่ายทำ..."
-                                    className="w-full p-2.5 text-xs bg-white border border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-medium text-gray-700 placeholder:text-gray-400 resize-none h-16"
-                                    maxLength={200}
-                                />
-                            </div>
+                            {!pendingOnsiteRequest && (
+                                <div className="w-full text-left mt-1 space-y-1.5">
+                                    <label className="text-xs font-semibold text-orange-800">
+                                        ระบุเหตุผลปฏิบัติงานนอกสถานที่ (สั้นๆ):
+                                    </label>
+                                    <textarea
+                                        value={provisionalReason}
+                                        onChange={(e) => setProvisionalReason(e.target.value)}
+                                        placeholder="ระบุเหตุผลสั้นๆ เช่น ประชุมนอกสถานที่กับลูกค้า, ดูสถานที่ถ่ายทำ..."
+                                        className="w-full p-2.5 text-xs bg-white border border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-medium text-gray-700 placeholder:text-gray-400 resize-none h-16"
+                                        maxLength={200}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </div>
@@ -218,9 +277,10 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                         whileHover={isSubmitting ? {} : { scale: 1.02 }}
                         whileTap={isSubmitting ? {} : { scale: 0.98 }}
                         onClick={() => {
-                            onSelect('SITE', tempOnsiteName, true, provisionalReason.trim() || 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                            const reasonToUse = pendingOnsiteRequest ? (pendingOnsiteRequest.reason || 'ใช้คำขอเดิมรออนุมัติ') : (provisionalReason.trim() || 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                            onSelect('SITE', tempOnsiteName, true, reasonToUse);
                         }}
-                        className={`flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow-md shadow-orange-100 transition-all duration-250 flex items-center justify-center gap-1.5 ${
+                        className={`flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-md shadow-amber-100 transition-all duration-250 flex items-center justify-center gap-1.5 ${
                             isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
@@ -230,7 +290,7 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                 <span>กำลังดำเนินการ...</span>
                             </>
                         ) : (
-                            <span>ตกลง, ลงเวลาแบบจำลอง</span>
+                            <span>{pendingOnsiteRequest ? 'ตกลง, ใช้คำขอเดิมลงเวลาแบบจำลอง' : 'ตกลง, ลงเวลาแบบจำลอง'}</span>
                         )}
                     </motion.button>
                 </div>
@@ -309,11 +369,16 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                         <h4 className="font-bold text-gray-800 text-sm sm:text-base flex items-center gap-2">
                                             Work From Home
                                             {approvedWFH && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200 font-bold leading-none whitespace-nowrap h-fit">อนุมัติแล้ว</span>}
+                                            {!approvedWFH && pendingWFHRequest && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200 font-bold leading-none whitespace-nowrap h-fit">รออนุมัติ</span>}
                                         </h4>
                                         <p className="text-xs text-gray-500">
-                                            {approvedWFH ? 'สิทธิ์ได้รับการอนุมัติในระบบแล้ว' : '⚠️ ไม่ได้รับสิทธิ์ล่วงหน้า (ลงเวลาจำลอง)'}
+                                            {approvedWFH 
+                                                ? 'สิทธิ์ได้รับการอนุมัติในระบบแล้ว' 
+                                                : pendingWFHRequest 
+                                                    ? 'ℹ️ มีคำขอยื่นไว้แล้ว (จะใช้คำขอเดิมลงเวลาจำลอง)' 
+                                                    : '⚠️ ไม่ได้รับสิทธิ์ล่วงหน้า (ลงเวลาจำลอง)'}
                                         </p>
-                                        {!approvedWFH && onSwitchToLeave && (
+                                        {!approvedWFH && !pendingWFHRequest && onSwitchToLeave && (
                                             <span 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -341,7 +406,9 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                     ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed shadow-none'
                                     : approvedOnsite 
                                         ? 'border-orange-500 bg-orange-50 shadow-md ring-1 ring-orange-200' 
-                                        : 'border-orange-100 bg-orange-50/50 hover:border-orange-300 shadow-sm hover:shadow'
+                                        : pendingOnsiteRequest
+                                            ? 'border-amber-300 bg-amber-50/50 hover:border-amber-400 shadow-sm hover:shadow'
+                                            : 'border-orange-100 bg-orange-50/50 hover:border-orange-300 shadow-sm hover:shadow'
                                 }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -352,11 +419,16 @@ const WorkTypeStep: React.FC<WorkTypeStepProps> = ({
                                         <h4 className="font-bold text-gray-800 text-sm sm:text-base flex items-center gap-2">
                                             ทำงานนอกสถานที่ / ออกกอง (On-site)
                                             {approvedOnsite && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200 font-bold leading-none whitespace-nowrap h-fit">อนุมัติแล้ว</span>}
+                                            {!approvedOnsite && pendingOnsiteRequest && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200 font-bold leading-none whitespace-nowrap h-fit">รออนุมัติ</span>}
                                         </h4>
                                         <p className="text-xs text-gray-500">
-                                            {approvedOnsite ? 'สิทธิ์ได้รับการอนุมัติในระบบแล้ว' : '⚠️ ไม่ได้รับสิทธิ์ล่วงหน้า (ลงเวลาจำลอง)'}
+                                            {approvedOnsite 
+                                                ? 'สิทธิ์ได้รับการอนุมัติในระบบแล้ว' 
+                                                : pendingOnsiteRequest 
+                                                    ? 'ℹ️ มีคำขอยื่นไว้แล้ว (จะใช้คำขอเดิมลงเวลาจำลอง)' 
+                                                    : '⚠️ ไม่ได้รับสิทธิ์ล่วงหน้า (ลงเวลาจำลอง)'}
                                         </p>
-                                        {!approvedOnsite && onSwitchToLeave && (
+                                        {!approvedOnsite && !pendingOnsiteRequest && onSwitchToLeave && (
                                             <span 
                                                 onClick={(e) => {
                                                     e.stopPropagation();

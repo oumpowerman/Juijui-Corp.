@@ -37,6 +37,8 @@ interface UseCheckInStateProps {
     lateBuffer?: number;
     approvedWFH?: boolean;
     approvedOnsite?: boolean;
+    pendingWFHRequest?: any;
+    pendingOnsiteRequest?: any;
     hasLateRequest?: boolean;
     approvedLateTime?: string;
     pendingLateTime?: string;
@@ -52,6 +54,8 @@ export function useCheckInState({
     lateBuffer = 0,
     approvedWFH,
     approvedOnsite,
+    pendingWFHRequest,
+    pendingOnsiteRequest,
     hasLateRequest,
     approvedLateTime,
     pendingLateTime,
@@ -469,6 +473,10 @@ export function useCheckInState({
         if (!needsSelfie) {
             setBypassSelfie(true);
             handleSubmit(true, finalType, true);
+        } else if (capturedFile) {
+            // If the user has already taken a selfie photo prior to late warning (e.g. from WorkTypeStep -> Camera -> Preview),
+            // submit directly using the existing capturedFile without forcing a second camera photo.
+            handleSubmit(true, finalType, false);
         } else {
             setBypassSelfie(false);
             handleSetStep('CAMERA');
@@ -495,6 +503,10 @@ export function useCheckInState({
         setShowLateIntervention,
         showLatePenaltyBreakdown,
         setShowLatePenaltyBreakdown,
+        approvedWFH,
+        approvedOnsite,
+        pendingWFHRequest,
+        pendingOnsiteRequest,
         hasAcceptedLateness,
         bypassSelfie,
         needsSelfieDynamic,

@@ -184,73 +184,94 @@ export const useAttendanceActions = (userId: string) => {
             }
 
             if (isProvisional) {
-                let finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
-                if (provisionalType === 'GPS_SPOOF_APPEAL') {
-                    finalReason = gpsAppealReason || 'อุทธรณ์ความปลอดภัยพิกัด GPS ผิดปกติ';
-                }
-                const reasonWithTag = `[PROVISIONAL_${provisionalType}] ${finalReason}`;
-                
                 try {
-                    // 1. Insert auto leave request
-                    const leaveReq = await attendanceService.insertLeaveRequest({
-                        user_id: userId,
-                        type: provisionalType,
-                        start_date: todayDateStr,
-                        end_date: todayDateStr,
-                        reason: reasonWithTag,
-                        attachment_url: proofUrl || null,
-                        status: 'PENDING'
+                    // Check if there is ALREADY an existing PENDING request for today matching this type
+                    const { data: existingPendingRequests } = await supabase
+                        .from('leave_requests')
+                        .select('id, type, created_at, reason')
+                        .eq('user_id', userId)
+                        .eq('status', 'PENDING')
+                        .lte('start_date', todayDateStr)
+                        .gte('end_date', todayDateStr);
+
+                    const existingPending = (existingPendingRequests || []).find((req: any) => {
+                        if (provisionalType === 'WFH') return req.type === 'WFH';
+                        if (provisionalType === 'ONSITE') return req.type === 'ONSITE' || req.type === 'OFFSITE';
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') return req.type === 'GPS_SPOOF_APPEAL';
+                        return false;
                     });
 
-                    // Fetch user's profile name for notification
-                    const { data: userProfile } = await supabase
-                        .from('profiles')
-                        .select('full_name')
-                        .eq('id', userId)
-                        .maybeSingle();
-                    const userName = userProfile?.full_name || 'พนักงาน';
+                    if (existingPending) {
+                        console.log(`[CheckIn] Found existing pending request (${existingPending.id}) for ${provisionalType}. Reusing without duplicate creation.`);
+                    } else {
+                        // Create a NEW leave request only if no pending request exists
+                        let finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                            finalReason = gpsAppealReason || 'อุทธรณ์ความปลอดภัยพิกัด GPS ผิดปกติ';
+                        }
+                        const reasonWithTag = `[PROVISIONAL_${provisionalType}] ${finalReason}`;
 
-                    let typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
-                    if (provisionalType === 'GPS_SPOOF_APPEAL') {
-                        typeLabel = 'อุทธรณ์พิกัด GPS ผิดปกติ';
-                    }
-                    
-                    // 2. Send bot message alert to team_messages
-                    const botMsg = `📢 **ระบบสร้างใบคำขออัตโนมัติ (Provisional)**\n👤 **พนักงาน:** ${userName} (ลงเวลาแบบจำลอง)\nประเภทสิทธิ์: ${typeLabel}\n📅 วันที่: ${format(now, 'd MMM yyyy')}\n📝 เหตุผล: ${finalReason}`;
-                    await supabase.from('team_messages').insert({
-                        content: botMsg,
-                        is_bot: true,
-                        message_type: 'TEXT',
-                        user_id: null
-                    });
+                        // 1. Insert auto leave request
+                        const leaveReq = await attendanceService.insertLeaveRequest({
+                            user_id: userId,
+                            type: provisionalType,
+                            start_date: todayDateStr,
+                            end_date: todayDateStr,
+                            reason: reasonWithTag,
+                            attachment_url: proofUrl || null,
+                            status: 'PENDING'
+                        });
 
-                    // 3. Send Notification to all Admins
-                    const { data: admins } = await supabase
-                        .from('profiles')
-                        .select('id')
-                        .eq('role', 'ADMIN');
+                        // Fetch user's profile name for notification
+                        const { data: userProfile } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('id', userId)
+                            .maybeSingle();
+                        const userName = userProfile?.full_name || 'พนักงาน';
 
-                    if (admins && admins.length > 0) {
-                        const notifications = admins.map(adm => ({
-                            user_id: adm.id,
-                            type: 'APPROVAL_REQ',
-                            title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
-                            message: provisionalType === 'GPS_SPOOF_APPEAL' 
-                                ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
-                                : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
-                            is_read: false,
-                            link_path: 'ADMIN_APPROVALS',
-                            related_id: leaveReq?.id || null,
-                            metadata: {
-                                request_id: leaveReq?.id || null,
-                                request_type: provisionalType,
-                                applicant_name: userName
-                            }
-                        }));
-                        await supabase.from('notifications').insert(notifications);
+                        let typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                            typeLabel = 'อุทธรณ์พิกัด GPS ผิดปกติ';
+                        }
+                        
+                        // 2. Send bot message alert to team_messages
+                        const botMsg = `📢 **ระบบสร้างใบคำขออัตโนมัติ (Provisional)**\n👤 **พนักงาน:** ${userName} (ลงเวลาแบบจำลอง)\nประเภทสิทธิ์: ${typeLabel}\n📅 วันที่: ${format(now, 'd MMM yyyy')}\n📝 เหตุผล: ${finalReason}`;
+                        await supabase.from('team_messages').insert({
+                            content: botMsg,
+                            is_bot: true,
+                            message_type: 'TEXT',
+                            user_id: null
+                        });
+
+                        // 3. Send Notification to all Admins
+                        const { data: admins } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('role', 'ADMIN');
+
+                        if (admins && admins.length > 0) {
+                            const notifications = admins.map(adm => ({
+                                user_id: adm.id,
+                                type: 'APPROVAL_REQ',
+                                title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
+                                message: provisionalType === 'GPS_SPOOF_APPEAL' 
+                                    ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
+                                    : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
+                                is_read: false,
+                                link_path: 'ADMIN_APPROVALS',
+                                related_id: leaveReq?.id || null,
+                                metadata: {
+                                    request_id: leaveReq?.id || null,
+                                    request_type: provisionalType,
+                                    applicant_name: userName
+                                }
+                            }));
+                            await supabase.from('notifications').insert(notifications);
+                        }
                     }
                 } catch (requestErr: any) {
-                    console.error("Failed to generate auto provisional leave request", requestErr);
+                    console.error("Failed to generate or check provisional leave request", requestErr);
                 }
             }
 

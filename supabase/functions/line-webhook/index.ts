@@ -61,9 +61,11 @@ Deno.serve(async (req: any) => {
           }
         }
 
-        const { action, req_id, req_type, notif_id } = params;
+        const { action, req_id, requestId: paramReqId, id: paramId, req_type, requestType: paramReqType, type: paramType, notif_id } = params;
+        const targetRequestId = req_id || paramReqId || paramId;
+        const targetRequestType = req_type || paramReqType || paramType || 'WFH';
 
-        if (action && req_id && req_type) {
+        if (action && targetRequestId) {
           // Verify admin role in profiles
           const { data: profile, error: profError } = await supabaseAdmin
             .from('profiles')
@@ -105,8 +107,8 @@ Deno.serve(async (req: any) => {
               },
               body: JSON.stringify({
                 action,
-                requestId: req_id,
-                requestType: req_type,
+                requestId: targetRequestId,
+                requestType: targetRequestType,
                 notificationId: notif_id,
                 adminProfile: {
                   id: profile.id,
@@ -145,7 +147,7 @@ Deno.serve(async (req: any) => {
                   messages: [
                     {
                       type: 'text',
-                      text: `❌ การทำรายการล้มเหลว: ${apiData.error || 'กรุณาทำรายการผ่านระบบหน้าบ้านหลักแทนค่ะ'}`
+                      text: apiData.error ? `⚠️ ${apiData.error}` : '⚠️ คำขอนี้ได้รับการดำเนินการไปแล้ว หรือไม่พบข้อมูลในระบบค่ะ'
                     }
                   ]
                 };

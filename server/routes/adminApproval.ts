@@ -121,7 +121,7 @@ async function processActionServer(userId: string, action: string, context: any 
 /**
  * HTTPS Postback endpoint for Line webhook interactive buttons
  */
-router.post('/api/admin-approval/line-action', async (req, res) => {
+const handleLineAction = async (req: express.Request, res: express.Response) => {
     const authHeader = req.headers.authorization;
     const lineAdminSecret = process.env.LINE_ADMIN_SECRET || 'JUIJUI_SECRET_12345';
 
@@ -131,17 +131,21 @@ router.post('/api/admin-approval/line-action', async (req, res) => {
         return res.status(401).json({ success: false, error: 'Unauthorized handshake signature' });
     }
 
-    const { action, requestId, requestType, notificationId, adminProfile } = req.body;
+    const action = req.body.action;
+    const requestId = req.body.requestId || req.body.id;
+    const requestType = req.body.requestType || req.body.type || 'WFH';
+    const notificationId = req.body.notificationId;
+    const adminProfile = req.body.adminProfile;
 
-    if (!action || !requestId || !requestType || !adminProfile || !adminProfile.id) {
-        return res.status(400).json({ success: false, error: 'Missing required request parameters' });
+    if (!action || !requestId || !adminProfile || !adminProfile.id) {
+        return res.status(400).json({ success: false, error: 'Missing required request parameters (action, requestId, adminProfile)' });
     }
 
     try {
-        console.log(`[Line-Action API] Admin ${adminProfile.full_name} is performing ${action} on request ${requestId}`);
+        console.log(`[Line-Action API] Admin ${adminProfile.full_name || adminProfile.name} is performing ${action} on request ${requestId}`);
 
-        // 2. Fetch leave request from database
-        const { data: reqData, error: reqErr } = await supabase
+        // 2. Fetch request from database (Check leave_requests first, then ot_requests)
+        const { data: leaveReqData, error: leaveReqErr } = await supabase
             .from('leave_requests')
             .select(`
                 *,
@@ -150,50 +154,60 @@ router.post('/api/admin-approval/line-action', async (req, res) => {
             .eq('id', requestId)
             .maybeSingle();
 
-        if (reqErr || !reqData) {
-            console.error('[Line-Action API] Fetch request error:', reqErr);
+        let reqData = leaveReqData;
+        let isDedicatedOt = false;
+        let otReqData: any = null;
+
+        if (!reqData) {
+            const { data: otData } = await supabase
+                .from('ot_requests')
+                .select(`
+                    *,
+                    profiles:profiles!ot_requests_user_id_fkey (id, full_name, avatar_url, position)
+                `)
+                .eq('id', requestId)
+                .maybeSingle();
+
+            if (otData) {
+                isDedicatedOt = true;
+                otReqData = otData;
+            }
+        }
+
+        if (!reqData && !otReqData) {
+            console.error('[Line-Action API] Request not found in leave_requests or ot_requests:', requestId);
             return res.status(404).json({ success: false, error: 'ไม่พบข้อมูลคำขอลาหรือคำขออนุมัติในระบบ' });
         }
 
+        const currentStatus = isDedicatedOt ? otReqData.status : reqData.status;
+
         // 3. Double-Submission Prevention: Verify request status is still PENDING
-        if (reqData.status !== 'PENDING') {
-            const actionVerb = reqData.status === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
-            const { data: approverProfile } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', reqData.approver_id)
-                .maybeSingle();
-            
-            const approverName = approverProfile?.full_name || 'ผู้ดูแลระบบ';
-            console.log(`[Line-Action API] Request ${requestId} was already processed. Status: ${reqData.status}`);
+        if (currentStatus !== 'PENDING') {
+            const actionVerb = currentStatus === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
+            const approverId = isDedicatedOt 
+                ? (otReqData.approver_id || otReqData.reviewed_by)
+                : (reqData.approver_id || reqData.approved_by || reqData.reviewed_by);
+
+            let approverName = 'ผู้ดูแลระบบ';
+            if (approverId) {
+                const { data: approverProfile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', approverId)
+                    .maybeSingle();
+                if (approverProfile?.full_name) {
+                    approverName = approverProfile.full_name;
+                }
+            }
+
+            console.log(`[Line-Action API] Request ${requestId} was already processed. Status: ${currentStatus}`);
             return res.status(400).json({ 
                 success: false, 
                 error: `คำขอนี้ได้รับการ${actionVerb}แล้วโดยแอดมินคุณ ${approverName} เพื่อความปลอดภัยจึงไม่อนุญาตให้ทำรายการซ้ำซ้อนค่ะ` 
             });
         }
 
-        // 4. Transform DB model to camelCase LeaveRequest model expected by adminApprovalService
-        const mappedRequest = {
-            id: reqData.id,
-            userId: reqData.user_id,
-            type: reqData.type,
-            startDate: new Date(reqData.start_date),
-            endDate: new Date(reqData.end_date),
-            reason: reqData.reason,
-            attachmentUrl: reqData.attachment_url,
-            status: reqData.status,
-            approverId: reqData.approver_id,
-            createdAt: new Date(reqData.created_at),
-            rejectionReason: reqData.rejection_reason,
-            user: reqData.profiles ? {
-                id: reqData.profiles.id,
-                name: reqData.profiles.full_name,
-                avatarUrl: reqData.profiles.avatar_url,
-                position: reqData.profiles.position
-            } : undefined
-        };
-
-        // 5. Fetch dependent configuration tables
+        // 4. Fetch dependent configuration tables
         const { data: masterOptions } = await supabase.from('master_options').select('*');
         const { data: annualHolidays } = await supabase.from('annual_holidays').select('*');
         const { data: calendarExceptions } = await supabase.from('calendar_exceptions').select('*');
@@ -201,38 +215,87 @@ router.post('/api/admin-approval/line-action', async (req, res) => {
         const currentUser = {
             id: adminProfile.id,
             role: 'ADMIN',
-            name: adminProfile.full_name
+            name: adminProfile.full_name || adminProfile.name
         };
 
-        // 6. Execute Transaction
-        if (action === 'approve') {
-            await adminApprovalService.approveLeaveOrCorrectionTransaction({
-                request: mappedRequest as any,
-                currentUser,
-                adminNote: 'อนุมัติคำขอผ่าน LINE Interactive',
-                masterOptions: masterOptions || [],
-                annualHolidays: annualHolidays || [],
-                calendarExceptions: calendarExceptions || [],
-                processAction: processActionServer
-            });
-        } else if (action === 'reject') {
-            await adminApprovalService.rejectRequestTransaction({
-                id: requestId,
-                reason: 'ปฏิเสธคำขอผ่าน LINE Interactive',
-                currentUser,
-                isDedicatedOtRequest: false,
-                targetReq: mappedRequest as any,
-                masterOptions: masterOptions || [],
-                processAction: processActionServer
-            });
+        const targetEmployeeName = isDedicatedOt 
+            ? (otReqData.profiles?.full_name || 'พนักงาน')
+            : (reqData.profiles?.full_name || 'พนักงาน');
+
+        // 5. Execute Transaction
+        if (isDedicatedOt) {
+            if (action === 'approve') {
+                await adminApprovalService.approveOtRequestTransaction({
+                    otReq: otReqData,
+                    currentUser,
+                    adminNote: 'อนุมัติคำขอ OT ผ่าน LINE Interactive',
+                    processAction: processActionServer
+                });
+            } else if (action === 'reject') {
+                await adminApprovalService.rejectRequestTransaction({
+                    id: requestId,
+                    reason: 'ปฏิเสธคำขอ OT ผ่าน LINE Interactive',
+                    currentUser,
+                    isDedicatedOtRequest: true,
+                    otReq: otReqData,
+                    masterOptions: masterOptions || [],
+                    processAction: processActionServer
+                });
+            } else {
+                return res.status(400).json({ success: false, error: 'Invalid action specified' });
+            }
         } else {
-            return res.status(400).json({ success: false, error: 'Invalid action specified' });
+            // Transform DB model to camelCase LeaveRequest model expected by adminApprovalService
+            const mappedRequest = {
+                id: reqData.id,
+                userId: reqData.user_id,
+                type: reqData.type,
+                startDate: new Date(reqData.start_date),
+                endDate: new Date(reqData.end_date),
+                reason: reqData.reason,
+                attachmentUrl: reqData.attachment_url,
+                status: reqData.status,
+                approverId: reqData.approver_id,
+                createdAt: new Date(reqData.created_at),
+                rejectionReason: reqData.rejection_reason,
+                user: reqData.profiles ? {
+                    id: reqData.profiles.id,
+                    name: reqData.profiles.full_name,
+                    avatarUrl: reqData.profiles.avatar_url,
+                    position: reqData.profiles.position
+                } : undefined
+            };
+
+            if (action === 'approve') {
+                await adminApprovalService.approveLeaveOrCorrectionTransaction({
+                    request: mappedRequest as any,
+                    currentUser,
+                    adminNote: 'อนุมัติคำขอผ่าน LINE Interactive',
+                    masterOptions: masterOptions || [],
+                    annualHolidays: annualHolidays || [],
+                    calendarExceptions: calendarExceptions || [],
+                    processAction: processActionServer
+                });
+            } else if (action === 'reject') {
+                await adminApprovalService.rejectRequestTransaction({
+                    id: requestId,
+                    reason: 'ปฏิเสธคำขอผ่าน LINE Interactive',
+                    currentUser,
+                    isDedicatedOtRequest: false,
+                    targetReq: mappedRequest as any,
+                    masterOptions: masterOptions || [],
+                    processAction: processActionServer
+                });
+            } else {
+                return res.status(400).json({ success: false, error: 'Invalid action specified' });
+            }
         }
 
-        // 7. Dynamic Feedback (UX) & Double-Submission Prevention: Update all related admin notifications in Supabase
+        // 6. Dynamic Feedback (UX) & Double-Submission Prevention: Update all related admin notifications in Supabase
         const actionLabel = action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
         const nowTimeStr = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-        const updatedMsg = `[${actionLabel}แล้ว] คำขอลงเวลาแบบจำลอง (${requestType}) ของพนักงาน ${mappedRequest.user?.name || 'พนักงาน'} ได้รับการ${actionLabel}แล้วโดยแอดมินคุณ ${adminProfile.full_name} เมื่อเวลา ${nowTimeStr} น.`;
+        const adminName = adminProfile.full_name || adminProfile.name;
+        const updatedMsg = `[${actionLabel}แล้ว] คำขอ (${requestType}) ของพนักงาน ${targetEmployeeName} ได้รับการ${actionLabel}แล้วโดยแอดมินคุณ ${adminName} เมื่อเวลา ${nowTimeStr} น.`;
 
         await supabase
             .from('notifications')
@@ -243,12 +306,18 @@ router.post('/api/admin-approval/line-action', async (req, res) => {
             })
             .eq('related_id', requestId);
 
-        return res.json({ success: true, message: `Successfully ${action}d request ${requestId}` });
+        return res.json({ 
+            success: true, 
+            message: `ดำเนินการ${actionLabel}คำขอของคุณ ${targetEmployeeName} เรียบร้อยแล้วค่ะ` 
+        });
 
     } catch (err: any) {
         console.error('[Line-Action API] Transaction execution failure:', err);
         return res.status(500).json({ success: false, error: `ระบบประมวลผลล้มเหลว: ${err.message}` });
     }
-});
+};
+
+router.post('/api/admin-approval/line-action', handleLineAction);
+router.post('/api/admin-approval/process-line-action', handleLineAction);
 
 export default router;

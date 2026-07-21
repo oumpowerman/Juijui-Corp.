@@ -15,12 +15,14 @@ interface OvertimeBreakdownSectionProps {
     leaveRequests: LeaveRequest[];
     userId: string;
     workingDaysInMonth: Date[]; // For date boundary matching
+    onSelectRecord?: (record: any) => void;
 }
 
 export const OvertimeBreakdownSection: React.FC<OvertimeBreakdownSectionProps> = ({
     leaveRequests,
     userId,
-    workingDaysInMonth
+    workingDaysInMonth,
+    onSelectRecord
 }) => {
     const { otRequests, attendanceLogs } = useUserSession();
 
@@ -129,6 +131,7 @@ export const OvertimeBreakdownSection: React.FC<OvertimeBreakdownSectionProps> =
                 matchedRequests={filteredMatchedRequests} 
                 activeFilter={activeRateFilter}
                 onClearFilter={() => setActiveRateFilter('ALL')}
+                onSelectRecord={onSelectRecord}
             />
         </motion.div>
     );

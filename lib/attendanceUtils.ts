@@ -8,11 +8,12 @@ import { AnnualHoliday, User, ShiftSlotResult } from '../types';
  * Respects annual holidays and manual exceptions if provided.
  */
 export const getWorkingDaysDifference = (
-    startDate: Date, 
-    endDate: Date, 
+    startDate: Date | string, 
+    endDate: Date | string, 
     holidays: AnnualHoliday[] = [], 
     exceptions: any[] = [],
-    user?: User | null
+    user?: User | null,
+    inclusive: boolean = false
 ): number => {
     let count = 0;
     let current = new Date(startDate);
@@ -27,11 +28,20 @@ export const getWorkingDaysDifference = (
         end = temp;
     }
 
-    while (current < end) {
-        if (isWorkingDay(current, holidays, exceptions, user || null)) {
-            count++;
+    if (inclusive) {
+        while (current <= end) {
+            if (isWorkingDay(current, holidays, exceptions, user || null)) {
+                count++;
+            }
+            current.setDate(current.getDate() + 1);
         }
-        current.setDate(current.getDate() + 1);
+    } else {
+        while (current < end) {
+            if (isWorkingDay(current, holidays, exceptions, user || null)) {
+                count++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
     }
     return isReverse ? -count : count;
 };

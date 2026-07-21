@@ -145,7 +145,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     // Calculate duration details
     let durationText = '';
     if (isLeave) {
-        const days = getWorkingDaysDifference(request.startDate, request.endDate, annualHolidays, calendarExceptions);
+        const days = getWorkingDaysDifference(request.startDate, request.endDate, annualHolidays, calendarExceptions, null, true);
         durationText = `รวมเป็นเวลา ${days} วันทำการ`;
     }
 

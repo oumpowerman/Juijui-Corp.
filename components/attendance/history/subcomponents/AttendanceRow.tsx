@@ -170,12 +170,32 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                             {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 px-1.5 py-0.5 rounded text-red-600 uppercase">LATE</span>}
                         </span>
                         {(() => {
-                            const match = log.note?.match(/\[TARGET_SHIFT:([^\]]+)\]/);
-                            return match ? (
-                                <span className="block text-[9px] text-teal-600 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 w-fit mt-1">
-                                    กะ {match[1]} น.
-                                </span>
-                            ) : null;
+                            const matchShift = log.note?.match(/\[TARGET_SHIFT:([^\]]+)\]/);
+                            const matchActual = log.note?.match(/\[ACTUAL_CHECK_IN:([^\]]+)\]/);
+                            if (!matchShift) return null;
+                            
+                            let actualTimeStr = '';
+                            if (matchActual && matchActual[1]) {
+                                const parts = matchActual[1].split(':');
+                                if (parts.length >= 2) {
+                                    actualTimeStr = `${parts[0]}:${parts[1]}`;
+                                } else {
+                                    actualTimeStr = matchActual[1];
+                                }
+                            }
+
+                            return (
+                                <div className="space-y-0.5 mt-1">
+                                    <span className="block text-[9px] text-teal-600 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 w-fit">
+                                        กะ {matchShift[1]} น.
+                                    </span>
+                                    {actualTimeStr && (
+                                        <span className="block text-[9px] text-gray-400 font-medium italic">
+                                            (กดจริง {actualTimeStr} น.)
+                                        </span>
+                                    )}
+                                </div>
+                            );
                         })()}
                     </div>
                 ) : (isLeave || isNotStarted) ? <span className="text-xs text-gray-400">-</span> : <span className="text-gray-300 text-xs">--:--</span>}

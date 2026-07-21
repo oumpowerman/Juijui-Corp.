@@ -218,7 +218,7 @@ Deno.serve(async (req: any) => {
                       },
                       {
                         type: "text",
-                        text: new Date(rec.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                        text: new Date(rec.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }),
                         size: "xxs",
                         color: "#cbd5e1",
                         align: "end"
@@ -274,7 +274,7 @@ Deno.serve(async (req: any) => {
                   },
                   {
                     type: "text",
-                    text: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                    text: new Date(record.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }),
                     size: "xxs",
                     color: "#cbd5e1",
                     align: "end"

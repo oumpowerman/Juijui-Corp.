@@ -224,11 +224,21 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                     stats={{ xp: rules.SITE?.xp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.SITE.xp, coins: rules.SITE?.coins || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.SITE.coins }}
                                     description="ตอกบัตรเข้าทำงานที่ออฟฟิศ จะได้รับโบนัสพิเศษมากกว่าปกติ"
                                 />
+                                <SectionHeader title="ชั่วโมงทำงานและการออกก่อนเวลา" icon={Clock} color="text-indigo-600" />
                                 <RuleCard 
                                     icon={Clock} colorTheme="indigo" title="ชั่วโมงการทำงาน" delay={0.6}
                                     description={
                                         <span>
-                                            ต้องทำงานให้ครบ <span className="font-bold text-indigo-600">{minHours} ชั่วโมง</span> ต่อวัน หรือกดออกหลังเวลาเลิกงานที่กำหนด
+                                            ต้องทำงานให้ครบ <span className="font-bold text-indigo-600">{minHours} ชั่วโมง</span> ต่อวัน (นับเวลาเริ่มต้นตั้งแต่ตอนกด Check-in)
+                                        </span>
+                                    }
+                                />
+                                <RuleCard 
+                                    icon={LogOut} colorTheme="rose" title="กลับก่อนเวลา (Early Leave)" delay={0.7}
+                                    stats={{ hp: -(penalties.HP_PENALTY_EARLY_LEAVE_RATE || DEFAULT_GAME_CONFIG.PENALTY_RATES.HP_PENALTY_EARLY_LEAVE_RATE) }}
+                                    description={
+                                        <span>
+                                            หากกด Check-out ก่อนทำงานครบ {minHours} ชั่วโมง ระบบจะบันทึกสถานะเป็น <span className="font-bold text-rose-600">"กลับก่อนเวลา"</span> และหักคะแนนตามสัดส่วนเวลาที่ขาดหายไป (หัก {penalties.HP_PENALTY_EARLY_LEAVE_RATE || DEFAULT_GAME_CONFIG.PENALTY_RATES.HP_PENALTY_EARLY_LEAVE_RATE} HP ทุกๆ {penalties.HP_PENALTY_EARLY_LEAVE_INTERVAL || DEFAULT_GAME_CONFIG.PENALTY_RATES.HP_PENALTY_EARLY_LEAVE_INTERVAL} นาทีที่ขาด)
                                         </span>
                                     }
                                 />
@@ -258,17 +268,8 @@ const AttendanceRulesModal: React.FC<Props> = ({ isOpen, onClose }) => {
                                     }
                                 />
 
-                                <SectionHeader title="เงื่อนไขการส่งคำขอ" icon={FileText} color="text-indigo-600" />
                                 <RuleCard 
-                                    icon={Clock} colorTheme="orange" title="กฎ 3 วันทำการ (3-Day Rule)" delay={0.3}
-                                    description={
-                                        <span>
-                                            การส่งคำขอแก้ไขเวลา <span className="font-bold text-orange-600">ควรทำภายใน 3 วันทำการ</span> เพื่อรับสิทธิ์คืน HP หากเกินกำหนดจะยังสามารถส่งได้เพื่อความถูกต้องของชั่วโมงทำงาน แต่จะไม่มีการคืน HP/คะแนน
-                                        </span>
-                                    }
-                                />
-                                <RuleCard 
-                                    icon={ArrowRightCircle} colorTheme="blue" title="การคืนคะแนนขาดงาน" delay={0.4}
+                                    icon={ArrowRightCircle} colorTheme="blue" title="การคืนคะแนนขาดงาน (Absent Refund)" delay={0.3}
                                     stats={{ hp: Math.abs(rules.ABSENT_REFUND?.hp || DEFAULT_GAME_CONFIG.ATTENDANCE_RULES.ABSENT_REFUND.hp) }}
                                     description={
                                         <span>

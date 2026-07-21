@@ -76,6 +76,19 @@ const AttendanceUserRow: React.FC<AttendanceUserRowProps> = ({
                             {checkOutStr}
                         </span>
                     </div>
+                    {(() => {
+                        const matchActual = log?.note?.match(/\[ACTUAL_CHECK_IN:([^\]]+)\]/);
+                        if (matchActual && matchActual[1]) {
+                            const parts = matchActual[1].split(':');
+                            const timeStr = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : matchActual[1];
+                            return (
+                                <span className="block text-[9px] text-slate-400 font-medium italic">
+                                    (กดจริง {timeStr} น.)
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
                 
                 {log && (

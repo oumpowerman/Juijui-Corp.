@@ -56,6 +56,21 @@ export const useAttendanceActions = (userId: string) => {
             const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr));
             const isLate = matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer);
 
+            let finalCheckInTime = now;
+            let actualCheckInTag = '';
+
+            if (isShiftsEnabled && matchedShift && !matchedShift.isLate && !matchedShift.isBlocked) {
+                const [sh, sm] = matchedShift.targetStartTime.split(':').map(Number);
+                const normalizedDate = new Date(now);
+                normalizedDate.setHours(sh, sm, 0, 0);
+                finalCheckInTime = normalizedDate;
+
+                const actH = String(now.getHours()).padStart(2, '0');
+                const actM = String(now.getMinutes()).padStart(2, '0');
+                const actS = String(now.getSeconds()).padStart(2, '0');
+                actualCheckInTag = `[ACTUAL_CHECK_IN:${actH}:${actM}:${actS}]`;
+            }
+
             let proofUrl = proofUrlParam !== undefined ? proofUrlParam : null;
             if (proofUrlParam === undefined && file) {
                 if (externalUploadFn) {
@@ -82,6 +97,9 @@ export const useAttendanceActions = (userId: string) => {
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
             if (isShiftsEnabled && matchedShift) {
                 meta.push(`[TARGET_SHIFT:${matchedShift.targetStartTime}]`);
+            }
+            if (actualCheckInTag) {
+                meta.push(actualCheckInTag);
             }
             
             let finalIsAppeal = isAppeal;
@@ -138,7 +156,7 @@ export const useAttendanceActions = (userId: string) => {
             const payload: any = {
                 user_id: userId,
                 date: todayDateStr,
-                check_in_time: now.toISOString(),
+                check_in_time: finalCheckInTime.toISOString(),
                 work_type: workType,
                 status: 'WORKING',
                 note: finalNote,

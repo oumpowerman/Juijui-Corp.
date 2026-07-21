@@ -39,7 +39,27 @@ export const useLeaveFormLogic = ({
 
     useEffect(() => {
         const item = selectedType ? getRegistryItem(selectedType) : undefined;
-        let d = initialDateStr || format(new Date(), 'yyyy-MM-dd');
+        let d = initialDateStr;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minAllowed = new Date(today);
+        if (advanceDays && advanceDays > 0) {
+            minAllowed.setDate(today.getDate() + advanceDays);
+        }
+
+        if (!d) {
+            // No initial date, default to today + advanceDays (or today)
+            d = format(minAllowed, 'yyyy-MM-dd');
+        } else {
+            // If initial date is before the minimum allowed date, adjust it to the min allowed date for better UX
+            const parsedInitial = new Date(d);
+            parsedInitial.setHours(0, 0, 0, 0);
+            if (parsedInitial < minAllowed) {
+                d = format(minAllowed, 'yyyy-MM-dd');
+            }
+        }
+
         if (item?.rules.forceTodayDate) {
             d = format(new Date(), 'yyyy-MM-dd');
         }
@@ -55,7 +75,7 @@ export const useLeaveFormLogic = ({
         setEndTime(item?.rules.defaultEndTime || '18:00');
         
         setOtHours(2);
-    }, [initialDateStr, initialReason, selectedType]);
+    }, [initialDateStr, initialReason, selectedType, advanceDays]);
 
     // Automatically sync endDate with startDate for single-day/time-specific requests
     useEffect(() => {

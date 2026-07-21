@@ -44,7 +44,9 @@ export const LeaveHistoryTimeline: React.FC<LeaveHistoryTimelineProps> = ({
                     hist.startDate, 
                     hist.endDate, 
                     annualHolidays, 
-                    calendarExceptions
+                    calendarExceptions,
+                    null,
+                    true
                 );
                 const histStyle = getTypeColorClass(hist.type);
                 const cleanHistReason = parseReason(hist.reason).cleanReason;

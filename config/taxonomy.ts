@@ -56,6 +56,7 @@ export const ASSET_CATEGORIES: Record<AssetCategory, { label: string, icon: Luci
 
 export const WORK_STATUS_CONFIG: Record<WorkStatus, { label: string, icon: string, color: string }> = {
     ONLINE: { label: 'Online (พร้อมลุย)', icon: '🟢', color: 'bg-green-100 text-green-700' },
+    OFFLINE: { label: 'Offline (ออฟไลน์)', icon: '⚪', color: 'bg-gray-100 text-gray-700' },
     BUSY: { label: 'Busy (ยุ่งมาก)', icon: '🔴', color: 'bg-red-100 text-red-700' },
     SICK: { label: 'Sick (ลาป่วย)', icon: '🤢', color: 'bg-orange-100 text-orange-700' },
     VACATION: { label: 'Vacation (ลาพักร้อน)', icon: '🏖️', color: 'bg-blue-100 text-blue-700' },

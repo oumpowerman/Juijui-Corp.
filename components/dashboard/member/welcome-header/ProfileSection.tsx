@@ -21,7 +21,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
     onEditProfile, 
     onUpdateStatus 
 }) => {
-    const currentStatusConfig = WORK_STATUS_CONFIG[user.workStatus || 'ONLINE'];
+    const currentStatusConfig = WORK_STATUS_CONFIG[user.workStatus as WorkStatus] || WORK_STATUS_CONFIG['ONLINE'];
     const [isOpen, setIsOpen] = React.useState(false);
     const [coords, setCoords] = React.useState({ top: 0, left: 0, width: 0 });
     const buttonRef = React.useRef<HTMLButtonElement>(null);

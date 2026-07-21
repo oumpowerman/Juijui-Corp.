@@ -79,6 +79,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
   const [isChatAssistantOpen, setIsChatAssistantOpen] = useState(false);
+  const [activeDetailNotif, setActiveDetailNotif] = useState<any | null>(null);
 
   // --- PWA SHARE INTENT RECEIVER ---
   const [pwaSharedData, setPwaSharedData] = useState<any>(null);
@@ -276,7 +277,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   }, [searchParams, location.pathname, defaultView]);
 
   // --- NAVIGATION HANDLER (Sync with URL - Enhanced with fluid cosmic portals) ---
-  const handleNavigate = useCallback((view: ViewMode) => {
+  const handleNavigate = useCallback((view: ViewMode, queryParams?: Record<string, string>) => {
       const isDimensionJump = (currentView === 'ULTIMATE_WORKROOM') || (view === 'ULTIMATE_WORKROOM');
 
       if (isDimensionJump && globalWarpStage === 'IDLE') {
@@ -299,6 +300,15 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                       next.delete('scriptId');
                       next.delete('q');
                       next.delete('deep');
+                  }
+                  if (queryParams) {
+                      Object.entries(queryParams).forEach(([key, val]) => {
+                          if (val) {
+                              next.set(key, val);
+                          } else {
+                              next.delete(key);
+                          }
+                      });
                   }
                   return next;
               }, { replace: true });
@@ -323,6 +333,15 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   next.delete('scriptId');
                   next.delete('q');
                   next.delete('deep');
+              }
+              if (queryParams) {
+                  Object.entries(queryParams).forEach(([key, val]) => {
+                      if (val) {
+                          next.set(key, val);
+                      } else {
+                          next.delete(key);
+                      }
+                  });
               }
               return next;
           }, { replace: true });
@@ -665,6 +684,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
         approveRequest={approveRequest}
         rejectRequest={rejectRequest}
         leaveRequests={leaveRequests}
+        activeDetailNotif={activeDetailNotif}
+        setActiveDetailNotif={setActiveDetailNotif}
       />
 
       {/* --- GLOBAL HIGH-FIDELITY DIMENSIONAL WARP GATE OVERLAY --- */}

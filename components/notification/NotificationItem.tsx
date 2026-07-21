@@ -122,24 +122,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
                          </div>
                     )}
 
-                    {/* Action Buttons for Approval */}
-                    {isApproval && onAction && !isFinance && (
-                        <div className="flex gap-2 mt-2">
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onAction(notif.id, 'APPROVE'); }}
-                                className="flex-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition-all"
-                            >
-                                <Check className="w-3 h-3" /> อนุมัติ
-                            </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onAction(notif.id, 'REJECT'); }}
-                                className="flex-1 bg-white border border-red-200 text-red-500 hover:bg-red-50 text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all"
-                            >
-                                <X className="w-3 h-3" /> ปฏิเสธ
-                            </button>
-                        </div>
-                    )}
-
                     <p className="text-[10px] text-gray-400 mt-1.5 font-bold uppercase tracking-wide">
                         {format(new Date(notif.date), 'HH:mm')} • {format(new Date(notif.date), 'd MMM')}
                     </p>

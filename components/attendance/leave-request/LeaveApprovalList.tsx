@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, XCircle, Clock } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { LeaveRequest } from '../../../types/attendance';
 import { ATTENDANCE_REGISTRY } from '../../../constants/attendanceRegistry';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
@@ -45,8 +46,29 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
     const { annualHolidays, calendarExceptions } = useMasterData();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const highlightReqId = searchParams.get('highlightReqId');
+
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     const [historySubFilter, setHistorySubFilter] = useState<HistoryFilter>('ALL');
+    
+    // Auto-adjust filter status based on highlighted request status
+    useEffect(() => {
+        if (!highlightReqId) return;
+        const matchingReq = requests.find(r => r.id === highlightReqId);
+        if (matchingReq) {
+            if (matchingReq.status === 'PENDING') {
+                setFilterStatus('PENDING');
+            } else {
+                setFilterStatus('HISTORY');
+                if (matchingReq.status === 'APPROVED') {
+                    setHistorySubFilter('APPROVED');
+                } else if (matchingReq.status === 'REJECTED') {
+                    setHistorySubFilter('REJECTED');
+                }
+            }
+        }
+    }, [highlightReqId, requests]);
     
     // State for Request Detail Modal
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -392,6 +414,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                     onViewDetail={setSelectedRequest}
                                     annualHolidays={annualHolidays}
                                     calendarExceptions={calendarExceptions}
+                                    isHighlighted={req.id === highlightReqId}
                                 />
                             ))}
                         </AnimatePresence>

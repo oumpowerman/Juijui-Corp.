@@ -9,6 +9,7 @@ interface CheckOutLocationStatusProps {
     distance?: number;
     matchedLocationName?: string;
     onRetry: () => void;
+    workType?: string;
 }
 
 export const CheckOutLocationStatus: React.FC<CheckOutLocationStatusProps> = ({
@@ -17,7 +18,8 @@ export const CheckOutLocationStatus: React.FC<CheckOutLocationStatusProps> = ({
     gpsThreatReason,
     distance = 0,
     matchedLocationName,
-    onRetry
+    onRetry,
+    workType = 'OFFICE'
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -197,24 +199,75 @@ export const CheckOutLocationStatus: React.FC<CheckOutLocationStatusProps> = ({
     }
 
     // 5. Success/In Range state
+    let bgStyle = "bg-emerald-50/50 hover:bg-emerald-50 border-emerald-100";
+    let iconBg = "bg-emerald-100";
+    let iconColor = "text-emerald-600";
+    let chevronColor = "text-emerald-400";
+    let title = "ยืนยันพิกัดเข้าพื้นที่สำเร็จ";
+    let matchedLabel = (
+        <p className="text-[11px] text-emerald-700/80 mt-0.5 truncate">
+            สถานที่: <span className="font-semibold text-emerald-950">{matchedLocationName || 'สำนักงาน'}</span> ({distance.toFixed(0)} ม.)
+        </p>
+    );
+    let titleColor = "text-emerald-800";
+    let badgeText = "Secure Verified";
+    let badgeStyle = "bg-emerald-200/50 text-emerald-700";
+    let infoText = "*ระบบยืนยันความปลอดภัย สแกนป้องกันโปรแกรมจำลอง และสอดคล้องกับขอบเขตพื้นที่สำนักงานของคุณ";
+    let dividerStyle = "border-emerald-100";
+    let infoTextColor = "text-emerald-600/80";
+
+    if (workType === 'WFH') {
+        bgStyle = "bg-sky-50/50 hover:bg-sky-50 border-sky-100";
+        iconBg = "bg-sky-100";
+        iconColor = "text-sky-600";
+        chevronColor = "text-sky-400";
+        title = "ทำงานที่บ้าน (WFH) - ยืนยันพิกัดสำเร็จ";
+        matchedLabel = (
+            <p className="text-[11px] text-sky-700/80 mt-0.5 truncate">
+                พิกัด: <span className="font-semibold text-sky-950">ทำงานจากที่บ้าน (WFH)</span>
+            </p>
+        );
+        titleColor = "text-sky-800";
+        badgeText = "Secure Verified (WFH)";
+        badgeStyle = "bg-sky-200/50 text-sky-700";
+        infoText = "*ระบบลงเวลาสำหรับสิทธิ์ทำงานทางไกล (WFH) โดยไม่ต้องยืนยันรัศมีออฟฟิศ";
+        dividerStyle = "border-sky-100";
+        infoTextColor = "text-sky-600/80";
+    } else if (workType === 'SITE') {
+        bgStyle = "bg-amber-50/50 hover:bg-amber-50 border-amber-100";
+        iconBg = "bg-amber-100";
+        iconColor = "text-amber-600";
+        chevronColor = "text-amber-400";
+        title = "ปฏิบัติงานนอกสถานที่ - ยืนยันพิกัดสำเร็จ";
+        matchedLabel = (
+            <p className="text-[11px] text-amber-700/80 mt-0.5 truncate">
+                พิกัด: <span className="font-semibold text-amber-950">ปฏิบัติงานนอกสถานที่ (On-site)</span>
+            </p>
+        );
+        titleColor = "text-amber-800";
+        badgeText = "Secure Verified (On-site)";
+        badgeStyle = "bg-amber-200/50 text-amber-700";
+        infoText = "*ระบบลงเวลาสำหรับสิทธิ์ปฏิบัติงานนอกพื้นที่ (SITE) โดยไม่ต้องยืนยันรัศมีออฟฟิศ";
+        dividerStyle = "border-amber-100";
+        infoTextColor = "text-amber-600/80";
+    }
+
     return (
         <div 
             onClick={toggleExpand}
-            className="p-3.5 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 rounded-2xl text-left transition-all cursor-pointer shadow-xs select-none flex flex-col animate-in fade-in slide-in-from-top-3 duration-300"
+            className={`p-3.5 ${bgStyle} border rounded-2xl text-left transition-all cursor-pointer shadow-xs select-none flex flex-col animate-in fade-in slide-in-from-top-3 duration-300`}
         >
             <div className="flex items-center justify-between">
                 <div className="flex items-center min-w-0">
-                    <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                    <div className={`w-9 h-9 ${iconBg} rounded-xl flex items-center justify-center ${iconColor} shrink-0`}>
                         <MapPin className="w-5 h-5 stroke-[2.2]" />
                     </div>
                     <div className="ml-3 min-w-0">
-                        <h3 className="text-xs font-semibold text-emerald-800">ยืนยันพิกัดเข้าพื้นที่สำเร็จ</h3>
-                        <p className="text-[11px] text-emerald-700/80 mt-0.5 truncate">
-                            สถานที่: <span className="font-semibold text-emerald-950">{matchedLocationName}</span> ({distance.toFixed(0)} ม.)
-                        </p>
+                        <h3 className={`text-xs font-semibold ${titleColor}`}>{title}</h3>
+                        {matchedLabel}
                     </div>
                 </div>
-                <div className="shrink-0 text-emerald-400 pl-2">
+                <div className={`shrink-0 ${chevronColor} pl-2`}>
                     <ChevronDown 
                         className={`w-4 h-4 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
                     />
@@ -227,12 +280,12 @@ export const CheckOutLocationStatus: React.FC<CheckOutLocationStatusProps> = ({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
             >
-                <div className="pt-3 mt-3 border-t border-emerald-100 flex flex-col gap-2">
-                    <span className="text-[9px] bg-emerald-200/50 text-emerald-700 px-2.5 py-0.5 rounded-full font-bold self-start inline-flex items-center gap-1">
-                        <ShieldCheck className="w-3.5 h-3.5" /> Secure Verified
+                <div className={`pt-3 mt-3 border-t ${dividerStyle} flex flex-col gap-2`}>
+                    <span className={`text-[9px] ${badgeStyle} px-2.5 py-0.5 rounded-full font-bold self-start inline-flex items-center gap-1`}>
+                        <ShieldCheck className="w-3.5 h-3.5" /> {badgeText}
                     </span>
-                    <p className="text-[10px] text-emerald-600/80 font-medium">
-                        *ระบบยืนยันความปลอดภัย สแกนป้องกันโปรแกรมจำลอง และสอดคล้องกับขอบเขตพื้นที่สำนักงานของคุณ
+                    <p className={`text-[10px] ${infoTextColor} font-medium`}>
+                        {infoText}
                     </p>
                 </div>
             </motion.div>

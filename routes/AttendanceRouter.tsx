@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { User } from '../types';
 import { 
     AttendanceWidget, 
@@ -27,7 +28,32 @@ interface AttendanceRouterProps {
 type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVALS';
 
 const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
-    const [currentTab, setCurrentTab] = useState<AttendanceTab>('CHECK_IN');
+    const [searchParams, setSearchParams] = useSearchParams();
+    
+    const [currentTab, setCurrentTab] = useState<AttendanceTab>(() => {
+        const t = searchParams.get('tab') as AttendanceTab | null;
+        if (t && ['CHECK_IN', 'HISTORY', 'TIMESHEET', 'REPORT', 'APPROVALS'].includes(t)) {
+            return t;
+        }
+        return 'CHECK_IN';
+    });
+
+    useEffect(() => {
+        const t = searchParams.get('tab') as AttendanceTab | null;
+        if (t && ['CHECK_IN', 'HISTORY', 'TIMESHEET', 'REPORT', 'APPROVALS'].includes(t)) {
+            setCurrentTab(t);
+        }
+    }, [searchParams]);
+
+    const selectTab = (tab: AttendanceTab) => {
+        setCurrentTab(tab);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', tab);
+            return next;
+        }, { replace: true });
+    };
+
     const [isQuotaOpen, setIsQuotaOpen] = useState(false); 
     const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
     
@@ -99,14 +125,14 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="flex p-1 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 w-fit overflow-x-auto scrollbar-hide">
                         <button 
-                            onClick={() => setCurrentTab('CHECK_IN')}
+                            onClick={() => selectTab('CHECK_IN')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'CHECK_IN' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                         >
                             <Clock className="w-4 h-4" /> ลงเวลา
                         </button>
                         
                         <button 
-                            onClick={() => setCurrentTab('HISTORY')}
+                            onClick={() => selectTab('HISTORY')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                         >
                             <Calendar className="w-4 h-4" /> 
@@ -127,13 +153,13 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                             <>
                                 <div className="w-px h-6 bg-gray-300/50 mx-1 self-center"></div>
                                 <button 
-                                    onClick={() => setCurrentTab('TIMESHEET')}
+                                    onClick={() => selectTab('TIMESHEET')}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
                                     <TableProperties className="w-4 h-4" /> ตรวจสอบทีม
                                 </button>
                                 <button 
-                                    onClick={() => setCurrentTab('APPROVALS')}
+                                    onClick={() => selectTab('APPROVALS')}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'APPROVALS' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
                                     <FileCheck className="w-4 h-4" /> คำขออนุมัติ
@@ -144,7 +170,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                     )}
                                 </button>
                                 <button 
-                                    onClick={() => setCurrentTab('REPORT')}
+                                    onClick={() => selectTab('REPORT')}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'REPORT' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
                                     <PieChart className="w-4 h-4" /> สรุปผลรายเดือน

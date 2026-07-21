@@ -20,10 +20,11 @@ interface CheckOutModalProps {
     availableLocations: LocationDef[];
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
+    workType?: string;
 }
 
 export const CheckOutModal: React.FC<CheckOutModalProps> = ({ 
-    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime, onOvertimeSubmit
+    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime, onOvertimeSubmit, workType = 'OFFICE'
 }) => {
     const state = useCheckOutState({
         isOpen,
@@ -33,6 +34,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         availableLocations,
         checkInTime,
         onOvertimeSubmit,
+        workType,
     });
 
     const {
@@ -148,6 +150,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                                 distance={distance}
                                                 matchedLocationName={matchedLocation?.name}
                                                 onRetry={checkLocation}
+                                                workType={workType}
                                             />
                                         </motion.div>
                                     )}

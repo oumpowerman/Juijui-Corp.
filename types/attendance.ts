@@ -8,7 +8,7 @@ export interface ShiftSlotResult {
     lateMinutes: number;
 }
 
-export type WorkLocation = 'OFFICE' | 'WFH' | 'SITE' | 'LEAVE' | 'ABSENT';
+export type WorkLocation = 'OFFICE' | 'WFH' | 'SITE' | 'ONSITE' | 'LEAVE' | 'ABSENT';
 export type AttendanceStatus = 'WORKING' | 'COMPLETED' | 'ABSENT' | 'LATE' | 'LEAVE' | 'EARLY_LEAVE' | 'PENDING_VERIFY' | 'ACTION_REQUIRED' | 'ON_TIME' | 'NO_SHOW' | 'APPEAL';
 
 export interface LocationDef {

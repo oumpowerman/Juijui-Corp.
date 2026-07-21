@@ -10,6 +10,7 @@ import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { attendanceService } from '../services/attendanceService';
 import { adminApprovalService } from '../services/adminApprovalService';
 import { checkLeaveQuota } from '../utils/adminApprovalHelpers';
+import { useNotificationContext } from '../context/NotificationContext';
 
 export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolean } = {}) => {
     const { enabled = true } = options;
@@ -23,6 +24,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         refreshLeaves
     } = useUserSession();
 
+    const { refreshData: refreshGlobalNotifications } = useNotificationContext();
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const { showConfirm } = useGlobalDialog();
     const { processAction, adminAdjustStats } = useGamification();
@@ -163,6 +165,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
                     await refreshOTRequests();
                 }
                 fetchAllRequests();
+                refreshGlobalNotifications();
             } catch (err: any) {
                 showToast('อนุมัติ OT ล้มเหลว: ' + err.message, 'error');
             }
@@ -263,6 +266,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
             if (refreshAttendance) await refreshAttendance();
             if (refreshOTRequests) await refreshOTRequests();
             fetchAllRequests();
+            refreshGlobalNotifications();
         } catch (err: any) {
             // Rollback optimistic update
             setRawRequests(prev => prev.map(r => r.id === request.id ? { ...r, status: 'PENDING' } : r));
@@ -316,6 +320,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
             if (refreshAttendance) await refreshAttendance();
             if (refreshOTRequests) await refreshOTRequests();
             fetchAllRequests();
+            refreshGlobalNotifications();
         } catch (err: any) {
             // Rollback optimistic update
             setRawRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'PENDING' } : r));

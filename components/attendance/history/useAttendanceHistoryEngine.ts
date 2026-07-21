@@ -271,7 +271,16 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
     const getLocationDisplay = useCallback((log: AttendanceLog) => {
         if (log.locationName) return log.locationName;
         const meta = parseAttendanceMetadata(log.note);
-        return meta.locationName || (meta.location ? `${meta.location.lat.toFixed(4)}, ${meta.location.lng.toFixed(4)}` : '-');
+        if (meta.locationName) return meta.locationName;
+        
+        if (log.workType === 'WFH') {
+            return 'ทำงานที่บ้าน (WFH)';
+        }
+        if (log.workType === 'ONSITE' || log.workType === 'SITE') {
+            return 'ปฏิบัติงานนอกสถานที่ (On-site)';
+        }
+        
+        return meta.location ? `${meta.location.lat.toFixed(4)}, ${meta.location.lng.toFixed(4)}` : '-';
     }, []);
 
     const getWorkHours = useCallback((log: AttendanceLog) => {

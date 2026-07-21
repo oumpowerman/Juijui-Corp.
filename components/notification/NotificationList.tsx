@@ -3,6 +3,7 @@ import React from 'react';
 import { AppNotification } from '../../types';
 import NotificationItem from './NotificationItem';
 import { CheckCircle2, Sparkles, History } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type NotificationTab = 'ALL' | 'URGENT' | 'PEOPLE' | 'SYSTEM';
 
@@ -34,64 +35,82 @@ const NotificationList: React.FC<NotificationListProps> = ({
     // Empty State
     if (filtered.length === 0) {
         return (
-             <div className="flex flex-col items-center justify-center h-64 text-center text-gray-400">
-                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 shadow-sm border border-gray-100">
-                    <CheckCircle2 className="w-10 h-10 text-gray-300" />
-                </div>
-                <h4 className="font-bold text-gray-700 text-lg">
-                    {activeTab === 'URGENT' ? 'ไม่มีงานด่วน' : 'ไม่มีการแจ้งเตือน'}
-                </h4>
-                <p className="text-sm mt-1 text-gray-400">
-                    {activeTab === 'URGENT' ? 'พักผ่อนได้สบายใจหายห่วง!' : 'ทุกอย่างเรียบร้อยดีครับ'}
-                </p>
-            </div>
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key={`empty-${activeTab}`}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col items-center justify-center h-full min-h-[350px] py-16 text-center text-gray-400"
+                >
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 shadow-sm border border-gray-100">
+                        <CheckCircle2 className="w-10 h-10 text-gray-300" />
+                    </div>
+                    <h4 className="font-bold text-gray-700 text-lg">
+                        {activeTab === 'URGENT' ? 'ไม่มีงานด่วน' : 'ไม่มีการแจ้งเตือน'}
+                    </h4>
+                    <p className="text-sm mt-1 text-gray-400">
+                        {activeTab === 'URGENT' ? 'พักผ่อนได้สบายใจหายห่วง!' : 'ทุกอย่างเรียบร้อยดีครับ'}
+                    </p>
+                </motion.div>
+            </AnimatePresence>
         );
     }
 
     return (
-        <div className="space-y-6 pb-4">
-             {/* UNREAD GROUP */}
-             {unreadList.length > 0 && (
-                <div className="space-y-1">
-                    {/* Header only visible if we have both groups or if it's the ALL tab */}
-                    {(activeTab === 'ALL' || readList.length > 0) && (
-                        <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-4 py-2 flex items-center gap-2">
-                            <Sparkles className="w-3 h-3" /> ใหม่ล่าสุด (New)
-                        </h5>
-                    )}
-                    {unreadList.map(notif => (
-                        <NotificationItem 
-                            key={notif.id} 
-                            notif={notif} 
-                            onClick={() => onItemClick(notif)} 
-                            onDismiss={onDismiss}
-                            onAction={onAction}
-                        />
-                    ))}
-                </div>
-            )}
+        <AnimatePresence mode="wait">
+            <motion.div 
+                key={activeTab}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="space-y-6 pb-4"
+            >
+                 {/* UNREAD GROUP */}
+                 {unreadList.length > 0 && (
+                    <div className="space-y-1">
+                        {/* Header only visible if we have both groups or if it's the ALL tab */}
+                        {(activeTab === 'ALL' || readList.length > 0) && (
+                            <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-4 py-2 flex items-center gap-2">
+                                <Sparkles className="w-3 h-3" /> ใหม่ล่าสุด (New)
+                            </h5>
+                        )}
+                        {unreadList.map(notif => (
+                            <NotificationItem 
+                                key={notif.id} 
+                                notif={notif} 
+                                onClick={() => onItemClick(notif)} 
+                                onDismiss={onDismiss}
+                                onAction={onAction}
+                            />
+                        ))}
+                    </div>
+                )}
 
-            {/* READ GROUP */}
-            {readList.length > 0 && (
-                <div className="space-y-1">
-                     {/* Divider only if there are unread items above */}
-                     {unreadList.length > 0 && (
-                        <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4 py-2 flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
-                            <History className="w-3 h-3" /> ก่อนหน้านี้ (Earlier)
-                        </h5>
-                     )}
-                    {readList.map(notif => (
-                        <NotificationItem 
-                            key={notif.id} 
-                            notif={notif} 
-                            onClick={() => onItemClick(notif)} 
-                            onDismiss={onDismiss}
-                            onAction={onAction}
-                        />
-                    ))}
-                </div>
-            )}
-        </div>
+                {/* READ GROUP */}
+                {readList.length > 0 && (
+                    <div className="space-y-1">
+                         {/* Divider only if there are unread items above */}
+                         {unreadList.length > 0 && (
+                            <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4 py-2 flex items-center gap-2 border-t border-gray-100 mt-2 pt-4">
+                                <History className="w-3 h-3" /> ก่อนหน้านี้ (Earlier)
+                            </h5>
+                         )}
+                        {readList.map(notif => (
+                            <NotificationItem 
+                                key={notif.id} 
+                                notif={notif} 
+                                onClick={() => onItemClick(notif)} 
+                                onDismiss={onDismiss}
+                                onAction={onAction}
+                            />
+                        ))}
+                    </div>
+                )}
+            </motion.div>
+        </AnimatePresence>
     );
 };
 

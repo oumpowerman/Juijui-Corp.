@@ -239,7 +239,8 @@ export async function approveAttendanceCorrection({
             checkOutTime: checkOutDateTime.toISOString(),
             reason: request.reason,
             originalStatusNote,
-            existingNote: freshLog?.note
+            existingNote: freshLog?.note,
+            existingWorkType: freshLog?.work_type
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKIN_ONLY') {
@@ -254,12 +255,12 @@ export async function approveAttendanceCorrection({
             cleanedNote = cleanedNote.replace(regex, '');
         }
         cleanedNote = cleanedNote.replace(/\s+/g, ' ').trim();
-
+ 
         const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
         const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
         const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
         const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
-
+ 
         const payload = buildAttendanceCorrectionPayload({
             userId: request.userId,
             date: shiftDateStr,
@@ -269,7 +270,8 @@ export async function approveAttendanceCorrection({
             isLate,
             reason: finalReason,
             originalStatusNote,
-            existingNote: cleanedNote
+            existingNote: cleanedNote,
+            existingWorkType: freshLog?.work_type
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKOUT_ONLY') {

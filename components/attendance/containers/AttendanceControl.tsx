@@ -18,8 +18,9 @@ import AttendanceRulesModal from '../widget/AttendanceRulesModal';
 interface AttendanceControlProps {
     user: User;
     todayActiveLeave: any;
+    requests?: any[];
     onLeaveSubmit: any;
-    onOpenLeave: (type?: any) => void;
+    onOpenLeave: (type?: any, workType?: 'WFH' | 'ONSITE') => void;
     isCheckInModalOpen: boolean;
     setIsCheckInModalOpen: (isOpen: boolean) => void;
 }
@@ -27,6 +28,7 @@ interface AttendanceControlProps {
 const AttendanceControl: React.FC<AttendanceControlProps> = ({ 
     user, 
     todayActiveLeave, 
+    requests = [],
     onLeaveSubmit, 
     onOpenLeave,
     isCheckInModalOpen,
@@ -62,9 +64,28 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
     const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
+    const todayRequests = useMemo(() => {
+        const reqs = requests || (todayActiveLeave ? [todayActiveLeave] : []);
+        const today = new Date();
+        return reqs.filter(req => {
+            if (req.status === 'REJECTED') return false;
+            const startDate = new Date(req.startDate);
+            const endDate = new Date(req.endDate);
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return false;
+            
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            
+            return today >= start && today <= end;
+        });
+    }, [requests, todayActiveLeave]);
+
     const approvedLateTime = useMemo(() => {
-        if (todayActiveLeave?.type === 'LATE_ENTRY' && todayActiveLeave?.status === 'APPROVED') {
-            const startD = new Date(todayActiveLeave.startDate);
+        const lateReq = todayRequests.find(r => r.type === 'LATE_ENTRY' && r.status === 'APPROVED');
+        if (lateReq) {
+            const startD = new Date(lateReq.startDate);
             if (!isNaN(startD.getTime())) {
                 const h = String(startD.getHours()).padStart(2, '0');
                 const m = String(startD.getMinutes()).padStart(2, '0');
@@ -72,11 +93,12 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
             }
         }
         return undefined;
-    }, [todayActiveLeave]);
+    }, [todayRequests]);
 
     const pendingLateTime = useMemo(() => {
-        if (todayActiveLeave?.type === 'LATE_ENTRY' && todayActiveLeave?.status === 'PENDING') {
-            const startD = new Date(todayActiveLeave.startDate);
+        const lateReq = todayRequests.find(r => r.type === 'LATE_ENTRY' && r.status === 'PENDING');
+        if (lateReq) {
+            const startD = new Date(lateReq.startDate);
             if (!isNaN(startD.getTime())) {
                 const h = String(startD.getHours()).padStart(2, '0');
                 const m = String(startD.getMinutes()).padStart(2, '0');
@@ -84,7 +106,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
             }
         }
         return undefined;
-    }, [todayActiveLeave]);
+    }, [todayRequests]);
 
     const handleConfirmCheckIn = async (
         type: WorkLocation, 
@@ -133,8 +155,9 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
             }
 
             if (shouldProceed) {
-                const isApprovedWFH = todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED';
-                const isAppeal = todayActiveLeave?.type === 'LATE_ENTRY';
+                const isApprovedWFH = todayRequests.some(r => r.type === 'WFH' && r.status === 'APPROVED');
+                const isAppeal = todayRequests.some(r => r.type === 'LATE_ENTRY');
+                const lateReason = todayRequests.find(r => r.type === 'LATE_ENTRY')?.reason || todayActiveLeave?.reason;
                 
                 const now = new Date();
                 const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, lateBuffer) ? pendingLateTime : startTime);
@@ -154,7 +177,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                     provisionalReason, 
                     approvedLateTime, 
                     pendingLateTime, 
-                    todayActiveLeave?.reason,
+                    lateReason,
                     isGpsAppeal,
                     gpsAppealReason
                 );
@@ -287,10 +310,10 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 availableLocations={availableLocations}
                 startTime={startTime}
                 lateBuffer={lateBuffer}
-                onSwitchToLeave={(type) => { onOpenLeave(type); }} // Keep CheckIn open so they can return to it if they change their mind
-                approvedWFH={todayActiveLeave?.type === 'WFH' && todayActiveLeave.status === 'APPROVED'}
-                approvedOnsite={todayActiveLeave?.type === 'ONSITE' && todayActiveLeave.status === 'APPROVED'}
-                hasLateRequest={todayActiveLeave?.type === 'LATE_ENTRY'}
+                onSwitchToLeave={(type, workType) => { onOpenLeave(type, workType); }} // Keep CheckIn open so they can return to it if they change their mind
+                approvedWFH={todayRequests.some(r => r.type === 'WFH' && r.status === 'APPROVED')}
+                approvedOnsite={todayRequests.some(r => r.type === 'ONSITE' && r.status === 'APPROVED')}
+                hasLateRequest={todayRequests.some(r => r.type === 'LATE_ENTRY')}
                 approvedLateTime={approvedLateTime}
                 pendingLateTime={pendingLateTime}
                 isDriveConnected={isDriveAuthenticated}

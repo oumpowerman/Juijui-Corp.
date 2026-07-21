@@ -6,6 +6,7 @@ import NegligenceLockModal from '../components/duty/NegligenceLockModal';
 import DeathLockModal from '../components/gamification/DeathLockModal';
 import ResurrectionModal from '../components/gamification/ResurrectionModal';
 import NotificationPopover from '../components/NotificationPopover';
+import { NotificationDetailModal } from '../components/notification/NotificationDetailModal';
 import TaskModalSkeleton from '../components/task/TaskModalSkeleton';
 
 // --- LAZY LOAD MODALS ---
@@ -56,10 +57,14 @@ interface GlobalModalRegistryProps {
   dismissNotification: (id: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<any>;
-  handleNavigate: (view: ViewMode) => void;
+  handleNavigate: (view: ViewMode, queryParams?: Record<string, string>) => void;
   approveRequest: (request: LeaveRequest) => Promise<void>;
   rejectRequest: (id: string, reason: string) => Promise<void>;
   leaveRequests: any[];
+
+  // Notification Detail Modal
+  activeDetailNotif: any;
+  setActiveDetailNotif: (notif: any) => void;
 }
 
 export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
@@ -104,6 +109,9 @@ export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
   approveRequest,
   rejectRequest,
   leaveRequests,
+
+  activeDetailNotif,
+  setActiveDetailNotif,
 }) => {
   return (
     <>
@@ -183,9 +191,23 @@ export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
         onMarkRead={markNotificationAsRead}
         onMarkAllRead={markAllAsRead}
         onNavigate={handleNavigate}
+        onViewDetail={setActiveDetailNotif}
         onApproveLeave={approveRequest}
         onRejectLeave={rejectRequest}
         leaveRequests={leaveRequests}
+      />
+
+      <NotificationDetailModal
+        isOpen={activeDetailNotif !== null}
+        notification={activeDetailNotif}
+        tasks={tasks}
+        onClose={() => setActiveDetailNotif(null)}
+        onMarkRead={markNotificationAsRead}
+        onNavigate={(view, params) => {
+          handleNavigate(view, params);
+          handleCloseNotification();
+        }}
+        onOpenTask={handleOpenTaskById}
       />
     </>
   );

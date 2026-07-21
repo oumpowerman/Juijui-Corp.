@@ -18,6 +18,7 @@ export interface ApprovalItemCardProps {
     onViewDetail: (req: LeaveRequest) => void;
     annualHolidays: any;
     calendarExceptions: any;
+    isHighlighted?: boolean;
 }
 
 export const getCardStyle = (type: string) => {
@@ -291,14 +292,39 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
     onRejectClick,
     onViewDetail,
     annualHolidays,
-    calendarExceptions
+    calendarExceptions,
+    isHighlighted
 }, ref) => {
     const cardStyle = getCardStyle(request.type);
     const parsed = parseReason(request.reason);
 
+    const cardRef = React.useRef<HTMLDivElement>(null);
+    React.useImperativeHandle(ref, () => cardRef.current!);
+
+    const [shouldGlow, setShouldGlow] = React.useState(isHighlighted);
+
+    React.useEffect(() => {
+        if (isHighlighted) {
+            setShouldGlow(true);
+            const timer = setTimeout(() => {
+                setShouldGlow(false);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [isHighlighted]);
+
+    React.useEffect(() => {
+        if (isHighlighted && cardRef.current) {
+            const timer = setTimeout(() => {
+                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 400);
+            return () => clearTimeout(timer);
+        }
+    }, [isHighlighted]);
+
     return (
         <motion.div 
-            ref={ref}
+            ref={cardRef}
             layout
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -310,7 +336,9 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
                 mass: 0.8
             }}
             onClick={() => onViewDetail(request)}
-            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-shadow relative overflow-hidden group cursor-pointer`}
+            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all relative overflow-hidden group cursor-pointer ${
+                shouldGlow ? 'ring-4 ring-amber-400 ring-offset-2 shadow-amber-300/60 scale-[1.03] duration-500 animate-pulse' : 'duration-200'
+            }`}
             id={`request-card-${request.id}`}
         >
             {/* Status Indicator Bar */}

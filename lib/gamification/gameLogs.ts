@@ -38,7 +38,10 @@ export const logGameAction = async (
         };
 
         const reasonSuffix = context.reason ? cleanReason(context.reason) : '';
-        const description = reasonSuffix ? `${baseMsg} (${reasonSuffix})` : baseMsg;
+        // ป้องกันการเขียนซ้ำซ้อนในวงเล็บหากข้อความหลัก (baseMsg) มีข้อความเหตุผลนี้อยู่แล้ว
+        const description = (reasonSuffix && !baseMsg.includes(reasonSuffix)) 
+            ? `${baseMsg} (${reasonSuffix})` 
+            : baseMsg;
 
         const { error: logError } = await supabase.from('game_logs').insert({
             user_id: userId,

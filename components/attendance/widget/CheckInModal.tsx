@@ -34,7 +34,7 @@ interface CheckInModalProps {
     availableLocations?: LocationDef[];
     startTime?: string;
     lateBuffer?: number;
-    onSwitchToLeave?: (type?: any) => void;
+    onSwitchToLeave?: (type?: any, workType?: 'WFH' | 'ONSITE') => void;
     approvedWFH?: boolean; 
     approvedOnsite?: boolean;
     hasLateRequest?: boolean; 
@@ -188,7 +188,15 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                 {showLateIntervention && (
                                     <LateInterventionOverlay
                                         startTime={startTime || '10:00'}
-                                        onSwitchToLeave={onSwitchToLeave}
+                                        onSwitchToLeave={() => {
+                                            onClose();
+                                            if (onSwitchToLeave) {
+                                                onSwitchToLeave(
+                                                    'LATE_ENTRY', 
+                                                    approvedWFH ? 'WFH' : (approvedOnsite ? 'ONSITE' : undefined)
+                                                );
+                                            }
+                                        }}
                                         onClose={onClose}
                                         onConfirm={() => {
                                             setShowLateIntervention(false);
@@ -260,7 +268,10 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                     onClick={() => {
                                                         onClose();
                                                         if (onSwitchToLeave) {
-                                                            onSwitchToLeave('LATE_ENTRY');
+                                                            onSwitchToLeave(
+                                                                'LATE_ENTRY',
+                                                                approvedWFH ? 'WFH' : (approvedOnsite ? 'ONSITE' : undefined)
+                                                            );
                                                         }
                                                     }}
                                                     className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm cursor-pointer"

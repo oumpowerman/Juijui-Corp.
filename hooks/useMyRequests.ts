@@ -444,18 +444,29 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 status: 'PENDING'
             });
 
-            // Insert secondary request (e.g. WFH or ONSITE) linked with same LINKID
+            // Insert secondary request (e.g. WFH or ONSITE) linked with same LINKID if not already exists
             if (linkedRemoteType && linkId) {
-                const dualReason = `[LINKID:${linkId}] ขออนุมัติปฏิบัติงานรีโมทโดยไม่ได้ขออนุญาตล่วงหน้า (เนื่องจากอยู่นอกพิกัดหลัก)`;
-                await attendanceService.insertLeaveRequest({
-                    user_id: currentUser.id,
-                    type: linkedRemoteType,
-                    start_date: startDateStr,
-                    end_date: startDateStr,
-                    reason: dualReason,
-                    attachment_url: null,
-                    status: 'PENDING'
-                });
+                const { data: existingRemote } = await supabase
+                    .from('leave_requests')
+                    .select('id')
+                    .eq('user_id', currentUser.id)
+                    .eq('type', linkedRemoteType)
+                    .eq('start_date', startDateStr)
+                    .in('status', ['PENDING', 'APPROVED'])
+                    .maybeSingle();
+
+                if (!existingRemote) {
+                    const dualReason = `[LINKID:${linkId}] ขออนุมัติปฏิบัติงานรีโมทโดยไม่ได้ขออนุญาตล่วงหน้า (เนื่องจากอยู่นอกพิกัดหลัก)`;
+                    await attendanceService.insertLeaveRequest({
+                        user_id: currentUser.id,
+                        type: linkedRemoteType,
+                        start_date: startDateStr,
+                        end_date: startDateStr,
+                        reason: dualReason,
+                        attachment_url: null,
+                        status: 'PENDING'
+                    });
+                }
             }
 
             if (type === 'FORGOT_CHECKIN') {

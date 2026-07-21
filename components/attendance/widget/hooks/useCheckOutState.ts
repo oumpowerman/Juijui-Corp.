@@ -18,6 +18,7 @@ interface UseCheckOutStateProps {
     availableLocations: LocationDef[];
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
+    workType?: string;
 }
 
 export const useCheckOutState = ({
@@ -28,6 +29,7 @@ export const useCheckOutState = ({
     availableLocations,
     checkInTime,
     onOvertimeSubmit,
+    workType = 'OFFICE',
 }: UseCheckOutStateProps) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
@@ -53,8 +55,10 @@ export const useCheckOutState = ({
         checkLocation: runCheckLocation,
     } = useCheckInLocation(availableLocations);
 
-    // Derive status based on locationState
-    const status: 'LOADING' | 'ERROR' | 'SUCCESS' | 'OUT_OF_RANGE' = locationState.status === 'LOADING'
+    // Derive status based on locationState (WFH and SITE bypass GPS check)
+    const status: 'LOADING' | 'ERROR' | 'SUCCESS' | 'OUT_OF_RANGE' = (workType === 'WFH' || workType === 'SITE')
+        ? 'SUCCESS'
+        : locationState.status === 'LOADING'
         ? 'LOADING'
         : locationState.status === 'ERROR'
         ? 'ERROR'

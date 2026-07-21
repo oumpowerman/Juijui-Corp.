@@ -25,6 +25,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     // UI State
     const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
     const [leaveModalType, setLeaveModalType] = useState<LeaveType | undefined>(undefined);
+    const [linkedRemoteType, setLinkedRemoteType] = useState<'WFH' | 'ONSITE' | undefined>(undefined);
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 
     // --- TIME-SCOPED LOGIC V12 (The Fix) ---
@@ -71,8 +72,8 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     }, [todayActiveLeave]);
 
     // --- Handlers ---
-    const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File): Promise<boolean> => {
-        const result = await submitRequest(type, start, end, reason, file);
+    const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE'): Promise<boolean> => {
+        const result = await submitRequest(type, start, end, reason, file, linkedRemoteType);
         if (result) {
             setIsCheckInModalOpen(false);
         }
@@ -92,8 +93,9 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
                 user={user}
                 todayActiveLeave={todayActiveLeave}
                 onLeaveSubmit={handleLeaveSubmit}
-                onOpenLeave={(type?: LeaveType) => {
+                onOpenLeave={(type?: LeaveType, workType?: 'WFH' | 'ONSITE') => {
                     setLeaveModalType(type);
+                    setLinkedRemoteType(workType);
                     setIsLeaveModalOpen(true);
                 }}
                 isCheckInModalOpen={isCheckInModalOpen}
@@ -112,6 +114,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
                 onClose={() => {
                     setIsLeaveModalOpen(false);
                     setLeaveModalType(undefined);
+                    setLinkedRemoteType(undefined);
                 }}
                 onSubmit={handleLeaveSubmit}
                 masterOptions={masterOptions}
@@ -119,6 +122,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
                 pendingUsage={pendingUsage}
                 requests={requests} 
                 fixedType={leaveModalType}
+                linkedRemoteType={linkedRemoteType}
             />
         </div>
     );

@@ -161,7 +161,7 @@ export function useCheckInState({
     }, [isShiftsEnabled, shiftsList, lateBuffer, isOpen]);
 
     const isUserLate = useMemo(() => {
-        if (approvedWFH || hasAcceptedLateness) return false;
+        if (hasAcceptedLateness) return false;
         if (hasLateRequest && !approvedLateTime) return false;
 
         if (isShiftsEnabled && shiftResult) {
@@ -189,7 +189,7 @@ export function useCheckInState({
         const limit = new Date();
         limit.setHours(h, m + lateBuffer, 0, 0);
         return now > limit;
-    }, [isShiftsEnabled, shiftResult, startTime, lateBuffer, approvedWFH, hasLateRequest, approvedLateTime, pendingLateTime, hasAcceptedLateness]);
+    }, [isShiftsEnabled, shiftResult, startTime, lateBuffer, hasLateRequest, approvedLateTime, pendingLateTime, hasAcceptedLateness]);
 
     const lateMinutes = useMemo(() => {
         if (isShiftsEnabled && shiftResult) {
@@ -285,7 +285,7 @@ export function useCheckInState({
         const actualBypass = bypassFile !== undefined ? bypassFile : bypassSelfie;
         if (!actualBypass && !capturedFile) return;
 
-        if (startTime && !forceCheckIn && !showLateIntervention && !showLatePenaltyBreakdown && !approvedWFH && !hasAcceptedLateness) {
+        if (startTime && !forceCheckIn && !showLateIntervention && !showLatePenaltyBreakdown && !hasAcceptedLateness) {
             const now = new Date();
             let shouldBypass = false;
             

@@ -16,6 +16,14 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         markNotificationAsRead: contextMarkNotificationAsRead,
         dismissNotification: contextDismissNotification 
     } = useNotificationContext();
+
+    const [dismissedDynamicIds, setDismissedDynamicIds] = useState<string[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem('dismissed_dynamic_notification_ids') || '[]');
+        } catch {
+            return [];
+        }
+    });
     
     // Combine and Map Notifications
     const { notifications, unreadCount } = useMemo(() => {
@@ -26,55 +34,8 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
 
         const dynamicNotifs: AppNotification[] = [];
         const penalizedTaskIdsToday = new Set<string>();
-        const processedLogKeys = new Set<string>();
 
-        // 1. Process Game Logs for Deduplication (Don't push to dynamicNotifs anymore as they are in DB notifications)
-        gameLogs.forEach((log: any) => {
-            if (log.action_type === 'TASK_LATE' && log.related_id) {
-                const logDate = new Date(log.created_at);
-                if (isSameDay(logDate, today)) {
-                    penalizedTaskIdsToday.add(log.related_id);
-                }
-            }
-            
-            // We only use gameLogs here to populate penalizedTaskIdsToday.
-            // Actual game-related notifications are now explicitly stored in the 'notifications' table.
-        });
-
-        // 2. Map Tasks
-        tasks.forEach(task => {
-            if (penalizedTaskIdsToday.has(task.id)) return;
-            const notif = mapTaskToNotification(task, currentUser, lastReadTime);
-            if (notif) dynamicNotifs.push(notif);
-        });
-
-        // 3. Map Leave Requests
-        leaveRequests.forEach((req: any) => {
-            dynamicNotifs.push({
-                id: `leave_${req.id}`,
-                type: 'APPROVAL_REQ',
-                title: '📋 คำขอลาใหม่',
-                message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
-                date: new Date(req.created_at),
-                isRead: new Date(req.created_at) < lastReadTime,
-                actionLink: 'ATTENDANCE'
-            });
-        });
-
-        // 4. Map Deadline Requests
-        deadlineRequests.forEach((req: any) => {
-            dynamicNotifs.push({
-                id: `deadline_${req.id}`,
-                type: 'APPROVAL_REQ',
-                title: '📅 คำขอเลื่อน Deadline',
-                message: `คุณ ${req.user?.name} ขอเลื่อนงาน: "${req.taskTitle || 'งานบางอย่าง'}"`,
-                date: new Date(req.created_at),
-                isRead: new Date(req.created_at) < lastReadTime,
-                actionLink: 'ADMIN_DASHBOARD'
-            });
-        });
-
-        // 5. Map DB Notifications
+        // Retrieve acknowledged dynamic ids for isRead state
         const acknowledgedIds = (() => {
             try {
                 return JSON.parse(localStorage.getItem('acknowledged_notification_ids') || '[]');
@@ -82,6 +43,58 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
                 return [];
             }
         })();
+
+        // 1. Process Game Logs for Deduplication
+        gameLogs.forEach((log: any) => {
+            if (log.action_type === 'TASK_LATE' && log.related_id) {
+                const logDate = new Date(log.created_at);
+                if (isSameDay(logDate, today)) {
+                    penalizedTaskIdsToday.add(log.related_id);
+                }
+            }
+        });
+
+        // 2. Map Tasks
+        tasks.forEach(task => {
+            if (penalizedTaskIdsToday.has(task.id)) return;
+            const notif = mapTaskToNotification(task, currentUser, lastReadTime);
+            if (notif) {
+                if (acknowledgedIds.includes(notif.id)) {
+                    notif.isRead = true;
+                }
+                dynamicNotifs.push(notif);
+            }
+        });
+
+        // 3. Map Leave Requests
+        leaveRequests.forEach((req: any) => {
+            if (req.status && req.status !== 'PENDING') return;
+            const notifId = `leave_${req.id}`;
+            dynamicNotifs.push({
+                id: notifId,
+                type: 'APPROVAL_REQ',
+                title: '📋 คำขอลาใหม่',
+                message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
+                date: new Date(req.created_at),
+                isRead: acknowledgedIds.includes(notifId) || new Date(req.created_at) < lastReadTime,
+                actionLink: 'ATTENDANCE'
+            });
+        });
+
+        // 4. Map Deadline Requests
+        deadlineRequests.forEach((req: any) => {
+            if (req.status && req.status !== 'PENDING') return;
+            const notifId = `deadline_${req.id}`;
+            dynamicNotifs.push({
+                id: notifId,
+                type: 'APPROVAL_REQ',
+                title: '📅 คำขอเลื่อน Deadline',
+                message: `คุณ ${req.user?.name} ขอเลื่อนงาน: "${req.taskTitle || 'งานบางอย่าง'}"`,
+                date: new Date(req.created_at),
+                isRead: acknowledgedIds.includes(notifId) || new Date(req.created_at) < lastReadTime,
+                actionLink: 'ADMIN_DASHBOARD'
+            });
+        });
 
         const mappedDbNotifs: AppNotification[] = dbNotifs.map((n: any) => {
             const isAcknowledgedLocal = acknowledgedIds.includes(n.id);
@@ -98,18 +111,31 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
             };
         });
 
-        const combined = [...mappedDbNotifs, ...dynamicNotifs];
+        const combined = [...mappedDbNotifs, ...dynamicNotifs].filter(n => !dismissedDynamicIds.includes(n.id));
         combined.sort((a, b) => b.date.getTime() - a.date.getTime());
 
-        const unread = combined.filter(n => n.date > lastReadTime).length;
+        const unread = combined.filter(n => !n.isRead).length;
 
         return { notifications: combined, unreadCount: unread };
-    }, [dbNotifs, gameLogs, leaveRequests, deadlineRequests, tasks, currentUser]);
+    }, [dbNotifs, gameLogs, leaveRequests, deadlineRequests, tasks, currentUser, dismissedDynamicIds]);
+
+    const dismissNotification = async (id: string) => {
+        if (id.includes('_')) {
+            const nextDismissed = [...dismissedDynamicIds, id];
+            setDismissedDynamicIds(nextDismissed);
+            try {
+                localStorage.setItem('dismissed_dynamic_notification_ids', JSON.stringify(nextDismissed));
+            } catch (e) {
+                console.error("Failed to save dismissed dynamic notifications:", e);
+            }
+        }
+        await contextDismissNotification(id);
+    };
 
     return {
         notifications,
         unreadCount,
-        dismissNotification: contextDismissNotification,
+        dismissNotification,
         markNotificationAsRead: contextMarkNotificationAsRead,
         markAsViewed: contextMarkAsRead,
         markAllAsRead: contextMarkAsRead 

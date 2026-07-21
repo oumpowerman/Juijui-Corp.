@@ -197,6 +197,7 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                 availableLocations={availableLocations}
                 checkInTime={todayLog.checkInTime ? new Date(todayLog.checkInTime) : new Date()} 
                 onOvertimeSubmit={handleOvertimeSubmit}
+                workType={todayLog?.workType}
             />
         </div>
     );

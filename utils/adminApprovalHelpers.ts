@@ -111,6 +111,7 @@ export interface AttendanceCorrectionPayloadOptions {
     existingNote?: string | null;
     leaveType?: string;
     isLate?: boolean;
+    existingWorkType?: string;
 }
 
 /**
@@ -126,8 +127,19 @@ export function buildAttendanceCorrectionPayload({
     originalStatusNote = '',
     existingNote = '',
     leaveType = '',
-    isLate = false
+    isLate = false,
+    existingWorkType
 }: AttendanceCorrectionPayloadOptions) {
+    let resolvedWorkType = 'OFFICE';
+    const noteStr = existingNote || '';
+    if (existingWorkType === 'WFH' || existingWorkType === 'ONSITE') {
+        resolvedWorkType = existingWorkType;
+    } else if (noteStr.includes('[PROVISIONAL_WFH]')) {
+        resolvedWorkType = 'WFH';
+    } else if (noteStr.includes('[PROVISIONAL_ONSITE]')) {
+        resolvedWorkType = 'ONSITE';
+    }
+
     if (type === 'FORGOT_BOTH') {
         const finalNote = mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${reason}`);
         const resolvedStatus = resolveAttendanceLogStatus(checkInTime, checkOutTime, finalNote);
@@ -136,7 +148,7 @@ export function buildAttendanceCorrectionPayload({
             date: date,
             check_in_time: checkInTime,
             check_out_time: checkOutTime,
-            work_type: 'OFFICE',
+            work_type: resolvedWorkType,
             status: resolvedStatus,
             note: finalNote
         };
@@ -146,7 +158,7 @@ export function buildAttendanceCorrectionPayload({
             user_id: userId,
             date: date,
             check_in_time: checkInTime,
-            work_type: 'OFFICE',
+            work_type: resolvedWorkType,
             note: finalNote
         };
 

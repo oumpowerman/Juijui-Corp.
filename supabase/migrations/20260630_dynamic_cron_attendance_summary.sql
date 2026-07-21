@@ -28,7 +28,7 @@ BEGIN
     END IF;
 
     -- B. Check calendar exceptions (Highest Priority)
-    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date::TEXT LIMIT 1;
+    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date LIMIT 1;
     IF is_exception IS NOT NULL THEN
         RETURN is_exception.type = 'WORK_DAY';
     END IF;

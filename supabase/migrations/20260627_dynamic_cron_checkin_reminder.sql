@@ -28,7 +28,7 @@ BEGIN
     END IF;
 
     -- 2. Check calendar exceptions (Highest Priority)
-    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date::TEXT LIMIT 1;
+    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date LIMIT 1;
     IF is_exception IS NOT NULL THEN
         RETURN is_exception.type = 'WORK_DAY';
     END IF;
@@ -55,7 +55,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. Create Cron Task: Checks check-ins, leaves, and logs reminder notifications
+--- 3. Create Cron Task: Checks check-ins, leaves, and logs reminder notifications
 CREATE OR REPLACE FUNCTION public.check_in_reminder_cron()
 RETURNS void AS $$
 DECLARE
@@ -64,21 +64,71 @@ DECLARE
     has_checkin BOOLEAN;
     on_leave BOOLEAN;
     start_time_val TEXT := '10:00';
+    late_buffer_val TEXT := '15';
+    late_alert_mode_val TEXT := 'AFTER_LIMIT';
+    late_alert_offset_val TEXT := '5';
+    start_time_parsed TIME;
+    late_buffer_minutes INT;
+    grace_limit_time TIME;
+    grace_limit_str TEXT;
+    notification_title TEXT;
+    notification_message TEXT;
 BEGIN
     -- Determine current date in Thailand (Asia/Bangkok timezone) to remain server-independent
     cur_date := (timezone('Asia/Bangkok'::text, now()))::DATE;
 
-    -- Fetch START_TIME from master_options
+    -- Fetch WORK_CONFIGs from master_options
     SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
     IF start_time_val IS NULL THEN
         start_time_val := '10:00';
     END IF;
 
-    -- Loop through active profiles who are members (exclude ADMIN roles for reminders)
+    SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+    IF late_buffer_val IS NULL THEN
+        late_buffer_val := '15';
+    END IF;
+
+    SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+    IF late_alert_mode_val IS NULL THEN
+        late_alert_mode_val := 'AFTER_LIMIT';
+    END IF;
+
+    SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
+    IF late_alert_offset_val IS NULL THEN
+        late_alert_offset_val := '5';
+    END IF;
+
+    -- Parse start time and buffer
+    BEGIN
+        start_time_parsed := start_time_val::TIME;
+    EXCEPTION WHEN OTHERS THEN
+        start_time_parsed := '10:00'::TIME;
+    END;
+
+    BEGIN
+        late_buffer_minutes := late_buffer_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_buffer_minutes := 15;
+    END;
+
+    -- Calculate grace limit time
+    grace_limit_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL;
+    grace_limit_str := to_char(grace_limit_time, 'HH24:MI');
+
+    -- Setup dynamic title & message
+    IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+        notification_title := '⏰ รีบลงเวลางานน้า (ใกล้หมดเวลาผ่อนปรน)';
+        notification_message := 'อีก ' || late_alert_offset_val || ' นาทีจะสิ้นสุดช่วงผ่อนปรนลงเวลาเข้างานแล้วนะคะ รีบเช็คอินก่อน ' || grace_limit_str || ' น้า~ 😊 เข้าแอปมาเช็คอินตอนนี้เลยเพื่อรักษาพลังชีวิต (HP) กันค่ะ';
+    ELSE
+        notification_title := '⏰ ลืมลงเวลาทำงานหรือเปล่าเอ่ย?';
+        notification_message := 'เลยเวลาเริ่มงานของวันนี้ (' || start_time_val || ') และหมดช่วงผ่อนปรนแล้ว (' || grace_limit_str || ') ระบบยังไม่พบบันทึกการตอกบัตรเข้างานของคุณ รีบเข้าแอปมาลงเวลาก่อนถูกหักพลังชีวิต (HP) นะคะ';
+    END IF;
+
+    -- Loop through active profiles
     FOR profile_rec IN 
         SELECT id, full_name 
         FROM public.profiles 
-        WHERE is_active = TRUE AND role != 'ADMIN'
+        WHERE is_active = TRUE
     LOOP
         -- Check if today is a working day for this user
         IF public.is_working_day_db(cur_date, profile_rec.id) THEN
@@ -106,7 +156,7 @@ BEGIN
                         SELECT 1 FROM public.notifications 
                         WHERE user_id = profile_rec.id 
                           AND type = 'OVERDUE' 
-                          AND title LIKE '%ลืมลงเวลาทำงาน%' 
+                          AND (title LIKE '%ลงเวลาทำงาน%' OR title LIKE '%ลงเวลางาน%' OR title LIKE '%ผ่อนปรน%')
                           AND created_at >= (cur_date::TIMESTAMP)
                     ) THEN
                         -- Insert notification
@@ -122,8 +172,8 @@ BEGIN
                         ) VALUES (
                             profile_rec.id,
                             'OVERDUE',
-                            '⏰ ลืมลงเวลาทำงานหรือเปล่าเอ่ย?',
-                            'เลยเวลาเริ่มงานของวันนี้ (' || start_time_val || ') แล้ว ระบบยังไม่พบบันทึกการตอกบัตรเข้างานของคุณ รีบเข้าแอปมาลงเวลา หรือส่งคำขอแก้ไขเวลาหากลืม เพื่อป้องกันไม่ให้ถูกหักพลังชีวิต (HP) ในระบบนะครับ',
+                            notification_title,
+                            notification_message,
                             FALSE,
                             'ATTENDANCE',
                             NULL
@@ -142,20 +192,27 @@ RETURNS trigger AS $$
 DECLARE
     start_time_val TEXT;
     late_buffer_val TEXT;
+    late_alert_mode_val TEXT;
+    late_alert_offset_val TEXT;
     start_time_parsed TIME;
     late_buffer_minutes INT;
+    late_alert_offset_minutes INT;
     local_alert_time TIME;
     utc_alert_timestamp TIMESTAMP;
     utc_hour INT;
     utc_minute INT;
     cron_expr TEXT;
 BEGIN
-    -- Check if we are updating START_TIME or LATE_BUFFER under WORK_CONFIG type
-    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'START_TIME' OR NEW.key = 'LATE_BUFFER')) THEN
+    -- Check if we are updating START_TIME, LATE_BUFFER, LATE_ALERT_MODE or LATE_ALERT_OFFSET under WORK_CONFIG type
+    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'START_TIME' OR NEW.key = 'LATE_BUFFER' OR NEW.key = 'LATE_ALERT_MODE' OR NEW.key = 'LATE_ALERT_OFFSET')) THEN
         -- Fetch START_TIME from database
         SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
         -- Fetch LATE_BUFFER from database
         SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+        -- Fetch LATE_ALERT_MODE from database
+        SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+        -- Fetch LATE_ALERT_OFFSET from database
+        SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
 
         -- Fallbacks
         IF start_time_val IS NULL THEN
@@ -163,6 +220,12 @@ BEGIN
         END IF;
         IF late_buffer_val IS NULL THEN
             late_buffer_val := '15';
+        END IF;
+        IF late_alert_mode_val IS NULL THEN
+            late_alert_mode_val := 'AFTER_LIMIT';
+        END IF;
+        IF late_alert_offset_val IS NULL THEN
+            late_alert_offset_val := '5';
         END IF;
 
         -- Parse START_TIME as TIME
@@ -179,9 +242,21 @@ BEGIN
             late_buffer_minutes := 15;
         END;
 
-        -- Calculate local alert time: START_TIME + LATE_BUFFER + 1 minute
-        -- e.g. 10:00 + 15 mins + 1 min = 10:16
-        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+        -- Parse LATE_ALERT_OFFSET as INT
+        BEGIN
+            late_alert_offset_minutes := late_alert_offset_val::INT;
+        EXCEPTION WHEN OTHERS THEN
+            late_alert_offset_minutes := 5;
+        END;
+
+        -- Calculate local alert time
+        IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+            -- Proactive mode: START_TIME + LATE_BUFFER - LATE_ALERT_OFFSET
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL - (late_alert_offset_minutes || ' minutes')::INTERVAL;
+        ELSE
+            -- Standard mode: START_TIME + LATE_BUFFER + 1 minute
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+        END IF;
 
         -- Convert local alert time to UTC to set up pg_cron
         -- Using CURRENT_DATE combined with local time and casting with timezone 'Asia/Bangkok'
@@ -227,18 +302,22 @@ DO $$
 DECLARE
     start_time_val TEXT;
     late_buffer_val TEXT;
+    late_alert_mode_val TEXT;
+    late_alert_offset_val TEXT;
     start_time_parsed TIME;
     late_buffer_minutes INT;
+    late_alert_offset_minutes INT;
     local_alert_time TIME;
     utc_alert_timestamp TIMESTAMP;
     utc_hour INT;
     utc_minute INT;
     cron_expr TEXT;
 BEGIN
-    -- Fetch START_TIME from database
+    -- Fetch from database
     SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
-    -- Fetch LATE_BUFFER from database
     SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+    SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+    SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
 
     -- Fallbacks
     IF start_time_val IS NULL THEN
@@ -246,6 +325,12 @@ BEGIN
     END IF;
     IF late_buffer_val IS NULL THEN
         late_buffer_val := '15';
+    END IF;
+    IF late_alert_mode_val IS NULL THEN
+        late_alert_mode_val := 'AFTER_LIMIT';
+    END IF;
+    IF late_alert_offset_val IS NULL THEN
+        late_alert_offset_val := '5';
     END IF;
 
     -- Parse START_TIME as TIME
@@ -262,7 +347,20 @@ BEGIN
         late_buffer_minutes := 15;
     END;
 
-    local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+    -- Parse LATE_ALERT_OFFSET as INT
+    BEGIN
+        late_alert_offset_minutes := late_alert_offset_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_alert_offset_minutes := 5;
+    END;
+
+    -- Calculate local alert time
+    IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL - (late_alert_offset_minutes || ' minutes')::INTERVAL;
+    ELSE
+        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+    END IF;
+
     utc_alert_timestamp := (CURRENT_DATE + local_alert_time) AT TIME ZONE 'Asia/Bangkok' AT TIME ZONE 'UTC';
     utc_hour := EXTRACT(HOUR FROM utc_alert_timestamp);
     utc_minute := EXTRACT(MINUTE FROM utc_alert_timestamp);

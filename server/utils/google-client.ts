@@ -23,9 +23,11 @@ export const getRedirectUri = (req?: express.Request) => {
 };
 
 export const getGoogleOAuthClient = (req?: express.Request) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.VITE_GOOGLE_CLIENT_SECRET;
     return new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
+        clientId,
+        clientSecret,
         getRedirectUri(req)
     );
 };

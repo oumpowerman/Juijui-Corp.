@@ -1,13 +1,18 @@
 import express from 'express';
-import { SCOPES, getGoogleOAuthClient } from '../utils/google-client.js';
+import { SCOPES, getGoogleOAuthClient } from '../utils/google-client';
 
 const router = express.Router();
 
 // 1. Google Auth URL generator
 router.get('/api/auth/google/url', (req, res) => {
     try {
-        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-            throw new Error('Google Client ID or Secret is missing');
+        const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.VITE_GOOGLE_CLIENT_SECRET;
+
+        if (!clientId || !clientSecret) {
+            return res.status(400).json({ 
+                error: 'กรุณาตั้งค่า GOOGLE_CLIENT_ID และ GOOGLE_CLIENT_SECRET ใน Environment Variables' 
+            });
         }
         
         const localOauthClient = getGoogleOAuthClient(req);

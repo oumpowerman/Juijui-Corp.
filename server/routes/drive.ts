@@ -2,8 +2,8 @@ import express from 'express';
 import multer from 'multer';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-import { getGoogleOAuthClient, getOrCreateFolder } from '../utils/google-client.js';
-import { BRAND_CONFIG } from '../../config/brand.js';
+import { getGoogleOAuthClient, getOrCreateFolder } from '../utils/google-client';
+import { BRAND_CONFIG } from '../../config/brand';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });

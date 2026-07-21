@@ -1,5 +1,5 @@
 import express from 'express';
-import { tagIndexService } from '../../utils/tagIndexer.js';
+import { tagIndexService } from '../../utils/tagIndexer';
 
 const router = express.Router();
 

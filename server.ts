@@ -4,12 +4,12 @@ import cookieSession from 'cookie-session';
 import path from 'path';
 
 // Import modular routers
-import authRouter from './server/routes/auth.js';
-import driveRouter from './server/routes/drive.js';
-import tagsRouter from './server/routes/tags.js';
-import dashboardRouter from './server/routes/dashboard.js';
-import chatRouter from './server/routes/chat.js';
-import adminApprovalRouter from './server/routes/adminApproval.js';
+import authRouter from './server/routes/auth';
+import driveRouter from './server/routes/drive';
+import tagsRouter from './server/routes/tags';
+import dashboardRouter from './server/routes/dashboard';
+import chatRouter from './server/routes/chat';
+import adminApprovalRouter from './server/routes/adminApproval';
 
 const PORT = 3000;
 const app = express();

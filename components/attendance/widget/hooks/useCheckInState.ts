@@ -289,7 +289,9 @@ export function useCheckInState({
         const actualBypass = bypassFile !== undefined ? bypassFile : bypassSelfie;
         if (!actualBypass && !capturedFile) return;
 
-        if (startTime && !forceCheckIn && !showLateIntervention && !showLatePenaltyBreakdown && !hasAcceptedLateness) {
+        const effectiveCheckStartTime = approvedLateTime || pendingLateTime || (isShiftsEnabled && shiftResult?.targetStartTime ? shiftResult.targetStartTime : startTime);
+
+        if (effectiveCheckStartTime && !forceCheckIn && !showLateIntervention && !showLatePenaltyBreakdown && !hasAcceptedLateness) {
             const now = new Date();
             let shouldBypass = false;
             
@@ -307,18 +309,17 @@ export function useCheckInState({
             if (shouldBypass) {
                 // Bypass late check
             } else {
-                let effectiveStartTime = startTime;
-                if (approvedLateTime) {
-                    effectiveStartTime = approvedLateTime;
-                } else if (pendingLateTime) {
-                    effectiveStartTime = pendingLateTime;
+                let isLateCheck = false;
+                if (isShiftsEnabled && shiftResult && !approvedLateTime && !pendingLateTime) {
+                    isLateCheck = shiftResult.isLate || shiftResult.isBlocked;
+                } else if (effectiveCheckStartTime) {
+                    const [h, m] = effectiveCheckStartTime.split(':').map(Number);
+                    const limit = new Date();
+                    limit.setHours(h, m + lateBuffer, 0, 0);
+                    isLateCheck = now > limit;
                 }
-                
-                const [h, m] = effectiveStartTime.split(':').map(Number);
-                const limit = new Date();
-                limit.setHours(h, m + lateBuffer, 0, 0);
 
-                if (now > limit) {
+                if (isLateCheck) {
                     if (typeToSubmit) setSelectedType(typeToSubmit);
                     setShowLateIntervention(true);
                     return;

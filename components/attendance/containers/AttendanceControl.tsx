@@ -9,7 +9,7 @@ import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { format } from 'date-fns';
 import { Info, AlertTriangle, HelpCircle } from 'lucide-react';
-import { checkIsLate, calculateCheckOutStatus } from '../../../lib/attendanceUtils';
+import { checkIsLate, calculateCheckOutStatus, getMatchedShiftSlot } from '../../../lib/attendanceUtils';
 import StatusCard from '../widget/StatusCard';
 import CheckInModal from '../widget/CheckInModal';
 import LiveClock from '../widget/LiveClock';
@@ -63,6 +63,15 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
 
     const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+    const shiftsList = useMemo(() => {
+        if (shiftsListOpt?.label) {
+            return shiftsListOpt.label.split(',').map(s => s.trim());
+        }
+        return ['08:00', '08:30', '09:00'];
+    }, [shiftsListOpt]);
 
     const todayRequests = useMemo(() => {
         const reqs = requests && requests.length > 0 ? requests : (todayActiveLeave ? [todayActiveLeave] : []);
@@ -168,8 +177,15 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 const lateReason = todayRequests.find(r => r.type === 'LATE_ENTRY')?.reason || todayActiveLeave?.reason;
                 
                 const now = new Date();
-                const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, lateBuffer) ? pendingLateTime : startTime);
-                const isLate = checkIsLate(now, effectiveStartTime, lateBuffer);
+                let matchedShift = null;
+                if (isShiftsEnabled) {
+                    matchedShift = getMatchedShiftSlot(now, shiftsList, lateBuffer);
+                }
+                const baseStartTime = matchedShift ? matchedShift.targetStartTime : startTime;
+                const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, lateBuffer) ? pendingLateTime : baseStartTime);
+                const isLate = matchedShift && !approvedLateTime && !pendingLateTime
+                    ? (matchedShift.isLate || matchedShift.isBlocked)
+                    : checkIsLate(now, effectiveStartTime, lateBuffer);
 
                 const success = await checkIn(
                     type, 

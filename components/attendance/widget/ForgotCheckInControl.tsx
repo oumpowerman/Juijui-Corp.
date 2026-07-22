@@ -114,18 +114,35 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                 return;
             }
 
-            if (!startTime) return;
+            const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+            const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+
+            let effectiveStartTimeStr = startTime;
+            if (isShiftsEnabled && shiftsListOpt?.label) {
+                const shiftsList = shiftsListOpt.label.split(',').map(s => s.trim()).filter(Boolean);
+                if (shiftsList.length > 0) {
+                    const sortedShifts = [...shiftsList].sort((a, b) => {
+                        const [ah, am] = a.split(':').map(Number);
+                        const [bh, bm] = b.split(':').map(Number);
+                        return (ah * 60 + am) - (bh * 60 + bm);
+                    });
+                    effectiveStartTimeStr = sortedShifts[sortedShifts.length - 1];
+                }
+            }
+
+            if (!effectiveStartTimeStr) return;
 
             const now = new Date();
-            const [startHour, startMinute] = startTime.split(':').map(Number);
+            const [startHour, startMinute] = effectiveStartTimeStr.split(':').map(Number);
             
-            // Base Start Time (Today)
+            // Base Start Time (Today - latest shift if multi-shifts enabled)
             const workStartTime = setMinutes(setHours(now, startHour), startMinute);
             
-            // Start Window: Start Time + Buffer (Before this, user should use normal Check-in)
+            // Start Window: Latest Shift Start Time + Buffer (Before this, user should use normal Check-in)
             const showAfterTime = addMinutes(workStartTime, lateBuffer);
             
-            // End Window: Start Time + 12 Hours (Prevent overnight/late night confusion)
+            // End Window: Latest Shift Start Time + 12 Hours (Prevent overnight/late night confusion)
             const hideAfterTime = addHours(workStartTime, 12);
 
             try {
@@ -144,7 +161,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
         // Re-check every minute
         const interval = setInterval(checkVisibility, 60000);
         return () => clearInterval(interval);
-    }, [startTime, lateBuffer, isCheckedIn]);
+    }, [startTime, lateBuffer, isCheckedIn, masterOptions]);
 
     useEffect(() => {
         if (gpsCheckStatus === 'SCANNING') {

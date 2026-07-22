@@ -13,13 +13,70 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
-CREATE SCHEMA IF NOT EXISTS "public";
+CREATE EXTENSION IF NOT EXISTS "pg_cron" WITH SCHEMA "pg_catalog";
 
 
-ALTER SCHEMA "public" OWNER TO "pg_database_owner";
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+
+
+
+
 
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
+
+
+
+CREATE EXTENSION IF NOT EXISTS "hypopg" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "index_advisor" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA "public";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
+
+
+
+
+
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
+
+
+
 
 
 
@@ -92,25 +149,74 @@ CREATE OR REPLACE FUNCTION "public"."check_in_reminder_cron"() RETURNS "void"
     AS $$
 DECLARE
     cur_date DATE;
+    cur_time TIME;
+    start_time_val TEXT;
+    late_buffer_val TEXT;
+    late_buffer_minutes INT;
+    start_time_parsed TIME;
+    grace_limit_time TIME;
+    grace_limit_str TEXT;
+    
+    late_alert_offset_val TEXT;
+    late_alert_offset_minutes INT;
+    late_alert_mode_val TEXT;
+    
     profile_rec RECORD;
     has_checkin BOOLEAN;
-    on_leave BOOLEAN;
-    start_time_val TEXT := '10:00';
+    has_approved_leave BOOLEAN;
+    
+    notification_title TEXT;
+    notification_message TEXT;
+    admin_user_id UUID;
 BEGIN
-    -- Determine current date in Thailand (Asia/Bangkok timezone) to remain server-independent
-    cur_date := (timezone('Asia/Bangkok'::text, now()))::DATE;
+    -- Get current date/time in Thailand Timezone
+    cur_date := (NOW() AT TIME ZONE 'Asia/Bangkok')::DATE;
+    cur_time := (NOW() AT TIME ZONE 'Asia/Bangkok')::TIME;
 
-    -- Fetch START_TIME from master_options
+    -- Fetch master options
     SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
-    IF start_time_val IS NULL THEN
-        start_time_val := '10:00';
+    SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER_MINUTES' LIMIT 1;
+    SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET_MINUTES' LIMIT 1;
+    SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+
+    -- Defaults
+    IF start_time_val IS NULL THEN start_time_val := '08:30'; END IF;
+    IF late_buffer_val IS NULL THEN late_buffer_val := '15'; END IF;
+    IF late_alert_offset_val IS NULL THEN late_alert_offset_val := '0'; END IF;
+    IF late_alert_mode_val IS NULL THEN late_alert_mode_val := 'AFTER_LIMIT'; END IF;
+
+    -- Parse Start Time safely
+    BEGIN
+        start_time_parsed := start_time_val::TIME;
+    EXCEPTION WHEN OTHERS THEN
+        start_time_parsed := '08:30'::TIME;
+    END;
+
+    -- Parse Late Buffer safely
+    BEGIN
+        late_buffer_minutes := late_buffer_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_buffer_minutes := 15;
+    END;
+
+    -- Calculate grace limit time
+    grace_limit_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL;
+    grace_limit_str := to_char(grace_limit_time, 'HH24:MI');
+
+    -- Setup dynamic title & message
+    IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+        notification_title := '⏰ รีบลงเวลางานน้า (ใกล้หมดเวลาผ่อนปรน)';
+        notification_message := 'อีก ' || late_alert_offset_val || ' นาทีจะสิ้นสุดช่วงผ่อนปรนลงเวลาเข้างานแล้วนะคะ รีบเช็คอินก่อน ' || grace_limit_str || ' น้า~ 😊 เข้าแอปมาเช็คอินตอนนี้เลยเพื่อรักษาพลังชีวิต (HP) กันค่ะ';
+    ELSE
+        notification_title := '⏰ ลืมลงเวลาทำงานหรือเปล่าเอ่ย?';
+        notification_message := 'เลยเวลาเริ่มงานของวันนี้ (' || start_time_val || ') และหมดช่วงผ่อนปรนแล้ว (' || grace_limit_str || ') ระบบยังไม่พบบันทึกการตอกบัตรเข้างานของคุณ รีบเข้าแอปมาลงเวลาก่อนถูกหักพลังชีวิต (HP) นะคะ';
     END IF;
 
-    -- Loop through active profiles who are members (exclude ADMIN roles for reminders)
+    -- Loop through ALL active profiles (including ADMIN)
     FOR profile_rec IN 
         SELECT id, full_name 
         FROM public.profiles 
-        WHERE is_active = TRUE AND role != 'ADMIN'
+        WHERE is_active = TRUE
     LOOP
         -- Check if today is a working day for this user
         IF public.is_working_day_db(cur_date, profile_rec.id) THEN
@@ -128,37 +234,31 @@ BEGIN
                     SELECT 1 FROM public.leave_requests 
                     WHERE user_id = profile_rec.id 
                       AND status = 'APPROVED'
-                      AND start_date <= cur_date 
-                      AND end_date >= cur_date
-                ) INTO on_leave;
+                      AND cur_date BETWEEN start_date AND end_date
+                ) INTO has_approved_leave;
 
-                IF NOT on_leave THEN
-                    -- Check if we have already sent an OVERDUE check-in reminder today
+                IF NOT has_approved_leave THEN
+                    -- Prevent duplicate notification for today
                     IF NOT EXISTS (
                         SELECT 1 FROM public.notifications 
-                        WHERE user_id = profile_rec.id 
-                          AND type = 'OVERDUE' 
-                          AND title LIKE '%ลืมลงเวลาทำงาน%' 
-                          AND created_at >= (cur_date::TIMESTAMP)
+                        WHERE target_user_id = profile_rec.id 
+                          AND title = notification_title 
+                          AND created_at::DATE = cur_date
                     ) THEN
-                        -- Insert notification
-                        -- Setting line_status explicitly to NULL to trigger Deno webhook Push-to-LINE
                         INSERT INTO public.notifications (
                             user_id,
+                            target_user_id,
                             type,
                             title,
                             message,
-                            is_read,
-                            link_path,
-                            line_status
+                            is_read
                         ) VALUES (
                             profile_rec.id,
-                            'OVERDUE',
-                            '⏰ ลืมลงเวลาทำงานหรือเปล่าเอ่ย?',
-                            'เลยเวลาเริ่มงานของวันนี้ (' || start_time_val || ') แล้ว ระบบยังไม่พบบันทึกการตอกบัตรเข้างานของคุณ รีบเข้าแอปมาลงเวลา หรือส่งคำขอแก้ไขเวลาหากลืม เพื่อป้องกันไม่ให้ถูกหักพลังชีวิต (HP) ในระบบนะครับ',
-                            FALSE,
-                            'ATTENDANCE',
-                            NULL
+                            profile_rec.id,
+                            'SYSTEM',
+                            notification_title,
+                            notification_message,
+                            FALSE
                         );
                     END IF;
                 END IF;
@@ -581,7 +681,7 @@ BEGIN
 
     -- Loop through active users (exclude ADMIN from attendance tracking)
     FOR profile_rec IN 
-        SELECT id, full_name, phone_number 
+        SELECT id, full_name 
         FROM public.profiles 
         WHERE is_active = TRUE AND role != 'ADMIN'
         ORDER BY full_name ASC
@@ -650,21 +750,11 @@ BEGIN
                 ELSE
                     -- Absent
                     absent_count := absent_count + 1;
-                    
-                    -- Include phone number if available for easy contact
-                    DECLARE
-                        phone_suffix TEXT := '';
-                    BEGIN
-                        IF profile_rec.phone_number IS NOT NULL AND profile_rec.phone_number != '' THEN
-                            phone_suffix := ' (โทร. ' || profile_rec.phone_number || ')';
-                        END IF;
-                        
-                        IF absent_list = '' THEN
-                            absent_list := '• ' || profile_rec.full_name || phone_suffix;
-                        ELSE
-                            absent_list := absent_list || E'\n• ' || profile_rec.full_name || phone_suffix;
-                        END IF;
-                    END;
+                    IF absent_list = '' THEN
+                        absent_list := '• ' || profile_rec.full_name;
+                    ELSE
+                        absent_list := absent_list || E'\n• ' || profile_rec.full_name;
+                    END IF;
                 END IF;
             END IF;
         END IF;
@@ -806,7 +896,7 @@ BEGIN
     END IF;
 
     -- B. Check calendar exceptions (Highest Priority)
-    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date::TEXT LIMIT 1;
+    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date LIMIT 1;
     IF is_exception IS NOT NULL THEN
         RETURN is_exception.type = 'WORK_DAY';
     END IF;
@@ -856,20 +946,27 @@ CREATE OR REPLACE FUNCTION "public"."recalculate_and_reschedule_checkin_cron"() 
 DECLARE
     start_time_val TEXT;
     late_buffer_val TEXT;
+    late_alert_mode_val TEXT;
+    late_alert_offset_val TEXT;
     start_time_parsed TIME;
     late_buffer_minutes INT;
+    late_alert_offset_minutes INT;
     local_alert_time TIME;
     utc_alert_timestamp TIMESTAMP;
     utc_hour INT;
     utc_minute INT;
     cron_expr TEXT;
 BEGIN
-    -- Check if we are updating START_TIME or LATE_BUFFER under WORK_CONFIG type
-    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'START_TIME' OR NEW.key = 'LATE_BUFFER')) THEN
+    -- Check if we are updating START_TIME, LATE_BUFFER, LATE_ALERT_MODE or LATE_ALERT_OFFSET under WORK_CONFIG type
+    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'START_TIME' OR NEW.key = 'LATE_BUFFER' OR NEW.key = 'LATE_ALERT_MODE' OR NEW.key = 'LATE_ALERT_OFFSET')) THEN
         -- Fetch START_TIME from database
         SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
         -- Fetch LATE_BUFFER from database
         SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+        -- Fetch LATE_ALERT_MODE from database
+        SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+        -- Fetch LATE_ALERT_OFFSET from database
+        SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
 
         -- Fallbacks
         IF start_time_val IS NULL THEN
@@ -877,6 +974,12 @@ BEGIN
         END IF;
         IF late_buffer_val IS NULL THEN
             late_buffer_val := '15';
+        END IF;
+        IF late_alert_mode_val IS NULL THEN
+            late_alert_mode_val := 'AFTER_LIMIT';
+        END IF;
+        IF late_alert_offset_val IS NULL THEN
+            late_alert_offset_val := '5';
         END IF;
 
         -- Parse START_TIME as TIME
@@ -893,9 +996,21 @@ BEGIN
             late_buffer_minutes := 15;
         END;
 
-        -- Calculate local alert time: START_TIME + LATE_BUFFER + 1 minute
-        -- e.g. 10:00 + 15 mins + 1 min = 10:16
-        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+        -- Parse LATE_ALERT_OFFSET as INT
+        BEGIN
+            late_alert_offset_minutes := late_alert_offset_val::INT;
+        EXCEPTION WHEN OTHERS THEN
+            late_alert_offset_minutes := 5;
+        END;
+
+        -- Calculate local alert time
+        IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+            -- Proactive mode: START_TIME + LATE_BUFFER - LATE_ALERT_OFFSET
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL - (late_alert_offset_minutes || ' minutes')::INTERVAL;
+        ELSE
+            -- Standard mode: START_TIME + LATE_BUFFER + 1 minute
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+        END IF;
 
         -- Convert local alert time to UTC to set up pg_cron
         -- Using CURRENT_DATE combined with local time and casting with timezone 'Asia/Bangkok'
@@ -1206,6 +1321,32 @@ $$;
 
 
 ALTER FUNCTION "public"."sync_content_analytics_status_fn"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."sync_master_option_rules_to_game_configs"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+DECLARE
+    rules_jsonb JSONB;
+BEGIN
+    -- Aggregate rules from master_option_rules joined with master_options to get keys, format them as JSONB
+    SELECT jsonb_object_agg(mo.key, jsonb_build_object('xp', mor.xp, 'hp', mor.hp, 'coins', mor.coins))
+    INTO rules_jsonb
+    FROM public.master_option_rules mor
+    JOIN public.master_options mo ON mor.master_option_id = mo.id;
+
+    -- Update or insert into game_configs under key 'ATTENDANCE_RULES'
+    INSERT INTO public.game_configs (key, value)
+    VALUES ('ATTENDANCE_RULES', COALESCE(rules_jsonb, '{}'::jsonb))
+    ON CONFLICT (key) DO UPDATE
+    SET value = COALESCE(rules_jsonb, '{}'::jsonb);
+
+    RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."sync_master_option_rules_to_game_configs"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_master_options_version"() RETURNS "trigger"
@@ -1910,6 +2051,18 @@ CREATE TABLE IF NOT EXISTS "public"."leave_requests" (
 ALTER TABLE "public"."leave_requests" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."master_option_rules" (
+    "master_option_id" "uuid" NOT NULL,
+    "xp" integer DEFAULT 0 NOT NULL,
+    "hp" integer DEFAULT 0 NOT NULL,
+    "coins" integer DEFAULT 0 NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL
+);
+
+
+ALTER TABLE "public"."master_option_rules" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."master_options" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "type" "text" NOT NULL,
@@ -2038,7 +2191,8 @@ CREATE TABLE IF NOT EXISTS "public"."ot_requests" (
     "base_salary_at_time" numeric(10,2),
     "computed_payout" numeric(10,2) DEFAULT 0,
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
-    "attachment_url" "text"
+    "attachment_url" "text",
+    "is_fixed" boolean DEFAULT false
 );
 
 
@@ -2577,6 +2731,17 @@ CREATE TABLE IF NOT EXISTS "public"."tribunal_reports" (
 ALTER TABLE "public"."tribunal_reports" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."user_background_settings" (
+    "user_id" "uuid" NOT NULL,
+    "background_theme" "text" DEFAULT 'default'::"text" NOT NULL,
+    "admin_dashboard_season" "text",
+    "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL
+);
+
+
+ALTER TABLE "public"."user_background_settings" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."user_inventory" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
@@ -2912,6 +3077,11 @@ ALTER TABLE ONLY "public"."leave_requests"
 
 
 
+ALTER TABLE ONLY "public"."master_option_rules"
+    ADD CONSTRAINT "master_option_rules_pkey" PRIMARY KEY ("master_option_id");
+
+
+
 ALTER TABLE ONLY "public"."master_options"
     ADD CONSTRAINT "master_options_pkey" PRIMARY KEY ("id");
 
@@ -3109,6 +3279,11 @@ ALTER TABLE ONLY "public"."tribunal_reports"
 
 ALTER TABLE ONLY "public"."smart_filters"
     ADD CONSTRAINT "unique_user_label" UNIQUE ("user_id", "label");
+
+
+
+ALTER TABLE ONLY "public"."user_background_settings"
+    ADD CONSTRAINT "user_background_settings_pkey" PRIMARY KEY ("user_id");
 
 
 
@@ -3403,6 +3578,14 @@ CREATE OR REPLACE TRIGGER "trg_sync_analytics_on_content_change" AFTER UPDATE OF
 
 
 CREATE OR REPLACE TRIGGER "trg_sync_analytics_on_log" AFTER INSERT OR DELETE OR UPDATE ON "public"."content_analytics" FOR EACH ROW EXECUTE FUNCTION "public"."sync_content_analytics_status_fn"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_sync_master_option_rules" AFTER INSERT OR DELETE OR UPDATE ON "public"."master_option_rules" FOR EACH STATEMENT EXECUTE FUNCTION "public"."sync_master_option_rules_to_game_configs"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_sync_master_option_rules_on_options" AFTER UPDATE OF "key" ON "public"."master_options" FOR EACH STATEMENT EXECUTE FUNCTION "public"."sync_master_option_rules_to_game_configs"();
 
 
 
@@ -3703,6 +3886,11 @@ ALTER TABLE ONLY "public"."leave_requests"
 
 
 
+ALTER TABLE ONLY "public"."master_option_rules"
+    ADD CONSTRAINT "master_option_rules_master_option_id_fkey" FOREIGN KEY ("master_option_id") REFERENCES "public"."master_options"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."meeting_logs"
     ADD CONSTRAINT "meeting_logs_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
@@ -3878,6 +4066,11 @@ ALTER TABLE ONLY "public"."tribunal_reports"
 
 
 
+ALTER TABLE ONLY "public"."user_background_settings"
+    ADD CONSTRAINT "user_background_settings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."user_inventory"
     ADD CONSTRAINT "user_inventory_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."shop_items"("id") ON DELETE CASCADE;
 
@@ -3950,6 +4143,12 @@ CREATE POLICY "Admin manage slips" ON "public"."payroll_slips" USING ((EXISTS ( 
 CREATE POLICY "Admin update profiles" ON "public"."profiles" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."profiles" "profiles_1"
   WHERE (("profiles_1"."id" = "auth"."uid"()) AND ("profiles_1"."role" = 'ADMIN'::"public"."user_role") AND ("profiles_1"."is_approved" = true)))));
+
+
+
+CREATE POLICY "Admins can delete attendance_logs" ON "public"."attendance_logs" FOR DELETE USING ((( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'ADMIN'::"public"."user_role"));
 
 
 
@@ -4115,6 +4314,22 @@ CREATE POLICY "Allow authenticated users to view interns" ON "public"."intern_ca
 
 
 
+CREATE POLICY "Allow individuals to delete their own background settings" ON "public"."user_background_settings" FOR DELETE USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Allow individuals to insert their own background settings" ON "public"."user_background_settings" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Allow individuals to select their own background settings" ON "public"."user_background_settings" FOR SELECT USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Allow individuals to update their own background settings" ON "public"."user_background_settings" FOR UPDATE USING (("auth"."uid"() = "user_id"));
+
+
+
 CREATE POLICY "Allow insert for authenticated users" ON "public"."storage_config" FOR INSERT TO "authenticated" WITH CHECK (true);
 
 
@@ -4158,6 +4373,10 @@ CREATE POLICY "Allow public read access" ON "public"."channels" FOR SELECT USING
 
 
 CREATE POLICY "Allow public read access" ON "public"."game_configs" FOR SELECT USING (true);
+
+
+
+CREATE POLICY "Allow public read access" ON "public"."master_option_rules" FOR SELECT USING (true);
 
 
 
@@ -4383,6 +4602,10 @@ CREATE POLICY "Enable all access for authenticated users" ON "public"."kpi_recor
 
 
 
+CREATE POLICY "Enable all access for authenticated users" ON "public"."master_option_rules" USING (("auth"."role"() = 'authenticated'::"text"));
+
+
+
 CREATE POLICY "Enable all access for authenticated users" ON "public"."master_options" USING (("auth"."role"() = 'authenticated'::"text"));
 
 
@@ -4556,10 +4779,6 @@ CREATE POLICY "Enable read for authenticated" ON "public"."shop_items" FOR SELEC
 
 
 CREATE POLICY "Enable read for authenticated" ON "public"."user_inventory" FOR SELECT USING (("auth"."role"() = 'authenticated'::"text"));
-
-
-
-CREATE POLICY "Enable read for authenticated users" ON "public"."attendance_logs" FOR SELECT USING (true);
 
 
 
@@ -4747,7 +4966,9 @@ CREATE POLICY "Users can insert their own smart filters" ON "public"."smart_filt
 
 
 
-CREATE POLICY "Users can manage own attendance" ON "public"."attendance_logs" USING (("auth"."uid"() = "user_id"));
+CREATE POLICY "Users can manage own attendance" ON "public"."attendance_logs" USING ((("auth"."uid"() = "user_id") OR (( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'ADMIN'::"public"."user_role")));
 
 
 
@@ -4942,6 +5163,9 @@ ALTER TABLE "public"."kpi_records" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."leave_requests" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."master_option_rules" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."master_options" ENABLE ROW LEVEL SECURITY;
 
 
@@ -5042,6 +5266,9 @@ ALTER TABLE "public"."team_messages" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."tribunal_reports" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."user_background_settings" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."user_inventory" ENABLE ROW LEVEL SECURITY;
 
 
@@ -5060,10 +5287,443 @@ ALTER TABLE "public"."wiki_nodes" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."workbox_items" ENABLE ROW LEVEL SECURITY;
 
 
+
+
+ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
+
+
+
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."active_checklist_items";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."annual_holidays";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."attendance_logs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."calendar_exceptions";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."calendar_highlights";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."channels";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."checklist_presets_db";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."content_analytics";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."contents";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."dashboard_configs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."duties";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."duty_configs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."duty_swaps";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."finance_transactions";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."game_logs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."goal_boosts";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."goal_deadline_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."goal_owners";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."goals";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."hp_death_logs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."idp_items";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."individual_goals";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."inventory_items";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."kpi_configs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."kpi_peer_reviews";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."kpi_records";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."leave_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."master_options";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."notifications";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."ot_requests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."payroll_cycles";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."payroll_slips";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."profiles";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."redemptions";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."rewards";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."script_comments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."scripts";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."shoot_trips";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."shop_items";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."task_comments";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."task_logs";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."task_reviews";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."tasks";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."team_messages";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."user_inventory";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."user_screens";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."weekly_quests";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."wiki_articles";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."wiki_nodes";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."workbox_items";
+
+
+
+
+
+
+
+
+
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_in"("cstring") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_in"("cstring") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_in"("cstring") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_in"("cstring") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_out"("public"."gtrgm") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_out"("public"."gtrgm") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_out"("public"."gtrgm") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_out"("public"."gtrgm") TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5121,6 +5781,97 @@ GRANT ALL ON FUNCTION "public"."get_finance_stats"("start_date" "date", "end_dat
 
 
 
+GRANT ALL ON FUNCTION "public"."gin_extract_query_trgm"("text", "internal", smallint, "internal", "internal", "internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gin_extract_query_trgm"("text", "internal", smallint, "internal", "internal", "internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gin_extract_query_trgm"("text", "internal", smallint, "internal", "internal", "internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gin_extract_query_trgm"("text", "internal", smallint, "internal", "internal", "internal", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gin_extract_value_trgm"("text", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gin_extract_value_trgm"("text", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gin_extract_value_trgm"("text", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gin_extract_value_trgm"("text", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gin_trgm_consistent"("internal", smallint, "text", integer, "internal", "internal", "internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gin_trgm_consistent"("internal", smallint, "text", integer, "internal", "internal", "internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gin_trgm_consistent"("internal", smallint, "text", integer, "internal", "internal", "internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gin_trgm_consistent"("internal", smallint, "text", integer, "internal", "internal", "internal", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gin_trgm_triconsistent"("internal", smallint, "text", integer, "internal", "internal", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_compress"("internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_compress"("internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_compress"("internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_compress"("internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_consistent"("internal", "text", smallint, "oid", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_consistent"("internal", "text", smallint, "oid", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_consistent"("internal", "text", smallint, "oid", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_consistent"("internal", "text", smallint, "oid", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_decompress"("internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_decompress"("internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_decompress"("internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_decompress"("internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_distance"("internal", "text", smallint, "oid", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_distance"("internal", "text", smallint, "oid", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_distance"("internal", "text", smallint, "oid", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_distance"("internal", "text", smallint, "oid", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_options"("internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_options"("internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_options"("internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_options"("internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_penalty"("internal", "internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_penalty"("internal", "internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_penalty"("internal", "internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_penalty"("internal", "internal", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_picksplit"("internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_picksplit"("internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_picksplit"("internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_picksplit"("internal", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_same"("public"."gtrgm", "public"."gtrgm", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_same"("public"."gtrgm", "public"."gtrgm", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_same"("public"."gtrgm", "public"."gtrgm", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_same"("public"."gtrgm", "public"."gtrgm", "internal") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."gtrgm_union"("internal", "internal") TO "postgres";
+GRANT ALL ON FUNCTION "public"."gtrgm_union"("internal", "internal") TO "anon";
+GRANT ALL ON FUNCTION "public"."gtrgm_union"("internal", "internal") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."gtrgm_union"("internal", "internal") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
@@ -5157,6 +5908,13 @@ GRANT ALL ON FUNCTION "public"."recalculate_and_reschedule_summary_cron"() TO "s
 
 
 
+GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "postgres";
+GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "anon";
+GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."scripts" TO "anon";
 GRANT ALL ON TABLE "public"."scripts" TO "authenticated";
 GRANT ALL ON TABLE "public"."scripts" TO "service_role";
@@ -5169,9 +5927,85 @@ GRANT ALL ON FUNCTION "public"."sheets_text"("s" "public"."scripts") TO "service
 
 
 
+GRANT ALL ON FUNCTION "public"."show_limit"() TO "postgres";
+GRANT ALL ON FUNCTION "public"."show_limit"() TO "anon";
+GRANT ALL ON FUNCTION "public"."show_limit"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."show_limit"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."show_trgm"("text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."show_trgm"("text") TO "anon";
+GRANT ALL ON FUNCTION "public"."show_trgm"("text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."show_trgm"("text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."similarity"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."similarity"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."similarity"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."similarity"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."similarity_dist"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."similarity_dist"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."similarity_dist"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."similarity_dist"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."similarity_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."similarity_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."similarity_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."similarity_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."strict_word_similarity"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_commutator_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_commutator_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_commutator_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_commutator_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_commutator_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_commutator_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_commutator_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_commutator_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_dist_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."strict_word_similarity_op"("text", "text") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."sync_content_analytics_status_fn"() TO "anon";
 GRANT ALL ON FUNCTION "public"."sync_content_analytics_status_fn"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."sync_content_analytics_status_fn"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."sync_master_option_rules_to_game_configs"() TO "anon";
+GRANT ALL ON FUNCTION "public"."sync_master_option_rules_to_game_configs"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."sync_master_option_rules_to_game_configs"() TO "service_role";
 
 
 
@@ -5190,6 +6024,68 @@ GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."update_wiki_version"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_wiki_version"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_wiki_version"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."word_similarity"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."word_similarity"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."word_similarity"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."word_similarity"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."word_similarity_commutator_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."word_similarity_commutator_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."word_similarity_commutator_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."word_similarity_commutator_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_commutator_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_commutator_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_commutator_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_commutator_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."word_similarity_dist_op"("text", "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."word_similarity_op"("text", "text") TO "postgres";
+GRANT ALL ON FUNCTION "public"."word_similarity_op"("text", "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."word_similarity_op"("text", "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."word_similarity_op"("text", "text") TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5403,6 +6299,12 @@ GRANT ALL ON TABLE "public"."leave_requests" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."master_option_rules" TO "anon";
+GRANT ALL ON TABLE "public"."master_option_rules" TO "authenticated";
+GRANT ALL ON TABLE "public"."master_option_rules" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."master_options" TO "anon";
 GRANT ALL ON TABLE "public"."master_options" TO "authenticated";
 GRANT ALL ON TABLE "public"."master_options" TO "service_role";
@@ -5595,6 +6497,12 @@ GRANT ALL ON TABLE "public"."tribunal_reports" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."user_background_settings" TO "anon";
+GRANT ALL ON TABLE "public"."user_background_settings" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_background_settings" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."user_inventory" TO "anon";
 GRANT ALL ON TABLE "public"."user_inventory" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_inventory" TO "service_role";
@@ -5631,6 +6539,12 @@ GRANT ALL ON TABLE "public"."workbox_items" TO "service_role";
 
 
 
+
+
+
+
+
+
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
@@ -5655,6 +6569,30 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

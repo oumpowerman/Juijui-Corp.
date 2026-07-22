@@ -267,19 +267,12 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         {onNavigateToHistory && (
                             <button
                                 onClick={onNavigateToHistory}
-                                className="flex-1 py-2.5 px-3 bg-white hover:bg-amber-100/50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
+                                className="w-full py-2.5 px-3 bg-white hover:bg-amber-100/50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
                             >
                                 <FileText className="w-4 h-4 text-amber-600" />
                                 <span>ดูรายละเอียดคำขอ / ประวัติ</span>
                             </button>
                         )}
-                        <button
-                            onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
-                            className="flex-1 py-2.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-98"
-                        >
-                            <LogIn className="w-4 h-4" />
-                            <span>ลงเวลาเข้างานเสริม (Optional)</span>
-                        </button>
                     </div>
                 </div>
             ) : (

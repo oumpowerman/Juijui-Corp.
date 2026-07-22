@@ -250,6 +250,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                       !!log.note?.includes('[PROVISIONAL_WFH]') || 
                                       !!log.note?.includes('[PROVISIONAL_ONSITE]') ||
                                       !!log.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+                                      !!log.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
+                                      !!log.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
                                       !!log.note?.includes('[APPEAL_PENDING]');
                 if (isProvisional) {
                     stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;

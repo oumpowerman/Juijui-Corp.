@@ -127,7 +127,35 @@ const StatusCard: React.FC<StatusCardProps> = ({
 
     const { otRequests } = useUserSession();
 
+    const approvedFixedOtToday = useMemo(() => {
+        const todayStr = format(time, 'yyyy-MM-dd');
+        if (otRequests && user?.id) {
+            const ot = otRequests.find(req => 
+                String(req.userId) === String(user.id) && 
+                req.date === todayStr && 
+                req.status === 'APPROVED' &&
+                (Boolean(req.isFixed) || req.reason?.includes('เหมาจ่าย') || Number(req.fixedAmount) > 0)
+            );
+            if (ot) return {
+                id: String(ot.id),
+                reason: ot.reason || 'ปฏิบัติงาน OT เหมาจ่ายตามที่ได้รับอนุมัติ',
+                otHours: ot.otHours,
+                fixedAmount: ot.fixedAmount
+            };
+        }
+        if (todayActiveLeave?.type === 'OVERTIME' && todayActiveLeave.status === 'APPROVED' && (todayActiveLeave.reason?.includes('เหมาจ่าย') || (todayActiveLeave as any).isFixed)) {
+            return {
+                id: String(todayActiveLeave.id),
+                reason: todayActiveLeave.reason || 'ปฏิบัติงาน OT เหมาจ่ายตามที่ได้รับอนุมัติ',
+                otHours: 0,
+                fixedAmount: 0
+            };
+        }
+        return null;
+    }, [otRequests, user?.id, time, todayActiveLeave]);
+
     const hasApprovedOT = useMemo(() => {
+        if (approvedFixedOtToday) return true;
         if (!otRequests) return false;
         const todayStr = format(time, 'yyyy-MM-dd');
         return otRequests.some(req => 
@@ -135,7 +163,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
             req.date === todayStr && 
             req.status === 'APPROVED'
         );
-    }, [otRequests, user.id, time]);
+    }, [otRequests, user.id, time, approvedFixedOtToday]);
 
     const isBlockedByHoliday = useMemo(() => {
         return dayStatus.mode === 'HOLIDAY' && !hasApprovedOT;
@@ -303,6 +331,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onNavigateToHistory={onNavigateToHistory}
                     todayLog={todayLog}
                     onOpenLeave={onOpenLeave}
+                    approvedFixedOtToday={approvedFixedOtToday}
                 />
             )}
         </div>

@@ -27,7 +27,7 @@ app.use(cookieSession({
     keys: [process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'juijui-planner-secret'],
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     secure: isProd, 
-    sameSite: isProd ? 'none' : 'lax',
+    sameSite: 'lax',
     httpOnly: true 
 }));
 

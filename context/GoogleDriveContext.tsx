@@ -84,8 +84,6 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const initGoogleScripts = () => {
-        if (!CLIENT_ID || !API_KEY) return;
-
         const loadScript = (src: string) => {
             return new Promise((resolve, reject) => {
                 const existingScript = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement;
@@ -110,14 +108,27 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             });
         };
 
-        Promise.all([
-            loadScript('https://apis.google.com/js/api.js'),
-            loadScript('https://accounts.google.com/gsi/client'),
-        ]).then(() => {
-            if (window.gapi) {
+        const scriptsToLoad: Promise<any>[] = [];
+        if (API_KEY) {
+            scriptsToLoad.push(loadScript('https://apis.google.com/js/api.js'));
+        }
+        if (CLIENT_ID) {
+            scriptsToLoad.push(loadScript('https://accounts.google.com/gsi/client'));
+        }
+
+        if (scriptsToLoad.length === 0) {
+            // Default to ready so server-side OAuth flow can work
+            setIsReady(true);
+            return;
+        }
+
+        Promise.all(scriptsToLoad).then(() => {
+            if (window.gapi && API_KEY) {
                 window.gapi.load('picker', () => setIsReady(true));
+            } else {
+                setIsReady(true);
             }
-            if (window.google?.accounts?.oauth2) {
+            if (window.google?.accounts?.oauth2 && CLIENT_ID) {
                 const client = window.google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
@@ -127,7 +138,8 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             }
         }).catch(err => {
             console.error("Failed to load Google Scripts", err);
-            showToast('ไม่สามารถโหลดระบบ Google Drive ได้ กรุณาตรวจสอบการเชื่อมต่อ', 'error');
+            // Fallback to ready so server-side OAuth flow can operate
+            setIsReady(true);
         });
     };
 
@@ -381,10 +393,6 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const uploadFileToDrive = (file: File, folderPath: string[] = []): Promise<any> => {
         return new Promise(async (resolve, reject) => {
-            if (!isReady || !tokenClient) {
-                showToast('Google Drive API ยังไม่พร้อม', 'error');
-                return reject(new Error('Not ready'));
-            }
             const timeoutId = setTimeout(() => {
                 setIsUploading(false);
                 reject(new Error('Timeout'));

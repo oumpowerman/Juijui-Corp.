@@ -76,7 +76,7 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     const late = isLate(log);
     const pendingItem = findPendingRegistryItemByNote(log.note || '');
     const isProvisionalLate = pendingItem?.id === 'LATE_ENTRY';
-    const isProvisionalGpsAppeal = pendingItem?.id === 'GPS_SPOOF_APPEAL';
+    const isProvisionalGpsAppeal = pendingItem?.id === 'GPS_SPOOF_APPEAL' || (log.note || '').includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || (log.note || '').includes('[GPS_SPOOF_APPEAL_PENDING]');
     const isAppeal = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGpsAppeal;
     const proof = getProofUrl(log);
     const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
@@ -164,9 +164,13 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             <td className="px-6 py-4">
                 {log.checkInTime ? (
                     <div>
-                        <span className={`font-mono font-semibold text-sm ${isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-emerald-600'}`}>
+                        <span className={`font-mono font-semibold text-sm ${isProvisionalGpsAppeal ? 'text-rose-600' : isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-emerald-600'}`}>
                             {format(log.checkInTime, 'HH:mm')}
-                            {isAppeal && <span className="ml-2 text-[9px] bg-violet-100 font-medium px-1.5 py-0.5 rounded text-violet-700 uppercase">APPEAL</span>}
+                            {isProvisionalGpsAppeal ? (
+                                <span className="ml-2 text-[9px] bg-rose-100 font-bold px-1.5 py-0.5 rounded text-rose-700 uppercase border border-rose-200">🚨 GPS จำลอง</span>
+                            ) : isAppeal ? (
+                                <span className="ml-2 text-[9px] bg-violet-100 font-medium px-1.5 py-0.5 rounded text-violet-700 uppercase">APPEAL</span>
+                            ) : null}
                             {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 font-medium px-1.5 py-0.5 rounded text-red-700 uppercase">LATE</span>}
                         </span>
                         {(() => {

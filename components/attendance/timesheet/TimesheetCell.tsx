@@ -141,7 +141,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
     const pendingItem = findPendingRegistryItemByNote(log.note || '');
     const isAnyProvisional = !!pendingItem;
     const isProvisionalLate = pendingItem?.id === 'LATE_ENTRY' || log.status === 'APPEAL';
-    const isProvisionalGps = pendingItem?.id === 'GPS_SPOOF_APPEAL';
+    const isProvisionalGps = pendingItem?.id === 'GPS_SPOOF_APPEAL' || (log.note || '').includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || (log.note || '').includes('[GPS_SPOOF_APPEAL_PENDING]') || leaveRequest?.type === 'GPS_SPOOF_APPEAL';
     const isAppealState = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGps;
 
     if (isHardAbsent) {
@@ -169,7 +169,8 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         >
             <div className={`
                 w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all duration-200 group-hover/cell:scale-105 group-hover/cell:shadow-md
-                ${isAppealState ? 'bg-violet-50/50 border-violet-400 border-dashed text-violet-700 ring-1 ring-violet-300/30' :
+                ${isProvisionalGps ? 'bg-rose-50/70 border-rose-400 border-dashed text-rose-700 ring-1 ring-rose-300/40' :
+                  isAppealState ? 'bg-violet-50/50 border-violet-400 border-dashed text-violet-700 ring-1 ring-violet-300/30' :
                   isAnyProvisional ? 'bg-amber-50/45 border-amber-400 border-dashed text-amber-700 ring-1 ring-amber-300/30' :
                   isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
                   isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
@@ -205,7 +206,11 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                         <span className="text-[10px] font-bold font-mono leading-none opacity-60">
                             {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                         </span>
-                        {isAppealState ? (
+                        {isProvisionalGps ? (
+                            <span className="text-[7px] font-bold bg-rose-200/90 text-rose-950 px-1 py-0.5 rounded scale-90 uppercase tracking-tighter mt-0.5 select-none animate-pulse whitespace-nowrap">
+                                🚨 GPS จำลอง
+                            </span>
+                        ) : isAppealState ? (
                             <span className="text-[7px] font-bold bg-violet-200/80 text-violet-950 px-1 py-0.5 rounded scale-90 uppercase tracking-tighter mt-0.5 select-none animate-pulse whitespace-nowrap">
                                 ⏳ อุทธรณ์
                             </span>

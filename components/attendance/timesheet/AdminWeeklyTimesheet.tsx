@@ -65,6 +65,8 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             l.note?.includes('[PROVISIONAL_WFH]') || 
             l.note?.includes('[PROVISIONAL_ONSITE]') ||
             l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+            l.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
+            l.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
             l.note?.includes('[APPEAL_PENDING]')
         ).length;
     }, [logs]);
@@ -195,6 +197,8 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                     l.note?.includes('[PROVISIONAL_WFH]') || 
                     l.note?.includes('[PROVISIONAL_ONSITE]') ||
                     l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
+                    l.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
+                    l.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
                     l.note?.includes('[APPEAL_PENDING]')
                 );
                 if (!hasProv) return false;

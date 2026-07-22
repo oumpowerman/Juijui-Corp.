@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogIn, Palmtree, Hourglass, ShieldCheck, AlertCircle, ArrowRight, Flame, AlertTriangle, Briefcase, Cloud } from 'lucide-react';
+import { LogIn, Palmtree, Hourglass, ShieldCheck, AlertCircle, ArrowRight, Flame, AlertTriangle, Briefcase, Cloud, FileText } from 'lucide-react';
 import { LeaveType, LocationDef, AttendanceStats, LeaveRequest, AttendanceLog } from '../../../../../types/attendance';
 import ForgotCheckInControl from '../../ForgotCheckInControl';
 
@@ -20,6 +20,7 @@ interface NotCheckedInDisplayProps {
     onNavigateToHistory?: () => void;
     todayLog: AttendanceLog | null;
     onOpenLeave?: (type?: any) => void;
+    approvedFixedOtToday?: { id: string; reason: string; otHours?: number; fixedAmount?: number } | null;
 }
 
 export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
@@ -37,7 +38,8 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     availableLocations,
     onNavigateToHistory,
     todayLog,
-    onOpenLeave
+    onOpenLeave,
+    approvedFixedOtToday
 }) => {
     return (
         <>
@@ -223,63 +225,121 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                 </div>
             )}
 
-            <div className={`rounded-xl p-4 text-center border-2 border-dashed ${dayStatus.mode === 'HOLIDAY' ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
-                <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-gray-600' : 'text-gray-500'}`}>
-                    {dayStatus.mode === 'HOLIDAY' ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' : 'พร้อมเริ่มงานรึยัง?'}
-                </p>
-                <div className="flex flex-col gap-3">
-                    <div className="relative group w-full">
-                        <button 
-                            disabled={isBlockedByHoliday}
-                            onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
-                            className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2
-                                ${isBlockedByHoliday 
-                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
-                                    : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
-                                }
-                            `}
-                        >
-                            {isApprovedLeaveToday && todayActiveLeave?.type === 'WFH' ? (
-                                <>🏠 กดลงเวลาทำงานจากบ้าน (WFH)</>
-                            ) : isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' ? (
-                                <>🚗 กดลงเวลาทำงานนอกสถานที่ (On-site)</>
-                            ) : (
-                                <>
-                                    <LogIn className="w-5 h-5" /> 
-                                    {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
-                                </>
-                            )}
-                        </button>
-                        
-                        {isBlockedByHoliday && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 bg-white/95 text-slate-700 border border-pink-100/80 backdrop-blur-md shadow-[0_15px_35px_rgba(244,63,94,0.08)] text-xs rounded-2xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-50 text-center leading-relaxed">
-                                <div className="flex items-center justify-center gap-1.5 text-amber-500 font-bold mb-1.5">
-                                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                                    <span>วันนี้เป็นวันหยุดงาน</span>
-                                </div>
-                                <p className="text-slate-600 text-[12px] font-medium">
-                                    กรุณายื่นคำขอการทำ OT และรอให้ได้รับการอนุมัติจากแอดมินหรือหัวหน้างานก่อน จึงจะลงเวลาเข้างานได้ครับ
-                                </p>
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white/95" />
-                            </div>
-                        )}
+            {/* APPROVED FIXED OT BOX (OT เหมาจ่าย) */}
+            {approvedFixedOtToday ? (
+                <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/70 border-2 border-amber-300/90 rounded-2xl p-4 sm:p-5 shadow-md text-left space-y-3.5 mb-3 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-3 pb-2.5 border-b border-amber-200/80">
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-2.5 rounded-xl text-white shadow-sm shrink-0">
+                            <Flame className="w-5 h-5 animate-bounce" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-sm sm:text-base font-extrabold text-amber-950 leading-snug">
+                                🔥 วันนี้ได้รับอนุมัติปฏิบัติงาน OT (เหมาจ่าย) เรียบร้อยแล้ว
+                            </h3>
+                            <p className="text-[11px] text-amber-800 font-medium mt-0.5">
+                                คุณได้รับอนุมัติงานพิเศษเรียบร้อย ไม่จำเป็นต้องตอกบัตรเข้า/ออกงาน
+                            </p>
+                        </div>
                     </div>
 
-                    
-                    {/* Forgot Check-in Component (Auto Logic) */}
-                    {dayStatus.mode !== 'HOLIDAY' && (
-                        <ForgotCheckInControl 
-                            startTime={startTime}
-                            lateBuffer={lateBuffer}
-                            isCheckedIn={!!todayLog?.checkInTime}
-                            onSubmit={onCheckOutRequest}
-                            leaveUsage={leaveUsage}
-                            todayActiveLeave={todayActiveLeave}
-                            availableLocations={availableLocations}
-                        />
-                    )}
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl p-3.5 border border-amber-200/80 space-y-2 text-xs">
+                        <div className="flex items-start gap-2">
+                            <span className="font-bold text-amber-900 shrink-0">📝 ภารกิจ/รายละเอียดงาน:</span>
+                            <span className="font-semibold text-slate-800 break-words leading-relaxed">
+                                {approvedFixedOtToday.reason || 'ปฏิบัติงาน OT เหมาจ่ายตามที่ได้รับอนุมัติ'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-amber-900 shrink-0">⏱️ รูปแบบ:</span>
+                            <span className="font-semibold text-slate-700">
+                                OT เหมาจ่าย (ไม่ต้องตอกบัตรเข้า/ออกงาน)
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-amber-900 shrink-0">✅ สถานะ:</span>
+                            <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                <ShieldCheck className="w-3.5 h-3.5" /> อนุมัติแล้วโดย Admin
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                        {onNavigateToHistory && (
+                            <button
+                                onClick={onNavigateToHistory}
+                                className="flex-1 py-2.5 px-3 bg-white hover:bg-amber-100/50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
+                            >
+                                <FileText className="w-4 h-4 text-amber-600" />
+                                <span>ดูรายละเอียดคำขอ / ประวัติ</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
+                            className="flex-1 py-2.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-98"
+                        >
+                            <LogIn className="w-4 h-4" />
+                            <span>ลงเวลาเข้างานเสริม (Optional)</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className={`rounded-xl p-4 text-center border-2 border-dashed ${dayStatus.mode === 'HOLIDAY' ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-gray-600' : 'text-gray-500'}`}>
+                        {dayStatus.mode === 'HOLIDAY' ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' : 'พร้อมเริ่มงานรึยัง?'}
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <div className="relative group w-full">
+                            <button 
+                                disabled={isBlockedByHoliday}
+                                onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
+                                className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2
+                                    ${isBlockedByHoliday 
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
+                                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
+                                    }
+                                `}
+                            >
+                                {isApprovedLeaveToday && todayActiveLeave?.type === 'WFH' ? (
+                                    <>🏠 กดลงเวลาทำงานจากบ้าน (WFH)</>
+                                ) : isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' ? (
+                                    <>🚗 กดลงเวลาทำงานนอกสถานที่ (On-site)</>
+                                ) : (
+                                    <>
+                                        <LogIn className="w-5 h-5" /> 
+                                        {dayStatus.mode === 'HOLIDAY' ? 'ลงเวลาปฏิบัติงานพิเศษในวันหยุด (OT)' : 'กดเพื่อลงเวลา (Check-in)'}
+                                    </>
+                                )}
+                            </button>
+                            
+                            {isBlockedByHoliday && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 bg-white/95 text-slate-700 border border-pink-100/80 backdrop-blur-md shadow-[0_15px_35px_rgba(244,63,94,0.08)] text-xs rounded-2xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-50 text-center leading-relaxed">
+                                    <div className="flex items-center justify-center gap-1.5 text-amber-500 font-bold mb-1.5">
+                                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                                        <span>วันนี้เป็นวันหยุดงาน</span>
+                                    </div>
+                                    <p className="text-slate-600 text-[12px] font-medium">
+                                        กรุณายื่นคำขอการทำ OT และรอให้ได้รับการอนุมัติจากแอดมินหรือหัวหน้างานก่อน จึงจะลงเวลาเข้างานได้ครับ
+                                    </p>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white/95" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Forgot Check-in Component (Auto Logic) */}
+                        {dayStatus.mode !== 'HOLIDAY' && (
+                            <ForgotCheckInControl 
+                                startTime={startTime}
+                                lateBuffer={lateBuffer}
+                                isCheckedIn={!!todayLog?.checkInTime}
+                                onSubmit={onCheckOutRequest}
+                                leaveUsage={leaveUsage}
+                                todayActiveLeave={todayActiveLeave}
+                                availableLocations={availableLocations}
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
         </>
     );
 };

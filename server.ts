@@ -15,7 +15,7 @@ const PORT = 3000;
 const app = express();
 
 // Trust proxy is required for secure cookies behind a reverse proxy (like in AI Studio and Vercel)
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 

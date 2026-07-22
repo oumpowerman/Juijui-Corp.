@@ -5,6 +5,9 @@ const router = express.Router();
 
 // 1. Google Auth URL generator
 router.get('/api/auth/google/url', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     try {
         const clientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
         const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.VITE_GOOGLE_CLIENT_SECRET;
@@ -31,12 +34,18 @@ router.get('/api/auth/google/url', (req, res) => {
 
 // 2. Google Session Connection Status
 router.get('/api/auth/google/status', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const tokens = (req.session as any)?.tokens;
     res.json({ connected: !!tokens });
 });
 
 // 3. Get Active/Refreshed Access Token
 router.get('/api/auth/google/token', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const tokens = (req.session as any)?.tokens;
     if (!tokens || !tokens.access_token) return res.status(401).json({ error: 'Not connected' });
     
@@ -79,6 +88,10 @@ router.post('/api/auth/google/logout', (req, res) => {
 
 // 5. Google Callback Handler
 router.get('/auth/google/callback', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const { code } = req.query;
     console.log('Received auth callback with code:', !!code);
     

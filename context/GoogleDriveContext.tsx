@@ -51,7 +51,12 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const fetchServerToken = async (): Promise<string | null> => {
         try {
-            const response = await fetch('/api/auth/google/token');
+            const response = await fetch(`/api/auth/google/token?t=${Date.now()}`, {
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store'
+                }
+            });
             if (response.ok) {
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
@@ -269,7 +274,11 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         try {
             // 2. Fetch the actual OAuth URL from our server
-            const response = await fetch('/api/auth/google/url');
+            const response = await fetch(`/api/auth/google/url?t=${Date.now()}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store'
+                }
+            });
             const contentType = response.headers.get('content-type');
             
             let data: any = {};

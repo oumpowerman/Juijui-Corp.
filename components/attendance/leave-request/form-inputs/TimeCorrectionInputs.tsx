@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import CustomDatePicker from '../../../common/CustomDatePicker';
 import TimePickerModal from '../../../ui/TimePickerModal';
-import { Clock, Info } from 'lucide-react';
+import { Clock, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useMasterData } from '../../../../hooks/useMasterData';
 import ShiftCardSelector from './ShiftCardSelector';
 import CustomTimeInput from './CustomTimeInput';
+import { calculateShiftAndActualTime } from '../../../../utils/shiftCalculator';
 
 interface Props {
     date: string;
@@ -115,12 +116,38 @@ const TimeCorrectionInputs: React.FC<Props> = ({
                     />
 
                     {isCustomMode && (
-                        <CustomTimeInput
-                            time={time}
-                            setTime={setTime}
-                            label="เวลากรอบเพิ่มเติมที่ลืมลง"
-                            accentColor="amber"
-                        />
+                        <div className="space-y-2">
+                            <CustomTimeInput
+                                time={time}
+                                setTime={setTime}
+                                label="เวลาที่ต้องการแจ้งลืมลง"
+                                accentColor="amber"
+                            />
+                            {time && (() => {
+                                const mapped = calculateShiftAndActualTime(time, shiftsList);
+                                return (
+                                    <div className={`p-3.5 rounded-2xl border text-xs flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1 ${
+                                        mapped.isLate 
+                                            ? 'bg-amber-50/90 border-amber-200/80 text-amber-900' 
+                                            : 'bg-emerald-50/90 border-emerald-200/80 text-emerald-900'
+                                    }`}>
+                                        {mapped.isLate ? (
+                                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                        ) : (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                        )}
+                                        <div className="font-sarabun leading-relaxed">
+                                            <span>ระบบจับคู่เข้า <strong className="font-bold">กะ {mapped.targetShift} น.</strong></span>
+                                            {mapped.actualTime !== mapped.targetShift && (
+                                                <span className="ml-1 opacity-90">
+                                                    (ลงเวลาจริง {mapped.actualTime} น.{mapped.isLate ? ` - สาย ${mapped.lateMinutes} นาที` : ''})
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     )}
                 </div>
             ) : (

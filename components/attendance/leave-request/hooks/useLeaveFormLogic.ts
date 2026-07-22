@@ -1,9 +1,12 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { LeaveType } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
+import { useMasterData } from '../../../../hooks/useMasterData';
+import { calculateShiftAndActualTime, formatCorrectionNote } from '../../../../utils/shiftCalculator';
+import { compressImage } from '../../../../lib/imageUtils';
 
 interface UseLeaveFormLogicProps {
     onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
@@ -17,13 +20,22 @@ interface UseLeaveFormLogicProps {
     linkedRemoteType?: 'WFH' | 'ONSITE';
 }
 
-import { compressImage } from '../../../../lib/imageUtils';
-
 export const useLeaveFormLogic = ({ 
     onSubmit, onClose, initialDate, initialReason, selectedType, 
     advanceDays, maxFutureDays, maxPastDays, linkedRemoteType
 }: UseLeaveFormLogicProps) => {
     const { showAlert } = useGlobalDialog();
+    const { masterOptions } = useMasterData();
+
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const isShiftsEnabled = shiftsEnabledOpt ? shiftsEnabledOpt.label === 'true' : true;
+    const shiftsList = useMemo(() => {
+        if (shiftsListOpt?.label) {
+            return shiftsListOpt.label.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return ['08:00', '08:30', '09:00'];
+    }, [shiftsListOpt]);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
@@ -168,18 +180,37 @@ export const useLeaveFormLogic = ({
 
         const item = getRegistryItem(selectedType);
         if (item && item.rules.isTimeSpecific && selectedType !== 'OVERTIME') {
-            // Combine date and time correctly to avoid midnight issue
             const [year, month, day] = startDate.split('-').map(Number);
-            const [hours, minutes] = targetTime.split(':').map(Number);
-            finalStartDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
-            
-            if (selectedType === 'FORGOT_BOTH') {
-                finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}-${endTime}] ${reason}`;
-                const [endH, endM] = endTime.split(':').map(Number);
-                finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
+            const isCheckInCorrection = ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(selectedType);
+
+            if (isShiftsEnabled && isCheckInCorrection) {
+                const shiftCalc = calculateShiftAndActualTime(targetTime, shiftsList);
+                const mappedShift = shiftCalc.targetShift;
+                const actualCheckIn = shiftCalc.actualTime;
+
+                const [shiftH, shiftM] = mappedShift.split(':').map(Number);
+                finalStartDate = new Date(year, month - 1, day, shiftH, shiftM, 0, 0);
+
+                if (selectedType === 'FORGOT_BOTH') {
+                    finalReason = formatCorrectionNote(mappedShift, actualCheckIn, reason, endTime);
+                    const [endH, endM] = endTime.split(':').map(Number);
+                    finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
+                } else {
+                    finalReason = formatCorrectionNote(mappedShift, actualCheckIn, reason);
+                    finalEndDate = finalStartDate;
+                }
             } else {
-                finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}] ${reason}`;
-                finalEndDate = finalStartDate; 
+                const [hours, minutes] = targetTime.split(':').map(Number);
+                finalStartDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+                
+                if (selectedType === 'FORGOT_BOTH') {
+                    finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}-${endTime}] ${reason}`;
+                    const [endH, endM] = endTime.split(':').map(Number);
+                    finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
+                } else {
+                    finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}] ${reason}`;
+                    finalEndDate = finalStartDate; 
+                }
             }
         } else if (selectedType === 'OVERTIME') {
             if (otType === 'FIXED') {

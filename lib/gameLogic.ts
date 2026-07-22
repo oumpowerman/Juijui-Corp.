@@ -1,7 +1,7 @@
 
 import { GameActionType, GameActionResult, Difficulty, GameConfig } from '../types';
 import { differenceInDays, isBefore, format } from 'date-fns';
-import th from 'date-fns/locale/th';
+import th from 'date-fns/locale/th/index.js';
 
 // --- DEFAULT FALLBACK CONFIGURATION ---
 // Used when DB is offline or loading

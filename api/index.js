@@ -2498,7 +2498,7 @@ var adminApprovalService = {
 
 // lib/gameLogic.ts
 import { differenceInDays, format as format5 } from "date-fns";
-import th from "date-fns/locale/th";
+import th from "date-fns/locale/th/index.js";
 var DEFAULT_GAME_CONFIG = {
   GLOBAL_MULTIPLIERS: {
     XP_PER_HOUR: 20,
@@ -2978,6 +2978,7 @@ var evaluateAction = (action, context, config = DEFAULT_GAME_CONFIG) => {
         message: `\u23F0 Time Warp: \u0E22\u0E49\u0E2D\u0E19\u0E40\u0E27\u0E25\u0E32\u0E25\u0E49\u0E32\u0E07\u0E42\u0E17\u0E29 "${context.originalDescription || "Unknown"}"`,
         details: "Refunded"
       };
+    // --- NEW: KPI REWARDS ---
     case "KPI_REWARD": {
       const grade = context.grade || "D";
       const r = kpiRewards[grade] || kpiRewards["D"] || { xp: 0, coins: 0 };
@@ -3498,7 +3499,7 @@ startServer();
 var server_default = app;
 
 // api/index.ts
-var api_default = server_default;
+var index_default = server_default;
 export {
-  api_default as default
+  index_default as default
 };

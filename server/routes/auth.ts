@@ -38,24 +38,46 @@ router.get('/api/auth/google/status', (req, res) => {
 // 3. Get Active/Refreshed Access Token
 router.get('/api/auth/google/token', async (req, res) => {
     const tokens = (req.session as any)?.tokens;
-    if (!tokens) return res.status(401).json({ error: 'Not connected' });
+    if (!tokens || !tokens.access_token) return res.status(401).json({ error: 'Not connected' });
     
     try {
         const localAuthClient = getGoogleOAuthClient(req);
         localAuthClient.setCredentials(tokens);
         const { token } = await localAuthClient.getAccessToken();
         
-        // Update session with potentially refreshed tokens
-        (req.session as any).tokens = localAuthClient.credentials;
+        // Update session with compact refreshed credentials (avoid exceeding 4KB cookie limit)
+        if (localAuthClient.credentials) {
+            (req.session as any).tokens = {
+                access_token: localAuthClient.credentials.access_token || tokens.access_token,
+                refresh_token: localAuthClient.credentials.refresh_token || tokens.refresh_token,
+                expiry_date: localAuthClient.credentials.expiry_date || tokens.expiry_date,
+                token_type: localAuthClient.credentials.token_type || tokens.token_type || 'Bearer'
+            };
+        }
         
         res.json({ accessToken: token });
     } catch (error) {
         console.error('Error refreshing token:', error);
-        res.status(500).json({ error: 'Failed to refresh token' });
+        if (req.session) {
+            (req.session as any).tokens = null;
+        }
+        res.status(401).json({ error: 'Failed to refresh token' });
     }
 });
 
-// 4. Google Callback Handler
+// 4. Google Session Logout
+router.post('/api/auth/google/logout', (req, res) => {
+    try {
+        if (req.session) {
+            (req.session as any).tokens = null;
+        }
+        res.json({ success: true, message: 'Logged out successfully' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message || 'Logout failed' });
+    }
+});
+
+// 5. Google Callback Handler
 router.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
     console.log('Received auth callback with code:', !!code);
@@ -65,13 +87,12 @@ router.get('/auth/google/callback', async (req, res) => {
         const { tokens } = await localOauthClient.getToken(code as string);
         console.log('Successfully obtained tokens');
 
-        // Store necessary tokens in session
+        // Store compact token object in session to comply strictly with <4KB cookie limits on Serverless
         (req.session as any).tokens = {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             expiry_date: tokens.expiry_date,
-            token_type: tokens.token_type,
-            scope: tokens.scope
+            token_type: tokens.token_type || 'Bearer'
         };
         
         res.send(`
@@ -93,20 +114,24 @@ router.get('/auth/google/callback', async (req, res) => {
                         <h2>Connected!</h2>
                         <p>Google Drive has been successfully connected. This window will close automatically.</p>
                         <script>
-                            // Handle Success
+                            // Handle Success via postMessage & dual LocalStorage fallback for COOP scenarios
                             const notifyAndClose = () => {
+                                const now = Date.now().toString();
+                                try {
+                                    localStorage.setItem('GOOGLE_AUTH_SUCCESS_DATA', JSON.stringify({ status: 'SUCCESS', time: now }));
+                                    localStorage.setItem('GOOGLE_AUTH_TIMESTAMP', now);
+                                } catch (e) {
+                                    console.error("localStorage failed", e);
+                                }
+
                                 if (window.opener) {
                                     try {
-                                        window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS' }, '*');
+                                        window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', timestamp: now }, '*');
                                     } catch (e) {
                                         console.error("postMessage failed", e);
                                     }
                                 }
-                                try {
-                                    localStorage.setItem('GOOGLE_AUTH_TIMESTAMP', Date.now().toString());
-                                } catch (e) {
-                                    console.error("localStorage failed", e);
-                                }
+
                                 setTimeout(() => { window.close(); }, 500);
                             };
                             notifyAndClose();

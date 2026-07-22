@@ -17,15 +17,17 @@ const app = express();
 // Trust proxy is required for secure cookies behind a reverse proxy (like in AI Studio and Vercel)
 app.set('trust proxy', 1);
 
+const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(cookieSession({
     name: 'session',
     keys: [process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'juijui-planner-secret'],
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    secure: true, 
-    sameSite: 'none',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    secure: isProd, 
+    sameSite: isProd ? 'none' : 'lax',
     httpOnly: true 
 }));
 

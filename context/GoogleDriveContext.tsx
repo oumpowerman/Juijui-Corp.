@@ -35,7 +35,21 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const { showToast } = useToast();
 
-    const fetchServerToken = async () => {
+    const handleAuthSuccessToken = (token: string) => {
+        setAccessToken(token);
+        showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
+
+        if (pendingAction.current === 'PICK') {
+            createPicker(token, pendingCallback.current);
+            pendingAction.current = null;
+            pendingCallback.current = null;
+        } else if (pendingAction.current === 'UPLOAD' && pendingFile.current) {
+            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current, pendingReject.current);
+            pendingAction.current = null;
+        }
+    };
+
+    const fetchServerToken = async (): Promise<string | null> => {
         try {
             const response = await fetch('/api/auth/google/token');
             if (response.ok) {
@@ -59,6 +73,15 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const pendingCallback = useRef<((result: any) => void) | null>(null);
     const pendingReject = useRef<((error: any) => void) | null>(null);
     const pendingFolderPath = useRef<string[]>([]);
+
+    const checkAndSyncAuth = async () => {
+        const token = await fetchServerToken();
+        if (token) {
+            handleAuthSuccessToken(token);
+            return true;
+        }
+        return false;
+    };
 
     const initGoogleScripts = () => {
         if (!CLIENT_ID || !API_KEY) return;
@@ -112,17 +135,19 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         initGoogleScripts();
         fetchServerToken();
 
-        const handleMessage = (event: MessageEvent) => {
+        const handleMessage = async (event: MessageEvent) => {
             if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-                fetchServerToken();
+                await checkAndSyncAuth();
             }
         };
 
-        const handleStorage = (event: StorageEvent) => {
-            if (event.key === 'GOOGLE_AUTH_TIMESTAMP') {
-                fetchServerToken();
-                // Clean up to avoid multiple triggers
-                try { localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP'); } catch(e) {}
+        const handleStorage = async (event: StorageEvent) => {
+            if (event.key === 'GOOGLE_AUTH_TIMESTAMP' || event.key === 'GOOGLE_AUTH_SUCCESS_DATA') {
+                await checkAndSyncAuth();
+                try { 
+                    localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP');
+                    localStorage.removeItem('GOOGLE_AUTH_SUCCESS_DATA');
+                } catch(e) {}
             }
         };
 
@@ -148,6 +173,10 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch (e) {
             console.error("Logout failed", e);
         }
+        try {
+            localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP');
+            localStorage.removeItem('GOOGLE_AUTH_SUCCESS_DATA');
+        } catch(e) {}
         showToast('ตัดการเชื่อมต่อ Google Drive แล้ว', 'info');
     };
 
@@ -163,19 +192,11 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
         
         const token = response.access_token;
-        setAccessToken(token);
-        showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
-
-        if (pendingAction.current === 'PICK') {
-            createPicker(token, pendingCallback.current);
-        } else if (pendingAction.current === 'UPLOAD' && pendingFile.current) {
-            performUpload(token, pendingFile.current, pendingCallback.current, pendingFolderPath.current, pendingReject.current);
-        }
-        pendingAction.current = null;
+        handleAuthSuccessToken(token);
     };
 
     const login = async () => {
-        // 1. Open a placeholder window IMMEDIATELY to satisfy Safari's user-interaction requirement
+        // 1. Open a placeholder window IMMEDIATELY to satisfy browser popup policies
         const authWindow = window.open('about:blank', 'google_auth', 'width=600,height=700');
         
         if (!authWindow) {
@@ -183,7 +204,6 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             return;
         }
 
-        // Show a loading message in the placeholder window while fetching the URL
         authWindow.document.write(`
             <html>
                 <head>
@@ -211,6 +231,30 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
             </html>
         `);
 
+        // Start fallback popup monitor to handle COOP or window.opener blocking
+        let pollCount = 0;
+        const maxPolls = 60; // 60 seconds
+        const pollInterval = setInterval(async () => {
+            pollCount++;
+            
+            // Check if login completed via storage/server session
+            const hasSuccess = localStorage.getItem('GOOGLE_AUTH_SUCCESS_DATA') || localStorage.getItem('GOOGLE_AUTH_TIMESTAMP');
+            if (hasSuccess) {
+                clearInterval(pollInterval);
+                await checkAndSyncAuth();
+                try {
+                    localStorage.removeItem('GOOGLE_AUTH_SUCCESS_DATA');
+                    localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP');
+                } catch(e) {}
+                return;
+            }
+
+            if (authWindow.closed || pollCount >= maxPolls) {
+                clearInterval(pollInterval);
+                await checkAndSyncAuth();
+            }
+        }, 1000);
+
         try {
             // 2. Fetch the actual OAuth URL from our server
             const response = await fetch('/api/auth/google/url');
@@ -229,11 +273,12 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 throw new Error(data.error || 'ไม่พบลิงก์เชื่อมต่อ');
             }
             
-            // 3. Update the existing window's location to the actual Google Auth URL
+            // 3. Update existing popup window's location to Google OAuth URL
             authWindow.location.href = data.url;
         } catch (error: any) {
             console.error('Login error:', error);
-            authWindow.close(); // Close the failed window
+            clearInterval(pollInterval);
+            try { authWindow.close(); } catch(e) {}
             showToast(error.message || 'ไม่สามารถเริ่มการเชื่อมต่อได้', 'error');
         }
     };

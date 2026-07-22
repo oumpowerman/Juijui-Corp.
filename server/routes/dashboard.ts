@@ -1,6 +1,6 @@
 import express from 'express';
 import { isSameMonth, isAfter, addDays, isPast, isToday, isBefore } from 'date-fns';
-import { serverSupabase, isTaskCompletedServer, mapDbToTaskServer } from '../utils/supabase.js';
+import { serverSupabase, isTaskCompletedServer, mapDbToTaskServer } from '../utils/supabase';
 
 const router = express.Router();
 

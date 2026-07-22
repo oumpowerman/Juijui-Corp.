@@ -1,5 +1,5 @@
 import express from 'express';
-import { SCOPES, getGoogleOAuthClient } from '../utils/google-client.js';
+import { SCOPES, getGoogleOAuthClient } from '../utils/google-client';
 
 const router = express.Router();
 

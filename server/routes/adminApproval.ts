@@ -1,11 +1,11 @@
 import express from 'express';
-import { serverSupabase as supabase } from '../utils/supabase.js';
-import { adminApprovalService } from '../../services/adminApprovalService.js';
-import { DEFAULT_GAME_CONFIG } from '../../lib/gameLogic.js';
-import { updateGameStats } from '../../lib/gamification/gameStats.js';
-import { logGameAction } from '../../lib/gamification/gameLogs.js';
-import { handleDeathSequence } from '../../lib/gamification/deathSystem.js';
-import { toValidUuid } from '../../utils/gamificationUtils.js';
+import { serverSupabase as supabase } from '../utils/supabase';
+import { adminApprovalService } from '../../services/adminApprovalService';
+import { DEFAULT_GAME_CONFIG } from '../../lib/gameLogic';
+import { updateGameStats } from '../../lib/gamification/gameStats';
+import { logGameAction } from '../../lib/gamification/gameLogs';
+import { handleDeathSequence } from '../../lib/gamification/deathSystem';
+import { toValidUuid } from '../../utils/gamificationUtils';
 
 const router = express.Router();
 

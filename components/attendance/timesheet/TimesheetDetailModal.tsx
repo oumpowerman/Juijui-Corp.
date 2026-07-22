@@ -161,13 +161,17 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const logParsed = parseReason(log?.note || '');
     const requestParsed = parseReason(leaveRequest?.reason || '');
 
-    const isProvisionalWfh = logParsed.isProvisionalWfh || requestParsed.isProvisionalWfh;
-    const isProvisionalOnsite = logParsed.isProvisionalOnsite || requestParsed.isProvisionalOnsite;
-    const isProvisionalForgotCheckin = logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin;
-    const isProvisionalCheckout = logParsed.isProvisionalCheckout || requestParsed.isProvisionalCheckout;
-    const isProvisionalLate = log?.status === 'APPEAL' || note.includes('[APPEAL_PENDING]') || note.includes('[PROVISIONAL_LATE_ENTRY');
-    const isProvisionalGps = note.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || note.includes('[GPS_SPOOF_APPEAL_PENDING]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'PENDING');
-    const isLocationMismatch = logParsed.isLocationMismatch || requestParsed.isLocationMismatch || leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT';
+    const isGpsApproved = note.includes('[APPROVED GPS_SPOOF_APPEAL]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'APPROVED');
+    const isOutOfRangeApproved = note.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') || (leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT' && leaveRequest?.status === 'APPROVED');
+    const isLeaveApproved = leaveRequest?.status === 'APPROVED';
+
+    const isProvisionalWfh = (logParsed.isProvisionalWfh || requestParsed.isProvisionalWfh) && !isLeaveApproved;
+    const isProvisionalOnsite = (logParsed.isProvisionalOnsite || requestParsed.isProvisionalOnsite) && !isLeaveApproved;
+    const isProvisionalForgotCheckin = (logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin) && !isLeaveApproved && !note.includes('[APPROVED FORGOT_CHECKIN]');
+    const isProvisionalCheckout = (logParsed.isProvisionalCheckout || requestParsed.isProvisionalCheckout) && !isOutOfRangeApproved && !isLeaveApproved && !note.includes('[APPROVED FORGOT_CHECKOUT]');
+    const isProvisionalLate = (log?.status === 'APPEAL' || note.includes('[APPEAL_PENDING]') || note.includes('[PROVISIONAL_LATE_ENTRY')) && !isLeaveApproved && !note.includes('[APPROVED LATE_ENTRY]');
+    const isProvisionalGps = (note.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || note.includes('[GPS_SPOOF_APPEAL_PENDING]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'PENDING')) && !isGpsApproved;
+    const isLocationMismatch = (logParsed.isLocationMismatch || requestParsed.isLocationMismatch || (leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT' && leaveRequest?.status === 'PENDING')) && !isOutOfRangeApproved && !isGpsApproved;
 
     const userReason = requestParsed.cleanReason;
     const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';

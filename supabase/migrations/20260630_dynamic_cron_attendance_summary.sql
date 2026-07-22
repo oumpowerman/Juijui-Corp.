@@ -98,6 +98,7 @@ DECLARE
     leave_type_label TEXT;
     checkin_time_local TIME;
     admin_user_id UUID;
+    app_name_val TEXT;
     message_content TEXT;
 BEGIN
     -- Determine current date in Thailand (Asia/Bangkok timezone) to remain server-independent
@@ -107,6 +108,22 @@ BEGIN
     SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
     SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
     SELECT label INTO destination_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LINE_SUMMARY_DESTINATION' LIMIT 1;
+
+    -- Fetch company / system name from master_options (or default)
+    SELECT label INTO app_name_val 
+    FROM public.master_options 
+    WHERE key IN ('COMPANY_NAME', 'SYSTEM_NAME', 'APP_NAME') 
+      AND label IS NOT NULL AND label != '' 
+    ORDER BY CASE key 
+        WHEN 'COMPANY_NAME' THEN 1 
+        WHEN 'SYSTEM_NAME' THEN 2 
+        WHEN 'APP_NAME' THEN 3 
+        ELSE 4 END 
+    LIMIT 1;
+
+    IF app_name_val IS NULL OR app_name_val = '' THEN
+        app_name_val := 'Juijui Planner';
+    END IF;
 
     -- Fallbacks
     IF start_time_val IS NULL THEN start_time_val := '10:00'; END IF;
@@ -146,7 +163,7 @@ BEGIN
 
     -- Loop through active users (exclude ADMIN from attendance tracking)
     FOR profile_rec IN 
-        SELECT id, full_name 
+        SELECT id, full_name, phone_number 
         FROM public.profiles 
         WHERE is_active = TRUE AND role != 'ADMIN'
         ORDER BY full_name ASC
@@ -215,11 +232,22 @@ BEGIN
                 ELSE
                     -- Absent
                     absent_count := absent_count + 1;
-                    IF absent_list = '' THEN
-                        absent_list := '• ' || profile_rec.full_name;
-                    ELSE
-                        absent_list := absent_list || E'\n• ' || profile_rec.full_name;
-                    END IF;
+                    
+                    DECLARE
+                        phone_suffix TEXT := '';
+                    BEGIN
+                        IF profile_rec.phone_number IS NOT NULL AND profile_rec.phone_number != '' THEN
+                            phone_suffix := ' (โทร. ' || profile_rec.phone_number || ') 📞';
+                        ELSE
+                            phone_suffix := ' (ไม่ระบุเบอร์)';
+                        END IF;
+
+                        IF absent_list = '' THEN
+                            absent_list := '• ' || profile_rec.full_name || phone_suffix;
+                        ELSE
+                            absent_list := absent_list || E'\n• ' || profile_rec.full_name || phone_suffix;
+                        END IF;
+                    END;
                 END IF;
             END IF;
         END IF;
@@ -237,7 +265,7 @@ BEGIN
                        '🟡 มาสาย (' || late_count::TEXT || ' คน):\n' || late_list || E'\n\n' ||
                        '🔵 ลา (' || leave_count::TEXT || ' คน):\n' || leave_list || E'\n\n' ||
                        '🔴 ขาดงาน / ยังไม่เช็คอิน (' || absent_count::TEXT || ' คน):\n' || absent_list || E'\n\n' ||
-                       'ระบบสรุปรายงานอัตโนมัติ Juijui Planner';
+                       'ระบบสรุปรายงานอัตโนมัติ ' || app_name_val;
 
     -- Insert into notifications with type = 'DAILY_SUMMARY'
     -- This will trigger the Edge Function webhook automatically

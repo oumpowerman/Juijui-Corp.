@@ -295,7 +295,11 @@ export async function approveAttendanceCorrection({
                 const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
                 cleanedNoteStr = cleanedNoteStr.replace(regex, '');
             }
-            cleanedNoteStr = cleanedNoteStr.replace(/\s+/g, ' ').trim();
+            cleanedNoteStr = cleanedNoteStr
+                .replace(/\(Location Mismatch\)/g, '')
+                .replace(/\[Location Mismatch\]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
 
             const approvedTag = registryItem?.tags.approved || '[APPROVED CORRECTION]';
             const finalNote = mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`);
@@ -510,14 +514,20 @@ export async function approveGpsSpoofAppealRequest({
         let cleanedNoteStr = freshLog.note || '';
         const registryItem = getRegistryItem(request.type);
         if (registryItem) {
-            const tagsToClean = [registryItem.tags.pending, registryItem.tags.provisional].filter(Boolean) as string[];
+            const tagsToClean = [registryItem.tags.pending, registryItem.tags.provisional, '[PROVISIONAL_GPS_SPOOF_APPEAL]', '[GPS_SPOOF_APPEAL_PENDING]'].filter(Boolean) as string[];
             tagsToClean.forEach(tag => {
                 const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const regex = new RegExp(escaped, 'g');
                 cleanedNoteStr = cleanedNoteStr.replace(regex, '');
             });
-            cleanedNoteStr = cleanedNoteStr.replace(/\s+/g, ' ').trim();
         }
+        cleanedNoteStr = cleanedNoteStr
+            .replace(/\(Location Mismatch\)/g, '')
+            .replace(/\[Location Mismatch\]/g, '')
+            .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
+            .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
         const finalStatus = freshLog.check_out_time ? 'COMPLETED' : 'WORKING';
 

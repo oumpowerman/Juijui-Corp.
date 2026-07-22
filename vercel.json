@@ -15,11 +15,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api(/.*)?",
       "dest": "api/index.ts"
     },
     {
-      "src": "/auth/(.*)",
+      "src": "/auth(/.*)?",
       "dest": "api/index.ts"
     },
     {

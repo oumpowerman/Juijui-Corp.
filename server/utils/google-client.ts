@@ -4,12 +4,19 @@ import express from 'express';
 export const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
 export const getRedirectUri = (req?: express.Request) => {
-    // 1. Priority: Fixed Env Var (set this in Vercel to your custom domain or app URL)
+    // 1. Priority: Explicit Redirect URI
+    if (process.env.GOOGLE_REDIRECT_URI && process.env.GOOGLE_REDIRECT_URI.trim() !== '') {
+        return process.env.GOOGLE_REDIRECT_URI.trim();
+    }
+    // 2. Secondary: Base App URL
     if (process.env.APP_URL && process.env.APP_URL.trim() !== '') {
         return `${process.env.APP_URL.trim().replace(/\/$/, '')}/auth/google/callback`;
     }
+    if (process.env.CLIENT_URL && process.env.CLIENT_URL.trim() !== '') {
+        return `${process.env.CLIENT_URL.trim().replace(/\/$/, '')}/auth/google/callback`;
+    }
     
-    // 2. Secondary: Current Request Host (Best for dynamic environments like Vercel previews)
+    // 3. Dynamic Request Host (Production Cloud Run & Vercel Previews)
     if (req) {
         const rawHost = (req.headers['x-forwarded-host'] as string) || req.headers.host;
         const host = rawHost?.split(',')[0].trim();
@@ -19,12 +26,13 @@ export const getRedirectUri = (req?: express.Request) => {
         }
     }
 
-    // 3. Fallback for Vercel environment inference
+    // 4. Vercel System Env
     if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL.replace(/\/$/, '')}/auth/google/callback`;
+        const vercelHost = process.env.VERCEL_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        return `https://${vercelHost}/auth/google/callback`;
     }
 
-    // 4. Default fallback for local development
+    // 5. Default fallback for local development
     const PORT = process.env.PORT || 3000;
     return `http://localhost:${PORT}/auth/google/callback`;
 };

@@ -73,10 +73,16 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
         }
     }, [isHighlighted, onClearHighlight]);
 
+    const noteText = log.note || '';
+
+    // GPS Appeal check
+    const isGpsAppealApproved = noteText.includes('[APPROVED GPS_SPOOF_APPEAL]');
+    const isGpsAppealRejected = noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') || noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]');
+
     const late = isLate(log);
     const pendingItem = findPendingRegistryItemByNote(log.note || '');
     const isProvisionalLate = pendingItem?.id === 'LATE_ENTRY';
-    const isProvisionalGpsAppeal = pendingItem?.id === 'GPS_SPOOF_APPEAL' || (log.note || '').includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || (log.note || '').includes('[GPS_SPOOF_APPEAL_PENDING]');
+    const isProvisionalGpsAppeal = (pendingItem?.id === 'GPS_SPOOF_APPEAL' || noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || noteText.includes('[GPS_SPOOF_APPEAL_PENDING]')) && !isGpsAppealApproved && !isGpsAppealRejected;
     const isAppeal = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGpsAppeal;
     const proof = getProofUrl(log);
     const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
@@ -100,22 +106,20 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
         log.status !== 'NO_SHOW' && 
         !isSameDay(new Date(log.date), new Date());
 
-    const noteText = log.note || '';
-    
     // 1. กลุ่มคำขอ กลับก่อนเวลา (EARLY_LEAVE)
     const isEarlyLeavePending = noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('[EARLY:');
     const isEarlyLeaveAccept = noteText.includes('[ACCEPT_PENALTY]');
     const isEarlyLeaveRejected = noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]');
     
     // 2. กลุ่มคำขอ ลงเวลานอกพื้นที่ (OUT_OF_RANGE_CHECKOUT)
-    const isOutOfRangePending = noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('(Location Mismatch)');
     const isOutOfRangeApproved = noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]');
     const isOutOfRangeRejected = noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]');
+    const isOutOfRangePending = noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('(Location Mismatch)') && !isOutOfRangeApproved && !isOutOfRangeRejected;
     
     // 3. กลุ่มคำขอ ลืมเช็คเอาท์ (FORGOT_CHECKOUT)
-    const isForgotCheckOutPending = noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[EARLY:') && !noteText.includes('(Location Mismatch)');
     const isForgotCheckOutApproved = noteText.includes('[APPROVED FORGOT_CHECKOUT]');
     const isForgotCheckOutRejected = noteText.includes('[REJECTED FORGOT_CHECKOUT]');
+    const isForgotCheckOutPending = noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[EARLY:') && !noteText.includes('(Location Mismatch)') && !isForgotCheckOutApproved && !isForgotCheckOutRejected;
 
     return (
         <tr 
@@ -164,14 +168,18 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
             <td className="px-6 py-4">
                 {log.checkInTime ? (
                     <div>
-                        <span className={`font-mono font-semibold text-sm ${isProvisionalGpsAppeal ? 'text-rose-600' : isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-emerald-600'}`}>
+                        <span className={`font-mono font-semibold text-sm ${isGpsAppealApproved ? 'text-emerald-600' : isGpsAppealRejected ? 'text-rose-600' : isProvisionalGpsAppeal ? 'text-rose-600' : isAppeal ? 'text-violet-600' : late ? 'text-red-500' : 'text-emerald-600'}`}>
                             {format(log.checkInTime, 'HH:mm')}
-                            {isProvisionalGpsAppeal ? (
+                            {isGpsAppealApproved ? (
+                                <span className="ml-2 text-[9px] bg-emerald-100 font-bold px-1.5 py-0.5 rounded text-emerald-700 uppercase border border-emerald-200">🟢 GPS APPROVED</span>
+                            ) : isGpsAppealRejected ? (
+                                <span className="ml-2 text-[9px] bg-rose-100 font-bold px-1.5 py-0.5 rounded text-rose-700 uppercase border border-rose-200">🔴 REJECTED GPS</span>
+                            ) : isProvisionalGpsAppeal ? (
                                 <span className="ml-2 text-[9px] bg-rose-100 font-bold px-1.5 py-0.5 rounded text-rose-700 uppercase border border-rose-200">🚨 GPS จำลอง</span>
                             ) : isAppeal ? (
                                 <span className="ml-2 text-[9px] bg-violet-100 font-medium px-1.5 py-0.5 rounded text-violet-700 uppercase">APPEAL</span>
                             ) : null}
-                            {!isAppeal && late && <span className="ml-2 text-[9px] bg-red-100 font-medium px-1.5 py-0.5 rounded text-red-700 uppercase">LATE</span>}
+                            {!isAppeal && !isGpsAppealApproved && late && <span className="ml-2 text-[9px] bg-red-100 font-medium px-1.5 py-0.5 rounded text-red-700 uppercase">LATE</span>}
                         </span>
                         {(() => {
                             const matchShift = log.note?.match(/\[TARGET_SHIFT:([^\]]+)\]/) || log.note?.match(/\[TIME:([0-9]{2}:[0-9]{2})\]/);

@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../../lib/supabase';
+import { serverSupabase as supabase } from '../utils/supabase';
 import { adminApprovalService } from '../../services/adminApprovalService';
 import { DEFAULT_GAME_CONFIG } from '../../lib/gameLogic';
 import { updateGameStats } from '../../lib/gamification/gameStats';

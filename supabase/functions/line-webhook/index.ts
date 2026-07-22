@@ -158,44 +158,146 @@ Deno.serve(async (req: any) => {
                 });
               }
             } else {
-              if (replyToken) {
-                const replyMsg = {
-                  replyToken: replyToken,
-                  messages: [
-                    {
-                      type: 'text',
-                      text: apiData.error ? `⚠️ ${apiData.error}` : '⚠️ คำขอนี้ได้รับการดำเนินการไปแล้ว หรือไม่พบข้อมูลในระบบค่ะ'
+              // Check if backend returned a specific status or duplicate warning message
+              const knownWarning = apiData.error && (
+                apiData.error.includes('ซ้ำซ้อน') || 
+                apiData.error.includes('อนุมัติแล้ว') || 
+                apiData.error.includes('ปฏิเสธแล้ว') ||
+                apiData.error.includes('ได้รับการ')
+              );
+
+              if (knownWarning) {
+                if (replyToken) {
+                  await fetch(LINE_REPLY_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lineAccessToken}` },
+                    body: JSON.stringify({
+                      replyToken,
+                      messages: [{ type: 'text', text: `⚠️ ${apiData.error}` }]
+                    })
+                  });
+                }
+              } else {
+                // Direct database fallback using Edge Function's supabaseAdmin client
+                let fallbackMsg = '';
+                const targetStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+                const actionLabel = action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
+
+                const { data: leaveReq } = await supabaseAdmin
+                  .from('leave_requests')
+                  .select('id, status, user_id')
+                  .eq('id', targetRequestId)
+                  .maybeSingle();
+
+                if (leaveReq) {
+                  if (leaveReq.status !== 'PENDING') {
+                    const verb = leaveReq.status === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
+                    fallbackMsg = `⚠️ คำขอนี้ได้รับการ${verb}ไปแล้วค่ะ`;
+                  } else {
+                    await supabaseAdmin
+                      .from('leave_requests')
+                      .update({
+                        status: targetStatus,
+                        approver_id: profile.id,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', targetRequestId);
+
+                    await supabaseAdmin
+                      .from('notifications')
+                      .update({
+                        is_read: true,
+                        message: `[${actionLabel}แล้ว] คำขอได้รับการ${actionLabel}โดยแอดมินคุณ ${profile.full_name}`,
+                        title: `✅ ดำเนินการ${actionLabel}เรียบร้อย`
+                      })
+                      .eq('related_id', targetRequestId);
+
+                    fallbackMsg = `✅ ดำเนินการ${actionLabel}คำขอโดยผู้ดูแล (${profile.full_name}) สำเร็จแล้วค่ะ!`;
+                  }
+                } else {
+                  const { data: otReq } = await supabaseAdmin
+                    .from('ot_requests')
+                    .select('id, status, user_id')
+                    .eq('id', targetRequestId)
+                    .maybeSingle();
+
+                  if (otReq) {
+                    if (otReq.status !== 'PENDING') {
+                      const verb = otReq.status === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
+                      fallbackMsg = `⚠️ คำขอ OT นี้ได้รับการ${verb}ไปแล้วค่ะ`;
+                    } else {
+                      await supabaseAdmin
+                        .from('ot_requests')
+                        .update({
+                          status: targetStatus,
+                          approver_id: profile.id,
+                          updated_at: new Date().toISOString()
+                        })
+                        .eq('id', targetRequestId);
+
+                      await supabaseAdmin
+                        .from('notifications')
+                        .update({
+                          is_read: true,
+                          message: `[${actionLabel}แล้ว] คำขอ OT ได้รับการ${actionLabel}โดยแอดมินคุณ ${profile.full_name}`,
+                          title: `✅ ดำเนินการ${actionLabel}เรียบร้อย`
+                        })
+                        .eq('related_id', targetRequestId);
+
+                      fallbackMsg = `✅ ดำเนินการ${actionLabel}คำขอ OT โดยผู้ดูแล (${profile.full_name}) สำเร็จแล้วค่ะ!`;
                     }
-                  ]
-                };
-                await fetch(LINE_REPLY_API, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${lineAccessToken}`
-                  },
-                  body: JSON.stringify(replyMsg)
-                });
+                  } else {
+                    fallbackMsg = '⚠️ ไม่พบข้อมูลคำขอนี้ในระบบค่ะ';
+                  }
+                }
+
+                if (replyToken) {
+                  await fetch(LINE_REPLY_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lineAccessToken}` },
+                    body: JSON.stringify({
+                      replyToken,
+                      messages: [{ type: 'text', text: fallbackMsg }]
+                    })
+                  });
+                }
               }
             }
           } catch (apiErr: any) {
             console.error("API Handshake Error:", apiErr);
+            // Fallback: Try direct database update if network call failed
+            let fallbackMsg = '';
+            const targetStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+            const actionLabel = action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ';
+
+            try {
+              const { data: leaveReq } = await supabaseAdmin
+                .from('leave_requests')
+                .select('id, status')
+                .eq('id', targetRequestId)
+                .maybeSingle();
+
+              if (leaveReq && leaveReq.status === 'PENDING') {
+                await supabaseAdmin
+                  .from('leave_requests')
+                  .update({ status: targetStatus, approver_id: profile.id, updated_at: new Date().toISOString() })
+                  .eq('id', targetRequestId);
+                fallbackMsg = `✅ ดำเนินการ${actionLabel}คำขอโดยผู้ดูแล (${profile.full_name}) สำเร็จแล้วค่ะ!`;
+              } else {
+                fallbackMsg = `❌ เกิดข้อผิดพลาดในการเชื่อมต่อหลังบ้าน: ${apiErr.message}`;
+              }
+            } catch (_dbErr) {
+              fallbackMsg = `❌ เกิดข้อผิดพลาดในการเชื่อมต่อหลังบ้าน: ${apiErr.message}`;
+            }
+
             if (replyToken) {
               const replyMsg = {
                 replyToken: replyToken,
-                messages: [
-                  {
-                    type: 'text',
-                    text: `❌ เกิดข้อผิดพลาดทางเทคนิคในการเชื่อมต่อหลังบ้าน: ${apiErr.message}`
-                  }
-                ]
+                messages: [{ type: 'text', text: fallbackMsg }]
               };
               await fetch(LINE_REPLY_API, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${lineAccessToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lineAccessToken}` },
                 body: JSON.stringify(replyMsg)
               });
             }

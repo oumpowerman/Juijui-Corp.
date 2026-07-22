@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cookieSession from 'cookie-session';
@@ -39,8 +38,11 @@ app.use(chatRouter);
 app.use(adminApprovalRouter);
 
 async function startServer() {
-    // Vite middleware for development
+    // โหลด dotenv เฉพาะเมื่อไม่ได้รันบน Vercel หรืออยู่ในสภาพแวดล้อม Development
     if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+        const dotenv = await import('dotenv');
+        dotenv.config();
+
         const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
             server: { middlewareMode: true },

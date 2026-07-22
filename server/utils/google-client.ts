@@ -12,9 +12,12 @@ export const getRedirectUri = (req?: express.Request) => {
     
     // 2. Secondary: Current Request Host (Best for dynamic environments like Vercel)
     if (req) {
-        const host = req.headers.host;
-        const protocol = (req.headers['x-forwarded-proto'] as string) || 'https';
-        return `${protocol}://${host}/auth/google/callback`;
+        const rawHost = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+        const host = rawHost?.split(',')[0].trim();
+        const protocol = (req.headers['x-forwarded-proto'] as string)?.split(',')[0].trim() || 'https';
+        if (host) {
+            return `${protocol}://${host}/auth/google/callback`;
+        }
     }
 
     // 3. Fallback for environment inference

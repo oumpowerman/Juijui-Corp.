@@ -375,10 +375,19 @@ Deno.serve(async (req: any) => {
                         }
                       }
                       const reqType = metadataObj.request_type || 'WFH';
-                      const tab = (reqType === 'OT') ? 'ot-requests' : 'leave-requests';
+                      
+                      // For ADMIN notifications (APPROVAL_REQ) -> send to leave-requests or ot-requests
+                      // For Employee notifications (e.g. approval results, rejections) -> send to history
+                      let tab = 'history';
+                      if (record.type === 'APPROVAL_REQ') {
+                        tab = (reqType === 'OT') ? 'ot-requests' : 'leave-requests';
+                      } else {
+                        tab = 'history';
+                      }
+
                       const targetDeepLink = record.related_id 
                         ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&highlightReqId=${record.related_id}`
-                        : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE`;
+                        : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
 
                       // If interactive mode is enabled and this is a single approval request notification
                       if (isInteractive && record.type === 'APPROVAL_REQ' && record.related_id) {

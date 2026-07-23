@@ -444,6 +444,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ตำแหน่งงาน *</label>
           <FilterDropdown 
             label="ตำแหน่งงาน"
+            align="right"
             options={positions.length > 0 ? positions.map(p => ({ key: p.label, label: p.label })) : [
               { key: 'Editor', label: 'Editor' },
               { key: 'Creative', label: 'Creative' },
@@ -600,7 +601,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           </span>
         </div>
         
-        <div className="grid grid-cols-10 gap-1.5 max-h-[115px] overflow-y-auto p-1.5 bg-white/70 rounded-xl border border-indigo-50/50 scrollbar-thin scrollbar-thumb-indigo-200">
+        <div className="grid grid-cols-10 gap-1.5 max-h-[115px] overflow-y-auto p-1.5 bg-white/70 rounded-xl border border-indigo-50/50 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {EMOJI_POOL.map((emo) => {
             const isTaken = takenEmojis.includes(emo);
             const isSelected = selectedEmoji === emo;
@@ -733,7 +734,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           {/* Content (Scrollable) */}
           <div
             onScroll={handleScroll}
-            className="p-6 overflow-y-auto flex-1 text-sm text-slate-600 leading-relaxed font-sans space-y-4 text-left"
+            className="p-6 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex-1 text-sm text-slate-600 leading-relaxed font-sans space-y-4 text-left"
           >
             {policyData?.content ? (
               policyData.content.split('\n').map((line, idx) => {

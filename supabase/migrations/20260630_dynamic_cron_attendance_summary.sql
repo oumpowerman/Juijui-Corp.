@@ -237,7 +237,7 @@ BEGIN
                         phone_suffix TEXT := '';
                     BEGIN
                         IF profile_rec.phone_number IS NOT NULL AND profile_rec.phone_number != '' THEN
-                            phone_suffix := ' (โทร. ' || profile_rec.phone_number || ') 📞';
+                            phone_suffix := ' (โทร. ' || profile_rec.phone_number || ') ';
                         ELSE
                             phone_suffix := ' (ไม่ระบุเบอร์)';
                         END IF;
@@ -261,10 +261,10 @@ BEGIN
 
     -- Construct message
     message_content := '📊 สรุปรายงานการเข้างานประจำวันที่ ' || to_char(cur_date, 'DD/MM/YYYY') || E'\n\n' ||
-                       '🟢 มาปกติ (' || ontime_count::TEXT || ' คน):\n' || ontime_list || E'\n\n' ||
-                       '🟡 มาสาย (' || late_count::TEXT || ' คน):\n' || late_list || E'\n\n' ||
-                       '🔵 ลา (' || leave_count::TEXT || ' คน):\n' || leave_list || E'\n\n' ||
-                       '🔴 ขาดงาน / ยังไม่เช็คอิน (' || absent_count::TEXT || ' คน):\n' || absent_list || E'\n\n' ||
+                       '🟢 มาปกติ (' || ontime_count::TEXT || ' คน):' || E'\n' || ontime_list || E'\n\n' ||
+                       '🟡 มาสาย (' || late_count::TEXT || ' คน):' || E'\n' || late_list || E'\n\n' ||
+                       '🔵 ลา (' || leave_count::TEXT || ' คน):' || E'\n' || leave_list || E'\n\n' ||
+                       '🔴 ขาดงาน / ยังไม่เช็คอิน (' || absent_count::TEXT || ' คน):' || E'\n' || absent_list || E'\n\n' ||
                        'ระบบสรุปรายงานอัตโนมัติ ' || app_name_val;
 
     -- Insert into notifications with type = 'DAILY_SUMMARY'

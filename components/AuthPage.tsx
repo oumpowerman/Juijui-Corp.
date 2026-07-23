@@ -424,7 +424,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
       : 'shadow-[0_45px_100px_-25px_rgba(168,85,247,0.18),0_20px_45px_-15px_rgba(0,0,0,0.05),0_0_80px_rgba(168,85,247,0.06),inset_0_1px_1px_rgba(255,255,255,0.85)]';
 
   return (
-    <div className="min-h-[100dvh] md:h-[100dvh] flex items-center justify-center p-4 md:p-6 font-sans relative overflow-y-auto md:overflow-hidden perspective-1000">
+    <div className="min-h-[100dvh] md:h-[100dvh] flex items-center justify-center p-4 md:p-6 font-sans relative overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:overflow-hidden perspective-1000">
       
       {/* Dynamic Crop Overlay */}
       {cropImageSrc && (
@@ -440,14 +440,6 @@ const AuthPage: React.FC<AuthPageProps> = ({
 
       {/* Outer Glow Wrapper (First Border Layer) */}
       <motion.div
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{
-          rotateX: rotateXSpring,
-          rotateY: rotateYSpring,
-          scale: containerScale,
-          transformStyle: "preserve-3d"
-        }}
         className={`relative w-full max-w-5xl bg-white/40 backdrop-blur-3xl rounded-[2.6rem] p-[1px] border border-white/70 transition-all duration-700 h-full max-h-[92dvh] md:h-[min(780px,88dvh)] my-auto flex flex-col md:flex-row overflow-hidden ${dynamicShadow}`}
       >
 
@@ -464,7 +456,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
         <BrandSection authMode={authMode} />
 
         {/* Right input forms handler */}
-        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent z-10 bg-white/75 rounded-r-[2.5rem] rounded-l-[2.5rem] md:rounded-l-none">
+        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden z-10 bg-white/75 rounded-r-[2.5rem] rounded-l-[2.5rem] md:rounded-l-none">
             
             {(isLogin || isRegister) && (
                 <div className="flex justify-center mb-8">

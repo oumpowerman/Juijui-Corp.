@@ -27,35 +27,36 @@ interface AttendanceRouterProps {
 
 type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVALS';
 
-const parseTabParam = (param: string | null, highlightReqId?: string | null): AttendanceTab => {
+const parseTabParam = (param: string | null, highlightReqId?: string | null, userRole?: string): AttendanceTab => {
+    let resolvedTab: AttendanceTab = 'CHECK_IN';
+
     if (!param) {
-        return highlightReqId ? 'HISTORY' : 'CHECK_IN';
+        resolvedTab = highlightReqId ? 'HISTORY' : 'CHECK_IN';
+    } else if (['CHECK_IN', 'HISTORY', 'TIMESHEET', 'REPORT', 'APPROVALS'].includes(param)) {
+        resolvedTab = param as AttendanceTab;
+    } else if (param === 'leave-requests' || param === 'ot-requests' || param === 'approvals') {
+        resolvedTab = 'APPROVALS';
+    } else if (param === 'my-requests' || param === 'my-history' || param === 'history') {
+        resolvedTab = 'HISTORY';
     }
-    if (['CHECK_IN', 'HISTORY', 'TIMESHEET', 'REPORT', 'APPROVALS'].includes(param)) {
-        return param as AttendanceTab;
-    }
-    if (param === 'leave-requests' || param === 'ot-requests' || param === 'approvals') {
-        return 'APPROVALS';
-    }
-    if (param === 'my-requests' || param === 'my-history' || param === 'history') {
+
+    // Fallback: If non-ADMIN tries to open APPROVALS tab (e.g. tab=leave-requests), redirect them to HISTORY
+    if (resolvedTab === 'APPROVALS' && userRole && userRole !== 'ADMIN') {
         return 'HISTORY';
     }
-    return 'CHECK_IN';
+
+    return resolvedTab;
 };
 
 const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     
-    const [currentTab, setCurrentTab] = useState<AttendanceTab>(() => {
-        return parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId'));
-    });
-
-    useEffect(() => {
-        setCurrentTab(parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId')));
-    }, [searchParams]);
+    // Derived State from URL searchParams (Single Source of Truth)
+    const currentTab = useMemo(() => {
+        return parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId'), currentUser?.role);
+    }, [searchParams, currentUser?.role]);
 
     const selectTab = (tab: AttendanceTab) => {
-        setCurrentTab(tab);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('tab', tab);
@@ -225,7 +226,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                      <AttendanceWidget 
                                         user={currentUser} 
                                         onNavigateToHistory={(date) => {
-                                            setCurrentTab('HISTORY');
+                                            selectTab('HISTORY');
                                             if (date) {
                                                 setHighlightedDate(date);
                                             }
@@ -311,7 +312,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                     onClose={() => setIsQuotaOpen(false)}
                     leaveUsage={leaveUsage}
                     onHistoryClick={() => {
-                        setCurrentTab('HISTORY');
+                        selectTab('HISTORY');
                         setIsQuotaOpen(false);
                     }}
                 />

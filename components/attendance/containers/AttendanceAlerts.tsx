@@ -2,12 +2,11 @@
 import React from 'react';
 import { useAttendanceAlerts } from '../../../hooks/attendance/useAttendanceAlerts';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import th from 'date-fns/locale/th';
+import { LeaveType } from '../../../types/attendance';
 
 interface AttendanceAlertsProps {
     userId: string;
-    onAction?: (date?: string) => void;
+    onAction?: (date?: string, requestType?: LeaveType) => void;
 }
 
 const AttendanceAlerts: React.FC<AttendanceAlertsProps> = ({ userId, onAction }) => {
@@ -23,7 +22,7 @@ const AttendanceAlerts: React.FC<AttendanceAlertsProps> = ({ userId, onAction })
             {displayLogs.map((log, index) => (
                 <div 
                     key={log.id}
-                    onClick={() => onAction?.(log.date)}
+                    onClick={() => onAction?.(log.date, log.requestType)}
                     className={`bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-amber-100 transition-colors ${
                         index > 0 ? 'opacity-80 scale-95' : ''
                     }`}
@@ -34,9 +33,9 @@ const AttendanceAlerts: React.FC<AttendanceAlertsProps> = ({ userId, onAction })
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-amber-900">
-                                {(log as any).isLate ? 'บันทึกเวลาที่ตกหล่น (เกินกำหนด)' : 'ต้องดำเนินการแก้ไข'}
+                                {log.title}
                             </h4>
-                            <p className="text-xs text-amber-700">คุณลืมลงเวลาออกของวันที่ {format(parseISO(log.date), 'dd MMM yyyy', { locale: th })}</p>
+                            <p className="text-xs text-amber-700">{log.message}</p>
                         </div>
                     </div>
                     <button className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors">
@@ -58,3 +57,4 @@ const AttendanceAlerts: React.FC<AttendanceAlertsProps> = ({ userId, onAction })
 };
 
 export default AttendanceAlerts;
+

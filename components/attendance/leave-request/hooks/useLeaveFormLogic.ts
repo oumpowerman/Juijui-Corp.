@@ -62,18 +62,22 @@ export const useLeaveFormLogic = ({
 
         if (!d) {
             // No initial date, default to today + advanceDays (or today)
-            d = format(minAllowed, 'yyyy-MM-dd');
-        } else {
-            // If initial date is before the minimum allowed date, adjust it to the min allowed date for better UX
-            const parsedInitial = new Date(d);
-            parsedInitial.setHours(0, 0, 0, 0);
-            if (parsedInitial < minAllowed) {
+            if (item?.rules.forceTodayDate) {
+                d = format(new Date(), 'yyyy-MM-dd');
+            } else {
                 d = format(minAllowed, 'yyyy-MM-dd');
             }
-        }
-
-        if (item?.rules.forceTodayDate) {
-            d = format(new Date(), 'yyyy-MM-dd');
+        } else {
+            // If initial date is provided (e.g. from past log correction or resubmit),
+            // preserve it for CORRECTION category or when initialDate is explicitly passed.
+            const isCorrection = item?.category === 'CORRECTION';
+            if (!isCorrection && !item?.rules.forceTodayDate && advanceDays && advanceDays > 0) {
+                const parsedInitial = new Date(d);
+                parsedInitial.setHours(0, 0, 0, 0);
+                if (parsedInitial < minAllowed) {
+                    d = format(minAllowed, 'yyyy-MM-dd');
+                }
+            }
         }
         setStartDate(d);
         setEndDate(d);

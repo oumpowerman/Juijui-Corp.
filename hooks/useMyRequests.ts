@@ -290,7 +290,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 const { type: otType, multiplier } = calculateOtMultiplier(startDate, annualHolidays, calendarExceptions);
                 const estimatedPayout = isFixedOt ? 0 : calculateEstimatedPayout(baseSalary, otHours, multiplier);
 
-                await attendanceService.insertOtRequest({
+                const insertedOt = await attendanceService.insertOtRequest({
                     user_id: currentUser.id,
                     date: startDateStr,
                     start_time: startTime,
@@ -324,7 +324,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                             title: '⏰ คำขอ OT ใหม่',
                             message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ OT (${otDisplayStr}) วันที่ ${format(startDate, 'd MMM')}: "${displayReason}"`,
                             is_read: false,
-                            link_path: 'ATTENDANCE'
+                            link_path: 'ATTENDANCE',
+                            related_id: insertedOt?.id || null,
+                            metadata: { request_type: 'OT' }
                         }));
                         await supabase.from('notifications').insert(otNotifs);
                     }
@@ -451,7 +453,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             }
 
             // Insert primary request (e.g. FORGOT_CHECKIN)
-            await attendanceService.insertLeaveRequest({
+            const insertedLeaveReq = await attendanceService.insertLeaveRequest({
                 user_id: currentUser.id,
                 type,
                 start_date: startDateStr,
@@ -600,7 +602,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                         title: `📋 คำขออนุมัติ [${labelCombine}]`,
                         message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ [${labelCombine}] วันที่ ${format(startDate, 'd MMM')}: "${reason}"`,
                         is_read: false,
-                        link_path: 'ATTENDANCE'
+                        link_path: 'ATTENDANCE',
+                        related_id: insertedLeaveReq?.id || null,
+                        metadata: { request_type: type }
                     }));
                     await supabase.from('notifications').insert(generalNotifs);
                 }
